@@ -1,0 +1,44 @@
+@* Modal de confirmación global — se usa para acciones destructivas (eliminar, etc.) *@
+<div id="confirmModal"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50"
+     aria-labelledby="confirmModalLabel" aria-modal="true" role="dialog">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg w-full max-w-md mx-4">
+        <div class="border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
+            <h5 class="text-lg font-bold" id="confirmModalLabel">Confirmar acción</h5>
+            <button type="button" onclick="closeConfirmModal()" class="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Cerrar">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+        </div>
+        <div class="px-6 py-4" id="confirmModalBody">
+            ¿Estás seguro de que deseas continuar?
+        </div>
+        <div class="border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex justify-end gap-2">
+            <button type="button" onclick="closeConfirmModal()"
+                    class="px-4 py-2 text-sm rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">Cancelar</button>
+            <button type="button" id="confirmModalAction"
+                    class="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openConfirmModal(bodyText, onConfirm) {
+        const modal = document.getElementById('confirmModal');
+        if (bodyText) document.getElementById('confirmModalBody').textContent = bodyText;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        const actionBtn = document.getElementById('confirmModalAction');
+        const newBtn = actionBtn.cloneNode(true);
+        actionBtn.parentNode.replaceChild(newBtn, actionBtn);
+        newBtn.id = 'confirmModalAction';
+        if (onConfirm) newBtn.addEventListener('click', function () { onConfirm(); closeConfirmModal(); });
+    }
+    function closeConfirmModal() {
+        const modal = document.getElementById('confirmModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    document.getElementById('confirmModal').addEventListener('click', function (e) {
+        if (e.target === this) closeConfirmModal();
+    });
+</script>

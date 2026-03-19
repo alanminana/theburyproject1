@@ -1,0 +1,83 @@
+@model ClienteCreditoLimitesViewModel
+@{
+    var puedeAdministrar = ViewBag.PuedeAdministrarLimites as bool? ?? false;
+    var highlightScores = new[] { 3, 5 }; // AprobadoCondicional & AprobadoTotal get primary badge
+}
+
+<!-- Modal Overlay -->
+<div id="limitesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-sm">
+    <!-- Modal Content -->
+    <div class="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+        <!-- Modal Header -->
+        <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100">Configuración de Límite de Puntajes</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Defina el monto de crédito en Pesos Argentinos ($) para cada nivel de puntaje.</p>
+            </div>
+            <button type="button" onclick="cerrarLimitesModal()" class="text-slate-400 hover:text-slate-100 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <form id="formLimites" asp-action="LimitesPorPuntajeGuardar" method="post">
+            <div class="p-6 overflow-y-auto">
+                <div id="limitesErrores" class="hidden mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold"></div>
+                <div id="limitesExito" class="hidden mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-semibold"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    @for (int i = 0; i < Model.Items.Count; i++)
+                    {
+                        var item = Model.Items[i];
+                        var score = (int)item.Puntaje;
+                        var isHighlight = highlightScores.Contains(score);
+
+                        <input type="hidden" name="Items[@i].Id" value="@item.Id" />
+                        <input type="hidden" name="Items[@i].Puntaje" value="@score" />
+                        <input type="hidden" name="Items[@i].Activo" value="@item.Activo.ToString().ToLower()" />
+
+                        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800 @(i == Model.Items.Count - 1 && Model.Items.Count % 2 == 1 ? "md:col-span-2" : "")">
+                            <div class="flex items-center gap-3">
+                                @if (isHighlight)
+                                {
+                                    <span class="flex items-center justify-center size-8 bg-primary text-white rounded-full font-bold text-sm">@score</span>
+                                }
+                                else
+                                {
+                                    <span class="flex items-center justify-center size-8 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-full font-bold text-sm">@score</span>
+                                }
+                                <span class="text-sm font-medium">Puntaje @score</span>
+                            </div>
+                            <div class="relative w-32">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                                <input name="Items[@i].LimiteMonto"
+                                       type="number"
+                                       step="1"
+                                       min="0"
+                                       value="@((int)item.LimiteMonto)"
+                                       class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-7 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                       @(!puedeAdministrar ? "disabled" : "") />
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50 rounded-b-xl">
+                <button type="button" onclick="cerrarLimitesModal()"
+                        class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                @if (puedeAdministrar)
+                {
+                    <button type="submit" id="btnGuardarLimites"
+                            class="px-5 py-2.5 rounded-lg bg-primary text-white font-semibold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">save</span>
+                        Guardar Configuración
+                    </button>
+                }
+            </div>
+        </form>
+    </div>
+</div>

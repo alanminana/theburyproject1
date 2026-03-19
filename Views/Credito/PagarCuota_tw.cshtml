@@ -1,0 +1,159 @@
+@model PagarCuotaViewModel
+@{
+    ViewData["Title"] = "Registrar Pago de Cuota";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="max-w-2xl mx-auto">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        <a asp-controller="Credito" asp-action="Details" asp-route-id="@Model.CreditoId"
+           class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold">Registrar Pago</h1>
+            <p class="text-sm text-slate-500">@Model.ClienteNombre &mdash; Crédito @Model.NumeroCreditoTexto</p>
+        </div>
+    </div>
+
+    <!-- Cuota Info Card -->
+    <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold">Cuota #@Model.NumeroCuota</h2>
+            @if (Model.EstaVencida)
+            {
+                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                    Vencida &mdash; @Model.DiasAtraso días
+                </span>
+            }
+            else
+            {
+                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                    Vigente
+                </span>
+            }
+        </div>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Vencimiento</p>
+                <p class="font-bold">@Model.FechaVencimiento.ToString("dd/MM/yyyy")</p>
+            </div>
+            <div>
+                <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Monto Cuota</p>
+                <p class="font-bold">@Model.MontoCuota.ToString("C")</p>
+            </div>
+            <div>
+                <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Punitorio</p>
+                <p class="font-bold text-orange-500">@Model.MontoPunitorio.ToString("C")</p>
+            </div>
+            <div>
+                <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
+                <p class="font-bold text-primary text-lg">@Model.TotalAPagar.ToString("C")</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Form -->
+    <form asp-action="PagarCuota" method="post" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+        <h2 class="text-lg font-bold mb-5">Datos del Pago</h2>
+
+        <div asp-validation-summary="ModelOnly" class="mb-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg p-3 empty:hidden"></div>
+
+        <input type="hidden" asp-for="CreditoId" />
+        <input type="hidden" asp-for="CuotaId" />
+        <input type="hidden" asp-for="NumeroCuota" />
+        <input type="hidden" asp-for="MontoCuota" />
+        <input type="hidden" asp-for="MontoPunitorio" />
+        <input type="hidden" asp-for="TotalAPagar" />
+        <input type="hidden" asp-for="ClienteNombre" />
+        <input type="hidden" asp-for="NumeroCreditoTexto" />
+        <input type="hidden" asp-for="FechaVencimiento" />
+        <input type="hidden" asp-for="EstaVencida" />
+        <input type="hidden" asp-for="DiasAtraso" />
+        @if (returnUrl != null)
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+        }
+
+        <div class="space-y-5">
+            <!-- Cuota Selector -->
+            <div>
+                <label asp-for="CuotaId" class="block text-sm font-semibold mb-1.5">Cuota a Pagar</label>
+                <select asp-for="CuotaId" asp-items="@(ViewBag.Cuotas as List<SelectListItem>)"
+                        class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                </select>
+                <span asp-validation-for="CuotaId" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Monto Pagado -->
+            <div>
+                <label asp-for="MontoPagado" class="block text-sm font-semibold mb-1.5">Monto a Pagar</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                    <input asp-for="MontoPagado"
+                           class="w-full pl-7 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
+                           step="0.01" />
+                </div>
+                <span asp-validation-for="MontoPagado" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Fecha de Pago -->
+            <div>
+                <label asp-for="FechaPago" class="block text-sm font-semibold mb-1.5">Fecha de Pago</label>
+                <input asp-for="FechaPago" type="date"
+                       class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                <span asp-validation-for="FechaPago" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Medio de Pago -->
+            <div>
+                <label asp-for="MedioPago" class="block text-sm font-semibold mb-1.5">Medio de Pago</label>
+                <select asp-for="MedioPago"
+                        class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta Débito">Tarjeta Débito</option>
+                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+                <span asp-validation-for="MedioPago" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Comprobante -->
+            <div>
+                <label asp-for="ComprobantePago" class="block text-sm font-semibold mb-1.5">Nº Comprobante <span class="text-slate-400 font-normal">(opcional)</span></label>
+                <input asp-for="ComprobantePago"
+                       class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
+                       placeholder="Ej: TRF-00123" />
+                <span asp-validation-for="ComprobantePago" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Observaciones -->
+            <div>
+                <label asp-for="Observaciones" class="block text-sm font-semibold mb-1.5">Observaciones <span class="text-slate-400 font-normal">(opcional)</span></label>
+                <textarea asp-for="Observaciones" rows="3"
+                          class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
+                          placeholder="Notas adicionales sobre el pago..."></textarea>
+                <span asp-validation-for="Observaciones" class="text-xs text-red-500 mt-1"></span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
+            <a asp-controller="Credito" asp-action="Details" asp-route-id="@Model.CreditoId"
+               class="px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">payments</span>
+                Registrar Pago
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

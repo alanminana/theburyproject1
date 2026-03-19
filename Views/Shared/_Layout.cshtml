@@ -1,0 +1,232 @@
+﻿<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TheBuryProject</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Material Symbols Outlined -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS v4 -->
+    <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared-components.css" asp-append-version="true" />
+
+    @RenderSection("Styles", required: false)
+</head>
+
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+@{
+    string? currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    string? currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    bool IsActive(string controller, string? action = null) =>
+        string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) &&
+        (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
+
+    string NavClass(bool active) => active
+        ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary"
+        : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer";
+
+    string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
+
+    var canViewDashboard = User.TienePermiso("dashboard", "view");
+    var canViewNotifications = User.TienePermiso("notificaciones", "view");
+}
+
+<div class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+           class="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col transition-[width] duration-300 ease-in-out">
+
+        <!-- Brand -->
+        <a asp-controller="Home" asp-action="Index" class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
+            <div class="size-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
+                <span class="material-symbols-outlined">rocket_launch</span>
+            </div>
+            <div class="flex flex-col sidebar-label">
+                <h1 class="text-slate-900 dark:text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
+                <p class="text-slate-500 dark:text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
+            </div>
+        </a>
+
+        <!-- Nav -->
+        <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
+            <!-- Dashboard (standalone) -->
+            @if (canViewDashboard)
+            {
+                <div>
+                    <a class="@NavClass(IsActive("Dashboard"))" asp-controller="Dashboard" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">grid_view</span>
+                        <p class="@NavFont(IsActive("Dashboard")) sidebar-label">Dashboard</p>
+                    </a>
+                </div>
+            }
+
+            <!-- OPERACIONES -->
+            <div>
+                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
+                <div class="space-y-1">
+                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
+                        <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
+                    </a>
+                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">group</span>
+                        <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
+                    </a>
+                    
+                </div>
+            </div>
+
+            <!-- LOGÍSTICA -->
+            <div>
+                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
+                <div class="space-y-1">
+                    <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
+                        <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
+                    </a>
+                    <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
+                        <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
+                    </a>
+                    <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">package_2</span>
+                        <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- SISTEMAS -->
+            <div>
+                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
+                <div class="space-y-1">
+                    <a class="@NavClass(IsActive("Usuarios") || IsActive("Roles") || IsActive("Seguridad"))" asp-controller="Seguridad" asp-action="Index">
+                        <span class="material-symbols-outlined text-lg shrink-0">security</span>
+                        <p class="@NavFont(IsActive("Usuarios") || IsActive("Roles") || IsActive("Seguridad")) sidebar-label">Seguridad</p>
+                    </a>
+                    
+                </div>
+            </div>
+        </nav>
+
+        <!-- User info (bottom) -->
+        <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+            <div class="flex items-center gap-3 p-2 overflow-hidden">
+                <div class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-slate-500 text-lg">account_circle</span>
+                </div>
+                <div class="flex flex-col sidebar-label">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white leading-none whitespace-nowrap">@(User.Identity?.Name ?? "Admin User")</p>
+                    <p class="text-[10px] text-slate-500 mt-1 whitespace-nowrap">Super Administrador</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapse toggle (desktop) -->
+        <div class="hidden lg:flex p-3 border-t border-slate-200 dark:border-slate-800 justify-center">
+            <button id="collapseSidebar" type="button"
+                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
+                <span class="material-symbols-outlined text-lg transition-transform duration-300" id="collapseIcon">chevron_left</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Overlay mobile -->
+    <div id="sidebarOverlay"
+         class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"
+         aria-hidden="true"></div>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+        <!-- Header / Top Bar -->
+        <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex items-center justify-between px-8">
+
+            <div class="flex items-center gap-6">
+                <!-- Mobile toggle -->
+                <button id="toggleSidebar" type="button"
+                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+                        aria-label="Abrir/cerrar menú">
+                    <span class="material-symbols-outlined" style="font-size:22px">menu</span>
+                </button>
+
+                <!-- Page Title -->
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white hidden lg:block">@ViewData["Title"]</h2>
+                <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block"></div>
+
+                <!-- Cotizaciones -->
+                <div class="flex gap-3 hidden lg:flex">
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Dolar Blue</span>
+                        <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">$1.245,00</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Tarjeta</span>
+                        <span class="text-xs font-bold text-primary">$1.482,50</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Oficial</span>
+                        <span class="text-xs font-bold text-slate-600 dark:text-slate-300">$942,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Notifications -->
+                @if (canViewNotifications)
+                {
+                    <button class="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors relative">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-background-dark"></span>
+                    </button>
+                }
+                <!-- Search -->
+                <button class="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                    <span class="material-symbols-outlined">search</span>
+                </button>
+                <div class="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
+                <!-- Help -->
+                <button class="bg-primary/10 hover:bg-primary/20 text-primary p-2 rounded-lg transition-colors">
+                    <span class="material-symbols-outlined">help</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="flex-1 overflow-y-auto p-8 bg-slate-50 dark:bg-background-dark/50">
+            @RenderBody()
+        </div>
+    </main>
+</div>
+
+<!-- ========= MODALS ========= -->
+@await RenderSectionAsync("Modals", required: false)
+<partial name="_ConfirmModal" />
+
+<!-- Vendor JS -->
+<script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
+
+<!-- App JS -->
+<script src="~/js/shared-ui.js" asp-append-version="true"></script>
+@if (canViewNotifications)
+{
+    <script src="~/js/notificaciones.js" asp-append-version="true"></script>
+}
+<script src="~/js/layout.js" asp-append-version="true"></script>
+
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

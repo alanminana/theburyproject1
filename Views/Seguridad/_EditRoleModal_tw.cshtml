@@ -1,0 +1,70 @@
+@model EditarRolViewModel
+@{
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="fixed inset-0 z-[60]">
+    <div id="editRoleBackdrop" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div id="editRoleCard" class="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden scale-95 opacity-0 transition-all duration-300">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-lg bg-primary/10 text-primary">
+                        <span class="material-symbols-outlined">edit</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Editar rol</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Actualizá nombre, descripción y estado operativo del rol.</p>
+                    </div>
+                </div>
+                <button type="button" id="closeEditRole" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="formEditRole" asp-controller="Seguridad" asp-action="EditRol" method="post" class="space-y-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <input asp-for="Id" type="hidden" />
+
+                <div class="p-6 space-y-5">
+                    <div id="editRoleErrors" class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
+                        <div id="editRoleErrorList" class="space-y-1"></div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label asp-for="Nombre" class="text-sm font-semibold text-slate-700 dark:text-slate-300"></label>
+                        <input asp-for="Nombre"
+                               class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white" />
+                    </div>
+
+                    <div class="space-y-2">
+                        <label asp-for="Descripcion" class="text-sm font-semibold text-slate-700 dark:text-slate-300"></label>
+                        <textarea asp-for="Descripcion" rows="4"
+                                  class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white resize-none"></textarea>
+                    </div>
+
+                    <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                        <input asp-for="Activo" class="mt-1 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                        <span class="space-y-1">
+                            <span class="block text-sm font-semibold text-slate-900 dark:text-white">Rol activo</span>
+                            <span class="block text-xs text-slate-500 dark:text-slate-400">El estado del rol impacta su disponibilidad y el cálculo de permisos efectivos.</span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="px-6 py-5 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" id="cancelEditRole"
+                            class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="submitEditRole"
+                            class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors inline-flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                        Guardar cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

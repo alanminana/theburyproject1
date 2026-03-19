@@ -1,0 +1,161 @@
+@model TheBuryProject.ViewModels.MovimientoCajaViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Registrar Movimiento";
+}
+
+<div class="flex flex-1 justify-center py-8 px-4 md:px-10 lg:px-40">
+    <div class="flex flex-col max-w-[960px] flex-1 gap-6">
+
+        <!-- Header -->
+        <header class="flex flex-wrap justify-between items-start gap-4">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-primary font-bold tracking-wider text-xs uppercase">TheBuryProject ERP</span>
+                </div>
+                <h1 class="text-slate-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">Registrar movimiento</h1>
+                <p class="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal max-w-2xl">
+                    Cargue ingresos o egresos de efectivo y otros valores a la caja abierta actualmente.
+                </p>
+            </div>
+            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
+               class="flex items-center gap-2 px-4 h-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-lg transition-colors font-medium text-sm no-underline border border-slate-200 dark:border-slate-700">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Volver
+            </a>
+        </header>
+
+        <!-- Caja Info Card -->
+        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+                </div>
+                <div class="flex flex-col">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Caja Actual</p>
+                    <p class="text-slate-900 dark:text-white text-lg font-bold">@Model.CajaNombre</p>
+                </div>
+            </div>
+            @if (Model.SaldoActual.HasValue)
+            {
+                <div class="flex flex-col items-end">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Saldo Disponible</p>
+                    <p class="text-emerald-600 dark:text-emerald-400 text-2xl font-bold">$ @Model.SaldoActual.Value.ToString("N2")</p>
+                </div>
+            }
+        </section>
+
+        <!-- Validation Summary -->
+        <div asp-validation-summary="ModelOnly" class="text-rose-500 text-sm"></div>
+
+        @if (TempData["Error"] != null)
+        {
+            <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium">
+                <span class="material-symbols-outlined text-lg">error</span>
+                @TempData["Error"]
+            </div>
+        }
+
+        <!-- Form -->
+        <form asp-action="RegistrarMovimiento" method="post"
+              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="AperturaCajaId" />
+            <input type="hidden" asp-for="Tipo" id="input-tipo" />
+
+            <div class="p-6 space-y-6">
+
+                <!-- Tipo + Concepto Row -->
+                <div class="flex flex-col gap-4 border-b border-slate-100 dark:border-slate-700 pb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Tipo Toggle -->
+                        <div class="flex flex-col gap-2">
+                            <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Tipo de Movimiento</label>
+                            <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg" id="tipo-toggle">
+                                <button type="button" data-tipo="0"
+                                        class="tipo-btn flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all bg-white dark:bg-primary text-primary dark:text-white shadow-sm">
+                                    Ingreso
+                                </button>
+                                <button type="button" data-tipo="1"
+                                        class="tipo-btn flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                                    Egreso
+                                </button>
+                            </div>
+                            <span asp-validation-for="Tipo" class="text-rose-500 text-xs"></span>
+                        </div>
+
+                        <!-- Concepto -->
+                        <div class="flex flex-col gap-2">
+                            <label asp-for="Concepto" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Concepto</label>
+                            <select asp-for="Concepto" id="select-concepto"
+                                    class="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary">
+                            </select>
+                            <span asp-validation-for="Concepto" class="text-rose-500 text-xs"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monto + Referencia Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-2">
+                        <label asp-for="Monto" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Monto</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                            <input asp-for="Monto" type="number" step="0.01" placeholder="0.00" required
+                                   class="w-full h-11 pl-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary" />
+                        </div>
+                        <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label asp-for="Referencia" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Referencia / Comprobante</label>
+                        <input asp-for="Referencia" type="text" placeholder="Ej: Factura A-0001-0023"
+                               class="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary" />
+                    </div>
+                </div>
+
+                <!-- Descripcion -->
+                <div class="flex flex-col gap-2">
+                    <label asp-for="Descripcion" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">
+                        Descripción <span class="text-rose-500 font-bold">*</span>
+                    </label>
+                    <textarea asp-for="Descripcion" rows="3" required
+                              placeholder="Detalle brevemente el motivo del movimiento..."
+                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary"></textarea>
+                    <span asp-validation-for="Descripcion" class="text-rose-500 text-xs"></span>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="flex flex-col gap-2">
+                    <label asp-for="Observaciones" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Observaciones adicionales</label>
+                    <textarea asp-for="Observaciones" rows="2"
+                              placeholder="Notas internas (opcional)..."
+                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary"></textarea>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="bg-slate-50 dark:bg-slate-800 px-6 py-4 flex flex-wrap justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
+                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
+                   class="px-6 h-11 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors font-semibold text-sm no-underline inline-flex items-center">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="px-8 h-11 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-bold text-sm shadow-md flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">save</span>
+                    Registrar movimiento
+                </button>
+            </div>
+        </form>
+
+        <!-- Footer Note -->
+        <div class="mt-4 flex items-center justify-center gap-2 text-slate-500 text-xs">
+            <span class="material-symbols-outlined text-sm">lock</span>
+            Transacción segura auditada por el sistema
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/caja-registrar-movimiento.js"></script>
+}

@@ -1,0 +1,178 @@
+@model DocumentoClienteViewModel
+@{
+    ViewData["Title"] = Model.ReemplazarExistente ? "Reemplazar Documento" : "Subir Documento";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var clienteBloqueado = ViewBag.ClienteBloqueado as bool? ?? false;
+    var tipoPreseleccionado = Context.Request.Query["tipoDocumento"].FirstOrDefault();
+}
+
+<div class="max-w-2xl mx-auto pb-24">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <a href="@returnUrl"
+               class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        else
+        {
+            <a asp-action="Index" asp-route-clienteId="@Model.ClienteId"
+               class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        <div>
+            <h1 class="text-2xl font-bold">@ViewData["Title"]</h1>
+            <p class="text-sm text-slate-500">
+                @if (Model.ReemplazarExistente)
+                {
+                    <text>Reemplazar "@Model.DocumentoAReemplazarNombre"</text>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.ClienteNombre))
+                {
+                    <text>Adjuntar documentación para @Model.ClienteNombre</text>
+                }
+                else
+                {
+                    <text>Adjuntar documentación de cliente</text>
+                }
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <form asp-action="Upload" method="post" enctype="multipart/form-data" id="uploadForm"
+          class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+
+        <div class="p-6 space-y-6">
+            <!-- Validation Summary -->
+            <div asp-validation-summary="ModelOnly" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm hidden-when-empty"></div>
+
+            <!-- Cliente -->
+            <div>
+                <label asp-for="ClienteId" class="block text-sm font-bold mb-1.5"></label>
+                @if (clienteBloqueado)
+                {
+                    <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-lg px-4 py-3 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-slate-400">person</span>
+                        <span class="text-sm font-medium">@Model.ClienteNombre</span>
+                        <input type="hidden" asp-for="ClienteId" />
+                    </div>
+                }
+                else
+                {
+                    <select asp-for="ClienteId" asp-items="@(ViewBag.Clientes as SelectList)"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white">
+                        <option value="">— Seleccionar cliente —</option>
+                    </select>
+                }
+                <span asp-validation-for="ClienteId" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Tipo de Documento -->
+            <div>
+                <label asp-for="TipoDocumento" class="block text-sm font-bold mb-1.5"></label>
+                <select asp-for="TipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
+                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white">
+                    <option value="">— Seleccionar tipo —</option>
+                </select>
+                <span asp-validation-for="TipoDocumento" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Archivo -->
+            <div>
+                <label asp-for="Archivo" class="block text-sm font-bold mb-1.5"></label>
+                <div id="dropZone" class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <input asp-for="Archivo" type="file" id="archivoInput"
+                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                           class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <div id="dropZoneContent">
+                        <span class="material-symbols-outlined text-4xl text-slate-400 mb-2">cloud_upload</span>
+                        <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                            Arrastrá o hacé clic para seleccionar archivo
+                        </p>
+                        <p class="text-xs text-slate-400 mt-1">PDF, JPG, PNG, DOC — Máx. 10 MB</p>
+                    </div>
+                    <div id="filePreview" class="hidden">
+                        <span class="material-symbols-outlined text-4xl text-emerald-500 mb-2">description</span>
+                        <p id="fileName" class="text-sm font-semibold text-slate-900 dark:text-white"></p>
+                        <p id="fileSize" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+                </div>
+                <span asp-validation-for="Archivo" class="text-xs text-red-500 mt-1"></span>
+            </div>
+
+            <!-- Fecha de Vencimiento -->
+            <div>
+                <label asp-for="FechaVencimiento" class="block text-sm font-bold mb-1.5"></label>
+                <input asp-for="FechaVencimiento" type="date"
+                       class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white" />
+                <p class="text-xs text-slate-400 mt-1">Opcional. Dejar vacío si el documento no vence.</p>
+            </div>
+
+            <!-- Observaciones -->
+            <div>
+                <label asp-for="Observaciones" class="block text-sm font-bold mb-1.5"></label>
+                <textarea asp-for="Observaciones" rows="3"
+                          class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white resize-none"
+                          placeholder="Notas o aclaraciones sobre el documento..."></textarea>
+            </div>
+
+            <!-- Reemplazar info -->
+            @if (Model.ReemplazarExistente)
+            {
+                <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">swap_horiz</span>
+                    Se reemplazará el archivo existente: <strong>@Model.DocumentoAReemplazarNombre</strong>
+                </div>
+            }
+        </div>
+
+        <!-- Hidden fields -->
+        <input type="hidden" asp-for="ReturnToVentaId" />
+        <input type="hidden" asp-for="DocumentoAReemplazarId" />
+        <input type="hidden" asp-for="ReemplazarExistente" />
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+            <input type="hidden" name="returnToDetails" value="true" />
+        }
+
+        <!-- Actions -->
+        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <a href="@returnUrl"
+                   class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                    Cancelar
+                </a>
+            }
+            else
+            {
+                <a asp-action="Index" asp-route-clienteId="@Model.ClienteId"
+                   class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                    Cancelar
+                </a>
+            }
+            <button type="submit"
+                    class="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-md flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                @(Model.ReemplazarExistente ? "Reemplazar Documento" : "Subir Documento")
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/documento-upload.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,698 @@
+@using TheBuryProject.Models.Enums
+@model ClienteDetalleViewModel
+@{
+    ViewData["Title"] = "Detalle de Cliente";
+    var c = Model.Cliente;
+    var apt = Model.AptitudCrediticia;
+    var eval = Model.EvaluacionCredito;
+    var panel = Model.CreditoDisponiblePanel;
+    var returnUrl = ViewData["ReturnUrl"] as string;
+
+    var esNoApto = apt?.Estado == EstadoCrediticioCliente.NoApto;
+    var esRequiereAut = apt?.Estado == EstadoCrediticioCliente.RequiereAutorizacion;
+    var esApto = apt?.Estado == EstadoCrediticioCliente.Apto;
+
+    var porcentajeLibre = 0m;
+    if (panel?.Valores != null && panel.Valores.Limite > 0)
+    {
+        porcentajeLibre = Math.Round(panel.Valores.Disponible / panel.Valores.Limite * 100, 0);
+    }
+}
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div>
+        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
+            <a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a>
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+            <a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a>
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+            <span class="text-slate-900 dark:text-slate-100">@c.Apellido @c.Nombre</span>
+        </nav>
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 class="text-3xl font-bold tracking-tight">Detalle de Cliente: @c.Apellido @c.Nombre</h2>
+            <div class="flex gap-3">
+                <a asp-action="Edit" asp-route-id="@c.Id"
+                   class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 no-underline transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">edit</span> Editar Perfil
+                </a>
+                <a asp-controller="Credito" asp-action="Create" asp-route-clienteId="@c.Id"
+                   class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-primary/20 no-underline transition-colors">
+                    Nuevo Crédito
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Alert: Aptitud Crediticia -->
+    @if (apt != null && apt.Estado != EstadoCrediticioCliente.NoEvaluado)
+    {
+        @if (esNoApto)
+        {
+            <div class="rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-500/10 p-5 flex items-start gap-4">
+                <div class="bg-red-500 text-white rounded-full p-1 flex-shrink-0">
+                    <span class="material-symbols-outlined text-[24px]">priority_high</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-red-700 dark:text-red-400 font-bold text-lg">No Apto para Crédito</h4>
+                    <p class="text-red-600 dark:text-red-300 text-sm mt-1 leading-relaxed">
+                        @if (apt.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
+                        {
+                            <text>Documentación incompleta: <span class="font-bold underline">@string.Join(", ", apt.Documentacion.DocumentosFaltantes)</span>. </text>
+                        }
+                        @if (apt.Mora != null && apt.Mora.TieneMora)
+                        {
+                            <text>Estado de cuenta: <span class="font-bold">Tiene mora (@apt.Mora.DiasMaximoMora días)</span>.</text>
+                        }
+                        @if (!string.IsNullOrEmpty(apt.Motivo))
+                        {
+                            @apt.Motivo
+                        }
+                    </p>
+                </div>
+                <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
+                    <input type="hidden" name="clienteId" value="@c.Id" />
+                    <button type="submit" class="text-red-700 dark:text-red-400 hover:underline text-sm font-bold">Recalcular</button>
+                </form>
+            </div>
+        }
+        else if (esRequiereAut)
+        {
+            <div class="rounded-xl border border-orange-500/50 bg-orange-50 dark:bg-orange-500/10 p-5 flex items-start gap-4">
+                <div class="bg-orange-500 text-white rounded-full p-1 flex-shrink-0">
+                    <span class="material-symbols-outlined text-[24px]">warning</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-orange-700 dark:text-orange-400 font-bold text-lg">Requiere Autorización</h4>
+                    <p class="text-orange-600 dark:text-orange-300 text-sm mt-1 leading-relaxed">
+                        @if (apt.Mora != null && apt.Mora.RequiereAutorizacion)
+                        {
+                            <text>Mora de @apt.Mora.DiasMaximoMora días requiere autorización de un supervisor.</text>
+                        }
+                        @if (!string.IsNullOrEmpty(apt.Motivo))
+                        {
+                            @apt.Motivo
+                        }
+                    </p>
+                </div>
+                <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
+                    <input type="hidden" name="clienteId" value="@c.Id" />
+                    <button type="submit" class="text-orange-700 dark:text-orange-400 hover:underline text-sm font-bold">Recalcular</button>
+                </form>
+            </div>
+        }
+        else if (esApto)
+        {
+            <div class="rounded-xl border border-green-500/50 bg-green-50 dark:bg-green-500/10 p-5 flex items-start gap-4">
+                <div class="bg-green-500 text-white rounded-full p-1 flex-shrink-0">
+                    <span class="material-symbols-outlined text-[24px]">check_circle</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-green-700 dark:text-green-400 font-bold text-lg">Apto para Crédito</h4>
+                    <p class="text-green-600 dark:text-green-300 text-sm mt-1 leading-relaxed">
+                        El cliente cumple todos los requisitos para solicitar un crédito.
+                    </p>
+                </div>
+                <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
+                    <input type="hidden" name="clienteId" value="@c.Id" />
+                    <button type="submit" class="text-green-700 dark:text-green-400 hover:underline text-sm font-bold">Recalcular</button>
+                </form>
+            </div>
+        }
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- ═══════ LEFT COLUMN (2/3) ═══════ -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Panel de Crédito -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+                <div class="flex items-center gap-2 mb-6">
+                    <span class="material-symbols-outlined text-primary">analytics</span>
+                    <h3 class="text-lg font-bold">Panel de Crédito</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Score & Limit -->
+                    <div class="space-y-6">
+                        @if (panel?.Valores != null)
+                        {
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Límite de Crédito Disponible</span>
+                                    <span class="text-primary font-bold text-lg">
+                                        $ @panel.Valores.Disponible.ToString("N0")
+                                        <span class="text-xs font-normal text-slate-400">/ $ @panel.Valores.Limite.ToString("N0")</span>
+                                    </span>
+                                </div>
+                                <div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary rounded-full" style="width: @(porcentajeLibre)%"></div>
+                                </div>
+                                <div class="flex justify-between mt-2">
+                                    <p class="text-xs text-slate-400">@porcentajeLibre% libre</p>
+                                    <p class="text-xs text-slate-400">Origen: @panel.Valores.OrigenLimite</p>
+                                </div>
+                            </div>
+                        }
+                        else if (panel?.TieneErrorConfiguracion == true)
+                        {
+                            <div class="p-4 rounded-lg bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800/50">
+                                <p class="text-sm text-orange-600 dark:text-orange-400 font-medium">@panel.MensajeError</p>
+                            </div>
+                        }
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Aptitud Crediticia</p>
+                                @if (apt != null)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        @if (esNoApto)
+                                        {
+                                            <div class="h-2 w-2 rounded-full bg-red-500"></div>
+                                            <span class="font-bold text-red-500">No Apto</span>
+                                        }
+                                        else if (esRequiereAut)
+                                        {
+                                            <div class="h-2 w-2 rounded-full bg-orange-500"></div>
+                                            <span class="font-bold text-orange-500">Requiere Autorización</span>
+                                        }
+                                        else if (esApto)
+                                        {
+                                            <div class="h-2 w-2 rounded-full bg-green-500"></div>
+                                            <span class="font-bold text-green-500">Apto</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="h-2 w-2 rounded-full bg-slate-400"></div>
+                                            <span class="font-bold text-slate-400">No Evaluado</span>
+                                        }
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-2">Eval: @apt.FechaEvaluacion.ToString("dd/MM/yyyy HH:mm")</p>
+                                }
+                            </div>
+                            <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Estado de Mora</p>
+                                @if (apt?.Mora != null && apt.Mora.TieneMora)
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-orange-500">@apt.Mora.DiasMaximoMora días</span>
+                                    </div>
+                                    @if (apt.Mora.RequiereAutorizacion)
+                                    {
+                                        <p class="text-[10px] text-orange-400 mt-2 leading-tight">Requiere autorización supervisor</p>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-green-500">Sin mora</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-2">Al día con todos los pagos</p>
+                                }
+                            </div>
+                        </div>
+                        <!-- Situación Crediticia BCRA -->
+                        @{
+                            var bcraOk = c.SituacionCrediticiaConsultaOk == true;
+                            var bcraVal = c.SituacionCrediticiaBcra;
+                            var bcraDesc = c.SituacionCrediticiaDescripcion;
+                            var bcraPeriodo = c.SituacionCrediticiaPeriodo;
+                            var bcraFecha = c.SituacionCrediticiaUltimaConsultaUtc;
+                            var tieneCuil = !string.IsNullOrWhiteSpace(c.CuilCuit);
+
+                            string bcraColor, bcraDot;
+                            if (!tieneCuil || bcraOk == false)
+                            {
+                                bcraColor = "text-slate-400";
+                                bcraDot = "bg-slate-400";
+                            }
+                            else if (bcraVal is 0 or 1)
+                            {
+                                bcraColor = "text-green-500";
+                                bcraDot = "bg-green-500";
+                            }
+                            else if (bcraVal == 2)
+                            {
+                                bcraColor = "text-amber-500";
+                                bcraDot = "bg-amber-500";
+                            }
+                            else
+                            {
+                                bcraColor = "text-red-500";
+                                bcraDot = "bg-red-500";
+                            }
+                        }
+                        <div class="col-span-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800" id="bcra-panel">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Situación Crediticia BCRA</p>
+                                    @if (!tieneCuil)
+                                    {
+                                        <div class="flex items-center gap-2">
+                                            <div class="h-2 w-2 rounded-full @bcraDot"></div>
+                                            <span class="font-bold @bcraColor" id="bcra-desc">CUIL/CUIT no cargado</span>
+                                        </div>
+                                        <p class="text-[10px] text-slate-400 mt-2" id="bcra-meta">Cargue el CUIL/CUIT desde Editar Perfil</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex items-center gap-2">
+                                            <div class="h-2 w-2 rounded-full @bcraDot" id="bcra-dot"></div>
+                                            <span class="font-bold @bcraColor" id="bcra-desc">@(bcraDesc ?? "Sin consultar")</span>
+                                        </div>
+                                        <p class="text-[10px] text-slate-400 mt-2" id="bcra-meta">
+                                            @if (bcraFecha.HasValue)
+                                            {
+                                                <text>Consulta: @bcraFecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</text>
+                                                @if (!string.IsNullOrEmpty(bcraPeriodo))
+                                                {
+                                                    <text> · Período: @bcraPeriodo</text>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <text>Pendiente de consulta</text>
+                                            }
+                                        </p>
+                                    }
+                                </div>
+                                @if (tieneCuil)
+                                {
+                                    <button type="button" onclick="actualizarBcra(@c.Id)"
+                                            class="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                                            id="bcra-btn">
+                                        <span class="material-symbols-outlined text-[14px]" id="bcra-icon">refresh</span>
+                                        Actualizar
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Credit Score Gauge -->
+                    <div class="flex flex-col items-center justify-center border-l border-slate-100 dark:border-slate-800 pl-8">
+                        @{
+                            var score = eval?.ScoreCrediticio ?? 0;
+                            var scoreColor = score >= 700 ? "text-green-500" : score >= 400 ? "text-orange-500" : "text-red-500";
+                            var riesgoTexto = score >= 700 ? "bajo riesgo" : score >= 400 ? "riesgo moderado" : "alto riesgo";
+                            var riesgoColor = score >= 700 ? "text-green-500" : score >= 400 ? "text-orange-500" : "text-red-500";
+                            // SVG arc angle: 0 = left (10,50), 1000 = right (90,50). Normalize to 0-1
+                            var scoreNorm = Math.Min(1.0, Math.Max(0.0, score / 1000.0));
+                            // Arc from M10,50 to endpoint: angle = PI * scoreNorm
+                            var angle = Math.PI * scoreNorm;
+                            var arcX = (50 - 40 * Math.Cos(angle)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                            var arcY = (50 - 40 * Math.Sin(angle)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                            var largeArc = scoreNorm > 0.5 ? "1" : "0";
+                        }
+                        <div class="relative h-32 w-48 mb-4">
+                            <svg class="w-full h-full" viewBox="0 0 100 60">
+                                <path class="text-slate-100 dark:text-slate-800" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"></path>
+                                @if (score > 0)
+                                {
+                                    <path class="@scoreColor" d="M 10 50 A 40 40 0 @largeArc 1 @arcX @arcY" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"></path>
+                                }
+                                <circle class="text-slate-900 dark:text-slate-100" cx="50" cy="50" fill="currentColor" r="2"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-end pb-2">
+                                <span class="text-2xl font-bold @scoreColor">@score</span>
+                                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Credit Score</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-center text-slate-500 dark:text-slate-400 px-4">
+                            El perfil financiero actual representa un <span class="@riesgoColor font-semibold">@riesgoTexto</span> de impago.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información General -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden section-card" data-section="info">
+                <button type="button" onclick="toggleDetailsSection('info')"
+                        class="w-full p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-left">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">person</span>
+                        <h3 class="text-lg font-bold">Información General</h3>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-400 section-chevron transition-transform" id="chevron-info">expand_less</span>
+                </button>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12" id="content-info">
+                    <!-- Datos Personales -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Datos Personales</h4>
+                        <dl class="space-y-3">
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Nombre Completo</dt>
+                                <dd class="text-sm font-semibold">@c.Apellido @c.Nombre</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">@c.TipoDocumento</dt>
+                                <dd class="text-sm font-semibold">@c.NumeroDocumento</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">CUIL/CUIT</dt>
+                                <dd class="text-sm font-semibold">@(c.CuilCuit ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Email</dt>
+                                <dd class="text-sm font-semibold">@(c.Email ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Estado Civil</dt>
+                                <dd class="text-sm font-semibold">@(c.EstadoCivil ?? "—")</dd>
+                            </div>
+                            @if (c.FechaNacimiento.HasValue)
+                            {
+                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Fecha de Nacimiento</dt>
+                                    <dd class="text-sm font-semibold">@c.FechaNacimiento.Value.ToString("dd/MM/yyyy")</dd>
+                                </div>
+                            }
+                        </dl>
+                    </div>
+                    <!-- Datos Laborales -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Datos Laborales</h4>
+                        <dl class="space-y-3">
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Empresa</dt>
+                                <dd class="text-sm font-semibold">@(c.Empleador ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Antigüedad</dt>
+                                <dd class="text-sm font-semibold">@(c.TiempoTrabajo ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Ingresos Netos</dt>
+                                <dd class="text-sm font-semibold text-green-600 dark:text-green-400">
+                                    @(c.Sueldo.HasValue ? "$ " + c.Sueldo.Value.ToString("N0") : "—")
+                                </dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Tipo de Empleo</dt>
+                                <dd class="text-sm font-semibold">@(c.TipoEmpleo ?? "—")</dd>
+                            </div>
+                        </dl>
+                    </div>
+                    <!-- Contacto & Cónyuge -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Contacto &amp; Cónyuge</h4>
+                        <dl class="space-y-3">
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Celular</dt>
+                                <dd class="text-sm font-semibold">@c.Telefono</dd>
+                            </div>
+                            @if (!string.IsNullOrEmpty(c.TelefonoAlternativo))
+                            {
+                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Tel. Alternativo</dt>
+                                    <dd class="text-sm font-semibold">@c.TelefonoAlternativo</dd>
+                                </div>
+                            }
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Domicilio</dt>
+                                <dd class="text-sm font-semibold">@c.Domicilio</dd>
+                            </div>
+                            @if (!string.IsNullOrEmpty(c.ConyugeNombreCompleto))
+                            {
+                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Cónyuge</dt>
+                                    <dd class="text-sm font-semibold">@c.ConyugeNombreCompleto</dd>
+                                </div>
+                            }
+                        </dl>
+                    </div>
+                    <!-- Dirección Completa -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Dirección</h4>
+                        <dl class="space-y-3">
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Localidad</dt>
+                                <dd class="text-sm font-semibold">@(c.Localidad ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Provincia</dt>
+                                <dd class="text-sm font-semibold">@(c.Provincia ?? "—")</dd>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-500 dark:text-slate-400">Código Postal</dt>
+                                <dd class="text-sm font-semibold">@(c.CodigoPostal ?? "—")</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ═══════ RIGHT COLUMN (1/3): Documentación ═══════ -->
+        <div class="space-y-6">
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">description</span>
+                        <h3 class="text-lg font-bold">Documentación</h3>
+                    </div>
+                    @if (apt?.Documentacion != null && !apt.Documentacion.Completa)
+                    {
+                        <span class="bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                            @apt.Documentacion.DocumentosFaltantes.Count Faltantes
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                            Completa
+                        </span>
+                    }
+                </div>
+
+                @if (apt?.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
+                {
+                    <!-- Warning -->
+                    <div class="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800/50 rounded-lg p-3 mb-6">
+                        <div class="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                            <span class="material-symbols-outlined text-[18px]">warning</span>
+                            <p class="text-xs font-bold">Faltan documentos críticos:</p>
+                        </div>
+                        <p class="text-[11px] text-orange-600 dark:text-orange-300 mt-1 ml-6 uppercase">
+                            @string.Join(", ", apt.Documentacion.DocumentosFaltantes)
+                        </p>
+                    </div>
+                }
+
+                <ul class="space-y-4">
+                    @if (Model.Documentos != null && Model.Documentos.Any())
+                    {
+                        @foreach (var doc in Model.Documentos)
+                        {
+                            var esVerificado = doc.Estado == EstadoDocumento.Verificado;
+                            var esRechazado = doc.Estado == EstadoDocumento.Rechazado;
+                            var esPendiente = doc.Estado == EstadoDocumento.Pendiente;
+                            var esVencido = doc.Estado == EstadoDocumento.Vencido;
+                            var returnUrlDoc = Url.Action("Details", "Cliente", new { id = c.Id });
+
+                            <li class="p-3 rounded-lg @(esVerificado ? "border border-green-500/20 bg-green-500/5" : "border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30")">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-lg @(esVerificado ? "bg-green-500/20 text-green-500" : esRechazado ? "bg-red-500/20 text-red-500" : esVencido ? "bg-orange-500/20 text-orange-500" : "bg-amber-500/20 text-amber-500") flex items-center justify-center">
+                                            <span class="material-symbols-outlined">@(esVerificado ? "verified" : esRechazado ? "cancel" : esVencido ? "schedule" : "pending")</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold">@doc.TipoDocumentoNombre</p>
+                                            @if (esVerificado)
+                                            {
+                                                <p class="text-[10px] text-green-500 font-medium">Verificado: @doc.FechaSubida.ToString("dd/MM/yyyy")</p>
+                                            }
+                                            else if (esRechazado)
+                                            {
+                                                <p class="text-[10px] text-red-500 font-medium">Rechazado</p>
+                                            }
+                                            else if (esVencido)
+                                            {
+                                                <p class="text-[10px] text-orange-500 font-medium">Vencido</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-[10px] text-amber-500 font-medium">Pendiente de verificación</p>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Acciones rápidas -->
+                                <div class="flex items-center gap-1.5 mt-2.5 ml-[52px]">
+                                    <!-- Descargar / Ver -->
+                                    <a asp-controller="DocumentoCliente" asp-action="Descargar" asp-route-id="@doc.Id"
+                                       class="h-7 px-2 flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-semibold no-underline hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                       title="Descargar archivo">
+                                        <span class="material-symbols-outlined text-[16px]">download</span>
+                                        <span>Ver</span>
+                                    </a>
+
+                                    @if (esPendiente)
+                                    {
+                                        <!-- Verificar -->
+                                        <form asp-controller="DocumentoCliente" asp-action="Verificar" asp-route-id="@doc.Id"
+                                              asp-route-returnUrl="@returnUrlDoc" method="post" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit"
+                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors"
+                                                    title="Aprobar documento">
+                                                <span class="material-symbols-outlined text-[16px]">task_alt</span>
+                                                <span>Aprobar</span>
+                                            </button>
+                                        </form>
+                                        <!-- Rechazar -->
+                                        <form asp-controller="DocumentoCliente" asp-action="Rechazar" asp-route-id="@doc.Id"
+                                              asp-route-returnUrl="@returnUrlDoc" method="post" class="inline"
+                                              onsubmit="return solicitarMotivoRechazo(this);">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="motivo" class="motivo-hidden" />
+                                            <button type="submit"
+                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 text-[11px] font-semibold hover:bg-red-200 dark:hover:bg-red-500/30 transition-colors"
+                                                    title="Rechazar documento">
+                                                <span class="material-symbols-outlined text-[16px]">block</span>
+                                                <span>Rechazar</span>
+                                            </button>
+                                        </form>
+                                    }
+
+                                    <!-- Reemplazar (abre modal) -->
+                                    @if (!esVerificado)
+                                    {
+                                        <button type="button" onclick="abrirUploadModal('@((int)doc.TipoDocumento)', '@doc.TipoDocumentoNombre', @doc.Id)"
+                                                class="h-7 px-2 flex items-center gap-1 rounded-md bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors cursor-pointer"
+                                                title="Reemplazar archivo">
+                                            <span class="material-symbols-outlined text-[16px]">upload</span>
+                                            <span>Reemplazar</span>
+                                        </button>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    }
+
+                    @if (apt?.Documentacion != null && apt.Documentacion.DocumentosFaltantes.Any())
+                    {
+                        @foreach (var faltante in apt.Documentacion.DocumentosFaltantes)
+                        {
+                            var yaSubido = Model.Documentos?.Any(d => d.TipoDocumentoNombre == faltante) ?? false;
+                            @if (!yaSubido)
+                            {
+                                <li class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500">
+                                            <span class="material-symbols-outlined">description</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold">@faltante</p>
+                                            <p class="text-[10px] text-red-500 font-medium">Pendiente de subida</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="abrirUploadModal('', '@faltante')"
+                                       class="h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors cursor-pointer">
+                                        <span class="material-symbols-outlined text-[20px]">upload</span>
+                                    </button>
+                                </li>
+                            }
+                        }
+                    }
+                </ul>
+
+                <a asp-controller="DocumentoCliente" asp-action="Index" asp-route-clienteId="@c.Id"
+                   class="w-full mt-6 py-2.5 rounded-lg border border-primary/50 text-primary text-sm font-bold hover:bg-primary/5 transition-colors no-underline flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">fact_check</span>
+                    Gestionar Documentación
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════ MODAL: Subir Documento ═══════ -->
+<div id="uploadDocModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold">Subir Documento</h2>
+                <p id="uploadModalSubtitle" class="text-sm text-slate-500 mt-1">Adjuntar documentación para @c.Apellido @c.Nombre</p>
+            </div>
+            <button type="button" onclick="cerrarUploadModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <!-- Body -->
+        <form id="uploadDocForm" asp-controller="DocumentoCliente" asp-action="Upload" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ClienteId" value="@c.Id" />
+            <input type="hidden" name="returnToDetails" value="true" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Details", "Cliente", new { id = c.Id })" />
+            <input type="hidden" name="DocumentoAReemplazarId" id="modalReplaceId" value="" />
+            <input type="hidden" name="ReemplazarExistente" id="modalReemplazar" value="false" />
+            <div class="p-6 space-y-5 overflow-y-auto">
+                <div id="uploadModalErrors" class="hidden p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold"></div>
+                <!-- Tipo de Documento -->
+                <div>
+                    <label for="modalTipoDocumento" class="block text-sm font-bold mb-1.5">Tipo de Documento</label>
+                    <select name="TipoDocumento" id="modalTipoDocumento"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white">
+                        <option value="">— Seleccionar tipo —</option>
+                        <option value="1">DNI</option>
+                        <option value="2">Recibo de Sueldo</option>
+                        <option value="3">Servicio</option>
+                        <option value="6">Constancia CUIL</option>
+                        <option value="8">Veraz</option>
+                        <option value="99">Otro</option>
+                    </select>
+                </div>
+                <!-- Archivo -->
+                <div>
+                    <label class="block text-sm font-bold mb-1.5">Archivo</label>
+                    <div id="modalDropZone" class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                        <input type="file" name="Archivo" id="modalArchivoInput"
+                               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div id="modalDropContent">
+                            <span class="material-symbols-outlined text-3xl text-slate-400 mb-1">cloud_upload</span>
+                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">Arrastrá o hacé clic para seleccionar</p>
+                            <p class="text-xs text-slate-400 mt-1">PDF, JPG, PNG, DOC — Máx. 10 MB</p>
+                        </div>
+                        <div id="modalFilePreview" class="hidden">
+                            <span class="material-symbols-outlined text-3xl text-emerald-500 mb-1">description</span>
+                            <p id="modalFileName" class="text-sm font-semibold text-slate-900 dark:text-white"></p>
+                            <p id="modalFileSize" class="text-xs text-slate-400 mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fecha Vencimiento -->
+                <div>
+                    <label for="modalFechaVencimiento" class="block text-sm font-bold mb-1.5">Fecha de Vencimiento</label>
+                    <input type="date" name="FechaVencimiento" id="modalFechaVencimiento"
+                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white" />
+                    <p class="text-xs text-slate-400 mt-1">Opcional. Dejar vacío si el documento no vence.</p>
+                </div>
+                <!-- Observaciones -->
+                <div>
+                    <label for="modalObservaciones" class="block text-sm font-bold mb-1.5">Observaciones</label>
+                    <textarea name="Observaciones" id="modalObservaciones" rows="2"
+                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white resize-none"
+                              placeholder="Notas o aclaraciones..."></textarea>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button type="button" onclick="cerrarUploadModal()"
+                        class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" id="btnSubirDoc"
+                        class="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-md flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                    Subir Documento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/cliente-details.js" asp-append-version="true"></script>
+}

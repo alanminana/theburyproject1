@@ -1,0 +1,59 @@
+@{
+    string? ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
+    string? act = ViewContext.RouteData.Values["action"]?.ToString();
+    string? tab = Context.Request.Query["tab"];
+    bool showActions = ViewData["SeguridadShowActions"] is bool value ? value : true;
+
+    bool IsTab(string controller, string? action = null) =>
+        string.Equals(ctrl, controller, StringComparison.OrdinalIgnoreCase) &&
+        (action == null || string.Equals(act, action, StringComparison.OrdinalIgnoreCase));
+
+    bool IsSeguridadTab(string tabName) =>
+        string.Equals(ctrl, "Seguridad", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(tab, tabName, StringComparison.OrdinalIgnoreCase);
+
+    string TabClass(bool active) => active
+        ? "border-b-2 border-primary text-primary pb-4 px-1 text-sm font-bold"
+        : "border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 pb-4 px-1 text-sm font-medium transition-colors";
+}
+
+<!-- Seguridad Header -->
+<header class="bg-white dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 -mx-4 md:-mx-10 -mt-8 px-4 md:px-10 pt-8 mb-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6">
+            <div class="space-y-2">
+                <nav class="flex text-xs font-medium text-slate-500 dark:text-slate-400 gap-2 mb-1">
+                    <a asp-controller="Home" asp-action="Index" class="hover:text-primary transition-colors">ERP</a>
+                    <span>/</span>
+                    <span>Seguridad</span>
+                </nav>
+                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Seguridad</h2>
+                <p class="text-slate-500 dark:text-slate-400 max-w-2xl text-sm">
+                    Gestión centralizada de usuarios, roles, permisos y auditoría del sistema. Configure niveles de acceso y supervise la actividad.
+                </p>
+            </div>
+            @if (showActions)
+            {
+                <div class="flex items-center gap-3 shrink-0">
+                    <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles"
+                       class="px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                        Nuevo rol
+                    </a>
+                    <button type="button" id="btnNuevoUsuario"
+                            class="px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-sm">person_add</span>
+                        Nuevo usuario
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Tabs -->
+        <nav class="flex gap-8">
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="@TabClass(IsTab("Usuarios", "Index") || IsSeguridadTab("usuarios")) no-underline">Usuarios</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="@TabClass(IsTab("Roles", "Index") || IsSeguridadTab("roles")) no-underline">Roles</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="@TabClass(IsSeguridadTab("permisos-rol")) no-underline">Permisos de Rol</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="@TabClass(IsTab("Seguridad", "Auditoria") || IsSeguridadTab("auditoria")) no-underline">Auditoría</a>
+        </nav>
+    </div>
+</header>

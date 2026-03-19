@@ -1,0 +1,159 @@
+@model RolDetalleViewModel
+@{
+    ViewData["Title"] = $"Rol: {Model.Nombre}";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var modulosAgrupados = Model.Permisos
+        .GroupBy(p => p.ModuloNombre)
+        .OrderBy(g => g.Key)
+        .ToList();
+}
+
+<div class="max-w-7xl mx-auto space-y-8">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div class="space-y-2">
+            <div class="flex items-center gap-3">
+                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@Model.Nombre</h2>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold @(Model.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                    <span class="size-1.5 rounded-full @(Model.Activo ? "bg-emerald-500" : "bg-slate-400")"></span>
+                    @(Model.Activo ? "Activo" : "Inactivo")
+                </span>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-3xl">@(string.IsNullOrWhiteSpace(Model.Descripcion) ? "Sin descripción cargada para este rol." : Model.Descripcion)</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="@(returnUrl ?? Url.Action("Index", "Seguridad", new { tab = "roles" }))"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900/50 text-slate-600 dark:text-slate-300 font-semibold rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                <span class="material-symbols-outlined text-lg">arrow_back</span>
+                Volver
+            </a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" asp-route-roleId="@Model.Id"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors no-underline">
+                <span class="material-symbols-outlined text-lg">admin_panel_settings</span>
+                Configurar permisos
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</p>
+            <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@(Model.Activo ? "Activo" : "Inactivo")</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuarios</p>
+            <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@Model.CantidadUsuarios</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@Model.CantidadUsuariosActivos activos</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Permisos activos</p>
+            <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@Model.Permisos.Count</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@modulosAgrupados.Count módulos</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cobertura</p>
+            <p class="text-xl font-black text-slate-900 dark:text-white mt-2">RBAC</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Permisos heredados solo por rol</p>
+        </div>
+    </div>
+
+    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+        <div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Resumen de permisos activos</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Vista agrupada por módulo para revisar rápidamente el alcance del rol.</p>
+        </div>
+
+        @if (modulosAgrupados.Any())
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                @foreach (var modulo in modulosAgrupados)
+                {
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 p-5">
+                        <p class="text-sm font-bold text-slate-900 dark:text-white">@modulo.Key</p>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            @foreach (var permiso in modulo.OrderBy(p => p.AccionNombre))
+                            {
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                                    <span class="material-symbols-outlined text-sm">check_circle</span>
+                                    @permiso.AccionNombre
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sin permisos asignados</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Este rol todavía no tiene permisos activos.</p>
+            </div>
+        }
+    </section>
+
+    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Usuarios asociados</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Listado de cuentas que tienen asignado este rol.</p>
+        </div>
+
+        @if (Model.Usuarios.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50/60 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuario</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Último acceso</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        @foreach (var usuario in Model.Usuarios.OrderByDescending(u => u.Activo).ThenBy(u => u.UserName))
+                        {
+                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@usuario.UserName</p>
+                                        @if (!string.IsNullOrWhiteSpace(usuario.NombreCompleto))
+                                        {
+                                            <p class="text-xs text-slate-500 dark:text-slate-400">@usuario.NombreCompleto</p>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@usuario.Email</td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold @(usuario.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                                        <span class="size-1.5 rounded-full @(usuario.Activo ? "bg-emerald-500" : "bg-slate-400")"></span>
+                                        @(usuario.Activo ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                                    @(usuario.UltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "Nunca")
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <a asp-controller="Usuarios" asp-action="Details" asp-route-id="@usuario.Id" asp-route-returnUrl="@currentUrl"
+                                       class="inline-flex p-1.5 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors"
+                                       title="Ver usuario">
+                                        <span class="material-symbols-outlined text-lg">visibility</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="p-12 text-center">
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">No hay usuarios asociados</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Este rol todavía no está asignado a ninguna cuenta.</p>
+            </div>
+        }
+    </section>
+</div>

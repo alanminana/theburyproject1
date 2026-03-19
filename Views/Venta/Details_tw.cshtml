@@ -1,0 +1,624 @@
+@model VentaViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = $"Venta {Model.Numero}";
+    var detalles = Model.Detalles ?? new List<VentaDetalleViewModel>();
+    var facturas = Model.Facturas ?? new List<FacturaViewModel>();
+    var tieneFactura = facturas.Any(f => !f.Anulada);
+    var facturaActiva = facturas.FirstOrDefault(f => !f.Anulada);
+
+    // Status badge mapping (Tailwind)
+    string estadoBg = Model.Estado switch
+    {
+        EstadoVenta.Cotizacion          => "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20",
+        EstadoVenta.Presupuesto         => "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+        EstadoVenta.Confirmada          => "bg-primary/10 text-primary border-primary/20",
+        EstadoVenta.Facturada           => "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
+        EstadoVenta.Entregada           => "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+        EstadoVenta.Cancelada           => "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+        EstadoVenta.PendienteRequisitos => "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        EstadoVenta.PendienteFinanciacion => "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+        _                               => "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20"
+    };
+
+    string tipoPagoDisplay = Model.TipoPago switch
+    {
+        TipoPago.Efectivo        => "Efectivo",
+        TipoPago.Transferencia   => "Transferencia",
+        TipoPago.TarjetaDebito   => "Tarjeta Débito",
+        TipoPago.TarjetaCredito  => "Tarjeta Crédito",
+        TipoPago.Cheque          => "Cheque",
+        TipoPago.CreditoPersonal => "Crédito Personal",
+        TipoPago.MercadoPago     => "Mercado Pago",
+        TipoPago.CuentaCorriente => "Cuenta Corriente",
+        _                        => Model.TipoPago.ToString()
+    };
+
+    string tipoPagoIcon = Model.TipoPago switch
+    {
+        TipoPago.Efectivo        => "payments",
+        TipoPago.Transferencia   => "swap_horiz",
+        TipoPago.TarjetaDebito   => "credit_card",
+        TipoPago.TarjetaCredito  => "credit_card",
+        TipoPago.Cheque          => "description",
+        TipoPago.CreditoPersonal => "account_balance",
+        TipoPago.MercadoPago     => "phone_iphone",
+        TipoPago.CuentaCorriente => "account_balance_wallet",
+        _                        => "payment"
+    };
+
+    var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
+    var puedeVerCreditos = User.TienePermiso("creditos", "view");
+    var puedeActualizarVentas = User.TienePermiso("ventas", "update");
+    var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
+    var puedeRechazarVentas = User.TienePermiso("ventas", "reject");
+    var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
+    var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
+}
+
+<div class="flex-1 flex flex-col items-center py-10 px-4 md:px-0">
+    <div class="max-w-[1200px] w-full space-y-8">
+
+        <!-- TempData Messages -->
+        @if (TempData["Success"] != null)
+        {
+            <div class="toast-msg p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">check_circle</span> @TempData["Success"]
+            </div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="toast-msg p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">error</span> @TempData["Error"]
+            </div>
+        }
+        @if (TempData["Warning"] != null)
+        {
+            <div class="toast-msg p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">warning</span> @TempData["Warning"]
+            </div>
+        }
+        @if (TempData["Info"] != null)
+        {
+            <div class="toast-msg p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">info</span> @TempData["Info"]
+            </div>
+        }
+        @if (!puedeOperarVentas)
+        {
+            <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-sm font-bold flex items-start gap-3">
+                <span class="material-symbols-outlined text-sm mt-0.5">warning</span>
+                <div>
+                    <p>No tiene una caja abierta para operar sobre ventas.</p>
+                    <p class="mt-1 font-medium text-amber-700/80 dark:text-amber-200/80">Abra una caja desde el módulo de cajas para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+                </div>
+            </div>
+        }
+
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight">@Model.Numero</h1>
+                    <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border @estadoBg">@Model.EstadoDisplay</span>
+                </div>
+                <p class="text-slate-500 dark:text-slate-400 text-sm">
+                    Creada el @Model.FechaVenta.ToString("dd/MM/yyyy HH:mm") · @tipoPagoDisplay
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a asp-action="Index" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span> Volver a Ventas
+                </a>
+                <button type="button" onclick="window.print()" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-sm">print</span> Imprimir
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left Column: Details -->
+            <div class="lg:col-span-2 space-y-8">
+
+                <!-- Sale Info Card -->
+                <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">receipt_long</span>
+                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Información de la Venta</h2>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Cliente</p>
+                            <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.ClienteNombre</p>
+                            @if (!string.IsNullOrEmpty(Model.ClienteDocumento))
+                            {
+                                <p class="text-[11px] text-slate-400">@Model.ClienteDocumento</p>
+                            }
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Forma de Pago</p>
+                            <div class="flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-primary text-sm">@tipoPagoIcon</span>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">@tipoPagoDisplay</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Vendedor</p>
+                            <p class="text-sm font-bold text-slate-900 dark:text-white">@(Model.VendedorNombre ?? "—")</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha</p>
+                            <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.FechaVenta.ToString("dd/MM/yyyy")</p>
+                            <p class="text-[11px] text-slate-400">@Model.FechaVenta.ToString("HH:mm") hs</p>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Model.Observaciones))
+                    {
+                        <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Observaciones</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">@Model.Observaciones</p>
+                        </div>
+                    }
+                </section>
+
+                <!-- Line Items Table -->
+                <section class="bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div class="flex items-center gap-2 p-6 border-b border-slate-100 dark:border-slate-800">
+                        <span class="material-symbols-outlined text-primary">inventory_2</span>
+                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Detalle de Productos</h2>
+                        <span class="ml-auto text-[10px] font-black text-slate-400 uppercase">@detalles.Count @(detalles.Count == 1 ? "ítem" : "ítems")</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-left">Producto</th>
+                                    <th class="px-4 py-3 text-center">Cant.</th>
+                                    <th class="px-4 py-3 text-right">Precio Unit.</th>
+                                    <th class="px-4 py-3 text-right">Descuento</th>
+                                    <th class="px-6 py-3 text-right">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach (var item in detalles)
+                                {
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <p class="font-bold text-slate-900 dark:text-white">@item.ProductoNombre</p>
+                                            <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
+                                        </td>
+                                        <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
+                                        <td class="px-4 py-4 text-right text-slate-600 dark:text-slate-300">@item.PrecioUnitario.ToString("C2")</td>
+                                        <td class="px-4 py-4 text-right">
+                                            @if (item.Descuento > 0)
+                                            {
+                                                <span class="text-red-500">-@item.Descuento.ToString("C2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-slate-400">—</span>
+                                            }
+                                        </td>
+                                        <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">@item.Subtotal.ToString("C2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totals row -->
+                    <div class="p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-200 dark:border-slate-800">
+                        <div class="flex flex-col items-end gap-2">
+                            <div class="flex justify-between w-64 text-sm">
+                                <span class="text-slate-500">Subtotal</span>
+                                <span class="font-medium text-slate-700 dark:text-slate-300">@Model.Subtotal.ToString("C2")</span>
+                            </div>
+                            @if (Model.Descuento > 0)
+                            {
+                                <div class="flex justify-between w-64 text-sm">
+                                    <span class="text-slate-500">Descuento</span>
+                                    <span class="font-medium text-red-500">-@Model.Descuento.ToString("C2")</span>
+                                </div>
+                            }
+                            <div class="flex justify-between w-64 text-sm">
+                                <span class="text-slate-500">IVA</span>
+                                <span class="font-medium text-slate-700 dark:text-slate-300">@Model.IVA.ToString("C2")</span>
+                            </div>
+                            <div class="flex justify-between w-64 text-lg pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <span class="font-bold text-slate-900 dark:text-white">Total</span>
+                                <span class="font-black text-primary">@Model.Total.ToString("C2")</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Credit Info (if CreditoPersonal) -->
+                @if (Model.TipoPago == TipoPago.CreditoPersonal && Model.CreditoId.HasValue)
+                {
+                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <span class="material-symbols-outlined text-primary">account_balance</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Crédito Personal</h2>
+                            @if (Model.CreditoConfigurado)
+                            {
+                                <span class="ml-auto px-2 py-0.5 rounded text-[10px] font-black bg-green-500/10 text-green-600 dark:text-green-400 uppercase">Configurado</span>
+                            }
+                            else if (Model.CreditoPendienteConfiguracion)
+                            {
+                                <span class="ml-auto px-2 py-0.5 rounded text-[10px] font-black bg-orange-500/10 text-orange-600 dark:text-orange-400 uppercase">Pendiente</span>
+                            }
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="px-3 py-2 bg-primary/5 rounded-lg">
+                                <p class="text-[10px] text-primary font-bold uppercase">Crédito Nº</p>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">@(Model.CreditoNumero ?? "—")</p>
+                            </div>
+                            @if (Model.DatosCreditoPersonall != null)
+                            {
+                                <div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Monto Financiado</p>
+                                    <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.DatosCreditoPersonall.MontoAFinanciar.ToString("C2")</p>
+                                </div>
+                                <div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Cuotas</p>
+                                    <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.DatosCreditoPersonall.CantidadCuotas x @Model.DatosCreditoPersonall.MontoCuota.ToString("C2")</p>
+                                </div>
+                                <div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Tasa Mensual</p>
+                                    <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.DatosCreditoPersonall.TasaInteresMensual.ToString("F2")%</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg col-span-3">
+                                    <p class="text-xs text-slate-500 italic">Datos del crédito pendientes de configuración.</p>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+                <!-- Invoice Section (if facturada) -->
+                @if (facturas.Any())
+                {
+                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <span class="material-symbols-outlined text-primary">description</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Facturación</h2>
+                        </div>
+                        <div class="space-y-3">
+                            @foreach (var factura in facturas)
+                            {
+                                <div class="flex items-center justify-between p-4 rounded-lg border @(factura.Anulada ? "bg-red-500/5 border-red-500/20" : "bg-green-500/5 border-green-500/20")">
+                                    <div class="flex items-center gap-4">
+                                        <div class="size-10 rounded-lg @(factura.Anulada ? "bg-red-500/10" : "bg-green-500/10") flex items-center justify-center">
+                                            <span class="material-symbols-outlined text-sm @(factura.Anulada ? "text-red-500" : "text-green-500")">
+                                                @(factura.Anulada ? "cancel" : "check_circle")
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-900 dark:text-white">@(string.IsNullOrEmpty(factura.Numero) ? "Factura" : factura.Numero)</p>
+                                            <p class="text-[11px] text-slate-400">
+                                                Tipo @factura.Tipo · @factura.FechaEmision.ToString("dd/MM/yyyy")
+                                                @if (factura.Anulada)
+                                                {
+                                                    <span class="text-red-500 font-bold"> · ANULADA @(factura.FechaAnulacion?.ToString("dd/MM/yyyy"))</span>
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm font-black @(factura.Anulada ? "text-red-500 line-through" : "text-slate-900 dark:text-white")">@factura.Total.ToString("C2")</p>
+                                        @if (!string.IsNullOrEmpty(factura.CAE))
+                                        {
+                                            <p class="text-[10px] text-slate-400">CAE: @factura.CAE</p>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+                <!-- Authorization Info (if applicable) -->
+                @if (Model.RequiereAutorizacion)
+                {
+                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <span class="material-symbols-outlined text-primary">admin_panel_settings</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Autorización</h2>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 rounded-lg @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "bg-green-500/10 border border-green-500/20" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "bg-red-500/10 border border-red-500/20" : "bg-amber-500/10 border border-amber-500/20")">
+                            <span class="material-symbols-outlined text-sm @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "text-green-500" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "text-red-500" : "text-amber-500")">
+                                @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "verified" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "gpp_bad" : "hourglass_top")
+                            </span>
+                            <div>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">@Model.EstadoAutorizacionDisplay</p>
+                                @if (!string.IsNullOrEmpty(Model.UsuarioAutoriza))
+                                {
+                                    <p class="text-[11px] text-slate-400">@Model.UsuarioAutoriza · @Model.FechaAutorizacion?.ToString("dd/MM/yyyy HH:mm")</p>
+                                }
+                                @if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))
+                                {
+                                    <p class="text-[11px] text-slate-500 mt-1">@Model.MotivoAutorizacion</p>
+                                }
+                                @if (!string.IsNullOrEmpty(Model.MotivoRechazo))
+                                {
+                                    <p class="text-[11px] text-red-500 mt-1">@Model.MotivoRechazo</p>
+                                }
+                            </div>
+                        </div>
+                    </section>
+                }
+            </div>
+
+            <!-- Right Column: Actions & Timeline -->
+            <div class="space-y-8">
+
+                <!-- Actions Card -->
+                <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">bolt</span>
+                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Acciones</h2>
+                    </div>
+                    <div class="flex flex-col gap-3">
+
+                        @* Configurar Crédito *@
+                        @if (puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos)
+                        {
+                            <a asp-action="ConfigurarVenta" asp-controller="Credito"
+                               asp-route-id="@Model.CreditoId" asp-route-ventaId="@Model.Id"
+                               class="w-full py-3 bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">settings</span> Configurar Crédito
+                            </a>
+                        }
+
+                        @* Confirmar *@
+                        @if (puedeOperarVentas && Model.PuedeConfirmar)
+                        {
+                            <form asp-action="Confirmar" method="post" id="form-confirmar">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit"
+                                        class="w-full py-3 bg-primary text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">check_circle</span> Confirmar Venta
+                                </button>
+                            </form>
+                        }
+
+                        @* Facturar *@
+                        @if (puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas)
+                        {
+                            <a asp-action="Facturar" asp-route-id="@Model.Id"
+                               class="w-full py-3 bg-green-500 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-green-600 transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">receipt</span> Facturar
+                            </a>
+                        }
+
+                        @* Imprimir Factura *@
+                        @if (tieneFactura)
+                        {
+                            <button type="button" onclick="window.print()"
+                                    class="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-slate-800 dark:hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">print</span> Imprimir Factura
+                            </button>
+                        }
+
+                        @* Autorizar *@
+                        @if (puedeOperarVentas && Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas))
+                        {
+                            <div class="flex gap-2">
+                                @if (puedeAutorizarVentas)
+                                {
+                                    <form asp-action="Autorizar" method="post" class="flex-1">
+                                        <input type="hidden" name="id" value="@Model.Id" />
+                                        <button type="submit"
+                                                class="w-full py-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-2">
+                                            <span class="material-symbols-outlined text-sm">thumb_up</span> Autorizar
+                                        </button>
+                                    </form>
+                                }
+                                @if (puedeRechazarVentas)
+                                {
+                                    <form asp-action="Rechazar" method="post" class="flex-1">
+                                        <input type="hidden" name="id" value="@Model.Id" />
+                                        <button type="submit"
+                                                class="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-red-500/20 transition-all flex items-center justify-center gap-2">
+                                            <span class="material-symbols-outlined text-sm">thumb_down</span> Rechazar
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        }
+
+                        @* Devolucion *@
+                        @if (puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones)
+                        {
+                            <button type="button"
+                               data-open-devolucion-modal
+                               data-venta-id="@Model.Id"
+                               class="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">undo</span> Crear Devolución
+                            </button>
+                        }
+
+                        @* Editar *@
+                        @if (puedeOperarVentas && Model.PuedeEditar && puedeActualizarVentas)
+                        {
+                            <a asp-action="Edit" asp-route-id="@Model.Id"
+                               class="w-full py-2.5 text-slate-500 text-xs font-bold hover:text-slate-700 dark:hover:text-slate-300 transition-colors flex items-center justify-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm">edit</span> Editar Venta
+                            </a>
+                        }
+
+                        <div class="border-t border-slate-200 dark:border-slate-800 pt-3 mt-1">
+                            @* Cancelar *@
+                            @if (puedeOperarVentas && Model.PuedeCancelar && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada)
+                            {
+                                <a asp-action="Cancelar" asp-route-id="@Model.Id"
+                                   class="w-full py-2.5 text-red-500 text-xs font-bold hover:bg-red-500/10 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm">cancel</span> Cancelar Venta
+                                </a>
+                            }
+
+                            @* Anular Factura *@
+                            @if (puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas)
+                            {
+                                <div class="hidden" id="anular-factura-token">@Html.AntiForgeryToken()</div>
+                                <button type="button" id="btn-anular-factura" data-factura-id="@facturaActiva.Id"
+                                        class="w-full py-2.5 text-red-500 text-xs font-bold hover:bg-red-500/10 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm">block</span> Anular Factura
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Status Timeline -->
+                <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">timeline</span>
+                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Historial</h2>
+                    </div>
+                    <div class="relative pl-6 space-y-6 before:absolute before:left-[9px] before:top-1 before:bottom-1 before:w-px before:bg-slate-200 dark:before:bg-slate-700">
+                        @* Created *@
+                        <div class="relative flex items-start gap-3">
+                            <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10"></div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-900 dark:text-white">Venta creada</p>
+                                <p class="text-[11px] text-slate-400">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                            </div>
+                        </div>
+
+                        @* Confirmed *@
+                        @if (Model.FechaConfirmacion.HasValue)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 dark:text-white">Venta confirmada</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaConfirmacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                </div>
+                            </div>
+                        }
+
+                        @* Credit configured *@
+                        @if (Model.FechaConfiguracionCredito.HasValue)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 dark:text-white">Crédito configurado</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaConfiguracionCredito.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                </div>
+                            </div>
+                        }
+
+                        @* Invoiced *@
+                        @if (Model.FechaFacturacion.HasValue)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-green-500 border-2 border-white dark:border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 dark:text-white">Facturada</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaFacturacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    @if (facturaActiva != null)
+                                    {
+                                        <p class="text-[11px] text-primary font-bold">@facturaActiva.Numero</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* Delivered *@
+                        @if (Model.FechaEntrega.HasValue)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-900 dark:text-white">Entregada</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                </div>
+                            </div>
+                        }
+
+                        @* Cancelled *@
+                        @if (Model.FechaCancelacion.HasValue)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-red-500 border-2 border-white dark:border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold text-red-500">Cancelada</p>
+                                    <p class="text-[11px] text-slate-400">@Model.FechaCancelacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
+                                    @if (!string.IsNullOrEmpty(Model.MotivoCancelacion))
+                                    {
+                                        <p class="text-[11px] text-slate-500 mt-0.5">@Model.MotivoCancelacion</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @* Pending dot if not final state *@
+                        @if (Model.Estado != EstadoVenta.Cancelada && Model.Estado != EstadoVenta.Entregada)
+                        {
+                            <div class="relative flex items-start gap-3">
+                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-900 z-10 animate-pulse"></div>
+                                <div>
+                                    <p class="text-xs text-slate-400 italic">
+                                        @(Model.Estado switch
+                                        {
+                                            EstadoVenta.Presupuesto => "Esperando confirmación",
+                                            EstadoVenta.Confirmada => "Pendiente de facturación",
+                                            EstadoVenta.Facturada => "Pendiente de entrega",
+                                            EstadoVenta.PendienteRequisitos => "Requisitos pendientes",
+                                            EstadoVenta.PendienteFinanciacion => "Pendiente de financiación",
+                                            _ => "Próximo paso..."
+                                        })
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- Totals Summary Card (compact, dark) -->
+                <section class="bg-slate-900 dark:bg-slate-900/60 p-6 rounded-xl border border-slate-800 shadow-xl text-white">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-400">Subtotal</span>
+                            <span class="text-slate-200">@Model.Subtotal.ToString("C2")</span>
+                        </div>
+                        @if (Model.Descuento > 0)
+                        {
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-400">Descuento</span>
+                                <span class="text-red-400">-@Model.Descuento.ToString("C2")</span>
+                            </div>
+                        }
+                        <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
+                            <span class="text-slate-400">IVA (21%)</span>
+                            <span class="text-slate-200">@Model.IVA.ToString("C2")</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="text-slate-300 font-bold uppercase tracking-wider text-xs">Total</span>
+                            <span class="text-2xl font-black text-white">@Model.Total.ToString("C2")</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@if (puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones)
+{
+    <partial name="_VentaDevolucionModal" />
+}
+
+@section Scripts {
+    <script src="~/js/venta-devolucion-modal.js"></script>
+    <script src="~/js/details-venta.js"></script>
+}

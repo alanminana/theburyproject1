@@ -1,0 +1,317 @@
+@model TheBuryProject.ViewModels.DetallesAperturaViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Detalles de Apertura";
+    var apertura = Model.Apertura;
+    var movimientos = Model.Movimientos ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
+    var ingresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).ToList();
+    var egresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).ToList();
+}
+
+@functions {
+    string FormatConcepto(ConceptoMovimientoCaja concepto)
+    {
+        return concepto switch
+        {
+            ConceptoMovimientoCaja.VentaEfectivo => "Venta Efectivo",
+            ConceptoMovimientoCaja.VentaTarjeta => "Venta Tarjeta",
+            ConceptoMovimientoCaja.VentaCheque => "Venta Cheque",
+            ConceptoMovimientoCaja.CobroCuota => "Cobro Cuota",
+            ConceptoMovimientoCaja.CancelacionCredito => "Cancelación Crédito",
+            ConceptoMovimientoCaja.AnticipoCredito => "Anticipo Crédito",
+            ConceptoMovimientoCaja.GastoOperativo => "Gasto Operativo",
+            ConceptoMovimientoCaja.ExtraccionEfectivo => "Extracción Efectivo",
+            ConceptoMovimientoCaja.DepositoEfectivo => "Depósito Efectivo",
+            ConceptoMovimientoCaja.DevolucionCliente => "Devolución Cliente",
+            ConceptoMovimientoCaja.AjusteCaja => "Ajuste Caja",
+            ConceptoMovimientoCaja.Otro => "Otro",
+            _ => concepto.ToString()
+        };
+    }
+}
+
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+    <div class="layout-container flex h-full grow flex-col">
+
+        <main class="max-w-[1400px] mx-auto w-full p-4 lg:p-10 flex flex-col gap-6">
+
+            <!-- Breadcrumbs & Header -->
+            <div class="flex flex-col gap-4">
+                <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <span class="text-slate-900 dark:text-white">Detalles de apertura</span>
+                </div>
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex flex-col gap-1">
+                        <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight flex items-center gap-3">
+                            Detalles de apertura
+                            @if (!apertura.Cerrada)
+                            {
+                                <span class="bg-emerald-500/10 text-emerald-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-emerald-500/20">Abierta</span>
+                            }
+                            else
+                            {
+                                <span class="bg-slate-500/10 text-slate-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-slate-500/20">Cerrada</span>
+                            }
+                        </h1>
+                        <p class="text-slate-500 dark:text-slate-400 text-base">Gestión y control de flujo de caja en tiempo real</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        @if (!apertura.Cerrada)
+                        {
+                            <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                               class="flex items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold hover:bg-blue-700 transition-all no-underline">
+                                <span class="material-symbols-outlined text-sm mr-2">lock</span>
+                                Cerrar caja
+                            </a>
+                            <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                               class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                                <span class="material-symbols-outlined text-sm mr-2">add</span>
+                                Nuevo movimiento
+                            </a>
+                        }
+                        <a asp-action="Index"
+                           class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-sm no-underline">
+                            <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
+                            Volver
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toasts -->
+            @if (TempData["Error"] != null)
+            {
+                <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium">
+                    <span class="material-symbols-outlined text-lg">error</span>
+                    @TempData["Error"]
+                </div>
+            }
+            @if (TempData["Success"] != null)
+            {
+                <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium">
+                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                    @TempData["Success"]
+                </div>
+            }
+
+            <!-- Box Information Panel -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="size-32 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-primary text-5xl">point_of_sale</span>
+                    </div>
+                    <div class="flex flex-col justify-between grow gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6">
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Caja</p>
+                                <p class="text-slate-900 dark:text-white font-bold">@apertura.Caja?.Nombre - COD: @apertura.Caja?.Codigo</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Usuario de apertura</p>
+                                <p class="text-slate-900 dark:text-white font-medium">@apertura.UsuarioApertura</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Fecha y Hora</p>
+                                <p class="text-slate-900 dark:text-white font-medium">@apertura.FechaApertura.ToString("dd/MM/yyyy hh:mm tt")</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Última actualización</p>
+                                @if (movimientos.Any())
+                                {
+                                    var ultimoMov = movimientos.OrderByDescending(m => m.FechaMovimiento).First();
+                                    var diff = DateTime.Now - ultimoMov.FechaMovimiento;
+                                    <p class="text-slate-900 dark:text-white font-medium">
+                                        @if (diff.TotalMinutes < 60)
+                                        {
+                                            @($"Hace {(int)diff.TotalMinutes} minutos")
+                                        }
+                                        else if (diff.TotalHours < 24)
+                                        {
+                                            @($"Hace {(int)diff.TotalHours} horas")
+                                        }
+                                        else
+                                        {
+                                            @ultimoMov.FechaMovimiento.ToString("dd/MM/yyyy hh:mm tt")
+                                        }
+                                    </p>
+                                }
+                                else
+                                {
+                                    <p class="text-slate-500 dark:text-slate-400 font-medium italic">Sin movimientos</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center">
+                            <span class="material-symbols-outlined text-sm mr-1">sticky_note_2</span> Observaciones
+                        </p>
+                        @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
+                        {
+                            <p class="text-slate-700 dark:text-slate-300 text-sm italic">"@apertura.ObservacionesApertura"</p>
+                        }
+                        else
+                        {
+                            <p class="text-slate-500 dark:text-slate-400 text-sm italic">Sin observaciones registradas.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Summary KPIs -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Monto inicial</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">$@apertura.MontoInicial.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total ingresos</p>
+                    <p class="text-emerald-500 text-xl font-black leading-tight">+$@Model.TotalIngresos.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. ingresos</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@ingresos.Count</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total egresos</p>
+                    <p class="text-rose-500 text-xl font-black leading-tight">-$@Model.TotalEgresos.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. egresos</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@egresos.Count</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. total mov.</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@Model.CantidadMovimientos</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-primary/10 border border-primary/30">
+                    <p class="text-primary text-xs font-bold uppercase tracking-tight">Saldo actual</p>
+                    <p class="text-primary text-xl font-black leading-tight">$@Model.SaldoActual.ToString("N2")</p>
+                </div>
+            </div>
+
+            <!-- Transaction Table -->
+            @if (movimientos.Any())
+            {
+                <div class="flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
+                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center">
+                            <span class="material-symbols-outlined mr-2">list_alt</span> Historial de Movimientos
+                        </h3>
+                        <div class="flex gap-2">
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                                <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
+                                       class="pl-9 pr-4 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg w-48 focus:ring-primary focus:border-primary text-slate-900 dark:text-white" />
+                            </div>
+                            <select id="filtro-tipo"
+                                    class="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:ring-primary focus:border-primary">
+                                <option value="">Todos</option>
+                                <option value="Ingreso">Ingresos</option>
+                                <option value="Egreso">Egresos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse" id="tabla-movimientos">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800">
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha/Hora</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tipo</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Concepto</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Descripción</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Referencia</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Monto</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach (var mov in movimientos.OrderByDescending(m => m.FechaMovimiento))
+                                {
+                                    var esIngreso = mov.Tipo == TipoMovimientoCaja.Ingreso;
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors" data-tipo="@(esIngreso ? "Ingreso" : "Egreso")">
+                                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@mov.FechaMovimiento.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            @if (esIngreso)
+                                            {
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/20">Ingreso</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-500/20">Egreso</span>
+                                            }
+                                        </td>
+                                        <td class="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white" data-concepto="@FormatConcepto(mov.Concepto)">@FormatConcepto(mov.Concepto)</td>
+                                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 truncate max-w-[200px]" title="@mov.Descripcion">@mov.Descripcion</td>
+                                        <td class="px-6 py-4 text-sm font-mono text-slate-500">@(mov.Referencia ?? "—")</td>
+                                        <td class="px-6 py-4 text-sm font-bold text-right @(esIngreso ? "text-emerald-500" : "text-rose-500")">
+                                            @(esIngreso ? "+" : "-")$@mov.Monto.ToString("N2")
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@mov.Usuario</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-slate-100 dark:bg-slate-800 font-black">
+                                    <td colspan="5" class="px-6 py-5 text-sm text-slate-900 dark:text-white text-right uppercase tracking-wider">Saldo calculado al momento</td>
+                                    <td class="px-6 py-5 text-xl text-primary text-right">$@Model.SaldoActual.ToString("N2")</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Empty State -->
+                <div class="flex flex-col items-center justify-center p-20 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800">
+                    <div class="size-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                        <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">No se han registrado movimientos</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora. Comienza registrando un ingreso o egreso para ver el historial aquí.</p>
+                    @if (!apertura.Cerrada)
+                    {
+                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                           class="flex items-center justify-center rounded-lg h-12 px-8 bg-primary text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-primary/20 no-underline">
+                            <span class="material-symbols-outlined mr-2">add</span>
+                            Registrar primer movimiento
+                        </a>
+                    }
+                </div>
+            }
+        </main>
+
+        <!-- Bottom Action Footer -->
+        @if (!apertura.Cerrada)
+        {
+            <footer class="max-w-[1400px] mx-auto w-full px-4 lg:px-10 pb-10">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-blue-700 text-white shadow-xl shadow-primary/20">
+                    <div class="flex flex-col gap-1">
+                        <p class="text-white/80 text-sm font-medium">¿Todo listo para terminar el turno?</p>
+                        <p class="text-2xl font-black">Cierre de Caja Sugerido: $@Model.SaldoActual.ToString("N2")</p>
+                    </div>
+                    <div class="flex gap-4 w-full md:w-auto">
+                        <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                           class="flex-1 md:flex-none h-12 px-8 rounded-xl bg-white text-primary font-bold hover:bg-slate-100 transition-all no-underline inline-flex items-center justify-center">
+                            Cerrar Turno Ahora
+                        </a>
+                        <button type="button" onclick="window.print()"
+                                class="flex items-center justify-center h-12 w-12 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all">
+                            <span class="material-symbols-outlined">print</span>
+                        </button>
+                    </div>
+                </div>
+            </footer>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
+}

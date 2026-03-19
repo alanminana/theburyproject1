@@ -1,0 +1,345 @@
+@model TheBuryProject.ViewModels.CajasListViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Módulo de Cajas";
+    var abiertas = Model.AperturasAbiertas?.ToList() ?? new List<TheBuryProject.Models.Entities.AperturaCaja>();
+    var activas = Model.CajasActivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
+    var inactivas = Model.CajasInactivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
+}
+
+<div class="flex min-h-full">
+<div id="cajaMainContent" class="flex-1 min-w-0 w-full max-w-7xl mx-auto px-4 md:px-10 py-8 space-y-8">
+
+    <!-- Header Section -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div class="space-y-2">
+            <nav class="flex text-xs font-medium text-slate-500 dark:text-slate-400 gap-2 mb-2">
+                <a asp-controller="Home" asp-action="Index" class="hover:text-primary transition-colors">ERP</a>
+                <span>/</span>
+                <span>Módulo de Cajas</span>
+            </nav>
+            <h1 class="text-slate-900 dark:text-white text-4xl font-black tracking-tight">Módulo de Cajas</h1>
+            <p class="text-slate-600 dark:text-slate-400 max-w-2xl">
+                Gestione las aperturas, cierres y flujos de efectivo de sus sucursales. Visualice el estado de sus terminales de venta en tiempo real.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a asp-action="Historial"
+               class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                <span class="material-symbols-outlined text-lg">history</span>
+                Historial de cierres
+            </a>
+            <button type="button" onclick="abrirModalCrearCaja()"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 cursor-pointer">
+                <span class="material-symbols-outlined text-lg">add_circle</span>
+                Nueva caja
+            </button>
+        </div>
+    </div>
+
+    <!-- TempData Alerts -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">check_circle</span>
+            </div>
+            <div>
+                <p class="text-emerald-500 text-sm font-bold leading-tight">Operación exitosa</p>
+                <p class="text-emerald-500/80 text-xs font-medium">@TempData["Success"]</p>
+            </div>
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
+            <div class="bg-amber-500/20 text-amber-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">warning</span>
+            </div>
+            <div>
+                <p class="text-amber-500 text-sm font-bold leading-tight">Atención</p>
+                <p class="text-amber-500/80 text-xs font-medium">@TempData["Warning"]</p>
+            </div>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
+            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">error</span>
+            </div>
+            <div>
+                <p class="text-rose-500 text-sm font-bold leading-tight">Error</p>
+                <p class="text-rose-500/80 text-xs font-medium">@TempData["Error"]</p>
+            </div>
+        </div>
+    }
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- Cajas Abiertas (Aperturas activas) -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="space-y-4">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">sensors</span>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Cajas actualmente abiertas</h3>
+            <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">En vivo</span>
+        </div>
+
+        @if (abiertas.Any())
+        {
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Caja / Código</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuario Apertura</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fecha / Hora</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monto Inicial</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Movimientos</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @foreach (var apertura in abiertas)
+                            {
+                                var cantMov = apertura.Movimientos?.Count ?? 0;
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm font-bold text-slate-900 dark:text-white">@(apertura.Caja?.Nombre ?? "—")</span>
+                                            <span class="text-xs text-slate-500">@(apertura.Caja?.Codigo ?? "—")</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="size-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-primary text-xs">person</span>
+                                            </div>
+                                            <span class="text-sm text-slate-700 dark:text-slate-300">@apertura.UsuarioApertura</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm text-slate-700 dark:text-slate-300">@apertura.FechaApertura.ToString("dd/MM/yyyy")</span>
+                                            <span class="text-xs text-slate-500">@apertura.FechaApertura.ToString("HH:mm") hs</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 font-mono text-sm text-emerald-500 font-bold">@apertura.MontoInicial.ToString("C2")</td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">
+                                            @cantMov @(cantMov == 1 ? "transacción" : "transacciones")
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right space-x-2">
+                                        <a asp-action="DetallesApertura" asp-route-id="@apertura.Id"
+                                           class="p-1.5 rounded-lg hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors inline-flex"
+                                           title="Ver detalles">
+                                            <span class="material-symbols-outlined text-lg">visibility</span>
+                                        </a>
+                                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                                           class="p-1.5 rounded-lg hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors inline-flex"
+                                           title="Registrar movimiento">
+                                            <span class="material-symbols-outlined text-lg">add_card</span>
+                                        </a>
+                                        <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                                           class="px-3 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all no-underline inline-flex items-center gap-1">
+                                            Cerrar caja
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
+                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">point_of_sale</span>
+                <p class="text-sm text-slate-500 mt-2">No hay cajas abiertas en este momento.</p>
+                <a asp-action="Abrir"
+                   class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all no-underline">
+                    <span class="material-symbols-outlined text-sm">lock_open</span> Abrir una caja
+                </a>
+            </div>
+        }
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- Maestro de Cajas Activas -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="space-y-4">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">point_of_sale</span>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Maestro de Cajas Activas</h3>
+        </div>
+
+        @if (activas.Any())
+        {
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Código</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nombre de Caja</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sucursal / Ubicación</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Gestión</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @foreach (var caja in activas)
+                            {
+                                var estaAbierta = caja.Estado == EstadoCaja.Abierta;
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-4 text-sm font-mono text-slate-500">@caja.Codigo</td>
+                                    <td class="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">@caja.Nombre</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm text-slate-700 dark:text-slate-300">@(caja.Sucursal ?? "—")</span>
+                                            @if (!string.IsNullOrEmpty(caja.Ubicacion))
+                                            {
+                                                <span class="text-xs text-slate-500">@caja.Ubicacion</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if (estaAbierta)
+                                        {
+                                            <div class="flex items-center gap-2 text-emerald-500">
+                                                <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                <span class="text-xs font-bold uppercase">Abierta</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="flex items-center gap-2 text-slate-400">
+                                                <span class="size-2 rounded-full bg-slate-400"></span>
+                                                <span class="text-xs font-bold uppercase">Cerrada</span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            @if (estaAbierta)
+                                            {
+                                                var aperturaActiva = abiertas.FirstOrDefault(a => a.CajaId == caja.Id);
+                                                if (aperturaActiva != null)
+                                                {
+                                                    <a asp-action="DetallesApertura" asp-route-id="@aperturaActiva.Id"
+                                                       class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                                                       title="Ver apertura activa">
+                                                        <span class="material-symbols-outlined text-xl">open_in_new</span>
+                                                    </a>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
+                                                   class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-all no-underline inline-flex items-center gap-1">
+                                                    Abrir caja
+                                                </a>
+                                            }
+                                            <button type="button" onclick="abrirModalEditarCaja(@caja.Id)"
+                                                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                                                    title="Editar">
+                                                <span class="material-symbols-outlined text-xl">edit</span>
+                                            </button>
+                                            @if (!estaAbierta)
+                                            {
+                                                <form asp-action="Delete" method="post" class="inline-flex"
+                                                      onsubmit="return confirm('¿Está seguro de eliminar esta caja?');">
+                                                    <input type="hidden" name="id" value="@caja.Id" />
+                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
+                                                    <button type="submit"
+                                                            class="p-2 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-colors"
+                                                            title="Eliminar">
+                                                        <span class="material-symbols-outlined text-xl">delete</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
+                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">inventory</span>
+                <p class="text-sm text-slate-500 mt-2">No hay cajas activas configuradas.</p>
+            </div>
+        }
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- Cajas Inactivas / Depreciadas -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    @if (inactivas.Any())
+    {
+        <section class="space-y-4">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-slate-500">archive</span>
+                <h3 class="text-lg font-bold text-slate-500 dark:text-slate-400">Cajas Inactivas / Depreciadas</h3>
+            </div>
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm opacity-75">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <tr>
+                                <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Código</th>
+                                <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre</th>
+                                <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Antigua Sucursal</th>
+                                <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @foreach (var caja in inactivas)
+                            {
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-3 text-sm font-mono text-slate-400 italic line-through">@caja.Codigo</td>
+                                    <td class="px-6 py-3 text-sm text-slate-500">@caja.Nombre</td>
+                                    <td class="px-6 py-3 text-sm text-slate-500">@(caja.Sucursal ?? "—")</td>
+                                    <td class="px-6 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <button type="button" onclick="abrirModalEditarCaja(@caja.Id)"
+                                                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+                                                    title="Reactivar / Editar">
+                                                <span class="material-symbols-outlined text-lg">restore_from_trash</span>
+                                            </button>
+                                            <form asp-action="Delete" method="post" class="inline-flex"
+                                                  onsubmit="return confirm('¿Eliminar permanentemente esta caja inactiva?');">
+                                                <input type="hidden" name="id" value="@caja.Id" />
+                                                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
+                                                <button type="submit"
+                                                        class="p-2 rounded-lg hover:bg-rose-500/10 text-rose-500/50 transition-colors"
+                                                        title="Eliminar permanentemente">
+                                                    <span class="material-symbols-outlined text-lg">delete_forever</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+</div>
+<!-- Panel acoplable Crear / Editar Caja -->
+<div id="modalCajaContainer" class="shrink-0"></div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/caja-index.js" asp-append-version="true"></script>
+}

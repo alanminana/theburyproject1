@@ -1,0 +1,185 @@
+@using System.Text.Json
+@using TheBuryProject.Models.Entities
+@{
+    var estadosProductoJson = JsonSerializer.Serialize(
+        Enum.GetValues<EstadoProductoDevuelto>()
+            .Select(estado => new
+            {
+                value = (int)estado,
+                label = estado.GetDisplayName()
+            }));
+}
+
+<div id="modal-devolucion-venta"
+     class="fixed inset-0 z-50 hidden"
+     data-context-url="@Url.Action("GetQuickCreateContext", "Devolucion")"
+     data-submit-url="@Url.Action("QuickCreate", "Devolucion")"
+     data-estados-producto='@Html.Raw(estadosProductoJson)'>
+    <div class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" data-close-devolucion-modal></div>
+    <div class="relative flex min-h-screen items-center justify-center p-4">
+        <div class="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <form id="form-devolucion-venta" class="flex max-h-[92vh] flex-col">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="devolucion-venta-id" name="VentaId" />
+                <input type="hidden" id="devolucion-cliente-id" name="ClienteId" />
+
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[0.24em] text-primary">Iniciar Devolución</p>
+                        <h3 class="mt-1 text-xl font-black text-slate-900 dark:text-white">Motivo, estado y resolución</h3>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                            Registrá qué vuelve, en qué estado entra y cómo se resuelve con el cliente.
+                        </p>
+                    </div>
+                    <button type="button"
+                            class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                            data-close-devolucion-modal>
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto px-6 py-5">
+                    <div id="devolucion-modal-error"
+                         class="mb-4 hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+                    </div>
+
+                    <div id="devolucion-modal-loading" class="flex flex-col items-center justify-center gap-3 py-12">
+                        <div class="size-10 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Cargando datos de la venta...</p>
+                    </div>
+
+                    <div id="devolucion-modal-body" class="hidden space-y-6">
+                        <div class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                            <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4 dark:border-primary/20 dark:bg-primary/10">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-primary" id="devolucion-numero-venta">Venta</span>
+                                    <span class="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300" id="devolucion-tipo-pago">Pago</span>
+                                    <span class="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300" id="devolucion-dias-venta">0 días</span>
+                                </div>
+                                <div class="mt-4 grid gap-4 md:grid-cols-3">
+                                    <div>
+                                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Cliente</p>
+                                        <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white" id="devolucion-cliente-nombre">-</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Fecha Venta</p>
+                                        <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white" id="devolucion-fecha-venta">-</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Total Venta</p>
+                                        <p class="mt-1 text-sm font-black text-primary" id="devolucion-total-venta">$0.00</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-primary/15 bg-white p-4 dark:border-primary/20 dark:bg-slate-950/40">
+                                <p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Impacto Operativo</p>
+                                <div id="devolucion-resolucion-helper"
+                                     class="mt-3 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm text-slate-600 dark:border-primary/20 dark:bg-primary/10 dark:text-slate-200">
+                                    Elegí la resolución para definir si corresponde nota de crédito, cambio o reembolso.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <div class="space-y-2">
+                                <label for="devolucion-motivo" class="text-sm font-bold text-slate-700 dark:text-slate-200">Motivo</label>
+                                <select id="devolucion-motivo"
+                                        name="Motivo"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                                    @foreach (var motivo in Html.GetEnumSelectList<MotivoDevolucion>())
+                                    {
+                                        <option value="@motivo.Value">@motivo.Text</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="space-y-2 md:col-span-2">
+                                <label for="devolucion-tipo-resolucion" class="text-sm font-bold text-slate-700 dark:text-slate-200">Resolución</label>
+                                <select id="devolucion-tipo-resolucion"
+                                        name="TipoResolucion"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                                    @foreach (var resolucion in Html.GetEnumSelectList<TipoResolucionDevolucion>())
+                                    {
+                                        <option value="@resolucion.Value">@resolucion.Text</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-950/40">
+                                <input id="devolucion-registrar-caja"
+                                       name="RegistrarEgresoCaja"
+                                       type="checkbox"
+                                       value="true"
+                                       class="size-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                                <input name="RegistrarEgresoCaja" type="hidden" value="false" />
+                                <span>
+                                    <span class="block font-bold text-slate-900 dark:text-white">Reflejar en caja</span>
+                                    <span class="block text-xs text-slate-500 dark:text-slate-400">Solo aplica al reembolso.</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="devolucion-descripcion" class="text-sm font-bold text-slate-700 dark:text-slate-200">Descripción</label>
+                            <textarea id="devolucion-descripcion"
+                                      name="Descripcion"
+                                      rows="3"
+                                      minlength="20"
+                                      maxlength="1000"
+                                      class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                                      placeholder="Describí qué pasó, qué observó el cliente y cómo se va a resolver."></textarea>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Mínimo 20 caracteres. Usá este campo para dejar claro el contexto del reclamo.</p>
+                        </div>
+
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                                <div>
+                                    <h4 class="text-sm font-black text-slate-900 dark:text-white">Productos a devolver</h4>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Marcá los ítems, cantidad y estado en el que vuelven.</p>
+                                </div>
+                                <div class="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-primary" id="devolucion-total-seleccionado">
+                                    Total seleccionado: $0.00
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">Selección</th>
+                                            <th class="px-4 py-3 text-left">Producto</th>
+                                            <th class="px-4 py-3 text-center">Disponible</th>
+                                            <th class="px-4 py-3 text-right">Precio</th>
+                                            <th class="px-4 py-3 text-center">Cantidad</th>
+                                            <th class="px-4 py-3 text-left">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devolucion-items-body" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        El ingreso de stock se procesa cuando la devolución se completa. El reembolso impacta caja solo si lo indicás arriba.
+                    </p>
+                    <div class="flex gap-3">
+                        <button type="button"
+                                class="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                data-close-devolucion-modal>
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                id="btn-submit-devolucion"
+                                class="rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                            Crear devolución
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

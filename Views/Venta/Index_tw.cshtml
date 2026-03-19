@@ -1,0 +1,399 @@
+@model IEnumerable<TheBuryProject.ViewModels.VentaViewModel>
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Módulo de Ventas";
+    var ventas = Model?.ToList() ?? new List<TheBuryProject.ViewModels.VentaViewModel>();
+    var filter = ViewBag.Filter as TheBuryProject.ViewModels.VentaFilterViewModel ?? new TheBuryProject.ViewModels.VentaFilterViewModel();
+    var clientes = ViewBag.Clientes as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var puedeCrear = (bool?)ViewBag.PuedeCrearVenta ?? false;
+    var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
+    var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
+    var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
+    var puedeConfigurarPagos = User.TienePermiso("configuraciones", "update");
+}
+
+<!-- Actions & Filters -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+    <div class="flex flex-col gap-1">
+        <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Módulo de Ventas</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Gestión de ventas, cotizaciones y presupuestos</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+        @if (puedeVerDevoluciones)
+        {
+            <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
+               class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all no-underline">
+                <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                Devoluciones
+            </a>
+        }
+        else
+        {
+            <span class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                  title="No tiene permiso para ver devoluciones">
+                <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                Devoluciones
+            </span>
+        }
+
+        @if (puedeConfigurarPagos)
+        {
+            <button type="button" id="btn-configurar-recargo"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all">
+                <span class="material-symbols-outlined text-[18px]">percent</span>
+                Configurar Recargo/Descuento
+            </button>
+        }
+        else
+        {
+            <span class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                  title="No tiene permiso para configurar recargos y descuentos">
+                <span class="material-symbols-outlined text-[18px]">percent</span>
+                Configurar Recargo/Descuento
+            </span>
+        }
+
+        @if (puedeCrear)
+        {
+            <a asp-action="Create"
+               class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all no-underline">
+                <span class="material-symbols-outlined text-[20px]">add</span>
+                Nueva Venta
+            </a>
+        }
+        else
+        {
+            <span class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed"
+                  title="Debe abrir una caja para crear ventas">
+                <span class="material-symbols-outlined text-[20px]">add</span>
+                Nueva Venta
+            </span>
+        }
+    </div>
+</div>
+
+@if (!puedeOperarVentas)
+{
+    <div class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined mt-0.5 text-xl text-amber-600 dark:text-amber-300">point_of_sale</span>
+                <div>
+                    <p class="text-sm font-black uppercase tracking-wider">Caja cerrada</p>
+                    <p class="mt-1 text-sm font-medium">
+                        No tiene una caja abierta para operar en ventas. Hasta abrir una caja, las acciones operativas del módulo quedan deshabilitadas.
+                    </p>
+                </div>
+            </div>
+            <a asp-controller="Caja" asp-action="Index"
+               class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-700 no-underline dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400">
+                <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                Ir a Cajas
+            </a>
+        </div>
+    </div>
+}
+
+<!-- TempData Alerts -->
+@if (TempData["Success"] != null)
+{
+    <div id="toast-success" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-emerald-600 text-white shadow-xl text-sm font-semibold">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div id="toast-error" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-red-600 text-white shadow-xl text-sm font-semibold">
+        <span class="material-symbols-outlined text-lg">error</span>
+        @TempData["Error"]
+    </div>
+}
+@if (TempData["Warning"] != null)
+{
+    <div id="toast-warning" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-amber-500 text-white shadow-xl text-sm font-semibold">
+        <span class="material-symbols-outlined text-lg">warning</span>
+        @TempData["Warning"]
+    </div>
+}
+
+<!-- Compact Advanced Filter -->
+<form asp-action="Index" method="get" id="form-filtros">
+    <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-wrap gap-4 items-end mb-6">
+        <!-- Número -->
+        <div class="flex flex-col gap-1.5 min-w-[160px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Número</span>
+            <input type="text" name="Numero" value="@filter.Numero"
+                   class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                   placeholder="#V-..." />
+        </div>
+        <!-- Fecha Desde -->
+        <div class="flex flex-col gap-1.5 min-w-[150px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Desde</span>
+            <input type="date" name="FechaDesde" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")"
+                   class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary" />
+        </div>
+        <!-- Fecha Hasta -->
+        <div class="flex flex-col gap-1.5 min-w-[150px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Hasta</span>
+            <input type="date" name="FechaHasta" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")"
+                   class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary" />
+        </div>
+        <!-- Estado -->
+        <div class="flex flex-col gap-1.5 min-w-[150px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Estado</span>
+            <select name="Estado"
+                    class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                <option value="">Todos</option>
+                <option value="@EstadoVenta.Cotizacion" selected="@(filter.Estado == EstadoVenta.Cotizacion)">Cotización</option>
+                <option value="@EstadoVenta.Presupuesto" selected="@(filter.Estado == EstadoVenta.Presupuesto)">Presupuesto</option>
+                <option value="@EstadoVenta.Confirmada" selected="@(filter.Estado == EstadoVenta.Confirmada)">Confirmada</option>
+                <option value="@EstadoVenta.Facturada" selected="@(filter.Estado == EstadoVenta.Facturada)">Facturada</option>
+                <option value="@EstadoVenta.Entregada" selected="@(filter.Estado == EstadoVenta.Entregada)">Entregada</option>
+                <option value="@EstadoVenta.Cancelada" selected="@(filter.Estado == EstadoVenta.Cancelada)">Cancelada</option>
+                <option value="@EstadoVenta.PendienteRequisitos" selected="@(filter.Estado == EstadoVenta.PendienteRequisitos)">Pend. Requisitos</option>
+                <option value="@EstadoVenta.PendienteFinanciacion" selected="@(filter.Estado == EstadoVenta.PendienteFinanciacion)">Pend. Financiación</option>
+            </select>
+        </div>
+        <!-- Tipo de Pago -->
+        <div class="flex flex-col gap-1.5 min-w-[150px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Tipo de Pago</span>
+            <select name="TipoPago"
+                    class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                <option value="">Todos</option>
+                <option value="@TipoPago.Efectivo" selected="@(filter.TipoPago == TipoPago.Efectivo)">Efectivo</option>
+                <option value="@TipoPago.Transferencia" selected="@(filter.TipoPago == TipoPago.Transferencia)">Transferencia</option>
+                <option value="@TipoPago.TarjetaDebito" selected="@(filter.TipoPago == TipoPago.TarjetaDebito)">Tarjeta Débito</option>
+                <option value="@TipoPago.TarjetaCredito" selected="@(filter.TipoPago == TipoPago.TarjetaCredito)">Tarjeta Crédito</option>
+                <option value="@TipoPago.Cheque" selected="@(filter.TipoPago == TipoPago.Cheque)">Cheque</option>
+                <option value="@TipoPago.CreditoPersonal" selected="@(filter.TipoPago == TipoPago.CreditoPersonal)">Crédito Personal</option>
+                <option value="@TipoPago.MercadoPago" selected="@(filter.TipoPago == TipoPago.MercadoPago)">MercadoPago</option>
+                <option value="@TipoPago.CuentaCorriente" selected="@(filter.TipoPago == TipoPago.CuentaCorriente)">Cuenta Corriente</option>
+            </select>
+        </div>
+        <!-- Autorización -->
+        <div class="flex flex-col gap-1.5 min-w-[150px]">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Autorización</span>
+            <select name="EstadoAutorizacion"
+                    class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                <option value="">Todas</option>
+                <option value="@EstadoAutorizacionVenta.NoRequiere" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.NoRequiere)">No Requiere</option>
+                <option value="@EstadoAutorizacionVenta.PendienteAutorizacion" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion)">Pendiente</option>
+                <option value="@EstadoAutorizacionVenta.Autorizada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)">Autorizada</option>
+                <option value="@EstadoAutorizacionVenta.Rechazada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)">Rechazada</option>
+            </select>
+        </div>
+        <!-- Buttons -->
+        <div class="flex gap-2">
+            <button type="submit" class="px-5 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors">Buscar</button>
+            <a asp-action="Index"
+               class="w-10 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors no-underline"
+               title="Limpiar filtros">
+                <span class="material-symbols-outlined">filter_alt_off</span>
+            </a>
+        </div>
+    </div>
+</form>
+
+<!-- Table Section -->
+<div class="bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Número</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fecha</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cliente</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Autorización</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tipo de Pago</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Total</th>
+                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+            @if (ventas.Any())
+            {
+                @foreach (var v in ventas)
+                {
+                    var estadoBadge = v.Estado switch
+                    {
+                        EstadoVenta.Cotizacion           => ("bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300", "Cotización"),
+                        EstadoVenta.Presupuesto          => ("bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", "Presupuesto"),
+                        EstadoVenta.Confirmada           => ("bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", "Confirmada"),
+                        EstadoVenta.Facturada            => ("bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", "Facturada"),
+                        EstadoVenta.Entregada            => ("bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", "Entregada"),
+                        EstadoVenta.Cancelada            => ("bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", "Cancelada"),
+                        EstadoVenta.PendienteRequisitos  => ("bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", "Pend. Requisitos"),
+                        EstadoVenta.PendienteFinanciacion=> ("bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", "Pend. Financiación"),
+                        _ => ("bg-slate-200 text-slate-700", v.EstadoDisplay)
+                    };
+                    var autorizacionBadge = v.EstadoAutorizacion switch
+                    {
+                        EstadoAutorizacionVenta.NoRequiere              => ("text-slate-500 dark:text-slate-400", "bg-slate-400", "No Requiere"),
+                        EstadoAutorizacionVenta.PendienteAutorizacion   => ("text-amber-600 dark:text-amber-400", "bg-amber-500", "Pendiente"),
+                        EstadoAutorizacionVenta.Autorizada              => ("text-blue-600 dark:text-blue-400", "bg-blue-600 dark:bg-blue-400", "Aprobado"),
+                        EstadoAutorizacionVenta.Rechazada               => ("text-red-600 dark:text-red-400", "bg-red-600 dark:bg-red-400", "Rechazado"),
+                        _ => ("text-slate-500", "bg-slate-400", v.EstadoAutorizacionDisplay)
+                    };
+                    var esCancelada = v.Estado == EstadoVenta.Cancelada;
+                    var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion && !esCancelada;
+                    var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+                    var tipoPagoDisplay = v.TipoPago switch
+                    {
+                        TipoPago.Efectivo => "Efectivo",
+                        TipoPago.Transferencia => "Transferencia",
+                        TipoPago.TarjetaDebito => "Tarjeta Débito",
+                        TipoPago.TarjetaCredito => "Tarjeta Crédito",
+                        TipoPago.Cheque => "Cheque",
+                        TipoPago.CreditoPersonal => "Crédito",
+                        TipoPago.MercadoPago => "MercadoPago",
+                        TipoPago.CuentaCorriente => "Cta. Corriente",
+                        _ => v.TipoPago.ToString()
+                    };
+
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td class="px-6 py-4 text-sm font-semibold text-primary">@v.Numero</td>
+                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">@v.FechaVenta.ToString("dd MMM yyyy")</td>
+                        <td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">@v.ClienteNombre</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @estadoBadge.Item1 @(esCancelada ? "line-through" : "")">
+                                @estadoBadge.Item2
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-medium @autorizacionBadge.Item1">
+                                <span class="w-1.5 h-1.5 rounded-full @autorizacionBadge.Item2"></span>
+                                @autorizacionBadge.Item3
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">@tipoPagoDisplay</td>
+                        <td class="px-6 py-4 text-sm font-bold text-right @(esCancelada ? "text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100")">$@v.Total.ToString("N2")</td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <a asp-action="Details" asp-route-id="@v.Id"
+                                   class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors no-underline"
+                                   title="Ver Venta">
+                                    <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                </a>
+                                @if (puedeDevolver)
+                                {
+                                    <button type="button"
+                                            data-open-devolucion-modal
+                                            data-venta-id="@v.Id"
+                                            class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors"
+                                            title="Devolver producto"
+                                            aria-label="Devolver producto">
+                                        <span class="material-symbols-outlined text-[20px]">assignment_return</span>
+                                    </button>
+                                }
+                                else if (puedeCrearDevoluciones)
+                                {
+                                    <span class="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                                          title="@(puedeOperarVentas ? "Disponible solo para ventas confirmadas, facturadas o entregadas" : "Debe abrir una caja para operar en ventas")">
+                                        <span class="material-symbols-outlined text-[20px]">assignment_return</span>
+                                    </span>
+                                }
+                                @if (puedeCancelarVenta)
+                                {
+                                    <a asp-action="Cancelar" asp-route-id="@v.Id"
+                                       class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors no-underline"
+                                       title="Anular">
+                                        <span class="material-symbols-outlined text-[20px]">block</span>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                                          title="@(puedeOperarVentas ? "La venta no puede anularse en este estado" : "Debe abrir una caja para operar en ventas")">
+                                        <span class="material-symbols-outlined text-[20px]">block</span>
+                                    </span>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <!-- Empty State -->
+    @if (!ventas.Any())
+    {
+        <div class="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-slate-400 text-3xl">search_off</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">No se encontraron ventas</h3>
+            <p class="text-slate-500 dark:text-slate-400 max-w-xs mt-1">No hay ventas que coincidan con los filtros aplicados.</p>
+            <a asp-action="Index" class="mt-6 text-primary font-semibold hover:underline flex items-center gap-1 no-underline">
+                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                Limpiar filtros
+            </a>
+        </div>
+    }
+</div>
+
+<!-- Pagination -->
+<div class="flex items-center justify-between pt-4">
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+        Mostrando <span class="font-bold text-slate-900 dark:text-white">@ventas.Count</span> resultados
+    </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- Modal: Configurar Recargos / Descuentos por Tipo de Pago -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div id="modal-recargo" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-recargo-overlay"></div>
+    <div class="relative flex items-center justify-center min-h-screen p-4">
+        <div class="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">tune</span> Recargos y Descuentos por Tipo de Pago
+                </h3>
+                <button type="button" id="btn-cerrar-modal-recargo" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                    <span class="material-symbols-outlined text-slate-400">close</span>
+                </button>
+            </div>
+
+            <!-- Body (scrollable) -->
+            <div class="p-6 overflow-y-auto flex-1 space-y-1" id="modal-recargo-body">
+                <!-- Loading -->
+                <div id="recargo-loading" class="flex flex-col items-center justify-center py-12 gap-3">
+                    <div class="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <p class="text-xs text-slate-400">Cargando configuraciones…</p>
+                </div>
+
+                <!-- Error -->
+                <div id="recargo-error" class="hidden p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold"></div>
+
+                <!-- Config list — injected by JS -->
+                <div id="recargo-lista" class="hidden space-y-4"></div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 shrink-0">
+                <button type="button" id="btn-guardar-recargos"
+                        class="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">save</span> Guardar Cambios
+                </button>
+                <button type="button" id="btn-cancelar-recargos"
+                        class="px-6 py-3 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-300">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (puedeCrearDevoluciones && puedeOperarVentas)
+{
+    <partial name="_VentaDevolucionModal" />
+}
+
+@section Scripts {
+    <script src="~/js/venta-devolucion-modal.js"></script>
+    <script src="~/js/venta-index.js"></script>
+}

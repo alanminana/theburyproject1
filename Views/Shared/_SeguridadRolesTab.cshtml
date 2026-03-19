@@ -1,0 +1,226 @@
+@model SeguridadRolesTabViewModel
+@{
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">check_circle</span>
+            </div>
+            <div>
+                <p class="text-emerald-500 text-sm font-bold leading-tight">Operación exitosa</p>
+                <p class="text-emerald-500/80 text-xs font-medium">@TempData["Success"]</p>
+            </div>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
+            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">error</span>
+            </div>
+            <div>
+                <p class="text-rose-500 text-sm font-bold leading-tight">Error</p>
+                <p class="text-rose-500/80 text-xs font-medium">@TempData["Error"]</p>
+            </div>
+        </div>
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_200px_auto] gap-4 bg-white dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+            <input id="searchRoles" type="text"
+                   class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white placeholder:text-slate-500"
+                   placeholder="Buscar por nombre o descripción..." />
+        </div>
+
+        <select id="filterEstadoRol"
+                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
+            <option value="">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+        </select>
+
+        <div class="flex items-center justify-end gap-2">
+            <button type="button" id="clearRolesFilters"
+                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+                    title="Limpiar filtros">
+                <span class="material-symbols-outlined text-lg">filter_list_off</span>
+            </button>
+            @if (User.TienePermiso("roles", "create"))
+            {
+                <button type="button"
+                        data-return-url="@currentUrl"
+                        class="btn-open-create-role inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">add</span>
+                    Nuevo rol
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[980px]">
+                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nombre rol</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Descripción</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cantidad usuarios</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="rolesTableBody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                    @if (Model.Roles.Any())
+                    {
+                        @foreach (var rol in Model.Roles)
+                        {
+                            var estadoKey = rol.Activo ? "activo" : "inactivo";
+                            var descripcion = string.IsNullOrWhiteSpace(rol.Descripcion) ? "Sin descripción" : rol.Descripcion;
+
+                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors rol-row"
+                                data-name="@rol.Nombre.ToLowerInvariant()"
+                                data-description="@descripcion.ToLowerInvariant()"
+                                data-estado="@estadoKey">
+                                <td class="px-4 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                            <span class="material-symbols-outlined text-lg">shield_person</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">@rol.Nombre</p>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400">@rol.CantidadPermisos permisos activos</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <p class="text-sm text-slate-600 dark:text-slate-400 max-w-md truncate" title="@descripcion">@descripcion</p>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold @(rol.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                                        <span class="size-1.5 rounded-full @(rol.Activo ? "bg-emerald-500" : "bg-slate-400")"></span>
+                                        @(rol.Activo ? "Activo" : "Inactivo")
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@rol.CantidadUsuarios</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400">@rol.CantidadUsuariosActivos activos</p>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-0.5">
+                                        <a asp-controller="Seguridad" asp-action="RolDetails" asp-route-id="@rol.Id" asp-route-returnUrl="@currentUrl"
+                                           class="p-1.5 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors"
+                                           title="Ver detalle">
+                                            <span class="material-symbols-outlined text-lg">visibility</span>
+                                        </a>
+                                        @if (User.TienePermiso("roles", "update"))
+                                        {
+                                            <button type="button" data-role-id="@rol.Id" data-return-url="@currentUrl"
+                                                    class="btn-edit-role p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
+                                                    title="Editar">
+                                                <span class="material-symbols-outlined text-lg">edit</span>
+                                            </button>
+                                        }
+                                        @if (User.TienePermiso("roles", "create"))
+                                        {
+                                            <button type="button" data-role-id="@rol.Id" data-return-url="@currentUrl"
+                                                    class="btn-duplicate-role p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-slate-400 hover:text-amber-500 transition-colors"
+                                                    title="Duplicar">
+                                                <span class="material-symbols-outlined text-lg">content_copy</span>
+                                            </button>
+                                        }
+                                        @if (User.TienePermiso("roles", "update"))
+                                        {
+                                            <form asp-controller="Seguridad" asp-action="ToggleRolActivo" method="post" class="inline-flex">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@rol.Id" />
+                                                <input type="hidden" name="activo" value="@(rol.Activo ? "false" : "true")" />
+                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                <button type="submit"
+                                                        class="p-1.5 @(rol.Activo ? "hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600" : "hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-500") rounded-lg text-slate-400 transition-colors"
+                                                        title="@(rol.Activo ? "Desactivar" : "Activar")">
+                                                    <span class="material-symbols-outlined text-lg">@(rol.Activo ? "toggle_off" : "toggle_on")</span>
+                                                </button>
+                                            </form>
+                                        }
+                                        <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" asp-route-roleId="@rol.Id"
+                                           class="p-1.5 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors"
+                                           title="Configurar permisos">
+                                            <span class="material-symbols-outlined text-lg">admin_panel_settings</span>
+                                        </a>
+                                        @if (User.TienePermiso("roles", "delete"))
+                                        {
+                                            <form asp-controller="Seguridad" asp-action="DeleteRol" method="post"
+                                                  class="inline-flex js-delete-role-form"
+                                                  data-role-name="@rol.Nombre"
+                                                  data-has-users="@(rol.CantidadUsuarios > 0 ? "true" : "false")">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@rol.Id" />
+                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                <button type="submit"
+                                                        class="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-slate-400 hover:text-rose-500 transition-colors @(rol.CantidadUsuarios > 0 ? "opacity-50" : string.Empty)"
+                                                        title="@(rol.CantidadUsuarios > 0 ? "El rol tiene usuarios asignados" : "Eliminar")">
+                                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (!Model.Roles.Any())
+        {
+            <div id="rolesEmptyState" class="px-6 py-16 text-center">
+                <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                    <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">shield</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No hay roles configurados</p>
+                <p class="text-xs text-slate-500 mb-4">Creá el primer rol para empezar a organizar permisos por RBAC.</p>
+                @if (User.TienePermiso("roles", "create"))
+                {
+                    <button type="button"
+                            data-return-url="@currentUrl"
+                            class="btn-open-create-role inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Nuevo rol
+                    </button>
+                }
+            </div>
+        }
+
+        <div id="rolesEmptyFilterState" class="hidden px-6 py-16 text-center">
+            <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">search_off</span>
+            </div>
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Sin resultados</p>
+            <p class="text-xs text-slate-500 mb-4">Probá ajustando los filtros de roles.</p>
+            <button type="button" id="clearRolesFiltersEmpty"
+                    class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <span class="material-symbols-outlined text-sm">filter_list_off</span>
+                Limpiar filtros
+            </button>
+        </div>
+
+        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+            <p class="text-xs text-slate-500">
+                <span id="rolesVisibleCount">@Model.Roles.Count</span> de @Model.Roles.Count roles
+            </p>
+            <p class="text-xs text-slate-500">@Model.Roles.Count(r => r.Activo) activos · @Model.Roles.Count(r => !r.Activo) inactivos</p>
+        </div>
+    </div>
+</div>
+
+<div id="createRoleContainer"></div>
+<div id="editRoleContainer"></div>
+<div id="duplicateRoleContainer"></div>

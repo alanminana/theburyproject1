@@ -1,0 +1,471 @@
+@model SeguridadUsuariosTabViewModel
+@{
+    var currentUrl = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">check_circle</span>
+            </div>
+            <div>
+                <p class="text-emerald-500 text-sm font-bold leading-tight">Operación exitosa</p>
+                <p class="text-emerald-500/80 text-xs font-medium">@TempData["Success"]</p>
+            </div>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
+            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">error</span>
+            </div>
+            <div>
+                <p class="text-rose-500 text-sm font-bold leading-tight">Error</p>
+                <p class="text-rose-500/80 text-xs font-medium">@TempData["Error"]</p>
+            </div>
+        </div>
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-white dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="md:col-span-2 relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+            <input id="searchUsuarios" type="text"
+                   class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white placeholder:text-slate-500"
+                   placeholder="Buscar por nombre, usuario o correo..." />
+        </div>
+
+        <select id="filterRol"
+                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
+            <option value="">Todos los roles</option>
+            @foreach (var rol in Model.AllRoles)
+            {
+                <option value="@rol">@rol</option>
+            }
+        </select>
+
+        <select id="filterSucursal"
+                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
+            <option value="">Todas las sucursales</option>
+            @foreach (var suc in Model.AllSucursales)
+            {
+                <option value="@suc.Id">@suc.Nombre</option>
+            }
+        </select>
+
+        <select id="filterEstado"
+                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
+            <option value="">Cualquier estado</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+            <option value="bloqueado">Bloqueado</option>
+            <option value="sin-confirmar">Sin confirmar</option>
+        </select>
+
+        <div class="flex items-center gap-2">
+            <select id="orderBy"
+                    class="flex-1 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-3 py-2 focus:ring-primary text-slate-900 dark:text-white">
+                <option value="username">Usuario</option>
+                <option value="nombre">Nombre</option>
+                <option value="email">Email</option>
+                <option value="rol">Rol</option>
+                <option value="sucursal">Sucursal</option>
+                <option value="estado">Estado</option>
+                <option value="ultimoAcceso">Último acceso</option>
+            </select>
+            <button type="button" id="toggleOrderDir"
+                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" title="Cambiar dirección">
+                <span id="orderDirIcon" class="material-symbols-outlined text-lg">arrow_upward</span>
+            </button>
+            <button type="button" id="clearFilters"
+                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" title="Limpiar filtros">
+                <span class="material-symbols-outlined text-lg">filter_list_off</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="bulkBar" class="hidden flex items-center gap-3 bg-primary/5 border border-primary/20 p-3 rounded-xl transition-all">
+        <span class="text-sm font-semibold text-primary">
+            <span id="selectedCount">0</span> seleccionados
+        </span>
+        <div class="h-5 w-px bg-primary/20"></div>
+        <form asp-controller="Usuarios" asp-action="BulkAction" method="post" id="bulkForm" class="flex items-center gap-2">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ids" id="bulkIds" />
+            <input type="hidden" name="accion" id="bulkAccion" />
+            <input type="hidden" name="rol" id="bulkRol" />
+            <input type="hidden" name="sucursalId" id="bulkSucursalId" />
+            <input type="hidden" name="returnUrl" value="@currentUrl" />
+            <button type="button" data-bulk-action="activar"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors">
+                <span class="material-symbols-outlined text-sm align-middle mr-0.5">check_circle</span> Activar
+            </button>
+            <button type="button" data-bulk-action="desactivar"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors">
+                <span class="material-symbols-outlined text-sm align-middle mr-0.5">person_off</span> Desactivar
+            </button>
+            <button type="button" data-bulk-action="bloquear"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-colors">
+                <span class="material-symbols-outlined text-sm align-middle mr-0.5">lock</span> Bloquear
+            </button>
+            <button type="button" data-bulk-modal="asignarRol"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                <span class="material-symbols-outlined text-sm align-middle mr-0.5">key</span> Asignar rol
+            </button>
+            <button type="button" data-bulk-modal="cambiarSucursal"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors">
+                <span class="material-symbols-outlined text-sm align-middle mr-0.5">store</span> Cambiar sucursal
+            </button>
+        </form>
+        <button type="button" id="clearSelection" class="ml-auto p-1.5 rounded-lg hover:bg-primary/10 text-primary/60 hover:text-primary transition-colors" title="Deseleccionar todo">
+            <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[1000px]">
+                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                        <th class="px-4 py-4 w-10">
+                            <input type="checkbox" id="selectAll"
+                                   class="size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-slate-50 dark:bg-slate-800" />
+                        </th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuario</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nombre completo</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Roles asignados</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sucursal</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Último acceso</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="usuariosTableBody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                    @if (Model.Usuarios.Any())
+                    {
+                        @foreach (var user in Model.Usuarios)
+                        {
+                            var isLocked = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow;
+                            var statusLabel = !user.Activo ? "Inactivo" : isLocked ? "Bloqueado" : !user.EmailConfirmed ? "Sin confirmar" : "Activo";
+                            var statusKey = !user.Activo ? "inactivo" : isLocked ? "bloqueado" : !user.EmailConfirmed ? "sin-confirmar" : "activo";
+                            var statusColor = !user.Activo ? "slate" : isLocked ? "rose" : !user.EmailConfirmed ? "amber" : "emerald";
+                            var rolesJoined = string.Join(", ", user.Roles);
+                            var rolesFilterValue = string.Join("||", user.Roles);
+                            var rolPrincipal = user.Roles.FirstOrDefault() ?? "";
+                            var searchIndex = string.Join(" ",
+                                new[]
+                                {
+                                    user.UserName,
+                                    user.NombreCompleto,
+                                    user.Email,
+                                    rolesJoined,
+                                    user.Sucursal,
+                                    statusLabel
+                                }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                            var initials = string.IsNullOrEmpty(user.NombreCompleto)
+                                ? user.UserName[..1].ToUpperInvariant()
+                                : string.Concat(user.NombreCompleto.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpperInvariant();
+
+                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors usuario-row"
+                                data-id="@user.Id"
+                                data-name="@user.UserName.ToLowerInvariant()"
+                                data-fullname="@(user.NombreCompleto?.ToLowerInvariant() ?? "")"
+                                data-email="@user.Email.ToLowerInvariant()"
+                                data-roles="@rolesJoined.ToLowerInvariant()"
+                                data-role-values="@rolesFilterValue"
+                                data-rol-principal="@rolPrincipal.ToLowerInvariant()"
+                                data-sucursal="@(user.Sucursal?.ToLowerInvariant() ?? "")"
+                                data-sucursal-id="@(user.SucursalId?.ToString() ?? string.Empty)"
+                                data-estado="@statusKey"
+                                data-search="@searchIndex"
+                                data-ultimo-acceso="@(user.UltimoAcceso?.ToString("o") ?? "")">
+                                <td class="px-4 py-3">
+                                    <input type="checkbox" class="row-check size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-slate-50 dark:bg-slate-800"
+                                           value="@user.Id" />
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                                            @initials
+                                        </div>
+                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@user.UserName</span>
+                                    </div>
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    @if (!string.IsNullOrEmpty(user.NombreCompleto))
+                                    {
+                                        <span class="text-sm text-slate-700 dark:text-slate-300">@user.NombreCompleto</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-400 italic">—</span>
+                                    }
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-slate-600 dark:text-slate-400">@user.Email</span>
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    @if (user.Roles.Any())
+                                    {
+                                        <div class="flex flex-wrap gap-1.5 max-w-[220px]">
+                                            @foreach (var role in user.Roles.Take(3))
+                                            {
+                                                var isAdmin = role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)
+                                                           || role.Equals("Administrador", StringComparison.OrdinalIgnoreCase);
+
+                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium @(isAdmin ? "bg-primary/10 text-primary" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300")">
+                                                    @role
+                                                </span>
+                                            }
+
+                                            @if (user.Roles.Count > 3)
+                                            {
+                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                                                      title="@rolesJoined">
+                                                    +@(user.Roles.Count - 3)
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-400 italic">Sin rol</span>
+                                    }
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    @if (!string.IsNullOrEmpty(user.Sucursal))
+                                    {
+                                        <span class="text-sm text-slate-600 dark:text-slate-400">@user.Sucursal</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-400 italic">—</span>
+                                    }
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                                        @(statusColor == "emerald" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                          statusColor == "rose" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" :
+                                          statusColor == "amber" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                          "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                                        <span class="size-1.5 rounded-full
+                                            @(statusColor == "emerald" ? "bg-emerald-500" :
+                                              statusColor == "rose" ? "bg-rose-500" :
+                                              statusColor == "amber" ? "bg-amber-500" :
+                                              "bg-slate-400")"></span>
+                                        @statusLabel
+                                    </span>
+                                </td>
+
+                                <td class="px-4 py-3">
+                                    @if (user.UltimoAcceso.HasValue)
+                                    {
+                                        <span class="text-sm text-slate-600 dark:text-slate-400" title="@user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")">
+                                            @user.UltimoAcceso.Value.ToString("dd/MM/yy HH:mm")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-400 italic">Nunca</span>
+                                    }
+                                </td>
+
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex items-center justify-end gap-0.5">
+                                        <a asp-controller="Usuarios" asp-action="Details" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
+                                           class="p-1.5 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors"
+                                           title="Ver detalle">
+                                            <span class="material-symbols-outlined text-lg">visibility</span>
+                                        </a>
+                                        <a asp-controller="Seguridad" asp-action="EditUsuario" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
+                                           class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
+                                           title="Editar">
+                                            <span class="material-symbols-outlined text-lg">edit</span>
+                                        </a>
+                                        @if (user.Activo)
+                                        {
+                                            <form asp-controller="Usuarios" asp-action="Desactivar" method="post" class="inline-flex">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@user.Id" />
+                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                <button type="submit"
+                                                        class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                                                        title="Desactivar">
+                                                    <span class="material-symbols-outlined text-lg">person_off</span>
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form asp-controller="Usuarios" asp-action="Reactivar" method="post" class="inline-flex">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@user.Id" />
+                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                <button type="submit"
+                                                        class="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-slate-400 hover:text-emerald-500 transition-colors"
+                                                        title="Reactivar">
+                                                    <span class="material-symbols-outlined text-lg">person_check</span>
+                                                </button>
+                                            </form>
+                                        }
+                                        @if (isLocked)
+                                        {
+                                            <form asp-controller="Usuarios" asp-action="Desbloquear" method="post" class="inline-flex js-unlock-user-form" data-user-name="@user.UserName">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@user.Id" />
+                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                <button type="submit"
+                                                        class="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-slate-400 hover:text-emerald-500 transition-colors"
+                                                        title="Desbloquear">
+                                                    <span class="material-symbols-outlined text-lg">lock_open</span>
+                                                </button>
+                                            </form>
+                                        }
+                                        else if (user.Activo)
+                                        {
+                                            <button type="button" data-user-id="@user.Id" data-return-url="@currentUrl"
+                                                    class="btn-block-user p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
+                                                    title="Bloquear">
+                                                <span class="material-symbols-outlined text-lg">lock</span>
+                                            </button>
+                                        }
+                                        <button type="button" data-user-id="@user.Id"
+                                                class="btn-change-pass p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-slate-400 hover:text-amber-500 transition-colors"
+                                                title="Resetear contraseña">
+                                            <span class="material-symbols-outlined text-lg">lock_reset</span>
+                                        </button>
+                                        <a asp-controller="Usuarios" asp-action="Delete" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
+                                           class="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
+                                           title="Eliminar">
+                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (!Model.Usuarios.Any())
+        {
+            <div id="emptyState" class="px-6 py-16 text-center">
+                <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                    <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">group_off</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No se encontraron usuarios</p>
+                <p class="text-xs text-slate-500 mb-4">Creá un nuevo usuario para comenzar a gestionar el acceso al sistema.</p>
+                <button type="button" class="btn-open-create-user inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">person_add</span>
+                    Nuevo usuario
+                </button>
+            </div>
+        }
+
+        <div id="emptyFilterState" class="hidden px-6 py-16 text-center">
+            <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">search_off</span>
+            </div>
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Sin resultados</p>
+            <p class="text-xs text-slate-500 mb-4">Probá ajustando los filtros o la búsqueda.</p>
+            <button type="button" id="clearFiltersEmpty"
+                    class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <span class="material-symbols-outlined text-sm">filter_list_off</span>
+                Limpiar filtros
+            </button>
+        </div>
+
+        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+            <p class="text-xs text-slate-500">
+                <span id="visibleCount">@Model.Usuarios.Count</span> de @Model.Usuarios.Count usuarios
+                @if (!Model.MostrarInactivos)
+                {
+                    <span> — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" asp-route-mostrarInactivos="true" class="text-primary hover:underline">Mostrar inactivos</a></span>
+                }
+                else
+                {
+                    <span> (incluyendo inactivos) — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="text-primary hover:underline">Ocultar inactivos</a></span>
+                }
+            </p>
+        </div>
+    </div>
+</div>
+
+<div id="createUserContainer"></div>
+<div id="changePassContainer"></div>
+<div id="blockUserContainer"></div>
+<div id="bulkConfigContainer" class="hidden">
+    <div id="bulkConfigBackdrop"
+         class="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+        <div id="bulkConfigCard"
+             class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden pointer-events-auto scale-95 opacity-0 transition-all duration-300">
+            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-primary/10 rounded-lg">
+                        <span class="material-symbols-outlined text-primary">group</span>
+                    </div>
+                    <div>
+                        <h3 id="bulkConfigTitle" class="text-lg font-bold text-slate-900 dark:text-white">Acción masiva</h3>
+                        <p id="bulkConfigDescription" class="text-xs text-slate-500 dark:text-slate-400 mt-1"></p>
+                    </div>
+                </div>
+                <button type="button" id="closeBulkConfig"
+                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <div id="bulkConfigError"
+                     class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400"></div>
+
+                <div id="bulkRoleField" class="hidden space-y-2">
+                    <label for="bulkRoleSelect" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Rol a asignar</label>
+                    <select id="bulkRoleSelect"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
+                        <option value="">Seleccionar rol...</option>
+                        @foreach (var rol in Model.AllRoles)
+                        {
+                            <option value="@rol">@rol</option>
+                        }
+                    </select>
+                </div>
+
+                <div id="bulkSucursalField" class="hidden space-y-2">
+                    <label for="bulkSucursalSelect" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sucursal destino</label>
+                    <select id="bulkSucursalSelect"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
+                        <option value="">Seleccionar sucursal...</option>
+                        @foreach (var suc in Model.AllSucursales)
+                        {
+                            <option value="@suc.Id">@suc.Nombre</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="px-6 py-5 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" id="cancelBulkConfig"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" id="submitBulkConfig"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

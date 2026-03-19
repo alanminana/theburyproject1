@@ -1,0 +1,261 @@
+@model TheBuryProject.ViewModels.OrdenCompraFilterViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Órdenes de Compra";
+    var ordenes = (ViewBag.Ordenes as IEnumerable<TheBuryProject.ViewModels.OrdenCompraViewModel>
+                   ?? Enumerable.Empty<TheBuryProject.ViewModels.OrdenCompraViewModel>()).ToList();
+    var proveedores = ViewBag.Proveedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    int totalOrdenes = ViewBag.TotalOrdenes ?? 0;
+    decimal totalValorizado = ViewBag.TotalValorizado ?? 0m;
+}
+
+<!-- Header -->
+<header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div class="flex flex-col gap-1">
+        <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Órdenes de Compra</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Gestión integral de abastecimiento para TheBuryProject</p>
+    </div>
+    <a asp-action="Create"
+       class="flex min-w-[140px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-11 px-5 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 no-underline">
+        <span class="material-symbols-outlined text-[20px]">add_circle</span>
+        Nueva Orden
+    </a>
+</header>
+
+<!-- Filters -->
+<form asp-action="Index" method="get" id="form-filtros">
+    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mb-6">
+        <div class="flex flex-wrap items-end gap-4">
+            <!-- Search -->
+            <div class="flex-1 min-w-[280px]">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Búsqueda rápida</label>
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                    <input type="text" name="SearchTerm" value="@Model.SearchTerm"
+                           class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white"
+                           placeholder="Nº de orden o referencia..." />
+                </div>
+            </div>
+            <!-- Proveedor -->
+            <div class="w-52">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Proveedor</label>
+                <select name="ProveedorId"
+                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="">Todos</option>
+                    @if (proveedores != null)
+                    {
+                        @foreach (var p in proveedores)
+                        {
+                            <option value="@p.Value" selected="@(p.Value == Model.ProveedorId?.ToString())">@p.Text</option>
+                        }
+                    }
+                </select>
+            </div>
+            <!-- Estado -->
+            <div class="w-44">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Estado</label>
+                <select name="Estado"
+                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="">Cualquier estado</option>
+                    <option value="@EstadoOrdenCompra.Borrador" selected="@(Model.Estado == EstadoOrdenCompra.Borrador)">Borrador</option>
+                    <option value="@EstadoOrdenCompra.Enviada" selected="@(Model.Estado == EstadoOrdenCompra.Enviada)">Enviada</option>
+                    <option value="@EstadoOrdenCompra.Confirmada" selected="@(Model.Estado == EstadoOrdenCompra.Confirmada)">Confirmada</option>
+                    <option value="@EstadoOrdenCompra.EnTransito" selected="@(Model.Estado == EstadoOrdenCompra.EnTransito)">En tránsito</option>
+                    <option value="@EstadoOrdenCompra.Recibida" selected="@(Model.Estado == EstadoOrdenCompra.Recibida)">Recibida</option>
+                    <option value="@EstadoOrdenCompra.Cancelada" selected="@(Model.Estado == EstadoOrdenCompra.Cancelada)">Cancelada</option>
+                </select>
+            </div>
+            <!-- Ordenar por -->
+            <div class="w-48">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Ordenar por</label>
+                <select name="OrderBy"
+                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="fechaemision">Fecha Emisión</option>
+                    <option value="numero">Nº Orden</option>
+                    <option value="proveedor">Proveedor</option>
+                    <option value="estado">Estado</option>
+                    <option value="total">Total</option>
+                </select>
+            </div>
+            <!-- Dirección -->
+            <div class="w-40">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Dirección</label>
+                <select name="OrderDirection"
+                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="desc" selected="@(Model.OrderDirection == "desc")">Descendente</option>
+                    <option value="asc" selected="@(Model.OrderDirection == "asc")">Ascendente</option>
+                </select>
+            </div>
+        </div>
+        <!-- Second row: dates + buttons -->
+        <div class="flex flex-wrap items-end gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div class="w-44">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Desde</label>
+                <input type="date" name="FechaDesde" value="@Model.FechaDesde?.ToString("yyyy-MM-dd")"
+                       class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white" />
+            </div>
+            <div class="w-44">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Hasta</label>
+                <input type="date" name="FechaHasta" value="@Model.FechaHasta?.ToString("yyyy-MM-dd")"
+                       class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white" />
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors">Buscar</button>
+                <a asp-action="Index"
+                   class="w-10 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors no-underline"
+                   title="Limpiar filtros">
+                    <span class="material-symbols-outlined">filter_alt_off</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Table -->
+<div class="overflow-x-auto bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800">
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Número</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Proveedor</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha Emisión</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha Entrega</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Items</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+            @if (ordenes.Any())
+            {
+                @foreach (var o in ordenes)
+                {
+                    var estadoBadge = o.Estado switch
+                    {
+                        EstadoOrdenCompra.Borrador   => ("bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300",   "Borrador"),
+                        EstadoOrdenCompra.Enviada     => ("bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",    "Enviada"),
+                        EstadoOrdenCompra.Confirmada  => ("bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400","Confirmada"),
+                        EstadoOrdenCompra.EnTransito  => ("bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400","En tránsito"),
+                        EstadoOrdenCompra.Recibida    => ("bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400","Recibida"),
+                        EstadoOrdenCompra.Cancelada   => ("bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",       "Cancelada"),
+                        _ => ("bg-slate-200 text-slate-700", o.Estado.ToString())
+                    };
+                    var esCancelada = o.Estado == EstadoOrdenCompra.Cancelada;
+                    var esRecibida = o.Estado == EstadoOrdenCompra.Recibida;
+                    var puedeRecepcionar = o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito;
+
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td class="px-6 py-4 font-bold text-primary">@o.Numero</td>
+                        <td class="px-6 py-4 font-medium">@o.ProveedorNombre</td>
+                        <td class="px-6 py-4 text-slate-500 dark:text-slate-400">@o.FechaEmision.ToString("dd MMM yyyy")</td>
+                        <td class="px-6 py-4 text-slate-500 dark:text-slate-400">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold @estadoBadge.Item1">
+                                @estadoBadge.Item2
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">@o.TotalItems</td>
+                        <td class="px-6 py-4 font-bold">$@o.Total.ToString("N2")</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <a asp-action="Details" asp-route-id="@o.Id"
+                                   class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 no-underline"
+                                   title="Ver detalle">
+                                    <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                </a>
+                                @if (!esCancelada && !esRecibida)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@o.Id"
+                                       class="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 no-underline"
+                                       title="Editar">
+                                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="p-1.5 rounded text-slate-400 opacity-50 cursor-not-allowed">
+                                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                                    </span>
+                                }
+                                @if (puedeRecepcionar)
+                                {
+                                    <a asp-action="Recepcionar" asp-route-id="@o.Id"
+                                       class="p-1.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 no-underline"
+                                       title="Recepcionar mercadería">
+                                        <span class="material-symbols-outlined text-[20px]">local_shipping</span>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="p-1.5 rounded text-slate-400 opacity-50 cursor-not-allowed"
+                                          title="Solo se puede recepcionar en estado Confirmada o En tránsito">
+                                        <span class="material-symbols-outlined text-[20px]">local_shipping</span>
+                                    </span>
+                                }
+                                <a asp-action="Delete" asp-route-id="@o.Id"
+                                   class="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 no-underline"
+                                   title="Eliminar">
+                                    <span class="material-symbols-outlined text-[20px]">delete</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <!-- Empty State -->
+    @if (!ordenes.Any())
+    {
+        <div class="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-slate-400 text-3xl">search_off</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">No se encontraron órdenes</h3>
+            <p class="text-slate-500 dark:text-slate-400 max-w-xs mt-1">No se encontraron órdenes de compra que coincidan con los filtros aplicados.</p>
+            <a asp-action="Index" class="mt-6 text-primary font-semibold hover:underline flex items-center gap-1 no-underline">
+                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                Limpiar filtros
+            </a>
+        </div>
+    }
+</div>
+
+<!-- Footer -->
+<footer class="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-100 dark:bg-slate-900/80 rounded-lg border border-slate-200 dark:border-slate-800 mt-6">
+    <div class="flex items-center gap-6">
+        <div class="flex flex-col">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Órdenes</span>
+            <span class="text-lg font-black text-slate-900 dark:text-white">@totalOrdenes.ToString("N0")</span>
+        </div>
+        <div class="w-px h-8 bg-slate-300 dark:bg-slate-700"></div>
+        <div class="flex flex-col">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Valorizado</span>
+            <span class="text-lg font-black text-primary">$@totalValorizado.ToString("N2")</span>
+        </div>
+    </div>
+    <div class="text-sm text-slate-500 dark:text-slate-400">
+        Mostrando <span class="font-semibold text-slate-900 dark:text-white">@ordenes.Count</span> órdenes
+    </div>
+</footer>
+
+@if (TempData["Error"] != null)
+{
+    <div id="toast-error" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-red-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">error</span>
+        @TempData["Error"]
+    </div>
+}
+@if (TempData["Success"] != null)
+{
+    <div id="toast-success" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-emerald-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/ordencompra-index.js"></script>
+}

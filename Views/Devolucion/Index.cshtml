@@ -1,0 +1,256 @@
+@using TheBuryProject.ViewModels
+@model TheBuryProject.ViewModels.DevolucionIndexViewModel
+@using TheBuryProject.Models.Entities
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Devoluciones y Garantías";
+    string DevState(EstadoDevolucion e) => e switch
+    {
+        EstadoDevolucion.Pendiente => "bg-[#2f3542] text-[#c3c5d8]",
+        EstadoDevolucion.EnRevision => "bg-[#1e3a8a]/30 text-[#b4c5ff]",
+        EstadoDevolucion.Aprobada => "bg-[#2f4380]/35 text-[#dbe1ff]",
+        EstadoDevolucion.Completada => "bg-[#135bec]/20 text-white",
+        EstadoDevolucion.Rechazada => "bg-[#93000a]/25 text-[#ffdad6]",
+        _ => "bg-[#242a37] text-[#c3c5d8]"
+    };
+    string ResClass(TipoResolucionDevolucion t) => t switch
+    {
+        TipoResolucionDevolucion.ReembolsoDinero => "bg-[#135bec]/15 text-[#dbe1ff]",
+        TipoResolucionDevolucion.CambioMismoProducto => "bg-[#2f4380]/35 text-[#dbe1ff]",
+        TipoResolucionDevolucion.CambioOtroProducto => "bg-[#434655] text-[#dde2f4]",
+        _ => "bg-[#b93d00]/20 text-[#ffdbcf]"
+    };
+    string GarClass(Garantia g)
+    {
+        var h = DateTime.UtcNow.Date;
+        if (g.FechaVencimiento.Date < h || g.Estado == EstadoGarantia.Vencida) return "bg-[#93000a]/25 text-[#ffdad6]";
+        if (g.Estado == EstadoGarantia.EnUso) return "bg-[#2f4380]/35 text-[#dbe1ff]";
+        if (g.FechaVencimiento.Date <= h.AddDays(30)) return "bg-[#5c1a00]/25 text-[#ffdbcf]";
+        return "bg-[#135bec]/15 text-[#dbe1ff]";
+    }
+    string Crit(Devolucion d) => d.RequiereRMA || d.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero || d.TotalDevolucion >= 1000m ? "ALTO" : d.TipoResolucion == TipoResolucionDevolucion.CambioOtroProducto || d.TotalDevolucion >= 250m ? "MED" : "BAJO";
+    string CritClass(string c) => c == "ALTO" ? "text-[#ffb4ab]" : c == "MED" ? "text-[#b4c5ff]" : "text-[#c3c5d8]";
+    var tab = Model.ActiveTab == "garantias" ? "garantias" : "devoluciones";
+    var alertas = Model.RmasPendientes + Model.ReembolsosPendientesCaja + Model.TotalGarantiasProximasVencer;
+    var motivos = Model.MotivosFrecuentes.OrderByDescending(x => x.Value).Take(4).ToList();
+    var devs = Model.DevolucionesPagina ?? new();
+    var gars = Model.GarantiasPagina ?? new();
+    var hasFilters = !string.IsNullOrWhiteSpace(Model.Search) || !string.IsNullOrWhiteSpace(Model.EstadoFilter) || !string.IsNullOrWhiteSpace(Model.ResolucionFilter) || !string.IsNullOrWhiteSpace(Model.GarantiaEstadoFilter) || !string.IsNullOrWhiteSpace(Model.GarantiaVentanaFilter);
+    var tabDevUrl = Url.Action("Index", "Devolucion", new { tab = "devoluciones", search = Model.Search });
+    var tabGarUrl = Url.Action("Index", "Devolucion", new { tab = "garantias", search = Model.Search });
+    var createUrl = Url.Action("Create", "Devolucion");
+    var rmasUrl = Url.Action("RMAs", "Devolucion");
+    var estadisticasUrl = Url.Action("Estadisticas", "Devolucion");
+    var exportUrl = Url.Action("Index", "Devolucion", new { tab, search = Model.Search, estado = Model.EstadoFilter, resolucion = Model.ResolucionFilter, garantiaEstado = Model.GarantiaEstadoFilter, garantiaVentana = Model.GarantiaVentanaFilter, exportCsv = true });
+    Func<int, string?> pageUrl = p => Url.Action("Index", "Devolucion", new { tab, search = Model.Search, estado = Model.EstadoFilter, resolucion = Model.ResolucionFilter, garantiaEstado = Model.GarantiaEstadoFilter, garantiaVentana = Model.GarantiaVentanaFilter, page = p });
+    var start = Math.Max(1, Model.CurrentPage - 1);
+    var end = Math.Min(Model.TotalPages, start + 2);
+    start = Math.Max(1, end - 2);
+}
+<style>
+    .postventa{background:radial-gradient(circle at top right,rgba(19,91,236,.12),transparent 24%),radial-gradient(circle at bottom left,rgba(47,67,128,.16),transparent 22%),#0d131f}
+    .postventa .tabular-nums{font-variant-numeric:tabular-nums}
+    .postventa ::-webkit-scrollbar{width:6px;height:6px}.postventa ::-webkit-scrollbar-track{background:#0d131f}.postventa ::-webkit-scrollbar-thumb{background:#242a37;border-radius:999px}
+</style>
+<div class="postventa relative -mx-4 min-h-[calc(100vh-4rem)] px-4 py-6 text-[#dde2f4] md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+    <div class="absolute -right-16 top-8 h-52 w-52 rounded-full bg-[#135bec]/10 blur-3xl"></div>
+    <div class="absolute -left-16 bottom-8 h-44 w-44 rounded-full bg-[#2f4380]/20 blur-3xl"></div>
+    <div class="relative space-y-6">
+        <header class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[.24em] text-[#c3c5d8]">
+                    <span class="text-[#b4c5ff]">Área: Postventa</span><span class="h-1 w-1 rounded-full bg-[#434655]"></span><span>Módulo de Control</span><span class="h-1 w-1 rounded-full bg-[#434655]"></span><a href="@rmasUrl" class="hover:text-white">RMA</a>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-black tracking-tight">Devoluciones y Garantías</h1>
+                    <p class="mt-1 max-w-3xl text-xs leading-relaxed text-[#c3c5d8]/85">Centro de mando analítico para retornos, RMA y vigencia de coberturas. Optimización de tiempos, alertas y recuperación de activos.</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <div class="min-w-[168px] rounded-2xl border-l-2 border-[#135bec] bg-[#1a202c] px-4 py-3"><p class="text-[9px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Monto Cerrado</p><p class="mt-1 text-lg font-black tabular-nums">@Model.MontoTotalMes.ToString("C2")</p></div>
+                <div class="min-w-[168px] rounded-2xl border-l-2 border-[#ffb4ab] bg-[#1a202c] px-4 py-3"><p class="text-[9px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Alertas Vivas</p><div class="mt-1 flex items-center gap-2"><span class="text-lg font-black tabular-nums text-[#ffb4ab]">@alertas</span><span class="text-[8px] uppercase text-[#c3c5d8]">(@Model.RmasPendientes RMA / @Model.ReembolsosPendientesCaja reemb.)</span></div></div>
+                <a href="@createUrl" class="inline-flex items-center gap-2 rounded-2xl bg-[#135bec] px-5 py-3 text-[11px] font-black uppercase tracking-[.18em] text-white shadow-lg shadow-[#135bec]/20 hover:bg-[#0f4fd0] no-underline"><span class="material-symbols-outlined text-base">add_circle</span>Nueva solicitud</a>
+            </div>
+        </header>
+
+        <div class="flex flex-wrap gap-2">
+            <a href="@Url.Action("Index", "Devolucion", new { tab = "devoluciones" })" class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-[.16em] no-underline @(tab == "devoluciones" ? "border-[#135bec]/40 bg-[#135bec]/15 text-white" : "border-[#434655]/30 bg-[#161c28] text-[#c3c5d8] hover:text-white")"><span class="material-symbols-outlined text-sm">assignment_return</span>Panel</a>
+            <a href="@rmasUrl" class="inline-flex items-center gap-2 rounded-xl border border-[#434655]/30 bg-[#161c28] px-4 py-2 text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8] hover:text-white no-underline"><span class="material-symbols-outlined text-sm">inventory_2</span>RMA</a>
+            <a href="@estadisticasUrl" class="inline-flex items-center gap-2 rounded-xl border border-[#434655]/30 bg-[#161c28] px-4 py-2 text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8] hover:text-white no-underline"><span class="material-symbols-outlined text-sm">monitoring</span>Estadísticas</a>
+        </div>
+
+        <section class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 lg:col-span-4 rounded-[24px] border border-[#434655]/20 bg-[#1a202c] p-4">
+                <div class="flex items-center justify-between border-b border-[#434655]/20 pb-3"><h2 class="text-[10px] font-black uppercase tracking-[.2em] text-[#c3c5d8]">Insight de Operación</h2><span class="material-symbols-outlined text-sm text-[#8d90a1]">analytics</span></div>
+                <div class="mt-4 grid grid-cols-3 gap-3">
+                    <div class="rounded-2xl bg-[#161c28] p-3 text-center"><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Pend. Tech</p><p class="mt-1 text-lg font-black text-[#b4c5ff] tabular-nums">@Model.EnRevision.Count</p></div>
+                    <div class="rounded-2xl bg-[#161c28] p-3 text-center"><p class="text-[9px] font-black uppercase text-[#c3c5d8]">RMA</p><p class="mt-1 text-lg font-black text-[#b4c5ff] tabular-nums">@Model.RmasPendientes</p></div>
+                    <div class="rounded-2xl bg-[#161c28] p-3 text-center"><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Vencidas</p><p class="mt-1 text-lg font-black text-[#ffb4ab] tabular-nums">@Model.TotalGarantiasVencidas</p></div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @if (motivos.Any())
+                    {
+                        @foreach (var m in motivos)
+                        {
+                            <span class="inline-flex items-center gap-2 rounded-lg border border-[#434655]/30 bg-[#242a37] px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em]">@m.Key.GetDisplayName()<span class="text-[#b4c5ff]">@m.Value</span></span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-[10px] text-[#c3c5d8]">Todavía no hay suficientes devoluciones para mostrar tendencias.</span>
+                    }
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-[24px] border-l-2 border-[#b4c5ff] bg-[#1a202c] p-4"><div class="flex items-start justify-between"><span class="material-symbols-outlined text-xl text-[#b4c5ff]">replay_circle_filled</span><span class="text-[8px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Devoluciones</span></div><div class="mt-3"><p class="text-2xl font-black tabular-nums">@Model.TotalPendientes</p><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Pendientes</p></div></div>
+                <div class="rounded-[24px] border-l-2 border-[#dbe1ff] bg-[#1a202c] p-4"><div class="flex items-start justify-between"><span class="material-symbols-outlined text-xl text-[#dbe1ff]">task_alt</span><span class="text-[8px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Aprobadas</span></div><div class="mt-3"><p class="text-2xl font-black tabular-nums">@Model.TotalAprobadas</p><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Este ciclo</p></div></div>
+                <div class="rounded-[24px] border-l-2 border-[#ffb59b] bg-[#1a202c] p-4"><div class="flex items-start justify-between"><span class="material-symbols-outlined text-xl text-[#ffb59b]">security</span><span class="text-[8px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Garantías</span></div><div class="mt-3"><p class="text-2xl font-black tabular-nums">@Model.TotalGarantiasVigentes</p><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Activas</p></div></div>
+                <div class="rounded-[24px] border-l-2 border-[#ffb4ab] bg-[#1a202c] p-4"><div class="flex items-start justify-between"><span class="material-symbols-outlined text-xl text-[#ffb4ab]">timer</span><span class="text-[8px] font-black uppercase tracking-[.18em] text-[#c3c5d8]">Alertas</span></div><div class="mt-3"><p class="text-2xl font-black tabular-nums">@Model.TotalGarantiasProximasVencer</p><p class="text-[9px] font-black uppercase text-[#c3c5d8]">Críticas</p></div></div>
+                <div class="relative overflow-hidden rounded-[24px] border border-[#135bec]/20 bg-gradient-to-r from-[#135bec]/75 to-[#2f4380]/80 p-4 md:col-span-2 xl:col-span-4">
+                    <span class="material-symbols-outlined absolute bottom-[-16px] right-[-8px] text-[96px] text-white/5">account_balance_wallet</span>
+                    <div class="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="flex flex-wrap items-center gap-5">
+                            <div><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-white">payments</span><span class="text-[9px] font-black uppercase tracking-[.18em] text-white/75">Reembolsos por caja</span></div><p class="mt-1 text-2xl font-black tabular-nums text-white">@Model.ReembolsosPendientesCaja</p></div>
+                            <div class="hidden h-8 w-px bg-white/15 lg:block"></div>
+                            <div class="space-y-1">
+                                <p class="text-sm font-black tabular-nums text-white/95">@Model.MontoReembolsosPendientesCaja.ToString("C2")</p>
+                                <p class="max-w-[220px] text-[10px] font-medium uppercase tracking-[.12em] text-white/75">Solicitudes aprobadas y pendientes de completar vía tesorería.</p>
+                            </div>
+                        </div>
+                        <a href="@exportUrl" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.16em] text-white hover:bg-white/15 no-underline">Reporte diario<span class="material-symbols-outlined text-sm">arrow_forward</span></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-[28px] border border-[#434655]/20 bg-[#1a202c] shadow-[0_30px_60px_rgba(0,0,0,.18)]">
+            <div class="border-b border-[#434655]/20 bg-[#2f3542]/45 p-2">
+                <div class="flex flex-wrap gap-2">
+                    <a href="@tabDevUrl" class="inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-xs font-black uppercase tracking-[.18em] @(tab=="devoluciones"?"bg-[#161c28] text-[#dde2f4]":"text-[#c3c5d8] hover:text-white")"><span>Devoluciones</span><span class="rounded-md bg-[#135bec] px-2 py-0.5 text-[9px] text-white">@Model.TodasDevoluciones.Count</span></a>
+                    <a href="@tabGarUrl" class="inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-xs font-black uppercase tracking-[.18em] @(tab=="garantias"?"bg-[#161c28] text-[#dde2f4]":"text-[#c3c5d8] hover:text-white")"><span>Garantías</span><span class="rounded-md bg-[#434655]/60 px-2 py-0.5 text-[9px]">@Model.TodasGarantias.Count</span></a>
+                </div>
+            </div>
+
+            <div class="border-b border-[#434655]/15 px-6 py-4">
+                <form asp-action="Index" method="get" class="space-y-4">
+                    <input type="hidden" name="tab" value="@tab" />
+                    <input type="hidden" name="page" value="1" />
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div class="relative w-full max-w-md">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-[#8d90a1]">search</span>
+                            <input type="text" name="search" value="@Model.Search" placeholder="@(tab=="devoluciones"?"Buscar ID, cliente o ticket...":"Buscar garantía, cliente o producto...")" class="w-full rounded-xl border-none bg-[#161c28] py-2.5 pl-10 pr-4 text-xs text-[#dde2f4] placeholder:text-[#8d90a1] focus:ring-1 focus:ring-[#135bec]/40" />
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <details class="relative" @(hasFilters ? "open" : null)>
+                                <summary class="list-none"><span class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#242a37] px-3 py-2 text-[10px] font-black uppercase tracking-[.16em] hover:bg-[#2f3542]"><span class="material-symbols-outlined text-base">filter_list</span>Filtros</span></summary>
+                                <div class="absolute right-0 z-20 mt-3 w-[320px] rounded-2xl border border-[#434655]/25 bg-[#161c28] p-4 shadow-2xl shadow-black/30">
+                                    <div class="grid gap-3">
+                                        @if (tab == "devoluciones")
+                                        {
+                                            <label class="space-y-1"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8]">Estado</span><select name="estado" class="w-full rounded-xl border-none bg-[#242a37] px-3 py-2 text-xs text-[#dde2f4]"><option value="" selected="@string.IsNullOrWhiteSpace(Model.EstadoFilter)">Todos</option>@foreach (var o in Enum.GetValues<EstadoDevolucion>()) { <option value="@o" selected="@(Model.EstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option> }</select></label>
+                                            <label class="space-y-1"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8]">Resolución</span><select name="resolucion" class="w-full rounded-xl border-none bg-[#242a37] px-3 py-2 text-xs text-[#dde2f4]"><option value="" selected="@string.IsNullOrWhiteSpace(Model.ResolucionFilter)">Todas</option>@foreach (var o in Enum.GetValues<TipoResolucionDevolucion>()) { <option value="@o" selected="@(Model.ResolucionFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option> }</select></label>
+                                        }
+                                        else
+                                        {
+                                            <label class="space-y-1"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8]">Estado</span><select name="garantiaEstado" class="w-full rounded-xl border-none bg-[#242a37] px-3 py-2 text-xs text-[#dde2f4]"><option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaEstadoFilter)">Todos</option>@foreach (var o in Enum.GetValues<EstadoGarantia>()) { <option value="@o" selected="@(Model.GarantiaEstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option> }</select></label>
+                                            <label class="space-y-1"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8]">Ventana</span><select name="garantiaVentana" class="w-full rounded-xl border-none bg-[#242a37] px-3 py-2 text-xs text-[#dde2f4]"><option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaVentanaFilter)">Todas</option><option value="proximas" selected="@(Model.GarantiaVentanaFilter=="proximas")">Próximas</option><option value="vencidas" selected="@(Model.GarantiaVentanaFilter=="vencidas")">Vencidas</option><option value="enuso" selected="@(Model.GarantiaVentanaFilter=="enuso")">En uso</option><option value="extendidas" selected="@(Model.GarantiaVentanaFilter=="extendidas")">Extendidas</option></select></label>
+                                        }
+                                        <div class="flex gap-2 pt-1"><button type="submit" class="flex-1 rounded-xl bg-[#135bec] px-3 py-2 text-[10px] font-black uppercase tracking-[.16em] text-white hover:bg-[#0f4fd0]">Aplicar</button><a href="@(tab=="devoluciones"?tabDevUrl:tabGarUrl)" class="inline-flex items-center justify-center rounded-xl border border-[#434655]/30 px-3 py-2 text-[10px] font-black uppercase tracking-[.16em] text-[#c3c5d8] hover:text-white no-underline">Limpiar</a></div>
+                                    </div>
+                                </div>
+                            </details>
+                            <a href="@exportUrl" class="inline-flex items-center gap-1.5 rounded-xl bg-[#242a37] px-3 py-2 text-[10px] font-black uppercase tracking-[.16em] hover:bg-[#2f3542] no-underline"><span class="material-symbols-outlined text-base">download</span>CSV</a>
+                        </div>
+                    </div>
+                    @if (tab == "devoluciones")
+                    {
+                        <div class="flex flex-wrap gap-2">
+                            <span class="rounded-lg bg-[#2f3542] px-3 py-1 text-[9px] font-black uppercase tracking-[.16em] text-[#c3c5d8]">Pendientes @Model.TotalPendientes</span>
+                            <span class="rounded-lg bg-[#1e3a8a]/30 px-3 py-1 text-[9px] font-black uppercase tracking-[.16em] text-[#b4c5ff]">En revisión @Model.EnRevision.Count</span>
+                            <span class="rounded-lg bg-[#2f4380]/35 px-3 py-1 text-[9px] font-black uppercase tracking-[.16em] text-[#dbe1ff]">Aprobadas @Model.TotalAprobadas</span>
+                            <span class="rounded-lg bg-[#135bec]/20 px-3 py-1 text-[9px] font-black uppercase tracking-[.16em] text-white">Completadas @Model.TotalCompletadas</span>
+                        </div>
+                    }
+                </form>
+            </div>
+
+            <div class="overflow-x-auto">
+                @if (tab == "devoluciones")
+                {
+                    @if (devs.Any())
+                    {
+                        <table class="min-w-full text-left">
+                            <thead><tr class="bg-[#2f3542]/35 text-[9px] font-black uppercase tracking-[.15em] text-[#c3c5d8]"><th class="px-6 py-3">ID</th><th class="px-6 py-3">Cliente</th><th class="px-6 py-3">Venta</th><th class="px-6 py-3">Motivo</th><th class="px-6 py-3">Resolución</th><th class="px-6 py-3 text-center">Imp.</th><th class="px-6 py-3 text-center">Estado</th><th class="px-6 py-3 text-right">Monto</th></tr></thead>
+                            <tbody class="divide-y divide-[#434655]/10">
+                                @foreach (var d in devs)
+                                {
+                                    var c = Crit(d);
+                                    <tr class="hover:bg-[#135bec]/6">
+                                        <td class="px-6 py-3"><a asp-action="Detalles" asp-route-id="@d.Id" class="text-xs font-black tabular-nums text-[#b4c5ff] hover:text-white no-underline">@d.NumeroDevolucion</a></td>
+                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@d.Cliente?.NombreCompleto</span><span class="text-[9px] text-[#8d90a1]">@d.Cliente?.NumeroDocumento</span></div></td>
+                                        <td class="px-6 py-3 text-[10px] font-medium">@d.Venta?.Numero</td>
+                                        <td class="px-6 py-3 text-[10px] text-[#c3c5d8]">@(string.IsNullOrWhiteSpace(d.Descripcion) ? d.Motivo.GetDisplayName() : d.Descripcion.Length > 42 ? $"{d.Descripcion[..42]}..." : d.Descripcion)</td>
+                                        <td class="px-6 py-3"><span class="inline-flex rounded-md px-2 py-1 text-[8px] font-black uppercase tracking-[.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span></td>
+                                        <td class="px-6 py-3 text-center"><span class="text-[9px] font-black uppercase @CritClass(c)">@c</span></td>
+                                        <td class="px-6 py-3 text-center"><span class="inline-flex rounded-md px-2 py-1 text-[8px] font-black uppercase tracking-[.16em] @DevState(d.Estado)">@d.Estado.GetDisplayName()</span></td>
+                                        <td class="px-6 py-3 text-right text-xs font-black tabular-nums">@d.TotalDevolucion.ToString("C2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div class="px-6 py-16 text-center"><span class="material-symbols-outlined text-5xl text-[#434655]">assignment_return</span><h3 class="mt-4 text-lg font-black">No hay devoluciones para esos filtros</h3><p class="mt-1 text-sm text-[#c3c5d8]">Ajustá la búsqueda o limpiá los filtros para ver más resultados.</p></div>
+                    }
+                }
+                else
+                {
+                    @if (gars.Any())
+                    {
+                        <table class="min-w-full text-left">
+                            <thead><tr class="bg-[#2f3542]/35 text-[9px] font-black uppercase tracking-[.15em] text-[#c3c5d8]"><th class="px-6 py-3">Garantía</th><th class="px-6 py-3">Cliente</th><th class="px-6 py-3">Producto</th><th class="px-6 py-3 text-center">Estado</th><th class="px-6 py-3">Inicio</th><th class="px-6 py-3">Vencimiento</th><th class="px-6 py-3 text-center">Cobertura</th><th class="px-6 py-3 text-right">Notas</th></tr></thead>
+                            <tbody class="divide-y divide-[#434655]/10">
+                                @foreach (var g in gars)
+                                {
+                                    <tr class="hover:bg-[#135bec]/6">
+                                        <td class="px-6 py-3 text-xs font-black tabular-nums text-[#b4c5ff]">@g.NumeroGarantia</td>
+                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@g.Cliente?.NombreCompleto</span><span class="text-[9px] text-[#8d90a1]">@g.Cliente?.NumeroDocumento</span></div></td>
+                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-[10px] font-semibold">@g.Producto?.Nombre</span><span class="text-[9px] text-[#8d90a1]">@g.Producto?.Codigo</span></div></td>
+                                        <td class="px-6 py-3 text-center"><span class="inline-flex rounded-md px-2 py-1 text-[8px] font-black uppercase tracking-[.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span></td>
+                                        <td class="px-6 py-3 text-[10px] font-medium">@g.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                        <td class="px-6 py-3 text-[10px] font-medium">@g.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                                        <td class="px-6 py-3 text-center text-[10px] font-black uppercase text-[#c3c5d8]">@g.MesesGarantia mes@(g.MesesGarantia == 1 ? string.Empty : "es")</td>
+                                        <td class="px-6 py-3 text-right text-[10px] text-[#c3c5d8]">@(g.GarantiaExtendida ? "Extendida" : "Base")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div class="px-6 py-16 text-center"><span class="material-symbols-outlined text-5xl text-[#434655]">verified_user</span><h3 class="mt-4 text-lg font-black">No hay garantías para esos filtros</h3><p class="mt-1 text-sm text-[#c3c5d8]">Probá otra búsqueda o una ventana de vencimiento distinta.</p></div>
+                    }
+                }
+            </div>
+
+            <footer class="flex flex-col gap-3 border-t border-[#434655]/15 bg-[#080e1a] px-6 py-3 text-[9px] font-black uppercase tracking-[.18em] text-[#c3c5d8] lg:flex-row lg:items-center lg:justify-between">
+                <span>Resultados: @Model.FirstItemIndex-@Model.LastItemIndex de @Model.TotalFiltered</span>
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="flex items-center gap-4">
+                        @if (Model.CurrentPage > 1) { <a href="@pageUrl(Model.CurrentPage - 1)" class="inline-flex items-center gap-1 hover:text-[#b4c5ff] no-underline"><span class="material-symbols-outlined text-xs">chevron_left</span>Ant</a> } else { <span class="inline-flex items-center gap-1 text-[#8d90a1]"><span class="material-symbols-outlined text-xs">chevron_left</span>Ant</span> }
+                        <div class="flex gap-3">
+                            @for (var p = start; p <= end; p++)
+                            {
+                                if (p == Model.CurrentPage) { <span class="border-b border-[#135bec] text-[#b4c5ff]">@p.ToString("00")</span> } else { <a href="@pageUrl(p)" class="hover:text-white no-underline">@p.ToString("00")</a> }
+                            }
+                        </div>
+                        @if (Model.CurrentPage < Model.TotalPages) { <a href="@pageUrl(Model.CurrentPage + 1)" class="inline-flex items-center gap-1 hover:text-[#b4c5ff] no-underline">Sig<span class="material-symbols-outlined text-xs">chevron_right</span></a> } else { <span class="inline-flex items-center gap-1 text-[#8d90a1]">Sig<span class="material-symbols-outlined text-xs">chevron_right</span></span> }
+                    </div>
+                }
+            </footer>
+        </section>
+    </div>
+</div>

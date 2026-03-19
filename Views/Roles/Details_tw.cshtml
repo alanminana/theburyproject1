@@ -1,0 +1,290 @@
+@model TheBuryProject.ViewModels.RolDetalleViewModel
+@{
+    ViewData["Title"] = $"Rol: {Model.Nombre}";
+
+    // Group permissions by module
+    var modulosAgrupados = Model.Permisos
+        .GroupBy(p => p.ModuloNombre)
+        .OrderBy(g => g.Key)
+        .ToList();
+
+    var cantidadUsuarios = Model.Usuarios.Count;
+    var cantidadActivos = Model.Usuarios.Count(u => u.Activo);
+
+    // Module icon mapping
+    var iconosModulo = new Dictionary<string, (string icono, string color)>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ventas"] = ("shopping_cart", "text-blue-400"),
+        ["venta"] = ("shopping_cart", "text-blue-400"),
+        ["inventario"] = ("inventory", "text-orange-400"),
+        ["productos"] = ("inventory_2", "text-orange-400"),
+        ["seguridad"] = ("lock", "text-red-400"),
+        ["roles"] = ("shield_person", "text-red-400"),
+        ["usuarios"] = ("group", "text-red-400"),
+        ["clientes"] = ("group", "text-teal-400"),
+        ["cliente"] = ("group", "text-teal-400"),
+        ["credito"] = ("credit_card", "text-purple-400"),
+        ["caja"] = ("point_of_sale", "text-emerald-400"),
+        ["reportes"] = ("analytics", "text-indigo-400"),
+        ["configuracion"] = ("settings", "text-slate-400"),
+        ["dashboard"] = ("dashboard", "text-cyan-400"),
+        ["catalogo"] = ("category", "text-amber-400"),
+        ["proveedor"] = ("local_shipping", "text-lime-400"),
+        ["mora"] = ("warning", "text-yellow-400"),
+    };
+
+    (string icono, string color) GetModuloIcono(string moduloNombre)
+    {
+        var key = moduloNombre.ToLowerInvariant();
+        foreach (var kvp in iconosModulo)
+        {
+            if (key.Contains(kvp.Key))
+                return kvp.Value;
+        }
+        return ("extension", "text-slate-400");
+    }
+}
+
+<div class="max-w-7xl mx-auto space-y-8">
+
+    <!-- TempData Alerts -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">check_circle</span>
+            </div>
+            <div>
+                <p class="text-emerald-500 text-sm font-bold">Operación exitosa</p>
+                <p class="text-emerald-500/80 text-xs font-medium">@TempData["Success"]</p>
+            </div>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
+            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
+                <span class="material-symbols-outlined">error</span>
+            </div>
+            <div>
+                <p class="text-rose-500 text-sm font-bold">Error</p>
+                <p class="text-rose-500/80 text-xs font-medium">@TempData["Error"]</p>
+            </div>
+        </div>
+    }
+
+    <!-- Header Actions -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Detalle de Rol: @Model.Nombre</h2>
+            <p class="text-slate-500 dark:text-slate-400">Gestión centralizada de privilegios y miembros asignados.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a asp-action="Index"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900/50 text-slate-600 dark:text-slate-300 font-semibold rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                <span class="material-symbols-outlined text-xl">arrow_back</span>
+                Volver
+            </a>
+            <a asp-action="AsignarPermisos" asp-route-id="@Model.Id"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900/50 text-slate-700 dark:text-slate-100 font-semibold rounded-lg border border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-all">
+                <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
+                Administrar Permisos
+            </a>
+            <a asp-action="Edit" asp-route-id="@Model.Id"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                <span class="material-symbols-outlined text-xl">edit</span>
+                Editar Rol
+            </a>
+        </div>
+    </div>
+
+    <!-- Role Info Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- General Info -->
+        <div class="col-span-1 md:col-span-2 bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">info</span>
+                    Información General
+                </h3>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-500 border border-green-500/20">
+                    <span class="size-2 bg-green-500 rounded-full mr-2"></span>
+                    Activo
+                </span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-xs text-slate-500 uppercase tracking-wider font-bold">Nombre del Rol</p>
+                    <p class="text-slate-900 dark:text-white font-medium mt-1">@Model.Nombre</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 uppercase tracking-wider font-bold">Usuarios Asignados</p>
+                    <p class="text-slate-900 dark:text-white font-medium mt-1">@cantidadUsuarios @(cantidadUsuarios == 1 ? "Usuario" : "Usuarios")</p>
+                </div>
+                <div class="sm:col-span-2">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider font-bold">Permisos Activos</p>
+                    <p class="text-slate-600 dark:text-slate-300 mt-1">
+                        @if (Model.Permisos.Any())
+                        {
+                            @($"{Model.Permisos.Count} permisos en {modulosAgrupados.Count} módulos")
+                        }
+                        else
+                        {
+                            <span class="italic text-slate-400">Sin permisos asignados</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Count Card -->
+        <div class="bg-primary/10 border border-primary/20 p-6 rounded-xl flex flex-col justify-center items-center text-center space-y-3">
+            <div class="bg-primary/20 p-4 rounded-full">
+                <span class="material-symbols-outlined text-primary text-4xl">group</span>
+            </div>
+            <div>
+                <p class="text-3xl font-black text-slate-900 dark:text-white">@cantidadUsuarios</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">@(cantidadUsuarios == 1 ? "Miembro del Equipo" : "Miembros del Equipo")</p>
+            </div>
+            @if (cantidadActivos < cantidadUsuarios)
+            {
+                <p class="text-xs text-slate-400">@cantidadActivos activos · @(cantidadUsuarios - cantidadActivos) inactivos</p>
+            }
+        </div>
+    </div>
+
+    <!-- Permissions Section -->
+    <div class="space-y-4">
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">verified_user</span>
+            Resumen de Permisos Activos
+        </h3>
+
+        @if (modulosAgrupados.Any())
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                @foreach (var modulo in modulosAgrupados)
+                {
+                    var (icono, color) = GetModuloIcono(modulo.Key);
+                    <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 hover:border-primary/40 transition-colors">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="material-symbols-outlined @color">@icono</span>
+                            <h4 class="font-bold text-slate-900 dark:text-white">@modulo.Key</h4>
+                        </div>
+                        <ul class="space-y-2">
+                            @foreach (var permiso in modulo.OrderBy(p => p.AccionNombre))
+                            {
+                                <li class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                    <span class="material-symbols-outlined text-xs text-green-500">check_circle</span>
+                                    @permiso.AccionNombre
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
+                <div class="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
+                    <span class="material-symbols-outlined text-2xl text-slate-400">shield</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sin permisos asignados</p>
+                <p class="text-xs text-slate-500 mt-1">
+                    Este rol aún no tiene permisos.
+                    <a asp-action="AsignarPermisos" asp-route-id="@Model.Id" class="text-primary hover:underline">Asignar permisos</a>
+                </p>
+            </div>
+        }
+    </div>
+
+    <!-- Users Table Section -->
+    <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+        <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white">Usuarios con este Rol</h3>
+            <span class="text-sm text-slate-500 dark:text-slate-400">Mostrando @cantidadUsuarios @(cantidadUsuarios == 1 ? "usuario" : "usuarios")</span>
+        </div>
+
+        @if (Model.Usuarios.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-slate-50/50 dark:bg-slate-900/30">
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Usuario</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Último Acceso</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        @foreach (var user in Model.Usuarios.OrderByDescending(u => u.Activo).ThenBy(u => u.NombreCompleto))
+                        {
+                            var displayName = !string.IsNullOrWhiteSpace(user.NombreCompleto) ? user.NombreCompleto : user.UserName;
+                            var initials = displayName.Length >= 2
+                                ? displayName.Substring(0, 2).ToUpper()
+                                : displayName.Substring(0, 1).ToUpper();
+                            <tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                                            <span class="text-primary text-sm font-bold">@initials</span>
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="text-sm font-semibold text-slate-900 dark:text-white truncate">@displayName</span>
+                                            <span class="text-xs text-slate-500 truncate">@user.Email</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
+                                    @if (user.UltimoAcceso.HasValue)
+                                    {
+                                        @user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")
+                                    }
+                                    else
+                                    {
+                                        <span class="italic text-slate-400">Nunca</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if (user.Activo)
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-500">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-400">Inactivo</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <a asp-controller="Usuarios" asp-action="Details" asp-route-id="@user.Id"
+                                       class="p-1.5 hover:bg-primary/10 rounded-lg text-slate-400 hover:text-primary transition-colors inline-flex"
+                                       title="Ver perfil">
+                                        <span class="material-symbols-outlined">visibility</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="p-12 text-center">
+                <div class="inline-flex items-center justify-center size-14 rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
+                    <span class="material-symbols-outlined text-2xl text-slate-400">person_off</span>
+                </div>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sin usuarios</p>
+                <p class="text-xs text-slate-500 mt-1">No hay usuarios asignados a este rol.</p>
+            </div>
+        }
+
+        <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-white/5">
+            <p class="text-xs text-slate-500">
+                @cantidadActivos activos · @(cantidadUsuarios - cantidadActivos) inactivos de @cantidadUsuarios total
+            </p>
+        </div>
+    </div>
+</div>

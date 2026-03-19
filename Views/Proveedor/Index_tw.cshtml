@@ -1,0 +1,785 @@
+@model ProveedorFilterViewModel
+@using TheBuryProject.Helpers
+@{
+    ViewData["Title"] = "Gestión de Proveedores";
+    var proveedores = Model.Proveedores.ToList();
+    var total = Model.TotalResultados;
+}
+
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+    <div class="flex flex-col gap-2 max-w-2xl">
+        <h1 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Gestión de Proveedores</h1>
+        <p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
+            Administra la relación con tus proveedores, productos asociados y condiciones comerciales de forma centralizada.
+        </p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a asp-controller="OrdenCompra" asp-action="Index"
+           class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-colors no-underline">
+            <span class="material-symbols-outlined text-[20px]">visibility</span>
+            Ver Órdenes
+        </a>
+        <button type="button" onclick="ProveedorCrearModal.open()"
+                class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors shadow-lg shadow-primary/20">
+            <span class="material-symbols-outlined text-[20px]">add</span>
+            Nuevo Proveedor
+        </button>
+    </div>
+</header>
+
+<!-- Filters Section -->
+<form asp-action="Index" method="get" id="form-filtros">
+    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mb-6">
+        <div class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[300px]">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Búsqueda rápida</label>
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                    <input type="text" name="searchTerm" value="@Model.SearchTerm"
+                           class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white"
+                           placeholder="Nombre, CUIT o Razón Social" />
+                </div>
+            </div>
+            <div class="w-48">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Ordenar por</label>
+                <select name="orderBy" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="razonsocial" selected="@(Model.OrderBy == "razonsocial" || string.IsNullOrEmpty(Model.OrderBy))">Razón Social</option>
+                    <option value="cuit" selected="@(Model.OrderBy == "cuit")">CUIT</option>
+                    <option value="email" selected="@(Model.OrderBy == "email")">Email</option>
+                    <option value="telefono" selected="@(Model.OrderBy == "telefono")">Teléfono</option>
+                </select>
+            </div>
+            <div class="w-40">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Dirección</label>
+                <select name="orderDirection" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                    <option value="asc" selected="@(Model.OrderDirection == "asc" || string.IsNullOrEmpty(Model.OrderDirection))">Ascendente</option>
+                    <option value="desc" selected="@(Model.OrderDirection == "desc")">Descendente</option>
+                </select>
+            </div>
+            <div class="flex items-center h-10 mb-0.5 px-2">
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="soloActivos" value="true" @(Model.SoloActivos ? "checked" : "")
+                           class="form-checkbox rounded text-primary border-slate-300 dark:border-slate-700 bg-transparent focus:ring-primary" />
+                    <span class="ml-2 text-sm font-medium text-slate-600 dark:text-slate-300">Solo activos</span>
+                </label>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors">Buscar</button>
+                <a asp-action="Index"
+                   class="w-10 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors no-underline"
+                   title="Limpiar filtros">
+                    <span class="material-symbols-outlined">filter_alt_off</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Table Container -->
+<div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">CUIT</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Razón Social</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Productos</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contacto</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
+                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                @if (proveedores.Any())
+                {
+                    @foreach (var p in proveedores)
+                    {
+                        var cuitFormatted = p.Cuit.Length == 11
+                            ? $"{p.Cuit[..2]}-{p.Cuit[2..10]}-{p.Cuit[10]}"
+                            : p.Cuit;
+
+                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">@cuitFormatted</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col">
+                                    <span class="font-semibold text-slate-900 dark:text-white">@p.RazonSocial</span>
+                                    @if (!string.IsNullOrEmpty(p.NombreFantasia))
+                                    {
+                                        <span class="text-xs text-slate-500 dark:text-slate-400 italic">Nombre fantasía: @p.NombreFantasia</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (p.CategoriasAsociadas.Any())
+                                {
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @foreach (var cat in p.CategoriasAsociadas)
+                                        {
+                                            <span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase border border-primary/20">@cat</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-slate-400 italic">Sin productos vinculados</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col gap-0.5 text-sm">
+                                    @if (!string.IsNullOrEmpty(p.Email))
+                                    {
+                                        <a href="mailto:@p.Email" class="text-primary hover:underline flex items-center gap-1 no-underline">
+                                            <span class="material-symbols-outlined text-[14px]">mail</span>
+                                            @p.Email
+                                        </a>
+                                    }
+                                    @if (!string.IsNullOrEmpty(p.Telefono))
+                                    {
+                                        <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[14px]">phone</span>
+                                            @p.Telefono
+                                        </span>
+                                    }
+                                    @if (string.IsNullOrEmpty(p.Email) && string.IsNullOrEmpty(p.Telefono))
+                                    {
+                                        <span class="text-xs text-slate-400 italic">Sin contacto</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (p.Activo)
+                                {
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Activo
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        Inactivo
+                                    </span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <a asp-action="Details" asp-route-id="@p.Id"
+                                       class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline" title="Ver detalle">
+                                        <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                    </a>
+                                    <button type="button" onclick="ProveedorEditarModal.open(@p.Id)"
+                                            class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="Editar">
+                                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                                    </button>
+                                    <a asp-action="Delete" asp-route-id="@p.Id"
+                                       class="p-1.5 text-slate-400 hover:text-red-500 transition-colors no-underline" title="Eliminar">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Empty State -->
+    @if (!proveedores.Any())
+    {
+        <div class="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-slate-400 text-3xl">search_off</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">No se encontraron resultados</h3>
+            <p class="text-slate-500 dark:text-slate-400 max-w-xs mt-1">No se encontraron proveedores que coincidan con la búsqueda actual.</p>
+            <a asp-action="Index" class="mt-6 text-primary font-semibold hover:underline flex items-center gap-1 no-underline">
+                <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
+                Limpiar filtros
+            </a>
+        </div>
+    }
+
+    <!-- Pagination Info -->
+    @if (proveedores.Any())
+    {
+        <div class="px-6 py-4 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/20">
+            <div class="text-sm text-slate-500 dark:text-slate-400">
+                Mostrando <span class="font-semibold text-slate-900 dark:text-white">@proveedores.Count</span> de
+                <span class="font-semibold text-slate-900 dark:text-white">@total</span> proveedores
+            </div>
+        </div>
+    }
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Nuevo Proveedor
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-crear-proveedor" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="ProveedorCrearModal.close()"></div>
+
+    <!-- Panel -->
+    <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-8 py-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#161d2c]/50 backdrop-blur-sm">
+            <div>
+                <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    <span>Proveedores</span>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <span class="text-slate-900 dark:text-slate-100">Nuevo</span>
+                </nav>
+                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Nuevo Proveedor</h2>
+            </div>
+            <div class="flex gap-3">
+                <button type="button" onclick="ProveedorCrearModal.close()"
+                        class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" onclick="ProveedorCrearModal.submit()"
+                        class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                    Guardar Proveedor
+                </button>
+            </div>
+        </header>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto px-8 py-8">
+            <form id="form-crear-proveedor" novalidate>
+                @Html.AntiForgeryToken()
+                <div class="max-w-7xl mx-auto grid grid-cols-12 gap-8">
+                    <!-- Form Container -->
+                    <div class="col-span-12 lg:col-span-8 space-y-8">
+
+                        <!-- Validation Summary -->
+                        <section id="proveedor-validation-summary" class="hidden p-6 rounded-xl border-2 border-dashed border-red-400/30 bg-red-50 dark:bg-red-900/10">
+                            <div class="flex items-start gap-4">
+                                <div class="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500">
+                                    <span class="material-symbols-outlined">error</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Errores de Validación</h3>
+                                    <ul id="proveedor-error-list" class="text-sm text-red-600 dark:text-red-400 list-disc pl-4 space-y-1"></ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 1. Datos Fiscales -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">1</span>
+                                <h3 class="text-xl font-bold">Datos Fiscales</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">CUIT <span class="text-red-500">*</span></label>
+                                    <input type="text" name="Cuit" maxlength="11"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: 30714421092" />
+                                    <p class="text-[11px] text-slate-500 italic">11 dígitos sin guiones</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Razón Social <span class="text-red-500">*</span></label>
+                                    <input type="text" name="RazonSocial" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: Empresa S.A." />
+                                </div>
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Nombre Fantasía</label>
+                                    <input type="text" name="NombreFantasia" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Nombre comercial" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 2. Datos de Contacto -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">2</span>
+                                <h3 class="text-xl font-bold">Datos de Contacto</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Email Corporativo</label>
+                                    <input type="email" name="Email" maxlength="100"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="contacto@empresa.com" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Teléfono</label>
+                                    <input type="tel" name="Telefono" maxlength="50"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="+54 11 0000-0000" />
+                                </div>
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Contacto Principal (Nombre Completo)</label>
+                                    <input type="text" name="Contacto" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: Juan Pérez" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 3. Cobertura de Catálogo -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">3</span>
+                                <h3 class="text-xl font-bold">Cobertura de Catálogo</h3>
+                            </div>
+                            <div class="space-y-6 p-6 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Categorías</label>
+                                        <select name="CategoriasSeleccionadas" multiple
+                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                            @foreach (var cat in Model.CategoriasDisponibles)
+                                            {
+                                                <option value="@cat.Value">@cat.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Marcas Representadas</label>
+                                        <select name="MarcasSeleccionadas" multiple
+                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                            @foreach (var m in Model.MarcasDisponibles)
+                                            {
+                                                <option value="@m.Value">@m.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Selección de Productos Específicos</label>
+                                        <div class="relative w-64">
+                                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                                            <input type="text" id="proveedor-producto-search"
+                                                   class="w-full pl-9 pr-4 py-1.5 text-sm rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-primary"
+                                                   placeholder="Filtrar productos..." />
+                                        </div>
+                                    </div>
+                                    <div id="proveedor-productos-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                                        @foreach (var prod in Model.ProductosDisponibles)
+                                        {
+                                            <label class="proveedor-producto-item flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-primary/50 transition-colors" data-nombre="@prod.Text.ToLower()">
+                                                <input type="checkbox" name="ProductosSeleccionados" value="@prod.Value"
+                                                       class="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700" />
+                                                <span class="text-xs font-medium">@prod.Text</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 4. Dirección -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">4</span>
+                                <h3 class="text-xl font-bold">Dirección</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Calle y Número</label>
+                                    <input type="text" name="Direccion" maxlength="300"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="Av. Siempre Viva 123" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ciudad</label>
+                                    <input type="text" name="Ciudad" maxlength="100"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="CABA" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Provincia</label>
+                                    <select name="Provincia" class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none">
+                                        <option value="">— Seleccionar —</option>
+                                        @foreach (var prov in DropdownConstants.Provincias)
+                                        {
+                                            <option value="@prov">@prov</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Código Postal</label>
+                                    <input type="text" name="CodigoPostal" maxlength="10"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="1425" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 5. Información Adicional -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">5</span>
+                                <h3 class="text-xl font-bold">Información Adicional</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Aclaraciones / Observaciones</label>
+                                    <textarea name="Aclaraciones" maxlength="2000" rows="4"
+                                              class="w-full px-4 py-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none resize-none"
+                                              placeholder="Notas adicionales sobre el proveedor..."></textarea>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="Activo" value="true" checked class="sr-only peer" />
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        <span class="ms-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Proveedor Activo</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Side Panel Guide -->
+                    <aside class="col-span-12 lg:col-span-4 space-y-6">
+                        <div class="sticky top-0 space-y-6">
+                            <div class="p-8 rounded-2xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                                <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-3xl"></div>
+                                <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center gap-3 mb-6">
+                                        <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                                        <h4 class="text-xl font-bold">Guía de carga</h4>
+                                    </div>
+                                    <ul class="space-y-6">
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">1</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Verificación de CUIT</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Asegúrese de que el CUIT sea válido ante la AFIP para evitar rechazos en facturación.</p>
+                                            </div>
+                                        </li>
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">2</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Categorización</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Seleccionar correctamente las categorías permitirá que el proveedor aparezca en las búsquedas del catálogo.</p>
+                                            </div>
+                                        </li>
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">3</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Contacto Principal</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Este será el destinatario predeterminado para el envío automático de órdenes de compra.</p>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Editar Proveedor
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-editar-proveedor" class="fixed inset-0 z-50 hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="ProveedorEditarModal.close()"></div>
+
+    <!-- Panel -->
+    <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-8 py-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#161d2c]/50 backdrop-blur-sm">
+            <div>
+                <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    <span>Proveedores</span>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <span class="text-slate-900 dark:text-slate-100">Editar</span>
+                </nav>
+                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Editar Proveedor</h2>
+            </div>
+            <div class="flex gap-3">
+                <button type="button" onclick="ProveedorEditarModal.close()"
+                        class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" onclick="ProveedorEditarModal.submit()"
+                        class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+                    Guardar Cambios
+                </button>
+            </div>
+        </header>
+
+        <!-- Loading overlay -->
+        <div id="edit-loading-overlay" class="hidden absolute inset-0 z-10 bg-white/60 dark:bg-slate-900/60 flex items-center justify-center">
+            <div class="flex flex-col items-center gap-3">
+                <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">Cargando datos...</span>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto px-8 py-8">
+            <form id="form-editar-proveedor" novalidate>
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" />
+                <input type="hidden" name="RowVersion" />
+                <div class="max-w-7xl mx-auto grid grid-cols-12 gap-8">
+                    <!-- Form Container -->
+                    <div class="col-span-12 lg:col-span-8 space-y-8">
+
+                        <!-- Validation Summary -->
+                        <section id="edit-validation-summary" class="hidden p-6 rounded-xl border-2 border-dashed border-red-400/30 bg-red-50 dark:bg-red-900/10">
+                            <div class="flex items-start gap-4">
+                                <div class="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500">
+                                    <span class="material-symbols-outlined">error</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Errores de Validación</h3>
+                                    <ul id="edit-error-list" class="text-sm text-red-600 dark:text-red-400 list-disc pl-4 space-y-1"></ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 1. Datos Fiscales -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">1</span>
+                                <h3 class="text-xl font-bold">Datos Fiscales</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">CUIT <span class="text-red-500">*</span></label>
+                                    <input type="text" name="Cuit" maxlength="11"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: 30714421092" />
+                                    <p class="text-[11px] text-slate-500 italic">11 dígitos sin guiones</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Razón Social <span class="text-red-500">*</span></label>
+                                    <input type="text" name="RazonSocial" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: Empresa S.A." />
+                                </div>
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Nombre Fantasía</label>
+                                    <input type="text" name="NombreFantasia" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Nombre comercial" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 2. Datos de Contacto -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">2</span>
+                                <h3 class="text-xl font-bold">Datos de Contacto</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Email Corporativo</label>
+                                    <input type="email" name="Email" maxlength="100"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="contacto@empresa.com" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Teléfono</label>
+                                    <input type="tel" name="Telefono" maxlength="50"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="+54 11 0000-0000" />
+                                </div>
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Contacto Principal (Nombre Completo)</label>
+                                    <input type="text" name="Contacto" maxlength="200"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           placeholder="Ej: Juan Pérez" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 3. Cobertura de Catálogo -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">3</span>
+                                <h3 class="text-xl font-bold">Cobertura de Catálogo</h3>
+                            </div>
+                            <div class="space-y-6 p-6 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Categorías</label>
+                                        <select name="CategoriasSeleccionadas" multiple
+                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                            @foreach (var cat in Model.CategoriasDisponibles)
+                                            {
+                                                <option value="@cat.Value">@cat.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Marcas Representadas</label>
+                                        <select name="MarcasSeleccionadas" multiple
+                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                            @foreach (var m in Model.MarcasDisponibles)
+                                            {
+                                                <option value="@m.Value">@m.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Selección de Productos Específicos</label>
+                                        <div class="relative w-64">
+                                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                                            <input type="text" id="edit-producto-search"
+                                                   class="w-full pl-9 pr-4 py-1.5 text-sm rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-primary"
+                                                   placeholder="Filtrar productos..." />
+                                        </div>
+                                    </div>
+                                    <div id="edit-productos-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                                        @foreach (var prod in Model.ProductosDisponibles)
+                                        {
+                                            <label class="edit-producto-item flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-primary/50 transition-colors" data-nombre="@prod.Text.ToLower()">
+                                                <input type="checkbox" name="ProductosSeleccionados" value="@prod.Value"
+                                                       class="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700" />
+                                                <span class="text-xs font-medium">@prod.Text</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 4. Dirección -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">4</span>
+                                <h3 class="text-xl font-bold">Dirección</h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div class="md:col-span-2 space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Calle y Número</label>
+                                    <input type="text" name="Direccion" maxlength="300"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="Av. Siempre Viva 123" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ciudad</label>
+                                    <input type="text" name="Ciudad" maxlength="100"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="CABA" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Provincia</label>
+                                    <select name="Provincia" class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none">
+                                        <option value="">— Seleccionar —</option>
+                                        @foreach (var prov in DropdownConstants.Provincias)
+                                        {
+                                            <option value="@prov">@prov</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Código Postal</label>
+                                    <input type="text" name="CodigoPostal" maxlength="10"
+                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           placeholder="1425" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 5. Información Adicional -->
+                        <section class="space-y-6">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">5</span>
+                                <h3 class="text-xl font-bold">Información Adicional</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Aclaraciones / Observaciones</label>
+                                    <textarea name="Aclaraciones" maxlength="2000" rows="4"
+                                              class="w-full px-4 py-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none resize-none"
+                                              placeholder="Notas adicionales sobre el proveedor..."></textarea>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="Activo" value="true" class="sr-only peer" />
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        <span class="ms-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Proveedor Activo</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Side Panel Guide -->
+                    <aside class="col-span-12 lg:col-span-4 space-y-6">
+                        <div class="sticky top-0 space-y-6">
+                            <div class="p-8 rounded-2xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                                <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-3xl"></div>
+                                <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+                                <div class="relative z-10">
+                                    <div class="flex items-center gap-3 mb-6">
+                                        <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                                        <h4 class="text-xl font-bold">Guía de edición</h4>
+                                    </div>
+                                    <ul class="space-y-6">
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">1</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Verificación de CUIT</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Asegúrese de que el CUIT sea válido ante la AFIP para evitar rechazos en facturación.</p>
+                                            </div>
+                                        </li>
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">2</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Categorización</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Seleccionar correctamente las categorías permitirá que el proveedor aparezca en las búsquedas del catálogo.</p>
+                                            </div>
+                                        </li>
+                                        <li class="flex gap-4">
+                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/50 flex items-center justify-center text-[10px] font-bold text-primary">3</div>
+                                            <div>
+                                                <p class="text-sm font-bold mb-1">Concurrencia</p>
+                                                <p class="text-xs text-slate-400 leading-relaxed">Si otro usuario editó este proveedor mientras lo tenías abierto, se te notificará al guardar.</p>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div id="toast-error" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-red-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">error</span>
+        @TempData["Error"]
+    </div>
+}
+@if (TempData["Success"] != null)
+{
+    <div id="toast-success" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-emerald-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/proveedor-index.js"></script>
+    <script src="~/js/proveedor-crear-modal.js"></script>
+    <script src="~/js/proveedor-editar-modal.js"></script>
+}
+}

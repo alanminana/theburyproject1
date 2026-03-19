@@ -1,0 +1,280 @@
+@model TheBuryProject.ViewModels.HistorialCierresViewModel
+@{
+    ViewData["Title"] = "Historial de Cierres";
+    var cierres = Model.Cierres ?? new List<TheBuryProject.Models.Entities.CierreCaja>();
+    var cajas = ViewBag.Cajas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var fechaDesde = ViewBag.FechaDesde as DateTime?;
+    var fechaHasta = ViewBag.FechaHasta as DateTime?;
+
+    var cierresExactos = Model.TotalCierres - Model.CierresConDiferencia;
+    var cierresSobrante = cierres.Count(c => c.Diferencia > 0);
+    var cierresFaltante = cierres.Count(c => c.Diferencia < 0);
+
+    var topSobrantes = cierres.Where(c => c.Diferencia > 0).OrderByDescending(c => c.Diferencia).Take(5).ToList();
+    var topFaltantes = cierres.Where(c => c.Diferencia < 0).OrderBy(c => c.Diferencia).Take(5).ToList();
+}
+
+<div class="flex-1 px-6 py-8 lg:px-10 max-w-[1400px] mx-auto w-full">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-slate-100">Historial de cierres</h1>
+            <p class="text-slate-500 dark:text-slate-400 mt-1">Consulta y analiza los registros de auditoría y cierres de caja históricos.</p>
+        </div>
+        <a asp-action="Index"
+           class="flex items-center gap-2 rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-all no-underline text-slate-700 dark:text-slate-200">
+            <span class="material-symbols-outlined text-lg">arrow_back</span>
+            Volver a cajas
+        </a>
+    </div>
+
+    <!-- TempData -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl mb-4">
+            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg"><span class="material-symbols-outlined">check_circle</span></div>
+            <p class="text-emerald-500 text-sm font-bold">@TempData["Success"]</p>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl mb-4">
+            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg"><span class="material-symbols-outlined">error</span></div>
+            <p class="text-rose-500 text-sm font-bold">@TempData["Error"]</p>
+        </div>
+    }
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Cierres</p>
+            <div class="flex items-baseline gap-2 mt-2">
+                <span class="text-2xl font-bold">@Model.TotalCierres</span>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cierres Exactos</p>
+            <div class="flex items-baseline gap-2 mt-2">
+                <span class="text-2xl font-bold">@cierresExactos</span>
+                <span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">% Exactitud</p>
+            <div class="flex items-baseline gap-2 mt-2">
+                <span class="text-2xl font-bold">@Model.PorcentajeCierresExactos.ToString("F0")%</span>
+                <div class="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div class="bg-primary h-full" style="width: @Model.PorcentajeCierresExactos.ToString("F0")%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sobrantes</p>
+            <div class="flex items-baseline gap-2 mt-2">
+                <span class="text-2xl font-bold text-amber-500">@cierresSobrante</span>
+                @if (cierresSobrante > 0)
+                {
+                    <span class="text-xs text-amber-500">Alertas</span>
+                }
+            </div>
+        </div>
+        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Faltantes</p>
+            <div class="flex items-baseline gap-2 mt-2">
+                <span class="text-2xl font-bold text-red-500">@cierresFaltante</span>
+                @if (cierresFaltante > 0)
+                {
+                    <span class="text-xs text-red-500">Crítico</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <section class="bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-8">
+        <form asp-action="Historial" method="get" class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Seleccionar Caja</label>
+                <select name="cajaId"
+                        class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary">
+                    <option value="">Todas las cajas</option>
+                    @if (cajas != null)
+                    {
+                        @foreach (var item in cajas)
+                        {
+                            <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Fecha Desde</label>
+                <input type="date" name="fechaDesde"
+                       value="@(fechaDesde?.ToString("yyyy-MM-dd"))"
+                       class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary" />
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Fecha Hasta</label>
+                <input type="date" name="fechaHasta"
+                       value="@(fechaHasta?.ToString("yyyy-MM-dd"))"
+                       class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary" />
+            </div>
+            <button type="submit"
+                    class="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-white hover:bg-primary/90 transition-all">
+                <span class="material-symbols-outlined text-lg">filter_alt</span>
+                Filtrar
+            </button>
+            <a asp-action="Historial"
+               class="h-10 px-4 flex items-center text-slate-500 dark:text-slate-400 text-sm hover:text-primary transition-colors no-underline">
+                Limpiar
+            </a>
+        </form>
+    </section>
+
+    <!-- Table -->
+    <div class="overflow-x-auto bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 mb-8">
+        @if (cierres.Any())
+        {
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Fecha Cierre</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Caja</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Apertura/Cierre</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Esperado</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Real</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Diferencia</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    @foreach (var cierre in cierres)
+                    {
+                        var cajaNombre = cierre.AperturaCaja?.Caja?.Nombre ?? "—";
+                        var userApertura = cierre.AperturaCaja?.UsuarioApertura ?? "—";
+                        var userCierre = cierre.UsuarioCierre ?? "—";
+                        var dif = cierre.Diferencia;
+                        var esSobrante = dif > 0;
+                        var esFaltante = dif < 0;
+                        var esExacto = !cierre.TieneDiferencia;
+
+                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                            <td class="px-6 py-4">
+                                <p class="text-sm font-medium">@cierre.FechaCierre.ToString("dd MMM yyyy")</p>
+                                <p class="text-xs text-slate-500">@cierre.FechaCierre.ToString("HH:mm") PM</p>
+                            </td>
+                            <td class="px-6 py-4 text-sm">@cajaNombre</td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-xs text-slate-500">A: <span class="text-slate-900 dark:text-slate-100">@userApertura</span></span>
+                                    <span class="text-xs text-slate-500">C: <span class="text-slate-900 dark:text-slate-100">@userCierre</span></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm font-semibold">$@cierre.MontoEsperadoSistema.ToString("N2")</td>
+                            <td class="px-6 py-4 text-sm font-semibold">$@cierre.MontoTotalReal.ToString("N2")</td>
+                            <td class="px-6 py-4 text-sm @(esSobrante ? "text-amber-500 font-bold" : esFaltante ? "text-red-500 font-bold" : "")">
+                                @if (esSobrante)
+                                {
+                                    @:+$@dif.ToString("N2")
+                                }
+                                else if (esFaltante)
+                                {
+                                    @:-$@Math.Abs(dif).ToString("N2")
+                                }
+                                else
+                                {
+                                    @:$0.00
+                                }
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (esExacto)
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                                        <span class="h-1 w-1 rounded-full bg-green-500"></span> Exacto
+                                    </span>
+                                }
+                                else if (esSobrante)
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                        <span class="h-1 w-1 rounded-full bg-amber-500"></span> Sobrante
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
+                                        <span class="h-1 w-1 rounded-full bg-red-500"></span> Faltante
+                                    </span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a asp-action="DetallesCierre" asp-route-id="@cierre.Id"
+                                   class="text-primary text-xs font-bold hover:underline no-underline">
+                                    Ver detalle
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="flex flex-col items-center justify-center py-20">
+                <span class="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-700">history_toggle_off</span>
+                <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium">No se encontraron cierres en este periodo.</p>
+            </div>
+        }
+    </div>
+
+    <!-- Top Sobrantes / Faltantes -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        @if (topSobrantes.Any())
+        {
+            <div class="bg-white dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                <div class="flex items-center gap-2 mb-6">
+                    <span class="material-symbols-outlined text-amber-500">trending_up</span>
+                    <h3 class="font-bold text-slate-900 dark:text-slate-100">Top cierres con sobrante</h3>
+                </div>
+                <div class="space-y-4">
+                    @foreach (var s in topSobrantes)
+                    {
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
+                            <div>
+                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200">@s.FechaCierre.ToString("dd MMM") - @(s.AperturaCaja?.Caja?.Nombre ?? "—")</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Responsable: @s.UsuarioCierre</p>
+                            </div>
+                            <span class="text-sm font-bold text-amber-500">+$@s.Diferencia.ToString("N2")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        @if (topFaltantes.Any())
+        {
+            <div class="bg-white dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+                <div class="flex items-center gap-2 mb-6">
+                    <span class="material-symbols-outlined text-red-500">trending_down</span>
+                    <h3 class="font-bold text-slate-900 dark:text-slate-100">Top cierres con faltante</h3>
+                </div>
+                <div class="space-y-4">
+                    @foreach (var f in topFaltantes)
+                    {
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-700 border-l-4 border-red-500/50">
+                            <div>
+                                <p class="text-sm font-medium text-slate-800 dark:text-slate-200">@f.FechaCierre.ToString("dd MMM") - @(f.AperturaCaja?.Caja?.Nombre ?? "—")</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Responsable: @f.UsuarioCierre</p>
+                            </div>
+                            <span class="text-sm font-bold text-red-500">-$@Math.Abs(f.Diferencia).ToString("N2")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/caja-historial.js"></script>
+}

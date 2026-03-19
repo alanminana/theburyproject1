@@ -1,0 +1,110 @@
+@model TheBuryProject.ViewModels.EliminarUsuarioViewModel
+@{
+    ViewData["Title"] = "Eliminar Usuario";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-start gap-3">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <a href="@returnUrl"
+               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        else
+        {
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
+               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        <div>
+            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Eliminar usuario</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Esta operación realiza una baja lógica: el usuario queda inactivo, pero se conserva su historial y trazabilidad.
+            </p>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 flex items-start gap-3">
+        <span class="material-symbols-outlined text-rose-500 mt-0.5">warning</span>
+        <div>
+            <p class="text-sm font-bold text-rose-600 dark:text-rose-400">Confirmá la baja del usuario</p>
+            <p class="text-xs text-rose-500/90 dark:text-rose-300 mt-1">
+                No se elimina físicamente el registro. Se desactiva la cuenta para preservar auditoría, ventas y referencias históricas.
+            </p>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Username</p>
+                <p class="font-semibold text-slate-900 dark:text-white mt-1">@Model.UserName</p>
+            </div>
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</p>
+                <p class="font-semibold text-slate-900 dark:text-white mt-1 break-all">@Model.Email</p>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles asignados</p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    @if (Model.Roles.Any())
+                    {
+                        @foreach (var rol in Model.Roles.OrderBy(r => r))
+                        {
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                                @rol
+                            </span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-sm text-slate-500 dark:text-slate-400">Sin roles asignados</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form asp-action="Delete" method="post" class="space-y-6">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+        }
+
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-3">
+            <label for="motivo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Motivo de la baja</label>
+            <textarea id="motivo" name="motivo" rows="4"
+                      class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
+                      placeholder="Dejá una referencia para auditoría interna."></textarea>
+        </div>
+
+        <div class="flex items-center justify-between">
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <a href="@returnUrl"
+                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                    Cancelar
+                </a>
+            }
+            else
+            {
+                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
+                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                    Cancelar
+                </a>
+            }
+
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition-colors">
+                <span class="material-symbols-outlined text-sm">delete</span>
+                Confirmar baja lógica
+            </button>
+        </div>
+    </form>
+</div>

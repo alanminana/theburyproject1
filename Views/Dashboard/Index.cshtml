@@ -1,0 +1,364 @@
+﻿@model TheBuryProject.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-primary/10 rounded-lg text-primary">
+                <span class="material-symbols-outlined">payments</span>
+            </div>
+            <span class="text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded-full">+12.5%</span>
+        </div>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Ventas Totales</p>
+        <h3 class="text-2xl font-bold mt-1">@Model.VentasTotalesMes.ToString("C")</h3>
+    </div>
+    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-orange-500/10 rounded-lg text-orange-500">
+                <span class="material-symbols-outlined">pending_actions</span>
+            </div>
+            <span class="text-orange-500 text-xs font-bold bg-orange-500/10 px-2 py-1 rounded-full">@Model.CuotasVencidasTotal Pendientes</span>
+        </div>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Pedidos Activos</p>
+        <h3 class="text-2xl font-bold mt-1">@Model.CantidadVentasMes</h3>
+    </div>
+    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div class="flex justify-between items-start mb-4">
+            <div class="p-2 bg-blue-500/10 rounded-lg text-blue-500">
+                <span class="material-symbols-outlined">account_balance_wallet</span>
+            </div>
+            <span class="text-slate-500 text-xs font-bold bg-slate-500/10 px-2 py-1 rounded-full">Corte: 30 días</span>
+        </div>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Créditos Activos</p>
+        <h3 class="text-2xl font-bold mt-1">@Model.CreditosActivos</h3>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Left Main Section -->
+    <div class="lg:col-span-3 space-y-8">
+
+        <!-- Inventory Alerts -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-500">warning</span>
+                    Alertas de Inventario (Stock Bajo)
+                </h2>
+                <a asp-controller="Catalogo" asp-action="Index" class="text-primary text-sm font-semibold hover:underline no-underline">Ver todo</a>
+            </div>
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                            <th class="px-6 py-3">SKU</th>
+                            <th class="px-6 py-3">Producto</th>
+                            <th class="px-6 py-3">Stock</th>
+                            <th class="px-6 py-3">Estado</th>
+                            <th class="px-6 py-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-1022</td>
+                            <td class="px-6 py-4 text-sm font-bold">Cubierta 205/55 R16</td>
+                            <td class="px-6 py-4 text-sm font-bold text-red-500">2</td>
+                            <td class="px-6 py-4">
+                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">Stock crítico</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-5044</td>
+                            <td class="px-6 py-4 text-sm font-bold">Amortiguador Trasero</td>
+                            <td class="px-6 py-4 text-sm font-bold text-orange-500">5</td>
+                            <td class="px-6 py-4">
+                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-9012</td>
+                            <td class="px-6 py-4 text-sm font-bold">Batería Moura 12V 75Ah</td>
+                            <td class="px-6 py-4 text-sm font-bold text-orange-500">3</td>
+                            <td class="px-6 py-4">
+                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Payments Table -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">schedule</span>
+                    Seguimiento de Cuotas y Pagos
+                </h2>
+                <div class="flex gap-2">
+                    <button id="tabVencidas" onclick="showTab('vencidas')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20">Vencidas</button>
+                    <button id="tabProximas" onclick="showTab('proximas')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Próximas</button>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                            <th class="px-6 py-4">Cliente</th>
+                            <th class="px-6 py-4">Concepto</th>
+                            <th class="px-6 py-4">Vencimiento</th>
+                            <th class="px-6 py-4">Monto</th>
+                            <th class="px-6 py-4">Estado</th>
+                            <th class="px-6 py-4 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyVencidas" class="divide-y divide-slate-100 dark:divide-slate-800">
+                        @foreach (var cuota in Model.CuotasVencidasLista.Take(5))
+                        {
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                <td class="px-6 py-4">
+                                    <p class="font-bold text-sm">@cuota.ClienteNombre</p>
+                                    <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
+                                </td>
+                                <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota</td>
+                                <td class="px-6 py-4">
+                                    <span class="text-xs font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">Hace @cuota.DiasVencidos d</span>
+                                </td>
+                                <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-1.5 text-red-500">
+                                        <span class="size-1.5 bg-red-500 rounded-full"></span>
+                                        <span class="text-xs font-bold">Vencido</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <a asp-controller="Credito" asp-action="PagarCuota"
+                                       asp-route-id="@cuota.CreditoId" asp-route-cuotaId="@cuota.CuotaId"
+                                       class="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors inline-flex">
+                                        <span class="material-symbols-outlined text-xl">send_money</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tbody id="tbodyProximas" class="divide-y divide-slate-100 dark:divide-slate-800 hidden">
+                        @foreach (var cuota in Model.CuotasProximasVencer.Take(5))
+                        {
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                <td class="px-6 py-4">
+                                    <p class="font-bold text-sm">@cuota.ClienteNombre</p>
+                                    <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
+                                </td>
+                                <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota - @cuota.CreditoNumero</td>
+                                <td class="px-6 py-4">
+                                    <span class="text-xs font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">@cuota.FechaVencimiento.ToString("dd MMM")</span>
+                                </td>
+                                <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
+                                <td class="px-6 py-4">
+                                    @if (cuota.DiasParaVencer <= 1)
+                                    {
+                                        <div class="flex items-center gap-1.5 text-orange-500">
+                                            <span class="size-1.5 bg-orange-500 rounded-full"></span>
+                                            <span class="text-xs font-bold">Por Vencer</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex items-center gap-1.5 text-blue-500">
+                                            <span class="size-1.5 bg-blue-500 rounded-full"></span>
+                                            <span class="text-xs font-bold">Programado</span>
+                                        </div>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button class="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors">
+                                        <span class="material-symbols-outlined text-xl">visibility</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Right Sidebar / Widgets -->
+    <div class="space-y-8">
+
+        <!-- Quick Access -->
+        <section>
+            <h2 class="text-lg font-bold mb-4">Accesos Rápidos</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <a asp-controller="Venta" asp-action="Create"
+                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                    <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">add_shopping_cart</span>
+                    <span class="text-xs font-bold uppercase">Nueva Venta</span>
+                </a>
+                <a asp-controller="Cliente" asp-action="Create"
+                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                    <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">person_add</span>
+                    <span class="text-xs font-bold uppercase">Nuevo Cliente</span>
+                </a>
+                <a asp-controller="Reporte" asp-action="Index"
+                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                    <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">receipt_long</span>
+                    <span class="text-xs font-bold uppercase">Reporte Diario</span>
+                </a>
+                <a asp-controller="Catalogo" asp-action="Index"
+                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                    <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">box_edit</span>
+                    <span class="text-xs font-bold uppercase">Carga Stock</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Quick Notes -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold">Notas Rápidas</h2>
+                <button id="notaAddBtn" onclick="agregarNota()" class="size-6 bg-primary text-white rounded flex items-center justify-center hover:bg-primary/90 transition-colors" title="Guardar nota">
+                    <span class="material-symbols-outlined text-sm">add</span>
+                </button>
+            </div>
+            <div class="bg-primary/5 border border-primary/20 p-4 rounded-xl shadow-inner">
+                <textarea id="notaTextarea" class="w-full h-24 bg-transparent border-none resize-none focus:ring-0 text-sm italic text-slate-700 dark:text-slate-300 placeholder:text-slate-400" placeholder="Escribe un recordatorio..."></textarea>
+                <div class="flex justify-between items-center mt-2 border-t border-primary/10 pt-2">
+                    <span id="notaStatus" class="text-[10px] text-slate-500"></span>
+                    <button onclick="agregarNota()" class="size-6 bg-primary text-white rounded flex items-center justify-center hover:bg-primary/90 transition-colors" title="Guardar nota">
+                        <span class="material-symbols-outlined text-sm">save</span>
+                    </button>
+                </div>
+            </div>
+            <div id="notasLista" class="mt-3 space-y-2 max-h-48 overflow-y-auto"></div>
+        </section>
+
+        <!-- Activity Widget -->
+        <section>
+            <h2 class="text-lg font-bold mb-4">Actividad Reciente</h2>
+            <div class="space-y-4">
+                <div class="flex gap-3">
+                    <div class="size-2 mt-1.5 rounded-full bg-green-500 shrink-0"></div>
+                    <div>
+                        <p class="text-xs"><span class="font-bold">Venta registrada</span> #8821 por $12.500</p>
+                        <p class="text-[10px] text-slate-500">Hace 15 minutos</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="size-2 mt-1.5 rounded-full bg-primary shrink-0"></div>
+                    <div>
+                        <p class="text-xs"><span class="font-bold">Cliente nuevo</span> Marcos Solari registrado</p>
+                        <p class="text-[10px] text-slate-500">Hace 2 horas</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="size-2 mt-1.5 rounded-full bg-orange-500 shrink-0"></div>
+                    <div>
+                        <p class="text-xs"><span class="font-bold">Stock bajo</span> Batería Moura SKU-9012</p>
+                        <p class="text-[10px] text-slate-500">Hace 4 horas</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // ── Tabs Vencidas / Próximas ──
+    function showTab(tab) {
+        const vencidas = document.getElementById('tbodyVencidas');
+        const proximas = document.getElementById('tbodyProximas');
+        const btnV = document.getElementById('tabVencidas');
+        const btnP = document.getElementById('tabProximas');
+
+        const activeClass = 'px-3 py-1.5 text-xs font-semibold rounded-lg';
+        const inactiveStyle = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+        const vencidasActive = 'bg-red-500/10 text-red-500 border border-red-500/20';
+        const proximasActive = 'bg-blue-500/10 text-blue-500 border border-blue-500/20';
+
+        if (tab === 'vencidas') {
+            vencidas.classList.remove('hidden');
+            proximas.classList.add('hidden');
+            btnV.className = activeClass + ' ' + vencidasActive;
+            btnP.className = activeClass + ' ' + inactiveStyle;
+        } else {
+            proximas.classList.remove('hidden');
+            vencidas.classList.add('hidden');
+            btnP.className = activeClass + ' ' + proximasActive;
+            btnV.className = activeClass + ' ' + inactiveStyle;
+        }
+    }
+
+    // ── Notas Rápidas con localStorage ──
+    const NOTAS_KEY = 'dashboard_notas';
+
+    function getNotas() {
+        try { return JSON.parse(localStorage.getItem(NOTAS_KEY)) || []; }
+        catch { return []; }
+    }
+
+    function guardarNotas(notas) {
+        localStorage.setItem(NOTAS_KEY, JSON.stringify(notas));
+    }
+
+    function renderNotas() {
+        const lista = document.getElementById('notasLista');
+        const notas = getNotas();
+        if (!notas.length) { lista.innerHTML = ''; return; }
+
+        lista.innerHTML = notas.map(function(n, i) {
+            const fecha = new Date(n.fecha);
+            const fechaStr = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const textoEscapado = n.texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return '<div class="flex gap-2 items-start bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5">' +
+                '<div class="flex-1 min-w-0"><p class="text-xs break-words">' + textoEscapado + '</p>' +
+                '<p class="text-[10px] text-slate-500 mt-1">' + fechaStr + '</p></div>' +
+                '<button onclick="eliminarNota(' + i + ')" class="shrink-0 p-0.5 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors" title="Eliminar">' +
+                '<span class="material-symbols-outlined text-sm">close</span></button></div>';
+        }).join('');
+    }
+
+    function agregarNota() {
+        const textarea = document.getElementById('notaTextarea');
+        const texto = textarea.value.trim();
+        if (!texto) return;
+
+        const notas = getNotas();
+        notas.unshift({ texto: texto, fecha: new Date().toISOString() });
+        if (notas.length > 20) notas.pop();
+        guardarNotas(notas);
+
+        textarea.value = '';
+        document.getElementById('notaStatus').textContent = 'Guardada';
+        setTimeout(function() { document.getElementById('notaStatus').textContent = ''; }, 2000);
+        renderNotas();
+    }
+
+    function eliminarNota(index) {
+        const notas = getNotas();
+        notas.splice(index, 1);
+        guardarNotas(notas);
+        renderNotas();
+    }
+
+    // Init
+    renderNotas();
+    var notaCount = getNotas().length;
+    if (notaCount > 0) {
+        document.getElementById('notaStatus').textContent = notaCount + ' nota' + (notaCount > 1 ? 's' : '') + ' guardada' + (notaCount > 1 ? 's' : '');
+    }
+</script>
+}

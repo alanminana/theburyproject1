@@ -1,0 +1,254 @@
+@using TheBuryProject.Models.Enums
+@model DocumentoClienteViewModel
+@{
+    ViewData["Title"] = "Detalle de Documento";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="max-w-3xl mx-auto pb-24">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <a href="@returnUrl"
+               class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        else
+        {
+            <a asp-action="Index" asp-route-clienteId="@Model.ClienteId"
+               class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        <div class="flex-1">
+            <h1 class="text-2xl font-bold">@Model.TipoDocumentoNombre</h1>
+            <p class="text-sm text-slate-500">Documento de @(Model.ClienteNombre ?? "cliente")</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a asp-action="Descargar" asp-route-id="@Model.Id"
+               class="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm no-underline text-inherit">
+                <span class="material-symbols-outlined text-lg">download</span>
+                Descargar
+            </a>
+            <a asp-action="Upload" asp-route-clienteId="@Model.ClienteId" asp-route-replaceId="@Model.Id"
+               asp-route-returnUrl="@Url.Action("Details", new { id = Model.Id })"
+               class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors shadow-sm no-underline">
+                <span class="material-symbols-outlined text-lg">swap_horiz</span>
+                Reemplazar
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-semibold flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Info -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Información del Archivo -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+                    <h2 class="text-base font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">description</span>
+                        Información del Archivo
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre</dt>
+                            <dd class="text-sm font-medium break-all">@(Model.NombreArchivo ?? "—")</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo MIME</dt>
+                            <dd class="text-sm font-medium">@(Model.TipoMIME ?? "—")</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tamaño</dt>
+                            <dd class="text-sm font-medium">@Model.TamanoFormateado</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo Documento</dt>
+                            <dd class="text-sm font-medium">@Model.TipoDocumentoNombre</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Fechas -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+                    <h2 class="text-base font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">calendar_month</span>
+                        Fechas
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha de Subida</dt>
+                            <dd class="text-sm font-medium">@Model.FechaSubida.ToString("dd/MM/yyyy HH:mm")</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha de Vencimiento</dt>
+                            <dd class="text-sm font-medium">@(Model.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimiento")</dd>
+                        </div>
+                        @if (Model.FechaVerificacion.HasValue)
+                        {
+                            <div>
+                                <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Verificado el</dt>
+                                <dd class="text-sm font-medium">@Model.FechaVerificacion.Value.ToString("dd/MM/yyyy HH:mm")</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Verificado Por</dt>
+                                <dd class="text-sm font-medium">@(Model.VerificadoPor ?? "—")</dd>
+                            </div>
+                        }
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            @if (!string.IsNullOrWhiteSpace(Model.Observaciones) || !string.IsNullOrWhiteSpace(Model.MotivoRechazo))
+            {
+                <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">notes</span>
+                            Notas
+                        </h2>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+                        {
+                            <div>
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Observaciones</p>
+                                <p class="text-sm whitespace-pre-line">@Model.Observaciones</p>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.MotivoRechazo))
+                        {
+                            <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">Motivo de Rechazo</p>
+                                <p class="text-sm text-red-600 dark:text-red-400 whitespace-pre-line">@Model.MotivoRechazo</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Estado -->
+            @{
+                var estadoBg = Model.Estado switch
+                {
+                    EstadoDocumento.Verificado => "bg-emerald-500/10 border-emerald-500/30",
+                    EstadoDocumento.Rechazado => "bg-red-500/10 border-red-500/30",
+                    EstadoDocumento.Vencido => "bg-orange-500/10 border-orange-500/30",
+                    _ => "bg-amber-500/10 border-amber-500/30"
+                };
+                var estadoTextColor = Model.Estado switch
+                {
+                    EstadoDocumento.Verificado => "text-emerald-600 dark:text-emerald-400",
+                    EstadoDocumento.Rechazado => "text-red-600 dark:text-red-400",
+                    EstadoDocumento.Vencido => "text-orange-600 dark:text-orange-400",
+                    _ => "text-amber-600 dark:text-amber-400"
+                };
+                var estadoIcon = Model.Estado switch
+                {
+                    EstadoDocumento.Verificado => "check_circle",
+                    EstadoDocumento.Rechazado => "cancel",
+                    EstadoDocumento.Vencido => "schedule",
+                    _ => "pending"
+                };
+            }
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                <div class="flex flex-col items-center text-center gap-3">
+                    <div class="h-16 w-16 rounded-full @estadoBg border-2 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-3xl @estadoTextColor">@estadoIcon</span>
+                    </div>
+                    <div>
+                        <p class="text-lg font-bold @estadoTextColor">@Model.EstadoNombre</p>
+                        <p class="text-xs text-slate-500 mt-1">Estado del documento</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-3">
+                <h3 class="text-sm font-bold mb-3">Acciones</h3>
+
+                @if (Model.Estado == EstadoDocumento.Pendiente)
+                {
+                    <!-- Verificar -->
+                    <form asp-action="Verificar" asp-route-id="@Model.Id"
+                          asp-route-returnUrl="@Url.Action("Details", new { id = Model.Id })"
+                          method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit"
+                                class="w-full py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-lg">task_alt</span>
+                            Verificar Documento
+                        </button>
+                    </form>
+
+                    <!-- Rechazar -->
+                    <form asp-action="Rechazar" asp-route-id="@Model.Id"
+                          asp-route-returnUrl="@Url.Action("Details", new { id = Model.Id })"
+                          method="post" id="rechazarForm">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <textarea name="motivo" rows="2" placeholder="Motivo del rechazo..."
+                                      class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all text-slate-900 dark:text-white resize-none"></textarea>
+                        </div>
+                        <button type="submit"
+                                class="w-full py-2.5 rounded-lg border border-red-500/50 text-red-500 text-sm font-bold hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-lg">block</span>
+                            Rechazar Documento
+                        </button>
+                    </form>
+                }
+
+                <!-- Eliminar -->
+                <form asp-action="Delete" asp-route-id="@Model.Id"
+                      asp-route-returnUrl="@Url.Action("Index", new { clienteId = Model.ClienteId })"
+                      method="post"
+                      onsubmit="return confirm('¿Está seguro de eliminar este documento? Esta acción no se puede deshacer.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit"
+                            class="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 text-sm font-semibold hover:bg-red-500/10 hover:text-red-500 transition-colors flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-lg">delete</span>
+                        Eliminar Documento
+                    </button>
+                </form>
+            </div>
+
+            <!-- Info Cliente -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                <h3 class="text-sm font-bold mb-3">Cliente</h3>
+                <p class="text-sm font-medium">@(Model.ClienteNombre ?? "—")</p>
+                <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.ClienteId"
+                   class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline no-underline">
+                    Ver perfil del cliente
+                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

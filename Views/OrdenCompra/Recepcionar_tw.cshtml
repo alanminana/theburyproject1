@@ -1,0 +1,218 @@
+@model TheBuryProject.ViewModels.OrdenCompraViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = $"Recepcionar - {Model.Numero}";
+
+    var estadoBadge = Model.Estado switch
+    {
+        EstadoOrdenCompra.Confirmada => ("bg-green-500/10 text-green-500 border-green-500/20", "Confirmada"),
+        EstadoOrdenCompra.EnTransito => ("bg-amber-500/10 text-amber-500 border-amber-500/20", "En Tránsito"),
+        _ => ("bg-slate-500/10 text-slate-500 border-slate-500/20", Model.Estado.ToString())
+    };
+
+    var totalPendiente = Model.Detalles.Sum(d => d.Cantidad - d.CantidadRecibida);
+    var productosConPendiente = Model.Detalles.Where(d => d.CantidadRecibida < d.Cantidad).Count();
+}
+
+<!-- Alerts -->
+@if (TempData["Success"] is string successMsg)
+{
+    <div id="toast-success" class="flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 mb-2">
+        <span class="material-symbols-outlined">check_circle</span>
+        <p class="text-sm font-medium">@successMsg</p>
+    </div>
+}
+@if (TempData["Error"] is string errorMsg)
+{
+    <div id="toast-error" class="flex items-center gap-3 p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 mb-2">
+        <span class="material-symbols-outlined">error</span>
+        <p class="text-sm font-medium">@errorMsg</p>
+    </div>
+}
+
+<!-- Header -->
+<section class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div class="flex flex-col gap-1">
+        <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Recepcionar Mercadería</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-base font-normal">Registro de entrada para suministros y logística</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a asp-action="Details" asp-route-id="@Model.Id"
+           class="flex min-w-[100px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors no-underline">
+            <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
+            Volver
+        </a>
+    </div>
+</section>
+
+<form asp-action="Recepcionar" method="post" id="form-recepcionar">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="id" value="@Model.Id" />
+    <input type="hidden" name="rowVersion" value="@(Model.RowVersion != null ? Convert.ToBase64String(Model.RowVersion) : "")" />
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <!-- Order Summary Card -->
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 flex flex-col md:flex-row gap-6 shadow-sm">
+                <div class="w-full md:w-48 h-32 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div class="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-5xl">local_shipping</span>
+                    </div>
+                </div>
+                <div class="flex flex-1 flex-col justify-center gap-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-col">
+                            <span class="text-primary text-xs font-bold uppercase tracking-wider mb-1">Orden de Compra</span>
+                            <h3 class="text-slate-900 dark:text-white text-2xl font-bold">@Model.Numero</h3>
+                        </div>
+                        <div class="px-3 py-1 rounded-full @estadoBadge.Item1 text-xs font-bold border flex items-center gap-1">
+                            <span class="size-2 rounded-full bg-current animate-pulse"></span>
+                            @estadoBadge.Item2
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold">Proveedor</p>
+                            <p class="text-slate-800 dark:text-slate-200 font-medium">@(Model.ProveedorNombre ?? "—")</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs uppercase font-bold">Fecha de Emisión</p>
+                            <p class="text-slate-800 dark:text-slate-200 font-medium">@Model.FechaEmision.ToString("dd/MM/yyyy")</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Banner -->
+            <div class="flex flex-col items-start justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 p-5 md:flex-row md:items-center">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-primary mt-0.5">info</span>
+                    <div class="flex flex-col gap-0.5">
+                        <p class="text-slate-900 dark:text-white text-base font-bold leading-tight">Estado de la Orden</p>
+                        <p class="text-slate-600 dark:text-slate-400 text-sm font-normal">Si no hay productos pendientes, se recomienda editar la orden original para realizar ajustes.</p>
+                    </div>
+                </div>
+                <a asp-action="Edit" asp-route-id="@Model.Id"
+                   class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 no-underline shrink-0">
+                    <span class="truncate">Editar Orden</span>
+                </a>
+            </div>
+
+            <!-- Products Table -->
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producto</th>
+                                <th class="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Cant. Solicitada</th>
+                                <th class="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Cant. Recibida</th>
+                                <th class="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Pendiente</th>
+                                <th class="px-4 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Estado</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-40">A Recepcionar</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @for (int i = 0; i < Model.Detalles.Count; i++)
+                            {
+                                var d = Model.Detalles[i];
+                                var pendiente = d.Cantidad - d.CantidadRecibida;
+                                var completo = pendiente <= 0;
+
+                                <input type="hidden" name="detalles[@i].DetalleId" value="@d.Id" />
+                                <input type="hidden" name="detalles[@i].ProductoId" value="@d.ProductoId" />
+
+                                <tr>
+                                    <td class="px-6 py-5">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm font-bold text-slate-900 dark:text-white">@d.ProductoNombre</span>
+                                            @if (!string.IsNullOrEmpty(d.ProductoCodigo))
+                                            {
+                                                <span class="text-xs text-slate-500 dark:text-slate-500">SKU: @d.ProductoCodigo</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-5 text-center text-sm font-medium text-slate-900 dark:text-white">@d.Cantidad</td>
+                                    <td class="px-4 py-5 text-center text-sm font-medium text-slate-900 dark:text-white">@d.CantidadRecibida</td>
+                                    <td class="px-4 py-5 text-center text-sm font-medium @(completo ? "text-emerald-500" : "text-amber-500")">@pendiente</td>
+                                    <td class="px-4 py-5 text-center">
+                                        @if (completo)
+                                        {
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                                Completo
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                Pendiente
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-5">
+                                        @if (completo)
+                                        {
+                                            <input type="number" name="detalles[@i].CantidadARecepcionar" value="0"
+                                                   disabled
+                                                   class="w-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg h-9 px-3 text-sm text-slate-400 cursor-not-allowed" />
+                                        }
+                                        else
+                                        {
+                                            <input type="number" name="detalles[@i].CantidadARecepcionar" value="0"
+                                                   min="0" max="@pendiente"
+                                                   data-pendiente="@pendiente"
+                                                   class="input-recepcion w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg h-9 px-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 dark:text-white" />
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Summary -->
+        <div class="flex flex-col gap-6">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 shadow-sm sticky top-24">
+                <h3 class="text-slate-900 dark:text-white text-lg font-bold mb-4">Resumen de Recepción</h3>
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                        <span class="text-slate-500 dark:text-slate-400 text-sm">Productos Totales</span>
+                        <span class="text-slate-900 dark:text-white font-bold">@Model.Detalles.Count</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                        <span class="text-slate-500 dark:text-slate-400 text-sm">Unidades Pendientes</span>
+                        <span class="text-slate-900 dark:text-white font-bold" id="lbl-pendientes">@totalPendiente</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
+                        <span class="text-slate-500 dark:text-slate-400 text-sm">Unidades a Ingresar</span>
+                        <span class="text-primary font-bold" id="lbl-ingresar">0</span>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <button type="submit" id="btn-confirmar"
+                            class="w-full flex cursor-pointer items-center justify-center rounded-lg h-12 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30">
+                        <span class="material-symbols-outlined mr-2">check_circle</span>
+                        Confirmar Recepción
+                    </button>
+                    <a asp-action="Details" asp-route-id="@Model.Id"
+                       class="w-full flex cursor-pointer items-center justify-center rounded-lg h-12 px-4 bg-transparent border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                        Cancelar Operación
+                    </a>
+                </div>
+                <div class="mt-8 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    <p class="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2">Instrucciones</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Verifique que la cantidad física coincida con la cantidad ingresada. Esta acción actualizará los niveles de inventario inmediatamente.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+</form>
+
+@section Scripts {
+    <script src="~/js/ordencompra-recepcionar.js"></script>
+}

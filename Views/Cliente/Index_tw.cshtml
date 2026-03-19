@@ -1,0 +1,233 @@
+@model ClienteFilterViewModel
+@{
+    ViewData["Title"] = "Gestión de Clientes";
+}
+
+<!-- Header Actions -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+    <div class="flex items-center gap-3">
+        <button type="button" onclick="abrirLimitesModal()" class="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-lg">tune</span>
+            <span>Límite de Puntajes</span>
+        </button>
+        <button class="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-lg">description</span>
+            <span>Documentación</span>
+        </button>
+    </div>
+    <div class="flex items-center gap-3">
+        <a asp-controller="Credito" asp-action="Index"
+           class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors shadow-sm no-underline">
+            <span class="material-symbols-outlined text-lg">payments</span>
+            <span>Créditos Totales</span>
+        </a>
+        <a asp-controller="Cliente" asp-action="Create"
+           class="flex items-center gap-2 bg-primary px-4 py-2 rounded-lg text-white text-sm font-bold hover:bg-blue-700 transition-colors shadow-md no-underline">
+            <span class="material-symbols-outlined text-lg font-bold">person_add</span>
+            <span>Nuevo Cliente</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<form id="filterForm" method="get" asp-action="Index" class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 mb-6 shadow-sm">
+    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div class="md:col-span-2 relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+            <input name="SearchTerm" value="@Model.SearchTerm" type="text"
+                   class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white placeholder:text-slate-500"
+                   placeholder="Buscar por nombre, documento o contacto..." />
+        </div>
+        <div>
+            <select name="SoloActivos"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white">
+                <option value="">Todos los estados</option>
+                <option value="true" selected="@(Model.SoloActivos == true ? "selected" : null)">Activo</option>
+                <option value="false" selected="@(Model.SoloActivos == false ? "selected" : null)">Inactivo</option>
+            </select>
+        </div>
+        <div>
+            <select name="TipoDocumento"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white">
+                <option value="">Tipo Documento</option>
+                @if (ViewBag.TiposDocumento != null)
+                {
+                    @foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                    {
+                        <option value="@tipo.Value" selected="@(Model.TipoDocumento == tipo.Value ? "selected" : null)">@tipo.Text</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="button" id="btnLimpiar"
+                    class="flex-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+                Limpiar
+            </button>
+            <button type="submit"
+                    class="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                <span class="material-symbols-outlined">filter_list</span>
+            </button>
+        </div>
+    </div>
+</form>
+
+@if (TempData["Success"] != null)
+{
+    <div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-semibold flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg">error</span>
+        @TempData["Error"]
+    </div>
+}
+
+<!-- Data Table -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Documento</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Contacto</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Domicilio</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Puntaje</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Créditos</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                @if (Model.Clientes != null && Model.Clientes.Any())
+                {
+                    @foreach (var c in Model.Clientes)
+                    {
+                        var initials = (!string.IsNullOrEmpty(c.Nombre) && !string.IsNullOrEmpty(c.Apellido))
+                            ? $"{c.Nombre[0]}{c.Apellido[0]}".ToUpper()
+                            : "??";
+
+                        var puntaje = (int)c.PuntajeRiesgo;
+                        var puntajeColor = puntaje >= 700 ? "emerald" : (puntaje >= 400 ? "amber" : "red");
+                        var puntajePct = Math.Min(100, Math.Max(0, puntaje / 10));
+
+                        var avatarColors = new[] { "primary", "amber-500", "emerald-500", "violet-500", "rose-500" };
+                        var avatarColor = avatarColors[Math.Abs(c.Id) % avatarColors.Length];
+
+                        var tipoCliente = c.Sueldo.HasValue && c.Sueldo > 200000 ? "Mayorista" : "Minorista";
+
+                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+                            <td class="px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-400">
+                                @(c.TipoDocumento ?? "DNI")-@c.NumeroDocumento
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="size-9 rounded-full bg-@(avatarColor)/20 flex items-center justify-center text-@(avatarColor) font-bold text-sm">
+                                        @initials
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-bold text-slate-900 dark:text-white">@c.Apellido @c.Nombre</span>
+                                        <span class="text-[10px] text-slate-500 uppercase tracking-tighter">@tipoCliente</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col text-sm">
+                                    <span class="text-slate-900 dark:text-slate-200">@(c.Telefono ?? "—")</span>
+                                    <span class="text-xs text-slate-500">@(c.Email ?? "Sin email")</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-[150px] truncate" title="@c.Domicilio">
+                                @(c.Domicilio ?? "—")
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (puntaje > 0)
+                                {
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-sm font-bold text-@(puntajeColor)-600 dark:text-@(puntajeColor)-400">@puntaje</span>
+                                        <div class="w-12 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-@(puntajeColor)-500 rounded-full" style="width:@(puntajePct)%"></div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-sm font-bold text-slate-400 dark:text-slate-600">--</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-sm font-bold text-right text-slate-900 dark:text-white">
+                                @(c.MontoAdeudado.HasValue ? c.MontoAdeudado.Value.ToString("C") : "$0,00")
+                            </td>
+                            <td class="px-6 py-4">
+                                @if (c.Activo)
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase tracking-wide">Inactivo</span>
+                                }
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-center gap-2">
+                                    <a asp-action="Details" asp-route-id="@c.Id"
+                                       class="bg-primary/10 hover:bg-primary text-primary hover:text-white p-1.5 rounded-md transition-all no-underline"
+                                       title="Ver detalle">
+                                        <span class="material-symbols-outlined text-sm">visibility</span>
+                                    </a>
+                                    <a asp-action="Edit" asp-route-id="@c.Id"
+                                       class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 p-1.5 rounded-md transition-all no-underline"
+                                       title="Editar">
+                                        <span class="material-symbols-outlined text-sm">edit</span>
+                                    </a>
+                                    <button data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                            data-nombre="@c.Apellido @c.Nombre"
+                                            class="bg-red-50 dark:bg-red-900/10 hover:bg-red-500 text-red-600 hover:text-white p-1.5 rounded-md transition-all"
+                                            title="Eliminar">
+                                        <span class="material-symbols-outlined text-sm">delete</span>
+                                    </button>
+                                    <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
+                                       class="bg-primary px-3 py-1.5 rounded-lg text-white text-[11px] font-bold hover:bg-blue-700 transition-colors uppercase tracking-tight no-underline">
+                                        Ir a Crédito
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center gap-2">
+                                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">person_off</span>
+                                <p class="text-sm font-semibold text-slate-500">No se encontraron clientes</p>
+                                <p class="text-xs text-slate-400">Intenta con otros filtros o agrega un nuevo cliente</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination footer -->
+    <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <span class="text-xs text-slate-500">
+            Mostrando @(Model.Clientes?.Count() ?? 0) de @Model.TotalResultados clientes
+        </span>
+    </div>
+</div>
+
+<!-- Modal container (loaded via AJAX) -->
+<div id="limitesModalContainer"></div>
+
+@section Scripts {
+    <script src="~/js/module-index.js" asp-append-version="true"></script>
+    <script src="~/js/cliente-index.js" asp-append-version="true"></script>
+}

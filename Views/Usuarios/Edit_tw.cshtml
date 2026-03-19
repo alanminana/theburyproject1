@@ -1,0 +1,112 @@
+@model TheBuryProject.ViewModels.EditarUsuarioViewModel
+@{
+    ViewData["Title"] = "Editar Usuario";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+}
+
+<div class="max-w-4xl mx-auto space-y-8">
+    <div class="flex items-start gap-3">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <a href="@returnUrl"
+               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        else
+        {
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
+               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+        }
+        <div>
+            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Editar usuario</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Vista legacy de edición. El flujo principal del módulo Seguridad ahora usa `/Seguridad/EditUsuario/{id}`.
+            </p>
+        </div>
+    </div>
+
+    <form asp-action="Edit" method="post" class="space-y-6">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+        }
+
+        <div asp-validation-summary="ModelOnly"
+             class="empty:hidden rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400"></div>
+
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-6">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Datos de acceso</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Configuración disponible en la implementación actual.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="space-y-2">
+                    <label asp-for="UserName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
+                    <input asp-for="UserName"
+                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                    <span asp-validation-for="UserName" class="text-xs text-rose-500"></span>
+                </div>
+
+                <div class="space-y-2">
+                    <label asp-for="Email" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Email</label>
+                    <input asp-for="Email"
+                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                    <span asp-validation-for="Email" class="text-xs text-rose-500"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <label class="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-4 bg-slate-50 dark:bg-slate-800/30 cursor-pointer">
+                    <input asp-for="EmailConfirmed"
+                           class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                    <div>
+                        <span class="text-sm font-semibold text-slate-900 dark:text-white">Email confirmado</span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Permite distinguir si la cuenta ya validó su correo.</p>
+                    </div>
+                </label>
+
+                <label class="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-4 bg-slate-50 dark:bg-slate-800/30 cursor-pointer">
+                    <input asp-for="LockoutEnabled"
+                           class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                    <div>
+                        <span class="text-sm font-semibold text-slate-900 dark:text-white">Permitir lockout</span>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Mantiene habilitado el mecanismo de bloqueo por seguridad.</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <a href="@returnUrl"
+                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                    Cancelar
+                </a>
+            }
+            else
+            {
+                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
+                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                    Cancelar
+                </a>
+            }
+
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">
+                <span class="material-symbols-outlined text-sm">save</span>
+                Guardar cambios
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

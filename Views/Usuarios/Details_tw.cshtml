@@ -1,0 +1,179 @@
+@model TheBuryProject.ViewModels.UsuarioDetalleViewModel
+@{
+    ViewData["Title"] = $"Usuario: {Model.UserName}";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var isLocked = Model.LockoutEnabled && Model.LockoutEnd.HasValue && Model.LockoutEnd > DateTimeOffset.UtcNow;
+    var statusLabel = !Model.Activo ? "Inactivo" : isLocked ? "Bloqueado" : !Model.EmailConfirmed ? "Sin confirmar" : "Activo";
+    var statusClasses = !Model.Activo
+        ? "bg-slate-500/10 text-slate-600 dark:text-slate-300"
+        : isLocked
+            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            : !Model.EmailConfirmed
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+
+    var permisosAgrupados = Model.Permisos
+        .Select(permiso =>
+        {
+            var parts = permiso.Split('.', 2, StringSplitOptions.TrimEntries);
+            return new
+            {
+                Modulo = parts.Length > 0 ? parts[0] : permiso,
+                Accion = parts.Length > 1 ? parts[1] : permiso
+            };
+        })
+        .GroupBy(p => p.Modulo)
+        .OrderBy(g => g.Key)
+        .ToList();
+
+    string Humanize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "—";
+        }
+
+        var normalized = value.Replace("-", " ").Replace("_", " ").Trim();
+        return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+    }
+}
+
+<div class="max-w-6xl mx-auto space-y-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex items-start gap-3">
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <a href="@returnUrl"
+                   class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </a>
+            }
+            else
+            {
+                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
+                   class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </a>
+            }
+            <div class="space-y-2">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@Model.UserName</h1>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold @statusClasses">
+                        @statusLabel
+                    </span>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400">
+                    Detalle del usuario, sus roles asignados y los permisos efectivos heredados por RBAC.
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a asp-controller="Seguridad" asp-action="EditUsuario" asp-route-id="@Model.Id" asp-route-returnUrl="@returnUrl"
+               class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors no-underline">
+                <span class="material-symbols-outlined text-sm">edit</span>
+                Editar
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</p>
+            <p class="text-base font-semibold text-slate-900 dark:text-white mt-2 break-all">@Model.Email</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles</p>
+            <p class="text-3xl font-black text-slate-900 dark:text-white mt-2">@Model.Roles.Count</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Permisos efectivos</p>
+            <p class="text-3xl font-black text-slate-900 dark:text-white mt-2">@Model.Permisos.Count</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section class="xl:col-span-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Acceso y estado</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Información base de la cuenta.</p>
+            </div>
+
+            <div class="space-y-4 text-sm">
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuario</p>
+                    <p class="font-semibold text-slate-900 dark:text-white mt-1">@Model.UserName</p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email confirmado</p>
+                    <p class="font-semibold text-slate-900 dark:text-white mt-1">@(Model.EmailConfirmed ? "Sí" : "No")</p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloqueo</p>
+                    <p class="font-semibold text-slate-900 dark:text-white mt-1">
+                        @(isLocked ? $"Bloqueado hasta {Model.LockoutEnd:dd/MM/yyyy HH:mm}" : "No bloqueado")
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section class="xl:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+            <div>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Roles asignados</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Los permisos se heredan solo desde estos roles.</p>
+            </div>
+
+            @if (Model.Roles.Any())
+            {
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var rol in Model.Roles.OrderBy(r => r))
+                    {
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                            @rol
+                        </span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-sm text-slate-500 dark:text-slate-400">
+                    El usuario no tiene roles asignados.
+                </div>
+            }
+        </section>
+    </div>
+
+    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+        <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Permisos efectivos</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Resumen de claims efectivos calculados desde los roles del usuario.</p>
+        </div>
+
+        @if (permisosAgrupados.Any())
+        {
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                @foreach (var modulo in permisosAgrupados)
+                {
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-5 bg-slate-50 dark:bg-slate-800/30">
+                        <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-3">@Humanize(modulo.Key)</h3>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var permiso in modulo.OrderBy(p => p.Accion))
+                            {
+                                <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    @Humanize(permiso.Accion)
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sin permisos efectivos</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Asigná uno o más roles para que el usuario herede permisos.</p>
+            </div>
+        }
+    </section>
+</div>
