@@ -9,6 +9,14 @@
     <DockerfileContext>.</DockerfileContext>
   </PropertyGroup>
 
+  <!-- Exclude test project files from main project compilation -->
+  <ItemGroup>
+    <Compile Remove="TheBuryProyect.Tests/**" />
+    <Content Remove="TheBuryProyect.Tests/**" />
+    <EmbeddedResource Remove="TheBuryProyect.Tests/**" />
+    <None Remove="TheBuryProyect.Tests/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
