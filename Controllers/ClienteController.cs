@@ -472,10 +472,8 @@ namespace TheBuryProject.Controllers
             var creditos = await _creditoService.GetByClienteIdAsync(cliente.Id);
             detalleViewModel.CreditosActivos = creditos;
 
-            detalleViewModel.EvaluacionCredito = await EvaluarCapacidadCrediticia(cliente.Id, detalleViewModel);
-
             // Evaluar aptitud crediticia (semáforo)
-            detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudAsync(cliente.Id, guardarResultado: true);
+            detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
 
             // Panel de visibilidad del disponible (Tarea 4)
             detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;
@@ -492,28 +490,14 @@ namespace TheBuryProject.Controllers
             // Situación Crediticia BCRA (con caché de 7 días)
             try
             {
-                await _bcraService.ConsultarYActualizarAsync(cliente.Id);
-                // Recargar los campos BCRA que se actualizaron en la entidad
-                await using var ctx = await _contextFactory.CreateDbContextAsync();
-                var clienteActualizado = await ctx.Clientes.AsNoTracking()
-                    .Where(c => c.Id == cliente.Id)
-                    .Select(c => new
-                    {
-                        c.SituacionCrediticiaBcra,
-                        c.SituacionCrediticiaDescripcion,
-                        c.SituacionCrediticiaPeriodo,
-                        c.SituacionCrediticiaUltimaConsultaUtc,
-                        c.SituacionCrediticiaConsultaOk
-                    })
-                    .FirstOrDefaultAsync();
-
-                if (clienteActualizado != null)
+                var situacionBcra = await _bcraService.ConsultarYObtenerAsync(cliente.Id);
+                if (situacionBcra != null)
                 {
-                    detalleViewModel.Cliente.SituacionCrediticiaBcra = clienteActualizado.SituacionCrediticiaBcra;
-                    detalleViewModel.Cliente.SituacionCrediticiaDescripcion = clienteActualizado.SituacionCrediticiaDescripcion;
-                    detalleViewModel.Cliente.SituacionCrediticiaPeriodo = clienteActualizado.SituacionCrediticiaPeriodo;
-                    detalleViewModel.Cliente.SituacionCrediticiaUltimaConsultaUtc = clienteActualizado.SituacionCrediticiaUltimaConsultaUtc;
-                    detalleViewModel.Cliente.SituacionCrediticiaConsultaOk = clienteActualizado.SituacionCrediticiaConsultaOk;
+                    detalleViewModel.Cliente.SituacionCrediticiaBcra = situacionBcra.SituacionCrediticiaBcra;
+                    detalleViewModel.Cliente.SituacionCrediticiaDescripcion = situacionBcra.SituacionCrediticiaDescripcion;
+                    detalleViewModel.Cliente.SituacionCrediticiaPeriodo = situacionBcra.SituacionCrediticiaPeriodo;
+                    detalleViewModel.Cliente.SituacionCrediticiaUltimaConsultaUtc = situacionBcra.SituacionCrediticiaUltimaConsultaUtc;
+                    detalleViewModel.Cliente.SituacionCrediticiaConsultaOk = situacionBcra.SituacionCrediticiaConsultaOk;
                 }
             }
             catch (Exception ex)
@@ -593,43 +577,6 @@ namespace TheBuryProject.Controllers
             ViewBag.PerfilesCredito = new SelectList(perfiles, "Id", "Nombre", perfilSeleccionadoId);
         }
 
-        private async Task<EvaluacionCreditoResult> EvaluarCapacidadCrediticia(int clienteId, ClienteDetalleViewModel modelo)
-        {
-            var evaluacion = new EvaluacionCreditoResult();
-
-            try
-            {
-                var tiposDocumentosVerificados = modelo.Documentos
-                    .Where(d => d.Estado == EstadoDocumento.Verificado)
-                    .Select(d => d.TipoDocumentoNombre)
-                    .ToList();
-
-                evaluacion.TieneDocumentosCompletos = ClienteControllerHelper.VerificaDocumentosRequeridos(tiposDocumentosVerificados);
-                evaluacion.DocumentosFaltantes = ClienteControllerHelper.ObtenerDocumentosFaltantes(tiposDocumentosVerificados);
-
-                EvaluacionCrediticiaHelper.CalcularCapacidadFinanciera(evaluacion, modelo);
-
-                evaluacion.ScoreCrediticio = CreditoScoringHelper.CalcularScoreCrediticio(modelo);
-                evaluacion.NivelRiesgo = ClienteControllerHelper.DeterminarNivelRiesgo(evaluacion.ScoreCrediticio);
-
-                evaluacion.RequiereGarante = EvaluacionCrediticiaHelper.DeterminarRequiereGarante(evaluacion);
-                evaluacion.TieneGarante = await ClienteTieneGaranteAsync(clienteId);
-
-                evaluacion.CumpleRequisitos = EvaluacionCrediticiaHelper.VerificaCumplimientoRequisitos(evaluacion);
-                evaluacion.PuedeAprobarConExcepcion = EvaluacionCrediticiaHelper.DeterminarPuedeAprobarConExcepcion(evaluacion);
-
-                ClienteControllerHelper.GenerarAlertasYRecomendaciones(evaluacion);
-
-                return evaluacion;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al evaluar capacidad crediticia del cliente {ClienteId}", clienteId);
-                evaluacion.AlertasYRecomendaciones.Add("Error al evaluar capacidad crediticia");
-                return evaluacion;
-            }
-        }
-
         private async Task<ClienteCreditoLimitesViewModel> ConstruirModeloLimitesPorPuntajeAsync(
             IEnumerable<ClienteCreditoLimiteItemViewModel>? cambiosUsuario = null)
         {
@@ -688,17 +635,6 @@ namespace TheBuryProject.Controllers
             }
 
             return new ClienteCreditoLimitesViewModel { Items = items };
-        }
-
-        private async Task<bool> ClienteTieneGaranteAsync(int clienteId)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            return await context.Set<Cliente>()
-                .AsNoTracking()
-                .Where(c => c.Id == clienteId && !c.IsDeleted)
-                .Select(c => c.GaranteId != null)
-                .FirstOrDefaultAsync();
         }
 
         #endregion

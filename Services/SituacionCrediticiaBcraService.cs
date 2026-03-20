@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Services
 {
@@ -155,6 +156,25 @@ namespace TheBuryProject.Services
                 MarcarError(cliente, "Respuesta BCRA inválida");
                 await context.SaveChangesAsync();
             }
+        }
+
+        public async Task<SituacionBcraResult?> ConsultarYObtenerAsync(int clienteId, int cacheDias = 7)
+        {
+            await ConsultarYActualizarAsync(clienteId, cacheDias);
+
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            return await context.Clientes
+                .AsNoTracking()
+                .Where(c => c.Id == clienteId && !c.IsDeleted)
+                .Select(c => new SituacionBcraResult
+                {
+                    SituacionCrediticiaBcra = c.SituacionCrediticiaBcra,
+                    SituacionCrediticiaDescripcion = c.SituacionCrediticiaDescripcion,
+                    SituacionCrediticiaPeriodo = c.SituacionCrediticiaPeriodo,
+                    SituacionCrediticiaUltimaConsultaUtc = c.SituacionCrediticiaUltimaConsultaUtc,
+                    SituacionCrediticiaConsultaOk = c.SituacionCrediticiaConsultaOk
+                })
+                .FirstOrDefaultAsync();
         }
 
         private static void MarcarError(TheBuryProject.Models.Entities.Cliente cliente, string descripcion)

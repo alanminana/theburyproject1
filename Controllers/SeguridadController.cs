@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
@@ -117,7 +118,7 @@ public class SeguridadController : Controller
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             return View("EditUsuario_tw", model);
         }
         catch (Exception ex)
@@ -133,7 +134,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
     public async Task<IActionResult> EditUsuario(SeguridadEditarUsuarioViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         model.RolesSeleccionados = model.RolesSeleccionados
             .Where(r => !string.IsNullOrWhiteSpace(r))
@@ -155,7 +156,7 @@ public class SeguridadController : Controller
 
         try
         {
-            var sucursal = await GetSucursalAsync(model.SucursalId);
+            var sucursal = await _context.GetSucursalAsync(model.SucursalId);
             if (model.SucursalId.HasValue && sucursal == null)
             {
                 ModelState.AddModelError(nameof(model.SucursalId), "La sucursal seleccionada no existe o está inactiva.");
@@ -285,7 +286,7 @@ public class SeguridadController : Controller
                 $"Usuario \"{model.UserName}\"",
                 $"Edición de usuario. Roles: {(model.RolesSeleccionados.Count > 0 ? string.Join(", ", model.RolesSeleccionados) : "sin roles")} · Sucursal: {sucursal?.Nombre ?? "sin sucursal"} · Estado: {(model.Activo ? "activo" : "inactivo")}.");
 
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             if (safeReturnUrl != null)
             {
                 return LocalRedirect(safeReturnUrl);
@@ -318,7 +319,7 @@ public class SeguridadController : Controller
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             return View("RolDetails_tw", model);
         }
         catch (Exception ex)
@@ -333,7 +334,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "create")]
     public IActionResult CreateRol(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
         return PartialView("_CreateRoleModal_tw", new CrearRolViewModel { Activo = true });
     }
 
@@ -342,7 +343,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "create")]
     public async Task<IActionResult> CreateRol([FromForm] CrearRolViewModel model, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         NormalizeRoleCreateModel(model);
         if (string.IsNullOrWhiteSpace(model.Nombre))
         {
@@ -351,13 +352,13 @@ public class SeguridadController : Controller
 
         if (!ModelState.IsValid)
         {
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         if (await _rolService.RoleExistsAsync(model.Nombre))
         {
             ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -372,14 +373,14 @@ public class SeguridadController : Controller
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
 
-                return JsonModelErrors();
+                return this.JsonModelErrors();
             }
 
             var role = await _rolService.GetRoleByNameAsync(model.Nombre);
             if (role == null)
             {
                 ModelState.AddModelError(string.Empty, "No se pudo recuperar el rol creado.");
-                return JsonModelErrors();
+                return this.JsonModelErrors();
             }
 
             var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
@@ -410,7 +411,7 @@ public class SeguridadController : Controller
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al crear rol {RoleName} desde Seguridad", model.Nombre);
             ModelState.AddModelError(string.Empty, "Error al crear el rol.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
     }
 
@@ -430,7 +431,7 @@ public class SeguridadController : Controller
         }
 
         var metadata = await GetRoleMetadataAsync(role.Id);
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         return PartialView("_EditRoleModal_tw", new EditarRolViewModel
         {
@@ -446,7 +447,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "update")]
     public async Task<IActionResult> EditRol([FromForm] EditarRolViewModel model, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         NormalizeRoleEditModel(model);
         if (string.IsNullOrWhiteSpace(model.Nombre))
         {
@@ -455,7 +456,7 @@ public class SeguridadController : Controller
 
         if (!ModelState.IsValid)
         {
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         var role = await _rolService.GetRoleByIdAsync(model.Id);
@@ -468,7 +469,7 @@ public class SeguridadController : Controller
         if (existingRole != null && existingRole.Id != model.Id)
         {
             ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -483,7 +484,7 @@ public class SeguridadController : Controller
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
 
-                return JsonModelErrors();
+                return this.JsonModelErrors();
             }
 
             var metadata = await EnsureRoleMetadataAsync(model.Id, model.Nombre);
@@ -514,7 +515,7 @@ public class SeguridadController : Controller
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al editar rol {RoleId} desde Seguridad", model.Id);
             ModelState.AddModelError(string.Empty, "Error al actualizar el rol.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
     }
 
@@ -534,7 +535,7 @@ public class SeguridadController : Controller
         }
 
         var metadata = await GetRoleMetadataAsync(role.Id);
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         return PartialView("_DuplicateRoleModal_tw", new DuplicarRolViewModel
         {
@@ -551,7 +552,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "create")]
     public async Task<IActionResult> DuplicateRol([FromForm] DuplicarRolViewModel model, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         model.Nombre = (model.Nombre ?? string.Empty).Trim();
         model.Descripcion = NormalizeNullable(model.Descripcion);
         if (string.IsNullOrWhiteSpace(model.Nombre))
@@ -561,7 +562,7 @@ public class SeguridadController : Controller
 
         if (!ModelState.IsValid)
         {
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         var sourceRole = await _rolService.GetRoleByIdAsync(model.RolOrigenId);
@@ -573,7 +574,7 @@ public class SeguridadController : Controller
         if (await _rolService.RoleExistsAsync(model.Nombre))
         {
             ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -588,7 +589,7 @@ public class SeguridadController : Controller
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
 
-                return JsonModelErrors();
+                return this.JsonModelErrors();
             }
 
             var newRole = await _rolService.GetRoleByNameAsync(model.Nombre);
@@ -637,7 +638,7 @@ public class SeguridadController : Controller
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al duplicar rol {RoleId} desde Seguridad", model.RolOrigenId);
             ModelState.AddModelError(string.Empty, "Error al duplicar el rol.");
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
     }
 
@@ -671,7 +672,7 @@ public class SeguridadController : Controller
             TempData["Error"] = "Error al actualizar el estado del rol.";
         }
 
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null
             ? LocalRedirect(safeReturnUrl)
             : RedirectToAction(nameof(Index), new { tab = "roles" });
@@ -700,7 +701,7 @@ public class SeguridadController : Controller
             TempData["Error"] = "Error al eliminar el rol.";
         }
 
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null
             ? LocalRedirect(safeReturnUrl)
             : RedirectToAction(nameof(Index), new { tab = "roles" });
@@ -711,7 +712,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "assignpermissions")]
     public async Task<IActionResult> SavePermisosRol(string roleId, List<int>? accionIds, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
 
         if (string.IsNullOrWhiteSpace(roleId))
         {
@@ -784,7 +785,7 @@ public class SeguridadController : Controller
             return NotFound();
         }
 
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         return PartialView("_CopyPermisosRolModal_tw", new CopiarPermisosRolViewModel
         {
@@ -801,7 +802,7 @@ public class SeguridadController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "assignpermissions")]
     public async Task<IActionResult> CopyPermisosRol([FromForm] CopiarPermisosRolViewModel model, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
 
         if (string.IsNullOrWhiteSpace(model.RolDestinoId))
         {
@@ -815,7 +816,7 @@ public class SeguridadController : Controller
 
         if (!ModelState.IsValid)
         {
-            return JsonModelErrors();
+            return this.JsonModelErrors();
         }
 
         var targetRole = await _rolService.GetRoleByIdAsync(model.RolDestinoId);
@@ -979,7 +980,7 @@ public class SeguridadController : Controller
             .OrderBy(u => u.UserName)
             .ToListAsync();
 
-        var sucursales = await GetSucursalOptionsAsync();
+        var sucursales = await _context.GetSucursalOptionsAsync();
         var sucursalesLookup = sucursales.ToDictionary(s => s.Id, s => s.Nombre);
 
         var rolesLookup = await _context.UserRoles
@@ -1157,9 +1158,6 @@ public class SeguridadController : Controller
         };
     }
 
-    private string? GetSafeReturnUrl(string? returnUrl)
-        => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
-
     private async Task<SeguridadEditarUsuarioViewModel?> BuildEditUsuarioViewModelAsync(string id)
     {
         var user = await _userManager.FindByIdAsync(id);
@@ -1198,33 +1196,7 @@ public class SeguridadController : Controller
             .OrderBy(name => name)
             .ToList();
 
-        model.AllSucursales = await GetSucursalOptionsAsync();
-    }
-
-    private Task<List<SucursalOptionViewModel>> GetSucursalOptionsAsync()
-    {
-        return _context.Sucursales
-            .AsNoTracking()
-            .Where(s => s.Activa)
-            .OrderBy(s => s.Nombre)
-            .Select(s => new SucursalOptionViewModel
-            {
-                Id = s.Id,
-                Nombre = s.Nombre
-            })
-            .ToListAsync();
-    }
-
-    private async Task<Sucursal?> GetSucursalAsync(int? sucursalId)
-    {
-        if (!sucursalId.HasValue)
-        {
-            return null;
-        }
-
-        return await _context.Sucursales
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == sucursalId.Value && s.Activa);
+        model.AllSucursales = await _context.GetSucursalOptionsAsync();
     }
 
     private async Task<RolDetalleViewModel?> BuildRoleDetailsViewModelAsync(string id)
@@ -1404,21 +1376,6 @@ public class SeguridadController : Controller
         }
 
         return candidate;
-    }
-
-    private JsonResult JsonModelErrors()
-    {
-        var errors = ModelState.Values
-            .SelectMany(v => v.Errors)
-            .Select(e => string.IsNullOrWhiteSpace(e.ErrorMessage) ? "No se pudo completar la operación." : e.ErrorMessage)
-            .Distinct()
-            .ToArray();
-
-        return Json(new
-        {
-            success = false,
-            errors = errors.Length > 0 ? errors : new[] { "No se pudo completar la operación." }
-        });
     }
 
     private sealed record PermissionMatrixColumnDefinition(

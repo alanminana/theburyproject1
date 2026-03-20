@@ -150,8 +150,9 @@ app.MapRazorPages();
 app.MapHub<NotificacionesHub>("/hubs/notificaciones");
 
 // 13. Init DB
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILogger<Program>>();
 
@@ -178,3 +179,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+public partial class Program { }

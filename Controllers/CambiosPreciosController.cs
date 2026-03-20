@@ -525,14 +525,11 @@ public class CambiosPreciosController : Controller
             if (!listasIds.Any())
             {
                 // Usar lista predeterminada
-                var listaPredeterminada = await _context.ListasPrecios
-                    .Where(l => l.Activa && l.EsPredeterminada)
-                    .Select(l => l.Id)
-                    .FirstOrDefaultAsync();
+                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
 
-                if (listaPredeterminada > 0)
+                if (listaPredeterminada != null)
                 {
-                    listasIds.Add(listaPredeterminada);
+                    listasIds.Add(listaPredeterminada.Id);
                 }
                 else
                 {

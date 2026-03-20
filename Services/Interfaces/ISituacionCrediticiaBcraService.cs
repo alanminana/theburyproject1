@@ -1,3 +1,5 @@
+using TheBuryProject.Services.Models;
+
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>
@@ -15,5 +17,11 @@ namespace TheBuryProject.Services.Interfaces
         /// Fuerza una nueva consulta a la API BCRA ignorando el caché.
         /// </summary>
         Task ForzarActualizacionAsync(int clienteId);
+
+        /// <summary>
+        /// Consulta (o devuelve del caché) la situación BCRA y retorna los campos actualizados.
+        /// Equivale a ConsultarYActualizarAsync seguido de una lectura de los campos persistidos.
+        /// </summary>
+        Task<SituacionBcraResult?> ConsultarYObtenerAsync(int clienteId, int cacheDias = 7);
     }
 }

@@ -27,18 +27,15 @@ public class UsuariosController : Controller
     private readonly ILogger<UsuariosController> _logger;
     private readonly IdentityOptions _identityOptions;
 
-    private string? GetSafeReturnUrl(string? returnUrl)
-        => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
-
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
     }
 
     private IActionResult RedirectToReturnUrlOrDetails(string id, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Details), new { id });
     }
 
@@ -79,7 +76,7 @@ public class UsuariosController : Controller
             return NotFound();
         }
 
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {
@@ -142,13 +139,7 @@ public class UsuariosController : Controller
             .ToList();
 
         if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-            return Json(new { success = false, errors });
-        }
+            return this.JsonModelErrors();
 
         try
         {
@@ -170,7 +161,7 @@ public class UsuariosController : Controller
                 });
             }
 
-            var sucursal = await GetSucursalAsync(model.SucursalId);
+            var sucursal = await _context.GetSucursalAsync(model.SucursalId);
             if (model.SucursalId.HasValue && sucursal == null)
             {
                 return Json(new { success = false, errors = new[] { "La sucursal seleccionada no existe o está inactiva." } });
@@ -255,7 +246,7 @@ public class UsuariosController : Controller
     [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
     public async Task<IActionResult> Edit(EditarUsuarioViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -361,7 +352,7 @@ public class UsuariosController : Controller
             return NotFound();
         }
 
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {
@@ -499,7 +490,7 @@ public class UsuariosController : Controller
             return NotFound();
         }
 
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {
@@ -623,13 +614,7 @@ public class UsuariosController : Controller
         }
 
         if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-            return Json(new { success = false, errors });
-        }
+            return this.JsonModelErrors();
 
         try
         {
@@ -753,34 +738,8 @@ public class UsuariosController : Controller
 
     private async Task CargarSucursalesEnViewBag()
     {
-        var sucursales = await GetSucursalOptionsAsync();
+        var sucursales = await _context.GetSucursalOptionsAsync();
         ViewBag.Sucursales = sucursales;
-    }
-
-    private Task<List<SucursalOptionViewModel>> GetSucursalOptionsAsync()
-    {
-        return _context.Sucursales
-            .AsNoTracking()
-            .Where(s => s.Activa)
-            .OrderBy(s => s.Nombre)
-            .Select(s => new SucursalOptionViewModel
-            {
-                Id = s.Id,
-                Nombre = s.Nombre
-            })
-            .ToListAsync();
-    }
-
-    private async Task<Sucursal?> GetSucursalAsync(int? sucursalId)
-    {
-        if (!sucursalId.HasValue)
-        {
-            return null;
-        }
-
-        return await _context.Sucursales
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == sucursalId.Value && s.Activa);
     }
 
     /// <summary>
@@ -801,7 +760,7 @@ public class UsuariosController : Controller
         {
             UserId = user.Id,
             UserName = user.UserName ?? string.Empty,
-            ReturnUrl = GetSafeReturnUrl(returnUrl)
+            ReturnUrl = Url.GetSafeReturnUrl(returnUrl)
         };
 
         return PartialView("_BloquearUsuarioModal_tw", viewModel);
@@ -821,13 +780,7 @@ public class UsuariosController : Controller
         }
 
         if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-            return Json(new { success = false, errors });
-        }
+            return this.JsonModelErrors();
 
         try
         {
@@ -1000,7 +953,7 @@ public class UsuariosController : Controller
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
-            sucursalDestino = await GetSucursalAsync(sucursalId);
+            sucursalDestino = await _context.GetSucursalAsync(sucursalId);
             if (sucursalDestino == null)
             {
                 TempData["Error"] = "La sucursal seleccionada no existe o está inactiva.";

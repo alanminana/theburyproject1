@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -16,12 +17,9 @@ public class RolesController : Controller
     private readonly IRolService _rolService;
     private readonly ILogger<RolesController> _logger;
 
-    private string? GetSafeReturnUrl(string? returnUrl)
-        => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
-
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null
             ? LocalRedirect(safeReturnUrl)
             : RedirectToAction("Index", "Seguridad", new { tab = "roles" })!;
@@ -29,7 +27,7 @@ public class RolesController : Controller
 
     private IActionResult RedirectToReturnUrlOrDetails(string id, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null
             ? LocalRedirect(safeReturnUrl)
             : RedirectToAction("RolDetails", "Seguridad", new { id, returnUrl = safeReturnUrl })!;
@@ -63,7 +61,7 @@ public class RolesController : Controller
         return RedirectToAction("RolDetails", "Seguridad", new
         {
             id,
-            returnUrl = GetSafeReturnUrl(returnUrl)
+            returnUrl = Url.GetSafeReturnUrl(returnUrl)
         })!;
     }
 
@@ -82,7 +80,7 @@ public class RolesController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "create")]
     public async Task<IActionResult> Create(CrearRolViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -138,7 +136,7 @@ public class RolesController : Controller
     [PermisoRequerido(Modulo = "roles", Accion = "update")]
     public async Task<IActionResult> Edit(EditarRolViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -230,7 +228,7 @@ public class RolesController : Controller
             return NotFound();
         }
 
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return RedirectToAction("Index", "Seguridad", new
         {
             tab = "permisos-rol",

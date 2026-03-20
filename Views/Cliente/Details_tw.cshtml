@@ -4,7 +4,6 @@
     ViewData["Title"] = "Detalle de Cliente";
     var c = Model.Cliente;
     var apt = Model.AptitudCrediticia;
-    var eval = Model.EvaluacionCredito;
     var panel = Model.CreditoDisponiblePanel;
     var returnUrl = ViewData["ReturnUrl"] as string;
 
@@ -287,39 +286,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Credit Score Gauge -->
-                    <div class="flex flex-col items-center justify-center border-l border-slate-100 dark:border-slate-800 pl-8">
-                        @{
-                            var score = eval?.ScoreCrediticio ?? 0;
-                            var scoreColor = score >= 700 ? "text-green-500" : score >= 400 ? "text-orange-500" : "text-red-500";
-                            var riesgoTexto = score >= 700 ? "bajo riesgo" : score >= 400 ? "riesgo moderado" : "alto riesgo";
-                            var riesgoColor = score >= 700 ? "text-green-500" : score >= 400 ? "text-orange-500" : "text-red-500";
-                            // SVG arc angle: 0 = left (10,50), 1000 = right (90,50). Normalize to 0-1
-                            var scoreNorm = Math.Min(1.0, Math.Max(0.0, score / 1000.0));
-                            // Arc from M10,50 to endpoint: angle = PI * scoreNorm
-                            var angle = Math.PI * scoreNorm;
-                            var arcX = (50 - 40 * Math.Cos(angle)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
-                            var arcY = (50 - 40 * Math.Sin(angle)).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
-                            var largeArc = scoreNorm > 0.5 ? "1" : "0";
-                        }
-                        <div class="relative h-32 w-48 mb-4">
-                            <svg class="w-full h-full" viewBox="0 0 100 60">
-                                <path class="text-slate-100 dark:text-slate-800" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"></path>
-                                @if (score > 0)
-                                {
-                                    <path class="@scoreColor" d="M 10 50 A 40 40 0 @largeArc 1 @arcX @arcY" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"></path>
-                                }
-                                <circle class="text-slate-900 dark:text-slate-100" cx="50" cy="50" fill="currentColor" r="2"></circle>
-                            </svg>
-                            <div class="absolute inset-0 flex flex-col items-center justify-end pb-2">
-                                <span class="text-2xl font-bold @scoreColor">@score</span>
-                                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Credit Score</span>
-                            </div>
-                        </div>
-                        <p class="text-sm text-center text-slate-500 dark:text-slate-400 px-4">
-                            El perfil financiero actual representa un <span class="@riesgoColor font-semibold">@riesgoTexto</span> de impago.
-                        </p>
-                    </div>
+
                 </div>
             </div>
 

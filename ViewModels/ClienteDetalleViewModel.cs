@@ -16,8 +16,6 @@ namespace TheBuryProject.ViewModels
         // Nota: se utiliza como "lista de créditos del cliente" en UI; la evaluación filtra por estado.
         public List<CreditoViewModel> CreditosActivos { get; set; } = new();
 
-        public EvaluacionCreditoResult EvaluacionCredito { get; set; } = new();
-
         /// <summary>
         /// Resultado de la evaluación de aptitud crediticia (semáforo)
         /// </summary>
@@ -40,34 +38,6 @@ namespace TheBuryProject.ViewModels
         public bool TieneErrorConfiguracion { get; set; }
 
         public string? MensajeError { get; set; }
-    }
-
-    /// <summary>
-    /// Resultado de la evaluación para solicitar un crédito
-    /// </summary>
-    public class EvaluacionCreditoResult
-    {
-        public bool TieneDocumentosCompletos { get; set; }
-        public List<string> DocumentosFaltantes { get; set; } = new();
-
-        public decimal MontoMaximoDisponible { get; set; }
-        public decimal IngresosMensuales { get; set; }
-        public decimal DeudaActual { get; set; }
-        public decimal CapacidadPagoMensual { get; set; }
-        public double PorcentajeEndeudamiento { get; set; }
-
-        public int ScoreCrediticio { get; set; }
-        public string NivelRiesgo { get; set; } = "Medio";
-
-        public bool CumpleRequisitos { get; set; }
-        public List<string> AlertasYRecomendaciones { get; set; } = new();
-
-        public bool RequiereGarante { get; set; }
-        public bool TieneGarante { get; set; }
-        public string? GaranteNombre { get; set; }
-
-        public bool PuedeAprobarConExcepcion { get; set; }
-        public string? MotivoExcepcion { get; set; }
     }
 
     /// <summary>
