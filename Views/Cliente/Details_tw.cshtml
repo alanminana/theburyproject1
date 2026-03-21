@@ -11,11 +11,6 @@
     var esRequiereAut = apt?.Estado == EstadoCrediticioCliente.RequiereAutorizacion;
     var esApto = apt?.Estado == EstadoCrediticioCliente.Apto;
 
-    var porcentajeLibre = 0m;
-    if (panel?.Valores != null && panel.Valores.Limite > 0)
-    {
-        porcentajeLibre = Math.Round(panel.Valores.Disponible / panel.Valores.Limite * 100, 0);
-    }
 }
 
 <div class="space-y-6">
@@ -144,10 +139,10 @@
                                     </span>
                                 </div>
                                 <div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary rounded-full" style="width: @(porcentajeLibre)%"></div>
+                                    <div class="h-full bg-primary rounded-full" style="width: @(panel.PorcentajeLibre)%"></div>
                                 </div>
                                 <div class="flex justify-between mt-2">
-                                    <p class="text-xs text-slate-400">@porcentajeLibre% libre</p>
+                                    <p class="text-xs text-slate-400">@panel.PorcentajeLibre% libre</p>
                                     <p class="text-xs text-slate-400">Origen: @panel.Valores.OrigenLimite</p>
                                 </div>
                             </div>

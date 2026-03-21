@@ -35,6 +35,8 @@ namespace TheBuryProject.ViewModels
 
         public CreditoDisponibleResultado Valores { get; set; } = new();
 
+        public decimal PorcentajeLibre { get; set; }
+
         public bool TieneErrorConfiguracion { get; set; }
 
         public string? MensajeError { get; set; }

@@ -479,7 +479,10 @@ namespace TheBuryProject.Controllers
             detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;
             try
             {
-                detalleViewModel.CreditoDisponiblePanel.Valores = await _creditoDisponibleService.CalcularDisponibleAsync(cliente.Id);
+                var valores = await _creditoDisponibleService.CalcularDisponibleAsync(cliente.Id);
+                detalleViewModel.CreditoDisponiblePanel.Valores = valores;
+                detalleViewModel.CreditoDisponiblePanel.PorcentajeLibre =
+                    valores.Limite > 0 ? Math.Round(valores.Disponible / valores.Limite * 100, 0) : 0m;
             }
             catch (CreditoDisponibleException ex)
             {
