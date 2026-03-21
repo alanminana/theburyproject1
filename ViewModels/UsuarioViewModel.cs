@@ -76,52 +76,6 @@ public class CrearUsuarioViewModel
 }
 
 /// <summary>
-/// ViewModel para editar un usuario
-/// </summary>
-public class EditarUsuarioViewModel
-{
-    [Required]
-    public string Id { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "El email es requerido")]
-    [EmailAddress(ErrorMessage = "Email inválido")]
-    [Display(Name = "Email")]
-    public string Email { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "El nombre de usuario es requerido")]
-    [StringLength(50, ErrorMessage = "El nombre de usuario no puede exceder 50 caracteres")]
-    [Display(Name = "Nombre de Usuario")]
-    public string UserName { get; set; } = string.Empty;
-
-    [Display(Name = "Email Confirmado")]
-    public bool EmailConfirmed { get; set; }
-
-    [Display(Name = "Cuenta Bloqueada")]
-    public bool LockoutEnabled { get; set; }
-}
-
-/// <summary>
-/// ViewModel para asignar roles a un usuario
-/// </summary>
-public class AsignarRolesUsuarioViewModel
-{
-    public string UserId { get; set; } = string.Empty;
-    public string UserName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public List<RolCheckboxViewModel> Roles { get; set; } = new();
-}
-
-/// <summary>
-/// ViewModel para checkbox de rol
-/// </summary>
-public class RolCheckboxViewModel
-{
-    public string RoleId { get; set; } = string.Empty;
-    public string RoleName { get; set; } = string.Empty;
-    public bool Seleccionado { get; set; }
-}
-
-/// <summary>
 /// ViewModel para mostrar detalles de un usuario
 /// </summary>
 public class UsuarioDetalleViewModel
