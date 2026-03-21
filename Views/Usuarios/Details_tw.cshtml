@@ -106,7 +106,24 @@
                 </div>
                 <div>
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email confirmado</p>
-                    <p class="font-semibold text-slate-900 dark:text-white mt-1">@(Model.EmailConfirmed ? "Sí" : "No")</p>
+                    @if (Model.EmailConfirmed)
+                    {
+                        <p class="font-semibold text-slate-900 dark:text-white mt-1">Sí</p>
+                    }
+                    else
+                    {
+                        <div class="flex items-center gap-3 mt-1">
+                            <p class="font-semibold text-amber-600 dark:text-amber-400">No</p>
+                            <form asp-controller="Usuarios" asp-action="ConfirmarEmail" asp-route-id="@Model.Id" asp-route-returnUrl="@returnUrl" method="post" class="inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors border border-amber-300 dark:border-amber-700">
+                                    <span class="material-symbols-outlined text-sm">mark_email_read</span>
+                                    Confirmar email
+                                </button>
+                            </form>
+                        </div>
+                    }
                 </div>
                 <div>
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloqueo</p>
