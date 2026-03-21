@@ -9,6 +9,7 @@ namespace TheBuryProject.Tests.Infrastructure;
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string SchemeName = "Test";
+    public const string UserId = "test-user-id";
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,

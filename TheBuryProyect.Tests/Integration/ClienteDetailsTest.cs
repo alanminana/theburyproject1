@@ -48,6 +48,7 @@ public class ClienteDetailsTest : IClassFixture<CustomWebApplicationFactory>
         }
 
         // Act
+        await _factory.SeedTestUserAsync();
         var client = _factory.CreateAuthenticatedClient();
         var response = await client.GetAsync("/Cliente/Details/1");
 
