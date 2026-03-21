@@ -47,7 +47,7 @@ namespace TheBuryProject.Services
             IHttpContextAccessor httpContextAccessor,
             IValidacionVentaService validacionVentaService,
             ICajaService cajaService,
-            ICreditoDisponibleService? creditoDisponibleService = null)
+            ICreditoDisponibleService creditoDisponibleService)
         {
             _context = context;
             _mapper = mapper;
@@ -62,7 +62,7 @@ namespace TheBuryProject.Services
             _httpContextAccessor = httpContextAccessor;
             _validacionVentaService = validacionVentaService;
             _cajaService = cajaService;
-            _creditoDisponibleService = creditoDisponibleService ?? new CreditoDisponibleService(_context);
+            _creditoDisponibleService = creditoDisponibleService;
         }
 
         #region Consultas
