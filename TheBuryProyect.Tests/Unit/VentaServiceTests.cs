@@ -61,6 +61,7 @@ file sealed class StubPrecioService : IPrecioService
     public Task<(bool esValido, string? mensaje)> ValidarMargenMinimoAsync(decimal precio, decimal costo, int listaId) => throw new NotImplementedException();
     public decimal CalcularMargen(decimal precio, decimal costo) => throw new NotImplementedException();
     public decimal AplicarRedondeo(decimal precio, string? reglaRedondeo = null) => throw new NotImplementedException();
+    public Task<List<int>> GetBatchIdsByProductoAsync(int productoId) => throw new NotImplementedException();
 }
 
 /// <summary>

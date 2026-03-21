@@ -1107,6 +1107,15 @@ public class PrecioService : IPrecioService
             .ToListAsync();
     }
 
+    public async Task<List<int>> GetBatchIdsByProductoAsync(int productoId)
+    {
+        return await _context.PriceChangeItems
+            .Where(i => i.ProductoId == productoId)
+            .Select(i => i.BatchId)
+            .Distinct()
+            .ToListAsync();
+    }
+
     #endregion
 
     #region Cambios Masivos - Autorización

@@ -155,6 +155,11 @@ public interface IPrecioService
     /// </summary>
     Task<List<PriceChangeItem>> GetItemsSimulacionAsync(int batchId, int skip = 0, int take = 50);
 
+    /// <summary>
+    /// Obtiene los IDs de batches que contienen un producto específico.
+    /// </summary>
+    Task<List<int>> GetBatchIdsByProductoAsync(int productoId);
+
     // ============================================
     // CAMBIOS MASIVOS - AUTORIZACI�N
     /// ============================================

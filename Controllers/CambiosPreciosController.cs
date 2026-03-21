@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -28,7 +26,6 @@ public class CambiosPreciosController : Controller
     private const string AccionRevertir = "revert";
     private const string AccionHistorial = "history";
 
-    private readonly AppDbContext _context;
     private readonly IPrecioService _precioService;
     private readonly IProductoService _productoService;
     private readonly ICategoriaService _categoriaService;
@@ -36,14 +33,12 @@ public class CambiosPreciosController : Controller
     private readonly ILogger<CambiosPreciosController> _logger;
 
     public CambiosPreciosController(
-        AppDbContext context,
         IPrecioService precioService,
         IProductoService productoService,
         ICategoriaService categoriaService,
         IMarcaService marcaService,
         ILogger<CambiosPreciosController> logger)
     {
-        _context = context;
         _precioService = precioService;
         _productoService = productoService;
         _categoriaService = categoriaService;
@@ -616,11 +611,7 @@ public class CambiosPreciosController : Controller
             // Si se especifica un producto, filtrar solo los batches que lo afectan
             if (productoId.HasValue)
             {
-                var batchIdsConProducto = await _context.PriceChangeItems
-                    .Where(i => i.ProductoId == productoId.Value)
-                    .Select(i => i.BatchId)
-                    .Distinct()
-                    .ToListAsync();
+                var batchIdsConProducto = await _precioService.GetBatchIdsByProductoAsync(productoId.Value);
 
                 batches = batches.Where(b => batchIdsConProducto.Contains(b.Id)).ToList();
             }
@@ -1324,7 +1315,7 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var filtros = System.Text.Json.JsonSerializer.Deserialize<FiltrosCatalogoDto>(filtrosJson, 
+            var filtros = System.Text.Json.JsonSerializer.Deserialize<FiltrosCatalogoDto>(filtrosJson,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (filtros == null)
@@ -1333,47 +1324,14 @@ public class CambiosPreciosController : Controller
                 return new List<int>();
             }
 
-            // Construir query con los mismos filtros que usa el catálogo
-            var query = _context.Productos.AsQueryable();
+            var ids = await _productoService.SearchIdsAsync(
+                searchTerm: filtros.Busqueda,
+                categoriaId: filtros.CategoriaId > 0 ? filtros.CategoriaId : null,
+                marcaId: filtros.MarcaId > 0 ? filtros.MarcaId : null,
+                stockBajo: filtros.StockBajo ?? false,
+                soloActivos: filtros.SoloActivos ?? false);
 
-            // Filtro por categoría
-            if (filtros.CategoriaId.HasValue && filtros.CategoriaId > 0)
-            {
-                query = query.Where(p => p.CategoriaId == filtros.CategoriaId);
-            }
-
-            // Filtro por marca
-            if (filtros.MarcaId.HasValue && filtros.MarcaId > 0)
-            {
-                query = query.Where(p => p.MarcaId == filtros.MarcaId);
-            }
-
-            // Filtro por texto de búsqueda
-            if (!string.IsNullOrWhiteSpace(filtros.Busqueda))
-            {
-                var busqueda = filtros.Busqueda.ToLower();
-                query = query.Where(p => 
-                    p.Codigo.ToLower().Contains(busqueda) || 
-                    p.Nombre.ToLower().Contains(busqueda) ||
-                    (p.Descripcion != null && p.Descripcion.ToLower().Contains(busqueda)));
-            }
-
-            // Filtro por activos
-            if (filtros.SoloActivos.HasValue && filtros.SoloActivos.Value)
-            {
-                query = query.Where(p => p.Activo);
-            }
-
-            // Filtro por stock bajo
-            if (filtros.StockBajo.HasValue && filtros.StockBajo.Value)
-            {
-                query = query.Where(p => p.StockActual <= p.StockMinimo);
-            }
-
-            // Obtener solo IDs para mejor rendimiento
-            var ids = await query.Select(p => p.Id).ToListAsync();
-
-            _logger.LogInformation("Filtros aplicados: {Filtros}. Productos encontrados: {Count}", 
+            _logger.LogInformation("Filtros aplicados: {Filtros}. Productos encontrados: {Count}",
                 filtrosJson, ids.Count);
 
             return ids;

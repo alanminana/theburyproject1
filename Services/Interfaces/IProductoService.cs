@@ -27,6 +27,17 @@ namespace TheBuryProject.Services.Interfaces
             string? orderBy = null,
             string? orderDirection = "asc");
 
+        /// <summary>
+        /// Busca IDs de productos aplicando los mismos filtros que SearchAsync.
+        /// Más eficiente cuando solo se necesitan IDs (no carga entidades completas).
+        /// </summary>
+        Task<List<int>> SearchIdsAsync(
+            string? searchTerm = null,
+            int? categoriaId = null,
+            int? marcaId = null,
+            bool stockBajo = false,
+            bool soloActivos = false);
+
         // Stock
         Task<Producto> ActualizarStockAsync(int id, decimal cantidad);
 

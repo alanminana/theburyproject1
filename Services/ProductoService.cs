@@ -201,6 +201,42 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<List<int>> SearchIdsAsync(
+            string? searchTerm = null,
+            int? categoriaId = null,
+            int? marcaId = null,
+            bool stockBajo = false,
+            bool soloActivos = false)
+        {
+            var query = _context.Productos
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.ToLower();
+                query = query.Where(p =>
+                    p.Codigo.ToLower().Contains(term) ||
+                    p.Nombre.ToLower().Contains(term) ||
+                    (p.Descripcion != null && p.Descripcion.ToLower().Contains(term)));
+            }
+
+            if (categoriaId.HasValue)
+                query = query.Where(p => p.CategoriaId == categoriaId.Value);
+
+            if (marcaId.HasValue)
+                query = query.Where(p => p.MarcaId == marcaId.Value);
+
+            if (stockBajo)
+                query = query.Where(p => p.StockActual <= p.StockMinimo);
+
+            if (soloActivos)
+                query = query.Where(p => p.Activo);
+
+            return await query.Select(p => p.Id).ToListAsync();
+        }
+
         #endregion
 
         #region Crear / Actualizar
