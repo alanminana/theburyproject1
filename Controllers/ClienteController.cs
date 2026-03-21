@@ -15,6 +15,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Controllers
@@ -32,7 +33,6 @@ namespace TheBuryProject.Controllers
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
-        private readonly IClienteLookupService _clienteLookup;
 
         private string? GetSafeReturnUrl(string? returnUrl)
         {
@@ -58,8 +58,7 @@ namespace TheBuryProject.Controllers
             ISituacionCrediticiaBcraService bcraService,
             IDbContextFactory<AppDbContext> contextFactory,
             IMapper mapper,
-            ILogger<ClienteController> logger,
-            IClienteLookupService clienteLookup)
+            ILogger<ClienteController> logger)
         {
             _clienteService = clienteService;
             _documentoService = documentoService;
@@ -70,7 +69,6 @@ namespace TheBuryProject.Controllers
             _contextFactory = contextFactory;
             _mapper = mapper;
             _logger = logger;
-            _clienteLookup = clienteLookup;
         }
 
         public async Task<IActionResult> Index(ClienteFilterViewModel filter, string? returnUrl = null)
@@ -459,13 +457,6 @@ namespace TheBuryProject.Controllers
                 Cliente = _mapper.Map<ClienteViewModel>(cliente)
             };
 
-            // Ensure display name is consistent with lookup service formatting
-            var display = await _clienteLookup.GetClienteDisplayNameAsync(cliente.Id);
-            if (!string.IsNullOrWhiteSpace(display))
-            {
-                detalleViewModel.Cliente.NombreCompleto = display;
-            }
-
             // FIX punto 4.2: no recalcular Edad acá (AutoMapperProfile ya la calcula).
             detalleViewModel.Documentos = await _documentoService.GetByClienteIdAsync(cliente.Id);
 
@@ -495,13 +486,7 @@ namespace TheBuryProject.Controllers
             {
                 var situacionBcra = await _bcraService.ConsultarYObtenerAsync(cliente.Id);
                 if (situacionBcra != null)
-                {
-                    detalleViewModel.Cliente.SituacionCrediticiaBcra = situacionBcra.SituacionCrediticiaBcra;
-                    detalleViewModel.Cliente.SituacionCrediticiaDescripcion = situacionBcra.SituacionCrediticiaDescripcion;
-                    detalleViewModel.Cliente.SituacionCrediticiaPeriodo = situacionBcra.SituacionCrediticiaPeriodo;
-                    detalleViewModel.Cliente.SituacionCrediticiaUltimaConsultaUtc = situacionBcra.SituacionCrediticiaUltimaConsultaUtc;
-                    detalleViewModel.Cliente.SituacionCrediticiaConsultaOk = situacionBcra.SituacionCrediticiaConsultaOk;
-                }
+                    AplicarSituacionBcra(detalleViewModel.Cliente, situacionBcra);
             }
             catch (Exception ex)
             {
@@ -638,6 +623,15 @@ namespace TheBuryProject.Controllers
             }
 
             return new ClienteCreditoLimitesViewModel { Items = items };
+        }
+
+        private static void AplicarSituacionBcra(ClienteViewModel vm, SituacionBcraResult resultado)
+        {
+            vm.SituacionCrediticiaBcra = resultado.SituacionCrediticiaBcra;
+            vm.SituacionCrediticiaDescripcion = resultado.SituacionCrediticiaDescripcion;
+            vm.SituacionCrediticiaPeriodo = resultado.SituacionCrediticiaPeriodo;
+            vm.SituacionCrediticiaUltimaConsultaUtc = resultado.SituacionCrediticiaUltimaConsultaUtc;
+            vm.SituacionCrediticiaConsultaOk = resultado.SituacionCrediticiaConsultaOk;
         }
 
         #endregion
