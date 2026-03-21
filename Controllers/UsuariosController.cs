@@ -688,46 +688,6 @@ public class UsuariosController : Controller
     }
 
     /// <summary>
-    /// Resetea la contraseña de un usuario a una temporal
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [PermisoRequerido(Modulo = "usuarios", Accion = "resetpassword")]
-    public async Task<IActionResult> ResetPassword(string id, string? returnUrl)
-    {
-        try
-        {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null) return NotFound();
-
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var tempPassword = $"Temp{Guid.NewGuid():N}"[..12] + "!";
-            var result = await _userManager.ResetPasswordAsync(user, token, tempPassword);
-
-            if (result.Succeeded)
-            {
-                _logger.LogInformation("Contraseña reseteada para {UserId} por {Admin}", id, User.Identity?.Name);
-                TempData["Success"] = $"Contraseña de {user.UserName} reseteada. Nueva contraseña temporal: {tempPassword}";
-                await _seguridadAuditoria.RegistrarEventoAsync(
-                    "Seguridad",
-                    "Reset Password",
-                    $"Usuario \"{user.UserName}\"",
-                    "Reseteo de contraseña legacy con clave temporal.");
-            }
-            else
-            {
-                TempData["Error"] = "Error al resetear contraseña: " + string.Join(", ", result.Errors.Select(e => e.Description));
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al resetear contraseña de usuario {UserId}", id);
-            TempData["Error"] = "Error al resetear la contraseña.";
-        }
-        return RedirectToReturnUrlOrIndex(returnUrl);
-    }
-
-    /// <summary>
     /// Acción masiva sobre múltiples usuarios
     /// </summary>
     [HttpPost]
