@@ -1,13 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using AutoMapper;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
-using TheBuryProject.Models.Constants;
-using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -20,19 +15,13 @@ namespace TheBuryProject.Controllers
     {
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly ILogger<ConfiguracionPagoController> _logger;
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
-        private readonly IMapper _mapper;
 
         public ConfiguracionPagoController(
             IConfiguracionPagoService configuracionPagoService,
-            ILogger<ConfiguracionPagoController> logger,
-            IDbContextFactory<AppDbContext> contextFactory,
-            IMapper mapper)
+            ILogger<ConfiguracionPagoController> logger)
         {
             _configuracionPagoService = configuracionPagoService;
             _logger = logger;
-            _contextFactory = contextFactory;
-            _mapper = mapper;
         }
 
         // GET: ConfiguracionPago
@@ -388,14 +377,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                await using var context = await _contextFactory.CreateDbContextAsync();
-                var perfiles = await context.PerfilesCredito
-                    .Where(p => !p.IsDeleted)
-                    .OrderBy(p => p.Orden)
-                    .ThenBy(p => p.Nombre)
-                    .ToListAsync();
-
-                var viewModels = _mapper.Map<List<PerfilCreditoViewModel>>(perfiles);
+                var viewModels = await _configuracionPagoService.GetPerfilesCreditoAsync();
                 return Json(new { success = true, data = viewModels });
             }
             catch (Exception ex)
@@ -415,47 +397,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                await using var context = await _contextFactory.CreateDbContextAsync();
-
-                // Actualizar defaults globales en ConfiguracionPago (TipoPago = CreditoPersonal)
-                var configCreditoPersonal = await context.ConfiguracionesPago
-                    .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
-
-                if (configCreditoPersonal != null && config.DefaultsGlobales != null)
-                {
-                    configCreditoPersonal.TasaInteresMensualCreditoPersonal = config.DefaultsGlobales.TasaMensual;
-                    configCreditoPersonal.GastosAdministrativosDefaultCreditoPersonal = config.DefaultsGlobales.GastosAdministrativos;
-                    configCreditoPersonal.MinCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MinCuotas;
-                    configCreditoPersonal.MaxCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MaxCuotas;
-                    configCreditoPersonal.UpdatedAt = DateTime.UtcNow;
-                }
-
-                // Guardar perfiles de crédito
-                if (config.Perfiles != null)
-                {
-                    foreach (var perfilViewModel in config.Perfiles)
-                    {
-                        if (perfilViewModel.Id > 0)
-                        {
-                            // Actualizar existente
-                            var perfil = await context.PerfilesCredito.FindAsync(perfilViewModel.Id);
-                            if (perfil != null)
-                            {
-                                _mapper.Map(perfilViewModel, perfil);
-                                perfil.UpdatedAt = DateTime.UtcNow;
-                            }
-                        }
-                        else
-                        {
-                            // Crear nuevo
-                            var nuevoPerfil = _mapper.Map<PerfilCredito>(perfilViewModel);
-                            nuevoPerfil.CreatedAt = DateTime.UtcNow;
-                            context.PerfilesCredito.Add(nuevoPerfil);
-                        }
-                    }
-                }
-
-                await context.SaveChangesAsync();
+                await _configuracionPagoService.GuardarCreditoPersonalAsync(config);
                 return Json(new { success = true, message = "Configuración de crédito personal guardada exitosamente" });
             }
             catch (Exception ex)
@@ -466,20 +408,4 @@ namespace TheBuryProject.Controllers
         }
     }
 
-    /// <summary>
-    /// ViewModel para recibir configuración completa de crédito personal
-    /// </summary>
-    public class CreditoPersonalConfigViewModel
-    {
-        public DefaultsGlobalesViewModel? DefaultsGlobales { get; set; }
-        public List<PerfilCreditoViewModel>? Perfiles { get; set; }
-    }
-
-    public class DefaultsGlobalesViewModel
-    {
-        public decimal TasaMensual { get; set; }
-        public decimal GastosAdministrativos { get; set; }
-        public int MinCuotas { get; set; }
-        public int MaxCuotas { get; set; }
-    }
 }

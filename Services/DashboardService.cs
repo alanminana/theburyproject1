@@ -162,17 +162,14 @@ namespace TheBuryProject.Services
         private async Task<decimal> CalcularTicketPromedioAsync()
         {
             var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-            var totalVentas = await _context.Ventas
+            var agregados = await _context.Ventas
                 .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
-                .CountAsync();
+                .Select(v => new { v.Total })
+                .ToListAsync();
 
-            if (totalVentas == 0) return 0;
+            if (agregados.Count == 0) return 0;
 
-            var montoTotal = await _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
-                .SumAsync(v => (decimal?)v.Total) ?? 0;
-
-            return montoTotal / totalVentas;
+            return agregados.Sum(v => v.Total) / agregados.Count;
         }
 
         private async Task<decimal> CalcularTasaMorosidadAsync()

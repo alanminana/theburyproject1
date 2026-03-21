@@ -9,6 +9,47 @@ namespace TheBuryProject.Services.Interfaces;
 public interface IRolService
 {
     // ============================================
+    // METADATA DE ROLES
+    // ============================================
+
+    /// <summary>
+    /// Obtiene la metadata de un rol (read-only). Devuelve null si no existe.
+    /// </summary>
+    Task<RolMetadata?> GetRoleMetadataAsync(string roleId);
+
+    /// <summary>
+    /// Obtiene o crea la metadata de un rol. Si existía soft-deleted, la restaura.
+    /// NOTA: no llama SaveChangesAsync — el caller es responsable de persistir.
+    /// </summary>
+    Task<RolMetadata> EnsureRoleMetadataAsync(string roleId, string? roleName);
+
+    /// <summary>
+    /// Activa o desactiva un rol. Retorna el nombre del rol si éxito, null si no existe.
+    /// </summary>
+    Task<string?> ToggleRoleActivoAsync(string roleId, bool activo);
+
+    /// <summary>
+    /// Crea un rol con su metadata en una sola transacción.
+    /// Retorna (Ok, Error, RoleId, RoleName).
+    /// </summary>
+    Task<(bool Ok, string? Error, string? RoleId, string? RoleName)> CreateRoleWithMetadataAsync(
+        string nombre, string? descripcion, bool activo);
+
+    /// <summary>
+    /// Actualiza nombre y metadata de un rol en una sola transacción.
+    /// Retorna (Ok, Error, RoleName).
+    /// </summary>
+    Task<(bool Ok, string? Error, string? RoleName)> UpdateRoleWithMetadataAsync(
+        string roleId, string nombre, string? descripcion, bool activo);
+
+    /// <summary>
+    /// Duplica un rol: crea nuevo rol + metadata + copia permisos del origen en una transacción.
+    /// Retorna (Ok, Error, RoleId, RoleName).
+    /// </summary>
+    Task<(bool Ok, string? Error, string? RoleId, string? RoleName, int PermisosCopiados)> DuplicateRoleAsync(
+        string sourceRoleId, string nombre, string? descripcion, bool activo);
+
+    // ============================================
     // GESTIÓN DE ROLES
     // ============================================
 
@@ -89,6 +130,21 @@ public interface IRolService
     /// Útil después de cambiar permisos
     /// </summary>
     Task SyncRoleClaimsAsync(string roleId);
+
+    /// <summary>
+    /// Reemplaza todos los permisos de un rol por los correspondientes a las accionIds dadas.
+    /// Filtra acciones válidas (activas, no eliminadas). Transaccional.
+    /// Retorna (Ok, Error, PermisosAsignados).
+    /// </summary>
+    Task<(bool Ok, string? Error, int PermisosAsignados)> SyncPermisosForRoleAsync(
+        string roleId, List<int> accionIds);
+
+    /// <summary>
+    /// Copia todos los permisos de un rol origen hacia un rol destino, reemplazando los existentes.
+    /// Transaccional. Retorna (Ok, Error, PermisosCopiados).
+    /// </summary>
+    Task<(bool Ok, string? Error, int PermisosCopiados)> CopyPermisosFromRoleAsync(
+        string sourceRoleId, string targetRoleId);
 
     // ============================================
     // GESTIÓN DE USUARIOS EN ROLES

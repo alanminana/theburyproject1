@@ -357,9 +357,9 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.PorcentajeStockMinimo, opt => opt.MapFrom(src =>
                     src.StockMinimo == 0 ? 0 : (src.StockActual / src.StockMinimo) * 100))
                 .ForMember(dest => dest.DiasDesdeAlerta, opt => opt.MapFrom(src =>
-                    (int)(DateTime.Now - src.FechaAlerta).TotalDays))
+                    (int)(DateTime.UtcNow - src.FechaAlerta).TotalDays))
                 .ForMember(dest => dest.EstaVencida, opt => opt.MapFrom(src =>
-                    src.FechaResolucion == null && (DateTime.Now - src.FechaAlerta).TotalDays > 30));
+                    src.FechaResolucion == null && (DateTime.UtcNow - src.FechaAlerta).TotalDays > 30));
 
             CreateMap<AlertaStockViewModel, AlertaStock>()
                 .ForMember(dest => dest.Producto, opt => opt.Ignore());

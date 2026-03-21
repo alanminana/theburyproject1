@@ -6,7 +6,5 @@ namespace TheBuryProject.Services.Interfaces
     {
         Task<ConfiguracionMoraCompletaViewModel?> GetConfiguracionAsync();
         Task<ConfiguracionMoraCompletaViewModel> SaveConfiguracionAsync(ConfiguracionMoraCompletaViewModel viewModel);
-        Task<decimal> CalcularInterePunitorioDiarioAsync(decimal capital, int diasAtraso);
-        Task<List<AlertaMoraViewModel>> GetAlertasActivasAsync();
     }
 }

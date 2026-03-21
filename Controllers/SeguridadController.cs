@@ -33,6 +33,7 @@ public class SeguridadController : Controller
 
     private readonly AppDbContext _context;
     private readonly IRolService _rolService;
+    private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<SeguridadController> _logger;
@@ -40,12 +41,14 @@ public class SeguridadController : Controller
     public SeguridadController(
         AppDbContext context,
         IRolService rolService,
+        IUsuarioService usuarioService,
         ISeguridadAuditoriaService seguridadAuditoria,
         UserManager<ApplicationUser> userManager,
         ILogger<SeguridadController> logger)
     {
         _context = context;
         _rolService = rolService;
+        _usuarioService = usuarioService;
         _seguridadAuditoria = seguridadAuditoria;
         _userManager = userManager;
         _logger = logger;
@@ -200,81 +203,35 @@ public class SeguridadController : Controller
                 return View("EditUsuario_tw", model);
             }
 
-            var currentRoles = await _userManager.GetRolesAsync(user);
-            var rolesToRemove = currentRoles.Except(model.RolesSeleccionados, StringComparer.OrdinalIgnoreCase).ToList();
-            var rolesToAdd = model.RolesSeleccionados.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToList();
-
-            var wasActive = user.Activo;
-            user.UserName = model.UserName;
-            user.Email = model.Email;
-            user.Nombre = string.IsNullOrWhiteSpace(model.Nombre) ? null : model.Nombre.Trim();
-            user.Apellido = string.IsNullOrWhiteSpace(model.Apellido) ? null : model.Apellido.Trim();
-            user.Telefono = string.IsNullOrWhiteSpace(model.Telefono) ? null : model.Telefono.Trim();
-            user.PhoneNumber = user.Telefono;
-            user.SucursalId = sucursal?.Id;
-            user.Sucursal = sucursal?.Nombre;
-            user.Activo = model.Activo;
-
-            if (wasActive && !model.Activo)
+            var result = await _usuarioService.UpdateUsuarioAsync(new UsuarioUpdateRequest
             {
-                user.FechaDesactivacion = DateTime.UtcNow;
-                user.DesactivadoPor = User.Identity?.Name;
-                user.MotivoDesactivacion = "Desactivado desde la edición de Seguridad.";
-            }
-            else if (!wasActive && model.Activo)
-            {
-                user.FechaDesactivacion = null;
-                user.DesactivadoPor = null;
-                user.MotivoDesactivacion = null;
-            }
+                UserId = model.Id,
+                UserName = model.UserName,
+                Email = model.Email,
+                Nombre = model.Nombre,
+                Apellido = model.Apellido,
+                Telefono = model.Telefono,
+                SucursalId = sucursal?.Id,
+                SucursalNombre = sucursal?.Nombre,
+                Activo = model.Activo,
+                RolesDeseados = model.RolesSeleccionados,
+                RowVersion = model.RowVersion!,
+                EditadoPor = User.Identity?.Name
+            });
 
-            _context.Entry(user).Property(u => u.RowVersion).OriginalValue = model.RowVersion!;
-
-            var updateResult = await _userManager.UpdateAsync(user);
-            if (!updateResult.Succeeded)
+            if (!result.Ok)
             {
-                if (updateResult.Errors.Any(error =>
-                    string.Equals(error.Code, "ConcurrencyFailure", StringComparison.OrdinalIgnoreCase)))
+                if (result.ConcurrencyConflict)
                 {
                     _logger.LogWarning("Conflicto de concurrencia al editar usuario {UserId} desde Seguridad", model.Id);
-                    ModelState.AddModelError(string.Empty, "El usuario fue modificado por otro usuario. Recargá los datos antes de guardar nuevamente.");
-                    return View("EditUsuario_tw", model);
                 }
 
-                foreach (var error in updateResult.Errors)
+                foreach (var error in result.Errors)
                 {
-                    ModelState.AddModelError(string.Empty, error.Description);
+                    ModelState.AddModelError(string.Empty, error);
                 }
 
                 return View("EditUsuario_tw", model);
-            }
-
-            if (rolesToRemove.Any())
-            {
-                var removeResult = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
-                if (!removeResult.Succeeded)
-                {
-                    foreach (var error in removeResult.Errors)
-                    {
-                        ModelState.AddModelError(string.Empty, error.Description);
-                    }
-
-                    return View("EditUsuario_tw", model);
-                }
-            }
-
-            if (rolesToAdd.Any())
-            {
-                var addResult = await _userManager.AddToRolesAsync(user, rolesToAdd);
-                if (!addResult.Succeeded)
-                {
-                    foreach (var error in addResult.Errors)
-                    {
-                        ModelState.AddModelError(string.Empty, error.Description);
-                    }
-
-                    return View("EditUsuario_tw", model);
-                }
             }
 
             _logger.LogInformation("Usuario editado desde Seguridad: {UserId} por {Admin}",
@@ -361,44 +318,23 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
-            var createResult = await _rolService.CreateRoleAsync(model.Nombre);
-            if (!createResult.Succeeded)
-            {
-                foreach (var error in createResult.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
+            var (ok, error, roleId, roleName) = await _rolService.CreateRoleWithMetadataAsync(
+                model.Nombre, model.Descripcion, model.Activo);
 
+            if (!ok)
+            {
+                ModelState.AddModelError(string.Empty, error ?? "Error al crear el rol.");
                 return this.JsonModelErrors();
             }
 
-            var role = await _rolService.GetRoleByNameAsync(model.Nombre);
-            if (role == null)
-            {
-                ModelState.AddModelError(string.Empty, "No se pudo recuperar el rol creado.");
-                return this.JsonModelErrors();
-            }
-
-            var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
-            metadata.Descripcion = string.IsNullOrWhiteSpace(model.Descripcion)
-                ? RolMetadataDefaults.GetDescripcion(role.Name)
-                : model.Descripcion;
-            metadata.Activo = model.Activo;
-            metadata.IsDeleted = false;
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Rol creado desde Seguridad: {RoleName} por {Admin}", role.Name, User.Identity?.Name);
-            TempData["Success"] = $"Rol '{role.Name}' creado correctamente.";
+            _logger.LogInformation("Rol creado desde Seguridad: {RoleName} por {Admin}", roleName, User.Identity?.Name);
+            TempData["Success"] = $"Rol '{roleName}' creado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
                 "Crear",
-                $"Rol \"{role.Name}\"",
+                $"Rol \"{roleName}\"",
                 $"Rol creado con estado {(model.Activo ? "activo" : "inactivo")}.");
             return Json(new
             {
@@ -408,7 +344,6 @@ public class SeguridadController : Controller
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al crear rol {RoleName} desde Seguridad", model.Nombre);
             ModelState.AddModelError(string.Empty, "Error al crear el rol.");
             return this.JsonModelErrors();
@@ -430,7 +365,7 @@ public class SeguridadController : Controller
             return NotFound();
         }
 
-        var metadata = await GetRoleMetadataAsync(role.Id);
+        var metadata = await _rolService.GetRoleMetadataAsync(role.Id);
         ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         return PartialView("_EditRoleModal_tw", new EditarRolViewModel
@@ -459,50 +394,23 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
-        var role = await _rolService.GetRoleByIdAsync(model.Id);
-        if (role == null)
-        {
-            return Json(new { success = false, errors = new[] { "Rol no encontrado." } });
-        }
-
-        var existingRole = await _rolService.GetRoleByNameAsync(model.Nombre);
-        if (existingRole != null && existingRole.Id != model.Id)
-        {
-            ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
-            return this.JsonModelErrors();
-        }
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
-            var updateResult = await _rolService.UpdateRoleAsync(model.Id, model.Nombre);
-            if (!updateResult.Succeeded)
-            {
-                foreach (var error in updateResult.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
+            var (ok, error, roleName) = await _rolService.UpdateRoleWithMetadataAsync(
+                model.Id, model.Nombre, model.Descripcion, model.Activo);
 
+            if (!ok)
+            {
+                ModelState.AddModelError(string.Empty, error ?? "Error al actualizar el rol.");
                 return this.JsonModelErrors();
             }
 
-            var metadata = await EnsureRoleMetadataAsync(model.Id, model.Nombre);
-            metadata.Descripcion = string.IsNullOrWhiteSpace(model.Descripcion)
-                ? RolMetadataDefaults.GetDescripcion(model.Nombre)
-                : model.Descripcion;
-            metadata.Activo = model.Activo;
-            metadata.IsDeleted = false;
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
             _logger.LogInformation("Rol editado desde Seguridad: {RoleId} por {Admin}", model.Id, User.Identity?.Name);
-            TempData["Success"] = $"Rol '{model.Nombre}' actualizado correctamente.";
+            TempData["Success"] = $"Rol '{roleName}' actualizado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
                 "Editar",
-                $"Rol \"{model.Nombre}\"",
+                $"Rol \"{roleName}\"",
                 $"Rol actualizado. Estado: {(model.Activo ? "activo" : "inactivo")}.");
             return Json(new
             {
@@ -512,7 +420,6 @@ public class SeguridadController : Controller
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al editar rol {RoleId} desde Seguridad", model.Id);
             ModelState.AddModelError(string.Empty, "Error al actualizar el rol.");
             return this.JsonModelErrors();
@@ -534,7 +441,7 @@ public class SeguridadController : Controller
             return NotFound();
         }
 
-        var metadata = await GetRoleMetadataAsync(role.Id);
+        var metadata = await _rolService.GetRoleMetadataAsync(role.Id);
         ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         return PartialView("_DuplicateRoleModal_tw", new DuplicarRolViewModel
@@ -565,68 +472,25 @@ public class SeguridadController : Controller
             return this.JsonModelErrors();
         }
 
-        var sourceRole = await _rolService.GetRoleByIdAsync(model.RolOrigenId);
-        if (sourceRole == null)
-        {
-            return Json(new { success = false, errors = new[] { "Rol origen no encontrado." } });
-        }
-
-        if (await _rolService.RoleExistsAsync(model.Nombre))
-        {
-            ModelState.AddModelError(nameof(model.Nombre), $"El rol '{model.Nombre}' ya existe.");
-            return this.JsonModelErrors();
-        }
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
-            var createResult = await _rolService.CreateRoleAsync(model.Nombre);
-            if (!createResult.Succeeded)
-            {
-                foreach (var error in createResult.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
+            var (ok, error, roleId, roleName, permisosCopiados) = await _rolService.DuplicateRoleAsync(
+                model.RolOrigenId, model.Nombre, model.Descripcion, model.Activo);
 
+            if (!ok)
+            {
+                ModelState.AddModelError(string.Empty, error ?? "Error al duplicar el rol.");
                 return this.JsonModelErrors();
             }
 
-            var newRole = await _rolService.GetRoleByNameAsync(model.Nombre);
-            if (newRole == null)
-            {
-                return Json(new { success = false, errors = new[] { "No se pudo recuperar el rol duplicado." } });
-            }
-
-            var metadata = await EnsureRoleMetadataAsync(newRole.Id, newRole.Name);
-            metadata.Descripcion = string.IsNullOrWhiteSpace(model.Descripcion)
-                ? RolMetadataDefaults.GetDescripcion(newRole.Name)
-                : model.Descripcion;
-            metadata.Activo = model.Activo;
-            metadata.IsDeleted = false;
-
-            var permisosOrigen = await _rolService.GetPermissionsForRoleAsync(sourceRole.Id);
-            var permisos = permisosOrigen
-                .Select(p => (p.ModuloId, p.AccionId))
-                .Distinct()
-                .ToList();
-
-            if (permisos.Count > 0)
-            {
-                await _rolService.AssignMultiplePermissionsAsync(newRole.Id, permisos);
-            }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Rol duplicado desde Seguridad: {SourceRole} -> {NewRole} por {Admin}",
-                sourceRole.Name, newRole.Name, User.Identity?.Name);
-            TempData["Success"] = $"Rol '{newRole.Name}' duplicado correctamente.";
+            _logger.LogInformation("Rol duplicado desde Seguridad: {SourceRoleId} -> {NewRole} por {Admin}",
+                model.RolOrigenId, roleName, User.Identity?.Name);
+            TempData["Success"] = $"Rol '{roleName}' duplicado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
                 "Crear",
-                $"Rol \"{newRole.Name}\"",
-                $"Rol duplicado desde \"{sourceRole.Name}\" con {permisos.Count} permisos.");
+                $"Rol \"{roleName}\"",
+                $"Rol duplicado desde \"{model.RolOrigenId}\" con {permisosCopiados} permisos.");
             return Json(new
             {
                 success = true,
@@ -635,7 +499,6 @@ public class SeguridadController : Controller
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al duplicar rol {RoleId} desde Seguridad", model.RolOrigenId);
             ModelState.AddModelError(string.Empty, "Error al duplicar el rol.");
             return this.JsonModelErrors();
@@ -649,22 +512,16 @@ public class SeguridadController : Controller
     {
         try
         {
-            var role = await _rolService.GetRoleByIdAsync(id);
-            if (role == null)
+            var roleName = await _rolService.ToggleRoleActivoAsync(id, activo);
+            if (roleName == null)
             {
                 TempData["Error"] = "Rol no encontrado.";
                 return RedirectToAction(nameof(Index), new { tab = "roles" });
             }
 
-            var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
-            metadata.Activo = activo;
-            metadata.IsDeleted = false;
-
-            await _context.SaveChangesAsync();
-
             var actionLabel = activo ? "activado" : "desactivado";
             _logger.LogInformation("Rol {RoleId} {ActionLabel} desde Seguridad por {Admin}", id, actionLabel, User.Identity?.Name);
-            TempData["Success"] = $"Rol '{role.Name}' {actionLabel} correctamente.";
+            TempData["Success"] = $"Rol '{roleName}' {actionLabel} correctamente.";
         }
         catch (Exception ex)
         {
@@ -727,40 +584,27 @@ public class SeguridadController : Controller
             return RedirectToAction(nameof(Index), new { tab = "permisos-rol" });
         }
 
-        accionIds ??= [];
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
-            var acciones = await _context.AccionesModulo
-                .AsNoTracking()
-                .Where(a => accionIds.Contains(a.Id) && !a.IsDeleted && a.Activa)
-                .Select(a => new { a.Id, a.ModuloId })
-                .ToListAsync();
+            var (ok, error, permisosAsignados) = await _rolService.SyncPermisosForRoleAsync(roleId, accionIds ?? []);
 
-            await _rolService.ClearPermissionsForRoleAsync(roleId);
-
-            if (acciones.Count > 0)
+            if (!ok)
             {
-                await _rolService.AssignMultiplePermissionsAsync(
-                    roleId,
-                    acciones.Select(a => (a.ModuloId, a.Id)).ToList());
+                TempData["Error"] = error ?? "Error al guardar los permisos del rol.";
             }
-
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Permisos guardados para rol {RoleId} por {Admin}", roleId, User.Identity?.Name);
-            TempData["Success"] = $"Permisos actualizados para '{role.Name}'.";
-            await _seguridadAuditoria.RegistrarEventoAsync(
-                "Seguridad",
-                "Permisos",
-                $"Rol \"{role.Name}\"",
-                $"{acciones.Count} permisos guardados manualmente.");
+            else
+            {
+                _logger.LogInformation("Permisos guardados para rol {RoleId} por {Admin}", roleId, User.Identity?.Name);
+                TempData["Success"] = $"Permisos actualizados para '{role.Name}'.";
+                await _seguridadAuditoria.RegistrarEventoAsync(
+                    "Seguridad",
+                    "Permisos",
+                    $"Rol \"{role.Name}\"",
+                    $"{permisosAsignados} permisos guardados manualmente.");
+            }
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al guardar permisos del rol {RoleId}", roleId);
             TempData["Error"] = "Error al guardar los permisos del rol.";
         }
@@ -827,21 +671,14 @@ public class SeguridadController : Controller
             return Json(new { success = false, errors = new[] { "No se encontraron los roles seleccionados." } });
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
-            var permisosOrigen = await _rolService.GetPermissionsForRoleAsync(sourceRole.Id);
-            await _rolService.ClearPermissionsForRoleAsync(targetRole.Id);
+            var (ok, error, permisosCopiados) = await _rolService.CopyPermisosFromRoleAsync(sourceRole.Id, targetRole.Id);
 
-            if (permisosOrigen.Count > 0)
+            if (!ok)
             {
-                await _rolService.AssignMultiplePermissionsAsync(
-                    targetRole.Id,
-                    permisosOrigen.Select(p => (p.ModuloId, p.AccionId)).Distinct().ToList());
+                return Json(new { success = false, errors = new[] { error ?? "Error al copiar permisos entre roles." } });
             }
-
-            await transaction.CommitAsync();
 
             _logger.LogInformation("Permisos copiados de {SourceRole} a {TargetRole} por {Admin}",
                 sourceRole.Name, targetRole.Name, User.Identity?.Name);
@@ -860,7 +697,6 @@ public class SeguridadController : Controller
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al copiar permisos entre roles {SourceRoleId} -> {TargetRoleId}", model.RolOrigenId, model.RolDestinoId);
             return Json(new { success = false, errors = new[] { "Error al copiar permisos entre roles." } });
         }
@@ -1207,7 +1043,7 @@ public class SeguridadController : Controller
             return null;
         }
 
-        var metadata = await GetRoleMetadataAsync(role.Id);
+        var metadata = await _rolService.GetRoleMetadataAsync(role.Id);
         var permisos = await _rolService.GetPermissionsForRoleAsync(id);
         var usuarios = await _rolService.GetUsersInRoleAsync(role.Name ?? string.Empty, includeInactive: true);
 
@@ -1239,45 +1075,6 @@ public class SeguridadController : Controller
         };
     }
 
-    private async Task<RolMetadata?> GetRoleMetadataAsync(string roleId)
-    {
-        return await _context.RolMetadatas
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.RoleId == roleId);
-    }
-
-    private async Task<RolMetadata> EnsureRoleMetadataAsync(string roleId, string? roleName)
-    {
-        var metadata = await _context.RolMetadatas
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.RoleId == roleId);
-
-        if (metadata != null)
-        {
-            if (metadata.IsDeleted)
-            {
-                metadata.IsDeleted = false;
-            }
-
-            if (string.IsNullOrWhiteSpace(metadata.Descripcion))
-            {
-                metadata.Descripcion = RolMetadataDefaults.GetDescripcion(roleName);
-            }
-
-            return metadata;
-        }
-
-        metadata = new RolMetadata
-        {
-            RoleId = roleId,
-            Descripcion = RolMetadataDefaults.GetDescripcion(roleName),
-            Activo = true,
-            IsDeleted = false
-        };
-
-        _context.RolMetadatas.Add(metadata);
-        return metadata;
-    }
 
     private static void NormalizeRoleCreateModel(CrearRolViewModel model)
     {

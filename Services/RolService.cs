@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 
@@ -72,10 +73,10 @@ public class RolService : IRolService
 
         // Obtener todos los usuarios con este rol
         var allUsersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
-        
+
         // Filtrar solo usuarios activos
         var activeUsersInRole = allUsersInRole.Where(u => u.Activo).ToList();
-        
+
         if (activeUsersInRole.Any())
         {
             return IdentityResult.Failed(new IdentityError
@@ -83,12 +84,41 @@ public class RolService : IRolService
                 Description = $"No se puede eliminar el rol porque tiene {activeUsersInRole.Count} usuario(s) activo(s) asignado(s)"
             });
         }
-        
+
         // Si solo hay usuarios inactivos, permitir eliminación
         // Los usuarios inactivos mantendrán el rol asignado pero no se consideran un impedimento
 
-        await ClearPermissionsForRoleAsync(roleId);
-        return await _roleManager.DeleteAsync(role);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Soft-delete metadata (antes del cascade hard-delete del role)
+            var metadata = await _context.RolMetadatas
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.RoleId == roleId);
+            if (metadata != null)
+            {
+                metadata.IsDeleted = true;
+                metadata.Activo = false;
+                metadata.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await ClearPermissionsForRoleAsync(roleId);
+
+            var deleteResult = await _roleManager.DeleteAsync(role);
+            if (!deleteResult.Succeeded)
+                return deleteResult;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return IdentityResult.Success;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public Task<bool> RoleExistsAsync(string roleName) => _roleManager.RoleExistsAsync(roleName);
@@ -572,6 +602,275 @@ public class RolService : IRolService
         }
 
         return stats;
+    }
+
+    #endregion
+
+    #region Metadata de Roles
+
+    public async Task<RolMetadata?> GetRoleMetadataAsync(string roleId)
+    {
+        return await _context.RolMetadatas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.RoleId == roleId);
+    }
+
+    public async Task<RolMetadata> EnsureRoleMetadataAsync(string roleId, string? roleName)
+    {
+        var metadata = await _context.RolMetadatas
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.RoleId == roleId);
+
+        if (metadata != null)
+        {
+            if (metadata.IsDeleted)
+            {
+                metadata.IsDeleted = false;
+            }
+
+            if (string.IsNullOrWhiteSpace(metadata.Descripcion))
+            {
+                metadata.Descripcion = RolMetadataDefaults.GetDescripcion(roleName);
+            }
+
+            return metadata;
+        }
+
+        metadata = new RolMetadata
+        {
+            RoleId = roleId,
+            Descripcion = RolMetadataDefaults.GetDescripcion(roleName),
+            Activo = true,
+            IsDeleted = false
+        };
+
+        _context.RolMetadatas.Add(metadata);
+        return metadata;
+    }
+
+    public async Task<string?> ToggleRoleActivoAsync(string roleId, bool activo)
+    {
+        var role = await GetRoleByIdAsync(roleId);
+        if (role == null)
+            return null;
+
+        var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
+        metadata.Activo = activo;
+        metadata.IsDeleted = false;
+
+        await _context.SaveChangesAsync();
+        return role.Name;
+    }
+
+    public async Task<(bool Ok, string? Error, int PermisosAsignados)> SyncPermisosForRoleAsync(
+        string roleId, List<int> accionIds)
+    {
+        var role = await _roleManager.FindByIdAsync(roleId);
+        if (role == null)
+            return (false, "Rol no encontrado.", 0);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Filtrar acciones válidas (activas, no eliminadas)
+            var acciones = await _context.AccionesModulo
+                .AsNoTracking()
+                .Where(a => accionIds.Contains(a.Id) && !a.IsDeleted && a.Activa)
+                .Select(a => new { a.Id, a.ModuloId })
+                .ToListAsync();
+
+            await ClearPermissionsForRoleAsync(roleId);
+
+            if (acciones.Count > 0)
+            {
+                await AssignMultiplePermissionsAsync(
+                    roleId,
+                    acciones.Select(a => (a.ModuloId, a.Id)).ToList());
+            }
+
+            await transaction.CommitAsync();
+            return (true, null, acciones.Count);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<(bool Ok, string? Error, int PermisosCopiados)> CopyPermisosFromRoleAsync(
+        string sourceRoleId, string targetRoleId)
+    {
+        var sourceRole = await _roleManager.FindByIdAsync(sourceRoleId);
+        if (sourceRole == null)
+            return (false, "Rol origen no encontrado.", 0);
+
+        var targetRole = await _roleManager.FindByIdAsync(targetRoleId);
+        if (targetRole == null)
+            return (false, "Rol destino no encontrado.", 0);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var permisosOrigen = await GetPermissionsForRoleAsync(sourceRole.Id);
+            await ClearPermissionsForRoleAsync(targetRole.Id);
+
+            var permisos = permisosOrigen
+                .Select(p => (p.ModuloId, p.AccionId))
+                .Distinct()
+                .ToList();
+
+            if (permisos.Count > 0)
+            {
+                await AssignMultiplePermissionsAsync(targetRole.Id, permisos);
+            }
+
+            await transaction.CommitAsync();
+            return (true, null, permisos.Count);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<(bool Ok, string? Error, string? RoleName)> UpdateRoleWithMetadataAsync(
+        string roleId, string nombre, string? descripcion, bool activo)
+    {
+        var role = await _roleManager.FindByIdAsync(roleId);
+        if (role == null)
+            return (false, "Rol no encontrado.", null);
+
+        // Validar duplicado de nombre contra otro rol
+        var existing = await _roleManager.FindByNameAsync(nombre);
+        if (existing != null && existing.Id != roleId)
+            return (false, $"El rol '{nombre}' ya existe.", null);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            role.Name = nombre;
+            role.NormalizedName = nombre.ToUpperInvariant();
+            var updateResult = await _roleManager.UpdateAsync(role);
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+                return (false, errors, null);
+            }
+
+            var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
+            metadata.Descripcion = string.IsNullOrWhiteSpace(descripcion)
+                ? RolMetadataDefaults.GetDescripcion(role.Name)
+                : descripcion;
+            metadata.Activo = activo;
+            metadata.IsDeleted = false;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return (true, null, role.Name);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<(bool Ok, string? Error, string? RoleId, string? RoleName)> CreateRoleWithMetadataAsync(
+        string nombre, string? descripcion, bool activo)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var createResult = await _roleManager.CreateAsync(new IdentityRole(nombre));
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(" ", createResult.Errors.Select(e => e.Description));
+                return (false, errors, null, null);
+            }
+
+            var role = await _roleManager.FindByNameAsync(nombre);
+            if (role == null)
+                return (false, "No se pudo recuperar el rol creado.", null, null);
+
+            var metadata = await EnsureRoleMetadataAsync(role.Id, role.Name);
+            metadata.Descripcion = string.IsNullOrWhiteSpace(descripcion)
+                ? RolMetadataDefaults.GetDescripcion(role.Name)
+                : descripcion;
+            metadata.Activo = activo;
+            metadata.IsDeleted = false;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return (true, null, role.Id, role.Name);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<(bool Ok, string? Error, string? RoleId, string? RoleName, int PermisosCopiados)> DuplicateRoleAsync(
+        string sourceRoleId, string nombre, string? descripcion, bool activo)
+    {
+        var sourceRole = await _roleManager.FindByIdAsync(sourceRoleId);
+        if (sourceRole == null)
+            return (false, "Rol origen no encontrado.", null, null, 0);
+
+        var existing = await _roleManager.FindByNameAsync(nombre);
+        if (existing != null)
+            return (false, $"El rol '{nombre}' ya existe.", null, null, 0);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var createResult = await _roleManager.CreateAsync(new IdentityRole(nombre));
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(" ", createResult.Errors.Select(e => e.Description));
+                return (false, errors, null, null, 0);
+            }
+
+            var newRole = await _roleManager.FindByNameAsync(nombre);
+            if (newRole == null)
+                return (false, "No se pudo recuperar el rol duplicado.", null, null, 0);
+
+            var metadata = await EnsureRoleMetadataAsync(newRole.Id, newRole.Name);
+            metadata.Descripcion = string.IsNullOrWhiteSpace(descripcion)
+                ? RolMetadataDefaults.GetDescripcion(newRole.Name)
+                : descripcion;
+            metadata.Activo = activo;
+            metadata.IsDeleted = false;
+
+            // Copiar permisos del rol origen
+            var permisosOrigen = await GetPermissionsForRoleAsync(sourceRole.Id);
+            var permisos = permisosOrigen
+                .Select(p => (p.ModuloId, p.AccionId))
+                .Distinct()
+                .ToList();
+
+            if (permisos.Count > 0)
+                await AssignMultiplePermissionsAsync(newRole.Id, permisos);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return (true, null, newRole.Id, newRole.Name, permisos.Count);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     #endregion

@@ -65,7 +65,6 @@ builder.Services.AddSingleton<IMapper>(sp =>
 // 5. Servicios (DI)
 builder.Services.AddCoreServices();
 builder.Services.AddVentaServices();
-builder.Services.AddMoraServices();
 builder.Services.AddCreditoServices();
 
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
@@ -83,6 +82,7 @@ builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();
 builder.Services.AddScoped<IRolService, RolService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ISeguridadAuditoriaService, SeguridadAuditoriaService>();
 
 builder.Services.AddScoped<IPrecioService, PrecioService>();

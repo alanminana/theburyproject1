@@ -37,7 +37,7 @@ namespace TheBuryProject.Models.Entities
         /// <summary>
         /// Fecha de creación del acuerdo
         /// </summary>
-        public DateTime FechaCreacion { get; set; } = DateTime.Now;
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Fecha en que el acuerdo pasó a estado Activo

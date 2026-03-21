@@ -654,10 +654,10 @@ namespace TheBuryProject.Controllers
                     d.EstadoColor,
                     d.EstadoIcono,
                     FechaVencimiento = d.FechaVencimiento?.ToString("dd/MM/yyyy"),
-                    Vencido = d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < DateTime.Now,
-                    PorVencer = d.FechaVencimiento.HasValue 
-                        && d.FechaVencimiento.Value >= DateTime.Now 
-                        && (d.FechaVencimiento.Value - DateTime.Now).Days <= 30,
+                    Vencido = d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < DateTime.UtcNow,
+                    PorVencer = d.FechaVencimiento.HasValue
+                        && d.FechaVencimiento.Value >= DateTime.UtcNow
+                        && (d.FechaVencimiento.Value - DateTime.UtcNow).Days <= 30,
                     EsPendiente = d.Estado == EstadoDocumento.Pendiente
                 }));
             }

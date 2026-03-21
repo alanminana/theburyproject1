@@ -16,5 +16,15 @@ namespace TheBuryProject.Services.Interfaces
         Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id);
         Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento);
         Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto);
+
+        /// <summary>
+        /// Obtiene todos los perfiles de crédito activos (no eliminados), ordenados.
+        /// </summary>
+        Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync();
+
+        /// <summary>
+        /// Guarda defaults globales de crédito personal y perfiles (crear/actualizar).
+        /// </summary>
+        Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config);
     }
 }

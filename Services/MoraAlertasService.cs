@@ -191,6 +191,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        // Fórmula canónica de punitorio: usa la tasa de interés nominal anual del crédito individual.
+        // Alineado con CreditoService.PagarCuotaAsync.
+        // NOTA: MoraService.GenerarAlertasCobranzaAsync usa ConfiguracionMora.TasaMoraBase (tasa global)
+        // en lugar de Credito.TasaInteres — bifurcación intencional pendiente de decisión de negocio.
         private decimal CalcularMora(Cuota cuota)
         {
             if (cuota.Credito == null || cuota.FechaVencimiento >= DateTime.UtcNow)

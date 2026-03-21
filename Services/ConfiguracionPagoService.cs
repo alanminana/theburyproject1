@@ -179,5 +179,57 @@ namespace TheBuryProject.Services
 
             return monto * (config.PorcentajeRecargo.Value / 100);
         }
+
+        public async Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync()
+        {
+            var perfiles = await _context.PerfilesCredito
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.Orden)
+                .ThenBy(p => p.Nombre)
+                .ToListAsync();
+
+            return _mapper.Map<List<PerfilCreditoViewModel>>(perfiles);
+        }
+
+        public async Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config)
+        {
+            // Actualizar defaults globales en ConfiguracionPago (TipoPago = CreditoPersonal)
+            var configCreditoPersonal = await _context.ConfiguracionesPago
+                .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
+
+            if (configCreditoPersonal != null && config.DefaultsGlobales != null)
+            {
+                configCreditoPersonal.TasaInteresMensualCreditoPersonal = config.DefaultsGlobales.TasaMensual;
+                configCreditoPersonal.GastosAdministrativosDefaultCreditoPersonal = config.DefaultsGlobales.GastosAdministrativos;
+                configCreditoPersonal.MinCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MinCuotas;
+                configCreditoPersonal.MaxCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MaxCuotas;
+                configCreditoPersonal.UpdatedAt = DateTime.UtcNow;
+            }
+
+            // Guardar perfiles de crédito
+            if (config.Perfiles != null)
+            {
+                foreach (var perfilViewModel in config.Perfiles)
+                {
+                    if (perfilViewModel.Id > 0)
+                    {
+                        var perfil = await _context.PerfilesCredito.FindAsync(perfilViewModel.Id);
+                        if (perfil != null)
+                        {
+                            _mapper.Map(perfilViewModel, perfil);
+                            perfil.UpdatedAt = DateTime.UtcNow;
+                        }
+                    }
+                    else
+                    {
+                        var nuevoPerfil = _mapper.Map<PerfilCredito>(perfilViewModel);
+                        nuevoPerfil.CreatedAt = DateTime.UtcNow;
+                        _context.PerfilesCredito.Add(nuevoPerfil);
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

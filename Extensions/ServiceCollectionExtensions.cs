@@ -23,20 +23,6 @@ namespace TheBuryProject.Extensions
             return services;
         }
 
-        public static IServiceCollection AddMoraServices(this IServiceCollection services)
-        {
-            // Motor de cálculo puro (sin estado, sin DB)
-            services.AddSingleton<ICalculoMoraService, CalculoMoraService>();
-
-            // Automatización por tramos (sin estado directo de DB)
-            services.AddScoped<ICobranzaAutomatizacionService, CobranzaAutomatizacionService>();
-
-            // Gestión de promesas de pago (requiere DB)
-            services.AddScoped<IPromesaPagoService, PromesaPagoService>();
-
-            return services;
-        }
-
         public static IServiceCollection AddCreditoServices(this IServiceCollection services)
         {
             // Servicio de aptitud crediticia (semáforo Apto/NoApto/RequiereAutorizacion)

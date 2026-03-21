@@ -188,7 +188,7 @@
                                     var c = Crit(d);
                                     <tr class="hover:bg-[#135bec]/6">
                                         <td class="px-6 py-3"><a asp-action="Detalles" asp-route-id="@d.Id" class="text-xs font-black tabular-nums text-[#b4c5ff] hover:text-white no-underline">@d.NumeroDevolucion</a></td>
-                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@d.Cliente?.NombreCompleto</span><span class="text-[9px] text-[#8d90a1]">@d.Cliente?.NumeroDocumento</span></div></td>
+                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@(d.Cliente != null ? d.Cliente.ToDisplayName() : "")</span><span class="text-[9px] text-[#8d90a1]">@d.Cliente?.NumeroDocumento</span></div></td>
                                         <td class="px-6 py-3 text-[10px] font-medium">@d.Venta?.Numero</td>
                                         <td class="px-6 py-3 text-[10px] text-[#c3c5d8]">@(string.IsNullOrWhiteSpace(d.Descripcion) ? d.Motivo.GetDisplayName() : d.Descripcion.Length > 42 ? $"{d.Descripcion[..42]}..." : d.Descripcion)</td>
                                         <td class="px-6 py-3"><span class="inline-flex rounded-md px-2 py-1 text-[8px] font-black uppercase tracking-[.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span></td>
@@ -216,7 +216,7 @@
                                 {
                                     <tr class="hover:bg-[#135bec]/6">
                                         <td class="px-6 py-3 text-xs font-black tabular-nums text-[#b4c5ff]">@g.NumeroGarantia</td>
-                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@g.Cliente?.NombreCompleto</span><span class="text-[9px] text-[#8d90a1]">@g.Cliente?.NumeroDocumento</span></div></td>
+                                        <td class="px-6 py-3"><div class="flex flex-col"><span class="text-xs font-bold">@(g.Cliente != null ? g.Cliente.ToDisplayName() : "")</span><span class="text-[9px] text-[#8d90a1]">@g.Cliente?.NumeroDocumento</span></div></td>
                                         <td class="px-6 py-3"><div class="flex flex-col"><span class="text-[10px] font-semibold">@g.Producto?.Nombre</span><span class="text-[9px] text-[#8d90a1]">@g.Producto?.Codigo</span></div></td>
                                         <td class="px-6 py-3 text-center"><span class="inline-flex rounded-md px-2 py-1 text-[8px] font-black uppercase tracking-[.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span></td>
                                         <td class="px-6 py-3 text-[10px] font-medium">@g.FechaInicio.ToString("dd/MM/yyyy")</td>

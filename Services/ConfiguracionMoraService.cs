@@ -132,33 +132,5 @@ namespace TheBuryProject.Services
             }
         }
 
-        public async Task<decimal> CalcularInterePunitorioDiarioAsync(decimal capital, int diasAtraso)
-        {
-            var config = await _context.ConfiguracionesMora
-                .FirstOrDefaultAsync(c => !c.IsDeleted);
-
-            if (config == null || !config.TasaMoraBase.HasValue || config.TasaMoraBase <= 0)
-                return 0;
-
-            var diasGracia = config.DiasGracia ?? 0;
-            var diasCalculables = Math.Max(0, diasAtraso - diasGracia);
-
-            if (diasCalculables <= 0)
-                return 0;
-
-            var tasaDiaria = config.TasaMoraBase.Value / 100m; // Convertir porcentaje a decimal
-            return capital * tasaDiaria * diasCalculables;
-        }
-
-        public async Task<List<AlertaMoraViewModel>> GetAlertasActivasAsync()
-        {
-            var alertas = await _context.Set<AlertaMora>()
-                .Where(a => a.Activa && !a.IsDeleted)
-                .OrderBy(a => a.Orden)
-                .ThenBy(a => a.DiasRelativoVencimiento)
-                .ToListAsync();
-
-            return _mapper.Map<List<AlertaMoraViewModel>>(alertas);
-        }
     }
 }

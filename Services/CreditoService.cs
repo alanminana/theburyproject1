@@ -290,28 +290,12 @@ namespace TheBuryProject.Services
                 modelo.CFTEA = _financialService.CalcularCFTEADesdeTasa(tasaDecimal);
 
                 // Generar plan de pagos
-                modelo.PlanPagos = new List<CuotaSimuladaViewModel>();
-                var fechaCuota = DateTime.UtcNow.AddMonths(1);
-                var saldoCapital = modelo.MontoSolicitado;
-
-                for (int i = 1; i <= modelo.CantidadCuotas; i++)
-                {
-                    var interes = saldoCapital * tasaDecimal;
-                    var capital = modelo.MontoCuota - interes;
-                    saldoCapital -= capital;
-
-                    modelo.PlanPagos.Add(new CuotaSimuladaViewModel
-                    {
-                        NumeroCuota = i,
-                        FechaVencimiento = fechaCuota,
-                        MontoCapital = Math.Round(capital, 2),
-                        MontoInteres = Math.Round(interes, 2),
-                        MontoTotal = Math.Round(modelo.MontoCuota, 2),
-                        SaldoCapital = Math.Round(Math.Max(0, saldoCapital), 2)
-                    });
-
-                    fechaCuota = fechaCuota.AddMonths(1);
-                }
+                modelo.PlanPagos = GenerarPlanAmortizacionFrances(
+                    modelo.MontoSolicitado,
+                    tasaDecimal,
+                    modelo.CantidadCuotas,
+                    modelo.MontoCuota,
+                    DateTime.UtcNow.AddMonths(1));
 
                 return Task.FromResult(modelo);
             }
@@ -482,8 +466,7 @@ namespace TheBuryProject.Services
                     .Include(c => c.Credito)
                     .FirstOrDefaultAsync(c => c.Id == pago.CuotaId &&
                                               !c.IsDeleted &&
-                                              !c.Credito.IsDeleted &&
-                                              !c.Credito.Cliente.IsDeleted);
+                                              !c.Credito.IsDeleted);
 
                 if (cuota == null)
                     return false;
@@ -497,8 +480,8 @@ namespace TheBuryProject.Services
                 if (ahora > cuota.FechaVencimiento && cuota.Estado != EstadoCuota.Pagada)
                 {
                     var diasAtraso = (ahora - cuota.FechaVencimiento).Days;
-                    // Aplicar 2% mensual de punitorio (ejemplo)
-                    cuota.MontoPunitorio = cuota.MontoTotal * 0.02m * (diasAtraso / 30m);
+                    // Punitorio basado en la tasa de interés del crédito (alineado con MoraAlertasService)
+                    cuota.MontoPunitorio = cuota.MontoTotal * (cuota.Credito.TasaInteres / 100m / 12m) * (diasAtraso / 30m);
                 }
 
                 cuota.MontoPagado += pago.MontoPagado;
@@ -511,14 +494,7 @@ namespace TheBuryProject.Services
 
                 var totalACobrar = cuota.MontoTotal + cuota.MontoPunitorio;
 
-                if (cuota.MontoPagado >= totalACobrar)
-                {
-                    cuota.Estado = EstadoCuota.Pagada;
-                }
-                else if (cuota.MontoPagado > 0)
-                {
-                    cuota.Estado = EstadoCuota.Parcial;
-                }
+                cuota.Estado = ResolverEstadoCuota(cuota.MontoPagado, totalACobrar);
 
                 await _context.SaveChangesAsync();
 
@@ -581,14 +557,9 @@ namespace TheBuryProject.Services
                     ? observacionAdelanto
                     : $"{observacionAdelanto}. {pago.Observaciones}";
 
-                if (ultimaCuotaPendiente.MontoPagado >= ultimaCuotaPendiente.MontoTotal)
-                {
-                    ultimaCuotaPendiente.Estado = EstadoCuota.Pagada;
-                }
-                else if (ultimaCuotaPendiente.MontoPagado > 0)
-                {
-                    ultimaCuotaPendiente.Estado = EstadoCuota.Parcial;
-                }
+                ultimaCuotaPendiente.Estado = ResolverEstadoCuota(
+                    ultimaCuotaPendiente.MontoPagado,
+                    ultimaCuotaPendiente.MontoTotal);
 
                 await _context.SaveChangesAsync();
 
@@ -755,6 +726,50 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Métodos Privados
+
+        internal static List<CuotaSimuladaViewModel> GenerarPlanAmortizacionFrances(
+            decimal monto,
+            decimal tasa,
+            int cantidadCuotas,
+            decimal montoCuota,
+            DateTime fechaInicio)
+        {
+            var plan = new List<CuotaSimuladaViewModel>();
+            var fechaCuota = fechaInicio;
+            var saldoCapital = monto;
+
+            for (int i = 1; i <= cantidadCuotas; i++)
+            {
+                var interes = saldoCapital * tasa;
+                var capital = montoCuota - interes;
+                saldoCapital -= capital;
+
+                plan.Add(new CuotaSimuladaViewModel
+                {
+                    NumeroCuota = i,
+                    FechaVencimiento = fechaCuota,
+                    MontoCapital = Math.Round(capital, 2),
+                    MontoInteres = Math.Round(interes, 2),
+                    MontoTotal = Math.Round(montoCuota, 2),
+                    SaldoCapital = Math.Round(Math.Max(0, saldoCapital), 2)
+                });
+
+                fechaCuota = fechaCuota.AddMonths(1);
+            }
+
+            return plan;
+        }
+
+        internal static EstadoCuota ResolverEstadoCuota(decimal montoPagado, decimal totalACobrar)
+        {
+            if (montoPagado >= totalACobrar)
+                return EstadoCuota.Pagada;
+
+            if (montoPagado > 0)
+                return EstadoCuota.Parcial;
+
+            return EstadoCuota.Pendiente;
+        }
 
         private static decimal CalcularCapitalPendienteCuota(Cuota cuota)
         {

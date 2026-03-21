@@ -30,7 +30,7 @@ namespace TheBuryProject.Models.Entities
         /// <summary>
         /// Fecha y hora del contacto
         /// </summary>
-        public DateTime FechaContacto { get; set; } = DateTime.Now;
+        public DateTime FechaContacto { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Tipo de contacto realizado

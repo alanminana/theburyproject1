@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
@@ -677,49 +679,9 @@ namespace TheBuryProject.Services
                     };
                 }).ToList();
 
-                // Aplicar filtros
-                if (filtros.Prioridad.HasValue)
-                    clientes = clientes.Where(c => c.PrioridadMaxima == filtros.Prioridad.Value).ToList();
-                if (filtros.EstadoGestion.HasValue)
-                    clientes = clientes.Where(c => c.EstadoGestion == filtros.EstadoGestion.Value).ToList();
-                if (filtros.DiasMinAtraso.HasValue)
-                    clientes = clientes.Where(c => c.DiasMaxAtraso >= filtros.DiasMinAtraso.Value).ToList();
-                if (filtros.DiasMaxAtraso.HasValue)
-                    clientes = clientes.Where(c => c.DiasMaxAtraso <= filtros.DiasMaxAtraso.Value).ToList();
-                if (filtros.MontoMinVencido.HasValue)
-                    clientes = clientes.Where(c => c.MontoVencido >= filtros.MontoMinVencido.Value).ToList();
-                if (filtros.MontoMaxVencido.HasValue)
-                    clientes = clientes.Where(c => c.MontoVencido <= filtros.MontoMaxVencido.Value).ToList();
-                if (filtros.ConPromesaActiva == true)
-                    clientes = clientes.Where(c => c.TienePromesaActiva).ToList();
-                if (filtros.ConAcuerdoActivo == true)
-                    clientes = clientes.Where(c => c.TieneAcuerdoActivo).ToList();
-                if (filtros.SinContactoReciente == true && filtros.DiasSinContacto.HasValue)
-                {
-                    var fechaLimite = hoy.AddDays(-filtros.DiasSinContacto.Value);
-                    clientes = clientes.Where(c => c.UltimoContacto == null || c.UltimoContacto < fechaLimite).ToList();
-                }
-                if (!string.IsNullOrWhiteSpace(filtros.Busqueda))
-                {
-                    var busqueda = filtros.Busqueda.ToLower();
-                    clientes = clientes.Where(c =>
-                        c.Nombre.ToLower().Contains(busqueda) ||
-                        c.Documento.ToLower().Contains(busqueda)).ToList();
-                }
-
-                // Ordenamiento
-                clientes = filtros.Ordenamiento switch
-                {
-                    "PrioridadDesc" => clientes.OrderByDescending(c => c.PrioridadMaxima).ThenByDescending(c => c.DiasMaxAtraso).ToList(),
-                    "PrioridadAsc" => clientes.OrderBy(c => c.PrioridadMaxima).ThenBy(c => c.DiasMaxAtraso).ToList(),
-                    "DiasAtrasoDesc" => clientes.OrderByDescending(c => c.DiasMaxAtraso).ToList(),
-                    "DiasAtrasoAsc" => clientes.OrderBy(c => c.DiasMaxAtraso).ToList(),
-                    "MontoDesc" => clientes.OrderByDescending(c => c.MontoTotal).ToList(),
-                    "MontoAsc" => clientes.OrderBy(c => c.MontoTotal).ToList(),
-                    "NombreAsc" => clientes.OrderBy(c => c.Nombre).ToList(),
-                    "NombreDesc" => clientes.OrderByDescending(c => c.Nombre).ToList(),
-                    _ => clientes.OrderByDescending(c => c.PrioridadMaxima).ThenByDescending(c => c.DiasMaxAtraso).ToList()
-                };
+                // Aplicar filtros y ordenamiento
+                clientes = AplicarFiltros(clientes, filtros, hoy);
+                clientes = AplicarOrdenamiento(clientes, filtros.Ordenamiento);
 
                 var totalClientes = clientes.Count;
 
@@ -1365,7 +1327,10 @@ namespace TheBuryProject.Services
 
         #region Métodos Privados Helpers
 
-        // ✅ NUEVO: Consolidar cálculo de mora en un lugar
+        // Fórmula de mora para alertas de cobranza: usa ConfiguracionMora.TasaMoraBase (tasa global configurable).
+        // NOTA: difiere de MoraAlertasService y CreditoService que usan Credito.TasaInteres por crédito.
+        // Esta bifurcación produce MontoMoraCalculada en AlertaCobranza inconsistente con MontoPunitorio en Cuota.
+        // Pendiente de alineación — requiere decisión de negocio sobre régimen de tasa punitoria.
         private decimal CalcularMora(decimal montoVencido, int diasAtraso, ConfiguracionMora config)
         {
             if (diasAtraso <= 0 || montoVencido <= 0)
@@ -1409,6 +1374,71 @@ namespace TheBuryProject.Services
             return $"Cliente {cliente.ToDisplayName()} tiene ${montoVencido:F2} en mora " +
                    $"con {cuotasVencidas} cuota(s) vencida(s) por {diasAtraso} día(s). " +
                    $"Documento: {cliente.NumeroDocumento}";
+        }
+
+        internal static List<ClienteMoraViewModel> AplicarFiltros(
+            List<ClienteMoraViewModel> clientes,
+            FiltrosBandejaClientes filtros,
+            DateTime hoy)
+        {
+            if (filtros.Prioridad.HasValue)
+                clientes = clientes.Where(c => c.PrioridadMaxima == filtros.Prioridad.Value).ToList();
+            if (filtros.EstadoGestion.HasValue)
+                clientes = clientes.Where(c => c.EstadoGestion == filtros.EstadoGestion.Value).ToList();
+            if (filtros.DiasMinAtraso.HasValue)
+                clientes = clientes.Where(c => c.DiasMaxAtraso >= filtros.DiasMinAtraso.Value).ToList();
+            if (filtros.DiasMaxAtraso.HasValue)
+                clientes = clientes.Where(c => c.DiasMaxAtraso <= filtros.DiasMaxAtraso.Value).ToList();
+            if (filtros.MontoMinVencido.HasValue)
+                clientes = clientes.Where(c => c.MontoVencido >= filtros.MontoMinVencido.Value).ToList();
+            if (filtros.MontoMaxVencido.HasValue)
+                clientes = clientes.Where(c => c.MontoVencido <= filtros.MontoMaxVencido.Value).ToList();
+            if (filtros.ConPromesaActiva == true)
+                clientes = clientes.Where(c => c.TienePromesaActiva).ToList();
+            if (filtros.ConAcuerdoActivo == true)
+                clientes = clientes.Where(c => c.TieneAcuerdoActivo).ToList();
+            if (filtros.SinContactoReciente == true && filtros.DiasSinContacto.HasValue)
+            {
+                var fechaLimite = hoy.AddDays(-filtros.DiasSinContacto.Value);
+                clientes = clientes.Where(c => c.UltimoContacto == null || c.UltimoContacto < fechaLimite).ToList();
+            }
+            if (!string.IsNullOrWhiteSpace(filtros.Busqueda))
+            {
+                var busqueda = NormalizarBusqueda(filtros.Busqueda);
+                clientes = clientes.Where(c =>
+                    NormalizarBusqueda(c.Nombre).Contains(busqueda) ||
+                    NormalizarBusqueda(c.Documento).Contains(busqueda)).ToList();
+            }
+
+            return clientes;
+        }
+
+        internal static List<ClienteMoraViewModel> AplicarOrdenamiento(
+            List<ClienteMoraViewModel> clientes,
+            string? ordenamiento)
+        {
+            return ordenamiento switch
+            {
+                "PrioridadDesc" => clientes.OrderByDescending(c => c.PrioridadMaxima).ThenByDescending(c => c.DiasMaxAtraso).ToList(),
+                "PrioridadAsc" => clientes.OrderBy(c => c.PrioridadMaxima).ThenBy(c => c.DiasMaxAtraso).ToList(),
+                "DiasAtrasoDesc" => clientes.OrderByDescending(c => c.DiasMaxAtraso).ToList(),
+                "DiasAtrasoAsc" => clientes.OrderBy(c => c.DiasMaxAtraso).ToList(),
+                "MontoDesc" => clientes.OrderByDescending(c => c.MontoTotal).ToList(),
+                "MontoAsc" => clientes.OrderBy(c => c.MontoTotal).ToList(),
+                "NombreAsc" => clientes.OrderBy(c => c.Nombre).ToList(),
+                "NombreDesc" => clientes.OrderByDescending(c => c.Nombre).ToList(),
+                _ => clientes.OrderByDescending(c => c.PrioridadMaxima).ThenByDescending(c => c.DiasMaxAtraso).ToList()
+            };
+        }
+
+        private static string NormalizarBusqueda(string? s)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            return new string(
+                s.Normalize(NormalizationForm.FormD)
+                 .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                 .ToArray()
+            ).ToLowerInvariant();
         }
 
         #endregion

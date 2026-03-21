@@ -58,6 +58,17 @@ namespace TheBuryProject.Controllers
                 : RedirectToAction(nameof(Index));
         }
 
+        private static List<SelectListItem> ProyectarCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
+            (cuotas ?? Enumerable.Empty<CuotaViewModel>())
+                .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
+                .OrderBy(c => c.NumeroCuota)
+                .Select(c => new SelectListItem
+                {
+                    Value = c.Id.ToString(),
+                    Text = $"Cuota #{c.NumeroCuota} - Vto: {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C}"
+                })
+                .ToList();
+
         public CreditoController(
             ICreditoService creditoService,
             IEvaluacionCreditoService evaluacionService,
@@ -473,20 +484,10 @@ namespace TheBuryProject.Controllers
             // PUNTO 1: Validar que MetodoCalculo haya sido seleccionado
             if (!modelo.MetodoCalculo.HasValue)
             {
-                ModelState.AddModelError(nameof(modelo.MetodoCalculo), 
+                ModelState.AddModelError(nameof(modelo.MetodoCalculo),
                     "Debe seleccionar un método de cálculo.");
                 ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
-                
-                // Recargar datos para la vista
-                await using var contextReload = await _contextFactory.CreateDbContextAsync();
-                var perfilesActivos = await contextReload.PerfilesCredito
-                    .Where(p => !p.IsDeleted && p.Activo)
-                    .OrderBy(p => p.Orden)
-                    .ThenBy(p => p.Nombre)
-                    .ToListAsync();
-                ViewBag.PerfilesActivos = perfilesActivos;
-                
-                return View("ConfigurarVenta_tw", modelo);
+                return await RetornarVistaConPerfilesAsync(modelo);
             }
 
             // TAREA 10: Validar que UsarCliente requiere configuración del cliente
@@ -501,21 +502,11 @@ namespace TheBuryProject.Controllers
                      !cliente.GastosAdministrativosPersonalizados.HasValue && 
                      !cliente.CuotasMaximasPersonalizadas.HasValue))
                 {
-                    ModelState.AddModelError(nameof(modelo.MetodoCalculo), 
+                    ModelState.AddModelError(nameof(modelo.MetodoCalculo),
                         "El cliente no tiene configuración de crédito personal. " +
                         "Configure el cliente con valores personalizados o seleccione otro método.");
                     ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
-                    
-                    // Recargar datos para la vista
-                    await using var contextReload = await _contextFactory.CreateDbContextAsync();
-                    var perfilesActivos = await contextReload.PerfilesCredito
-                        .Where(p => !p.IsDeleted && p.Activo)
-                        .OrderBy(p => p.Orden)
-                        .ThenBy(p => p.Nombre)
-                        .ToListAsync();
-                    ViewBag.PerfilesActivos = perfilesActivos;
-                    
-                    return View("ConfigurarVenta_tw", modelo);
+                    return await RetornarVistaConPerfilesAsync(modelo);
                 }
             }
 
@@ -525,40 +516,40 @@ namespace TheBuryProject.Controllers
             
             // Obtener tasa según fuente de configuración
             var tasaMensual = modelo.TasaMensual;
-            
+
             if (!tasaMensual.HasValue || modelo.FuenteConfiguracion != FuenteConfiguracionCredito.Manual)
             {
-                // Cargar valores según fuente
+                // Cargar cliente si la fuente lo requiere
+                Cliente? clienteParaTasa = null;
                 if (modelo.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
                 {
                     await using var contextCliente = await _contextFactory.CreateDbContextAsync();
-                    var cliente = await contextCliente.Clientes
+                    clienteParaTasa = await contextCliente.Clientes
                         .FirstOrDefaultAsync(c => c.Id == modelo.ClienteId && !c.IsDeleted);
-                    
-                    if (cliente != null)
-                    {
-                        tasaMensual = cliente.TasaInteresMensualPersonalizada 
-                            ?? await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                        
-                        if (!modelo.GastosAdministrativos.HasValue)
-                        {
-                            gastosAdministrativos = cliente.GastosAdministrativosPersonalizados ?? 0m;
-                        }
-                        
+                }
+
+                // Resolver tasa global solo si es necesario (lazy — tiene side effect si no existe config)
+                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+                (tasaMensual, gastosAdministrativos) = ResolverTasaYGastos(
+                    modelo.FuenteConfiguracion,
+                    modelo.TasaMensual,
+                    modelo.GastosAdministrativos,
+                    tasaGlobal,
+                    clienteParaTasa);
+
+                // Logging según fuente y resultado
+                if (modelo.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
+                {
+                    if (clienteParaTasa != null)
                         _logger.LogInformation(
                             "Crédito {CreditoId}: Usando configuración personalizada del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
                             modelo.CreditoId, modelo.ClienteId, tasaMensual, gastosAdministrativos);
-                    }
                     else
-                    {
-                        // Fallback a global si no hay cliente
-                        tasaMensual = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
                         _logger.LogWarning("Cliente {ClienteId} no encontrado, usando configuración global", modelo.ClienteId);
-                    }
                 }
-                else // FuenteConfiguracionCredito.Global
+                else
                 {
-                    tasaMensual = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
                     _logger.LogInformation(
                         "Crédito {CreditoId}: Usando configuración global - Tasa: {Tasa}%",
                         modelo.CreditoId, tasaMensual);
@@ -567,25 +558,15 @@ namespace TheBuryProject.Controllers
             else
             {
                 // Manual: usar valores ingresados por el usuario
-                // TAREA 10: Validar que tasa sea > 0 en Manual
+                // TAREA 10: Validar que tasa sea > 0 en modo Manual
                 if (modelo.MetodoCalculo == MetodoCalculoCredito.Manual && (!tasaMensual.HasValue || tasaMensual.Value <= 0))
                 {
-                    ModelState.AddModelError(nameof(modelo.TasaMensual), 
+                    ModelState.AddModelError(nameof(modelo.TasaMensual),
                         "La tasa de interés debe ser mayor a 0% en modo Manual.");
                     ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
-                    
-                    // Recargar datos para la vista
-                    await using var contextReload = await _contextFactory.CreateDbContextAsync();
-                    var perfilesActivos = await contextReload.PerfilesCredito
-                        .Where(p => !p.IsDeleted && p.Activo)
-                        .OrderBy(p => p.Orden)
-                        .ThenBy(p => p.Nombre)
-                        .ToListAsync();
-                    ViewBag.PerfilesActivos = perfilesActivos;
-                    
-                    return View("ConfigurarVenta_tw", modelo);
+                    return await RetornarVistaConPerfilesAsync(modelo);
                 }
-                
+
                 _logger.LogInformation(
                     "Crédito {CreditoId}: Configuración manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
                     modelo.CreditoId, tasaMensual, gastosAdministrativos);
@@ -603,56 +584,26 @@ namespace TheBuryProject.Controllers
             }
 
             // TAREA 10: Validar rangos de cuotas según método activo
-            int cuotasMinPermitidas = 1;
-            int cuotasMaxPermitidas = 120;
-            string descripcionMetodo = "";
-            
-            switch (modelo.MetodoCalculo)
+            // Cargar las entidades necesarias para la resolución de rango
+            // modelo.MetodoCalculo.HasValue garantizado por el guard anterior (línea ~474)
+            PerfilCredito? perfilParaRango = null;
+            if (modelo.PerfilCreditoSeleccionadoId.HasValue &&
+                (modelo.MetodoCalculo == MetodoCalculoCredito.UsarPerfil ||
+                 modelo.MetodoCalculo == MetodoCalculoCredito.AutomaticoPorCliente))
             {
-                case MetodoCalculoCredito.Manual:
-                    cuotasMinPermitidas = 1;
-                    cuotasMaxPermitidas = 120;
-                    descripcionMetodo = "Manual";
-                    break;
-                    
-                case MetodoCalculoCredito.UsarPerfil:
-                case MetodoCalculoCredito.AutomaticoPorCliente when modelo.PerfilCreditoSeleccionadoId.HasValue:
-                    if (modelo.PerfilCreditoSeleccionadoId.HasValue)
-                    {
-                        var perfilValidacion = await context.PerfilesCredito
-                            .FirstOrDefaultAsync(p => p.Id == modelo.PerfilCreditoSeleccionadoId.Value && !p.IsDeleted);
-                        if (perfilValidacion != null)
-                        {
-                            cuotasMinPermitidas = perfilValidacion.MinCuotas;
-                            cuotasMaxPermitidas = perfilValidacion.MaxCuotas;
-                            descripcionMetodo = $"Perfil '{perfilValidacion.Nombre}'";
-                        }
-                    }
-                    break;
-                    
-                case MetodoCalculoCredito.UsarCliente:
-                    var clienteValidacion = await context.Clientes
-                        .FirstOrDefaultAsync(c => c.Id == modelo.ClienteId && !c.IsDeleted);
-                    if (clienteValidacion?.CuotasMaximasPersonalizadas.HasValue == true)
-                    {
-                        cuotasMaxPermitidas = clienteValidacion.CuotasMaximasPersonalizadas.Value;
-                        descripcionMetodo = "Cliente";
-                    }
-                    else
-                    {
-                        cuotasMaxPermitidas = 24;
-                        descripcionMetodo = "Cliente (sin config)";
-                    }
-                    break;
-                    
-                case MetodoCalculoCredito.Global:
-                case MetodoCalculoCredito.AutomaticoPorCliente:
-                default:
-                    cuotasMinPermitidas = 1;
-                    cuotasMaxPermitidas = 24;
-                    descripcionMetodo = "Global";
-                    break;
+                perfilParaRango = await context.PerfilesCredito
+                    .FirstOrDefaultAsync(p => p.Id == modelo.PerfilCreditoSeleccionadoId.Value && !p.IsDeleted);
             }
+
+            Cliente? clienteParaRango = null;
+            if (modelo.MetodoCalculo == MetodoCalculoCredito.UsarCliente)
+            {
+                clienteParaRango = await context.Clientes
+                    .FirstOrDefaultAsync(c => c.Id == modelo.ClienteId && !c.IsDeleted);
+            }
+
+            var (cuotasMinPermitidas, cuotasMaxPermitidas, descripcionMetodo) =
+                ResolverRangoCuotasPermitidos(modelo.MetodoCalculo!.Value, perfilParaRango, clienteParaRango);
             
             if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
             {
@@ -660,16 +611,7 @@ namespace TheBuryProject.Controllers
                     $"La cantidad de cuotas debe estar entre {cuotasMinPermitidas} y {cuotasMaxPermitidas} " +
                     $"según el método '{descripcionMetodo}'.");
                 ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
-                
-                // Recargar datos para la vista
-                var perfilesActivos = await context.PerfilesCredito
-                    .Where(p => !p.IsDeleted && p.Activo)
-                    .OrderBy(p => p.Orden)
-                    .ThenBy(p => p.Nombre)
-                    .ToListAsync();
-                ViewBag.PerfilesActivos = perfilesActivos;
-                
-                return View("ConfigurarVenta_tw", modelo);
+                return await RetornarVistaConPerfilesAsync(modelo);
             }
 
             credito.CantidadCuotas = modelo.CantidadCuotas;
@@ -688,23 +630,15 @@ namespace TheBuryProject.Controllers
             credito.TasaInteresAplicada = tasaMensual; // PUNTO 5: Tasa final aplicada
 
             // TAREA 9.3: Si se usó perfil, guardar ID y nombre para auditoría
-            if (modelo.PerfilCreditoSeleccionadoId.HasValue && 
-                (modelo.MetodoCalculo == MetodoCalculoCredito.UsarPerfil || 
-                 modelo.MetodoCalculo == MetodoCalculoCredito.AutomaticoPorCliente))
+            // perfilParaRango ya fue cargado en el bloque de validación de rango de cuotas
+            if (perfilParaRango != null)
             {
-                await using var contextPerfil = await _contextFactory.CreateDbContextAsync();
-                var perfil = await contextPerfil.PerfilesCredito
-                    .FirstOrDefaultAsync(p => p.Id == modelo.PerfilCreditoSeleccionadoId.Value && !p.IsDeleted);
-                
-                if (perfil != null)
-                {
-                    credito.PerfilCreditoAplicadoId = perfil.Id;
-                    credito.PerfilCreditoAplicadoNombre = perfil.Nombre;
-                    
-                    _logger.LogInformation(
-                        "Crédito {CreditoId}: Perfil aplicado - ID: {PerfilId}, Nombre: {PerfilNombre}",
-                        modelo.CreditoId, perfil.Id, perfil.Nombre);
-                }
+                credito.PerfilCreditoAplicadoId = perfilParaRango.Id;
+                credito.PerfilCreditoAplicadoNombre = perfilParaRango.Nombre;
+
+                _logger.LogInformation(
+                    "Crédito {CreditoId}: Perfil aplicado - ID: {PerfilId}, Nombre: {PerfilNombre}",
+                    modelo.CreditoId, perfilParaRango.Id, perfilParaRango.Nombre);
             }
 
             // PUNTO 5: Logging completo de auditoría
@@ -721,31 +655,9 @@ namespace TheBuryProject.Controllers
                 credito.PerfilCreditoAplicadoId?.ToString() ?? "N/A");
 
             // TAREA 9.3: Guardar rango de cuotas permitidas para auditoría
-            // Determinar según el método aplicado
-            if (modelo.MetodoCalculo == MetodoCalculoCredito.Manual)
-            {
-                credito.CuotasMinimasPermitidas = 1;
-                credito.CuotasMaximasPermitidas = 120;
-            }
-            else if (modelo.PerfilCreditoSeleccionadoId.HasValue)
-            {
-                // Usar rango del perfil si se aplicó
-                await using var contextPerfil = await _contextFactory.CreateDbContextAsync();
-                var perfil = await contextPerfil.PerfilesCredito
-                    .FirstOrDefaultAsync(p => p.Id == modelo.PerfilCreditoSeleccionadoId.Value && !p.IsDeleted);
-                
-                if (perfil != null)
-                {
-                    credito.CuotasMinimasPermitidas = perfil.MinCuotas;
-                    credito.CuotasMaximasPermitidas = perfil.MaxCuotas;
-                }
-            }
-            else
-            {
-                // Global o cliente sin perfil
-                credito.CuotasMinimasPermitidas = 1;
-                credito.CuotasMaximasPermitidas = 24;
-            }
+            // Valores ya resueltos por ResolverRangoCuotasPermitidos
+            credito.CuotasMinimasPermitidas = cuotasMinPermitidas;
+            credito.CuotasMaximasPermitidas = cuotasMaxPermitidas;
 
             if (gastosAdministrativos > 0)
             {
@@ -902,6 +814,94 @@ namespace TheBuryProject.Controllers
         }
 
         private record SemaforoPrecalificacion(string Estado, string Mensaje, bool MostrarIngreso, bool MostrarAntiguedad);
+
+        /// <summary>
+        /// Determina el rango de cuotas permitidas y la descripción del método aplicado,
+        /// a partir de los objetos de dominio ya cargados desde DB.
+        /// No realiza accesos a base de datos.
+        /// </summary>
+        internal static (int Min, int Max, string Descripcion) ResolverRangoCuotasPermitidos(
+            MetodoCalculoCredito metodo,
+            PerfilCredito? perfil,
+            Cliente? cliente)
+        {
+            switch (metodo)
+            {
+                case MetodoCalculoCredito.Manual:
+                    return (1, 120, "Manual");
+
+                case MetodoCalculoCredito.UsarPerfil:
+                case MetodoCalculoCredito.AutomaticoPorCliente when perfil != null:
+                    if (perfil != null)
+                        return (perfil.MinCuotas, perfil.MaxCuotas, $"Perfil '{perfil.Nombre}'");
+                    // perfil no cargado: preservar comportamiento original (valores iniciales del caller)
+                    return (1, 120, "");
+
+                case MetodoCalculoCredito.UsarCliente:
+                    if (cliente?.CuotasMaximasPersonalizadas.HasValue == true)
+                        return (1, cliente.CuotasMaximasPersonalizadas.Value, "Cliente");
+                    return (1, 24, "Cliente (sin config)");
+
+                case MetodoCalculoCredito.Global:
+                case MetodoCalculoCredito.AutomaticoPorCliente:
+                default:
+                    return (1, 24, "Global");
+            }
+        }
+
+        /// <summary>
+        /// Recarga los perfiles de crédito activos en ViewBag y retorna la vista ConfigurarVenta_tw.
+        /// Centraliza el patrón repetido en los early returns de validación de ConfigurarVenta POST.
+        /// </summary>
+        private async Task<IActionResult> RetornarVistaConPerfilesAsync(ConfiguracionCreditoVentaViewModel modelo)
+        {
+            await using var ctx = await _contextFactory.CreateDbContextAsync();
+            ViewBag.PerfilesActivos = await ctx.PerfilesCredito
+                .Where(p => !p.IsDeleted && p.Activo)
+                .OrderBy(p => p.Orden)
+                .ThenBy(p => p.Nombre)
+                .ToListAsync();
+            return View("ConfigurarVenta_tw", modelo);
+        }
+
+        /// <summary>
+        /// Resuelve la tasa mensual y los gastos administrativos a aplicar al crédito,
+        /// a partir de los datos ya cargados. No accede a base de datos ni a infraestructura.
+        ///
+        /// Comportamiento por fuente:
+        ///   PorCliente, cliente != null → tasa del cliente si tiene, sino tasaGlobal;
+        ///                                 gastos del cliente si gastosDelModelo es null, sino 0
+        ///   PorCliente, cliente == null → tasaGlobal, gastos sin cambio (gastosDelModelo ?? 0)
+        ///   Global (o cualquier otro)   → tasaGlobal, gastos sin cambio
+        ///
+        /// El caso Manual no pasa por este método — el controller lo maneja directamente
+        /// porque implica un early return con ModelState.
+        ///
+        /// NOTA: el caller debe pasar tasaGlobal solo si la fuente lo requiere
+        /// (!tasaMensualDelModelo.HasValue || fuente != Manual), preservando la llamada lazy
+        /// a IConfiguracionPagoService que tiene side effect (crea config si no existe).
+        /// </summary>
+        internal static (decimal? Tasa, decimal Gastos) ResolverTasaYGastos(
+            FuenteConfiguracionCredito fuente,
+            decimal? tasaMensualDelModelo,
+            decimal? gastosDelModelo,
+            decimal tasaGlobal,
+            Cliente? cliente)
+        {
+            var gastosBase = gastosDelModelo ?? 0m;
+
+            if (fuente == FuenteConfiguracionCredito.PorCliente && cliente != null)
+            {
+                var tasa = cliente.TasaInteresMensualPersonalizada ?? tasaGlobal;
+                var gastos = gastosDelModelo.HasValue
+                    ? gastosBase
+                    : cliente.GastosAdministrativosPersonalizados ?? 0m;
+                return (tasa, gastos);
+            }
+
+            // Global, cliente no encontrado en PorCliente, o cualquier otro valor de fuente
+            return (tasaGlobal, gastosBase);
+        }
 
         // GET: Credito/Create
         public async Task<IActionResult> Create(string? returnUrl = null)
@@ -1167,17 +1167,7 @@ namespace TheBuryProject.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    var cuotasPendientes = (credito.Cuotas ?? new List<CuotaViewModel>())
-                        .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-                        .OrderBy(c => c.NumeroCuota)
-                        .Select(c => new SelectListItem
-                        {
-                            Value = c.Id.ToString(),
-                            Text = $"Cuota #{c.NumeroCuota} - Vto: {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C}"
-                        })
-                        .ToList();
-
-                    ViewBag.Cuotas = cuotasPendientes;
+                    ViewBag.Cuotas = ProyectarCuotasPendientes(credito.Cuotas);
 
                     return View("PagarCuota_tw", modelo);
                 }
@@ -1203,17 +1193,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
-                var cuotasPendientes = (credito?.Cuotas ?? new List<CuotaViewModel>())
-                    .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-                    .OrderBy(c => c.NumeroCuota)
-                    .Select(c => new SelectListItem
-                    {
-                        Value = c.Id.ToString(),
-                        Text = $"Cuota #{c.NumeroCuota} - Vto: {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C}"
-                    })
-                    .ToList();
-
-                ViewBag.Cuotas = cuotasPendientes;
+                ViewBag.Cuotas = ProyectarCuotasPendientes(credito?.Cuotas);
             }
             catch
             {

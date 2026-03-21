@@ -10,5 +10,9 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default);
 
         Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default);
+
+        Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(
+            IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items,
+            string usuario);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -18,6 +19,15 @@ namespace TheBuryProject.Services
         private readonly IMapper _mapper;
         private readonly ILogger<EvaluacionCreditoService> _logger;
         private ConfiguracionEvaluacionViewModel? _config;
+
+        // Heurística de scoring: cuota estimada como fracción del monto solicitado.
+        // No es un cálculo financiero canónico — es una aproximación para evaluar
+        // la relación cuota/ingreso sin conocer la tasa y plazo definitivos.
+        private const decimal RatioCuotaEstimada = 0.10m;
+
+        // Umbrales de relación cuota/ingreso para clasificación de capacidad de pago.
+        private const decimal UmbralCuotaIngresoBajo = 0.25m;
+        private const decimal UmbralCuotaIngresoAlto = 0.45m;
 
         public EvaluacionCreditoService(
             AppDbContext context,
@@ -53,7 +63,7 @@ namespace TheBuryProject.Services
                 var evaluacion = new EvaluacionCreditoViewModel
                 {
                     ClienteId = clienteId,
-                    ClienteNombre = cliente.NombreCompleto ?? "Desconocido",  // ✅ CORREGIDO: ?? operator
+                    ClienteNombre = cliente.ToDisplayName(),
                     MontoSolicitado = montoSolicitado,
                     SueldoCliente = cliente.Sueldo,
                     PuntajeRiesgoCliente = cliente.PuntajeRiesgo,
@@ -109,8 +119,8 @@ namespace TheBuryProject.Services
             
             if (cliente.Sueldo.HasValue && cliente.Sueldo > 0)
             {
-                decimal cuotaEstimada = montoSolicitado * 0.10m;
-                evaluacion.RelacionCuotaIngreso = cuotaEstimada / cliente.Sueldo.Value;
+                decimal cuotaEstimada = montoSolicitado * RatioCuotaEstimada;
+                evaluacion.RelacionCuotaIngreso = CalcularRelacionCuotaIngreso(cuotaEstimada, cliente.Sueldo.Value);
             }
 
             // 4️⃣ Historial Crediticio
@@ -122,6 +132,9 @@ namespace TheBuryProject.Services
             var reglaGarante = EvaluarGarante(montoSolicitado, evaluacion.TieneGarante);
             evaluacion.Reglas.Add(reglaGarante);
         }
+
+        internal static decimal CalcularRelacionCuotaIngreso(decimal cuota, decimal sueldo) =>
+            sueldo == 0 ? 0 : cuota / sueldo;
 
         // ✅ MÉTODOS PRIVADOS CONSOLIDADOS
         private ReglaEvaluacionViewModel EvaluarPuntajeRiesgo(decimal puntajeRiesgo)
@@ -216,20 +229,20 @@ namespace TheBuryProject.Services
                     EsCritica = true
                 };
 
-            decimal cuotaEstimada = montoSolicitado * 0.10m;
-            decimal relacionCuotaIngreso = cuotaEstimada / cliente.Sueldo.Value;
+            decimal cuotaEstimada = montoSolicitado * RatioCuotaEstimada;
+            decimal relacionCuotaIngreso = CalcularRelacionCuotaIngreso(cuotaEstimada, cliente.Sueldo.Value);
 
-            if (relacionCuotaIngreso <= 0.25m)
-                (regla.Cumple, regla.Peso, regla.Detalle) = 
+            if (relacionCuotaIngreso <= UmbralCuotaIngresoBajo)
+                (regla.Cumple, regla.Peso, regla.Detalle) =
                     (true, 25, $"Excelente: {relacionCuotaIngreso:P0} del sueldo");
             else if (relacionCuotaIngreso <= _config!.RelacionCuotaIngresoMax)
-                (regla.Cumple, regla.Peso, regla.Detalle) = 
+                (regla.Cumple, regla.Peso, regla.Detalle) =
                     (true, 15, $"Aceptable: {relacionCuotaIngreso:P0} del sueldo");
-            else if (relacionCuotaIngreso <= 0.45m)
-                (regla.Cumple, regla.Peso, regla.Detalle) = 
+            else if (relacionCuotaIngreso <= UmbralCuotaIngresoAlto)
+                (regla.Cumple, regla.Peso, regla.Detalle) =
                     (false, 0, $"Ajustada: {relacionCuotaIngreso:P0} del sueldo");
             else
-                (regla.Cumple, regla.Peso, regla.Detalle) = 
+                (regla.Cumple, regla.Peso, regla.Detalle) =
                     (false, -15, $"Insuficiente: {relacionCuotaIngreso:P0} > {_config!.RelacionCuotaIngresoMax:P0}");
 
             return regla;

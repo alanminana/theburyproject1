@@ -80,6 +80,56 @@ namespace TheBuryProject.Services
             return resultado;
         }
 
+        private static AptitudDetalleItem CrearDetalle(
+            string categoria,
+            string descripcion,
+            bool esBloqueo,
+            string icono,
+            string color)
+        {
+            return new AptitudDetalleItem
+            {
+                Categoria = categoria,
+                Descripcion = descripcion,
+                EsBloqueo = esBloqueo,
+                Icono = icono,
+                Color = color
+            };
+        }
+
+        private static void RegistrarHallazgo(
+            List<AptitudDetalleItem> detalles,
+            List<string> motivos,
+            string motivo,
+            string categoria,
+            string descripcion,
+            bool esBloqueo,
+            string icono,
+            string color)
+        {
+            motivos.Add(motivo);
+            detalles.Add(CrearDetalle(categoria, descripcion, esBloqueo, icono, color));
+        }
+
+        internal static (EstadoCrediticioCliente Estado, string? Motivo) ResolverEstadoFinal(
+            bool esNoApto,
+            bool requiereAutorizacion,
+            List<string> motivos)
+        {
+            if (esNoApto)
+            {
+                return (EstadoCrediticioCliente.NoApto, string.Join(". ", motivos));
+            }
+            else if (requiereAutorizacion)
+            {
+                return (EstadoCrediticioCliente.RequiereAutorizacion, string.Join(". ", motivos));
+            }
+            else
+            {
+                return (EstadoCrediticioCliente.Apto, null);
+            }
+        }
+
         private void DeterminarEstadoFinal(AptitudCrediticiaViewModel resultado, ConfiguracionCredito config)
         {
             var detalles = new List<AptitudDetalleItem>();
@@ -94,30 +144,14 @@ namespace TheBuryProject.Services
                 {
                     esNoApto = true;
                     var faltantes = string.Join(", ", resultado.Documentacion.DocumentosFaltantes);
-                    motivos.Add($"Documentación incompleta: {faltantes}");
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Documentación",
-                        Descripcion = $"Faltan documentos: {faltantes}",
-                        EsBloqueo = true,
-                        Icono = "bi-file-earmark-x",
-                        Color = "danger"
-                    });
+                    RegistrarHallazgo(detalles, motivos, $"Documentación incompleta: {faltantes}", "Documentación", $"Faltan documentos: {faltantes}", true, "bi-file-earmark-x", "danger");
                 }
 
                 if (resultado.Documentacion.TieneVencidos && config.ValidarVencimientoDocumentos)
                 {
                     esNoApto = true;
                     var vencidos = string.Join(", ", resultado.Documentacion.DocumentosVencidos);
-                    motivos.Add($"Documentos vencidos: {vencidos}");
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Documentación",
-                        Descripcion = $"Documentos vencidos: {vencidos}",
-                        EsBloqueo = true,
-                        Icono = "bi-calendar-x",
-                        Color = "danger"
-                    });
+                    RegistrarHallazgo(detalles, motivos, $"Documentos vencidos: {vencidos}", "Documentación", $"Documentos vencidos: {vencidos}", true, "bi-calendar-x", "danger");
                 }
             }
 
@@ -130,28 +164,12 @@ namespace TheBuryProject.Services
                     var motivoCupo = string.IsNullOrWhiteSpace(resultado.Cupo.Mensaje)
                         ? "No hay límite de crédito configurado para el puntaje del cliente"
                         : resultado.Cupo.Mensaje;
-                    motivos.Add(motivoCupo);
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Cupo",
-                        Descripcion = motivoCupo,
-                        EsBloqueo = true,
-                        Icono = "bi-credit-card-2-front",
-                        Color = "danger"
-                    });
+                    RegistrarHallazgo(detalles, motivos, motivoCupo, "Cupo", motivoCupo, true, "bi-credit-card-2-front", "danger");
                 }
                 else if (!resultado.Cupo.CupoSuficiente)
                 {
                     esNoApto = true;
-                    motivos.Add($"Cupo insuficiente (disponible: {resultado.Cupo.CupoDisponible:C0})");
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Cupo",
-                        Descripcion = $"Cupo agotado. Disponible: {resultado.Cupo.CupoDisponible:C0}",
-                        EsBloqueo = true,
-                        Icono = "bi-wallet2",
-                        Color = "danger"
-                    });
+                    RegistrarHallazgo(detalles, motivos, $"Cupo insuficiente (disponible: {resultado.Cupo.CupoDisponible:C0})", "Cupo", $"Cupo agotado. Disponible: {resultado.Cupo.CupoDisponible:C0}", true, "bi-wallet2", "danger");
                 }
             }
 
@@ -161,49 +179,21 @@ namespace TheBuryProject.Services
                 if (resultado.Mora.EsBloqueante)
                 {
                     esNoApto = true;
-                    motivos.Add($"Mora crítica: {resultado.Mora.DiasMaximoMora} días, {resultado.Mora.MontoTotalMora:C0}");
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Mora",
-                        Descripcion = $"Mora crítica: {resultado.Mora.DiasMaximoMora} días, monto {resultado.Mora.MontoTotalMora:C0}",
-                        EsBloqueo = true,
-                        Icono = "bi-exclamation-octagon",
-                        Color = "danger"
-                    });
+                    RegistrarHallazgo(detalles, motivos, $"Mora crítica: {resultado.Mora.DiasMaximoMora} días, {resultado.Mora.MontoTotalMora:C0}", "Mora", $"Mora crítica: {resultado.Mora.DiasMaximoMora} días, monto {resultado.Mora.MontoTotalMora:C0}", true, "bi-exclamation-octagon", "danger");
                 }
                 else if (resultado.Mora.RequiereAutorizacion)
                 {
                     requiereAutorizacion = true;
                     motivos.Add($"Tiene mora: {resultado.Mora.DiasMaximoMora} días");
-                    detalles.Add(new AptitudDetalleItem
-                    {
-                        Categoria = "Mora",
-                        Descripcion = $"Cliente en mora ({resultado.Mora.DiasMaximoMora} días) - Requiere autorización de supervisor",
-                        EsBloqueo = false,
-                        Icono = "bi-clock-history",
-                        Color = "warning"
-                    });
+                    detalles.Add(CrearDetalle("Mora", $"Cliente en mora ({resultado.Mora.DiasMaximoMora} días) - Requiere autorización de supervisor", false, "bi-clock-history", "warning"));
                 }
             }
 
             resultado.Detalles = detalles;
 
-            // Determinar estado final
-            if (esNoApto)
-            {
-                resultado.Estado = EstadoCrediticioCliente.NoApto;
-                resultado.Motivo = string.Join(". ", motivos);
-            }
-            else if (requiereAutorizacion)
-            {
-                resultado.Estado = EstadoCrediticioCliente.RequiereAutorizacion;
-                resultado.Motivo = string.Join(". ", motivos);
-            }
-            else
-            {
-                resultado.Estado = EstadoCrediticioCliente.Apto;
-                resultado.Motivo = null;
-            }
+            var (estado, motivo) = ResolverEstadoFinal(esNoApto, requiereAutorizacion, motivos);
+            resultado.Estado = estado;
+            resultado.Motivo = motivo;
         }
 
         private async Task GuardarResultadoEvaluacionAsync(int clienteId, AptitudCrediticiaViewModel resultado)

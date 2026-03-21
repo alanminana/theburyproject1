@@ -188,5 +188,75 @@ namespace TheBuryProject.Services
 
             return config.ExcepcionDelta.Value;
         }
+
+        public async Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(
+            IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items,
+            string usuario)
+        {
+            var errores = new List<string>();
+
+            if (!items.Any())
+            {
+                errores.Add("No se recibieron registros para guardar.");
+                return (false, errores);
+            }
+
+            var puntajesEsperados = Enum.GetValues<NivelRiesgoCredito>();
+
+            if (items.Any(i => i.LimiteMonto != decimal.Truncate(i.LimiteMonto)))
+                errores.Add("Los límites por puntaje deben cargarse como números enteros.");
+
+            var puntajesRecibidos = items.Select(i => i.Puntaje).ToList();
+
+            var repetidos = puntajesRecibidos
+                .GroupBy(p => p)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (repetidos.Any())
+                errores.Add("Existen puntajes duplicados en la grilla de configuración.");
+
+            if (puntajesRecibidos.Count != puntajesEsperados.Length
+                || puntajesEsperados.Except(puntajesRecibidos).Any())
+                errores.Add("La configuración debe contener exactamente los puntajes del 1 al 5.");
+
+            if (errores.Any())
+                return (false, errores);
+
+            var puntajes = items.Select(i => i.Puntaje).ToList();
+            var existentes = await _context.PuntajesCreditoLimite
+                .Where(p => puntajes.Contains(p.Puntaje))
+                .ToListAsync();
+
+            var fecha = DateTime.UtcNow;
+
+            foreach (var item in items)
+            {
+                var existente = existentes.FirstOrDefault(x => x.Puntaje == item.Puntaje);
+
+                if (existente == null)
+                {
+                    _context.PuntajesCreditoLimite.Add(new PuntajeCreditoLimite
+                    {
+                        Puntaje = item.Puntaje,
+                        LimiteMonto = item.LimiteMonto,
+                        Activo = item.Activo,
+                        FechaActualizacion = fecha,
+                        UsuarioActualizacion = usuario
+                    });
+                }
+                else
+                {
+                    existente.LimiteMonto = item.LimiteMonto;
+                    existente.Activo = item.Activo;
+                    existente.FechaActualizacion = fecha;
+                    existente.UsuarioActualizacion = usuario;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return (true, errores);
+        }
     }
 }

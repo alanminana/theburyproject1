@@ -4,6 +4,8 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -105,9 +107,7 @@ namespace TheBuryProject.Services
                         Total = v.Total,
                         Costo = costo,
                         Ganancia = ganancia,
-                        MargenPorcentaje = v.Total > 0
-                            ? (ganancia / v.Total) * 100
-                            : 0,
+                        MargenPorcentaje = CalcularMargenPorcentaje(ganancia, v.Total),
                         CantidadProductos = detallesValidos.Sum(d => (int)d.Cantidad)
                     };
                 }).ToList();
@@ -194,9 +194,7 @@ namespace TheBuryProject.Services
                 var productosMargen = productos.Select(p =>
                 {
                     var ganancia = p.PrecioVenta - p.PrecioCompra;
-                    var margenPorcentaje = p.PrecioVenta > 0
-                        ? (ganancia / p.PrecioVenta) * 100
-                        : 0;
+                    var margenPorcentaje = CalcularMargenPorcentaje(ganancia, p.PrecioVenta);
 
                     var ventasUltimos30Dias = ventasPorProducto.GetValueOrDefault(p.Id, 0);
                     var rotacionMensual = p.StockActual > 0
@@ -256,12 +254,31 @@ namespace TheBuryProject.Services
                              && c.Estado == EstadoCuota.Pendiente)
                     .ToListAsync();
 
+                // Precargar deuda vigente de todos los clientes morosos en una sola query
+                var clienteIds = cuotasVencidas
+                    .Select(c => c.Credito.ClienteId)
+                    .Distinct()
+                    .ToList();
+
+                var deudaVigenteRaw = await _context.Cuotas
+                    .Where(c => !c.IsDeleted
+                             && !c.Credito.IsDeleted
+                             && clienteIds.Contains(c.Credito.ClienteId)
+                             && c.FechaVencimiento >= hoy
+                             && c.Estado == EstadoCuota.Pendiente)
+                    .Select(c => new { c.Credito.ClienteId, c.MontoTotal })
+                    .ToListAsync();
+
+                var deudaVigenteDict = deudaVigenteRaw
+                    .GroupBy(x => x.ClienteId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.MontoTotal));
+
                 // Agrupar por cliente
                 var clientesMorosos = cuotasVencidas
                     .GroupBy(c => new
                     {
                         ClienteId = c.Credito.ClienteId,
-                        ClienteNombre = c.Credito.Cliente.NombreCompleto ?? "Sin nombre",
+                        ClienteNombre = c.Credito.Cliente.ToDisplayName(),
                         ClienteDocumento = c.Credito.Cliente.NumeroDocumento,
                         ClienteTelefono = c.Credito.Cliente.Telefono
                     })
@@ -269,18 +286,7 @@ namespace TheBuryProject.Services
                     {
                         var cuotaMasAntigua = g.OrderBy(c => c.FechaVencimiento).First();
                         var diasMaxAtraso = (hoy - g.Min(c => c.FechaVencimiento)).Days;
-
-                        // Obtener cuotas vigentes del cliente
                         var clienteId = g.Key.ClienteId;
-                        var cuotasVigentes = _context.Cuotas
-                            .Include(c => c.Credito)
-                            .Where(c => !c.IsDeleted
-                                     && !c.Credito.IsDeleted
-                                     && !c.Credito.Cliente.IsDeleted
-                                     && c.Credito.ClienteId == clienteId
-                                     && c.FechaVencimiento >= hoy
-                                     && c.Estado == EstadoCuota.Pendiente)
-                            .Sum(c => c.MontoTotal);
 
                         return new ClienteMorosoViewModel
                         {
@@ -290,7 +296,7 @@ namespace TheBuryProject.Services
                             ClienteTelefono = g.Key.ClienteTelefono,
                             CantidadCreditosVencidos = g.Select(c => c.CreditoId).Distinct().Count(),
                             TotalDeudaVencida = g.Sum(c => c.MontoTotal),
-                            TotalDeudaVigente = cuotasVigentes,
+                            TotalDeudaVigente = deudaVigenteDict.GetValueOrDefault(clienteId, 0m),
                             FechaPrimerVencimiento = g.Min(c => c.FechaVencimiento),
                             DiasMaximoAtraso = diasMaxAtraso,
                             MontoCuotaVencidaMasAntigua = cuotaMasAntigua.MontoTotal,
@@ -352,7 +358,7 @@ namespace TheBuryProject.Services
                             Etiqueta = g.Key.ToString("dd/MM/yyyy"),
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => v.Total - v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted).Sum(d => d.Cantidad * d.Producto!.PrecioCompra))
+                            Ganancia = g.Sum(v => v.Total - CalcularCostoDetalles(v.Detalles))
                         })
                         .OrderBy(v => v.Etiqueta)
                         .ToList(),
@@ -364,7 +370,7 @@ namespace TheBuryProject.Services
                             Etiqueta = $"{g.Key.Month:D2}/{g.Key.Year}",
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => v.Total - v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted).Sum(d => d.Cantidad * d.Producto!.PrecioCompra))
+                            Ganancia = g.Sum(v => v.Total - CalcularCostoDetalles(v.Detalles))
                         })
                         .OrderBy(v => v.Etiqueta)
                         .ToList(),
@@ -392,6 +398,13 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        internal static decimal CalcularMargenPorcentaje(decimal ganancia, decimal @base) =>
+            @base > 0 ? (ganancia / @base) * 100 : 0;
+
+        internal static decimal CalcularCostoDetalles(IEnumerable<VentaDetalle> detalles) =>
+            detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
+                    .Sum(d => d.Cantidad * d.Producto!.PrecioCompra);
 
         // Métodos auxiliares privados
         private async Task<List<ProductoMasVendidoViewModel>> ObtenerProductosMasVendidosAsync(ReporteVentasFiltroViewModel filtro)
@@ -454,17 +467,23 @@ namespace TheBuryProject.Services
             if (filtro.FechaHasta.HasValue)
                 query = query.Where(v => v.FechaVenta <= filtro.FechaHasta.Value);
 
-            var clientes = await query
-                .GroupBy(v => new
+            var ventas = await query
+                .Select(v => new
                 {
                     v.ClienteId,
-                    ClienteNombre = v.Cliente!.NombreCompleto,
-                    ClienteDocumento = v.Cliente.NumeroDocumento
+                    ClienteNombre = v.Cliente!.Apellido + ", " + v.Cliente.Nombre + " - DNI: " + v.Cliente.NumeroDocumento,
+                    ClienteDocumento = v.Cliente.NumeroDocumento,
+                    v.Total,
+                    v.FechaVenta
                 })
+                .ToListAsync();
+
+            var clientes = ventas
+                .GroupBy(v => new { v.ClienteId, v.ClienteNombre, v.ClienteDocumento })
                 .Select(g => new ClienteTopViewModel
                 {
                     ClienteId = g.Key.ClienteId,
-                    ClienteNombre = g.Key.ClienteNombre ?? "",
+                    ClienteNombre = g.Key.ClienteNombre,
                     ClienteDocumento = g.Key.ClienteDocumento,
                     CantidadCompras = g.Count(),
                     MontoTotal = g.Sum(v => v.Total),
@@ -473,7 +492,7 @@ namespace TheBuryProject.Services
                 })
                 .OrderByDescending(c => c.MontoTotal)
                 .Take(10)
-                .ToListAsync();
+                .ToList();
 
             return clientes;
         }

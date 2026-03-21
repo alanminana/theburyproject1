@@ -111,20 +111,20 @@ public class DevolucionController : Controller
             TotalRechazadas = todasDevoluciones.Count(d => d.Estado == EstadoDevolucion.Rechazada),
             TotalCompletadas = todasDevoluciones.Count(d => d.Estado == EstadoDevolucion.Completada),
             MontoTotalMes = todasDevoluciones
-                .Where(d => d.FechaDevolucion >= DateTime.Now.AddMonths(-1) && d.Estado == EstadoDevolucion.Completada)
+                .Where(d => d.FechaDevolucion >= DateTime.UtcNow.AddMonths(-1) && d.Estado == EstadoDevolucion.Completada)
                 .Sum(d => d.TotalDevolucion),
             TodasGarantias = todasGarantias,
-            Vigentes = todasGarantias.Where(g => g.Estado == EstadoGarantia.Vigente && g.FechaVencimiento >= DateTime.Now).ToList(),
+            Vigentes = todasGarantias.Where(g => g.Estado == EstadoGarantia.Vigente && g.FechaVencimiento >= DateTime.UtcNow).ToList(),
             ProximasVencer = proximasVencer,
-            Vencidas = todasGarantias.Where(g => g.FechaVencimiento < DateTime.Now || g.Estado == EstadoGarantia.Vencida).ToList(),
+            Vencidas = todasGarantias.Where(g => g.FechaVencimiento < DateTime.UtcNow || g.Estado == EstadoGarantia.Vencida).ToList(),
             EnUso = todasGarantias.Where(g => g.Estado == EstadoGarantia.EnUso).ToList(),
             GarantiasPagina = garantiasFiltradas
                 .Skip((currentPage - 1) * pageSize)
                 .Take(pageSize)
                 .ToList(),
-            TotalGarantiasVigentes = todasGarantias.Count(g => g.Estado == EstadoGarantia.Vigente && g.FechaVencimiento >= DateTime.Now),
+            TotalGarantiasVigentes = todasGarantias.Count(g => g.Estado == EstadoGarantia.Vigente && g.FechaVencimiento >= DateTime.UtcNow),
             TotalGarantiasProximasVencer = proximasVencer.Count,
-            TotalGarantiasVencidas = todasGarantias.Count(g => g.FechaVencimiento < DateTime.Now || g.Estado == EstadoGarantia.Vencida),
+            TotalGarantiasVencidas = todasGarantias.Count(g => g.FechaVencimiento < DateTime.UtcNow || g.Estado == EstadoGarantia.Vencida),
             TotalGarantiasEnUso = todasGarantias.Count(g => g.Estado == EstadoGarantia.EnUso),
             RmasPendientes = await _devolucionService.ObtenerCantidadRMAsPendientesAsync(),
             ReembolsosPendientesCaja = todasDevoluciones.Count(d =>
@@ -158,7 +158,7 @@ public class DevolucionController : Controller
         {
             query = query.Where(d =>
                 Contiene(d.NumeroDevolucion, search) ||
-                Contiene(d.Cliente?.NombreCompleto, search) ||
+                Contiene(d.Cliente != null ? d.Cliente.ToDisplayName() : null, search) ||
                 Contiene(d.Cliente?.NumeroDocumento, search) ||
                 Contiene(d.Venta?.Numero, search) ||
                 Contiene(d.Descripcion, search));
@@ -193,7 +193,7 @@ public class DevolucionController : Controller
         {
             query = query.Where(g =>
                 Contiene(g.NumeroGarantia, search) ||
-                Contiene(g.Cliente?.NombreCompleto, search) ||
+                Contiene(g.Cliente != null ? g.Cliente.ToDisplayName() : null, search) ||
                 Contiene(g.Cliente?.NumeroDocumento, search) ||
                 Contiene(g.Producto?.Nombre, search) ||
                 Contiene(g.Producto?.Codigo, search) ||
@@ -241,7 +241,7 @@ public class DevolucionController : Controller
 
             sb.AppendLine(string.Join(";",
                 EscapeCsv(devolucion.NumeroDevolucion),
-                EscapeCsv(devolucion.Cliente?.NombreCompleto),
+                EscapeCsv(devolucion.Cliente != null ? devolucion.Cliente.ToDisplayName() : null),
                 EscapeCsv(devolucion.Cliente?.NumeroDocumento),
                 EscapeCsv(devolucion.Venta?.Numero),
                 EscapeCsv(devolucion.Motivo.GetDisplayName()),
@@ -264,7 +264,7 @@ public class DevolucionController : Controller
         {
             sb.AppendLine(string.Join(";",
                 EscapeCsv(garantia.NumeroGarantia),
-                EscapeCsv(garantia.Cliente?.NombreCompleto),
+                EscapeCsv(garantia.Cliente != null ? garantia.Cliente.ToDisplayName() : null),
                 EscapeCsv(garantia.Cliente?.NumeroDocumento),
                 EscapeCsv(garantia.Producto?.Nombre),
                 EscapeCsv(garantia.Producto?.Codigo),
@@ -400,7 +400,7 @@ public class DevolucionController : Controller
                 ClienteId = model.ClienteId,
                 Motivo = model.Motivo,
                 Descripcion = model.Descripcion,
-                FechaDevolucion = DateTime.Now
+                FechaDevolucion = DateTime.UtcNow
             };
 
             // Crear detalles
@@ -737,8 +737,8 @@ public class DevolucionController : Controller
     /// </summary>
     public async Task<IActionResult> RMAs(DateTime? desde, DateTime? hasta)
     {
-        var fechaDesde = desde ?? DateTime.Now.AddMonths(-1);
-        var fechaHasta = hasta ?? DateTime.Now;
+        var fechaDesde = desde ?? DateTime.UtcNow.AddMonths(-1);
+        var fechaHasta = hasta ?? DateTime.UtcNow;
 
         var viewModel = new EstadisticasDevolucionViewModel
         {
@@ -810,7 +810,7 @@ public class DevolucionController : Controller
         var viewModel = new NotasCreditoClienteViewModel
         {
             ClienteId = clienteId,
-            ClienteNombre = cliente.NombreCompleto ?? "Cliente",
+            ClienteNombre = cliente.ToDisplayName(),
             NotasVigentes = todasNotas.Where(nc => nc.MontoDisponible > 0 && nc.Estado == EstadoNotaCredito.Vigente).ToList(),
             NotasUtilizadas = todasNotas.Where(nc => nc.MontoDisponible == 0 || nc.Estado == EstadoNotaCredito.UtilizadaTotalmente).ToList(),
             CreditoTotalDisponible = creditoDisponible
@@ -828,8 +828,8 @@ public class DevolucionController : Controller
     /// </summary>
     public async Task<IActionResult> Estadisticas(DateTime? desde, DateTime? hasta)
     {
-        var fechaDesde = desde ?? DateTime.Now.AddMonths(-1);
-        var fechaHasta = hasta ?? DateTime.Now;
+        var fechaDesde = desde ?? DateTime.UtcNow.AddMonths(-1);
+        var fechaHasta = hasta ?? DateTime.UtcNow;
 
         var viewModel = new EstadisticasDevolucionViewModel
         {
@@ -852,7 +852,8 @@ public class DevolucionController : Controller
 
     private async Task CargarListasAsync()
     {
-        ViewBag.Clientes = new SelectList(await _clienteService.GetAllAsync(), "Id", "NombreCompleto");
+        var clientes = await _clienteService.GetAllAsync();
+        ViewBag.Clientes = new SelectList(clientes.Select(c => new { c.Id, Nombre = c.ToDisplayName() }), "Id", "Nombre");
         ViewBag.Proveedores = new SelectList(await _proveedorService.GetAllAsync(), "Id", "RazonSocial");
     }
 

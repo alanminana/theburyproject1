@@ -113,7 +113,7 @@ namespace TheBuryProject.Controllers
                 ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
-                if (!ClienteValidationHelper.ClienteExiste(cliente))
+                if (cliente == null)
                     return RedirectToReturnUrlOrIndex(returnUrl);
 
                 var detalleViewModel = await ConstructDetalleViewModel(cliente!, tab);
@@ -180,7 +180,7 @@ namespace TheBuryProject.Controllers
                 ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
-                if (!ClienteValidationHelper.ClienteExiste(cliente))
+                if (cliente == null)
                     return RedirectToReturnUrlOrIndex(returnUrl);
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
@@ -244,7 +244,7 @@ namespace TheBuryProject.Controllers
                 ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
-                if (!ClienteValidationHelper.ClienteExiste(cliente))
+                if (cliente == null)
                     return RedirectToReturnUrlOrIndex(returnUrl);
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
@@ -308,77 +308,19 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
         public async Task<IActionResult> LimitesPorPuntajeGuardar([FromForm] ClienteCreditoLimitesViewModel model)
         {
-            var items = model.Items ?? new List<ClienteCreditoLimiteItemViewModel>();
-            var errores = new List<string>();
-
-            if (!items.Any())
-            {
-                errores.Add("No se recibieron registros para guardar.");
-            }
-
-            var puntajesEsperados = Enum.GetValues<NivelRiesgoCredito>();
-
-            if (items.Any())
-            {
-                if (items.Any(i => i.LimiteMonto != decimal.Truncate(i.LimiteMonto)))
-                    errores.Add("Los límites por puntaje deben cargarse como números enteros.");
-
-                var puntajesRecibidos = items.Select(i => i.Puntaje).ToList();
-
-                var repetidos = puntajesRecibidos
-                    .GroupBy(p => p)
-                    .Where(g => g.Count() > 1)
-                    .Select(g => g.Key)
-                    .ToList();
-
-                if (repetidos.Any())
-                    errores.Add("Existen puntajes duplicados en la grilla de configuración.");
-
-                if (puntajesRecibidos.Count != puntajesEsperados.Length
-                    || puntajesEsperados.Except(puntajesRecibidos).Any())
-                    errores.Add("La configuración debe contener exactamente los puntajes del 1 al 5.");
-            }
-
-            if (errores.Any())
-                return Json(new { ok = false, errores });
-
             try
             {
-                await using var context = await _contextFactory.CreateDbContextAsync();
-
-                var puntajes = items.Select(i => i.Puntaje).ToList();
-                var existentes = await context.PuntajesCreditoLimite
-                    .Where(p => puntajes.Contains(p.Puntaje))
-                    .ToListAsync();
+                var items = (model.Items ?? new List<ClienteCreditoLimiteItemViewModel>())
+                    .Select(i => (i.Puntaje, i.LimiteMonto, i.Activo))
+                    .ToList()
+                    .AsReadOnly();
 
                 var usuario = User?.Identity?.Name ?? "System";
-                var fecha = DateTime.UtcNow;
 
-                foreach (var item in items)
-                {
-                    var existente = existentes.FirstOrDefault(x => x.Puntaje == item.Puntaje);
+                var (ok, errores) = await _creditoDisponibleService.GuardarLimitesPorPuntajeAsync(items, usuario);
 
-                    if (existente == null)
-                    {
-                        context.PuntajesCreditoLimite.Add(new PuntajeCreditoLimite
-                        {
-                            Puntaje = item.Puntaje,
-                            LimiteMonto = item.LimiteMonto,
-                            Activo = item.Activo,
-                            FechaActualizacion = fecha,
-                            UsuarioActualizacion = usuario
-                        });
-                    }
-                    else
-                    {
-                        existente.LimiteMonto = item.LimiteMonto;
-                        existente.Activo = item.Activo;
-                        existente.FechaActualizacion = fecha;
-                        existente.UsuarioActualizacion = usuario;
-                    }
-                }
-
-                await context.SaveChangesAsync();
+                if (!ok)
+                    return Json(new { ok = false, errores });
 
                 return Json(new { ok = true, mensaje = "Configuración de límites por puntaje guardada correctamente." });
             }

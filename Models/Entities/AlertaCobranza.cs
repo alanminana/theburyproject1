@@ -179,7 +179,7 @@ namespace TheBuryProject.Models.Entities
         /// <summary>
         /// Días desde que se generó la alerta
         /// </summary>
-        public int DiasDesdeAlerta => (DateTime.Now - FechaAlerta).Days;
+        public int DiasDesdeAlerta => (DateTime.UtcNow - FechaAlerta).Days;
 
         /// <summary>
         /// Si la promesa de pago está vencida
