@@ -130,6 +130,13 @@ namespace TheBuryProject.Data
                         .ValueGeneratedOnAdd()
                         .HasDefaultValueSql("randomblob(8)");
                 }
+
+                // ClienteCreditoConfiguracion tiene su propio RowVersion ([Timestamp])
+                // que no se auto-genera en SQLite sin este default explícito.
+                modelBuilder.Entity<ClienteCreditoConfiguracion>()
+                    .Property(e => e.RowVersion)
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasDefaultValueSql("randomblob(8)");
             }
 
             var userRowVersion = modelBuilder.Entity<ApplicationUser>()
