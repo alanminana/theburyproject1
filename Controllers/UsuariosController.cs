@@ -30,7 +30,7 @@ public class UsuariosController : Controller
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-        return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
+        return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
     }
 
     private IActionResult RedirectToReturnUrlOrDetails(string id, string? returnUrl)
@@ -53,16 +53,6 @@ public class UsuariosController : Controller
         _seguridadAuditoria = seguridadAuditoria;
         _logger = logger;
         _identityOptions = identityOptions.Value;
-    }
-
-    /// <summary>
-    /// Lista todos los usuarios del sistema
-    /// </summary>
-    [HttpGet]
-    public async Task<IActionResult> Index(string? returnUrl, bool mostrarInactivos = false)
-    {
-        await Task.CompletedTask;
-        return RedirectToAction("Index", "Seguridad", new { tab = "usuarios", mostrarInactivos, returnUrl });
     }
 
     /// <summary>
@@ -225,69 +215,6 @@ public class UsuariosController : Controller
             _logger.LogError(ex, "Error al crear usuario {Email}", model.Email);
             return Json(new { success = false, errors = new[] { "Error interno al crear el usuario." } });
         }
-    }
-
-    /// <summary>
-    /// Muestra formulario para editar un usuario
-    /// </summary>
-    [HttpGet]
-    [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
-    public async Task<IActionResult> Edit(string id, string? returnUrl)
-    {
-        await Task.CompletedTask;
-        return RedirectToAction("EditUsuario", "Seguridad", new { id, returnUrl });
-    }
-
-    /// <summary>
-    /// Actualiza un usuario
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
-    public async Task<IActionResult> Edit(EditarUsuarioViewModel model, string? returnUrl)
-    {
-        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-        if (!ModelState.IsValid)
-        {
-            return View("Edit_tw", model);
-        }
-
-        try
-        {
-            var user = await _userManager.FindByIdAsync(model.Id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            user.Email = model.Email;
-            user.UserName = model.UserName;
-            user.EmailConfirmed = model.EmailConfirmed;
-            user.LockoutEnabled = model.LockoutEnabled;
-
-            var result = await _userManager.UpdateAsync(user);
-
-            if (result.Succeeded)
-            {
-                _logger.LogInformation("Usuario actualizado: {UserId} por usuario {User}",
-                    model.Id, User.Identity?.Name);
-                TempData["Success"] = $"Usuario '{model.Email}' actualizado exitosamente";
-                return RedirectToReturnUrlOrDetails(model.Id, returnUrl);
-            }
-
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al actualizar usuario {UserId}", model.Id);
-            ModelState.AddModelError(string.Empty, "Error al actualizar el usuario");
-        }
-
-        return View("Edit_tw", model);
     }
 
     /// <summary>
@@ -476,100 +403,6 @@ public class UsuariosController : Controller
         }
 
         return RedirectToReturnUrlOrIndex(returnUrl);
-    }
-
-    /// <summary>
-    /// Muestra formulario para asignar roles a un usuario
-    /// </summary>
-    [HttpGet]
-    [PermisoRequerido(Modulo = "usuarios", Accion = "assignroles")]
-    public async Task<IActionResult> AsignarRoles(string id, string? returnUrl)
-    {
-        if (string.IsNullOrEmpty(id))
-        {
-            return NotFound();
-        }
-
-        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-        try
-        {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            var userRoles = await _userManager.GetRolesAsync(user);
-            var allRoles = await _rolService.GetAllRolesAsync();
-
-            var viewModel = new AsignarRolesUsuarioViewModel
-            {
-                UserId = user.Id,
-                UserName = user.UserName!,
-                Email = user.Email!,
-                Roles = allRoles.Select(r => new RolCheckboxViewModel
-                {
-                    RoleId = r.Id,
-                    RoleName = r.Name!,
-                    Seleccionado = userRoles.Contains(r.Name!)
-                }).ToList()
-            };
-
-            return View("AsignarRoles_tw", viewModel);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar formulario de asignación de roles para usuario {UserId}", id);
-            TempData["Error"] = "Error al cargar el formulario";
-            return RedirectToAction(nameof(Index));
-        }
-    }
-
-    /// <summary>
-    /// Asigna roles a un usuario
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [PermisoRequerido(Modulo = "usuarios", Accion = "assignroles")]
-    public async Task<IActionResult> AsignarRoles(AsignarRolesUsuarioViewModel model, string? returnUrl)
-    {
-        try
-        {
-            var user = await _userManager.FindByIdAsync(model.UserId);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            var currentRoles = await _userManager.GetRolesAsync(user);
-            var selectedRoles = model.Roles.Where(r => r.Seleccionado).Select(r => r.RoleName).ToList();
-
-            // Remover roles no seleccionados
-            var rolesToRemove = currentRoles.Except(selectedRoles).ToList();
-            if (rolesToRemove.Any())
-            {
-                await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
-            }
-
-            // Agregar roles seleccionados
-            var rolesToAdd = selectedRoles.Except(currentRoles).ToList();
-            if (rolesToAdd.Any())
-            {
-                await _userManager.AddToRolesAsync(user, rolesToAdd);
-            }
-
-            _logger.LogInformation("Roles actualizados para usuario {UserId} por {User}",
-                model.UserId, User.Identity?.Name);
-            TempData["Success"] = "Roles asignados exitosamente";
-            return RedirectToReturnUrlOrDetails(model.UserId, returnUrl);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al asignar roles a usuario {UserId}", model.UserId);
-            TempData["Error"] = "Error al asignar roles";
-            return RedirectToAction(nameof(Index));
-        }
     }
 
     /// <summary>
