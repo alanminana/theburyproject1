@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -436,7 +437,7 @@ namespace TheBuryProject.Services
         // ✅ NUEVO: Método helper para generar mensaje consistente
         private string GenerarMensajeAlerta(Credito credito, decimal montoVencido, int cuotasVencidas, int diasAtraso)
         {
-            return $"Cliente {credito.Cliente.NombreCompleto} tiene ${montoVencido:F2} en mora " +
+            return $"Cliente {credito.Cliente.ToDisplayName()} tiene ${montoVencido:F2} en mora " +
                    $"con {cuotasVencidas} cuota(s) vencida(s) por {diasAtraso} día(s)";
         }
 
@@ -447,7 +448,7 @@ namespace TheBuryProject.Services
                 Id = alerta.Id,
                 CreditoId = alerta.CreditoId,
                 ClienteId = alerta.ClienteId,
-                ClienteNombre = alerta.Cliente?.NombreCompleto ?? "Desconocido",
+                ClienteNombre = alerta.Cliente != null ? alerta.Cliente.ToDisplayName() : "Desconocido",
                 ClienteDocumento = alerta.Cliente?.NumeroDocumento ?? "",
                 Tipo = alerta.Tipo,
                 Prioridad = alerta.Prioridad,

@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -298,7 +299,7 @@ namespace TheBuryProject.Services
                         ClienteId = cliente.Id,
                         Tipo = TipoAlertaCobranza.ProximoVencimiento,
                         Prioridad = PrioridadAlerta.Baja,
-                        Mensaje = $"Cliente {cliente.NombreCompleto} tiene cuota por vencer en {diasRestantes} días",
+                        Mensaje = $"Cliente {cliente.ToDisplayName()} tiene cuota por vencer en {diasRestantes} días",
                         MontoVencido = cuota.MontoTotal,
                         CuotasVencidas = 1,
                         FechaAlerta = now,
@@ -585,16 +586,37 @@ namespace TheBuryProject.Services
                     .Where(a => !a.IsDeleted && !a.Resuelta && a.Cliente != null && !a.Cliente.IsDeleted)
                     .AsQueryable();
 
-                // Agrupar por cliente
-                var clientesData = await queryBase
-                    .GroupBy(a => new { a.ClienteId, a.Cliente!.NombreCompleto, a.Cliente.NumeroDocumento, a.Cliente.Telefono, a.Cliente.Email })
+                // Materializar alertas con datos de cliente para poder usar ToDisplayName() en memoria
+                var alertasRaw = await queryBase
+                    .Select(a => new
+                    {
+                        a.ClienteId,
+                        ClienteNombre = a.Cliente!.Apellido + ", " + a.Cliente.Nombre + " - DNI: " + a.Cliente.NumeroDocumento,
+                        ClienteDocumento = a.Cliente.NumeroDocumento,
+                        ClienteTelefono = a.Cliente.Telefono,
+                        ClienteEmail = a.Cliente.Email,
+                        a.CreditoId,
+                        a.CuotasVencidas,
+                        a.DiasAtraso,
+                        a.MontoVencido,
+                        a.MontoMoraCalculada,
+                        a.Prioridad,
+                        a.EstadoGestion,
+                        a.FechaPromesaPago,
+                        a.FechaAlerta
+                    })
+                    .ToListAsync();
+
+                // Agrupar por cliente en memoria con nombre ya calculado
+                var clientesData = alertasRaw
+                    .GroupBy(a => new { a.ClienteId, a.ClienteNombre, a.ClienteDocumento, a.ClienteTelefono, a.ClienteEmail })
                     .Select(g => new
                     {
                         ClienteId = g.Key.ClienteId,
-                        Nombre = g.Key.NombreCompleto,
-                        Documento = g.Key.NumeroDocumento,
-                        Telefono = g.Key.Telefono,
-                        Email = g.Key.Email,
+                        Nombre = g.Key.ClienteNombre,
+                        Documento = g.Key.ClienteDocumento,
+                        Telefono = g.Key.ClienteTelefono,
+                        Email = g.Key.ClienteEmail,
                         CreditosConMora = g.Select(a => a.CreditoId).Distinct().Count(),
                         CuotasVencidas = g.Sum(a => a.CuotasVencidas),
                         DiasMaxAtraso = g.Max(a => a.DiasAtraso),
@@ -608,7 +630,7 @@ namespace TheBuryProject.Services
                         TieneAcuerdoActivo = g.Any(a => a.EstadoGestion == EstadoGestionCobranza.AcuerdoActivo),
                         FechaUltimaAlerta = g.Max(a => a.FechaAlerta)
                     })
-                    .ToListAsync();
+                    .ToList();
 
                 // Obtener último contacto y próximo contacto por cliente
                 var clienteIds = clientesData.Select(c => c.ClienteId).ToList();
@@ -808,7 +830,7 @@ namespace TheBuryProject.Services
                 return new FichaMoraViewModel
                 {
                     ClienteId = clienteId,
-                    NombreCliente = cliente.NombreCompleto ?? "",
+                    NombreCliente = cliente.ToDisplayName(),
                     DocumentoCliente = cliente.NumeroDocumento ?? "",
                     Telefono = cliente.Telefono,
                     TelefonoLaboral = cliente.TelefonoLaboral,
@@ -1384,7 +1406,7 @@ namespace TheBuryProject.Services
 
         private string GenerarMensajeAlerta(Cliente cliente, decimal montoVencido, int cuotasVencidas, int diasAtraso)
         {
-            return $"Cliente {cliente.NombreCompleto} tiene ${montoVencido:F2} en mora " +
+            return $"Cliente {cliente.ToDisplayName()} tiene ${montoVencido:F2} en mora " +
                    $"con {cuotasVencidas} cuota(s) vencida(s) por {diasAtraso} día(s). " +
                    $"Documento: {cliente.NumeroDocumento}";
         }
