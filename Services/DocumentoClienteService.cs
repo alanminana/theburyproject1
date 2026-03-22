@@ -66,11 +66,11 @@ namespace TheBuryProject.Services
             try
             {
                 if (viewModel.Archivo == null || viewModel.Archivo.Length == 0)
-                    throw new Exception("Debe seleccionar un archivo");
+                    throw new ArgumentException("Debe seleccionar un archivo");
 
                 var (isValid, errorMessage) = DocumentoValidationHelper.ValidateFile(viewModel.Archivo);
                 if (!isValid)
-                    throw new Exception(errorMessage);
+                    throw new ArgumentException(errorMessage);
 
                 DocumentoCliente? documentoAnterior = null;
                 if (viewModel.ReemplazarExistente && viewModel.DocumentoAReemplazarId.HasValue)
@@ -81,7 +81,7 @@ namespace TheBuryProject.Services
                             d.ClienteId == viewModel.ClienteId);
 
                     if (documentoAnterior == null)
-                        throw new Exception("El documento a reemplazar no existe o pertenece a otro cliente");
+                        throw new InvalidOperationException("El documento a reemplazar no existe o pertenece a otro cliente");
                 }
 
                 var uploadPath = Path.Combine(_environment.WebRootPath, UPLOAD_FOLDER);
@@ -93,7 +93,7 @@ namespace TheBuryProject.Services
 
                 var (pathValid, rutaCompleta, pathError) = DocumentoValidationHelper.NormalizePath(uploadPath, nombreArchivo);
                 if (!pathValid)
-                    throw new Exception(pathError);
+                    throw new ArgumentException(pathError);
 
                 using (var stream = new FileStream(rutaCompleta, FileMode.Create))
                 {
@@ -277,12 +277,12 @@ namespace TheBuryProject.Services
                     .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted);
 
                 if (documento == null)
-                    throw new Exception("Documento no encontrado");
+                    throw new InvalidOperationException("Documento no encontrado");
 
                 var rutaCompleta = Path.Combine(_environment.WebRootPath, documento.RutaArchivo);
 
                 if (!File.Exists(rutaCompleta))
-                    throw new Exception("Archivo no encontrado en el servidor");
+                    throw new InvalidOperationException("Archivo no encontrado en el servidor");
 
                 return await File.ReadAllBytesAsync(rutaCompleta);
             }

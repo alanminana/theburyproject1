@@ -163,7 +163,7 @@ namespace TheBuryProject.Services
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c => c.Id == viewModel.ClienteId && !c.IsDeleted);
                 if (cliente == null)
-                    throw new Exception("Cliente no encontrado");
+                    throw new InvalidOperationException("Cliente no encontrado");
 
                 await ValidarMontoDentroDelDisponibleAsync(cliente.Id, viewModel.MontoSolicitado);
 
@@ -255,10 +255,10 @@ namespace TheBuryProject.Services
 
                 // Solo se puede eliminar si está en estado Solicitado y no tiene cuotas pagadas
                 if (credito.Estado != EstadoCredito.Solicitado)
-                    throw new Exception("Solo se pueden eliminar créditos en estado Solicitado");
+                    throw new InvalidOperationException("Solo se pueden eliminar créditos en estado Solicitado");
 
                 if (credito.Cuotas.Any(c => c.Estado == EstadoCuota.Pagada))
-                    throw new Exception("No se puede eliminar un crédito con cuotas pagadas");
+                    throw new InvalidOperationException("No se puede eliminar un crédito con cuotas pagadas");
 
                 credito.IsDeleted = true;
                 foreach (var cuota in credito.Cuotas)
@@ -321,7 +321,7 @@ namespace TheBuryProject.Services
                     return false;
 
                 if (credito.Estado != EstadoCredito.Solicitado)
-                    throw new Exception("Solo se pueden aprobar créditos en estado Solicitado");
+                    throw new InvalidOperationException("Solo se pueden aprobar créditos en estado Solicitado");
 
                 credito.Estado = EstadoCredito.Aprobado;
                 credito.FechaAprobacion = DateTime.UtcNow;
@@ -471,7 +471,7 @@ namespace TheBuryProject.Services
                     return false;
 
                 if (cuota.Estado == EstadoCuota.Pagada)
-                    throw new Exception("La cuota ya está pagada");
+                    throw new InvalidOperationException("La cuota ya está pagada");
 
                 var ahora = DateTime.UtcNow;
 
