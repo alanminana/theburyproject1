@@ -3,10 +3,8 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
-using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -21,20 +19,17 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<ProveedorController> _logger;
         private readonly IMapper _mapper;
         private readonly ICatalogLookupService _catalogLookupService;
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
 
         public ProveedorController(
             IProveedorService proveedorService,
             ICatalogLookupService catalogLookupService,
             ILogger<ProveedorController> logger,
-            IMapper mapper,
-            IDbContextFactory<AppDbContext> contextFactory)
+            IMapper mapper)
         {
             _proveedorService = proveedorService;
             _catalogLookupService = catalogLookupService;
             _logger = logger;
             _mapper = mapper;
-            _contextFactory = contextFactory;
         }
 
         // GET: Proveedor
@@ -391,44 +386,6 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "Error al obtener productos" });
             }
         }
-
-#if DEBUG
-        // TEMPORAL: Endpoint de diagnóstico - solo en DEBUG
-        [HttpGet]
-        public async Task<IActionResult> DiagnosticoProveedor(int id)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            var proveedor = await context.Proveedores.FindAsync(id);
-            var productosProveedor = await context.ProveedorProductos
-                .Include(pp => pp.Producto)
-                .Where(pp => pp.ProveedorId == id)
-                .ToListAsync();
-
-            var diagnostico = new
-            {
-                proveedorExiste = proveedor != null,
-                proveedorNombre = proveedor?.RazonSocial,
-                proveedorActivo = proveedor?.Activo,
-                proveedorIsDeleted = proveedor?.IsDeleted,
-                totalProductosRelacion = productosProveedor.Count,
-                productos = productosProveedor.Select(pp => new
-                {
-                    ppId = pp.Id,
-                    ppIsDeleted = pp.IsDeleted,
-                    productoId = pp.ProductoId,
-                    productoNull = pp.Producto == null,
-                    productoNombre = pp.Producto?.Nombre,
-                    productoCodigo = pp.Producto?.Codigo,
-                    productoActivo = pp.Producto?.Activo,
-                    productoIsDeleted = pp.Producto?.IsDeleted,
-                    productoPrecioCompra = pp.Producto?.PrecioCompra
-                }).ToList()
-            };
-
-            return Json(diagnostico);
-        }
-#endif
 
         private async Task CargarAsociacionesAsync(ProveedorViewModel viewModel)
         {
