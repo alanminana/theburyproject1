@@ -1247,9 +1247,9 @@ namespace TheBuryProject.Controllers
                 .ToList();
             ViewBag.Tarjetas = new SelectList(tarjetasDisponibles, "Id", "Detalle");
 
-            var puedeDelegarVendedor = User.IsInRole(Roles.SuperAdmin) ||
-                                       User.IsInRole(Roles.Administrador) ||
-                                       User.IsInRole(Roles.Gerente);
+            var puedeDelegarVendedor = _currentUser.IsInRole(Roles.SuperAdmin) ||
+                                       _currentUser.IsInRole(Roles.Administrador) ||
+                                       _currentUser.IsInRole(Roles.Gerente);
             ViewBag.PuedeDelegarVendedor = puedeDelegarVendedor;
 
             if (puedeDelegarVendedor)
