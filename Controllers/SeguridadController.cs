@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -31,7 +29,6 @@ public class SeguridadController : Controller
         new("resetpass", "ResetPass", false, ["resetpassword", "resetpass"])
     ];
 
-    private readonly AppDbContext _context;
     private readonly IRolService _rolService;
     private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
@@ -39,14 +36,12 @@ public class SeguridadController : Controller
     private readonly ILogger<SeguridadController> _logger;
 
     public SeguridadController(
-        AppDbContext context,
         IRolService rolService,
         IUsuarioService usuarioService,
         ISeguridadAuditoriaService seguridadAuditoria,
         UserManager<ApplicationUser> userManager,
         ILogger<SeguridadController> logger)
     {
-        _context = context;
         _rolService = rolService;
         _usuarioService = usuarioService;
         _seguridadAuditoria = seguridadAuditoria;
@@ -721,77 +716,28 @@ public class SeguridadController : Controller
         DateOnly? desde,
         DateOnly? hasta)
     {
-        var registrosBase = _context.SeguridadEventosAuditoria
-            .AsNoTracking()
-            .AsQueryable();
+        var result = await _seguridadAuditoria.ConsultarEventosAsync(usuario, modulo, accion, desde, hasta);
 
-        if (!string.IsNullOrWhiteSpace(usuario))
-        {
-            registrosBase = registrosBase.Where(r => r.UsuarioNombre == usuario);
-        }
-
-        if (!string.IsNullOrWhiteSpace(modulo))
-        {
-            registrosBase = registrosBase.Where(r => r.Modulo == modulo);
-        }
-
-        if (!string.IsNullOrWhiteSpace(accion))
-        {
-            registrosBase = registrosBase.Where(r => r.Accion == accion);
-        }
-
-        if (desde.HasValue)
-        {
-            var desdeDate = desde.Value.ToDateTime(TimeOnly.MinValue);
-            registrosBase = registrosBase.Where(r => r.FechaEvento >= desdeDate);
-        }
-
-        if (hasta.HasValue)
-        {
-            var hastaDate = hasta.Value.ToDateTime(TimeOnly.MaxValue);
-            registrosBase = registrosBase.Where(r => r.FechaEvento <= hastaDate);
-        }
-
-        var viewModel = new SeguridadAuditoriaViewModel
+        return new SeguridadAuditoriaViewModel
         {
             UsuarioSeleccionado = usuario,
             ModuloSeleccionado = modulo,
             AccionSeleccionada = accion,
             Desde = desde,
             Hasta = hasta,
-            Usuarios = await _context.SeguridadEventosAuditoria
-                .AsNoTracking()
-                .Select(r => r.UsuarioNombre)
-                .Distinct()
-                .OrderBy(u => u)
-                .ToListAsync(),
-            Modulos = await _context.SeguridadEventosAuditoria
-                .AsNoTracking()
-                .Select(r => r.Modulo)
-                .Distinct()
-                .OrderBy(m => m)
-                .ToListAsync(),
-            Acciones = await _context.SeguridadEventosAuditoria
-                .AsNoTracking()
-                .Select(r => r.Accion)
-                .Distinct()
-                .OrderBy(a => a)
-                .ToListAsync(),
-            Registros = await registrosBase
-                .OrderByDescending(r => r.FechaEvento)
-                .Select(r => new RegistroAuditoriaViewModel
-                {
-                    FechaHora = r.FechaEvento,
-                    Usuario = r.UsuarioNombre,
-                    Accion = r.Accion,
-                    Modulo = r.Modulo,
-                    Entidad = r.Entidad,
-                    Detalle = r.Detalle ?? string.Empty
-                })
-                .ToListAsync()
+            Usuarios = result.Usuarios,
+            Modulos = result.Modulos,
+            Acciones = result.Acciones,
+            Registros = result.Registros.Select(r => new RegistroAuditoriaViewModel
+            {
+                FechaHora = r.FechaHora,
+                Usuario = r.Usuario,
+                Accion = r.Accion,
+                Modulo = r.Modulo,
+                Entidad = r.Entidad,
+                Detalle = r.Detalle
+            }).ToList()
         };
-        
-        return viewModel;
     }
 
     private static string NormalizeTab(string? tab)
