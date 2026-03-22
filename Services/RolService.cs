@@ -874,4 +874,56 @@ public class RolService : IRolService
     }
 
     #endregion
+
+    #region Queries de soporte
+
+    public async Task<Dictionary<string, RolMetadata>> GetAllRoleMetadataAsync()
+    {
+        return await _context.RolMetadatas
+            .AsNoTracking()
+            .ToDictionaryAsync(m => m.RoleId);
+    }
+
+    public async Task<RoleAggregateStats> GetRoleAggregateStatsAsync()
+    {
+        var userCounts = await _context.UserRoles
+            .AsNoTracking()
+            .GroupBy(ur => ur.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+
+        var activeUserCounts = await (
+            from ur in _context.UserRoles.AsNoTracking()
+            join u in _context.Users.AsNoTracking().Where(user => user.Activo)
+                on ur.UserId equals u.Id
+            group ur by ur.RoleId into grouped
+            select new { RoleId = grouped.Key, Count = grouped.Count() }
+        ).ToDictionaryAsync(x => x.RoleId, x => x.Count);
+
+        var permissionCounts = await _context.RolPermisos
+            .AsNoTracking()
+            .Where(rp => !rp.IsDeleted)
+            .GroupBy(rp => rp.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+
+        return new RoleAggregateStats
+        {
+            UserCounts = userCounts,
+            ActiveUserCounts = activeUserCounts,
+            PermissionCounts = permissionCounts
+        };
+    }
+
+    public async Task<HashSet<string>> GetAllRoleNamesAsync()
+    {
+        var names = await _roleManager.Roles
+            .AsNoTracking()
+            .Select(r => r.Name ?? string.Empty)
+            .ToListAsync();
+
+        return names.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    #endregion
 }

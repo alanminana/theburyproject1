@@ -70,9 +70,8 @@ public class SeguridadController : Controller
         var activeTab = NormalizeTab(tab);
         var now = DateTimeOffset.UtcNow;
         var roles = await _rolService.GetAllRolesAsync();
-        var roleMetadata = await _context.RolMetadatas
-            .AsNoTracking()
-            .ToDictionaryAsync(m => m.RoleId);
+        var roleMetadata = await _rolService.GetAllRoleMetadataAsync();
+        var stats = await _rolService.GetRoleAggregateStatsAsync();
 
         var viewModel = new SeguridadIndexViewModel
         {
@@ -84,9 +83,7 @@ public class SeguridadController : Controller
                 u.LockoutEnd > now),
             RolesActivos = roles.Count(role =>
                 !roleMetadata.TryGetValue(role.Id, out var metadata) || metadata.Activo),
-            PermisosAsignados = await _context.RolPermisos
-                .AsNoTracking()
-                .CountAsync(rp => !rp.IsDeleted),
+            PermisosAsignados = stats.PermissionCounts.Values.Sum(),
             UsuariosTab = activeTab == "usuarios"
                 ? await BuildUsuariosTabViewModelAsync(mostrarInactivos)
                 : null,
@@ -864,30 +861,12 @@ public class SeguridadController : Controller
         IReadOnlyDictionary<string, RolMetadata>? roleMetadata = null)
     {
         var roleList = roles?.ToList() ?? await _rolService.GetAllRolesAsync();
-        var metadataLookup = roleMetadata ?? await _context.RolMetadatas
-            .AsNoTracking()
-            .ToDictionaryAsync(m => m.RoleId);
+        var metadataLookup = roleMetadata ?? await _rolService.GetAllRoleMetadataAsync();
+        var aggregateStats = await _rolService.GetRoleAggregateStatsAsync();
 
-        var userCounts = await _context.UserRoles
-            .AsNoTracking()
-            .GroupBy(ur => ur.RoleId)
-            .Select(g => new { RoleId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
-
-        var activeUserCounts = await (
-            from ur in _context.UserRoles.AsNoTracking()
-            join u in _context.Users.AsNoTracking().Where(user => user.Activo)
-                on ur.UserId equals u.Id
-            group ur by ur.RoleId into grouped
-            select new { RoleId = grouped.Key, Count = grouped.Count() }
-        ).ToDictionaryAsync(x => x.RoleId, x => x.Count);
-
-        var permissionCounts = await _context.RolPermisos
-            .AsNoTracking()
-            .Where(rp => !rp.IsDeleted)
-            .GroupBy(rp => rp.RoleId)
-            .Select(g => new { RoleId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+        var userCounts = aggregateStats.UserCounts;
+        var activeUserCounts = aggregateStats.ActiveUserCounts;
+        var permissionCounts = aggregateStats.PermissionCounts;
 
         return new SeguridadRolesTabViewModel
         {
@@ -921,9 +900,7 @@ public class SeguridadController : Controller
         IReadOnlyDictionary<string, RolMetadata>? roleMetadata = null)
     {
         var roleList = roles?.ToList() ?? await _rolService.GetAllRolesAsync();
-        var metadataLookup = roleMetadata ?? await _context.RolMetadatas
-            .AsNoTracking()
-            .ToDictionaryAsync(m => m.RoleId);
+        var metadataLookup = roleMetadata ?? await _rolService.GetAllRoleMetadataAsync();
 
         var modulos = await _rolService.GetAllModulosAsync();
         var columns = PermissionMatrixColumns
@@ -1127,9 +1104,7 @@ public class SeguridadController : Controller
     private async Task<List<SeguridadRolSelectorItemViewModel>> GetRoleSelectorItemsAsync()
     {
         var roles = await _rolService.GetAllRolesAsync();
-        var metadataLookup = await _context.RolMetadatas
-            .AsNoTracking()
-            .ToDictionaryAsync(m => m.RoleId);
+        var metadataLookup = await _rolService.GetAllRoleMetadataAsync();
 
         return roles
             .Select(role =>
@@ -1153,11 +1128,7 @@ public class SeguridadController : Controller
             ? "Rol copia"
             : $"{sourceRoleName.Trim()} Copia";
 
-        var existingNames = await _context.Roles
-            .AsNoTracking()
-            .Select(r => r.Name ?? string.Empty)
-            .ToListAsync();
-        var existingNamesSet = existingNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existingNamesSet = await _rolService.GetAllRoleNamesAsync();
 
         if (!existingNamesSet.Contains(baseName))
         {

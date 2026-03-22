@@ -259,4 +259,33 @@ public interface IRolService
     /// Obtiene estadísticas de uso de roles
     /// </summary>
     Task<Dictionary<string, int>> GetRoleUsageStatsAsync();
+
+    // ============================================
+    // QUERIES DE SOPORTE PARA CONTROLLER
+    // ============================================
+
+    /// <summary>
+    /// Obtiene todas las metadata de roles indexadas por RoleId (read-only).
+    /// </summary>
+    Task<Dictionary<string, RolMetadata>> GetAllRoleMetadataAsync();
+
+    /// <summary>
+    /// Obtiene estadísticas agregadas por rol: usuarios totales, usuarios activos, permisos asignados.
+    /// </summary>
+    Task<RoleAggregateStats> GetRoleAggregateStatsAsync();
+
+    /// <summary>
+    /// Obtiene todos los nombres de roles existentes (para validar unicidad de nombres).
+    /// </summary>
+    Task<HashSet<string>> GetAllRoleNamesAsync();
+}
+
+/// <summary>
+/// Estadísticas agregadas por rol para la vista de roles.
+/// </summary>
+public sealed class RoleAggregateStats
+{
+    public Dictionary<string, int> UserCounts { get; init; } = [];
+    public Dictionary<string, int> ActiveUserCounts { get; init; } = [];
+    public Dictionary<string, int> PermissionCounts { get; init; } = [];
 }
