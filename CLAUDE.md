@@ -67,10 +67,10 @@ No expandir salvo necesidad transitoria justificada:
 ## Componentes inciertos
 Antes de modificar o eliminar, verificar uso real:
 
-- `MoraAlertasService`
-- `CalculoMoraService`
-- `CobranzaAutomatizacionService`
-- `PromesaPagoService`
+- ~~`MoraAlertasService`~~ — eliminado (código muerto, no registrado en DI)
+- ~~`CalculoMoraService`~~ — eliminado
+- ~~`CobranzaAutomatizacionService`~~ — eliminado
+- ~~`PromesaPagoService`~~ — eliminado
 
 ---
 
