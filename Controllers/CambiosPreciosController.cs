@@ -30,6 +30,7 @@ public class CambiosPreciosController : Controller
     private readonly IProductoService _productoService;
     private readonly ICategoriaService _categoriaService;
     private readonly IMarcaService _marcaService;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<CambiosPreciosController> _logger;
 
     public CambiosPreciosController(
@@ -37,12 +38,14 @@ public class CambiosPreciosController : Controller
         IProductoService productoService,
         ICategoriaService categoriaService,
         IMarcaService marcaService,
+        ICurrentUserService currentUser,
         ILogger<CambiosPreciosController> logger)
     {
         _precioService = precioService;
         _productoService = productoService;
         _categoriaService = categoriaService;
         _marcaService = marcaService;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -556,7 +559,7 @@ public class CambiosPreciosController : Controller
             _logger.LogInformation("Simulación creada: BatchId={BatchId}, Productos={Count}", 
                 batch.Id, batch.CantidadProductos);
 
-            var usuarioActual = User.Identity?.Name ?? "Sistema";
+            var usuarioActual = _currentUser.GetUsername();
 
             // Paso 2: Aprobar automáticamente
             var batchAprobado = await _precioService.AprobarBatchAsync(
@@ -724,7 +727,7 @@ public class CambiosPreciosController : Controller
                 return BadRequest(new { success = false, error = "RowVersion inválido" });
             }
 
-            var revertidoPor = User.Identity?.Name ?? "Sistema";
+            var revertidoPor = _currentUser.GetUsername();
             var batch = await _precioService.RevertirBatchAsync(request.BatchId, revertidoPor, rowVersionBytes, request.Motivo);
 
             _logger.LogInformation("Batch {BatchId} revertido via API por {Usuario}", batch.Id, revertidoPor);
@@ -897,7 +900,7 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var aprobadoPor = User.Identity?.Name ?? "Sistema";
+            var aprobadoPor = _currentUser.GetUsername();
             var batch = await _precioService.AprobarBatchAsync(id, aprobadoPor, rowVersion, notas);
 
             TempData["Success"] = $"Batch '{batch.Nombre}' aprobado exitosamente.";
@@ -932,7 +935,7 @@ public class CambiosPreciosController : Controller
 
         try
         {
-            var rechazadoPor = User.Identity?.Name ?? "Sistema";
+            var rechazadoPor = _currentUser.GetUsername();
             var batch = await _precioService.RechazarBatchAsync(id, rechazadoPor, rowVersion, motivo);
 
             TempData["Success"] = $"Batch '{batch.Nombre}' rechazado.";
@@ -961,7 +964,7 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var canceladoPor = User.Identity?.Name ?? "Sistema";
+            var canceladoPor = _currentUser.GetUsername();
             var batch = await _precioService.CancelarBatchAsync(id, canceladoPor, rowVersion, motivo);
 
             TempData["Success"] = $"Batch '{batch.Nombre}' cancelado.";
@@ -1037,7 +1040,7 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var aplicadoPor = User.Identity?.Name ?? "Sistema";
+            var aplicadoPor = _currentUser.GetUsername();
             var batch = await _precioService.AplicarBatchAsync(id, aplicadoPor, rowVersion, fechaVigencia);
 
             TempData["Success"] = $"Batch '{batch.Nombre}' aplicado exitosamente. {batch.CantidadProductos} precios actualizados.";
@@ -1119,7 +1122,7 @@ public class CambiosPreciosController : Controller
 
         try
         {
-            var revertidoPor = User.Identity?.Name ?? "Sistema";
+            var revertidoPor = _currentUser.GetUsername();
             var batchReversion = await _precioService.RevertirBatchAsync(id, revertidoPor, rowVersion, motivo);
 
             TempData["Success"] = $"Batch revertido exitosamente. Se creó el batch de reversión #{batchReversion.Id}.";
@@ -1187,7 +1190,7 @@ public class CambiosPreciosController : Controller
                 rowVersion = batch.RowVersion;
             }
 
-            var revertidoPor = User.Identity?.Name ?? "Sistema";
+            var revertidoPor = _currentUser.GetUsername();
             var batchReversion = await _precioService.RevertirBatchAsync(id, revertidoPor, rowVersion, motivo);
 
             _logger.LogInformation(

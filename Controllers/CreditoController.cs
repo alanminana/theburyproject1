@@ -28,6 +28,7 @@ namespace TheBuryProject.Controllers
         private readonly IClienteLookupService _clienteLookup;
         private readonly IProductoService _productoService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly ICurrentUserService _currentUser;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
@@ -58,7 +59,8 @@ namespace TheBuryProject.Controllers
             ILogger<CreditoController> logger,
             IClienteLookupService clienteLookup,
             IProductoService productoService,
-            ICreditoDisponibleService creditoDisponibleService)
+            ICreditoDisponibleService creditoDisponibleService,
+            ICurrentUserService currentUser)
         {
             _creditoService = creditoService;
             _evaluacionService = evaluacionService;
@@ -70,6 +72,7 @@ namespace TheBuryProject.Controllers
             _clienteLookup = clienteLookup;
             _productoService = productoService;
             _creditoDisponibleService = creditoDisponibleService;
+            _currentUser = currentUser;
         }
 
         // GET: Credito
@@ -173,7 +176,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var aprobadoPor = User.Identity?.Name ?? "Sistema";
+                var aprobadoPor = _currentUser.GetUsername();
 
                 var ok = await _creditoService.AprobarCreditoAsync(id, aprobadoPor);
                 TempData[ok ? "Success" : "Error"] = ok

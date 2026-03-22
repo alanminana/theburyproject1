@@ -18,9 +18,8 @@ namespace TheBuryProject.Controllers;
 public class AccionesController : Controller
 {
     private readonly IRolService _rolService;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<AccionesController> _logger;
-
-    private string CurrentUserName => User.Identity?.Name ?? "Sistema";
 
     private IActionResult RedirectToReturnUrlOrDetails(int id, string? returnUrl)
     {
@@ -30,9 +29,11 @@ public class AccionesController : Controller
 
     public AccionesController(
         IRolService rolService,
+        ICurrentUserService currentUser,
         ILogger<AccionesController> logger)
     {
         _rolService = rolService;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -158,7 +159,7 @@ public class AccionesController : Controller
             await _rolService.CreateAccionAsync(accion);
 
             _logger.LogInformation("Acción creada: {AccionNombre} por usuario {User}",
-                model.Nombre, User.Identity?.Name);
+                model.Nombre, _currentUser.GetUsername());
             TempData["Success"] = $"Acción '{model.Nombre}' creada exitosamente";
             return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
@@ -239,9 +240,9 @@ public class AccionesController : Controller
             accion.Descripcion = model.Descripcion;
             accion.ModuloId = model.ModuloId;
             accion.Activa = model.Activo;
-            accion.UpdatedBy = CurrentUserName;
+            accion.UpdatedBy = _currentUser.GetUsername();
 
-            var actualizada = await _rolService.UpdateAccionAsync(accion, CurrentUserName);
+            var actualizada = await _rolService.UpdateAccionAsync(accion, _currentUser.GetUsername());
             if (!actualizada)
             {
                 TempData["Error"] = "No se pudo actualizar la acción";
@@ -250,7 +251,7 @@ public class AccionesController : Controller
             }
 
             _logger.LogInformation("Acción actualizada: {AccionId} por usuario {User}",
-                model.Id, CurrentUserName);
+                model.Id, _currentUser.GetUsername());
             TempData["Success"] = $"Acción '{model.Nombre}' actualizada exitosamente";
             return RedirectToReturnUrlOrDetails(model.Id, returnUrl);
         }
@@ -317,12 +318,12 @@ public class AccionesController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
-            var eliminada = await _rolService.DeleteAccionAsync(id, CurrentUserName);
+            var eliminada = await _rolService.DeleteAccionAsync(id, _currentUser.GetUsername());
 
             if (eliminada)
             {
                 _logger.LogInformation("Acción eliminada: {AccionId} por usuario {User}",
-                    id, CurrentUserName);
+                    id, _currentUser.GetUsername());
                 TempData["Success"] = "Acción eliminada exitosamente";
             }
             else

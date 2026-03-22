@@ -32,17 +32,20 @@ public class SeguridadController : Controller
     private readonly IRolService _rolService;
     private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<SeguridadController> _logger;
 
     public SeguridadController(
         IRolService rolService,
         IUsuarioService usuarioService,
         ISeguridadAuditoriaService seguridadAuditoria,
+        ICurrentUserService currentUser,
         ILogger<SeguridadController> logger)
     {
         _rolService = rolService;
         _usuarioService = usuarioService;
         _seguridadAuditoria = seguridadAuditoria;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -198,7 +201,7 @@ public class SeguridadController : Controller
                 Activo = model.Activo,
                 RolesDeseados = model.RolesSeleccionados,
                 RowVersion = model.RowVersion!,
-                EditadoPor = User.Identity?.Name
+                EditadoPor = _currentUser.GetUsername()
             });
 
             if (!result.Ok)
@@ -217,7 +220,7 @@ public class SeguridadController : Controller
             }
 
             _logger.LogInformation("Usuario editado desde Seguridad: {UserId} por {Admin}",
-                model.Id, User.Identity?.Name);
+                model.Id, _currentUser.GetUsername());
             TempData["Success"] = $"Usuario '{model.UserName}' actualizado exitosamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
@@ -311,7 +314,7 @@ public class SeguridadController : Controller
                 return this.JsonModelErrors();
             }
 
-            _logger.LogInformation("Rol creado desde Seguridad: {RoleName} por {Admin}", roleName, User.Identity?.Name);
+            _logger.LogInformation("Rol creado desde Seguridad: {RoleName} por {Admin}", roleName, _currentUser.GetUsername());
             TempData["Success"] = $"Rol '{roleName}' creado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
@@ -387,7 +390,7 @@ public class SeguridadController : Controller
                 return this.JsonModelErrors();
             }
 
-            _logger.LogInformation("Rol editado desde Seguridad: {RoleId} por {Admin}", model.Id, User.Identity?.Name);
+            _logger.LogInformation("Rol editado desde Seguridad: {RoleId} por {Admin}", model.Id, _currentUser.GetUsername());
             TempData["Success"] = $"Rol '{roleName}' actualizado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
@@ -466,7 +469,7 @@ public class SeguridadController : Controller
             }
 
             _logger.LogInformation("Rol duplicado desde Seguridad: {SourceRoleId} -> {NewRole} por {Admin}",
-                model.RolOrigenId, roleName, User.Identity?.Name);
+                model.RolOrigenId, roleName, _currentUser.GetUsername());
             TempData["Success"] = $"Rol '{roleName}' duplicado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
@@ -502,7 +505,7 @@ public class SeguridadController : Controller
             }
 
             var actionLabel = activo ? "activado" : "desactivado";
-            _logger.LogInformation("Rol {RoleId} {ActionLabel} desde Seguridad por {Admin}", id, actionLabel, User.Identity?.Name);
+            _logger.LogInformation("Rol {RoleId} {ActionLabel} desde Seguridad por {Admin}", id, actionLabel, _currentUser.GetUsername());
             TempData["Success"] = $"Rol '{roleName}' {actionLabel} correctamente.";
         }
         catch (Exception ex)
@@ -576,7 +579,7 @@ public class SeguridadController : Controller
             }
             else
             {
-                _logger.LogInformation("Permisos guardados para rol {RoleId} por {Admin}", roleId, User.Identity?.Name);
+                _logger.LogInformation("Permisos guardados para rol {RoleId} por {Admin}", roleId, _currentUser.GetUsername());
                 TempData["Success"] = $"Permisos actualizados para '{role.Name}'.";
                 await _seguridadAuditoria.RegistrarEventoAsync(
                     "Seguridad",
@@ -663,7 +666,7 @@ public class SeguridadController : Controller
             }
 
             _logger.LogInformation("Permisos copiados de {SourceRole} a {TargetRole} por {Admin}",
-                sourceRole.Name, targetRole.Name, User.Identity?.Name);
+                sourceRole.Name, targetRole.Name, _currentUser.GetUsername());
 
             TempData["Success"] = $"Permisos copiados desde '{sourceRole.Name}' hacia '{targetRole.Name}'.";
             await _seguridadAuditoria.RegistrarEventoAsync(

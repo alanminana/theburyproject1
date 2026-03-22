@@ -17,6 +17,7 @@ namespace TheBuryProject.Controllers;
 public class ModulosController : Controller
 {
     private readonly IRolService _rolService;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<ModulosController> _logger;
 
     private IActionResult RedirectToReturnUrlOrDetails(int id, string? returnUrl)
@@ -27,9 +28,11 @@ public class ModulosController : Controller
 
     public ModulosController(
         IRolService rolService,
+        ICurrentUserService currentUser,
         ILogger<ModulosController> logger)
     {
         _rolService = rolService;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -153,7 +156,7 @@ public class ModulosController : Controller
             await _rolService.CreateModuloAsync(modulo);
 
             _logger.LogInformation("Módulo creado: {ModuloNombre} por usuario {User}",
-                model.Nombre, User.Identity?.Name);
+                model.Nombre, _currentUser.GetUsername());
             TempData["Success"] = $"Módulo '{model.Nombre}' creado exitosamente";
             return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
@@ -236,7 +239,7 @@ public class ModulosController : Controller
             modulo.Orden = model.Orden;
             modulo.Activo = model.Activo;
 
-            var actualizado = await _rolService.UpdateModuloAsync(modulo, User.Identity?.Name);
+            var actualizado = await _rolService.UpdateModuloAsync(modulo, _currentUser.GetUsername());
 
             if (!actualizado)
             {
@@ -245,7 +248,7 @@ public class ModulosController : Controller
             }
 
             _logger.LogInformation("Módulo actualizado: {ModuloId} por usuario {User}",
-                model.Id, User.Identity?.Name);
+                model.Id, _currentUser.GetUsername());
             TempData["Success"] = $"Módulo '{model.Nombre}' actualizado exitosamente";
             return RedirectToReturnUrlOrDetails(model.Id, returnUrl);
         }
@@ -310,7 +313,7 @@ public class ModulosController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
-            var eliminado = await _rolService.DeleteModuloAsync(id, User.Identity?.Name);
+            var eliminado = await _rolService.DeleteModuloAsync(id, _currentUser.GetUsername());
 
             if (!eliminado)
             {
@@ -319,7 +322,7 @@ public class ModulosController : Controller
             }
 
             _logger.LogInformation("Módulo eliminado: {ModuloId} por usuario {User}",
-                id, User.Identity?.Name);
+                id, _currentUser.GetUsername());
             TempData["Success"] = "Módulo eliminado exitosamente";
         }
         catch (Exception ex)

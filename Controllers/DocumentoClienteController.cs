@@ -18,6 +18,7 @@ namespace TheBuryProject.Controllers
     {
         private readonly IDocumentoClienteService _documentoService;
         private readonly IVentaService _ventaService;
+        private readonly ICurrentUserService _currentUser;
         private readonly ILogger<DocumentoClienteController> _logger;
         private readonly IDocumentacionService _documentacionService;
         private readonly IClienteLookupService _clienteLookup;
@@ -33,12 +34,14 @@ namespace TheBuryProject.Controllers
         public DocumentoClienteController(
             IDocumentoClienteService documentoService,
             IVentaService ventaService,
+            ICurrentUserService currentUser,
             ILogger<DocumentoClienteController> logger,
             IDocumentacionService documentacionService,
             IClienteLookupService clienteLookup)
         {
             _documentoService = documentoService;
             _ventaService = ventaService;
+            _currentUser = currentUser;
             _logger = logger;
             _documentacionService = documentacionService;
             _clienteLookup = clienteLookup;
@@ -301,7 +304,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 // CAMBIO: Capturar usuario actual en lugar de hardcodear "System"
-                var usuario = User.Identity?.Name ?? "Sistema";
+                var usuario = _currentUser.GetUsername();
                 var resultado = await _documentoService.VerificarAsync(id, usuario, observaciones);
 
                 if (resultado)
@@ -334,7 +337,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 // CAMBIO: Capturar usuario actual en lugar de hardcodear "System"
-                var usuario = User.Identity?.Name ?? "Sistema";
+                var usuario = _currentUser.GetUsername();
                 var resultado = await _documentoService.RechazarAsync(id, motivo, usuario);
 
                 if (resultado)
@@ -360,7 +363,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var usuario = User.Identity?.Name ?? "Sistema";
+                var usuario = _currentUser.GetUsername();
                 var resultado = await _documentoService.VerificarTodosAsync(clienteId, usuario, observaciones);
 
                 if (resultado > 0)
@@ -482,7 +485,7 @@ namespace TheBuryProject.Controllers
                     });
                 }
 
-                var usuario = User.Identity?.Name ?? "Sistema";
+                var usuario = _currentUser.GetUsername();
                 var resultado = await _documentoService.VerificarBatchAsync(
                     request.Ids, 
                     usuario, 
@@ -557,7 +560,7 @@ namespace TheBuryProject.Controllers
                     });
                 }
 
-                var usuario = User.Identity?.Name ?? "Sistema";
+                var usuario = _currentUser.GetUsername();
                 var resultado = await _documentoService.RechazarBatchAsync(
                     request.Ids, 
                     request.Motivo, 
