@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
-using TheBuryProject.Data;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -19,7 +17,7 @@ namespace TheBuryProject.Controllers
     public class DocumentoClienteController : Controller
     {
         private readonly IDocumentoClienteService _documentoService;
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
+        private readonly IVentaService _ventaService;
         private readonly ILogger<DocumentoClienteController> _logger;
         private readonly IDocumentacionService _documentacionService;
         private readonly IClienteLookupService _clienteLookup;
@@ -41,13 +39,13 @@ namespace TheBuryProject.Controllers
 
         public DocumentoClienteController(
             IDocumentoClienteService documentoService,
-            IDbContextFactory<AppDbContext> contextFactory,
+            IVentaService ventaService,
             ILogger<DocumentoClienteController> logger,
             IDocumentacionService documentacionService,
             IClienteLookupService clienteLookup)
         {
             _documentoService = documentoService;
-            _contextFactory = contextFactory;
+            _ventaService = ventaService;
             _logger = logger;
             _documentacionService = documentacionService;
             _clienteLookup = clienteLookup;
@@ -59,8 +57,6 @@ namespace TheBuryProject.Controllers
             try
             {
             ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
-
-                await using var context = await _contextFactory.CreateDbContextAsync();
 
                 if (filtro == null)
                     filtro = new DocumentoClienteFilterViewModel();
@@ -89,8 +85,7 @@ namespace TheBuryProject.Controllers
 
                 if (filtro.ReturnToVentaId.HasValue)
                 {
-                    var venta = await context.Ventas
-                        .FirstOrDefaultAsync(v => v.Id == filtro.ReturnToVentaId.Value && !v.IsDeleted);
+                    var venta = await _ventaService.GetByIdAsync(filtro.ReturnToVentaId.Value);
                     if (venta != null)
                     {
                         ViewBag.DocumentacionPendiente =
@@ -116,7 +111,6 @@ namespace TheBuryProject.Controllers
         // GET: DocumentoCliente/Upload
         public async Task<IActionResult> Upload(int? clienteId, int? returnToVentaId, int? replaceId, string? returnUrl = null)
         {
-            await using var context = await _contextFactory.CreateDbContextAsync();
             var viewModel = new DocumentoClienteViewModel();
             var bloquearCliente = false;
 
@@ -128,18 +122,11 @@ namespace TheBuryProject.Controllers
             {
                 viewModel.ReturnToVentaId = returnToVentaId;
 
-                var venta = await context.Ventas
-                    .Include(v => v.Cliente)
-                    .FirstOrDefaultAsync(v =>
-                        v.Id == returnToVentaId.Value &&
-                        !v.IsDeleted &&
-                        v.Cliente != null &&
-                        !v.Cliente.IsDeleted);
-
+                var venta = await _ventaService.GetByIdAsync(returnToVentaId.Value);
                 if (venta != null)
                 {
                     viewModel.ClienteId = venta.ClienteId;
-                    viewModel.ClienteNombre = venta.Cliente.ToDisplayName();
+                    viewModel.ClienteNombre = venta.ClienteNombre;
                     bloquearCliente = true;
                 }
             }
@@ -183,19 +170,11 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upload(DocumentoClienteViewModel viewModel, bool returnToDetails = false, string? returnUrl = null)
         {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
             try
             {
                 if (viewModel.ReturnToVentaId.HasValue)
                 {
-                    var venta = await context.Ventas
-                        .Include(v => v.Cliente)
-                        .FirstOrDefaultAsync(v =>
-                            v.Id == viewModel.ReturnToVentaId.Value &&
-                            !v.IsDeleted &&
-                            v.Cliente != null &&
-                            !v.Cliente.IsDeleted);
+                    var venta = await _ventaService.GetByIdAsync(viewModel.ReturnToVentaId.Value);
 
                     if (venta == null)
                     {
@@ -205,11 +184,11 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("ClienteId", "Debe adjuntar documentación para el cliente seleccionado en la venta.");
                         viewModel.ClienteId = venta.ClienteId;
-                        viewModel.ClienteNombre = venta.Cliente.ToDisplayName();
+                        viewModel.ClienteNombre = venta.ClienteNombre;
                     }
                     else
                     {
-                        viewModel.ClienteNombre = venta.Cliente.ToDisplayName();
+                        viewModel.ClienteNombre = venta.ClienteNombre;
                     }
                 }
 
