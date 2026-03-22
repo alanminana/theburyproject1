@@ -16,18 +16,18 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<ProductoService> _logger;
         private readonly IPrecioHistoricoService _precioHistoricoService;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
 
         public ProductoService(
             AppDbContext context,
             ILogger<ProductoService> logger,
             IPrecioHistoricoService precioHistoricoService,
-            IHttpContextAccessor httpContextAccessor)
+            ICurrentUserService currentUserService)
         {
             _context = context;
             _logger = logger;
             _precioHistoricoService = precioHistoricoService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
         }
 
         #region CRUD Básico
@@ -259,7 +259,7 @@ namespace TheBuryProject.Services
                     })
                     .ToList();
 
-                var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+                var usuario = _currentUserService.GetUsername();
 
                 // Si viene stock inicial > 0, dejamos trazabilidad en MovimientosStock.
                 using var tx = await _context.Database.BeginTransactionAsync();
@@ -320,7 +320,7 @@ namespace TheBuryProject.Services
 
                 if (preciosCambiaron)
                 {
-                    var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+                    var usuario = _currentUserService.GetUsername();
 
                     await _precioHistoricoService.RegistrarCambioAsync(
                         productoId: existing.Id,
@@ -450,7 +450,7 @@ namespace TheBuryProject.Services
                         $"Solicitado: {cantidadAbs}. Sería negativo: {nuevoStock}");
                 }
 
-                var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+                var usuario = _currentUserService.GetUsername();
 
                 var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
                 await using var tx = hasAmbientTransaction

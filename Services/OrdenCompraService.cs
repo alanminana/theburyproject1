@@ -12,18 +12,18 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<OrdenCompraService> _logger;
         private readonly IMovimientoStockService _movimientoStockService;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
 
         public OrdenCompraService(
             AppDbContext context,
             ILogger<OrdenCompraService> logger,
             IMovimientoStockService movimientoStockService,
-            IHttpContextAccessor httpContextAccessor)
+            ICurrentUserService currentUserService)
         {
             _context = context;
             _logger = logger;
             _movimientoStockService = movimientoStockService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
         }
 
         public async Task<IEnumerable<OrdenCompra>> GetAllAsync()
@@ -346,7 +346,7 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("Solo se pueden recepcionar órdenes confirmadas o en tránsito");
             }
 
-            var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+            var usuario = _currentUserService.GetUsername();
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
 

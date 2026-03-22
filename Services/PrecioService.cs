@@ -22,23 +22,23 @@ public class PrecioService : IPrecioService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<PrecioService> _logger;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
     private readonly IConfiguration _configuration;
 
     public PrecioService(
         AppDbContext context,
         ILogger<PrecioService> logger,
-        IHttpContextAccessor httpContextAccessor,
+        ICurrentUserService currentUserService,
         IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
         _configuration = configuration;
     }
 
     private string GetCurrentUser() =>
-        _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "System";
+        _currentUserService.GetUsername();
 
     #region Gestión de Listas de Precios
 

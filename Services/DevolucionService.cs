@@ -13,18 +13,18 @@ public class DevolucionService : IDevolucionService
 {
     private readonly AppDbContext _context;
     private readonly IMovimientoStockService _movimientoStockService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ICajaService? _cajaService;
 
     public DevolucionService(
         AppDbContext context,
         IMovimientoStockService movimientoStockService,
-        IHttpContextAccessor httpContextAccessor,
+        ICurrentUserService currentUserService,
         ICajaService? cajaService = null)
     {
         _context = context;
         _movimientoStockService = movimientoStockService;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
         _cajaService = cajaService;
     }
 
@@ -350,7 +350,7 @@ public class DevolucionService : IDevolucionService
             ? null
             : await _context.Database.BeginTransactionAsync();
 
-        var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+        var usuario = _currentUserService.GetUsername();
 
         try
         {
