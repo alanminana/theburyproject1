@@ -292,7 +292,6 @@ namespace TheBuryProject.Controllers
                 else
                 {
                     var tasaDecimal = (tarjeta.TasaInteresesMensual ?? 0) / 100;
-                    // CORREGIDO con cast explícito a decimal
                     var factor = (decimal)Math.Pow((double)(1 + tasaDecimal), cuotas);
                     montoCuota = monto * (tasaDecimal * factor) / (factor - 1);
                     montoTotal = montoCuota * cuotas;

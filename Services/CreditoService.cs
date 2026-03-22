@@ -821,7 +821,7 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region Nuevo: flujo seguro SolicitarCreditoAsync
+        #region Solicitud de Crédito
 
         public async Task<(bool Success, string? NumeroCredito, string? ErrorMessage)> SolicitarCreditoAsync(
             SolicitudCreditoViewModel solicitud,

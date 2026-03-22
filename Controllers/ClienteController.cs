@@ -385,7 +385,7 @@ namespace TheBuryProject.Controllers
             // Evaluar aptitud crediticia (semáforo)
             detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
 
-            // Panel de visibilidad del disponible (Tarea 4)
+            // Panel de visibilidad del crédito disponible
             detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;
             try
             {
