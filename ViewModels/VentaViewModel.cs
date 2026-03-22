@@ -96,7 +96,7 @@ namespace TheBuryProject.ViewModels
         // Datos adicionales según tipo de pago
         public DatosTarjetaViewModel? DatosTarjeta { get; set; }
         public DatosChequeViewModel? DatosCheque { get; set; }
-        public DatosCreditoPersonallViewModel? DatosCreditoPersonall { get; set; }  // NUEVO
+        public DatosCreditoPersonallViewModel? DatosCreditoPersonall { get; set; }
 
         // Datos de financiamiento
         [Display(Name = "Venta financiada")]

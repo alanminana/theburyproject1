@@ -179,7 +179,6 @@ namespace TheBuryProject.Controllers
                     "Nombre",
                     productoId);
 
-                // NUEVO: llenar tipos para el <select> del formulario
                 ViewBag.Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento)));
 
                 return View("Create_tw", viewModel);

@@ -23,7 +23,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<int?> AnularFacturaAsync(int facturaId, string motivo);
         Task<bool> ValidarStockAsync(int ventaId);
 
-        // Nuevos métodos para autorización
+        // Autorización
         Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo);
         Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo);

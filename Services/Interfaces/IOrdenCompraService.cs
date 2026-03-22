@@ -25,7 +25,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<string> GenerarNumeroOrdenAsync();
         Task<decimal> CalcularTotalOrdenAsync(int ordenId);
 
-        // NUEVO: M�todo para recepcionar
         Task<OrdenCompra> RecepcionarAsync(int ordenId, byte[] rowVersion, List<RecepcionDetalleViewModel> detallesRecepcion);
     }
 }
