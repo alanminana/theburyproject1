@@ -4,8 +4,6 @@ using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services
 {
-
-
     public class CurrentUserService : ICurrentUserService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
