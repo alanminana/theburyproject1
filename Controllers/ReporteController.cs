@@ -145,7 +145,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var excelData = await _reporteService.ExportarVentasExcelAsync(filtro);
-                var fileName = $"ReporteVentas_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                var fileName = $"ReporteVentas_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
                 return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
@@ -168,7 +168,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var excelData = await _reporteService.ExportarMargenesExcelAsync(categoriaId, marcaId);
-                var fileName = $"ReporteMargenes_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                var fileName = $"ReporteMargenes_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
                 return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
@@ -191,7 +191,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var excelData = await _reporteService.ExportarMorosidadExcelAsync();
-                var fileName = $"ReporteMorosidad_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                var fileName = $"ReporteMorosidad_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
                 return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
@@ -214,7 +214,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var pdfData = await _reporteService.GenerarVentasPdfAsync(filtro);
-                var fileName = $"ReporteVentas_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                var fileName = $"ReporteVentas_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
 
                 return File(pdfData, "application/pdf", fileName);
             }
@@ -237,7 +237,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 var pdfData = await _reporteService.GenerarMorosidadPdfAsync();
-                var fileName = $"ReporteMorosidad_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                var fileName = $"ReporteMorosidad_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
 
                 return File(pdfData, "application/pdf", fileName);
             }

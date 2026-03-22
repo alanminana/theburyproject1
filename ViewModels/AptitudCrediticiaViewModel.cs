@@ -59,7 +59,7 @@ namespace TheBuryProject.ViewModels
         /// <summary>
         /// Fecha de la evaluación
         /// </summary>
-        public DateTime FechaEvaluacion { get; set; } = DateTime.Now;
+        public DateTime FechaEvaluacion { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Indica si la configuración está completa

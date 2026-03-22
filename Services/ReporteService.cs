@@ -828,7 +828,7 @@ namespace TheBuryProject.Services
                         page.Footer().AlignCenter().Text(text =>
                         {
                             text.Span("Generado el ");
-                            text.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+                            text.Span(DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm"));
                         });
                     });
                 });

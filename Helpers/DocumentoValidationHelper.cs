@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 
 namespace TheBuryProject.Helpers
@@ -18,17 +14,17 @@ namespace TheBuryProject.Helpers
         public static (bool IsValid, string ErrorMessage) ValidateFile(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return (false, "Debe seleccionar un archivo válido.");
+                return (false, "Debe seleccionar un archivo vï¿½lido.");
 
             if (file.Length > MAX_FILE_SIZE)
-                return (false, $"El archivo excede el tamaño máximo permitido ({FormatFileSize(MAX_FILE_SIZE)}).");
+                return (false, $"El archivo excede el tamaï¿½o mï¿½ximo permitido ({FormatFileSize(MAX_FILE_SIZE)}).");
 
             var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(ext) || !VALID_EXTENSIONS.Contains(ext))
-                return (false, $"Extensión no permitida. Permitidas: {string.Join(", ", VALID_EXTENSIONS)}");
+                return (false, $"Extensiï¿½n no permitida. Permitidas: {string.Join(", ", VALID_EXTENSIONS)}");
 
             if (!ValidateMagicBytes(file, ext))
-                return (false, "El contenido del archivo no coincide con su extensión (magic bytes inválidos).");
+                return (false, "El contenido del archivo no coincide con su extensiï¿½n (magic bytes invï¿½lidos).");
 
             return (true, "");
         }
@@ -36,10 +32,10 @@ namespace TheBuryProject.Helpers
         public static (bool IsValid, string FullPath, string ErrorMessage) NormalizePath(string basePath, string fileName)
         {
             if (string.IsNullOrWhiteSpace(basePath))
-                return (false, string.Empty, "La ruta base no es válida.");
+                return (false, string.Empty, "La ruta base no es vï¿½lida.");
 
             if (string.IsNullOrWhiteSpace(fileName))
-                return (false, string.Empty, "El nombre de archivo no es válido.");
+                return (false, string.Empty, "El nombre de archivo no es vï¿½lido.");
 
             var normalizedBase = Path.GetFullPath(basePath);
             var combined = Path.Combine(normalizedBase, fileName);
@@ -51,7 +47,7 @@ namespace TheBuryProject.Helpers
                 : normalizedBase + Path.DirectorySeparatorChar;
 
             if (!normalizedFull.StartsWith(baseWithSep, StringComparison.OrdinalIgnoreCase))
-                return (false, string.Empty, "Ruta inválida (path traversal detectado).");
+                return (false, string.Empty, "Ruta invï¿½lida (path traversal detectado).");
 
             return (true, normalizedFull, "");
         }
@@ -78,7 +74,7 @@ namespace TheBuryProject.Helpers
             }
             catch
             {
-                // Si no se puede leer el header, bloquear (más seguro)
+                // Si no se puede leer el header, bloquear (mï¿½s seguro)
                 return false;
             }
         }

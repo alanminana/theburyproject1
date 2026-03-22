@@ -318,7 +318,7 @@ public class CambiosPreciosController : Controller
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
             var sufijo = tipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
-            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.Now:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}{sufijo} - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
 
             // Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -431,7 +431,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.Now:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
 
             // Crear simulación usando el servicio existente
             var batch = await _precioService.SimularCambioMasivoAsync(
@@ -540,7 +540,7 @@ public class CambiosPreciosController : Controller
 
             // Generar nombre automático
             var direccion = tipoAplicacion == TipoAplicacion.Aumento ? "Aumento" : "Descuento";
-            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.Now:dd/MM/yyyy HH:mm}";
+            var nombreBatch = $"{direccion} {valorCambio}% - {productosIds.Count} productos ({modoDescripcion}) - {DateTime.UtcNow:dd/MM/yyyy HH:mm}";
 
             // Paso 1: Crear simulación
             var batch = await _precioService.SimularCambioMasivoAsync(

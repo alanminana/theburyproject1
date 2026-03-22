@@ -304,7 +304,7 @@ namespace TheBuryProject.Services
 
         public async Task<string> GenerarNumeroOrdenAsync()
         {
-            var anio = DateTime.Now.Year;
+            var anio = DateTime.UtcNow.Year;
             var prefijo = $"OC-{anio}-";
             
             // Obtener el último número de orden del año actual
