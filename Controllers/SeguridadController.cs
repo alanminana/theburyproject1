@@ -32,20 +32,17 @@ public class SeguridadController : Controller
     private readonly IRolService _rolService;
     private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<SeguridadController> _logger;
 
     public SeguridadController(
         IRolService rolService,
         IUsuarioService usuarioService,
         ISeguridadAuditoriaService seguridadAuditoria,
-        UserManager<ApplicationUser> userManager,
         ILogger<SeguridadController> logger)
     {
         _rolService = rolService;
         _usuarioService = usuarioService;
         _seguridadAuditoria = seguridadAuditoria;
-        _userManager = userManager;
         _logger = logger;
     }
 
@@ -162,22 +159,10 @@ public class SeguridadController : Controller
                 }
             }
 
-            var user = await _userManager.FindByIdAsync(model.Id);
-            if (user == null)
+            var unicidadErrors = await _usuarioService.ValidarUnicidadUsuarioAsync(model.Id, model.UserName, model.Email);
+            foreach (var error in unicidadErrors)
             {
-                return NotFound();
-            }
-
-            var existingByUserName = await _userManager.FindByNameAsync(model.UserName);
-            if (existingByUserName != null && existingByUserName.Id != model.Id)
-            {
-                ModelState.AddModelError(nameof(model.UserName), $"El nombre de usuario '{model.UserName}' ya está en uso.");
-            }
-
-            var existingByEmail = await _userManager.FindByEmailAsync(model.Email);
-            if (existingByEmail != null && existingByEmail.Id != model.Id)
-            {
-                ModelState.AddModelError(nameof(model.Email), $"El email '{model.Email}' ya está en uso.");
+                ModelState.AddModelError(error.Campo, error.Mensaje);
             }
 
             var invalidRoles = new List<string>();
@@ -903,25 +888,21 @@ public class SeguridadController : Controller
 
     private async Task<SeguridadEditarUsuarioViewModel?> BuildEditUsuarioViewModelAsync(string id)
     {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user == null)
-        {
-            return null;
-        }
+        var data = await _usuarioService.GetUsuarioParaEdicionAsync(id);
+        if (data == null) return null;
 
-        var roles = await _userManager.GetRolesAsync(user);
         var model = new SeguridadEditarUsuarioViewModel
         {
-            Id = user.Id,
-            UserName = user.UserName ?? string.Empty,
-            Email = user.Email ?? string.Empty,
-            Nombre = user.Nombre,
-            Apellido = user.Apellido,
-            Telefono = user.Telefono ?? user.PhoneNumber,
-            RolesSeleccionados = roles.ToList(),
-            SucursalId = user.SucursalId,
-            Activo = user.Activo,
-            RowVersion = user.RowVersion
+            Id = data.Id,
+            UserName = data.UserName,
+            Email = data.Email,
+            Nombre = data.Nombre,
+            Apellido = data.Apellido,
+            Telefono = data.Telefono,
+            RolesSeleccionados = data.Roles,
+            SucursalId = data.SucursalId,
+            Activo = data.Activo,
+            RowVersion = data.RowVersion
         };
 
         await PopulateEditUsuarioOptionsAsync(model);

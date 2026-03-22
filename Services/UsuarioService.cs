@@ -169,4 +169,45 @@ public class UsuarioService : IUsuarioService
             throw;
         }
     }
+
+    public async Task<UsuarioEdicionData?> GetUsuarioParaEdicionAsync(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return null;
+
+        var roles = await _userManager.GetRolesAsync(user);
+
+        return new UsuarioEdicionData
+        {
+            Id = user.Id,
+            UserName = user.UserName ?? string.Empty,
+            Email = user.Email ?? string.Empty,
+            Nombre = user.Nombre,
+            Apellido = user.Apellido,
+            Telefono = user.Telefono ?? user.PhoneNumber,
+            Roles = roles.ToList(),
+            SucursalId = user.SucursalId,
+            Activo = user.Activo,
+            RowVersion = user.RowVersion
+        };
+    }
+
+    public async Task<List<UsuarioValidacionError>> ValidarUnicidadUsuarioAsync(string userId, string userName, string email)
+    {
+        var errors = new List<UsuarioValidacionError>();
+
+        var existingByUserName = await _userManager.FindByNameAsync(userName);
+        if (existingByUserName != null && existingByUserName.Id != userId)
+        {
+            errors.Add(new UsuarioValidacionError("UserName", $"El nombre de usuario '{userName}' ya está en uso."));
+        }
+
+        var existingByEmail = await _userManager.FindByEmailAsync(email);
+        if (existingByEmail != null && existingByEmail.Id != userId)
+        {
+            errors.Add(new UsuarioValidacionError("Email", $"El email '{email}' ya está en uso."));
+        }
+
+        return errors;
+    }
 }

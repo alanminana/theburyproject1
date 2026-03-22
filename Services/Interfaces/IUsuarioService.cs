@@ -38,7 +38,41 @@ public interface IUsuarioService
     /// Verifica si una sucursal existe y está activa.
     /// </summary>
     Task<bool> ExistsSucursalActivaAsync(int sucursalId);
+
+    /// <summary>
+    /// Obtiene los datos de un usuario para el formulario de edición.
+    /// Devuelve null si el usuario no existe.
+    /// </summary>
+    Task<UsuarioEdicionData?> GetUsuarioParaEdicionAsync(string userId);
+
+    /// <summary>
+    /// Valida que username y email no estén en uso por otro usuario.
+    /// Devuelve lista vacía si no hay conflictos.
+    /// </summary>
+    Task<List<UsuarioValidacionError>> ValidarUnicidadUsuarioAsync(string userId, string userName, string email);
 }
+
+/// <summary>
+/// Datos de un usuario para el formulario de edición.
+/// </summary>
+public sealed class UsuarioEdicionData
+{
+    public required string Id { get; init; }
+    public required string UserName { get; init; }
+    public required string Email { get; init; }
+    public string? Nombre { get; init; }
+    public string? Apellido { get; init; }
+    public string? Telefono { get; init; }
+    public List<string> Roles { get; init; } = [];
+    public int? SucursalId { get; init; }
+    public bool Activo { get; init; }
+    public byte[]? RowVersion { get; init; }
+}
+
+/// <summary>
+/// Error de validación de unicidad de usuario.
+/// </summary>
+public sealed record UsuarioValidacionError(string Campo, string Mensaje);
 
 /// <summary>
 /// Conteos del dashboard de seguridad.
