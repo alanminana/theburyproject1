@@ -1306,56 +1306,27 @@ namespace TheBuryProject.Controllers
             {
             ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
 
-                await using var context = await _contextFactory.CreateDbContextAsync();
+                var cuotasViewModel = await _creditoService.GetCuotasVencidasAsync();
 
-                var cuotas = await context.Cuotas
-                    .Include(c => c.Credito)
-                        .ThenInclude(cr => cr.Cliente)
-                    .Where(c => !c.IsDeleted
-                             && !c.Credito.IsDeleted
-                             && !c.Credito.Cliente.IsDeleted
-                             && (c.Estado == EstadoCuota.Vencida ||
-                                 (c.Estado == EstadoCuota.Pendiente && c.FechaVencimiento < DateTime.Today)))
-                    .OrderBy(c => c.FechaVencimiento)
-                    .ToListAsync();
-
-                // Obtener alertas de mora configuradas
+                // Asignar alertas de mora según días de atraso
                 var configuracionMora = await _configuracionMoraService.GetConfiguracionAsync();
                 var alertas = (configuracionMora?.Alertas ?? new List<AlertaMoraViewModel>())
                     .Where(a => a.Activa)
                     .OrderBy(a => a.DiasRelativoVencimiento)
                     .ToList();
 
-                var cuotasViewModel = cuotas.Select(c =>
+                foreach (var cuota in cuotasViewModel)
                 {
-                    var diasRelativo = (DateTime.Today - c.FechaVencimiento).Days;
-                    
-                    // Buscar la alerta más apropiada para los días de atraso
+                    var diasRelativo = (DateTime.Today - cuota.FechaVencimiento).Days;
                     var alertaAplicable = alertas
                         .Where(a => diasRelativo >= a.DiasRelativoVencimiento)
                         .OrderByDescending(a => a.DiasRelativoVencimiento)
                         .FirstOrDefault();
 
-                    return new CuotaViewModel
-                    {
-                        Id = c.Id,
-                        CreditoId = c.CreditoId,
-                        CreditoNumero = c.Credito.Numero,
-                        ClienteNombre = c.Credito.Cliente != null ? c.Credito.Cliente.ToDisplayName() : string.Empty,
-                        NumeroCuota = c.NumeroCuota,
-                        MontoCapital = c.MontoCapital,
-                        MontoInteres = c.MontoInteres,
-                        MontoTotal = c.MontoTotal,
-                        FechaVencimiento = c.FechaVencimiento,
-                        MontoPagado = c.MontoPagado,
-                        MontoPunitorio = c.MontoPunitorio,
-                        Estado = c.Estado,
-                        MedioPago = c.MedioPago,
-                        ColorAlerta = alertaAplicable?.ColorAlerta ?? "#FF0000",
-                        DescripcionAlerta = alertaAplicable?.Descripcion ?? "Cuota vencida",
-                        NivelPrioridad = alertaAplicable?.NivelPrioridad ?? 5
-                    };
-                }).ToList();
+                    cuota.ColorAlerta = alertaAplicable?.ColorAlerta ?? "#FF0000";
+                    cuota.DescripcionAlerta = alertaAplicable?.Descripcion ?? "Cuota vencida";
+                    cuota.NivelPrioridad = alertaAplicable?.NivelPrioridad ?? 5;
+                }
 
                 return View("CuotasVencidas_tw", cuotasViewModel);
             }
