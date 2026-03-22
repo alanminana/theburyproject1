@@ -4,7 +4,7 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>
-    /// ✅ Servicio centralizado para gestión de movimientos y stock
+    /// Servicio centralizado para gestión de movimientos y stock.
     /// </summary>
     public interface IMovimientoStockService
     {
@@ -27,7 +27,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<MovimientoStock> CreateAsync(MovimientoStock movimiento);
 
         /// <summary>
-        /// ✅ NUEVO: Registrar ajuste con TRANSACCIÓN y usuario real
+        /// Registrar ajuste con transacción y usuario real.
         /// </summary>
         Task<MovimientoStock> RegistrarAjusteAsync(
             int productoId,
@@ -39,7 +39,7 @@ namespace TheBuryProject.Services.Interfaces
             int? ordenCompraId = null);
 
         /// <summary>
-        /// ✅ NUEVO: Registrar múltiples ENTRADAS de stock en un solo SaveChanges.
+        /// Registrar múltiples entradas de stock en un solo SaveChanges.
         /// Útil para recepciones de orden de compra u operaciones batch donde
         /// se requiere crear un movimiento por ítem y actualizar stock por producto.
         /// </summary>
@@ -50,7 +50,7 @@ namespace TheBuryProject.Services.Interfaces
             int? ordenCompraId = null);
 
         /// <summary>
-        /// ✅ NUEVO: Registrar múltiples SALIDAS de stock en un solo SaveChanges.
+        /// Registrar múltiples salidas de stock en un solo SaveChanges.
         /// Valida stock suficiente por producto considerando el total del batch.
         /// </summary>
         Task<List<MovimientoStock>> RegistrarSalidasAsync(
@@ -59,12 +59,12 @@ namespace TheBuryProject.Services.Interfaces
             string? usuarioActual = null);
 
         /// <summary>
-        /// ✅ NUEVO: Validar disponibilidad de stock
+        /// Validar disponibilidad de stock.
         /// </summary>
         Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad);
 
         /// <summary>
-        /// ✅ NUEVO: Validar cantidad sea positiva
+        /// Validar cantidad sea positiva.
         /// </summary>
         Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad);
     }

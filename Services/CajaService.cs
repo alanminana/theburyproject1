@@ -9,11 +9,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Services
 {
     /// <summary>
-    /// ✅ REFACTORIZADO: Servicio centralizado para gestión de cajas y arqueos
-    /// - Eliminada redundancia en cálculos
-    /// - AutoMapper para mappings
-    /// - Validaciones centralizadas
-    /// - Manejo consistente de excepciones
+    /// Servicio centralizado para gestión de cajas y arqueos.
     /// </summary>
     public class CajaService : ICajaService
     {
@@ -22,7 +18,6 @@ namespace TheBuryProject.Services
         private readonly ILogger<CajaService> _logger;
         private readonly INotificacionService _notificacionService;
 
-        // ✅ Usar constante compartida desde CajaConstants
         private const decimal TOLERANCIA_DIFERENCIA = CajaConstants.TOLERANCIA_DIFERENCIA;
 
         public CajaService(
@@ -73,7 +68,6 @@ namespace TheBuryProject.Services
         {
             try
             {
-                // ✅ Validación centralizada
                 ValidarCaja(model);
 
                 if (await ExisteCodigoCajaAsync(model.Codigo))
@@ -117,7 +111,6 @@ namespace TheBuryProject.Services
 
                 _context.Entry(caja).Property(c => c.RowVersion).OriginalValue = model.RowVersion;
 
-                // ✅ Validación centralizada
                 ValidarCaja(model);
 
                 // Validar código único (excluyendo la caja actual)
@@ -455,7 +448,6 @@ namespace TheBuryProject.Services
             }
         }
 
-        // ✅ MEJORADO: Método único para cálculo de saldo
         public async Task<decimal> CalcularSaldoActualAsync(int aperturaId)
         {
             try
@@ -792,7 +784,6 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La caja ya está cerrada");
                 }
 
-                // ✅ OPTIMIZADO: Usar método único de cálculo
                 var (ingresos, egresos) = await ObtenerTotalesMovimientosAsync(model.AperturaCajaId);
                 var montoEsperado = apertura.MontoInicial + ingresos - egresos;
                 var montoReal = model.EfectivoContado + model.ChequesContados + model.ValesContados;
@@ -1046,7 +1037,6 @@ namespace TheBuryProject.Services
 
         #region Métodos Privados Helpers
 
-        // ✅ NUEVO: Método único para obtener totales
         private async Task<(decimal Ingresos, decimal Egresos)> ObtenerTotalesMovimientosAsync(int aperturaId)
         {
             var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
@@ -1066,7 +1056,7 @@ namespace TheBuryProject.Services
             return (ingresos, egresos);
         }
 
-        // ✅ Validación de negocio (las validaciones de formato están en el ViewModel con DataAnnotations)
+        // Validación de negocio (las validaciones de formato están en el ViewModel con DataAnnotations)
         private static void ValidarCaja(CajaViewModel model)
         {
             // Las validaciones [Required] y [StringLength] ya se hacen en el controller via ModelState
@@ -1077,7 +1067,6 @@ namespace TheBuryProject.Services
             }
         }
 
-        // ✅ NUEVO: Notificaciones centralizadas
         private async Task CrearNotificacionesCierreAsync(CierreCaja cierre, Caja caja)
         {
             try

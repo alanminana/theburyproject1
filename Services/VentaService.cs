@@ -796,7 +796,7 @@ namespace TheBuryProject.Services
                     venta.Estado);
                 await _context.SaveChangesAsync();
 
-                // ✅ Registrar anticipo en caja si lo hay (anticipo = total venta - monto financiado)
+                // Registrar anticipo en caja si lo hay (anticipo = total venta - monto financiado)
                 var anticipo = venta.Total - credito.MontoAprobado;
                 if (anticipo > 0)
                 {
@@ -951,7 +951,7 @@ namespace TheBuryProject.Services
 
             await _context.SaveChangesAsync();
 
-            // ✅ Registrar movimiento de caja al facturar (solo para ventas que NO son crédito personal)
+            // Registrar movimiento de caja al facturar (solo para ventas que NO son crédito personal)
             // Las ventas a crédito se cobran vía cuotas, no al facturar
             if (venta.TipoPago != TipoPago.CreditoPersonal)
             {

@@ -1,7 +1,4 @@
-﻿// ✅ REFACTORIZADO: Transacciones, sin duplicación, optimizado
-// ✅ AJUSTE ADICIONAL: GetAllAsync también filtra soft-delete (IsDeleted)
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -151,9 +148,9 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// ✅ Con TRANSACCIÓN, validación de cantidad y usuario real.
-        /// - Para Entrada/Salida: cantidad debe ser > 0
-        /// - Para Ajuste: cantidad representa el stock absoluto (>= 0). El movimiento registra la diferencia (delta).
+        /// Registrar ajuste con transacción, validación de cantidad y usuario real.
+        /// Para Entrada/Salida: cantidad debe ser mayor a 0.
+        /// Para Ajuste: cantidad representa el stock absoluto (mayor o igual a 0). El movimiento registra la diferencia (delta).
         /// </summary>
         public async Task<MovimientoStock> RegistrarAjusteAsync(
             int productoId,
@@ -164,9 +161,7 @@ namespace TheBuryProject.Services
             string? usuarioActual = null,
             int? ordenCompraId = null)
         {
-            // ✅ VALIDACIÓN 1: Cantidad
-            // - Entrada/Salida: debe ser > 0
-            // - Ajuste: representa el stock absoluto, permite 0 (no permite negativo)
+            // Validación de cantidad
             if (tipo == TipoMovimiento.Ajuste)
             {
                 if (cantidad < 0)
@@ -194,7 +189,7 @@ namespace TheBuryProject.Services
 
                 var stockAnterior = producto.StockActual;
 
-                // ✅ VALIDACIÓN 2: Stock insuficiente para salidas
+                // Stock insuficiente para salidas
                 if (tipo == TipoMovimiento.Salida && producto.StockActual < cantidad)
                 {
                     throw new InvalidOperationException(
@@ -489,7 +484,7 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// ✅ Validar que cantidad sea positiva (para Entrada/Salida).
+        /// Validar que cantidad sea positiva (para Entrada/Salida).
         /// </summary>
         public async Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad)
         {
@@ -508,7 +503,7 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// ✅ Validar disponibilidad de stock (para uso por otros servicios).
+        /// Validar disponibilidad de stock (para uso por otros servicios).
         /// </summary>
         public async Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad)
         {

@@ -260,9 +260,7 @@ namespace TheBuryProject.Helpers
             CreateMap<ConfiguracionTarjetaViewModel, ConfiguracionTarjeta>()
                 .ForMember(d => d.ConfiguracionPago, o => o.Ignore());
 
-            // =======================
-            // PerfilCredito (TAREA 7.1.2)
-            // =======================
+            // PerfilCredito
             CreateMap<PerfilCredito, PerfilCreditoViewModel>().ReverseMap();
 
             // =======================

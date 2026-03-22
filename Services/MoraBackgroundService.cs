@@ -3,10 +3,7 @@
 namespace TheBuryProject.Services
 {
     /// <summary>
-    /// ✅ MEJORADO: Servicio en background para ejecutar el procesamiento de mora automáticamente
-    /// - Lógica de ventana de tiempo mejorada
-    /// - Mejor manejo de errores
-    /// - Logging detallado
+    /// Servicio en background para ejecutar el procesamiento de mora automáticamente.
     /// </summary>
     public class MoraBackgroundService : BackgroundService
     {
@@ -42,7 +39,7 @@ namespace TheBuryProject.Services
                             continue;
                         }
 
-                        // ✅ MEJORADO: Comparar solo horas y minutos
+                        // Comparar solo horas y minutos
                         var ahora = DateTime.UtcNow;
                         var horaEjecucion = configuracion.HoraEjecucionDiaria ?? new TimeSpan(8, 0, 0);
                         var horaActual = new TimeSpan(ahora.Hour, ahora.Minute, 0);

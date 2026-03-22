@@ -497,7 +497,7 @@ namespace TheBuryProject.Services
 
                 await _context.SaveChangesAsync();
 
-                // ✅ Registrar movimiento de caja para el cobro de cuota
+                // Registrar movimiento de caja para el cobro de cuota
                 await _cajaService.RegistrarMovimientoCuotaAsync(
                     cuota.Id,
                     cuota.Credito.Numero,

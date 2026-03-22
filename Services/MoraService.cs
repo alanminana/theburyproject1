@@ -14,7 +14,7 @@ namespace TheBuryProject.Services
 {
     /// <summary>
     /// Servicio centralizado para gestión de mora, alertas y cobranzas
-    /// ✅ REFACTORIZADO: Consolidado, sin duplicaciones, optimizado
+    /// Servicio centralizado para gestión de mora, alertas y cobranzas
     /// </summary>
     public class MoraService : IMoraService
     {
@@ -125,7 +125,7 @@ namespace TheBuryProject.Services
                 var hoy = DateTime.Today;
                 var fechaLimite = hoy.AddDays(-(config.DiasGracia ?? 0));
 
-                // ✅ OPTIMIZADO: Obtener cuotas vencidas en UN solo query (sin N+1)
+                // Obtener cuotas vencidas en un solo query (sin N+1)
                 var cuotasVencidas = await _context.Cuotas
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr!.Cliente)
@@ -138,7 +138,7 @@ namespace TheBuryProject.Services
 
                 log.CuotasProcesadas = cuotasVencidas.Count;
 
-                // ✅ OPTIMIZADO: Agrupar por crédito para evitar múltiples queries
+                // Agrupar por crédito para evitar múltiples queries
                 var cuotasPorCredito = cuotasVencidas.GroupBy(c => c.CreditoId).ToList();
                 int alertasCreadas = 0;
 
@@ -174,7 +174,7 @@ namespace TheBuryProject.Services
                         var moraCalculada = CalcularMora(montoVencido, diasMora, config);
                         var prioridad = DeterminarPrioridad(diasMora, montoVencido, config);
 
-                        // ✅ MEJORADO: Crear alerta con información completa
+                        // Crear alerta con información completa
                         var alerta = new AlertaCobranza
                         {
                             CreditoId = creditoId,
@@ -249,7 +249,7 @@ namespace TheBuryProject.Services
             try
             {
                 var hoy = DateTime.Today;
-                var diasAntesAlerta = 5; // ✅ TODO: Hacer configurable en ConfiguracionMora
+                var diasAntesAlerta = 5; // TODO: Hacer configurable en ConfiguracionMora
                 var proximosDias = hoy.AddDays(diasAntesAlerta);
                 var now = DateTime.UtcNow;
 
@@ -337,7 +337,6 @@ namespace TheBuryProject.Services
                     .ThenBy(a => a.FechaAlerta)
                     .ToListAsync();
 
-                // ✅ OPTIMIZADO: Usar AutoMapper en lugar de mapeo manual
                 return _mapper.Map<List<AlertaCobranzaViewModel>>(alertas);
             }
             catch (Exception ex)
@@ -1343,7 +1342,6 @@ namespace TheBuryProject.Services
             return Math.Round(mora, 2);
         }
 
-        // ✅ MEJORADO: Usar configuración en lugar de constantes hardcodeadas
         private PrioridadAlerta DeterminarPrioridad(int diasMora, decimal montoVencido, ConfiguracionMora config)
         {
             // Umbrales por defecto (TODO: Hacer configurables)

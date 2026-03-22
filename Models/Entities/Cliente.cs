@@ -135,17 +135,11 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public DateTime? FechaUltimaEvaluacion { get; set; }
 
-        // ==========================
-        // Configuración de Crédito Personal (valores personalizados por cliente)
-        // ==========================
-
-        // ==========================
-        // CONFIGURACIÓN DE CRÉDITO PERSONAL (TAREA 6 + TAREA 8)
-        // ==========================
+        // Configuración de crédito personal
 
         /// <summary>
-        /// Perfil de crédito preferido para este cliente (TAREA 8.1.1)
-        /// Si se especifica, se usarán los valores del perfil como defaults
+        /// Perfil de crédito preferido para este cliente.
+        /// Si se especifica, se usarán los valores del perfil como defaults.
         /// </summary>
         public int? PerfilCreditoPreferidoId { get; set; }
 

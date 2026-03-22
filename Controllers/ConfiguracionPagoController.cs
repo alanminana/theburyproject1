@@ -369,7 +369,7 @@ namespace TheBuryProject.Controllers
         }
 
         /// <summary>
-        /// Obtiene todos los perfiles de crédito (TAREA 7.1.2)
+        /// Obtiene todos los perfiles de crédito.
         /// </summary>
         [HttpGet]
         [AllowAnonymous]
@@ -388,7 +388,7 @@ namespace TheBuryProject.Controllers
         }
 
         /// <summary>
-        /// Guarda perfiles de crédito y defaults globales desde el modal (TAREA 7)
+        /// Guarda perfiles de crédito y defaults globales desde el modal.
         /// </summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]

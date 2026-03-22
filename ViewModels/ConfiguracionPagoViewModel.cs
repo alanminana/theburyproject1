@@ -37,9 +37,7 @@ namespace TheBuryProject.ViewModels
         [Range(0, 100)]
         public decimal? PorcentajeRecargo { get; set; }
 
-        // ============================================================
-        // CRÉDITO PERSONAL - DEFAULTS GLOBALES (TAREA 7.1.1)
-        // ============================================================
+        // Crédito personal - defaults globales
 
         [Display(Name = "Tasa Mensual Default (%)")]
         [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0% y 100%")]

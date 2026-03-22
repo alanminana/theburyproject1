@@ -30,9 +30,7 @@ namespace TheBuryProject.Models.Entities
         public bool TieneRecargo { get; set; } = false;
         public decimal? PorcentajeRecargo { get; set; }
 
-        // ============================================================
-        // CRÉDITO PERSONAL - DEFAULTS GLOBALES (TAREA 7.1.1)
-        // ============================================================
+        // Crédito personal - defaults globales
         
         /// <summary>
         /// Tasa de interés mensual default para crédito personal (%)

@@ -84,7 +84,7 @@ namespace TheBuryProject.Services
                 // Generar motivos explicativos
                 GenerarMotivos(evaluacion);
 
-                // ✅ GUARDAR en BD para auditoría
+                // Guardar en BD para auditoría
                 await GuardarEvaluacionAsync(evaluacion);
 
                 _logger.LogInformation("Evaluación completada: {Resultado} - Puntaje: {Puntaje}",
@@ -104,15 +104,15 @@ namespace TheBuryProject.Services
             Cliente cliente,
             decimal montoSolicitado)
         {
-            // 1️⃣ Puntaje de Riesgo
+            // Puntaje de Riesgo
             evaluacion.Reglas.Add(EvaluarPuntajeRiesgo(cliente.PuntajeRiesgo));
 
-            // 2️⃣ Documentación
+            // Documentación
             var reglaDoc = await EvaluarDocumentacionAsync(cliente.Id);
             evaluacion.Reglas.Add(reglaDoc);
             evaluacion.TieneDocumentacionCompleta = reglaDoc.Cumple;
 
-            // 3️⃣ Ingresos y Capacidad de Pago
+            // Ingresos y Capacidad de Pago
             var reglaIngresos = EvaluarIngresos(cliente, montoSolicitado);
             evaluacion.Reglas.Add(reglaIngresos);
             evaluacion.TieneIngresosSuficientes = reglaIngresos.Cumple;
@@ -123,12 +123,12 @@ namespace TheBuryProject.Services
                 evaluacion.RelacionCuotaIngreso = CalcularRelacionCuotaIngreso(cuotaEstimada, cliente.Sueldo.Value);
             }
 
-            // 4️⃣ Historial Crediticio
+            // Historial Crediticio
             var reglaHistorial = EvaluarHistorial(cliente);
             evaluacion.Reglas.Add(reglaHistorial);
             evaluacion.TieneBuenHistorial = reglaHistorial.Cumple;
 
-            // 5️⃣ Garante (si aplica)
+            // Garante (si aplica)
             var reglaGarante = EvaluarGarante(montoSolicitado, evaluacion.TieneGarante);
             evaluacion.Reglas.Add(reglaGarante);
         }
@@ -136,7 +136,6 @@ namespace TheBuryProject.Services
         internal static decimal CalcularRelacionCuotaIngreso(decimal cuota, decimal sueldo) =>
             sueldo == 0 ? 0 : cuota / sueldo;
 
-        // ✅ MÉTODOS PRIVADOS CONSOLIDADOS
         private ReglaEvaluacionViewModel EvaluarPuntajeRiesgo(decimal puntajeRiesgo)
         {
             var regla = new ReglaEvaluacionViewModel { Nombre = "Puntaje de Riesgo" };

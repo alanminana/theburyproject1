@@ -226,7 +226,6 @@ namespace TheBuryProject.Controllers
                 if (producto == null)
                     return NotFound();
 
-                // ✅ USAR AUTOMAPPER en lugar de mapeo manual
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
 
                 // Mostrar PrecioVenta sin IVA (el almacenado incluye IVA)
@@ -313,7 +312,6 @@ namespace TheBuryProject.Controllers
                 if (producto == null)
                     return NotFound();
 
-                // ✅ USAR AUTOMAPPER
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
                 return View("Delete_tw", viewModel);
             }

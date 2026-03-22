@@ -3,7 +3,7 @@
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>
-    /// ✅ Servicio centralizado para gestión de productos
+    /// Servicio centralizado para gestión de productos.
     /// </summary>
     public interface IProductoService
     {

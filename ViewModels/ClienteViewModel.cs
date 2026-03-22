@@ -48,7 +48,7 @@ namespace TheBuryProject.ViewModels
         public DateTime? SituacionCrediticiaUltimaConsultaUtc { get; set; }
         public bool? SituacionCrediticiaConsultaOk { get; set; }
 
-        // ✅ DATOS DE CÓNYUGE (opcionales)
+        // Datos de cónyuge (opcionales)
         [StringLength(200)]
         public string? ConyugeNombreCompleto { get; set; }
 
@@ -88,7 +88,7 @@ namespace TheBuryProject.ViewModels
         [StringLength(10)]
         public string? CodigoPostal { get; set; }
 
-        // ✅ DATOS LABORALES - PROPIEDADES REALES
+        // Datos laborales
         [StringLength(200)]
         public string? Empleador { get; set; }
 
@@ -109,7 +109,7 @@ namespace TheBuryProject.ViewModels
         [StringLength(50)]
         public string? TiempoTrabajo { get; set; }
 
-        // ✅ PROPIEDADES DE CONTROL DE RIESGO
+        // Control de riesgo
         
         /// <summary>
         /// Nivel de riesgo crediticio (1-5)
@@ -127,7 +127,7 @@ namespace TheBuryProject.ViewModels
         [StringLength(500)]
         public string? Observaciones { get; set; }
 
-        // ✅ CONFIGURACIÓN PERSONALIZADA DE CRÉDITO (TAREA 6 + TAREA 8)
+        // Configuración personalizada de crédito
         
         [Display(Name = "Perfil de Crédito Preferido")]
         public int? PerfilCreditoPreferidoId { get; set; }
@@ -152,10 +152,10 @@ namespace TheBuryProject.ViewModels
         [Range(0, 9999999999.99, ErrorMessage = "El monto máximo debe ser positivo")]
         public decimal? MontoMaximoPersonalizado { get; set; }
 
-        // ✅ GARANTE
+        // Garante
         public int? GaranteId { get; set; }
 
-        // ✅ HISTORIAL CREDITICIO (SOLO LECTURA)
+        // Historial crediticio (solo lectura)
         public int CreditosTotales { get; set; }
         public int CreditosActivos { get; set; }
         public int CuotasImpagas { get; set; }

@@ -40,7 +40,7 @@ namespace TheBuryProject.ViewModels
         public List<EstadoCreditoDto> CreditosPorEstado { get; set; } = new();
         public List<CobranzaPorMesDto> CobranzaUltimos6Meses { get; set; } = new();
 
-        // ✅ Alertas y Cuotas
+        // Alertas y Cuotas
         public List<CuotaProximaVencerDto> CuotasProximasVencer { get; set; } = new();
         public List<CuotaVencidaDto> CuotasVencidasLista { get; set; } = new();
         public int CuotasProximasVencerCount { get; set; }

@@ -142,11 +142,11 @@ namespace TheBuryProject.Services
                 CreditosPorEstado = await GetCreditosPorEstadoAsync(),
                 CobranzaUltimos6Meses = await GetCobranzaUltimos6MesesAsync(),
 
-                // ✅ Alertas de cuotas
+                // Alertas de cuotas
                 CuotasProximasVencer = await GetCuotasProximasVencerAsync(),
                 CuotasVencidasLista = await GetCuotasVencidasListaAsync(),
 
-                // ✅ Órdenes de compra pendientes (Pagos Proveedores)
+                // Órdenes de compra pendientes (Pagos Proveedores)
                 OrdenesCompraPendientes = await GetOrdenesCompraPendientesAsync()
             };
 

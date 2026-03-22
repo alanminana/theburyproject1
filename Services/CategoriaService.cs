@@ -279,7 +279,7 @@ namespace TheBuryProject.Services
             }
         }
 
-        // ✅ Método privado: valida ciclos sin incluir el registro actual
+        /// <summary>Valida ciclos sin incluir el registro actual.</summary>
         private async Task<bool> WouldCreateCycleAsync(int? categoryId, int? parentId)
         {
             if (!parentId.HasValue)

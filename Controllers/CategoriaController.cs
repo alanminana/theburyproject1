@@ -18,7 +18,7 @@ namespace TheBuryProject.Controllers
     {
         private readonly ICategoriaService _categoriaService;
         private readonly ILogger<CategoriaController> _logger;
-        private readonly IMapper _mapper;  // ✅ MOVER AQUÍ
+        private readonly IMapper _mapper;
 
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
         {
@@ -31,11 +31,11 @@ namespace TheBuryProject.Controllers
         public CategoriaController(
             ICategoriaService categoriaService,
             ILogger<CategoriaController> logger,
-            IMapper mapper)  // ✅ AGREGAR mapper aquí
+            IMapper mapper)
         {
             _categoriaService = categoriaService;
             _logger = logger;
-            _mapper = mapper;  // ✅ INICIALIZAR mapper aquí
+            _mapper = mapper;
         }
         public async Task<IActionResult> Index(
          string? searchTerm = null,

@@ -615,7 +615,7 @@ namespace TheBuryProject.Controllers
 
             // Logging de auditoría
             _logger.LogInformation(
-                "PUNTO 5 - Auditoría Crédito {CreditoId}: Método={Metodo}, Fuente={Fuente}, " +
+                "Auditoría Crédito {CreditoId}: Método={Metodo}, Fuente={Fuente}, " +
                 "Tasa={Tasa:F4}%, Gastos={Gastos:C}, Cuotas=[{Min}-{Max}], Perfil={PerfilId}",
                 modelo.CreditoId,
                 modelo.MetodoCalculo,

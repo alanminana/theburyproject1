@@ -186,9 +186,8 @@ namespace TheBuryProject.Data
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
-            // ==========================================================
-            // ✅ FIX PRINCIPAL – Devolucion (UNIFICADO, SIN AMBIGÜEDAD)
-            // ==========================================================
+            // Devolucion
+
             modelBuilder.Entity<Devolucion>(entity =>
             {
                 entity.HasOne(d => d.RMA)
@@ -531,16 +530,15 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PuntajeRiesgo).HasPrecision(5, 2);
 
-                // ✅ Fix warning: Cliente.LimiteCredito
                 entity.Property(e => e.LimiteCredito).HasPrecision(18, 2);
 
-                // ✅ Configuración personalizada de crédito por cliente
+                // Configuración personalizada de crédito por cliente
                 entity.Property(e => e.TasaInteresMensualPersonalizada).HasPrecision(8, 4);
                 entity.Property(e => e.GastosAdministrativosPersonalizados).HasPrecision(8, 4);
                 entity.Property(e => e.MontoMinimoPersonalizado).HasPrecision(18, 2);
                 entity.Property(e => e.MontoMaximoPersonalizado).HasPrecision(18, 2);
 
-                // Relación con Perfil de Crédito Preferido (TAREA 8)
+                // Relación con Perfil de Crédito Preferido
                 entity.HasOne(e => e.PerfilCreditoPreferido)
                     .WithMany()
                     .HasForeignKey(e => e.PerfilCreditoPreferidoId)
@@ -918,9 +916,7 @@ namespace TheBuryProject.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // =======================
-            // PerfilCredito (TAREA 7.1.2)
-            // =======================
+            // PerfilCredito
             modelBuilder.Entity<PerfilCredito>(entity =>
             {
                 entity.ToTable("PerfilesCredito");
@@ -1255,9 +1251,7 @@ namespace TheBuryProject.Data
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
-            // =======================
-            // ✅ ConfiguracionCredito (Fix warnings EF Core)
-            // =======================
+            // ConfiguracionCredito
             modelBuilder.Entity<ConfiguracionCredito>(entity =>
             {
                 entity.ToTable("ConfiguracionesCredito");
@@ -1421,9 +1415,7 @@ namespace TheBuryProject.Data
                 entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
-            // =======================
-            // ✅ Fix warnings: DevolucionDetalle
-            // =======================
+            // DevolucionDetalle
             modelBuilder.Entity<DevolucionDetalle>(entity =>
             {
                 entity.ToTable("DevolucionDetalles");
@@ -1433,9 +1425,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
             });
 
-            // =======================
-            // ✅ Fix warnings: NotaCredito
-            // =======================
+            // NotaCredito
             modelBuilder.Entity<NotaCredito>(entity =>
             {
                 entity.ToTable("NotasCredito");
@@ -1445,9 +1435,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoUtilizado).HasPrecision(18, 2);
             });
 
-            // =======================
-            // ✅ Fix warnings: RMA
-            // =======================
+            // RMA
             modelBuilder.Entity<RMA>(entity =>
             {
                 entity.ToTable("RMAs");
@@ -1456,9 +1444,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoReembolso).HasPrecision(18, 2);
             });
 
-            // =======================
-            // ✅ Fix warnings: SolicitudAutorizacion
-            // =======================
+            // SolicitudAutorizacion
             modelBuilder.Entity<SolicitudAutorizacion>(entity =>
             {
                 entity.ToTable("SolicitudesAutorizacion");
@@ -1468,9 +1454,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.ValorSolicitado).HasPrecision(18, 2);
             });
 
-            // =======================
-            // ✅ Fix warnings: UmbralAutorizacion
-            // =======================
+            // UmbralAutorizacion
             modelBuilder.Entity<UmbralAutorizacion>(entity =>
             {
                 entity.ToTable("UmbralesAutorizacion");

@@ -30,7 +30,7 @@ namespace TheBuryProject.Models.Entities
         public MetodoCalculoCredito? MetodoCalculoAplicado { get; set; }
 
         /// <summary>
-        /// Fuente de configuración resultante (compatibilidad TAREA 6)
+        /// Fuente de configuración resultante.
         /// </summary>
         public FuenteConfiguracionCredito? FuenteConfiguracionAplicada { get; set; }
 
