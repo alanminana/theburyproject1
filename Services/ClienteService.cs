@@ -102,7 +102,6 @@ namespace TheBuryProject.Services
             clienteExistente.TipoEmpleo = cliente.TipoEmpleo;
             clienteExistente.Sueldo = cliente.Sueldo;
 
-            // FIX punto 4.3: antes estaba la asignación sin efecto.
             clienteExistente.TieneReciboSueldo = cliente.TieneReciboSueldo;
 
             // Calificación crediticia manual (NivelRiesgo 1-5)

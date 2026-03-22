@@ -73,7 +73,6 @@ namespace TheBuryProject.Controllers
                     orderBy: filter.OrderBy,
                     orderDirection: filter.OrderDirection);
 
-                // FIX punto 4.2: no recalcular Edad acá (AutoMapperProfile ya la calcula).
                 var viewModels = _mapper.Map<List<ClienteViewModel>>(clientes);
 
                 filter.Clientes = viewModels;
@@ -386,7 +385,6 @@ namespace TheBuryProject.Controllers
                 Cliente = _mapper.Map<ClienteViewModel>(cliente)
             };
 
-            // FIX punto 4.2: no recalcular Edad acá (AutoMapperProfile ya la calcula).
             detalleViewModel.Documentos = await _documentoService.GetByClienteIdAsync(cliente.Id);
 
             var creditos = await _creditoService.GetByClienteIdAsync(cliente.Id);
