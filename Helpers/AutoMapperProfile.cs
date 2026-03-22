@@ -1,5 +1,4 @@
 using AutoMapper;
-using System.Linq;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
