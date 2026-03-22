@@ -415,7 +415,7 @@ public class DevolucionController : Controller
                     AccesoriosFaltantes = p.AccesoriosFaltantes,
                     TieneGarantia = p.TieneGarantia,
                     ObservacionesTecnicas = p.ObservacionesTecnicas,
-                    AccionRecomendada = DeterminarAccionRecomendada(p.EstadoProducto)
+                    AccionRecomendada = _devolucionService.DeterminarAccionRecomendada(p.EstadoProducto)
                 })
                 .ToList();
 
@@ -456,7 +456,7 @@ public class DevolucionController : Controller
 
         var puedeDevolver = await _devolucionService.PuedeDevolverVentaAsync(ventaId);
         var diasDesdeVenta = await _devolucionService.ObtenerDiasDesdeVentaAsync(ventaId);
-        var permiteImpactoCaja = PermiteImpactoCaja(venta.TipoPago);
+        var permiteImpactoCaja = _devolucionService.PermiteImpactoCaja(venta.TipoPago);
 
         return Json(new
         {
@@ -471,7 +471,7 @@ public class DevolucionController : Controller
                 total = venta.Total,
                 totalDisplay = venta.Total.ToString("C2"),
                 tipoPago = venta.TipoPago.ToString(),
-                tipoPagoDisplay = ObtenerTipoPagoDisplay(venta.TipoPago),
+                tipoPagoDisplay = venta.TipoPago.GetDisplayName(),
                 diasDesdeVenta,
                 puedeDevolver,
                 permiteImpactoCaja,
@@ -547,7 +547,7 @@ public class DevolucionController : Controller
 
             var registrarEgresoCaja = model.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
                 && model.RegistrarEgresoCaja
-                && PermiteImpactoCaja(venta.TipoPago);
+                && _devolucionService.PermiteImpactoCaja(venta.TipoPago);
 
             var devolucion = new Devolucion
             {
@@ -557,7 +557,7 @@ public class DevolucionController : Controller
                 Descripcion = model.Descripcion.Trim(),
                 TipoResolucion = model.TipoResolucion,
                 RegistrarEgresoCaja = registrarEgresoCaja,
-                ObservacionesInternas = ConstruirObservacionesInternas(model.TipoResolucion, registrarEgresoCaja, venta.TipoPago)
+                ObservacionesInternas = _devolucionService.ConstruirObservacionesInternas(model.TipoResolucion, registrarEgresoCaja, venta.TipoPago)
             };
 
             var detalles = itemsSeleccionados
@@ -566,7 +566,7 @@ public class DevolucionController : Controller
                     ProductoId = item.ProductoId,
                     Cantidad = item.CantidadDevolver,
                     EstadoProducto = item.EstadoProducto,
-                    AccionRecomendada = DeterminarAccionRecomendada(item.EstadoProducto)
+                    AccionRecomendada = _devolucionService.DeterminarAccionRecomendada(item.EstadoProducto)
                 })
                 .ToList();
 
@@ -855,23 +855,6 @@ public class DevolucionController : Controller
         ViewBag.Proveedores = new SelectList(await _proveedorService.GetAllAsync(), "Id", "RazonSocial");
     }
 
-    private AccionProducto DeterminarAccionRecomendada(EstadoProductoDevuelto estado)
-    {
-        return estado switch
-        {
-            EstadoProductoDevuelto.Nuevo => AccionProducto.ReintegrarStock,
-            EstadoProductoDevuelto.NuevoSellado => AccionProducto.ReintegrarStock,
-            EstadoProductoDevuelto.UsadoBuenEstado => AccionProducto.ReintegrarStock,
-            EstadoProductoDevuelto.AbiertoSinUso => AccionProducto.Cuarentena,
-            EstadoProductoDevuelto.UsadoConDetalles => AccionProducto.Cuarentena,
-            EstadoProductoDevuelto.Marcado => AccionProducto.Cuarentena,
-            EstadoProductoDevuelto.Defectuoso => AccionProducto.DevolverProveedor,
-            EstadoProductoDevuelto.Incompleto => AccionProducto.Cuarentena,
-            EstadoProductoDevuelto.Danado => AccionProducto.Descarte,
-            _ => AccionProducto.Cuarentena
-        };
-    }
-
     private string ObtenerPrimerErrorModelState()
     {
         return ModelState.Values
@@ -879,53 +862,6 @@ public class DevolucionController : Controller
             .Select(e => e.ErrorMessage)
             .FirstOrDefault(error => !string.IsNullOrWhiteSpace(error))
             ?? "No se pudo procesar la devolución.";
-    }
-
-    private static bool PermiteImpactoCaja(TipoPago tipoPago)
-    {
-        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente;
-    }
-
-    private static string ObtenerTipoPagoDisplay(TipoPago tipoPago)
-    {
-        return tipoPago switch
-        {
-            TipoPago.Efectivo => "Efectivo",
-            TipoPago.Transferencia => "Transferencia",
-            TipoPago.TarjetaDebito => "Tarjeta Débito",
-            TipoPago.TarjetaCredito => "Tarjeta Crédito",
-            TipoPago.Cheque => "Cheque",
-            TipoPago.CreditoPersonal => "Crédito Personal",
-            TipoPago.MercadoPago => "Mercado Pago",
-            TipoPago.CuentaCorriente => "Cuenta Corriente",
-            TipoPago.Tarjeta => "Tarjeta",
-            _ => tipoPago.ToString()
-        };
-    }
-
-    private static string ConstruirObservacionesInternas(
-        TipoResolucionDevolucion tipoResolucion,
-        bool registrarEgresoCaja,
-        TipoPago tipoPagoOriginal)
-    {
-        var observaciones = new List<string>
-        {
-            $"Resolución solicitada: {tipoResolucion.GetDisplayName()}",
-            $"Pago original: {ObtenerTipoPagoDisplay(tipoPagoOriginal)}"
-        };
-
-        if (tipoResolucion == TipoResolucionDevolucion.ReembolsoDinero)
-        {
-            observaciones.Add(registrarEgresoCaja
-                ? "Registrar egreso en caja al completar."
-                : "No registra egreso automático en caja.");
-        }
-        else
-        {
-            observaciones.Add("No genera movimiento automático en caja. La reposición se resuelve por circuito operativo.");
-        }
-
-        return string.Join(" | ", observaciones);
     }
 
     #endregion

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -1085,6 +1086,57 @@ public class DevolucionService : IDevolucionService
                         r.Estado == EstadoRMA.AprobadoProveedor ||
                         r.Estado == EstadoRMA.EnTransito))
             .CountAsync();
+    }
+
+    #endregion
+
+    #region Reglas de negocio
+
+    public AccionProducto DeterminarAccionRecomendada(EstadoProductoDevuelto estado)
+    {
+        return estado switch
+        {
+            EstadoProductoDevuelto.Nuevo => AccionProducto.ReintegrarStock,
+            EstadoProductoDevuelto.NuevoSellado => AccionProducto.ReintegrarStock,
+            EstadoProductoDevuelto.UsadoBuenEstado => AccionProducto.ReintegrarStock,
+            EstadoProductoDevuelto.AbiertoSinUso => AccionProducto.Cuarentena,
+            EstadoProductoDevuelto.UsadoConDetalles => AccionProducto.Cuarentena,
+            EstadoProductoDevuelto.Marcado => AccionProducto.Cuarentena,
+            EstadoProductoDevuelto.Defectuoso => AccionProducto.DevolverProveedor,
+            EstadoProductoDevuelto.Incompleto => AccionProducto.Cuarentena,
+            EstadoProductoDevuelto.Danado => AccionProducto.Descarte,
+            _ => AccionProducto.Cuarentena
+        };
+    }
+
+    public bool PermiteImpactoCaja(TipoPago tipoPago)
+    {
+        return tipoPago != TipoPago.CreditoPersonal && tipoPago != TipoPago.CuentaCorriente;
+    }
+
+    public string ConstruirObservacionesInternas(
+        TipoResolucionDevolucion tipoResolucion,
+        bool registrarEgresoCaja,
+        TipoPago tipoPagoOriginal)
+    {
+        var observaciones = new List<string>
+        {
+            $"Resolución solicitada: {tipoResolucion.GetDisplayName()}",
+            $"Pago original: {tipoPagoOriginal.GetDisplayName()}"
+        };
+
+        if (tipoResolucion == TipoResolucionDevolucion.ReembolsoDinero)
+        {
+            observaciones.Add(registrarEgresoCaja
+                ? "Registrar egreso en caja al completar."
+                : "No registra egreso automático en caja.");
+        }
+        else
+        {
+            observaciones.Add("No genera movimiento automático en caja. La reposición se resuelve por circuito operativo.");
+        }
+
+        return string.Join(" | ", observaciones);
     }
 
     #endregion

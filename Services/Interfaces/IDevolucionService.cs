@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services.Interfaces;
 
@@ -88,4 +89,23 @@ public interface IDevolucionService
     Task<List<Producto>> ObtenerProductosMasDevueltosAsync(int top = 10);
     Task<decimal> ObtenerTotalDevolucionesPeriodoAsync(DateTime desde, DateTime hasta);
     Task<int> ObtenerCantidadRMAsPendientesAsync();
+
+    // ============================================
+    // Reglas de negocio
+    // ============================================
+
+    /// <summary>
+    /// Determina la acción recomendada para un producto devuelto según su estado.
+    /// </summary>
+    AccionProducto DeterminarAccionRecomendada(EstadoProductoDevuelto estado);
+
+    /// <summary>
+    /// Indica si el tipo de pago permite registrar impacto en caja al devolver.
+    /// </summary>
+    bool PermiteImpactoCaja(TipoPago tipoPago);
+
+    /// <summary>
+    /// Construye el texto de observaciones internas para una devolución.
+    /// </summary>
+    string ConstruirObservacionesInternas(TipoResolucionDevolucion tipoResolucion, bool registrarEgresoCaja, TipoPago tipoPagoOriginal);
 }
