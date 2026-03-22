@@ -15,17 +15,20 @@ namespace TheBuryProject.Services
         private readonly IProductoService _productoService;
         private readonly IPrecioService _precioService;
         private readonly ILogger<CatalogoService> _logger;
+        private readonly ICurrentUserService _currentUserService;
 
         public CatalogoService(
             ICatalogLookupService catalogLookupService,
             IProductoService productoService,
             IPrecioService precioService,
-            ILogger<CatalogoService> logger)
+            ILogger<CatalogoService> logger,
+            ICurrentUserService currentUserService)
         {
             _catalogLookupService = catalogLookupService;
             _productoService = productoService;
             _precioService = precioService;
             _logger = logger;
+            _currentUserService = currentUserService;
         }
 
         /// <inheritdoc />
@@ -259,8 +262,7 @@ namespace TheBuryProject.Services
                     "Aplicando cambio de precios: BatchId={BatchId}",
                     solicitud.BatchId);
 
-                // Obtener usuario actual del contexto HTTP (inyectar IHttpContextAccessor si se necesita)
-                var usuario = "Sistema"; // TODO: Obtener del contexto de autenticación
+                var usuario = _currentUserService.GetUsername();
 
                 // Aprobar el batch primero si no lo está
                 var batch = await _precioService.GetSimulacionAsync(solicitud.BatchId);

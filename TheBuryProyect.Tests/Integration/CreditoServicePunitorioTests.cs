@@ -72,6 +72,14 @@ file sealed class StubCreditoDisponibleService : ICreditoDisponibleService
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 
+file sealed class StubCurrentUserService : ICurrentUserService
+{
+    public string GetUsername() => "TestUser";
+    public string GetUserId() => "test-user-id";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => "test@test.com";
+}
+
 // ---------------------------------------------------------------------------
 
 /// <summary>
@@ -108,7 +116,8 @@ public class CreditoServicePunitorioTests : IDisposable
             NullLogger<CreditoService>.Instance,
             new StubFinancialService(),
             new StubCajaServicePunitorio(),
-            new StubCreditoDisponibleService());
+            new StubCreditoDisponibleService(),
+            new StubCurrentUserService());
     }
 
     public void Dispose()

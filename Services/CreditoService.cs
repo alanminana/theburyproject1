@@ -22,14 +22,16 @@ namespace TheBuryProject.Services
         private readonly IFinancialCalculationService _financialService;
         private readonly ICajaService _cajaService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly ICurrentUserService _currentUserService;
 
         public CreditoService(
-            AppDbContext context, 
-            IMapper mapper, 
+            AppDbContext context,
+            IMapper mapper,
             ILogger<CreditoService> logger,
             IFinancialCalculationService financialService,
             ICajaService cajaService,
-            ICreditoDisponibleService creditoDisponibleService)
+            ICreditoDisponibleService creditoDisponibleService,
+            ICurrentUserService currentUserService)
         {
             _context = context;
             _mapper = mapper;
@@ -37,6 +39,7 @@ namespace TheBuryProject.Services
             _financialService = financialService;
             _cajaService = cajaService;
             _creditoDisponibleService = creditoDisponibleService;
+            _currentUserService = currentUserService;
         }
 
         #region CRUD Básico
@@ -505,7 +508,7 @@ namespace TheBuryProject.Services
                     cuota.NumeroCuota,
                     pago.MontoPagado,
                     pago.MedioPago,
-                    "System"); // TODO: Obtener usuario del contexto HTTP
+                    _currentUserService.GetUsername());
 
                 // Actualizar saldo del crédito
                 await RecalcularSaldoCreditoAsync(cuota.CreditoId);
@@ -570,7 +573,7 @@ namespace TheBuryProject.Services
                     ultimaCuotaPendiente.NumeroCuota,
                     pago.MontoPagado,
                     pago.MedioPago,
-                    "System");
+                    _currentUserService.GetUsername());
 
                 await RecalcularSaldoCreditoAsync(ultimaCuotaPendiente.CreditoId);
 
