@@ -1,8 +1,7 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TheBuryProject.Filters;
@@ -36,7 +35,8 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly IClienteLookupService _clienteLookup;
         private readonly IValidacionVentaService _validacionVentaService;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICurrentUserService _currentUser;
+        private readonly IUsuarioService _usuarioService;
         private readonly ICajaService _cajaService;
 
         private string? GetSafeReturnUrl(string? returnUrl)
@@ -44,11 +44,6 @@ namespace TheBuryProject.Controllers
             return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
                 ? returnUrl
                 : null;
-        }
-
-        private string? GetCurrentUserId()
-        {
-            return User.FindFirstValue(ClaimTypes.NameIdentifier);
         }
 
         private async Task<bool> UsuarioTieneCajaAbiertaAsync()
@@ -85,7 +80,8 @@ namespace TheBuryProject.Controllers
             IProductoService productoService,
             IClienteLookupService clienteLookup,
             IValidacionVentaService validacionVentaService,
-            UserManager<ApplicationUser> userManager,
+            ICurrentUserService currentUser,
+            IUsuarioService usuarioService,
             ICajaService cajaService)
         {
             _ventaService = ventaService;
@@ -98,7 +94,8 @@ namespace TheBuryProject.Controllers
             _productoService = productoService;
             _clienteLookup = clienteLookup;
             _validacionVentaService = validacionVentaService;
-            _userManager = userManager;
+            _currentUser = currentUser;
+            _usuarioService = usuarioService;
             _cajaService = cajaService;
         }
 
@@ -163,7 +160,7 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public async Task<IActionResult> Cotizar()
         {
-            await CargarViewBags(vendedorUserIdSeleccionado: GetCurrentUserId());
+            await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
             ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Cotizacion));
         }
@@ -242,7 +239,7 @@ namespace TheBuryProject.Controllers
                 return cajaGuard;
             }
 
-            await CargarViewBags(vendedorUserIdSeleccionado: GetCurrentUserId());
+            await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
             ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Presupuesto));
         }
@@ -1264,17 +1261,14 @@ namespace TheBuryProject.Controllers
 
             if (puedeDelegarVendedor)
             {
-                var usuarios = await _userManager.GetUsersInRoleAsync(Roles.Vendedor);
-                var usuariosOrdenados = usuarios
-                    .OrderBy(u => u.UserName)
-                    .ToList();
+                var vendedores = await _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor);
 
                 ViewBag.Vendedores = new SelectList(
-                    usuariosOrdenados,
+                    vendedores,
                     "Id",
                     "UserName",
                     vendedorUserIdSeleccionado);
-                vendedoresCount = usuariosOrdenados.Count;
+                vendedoresCount = vendedores.Count;
             }
 
             _logger.LogDebug(

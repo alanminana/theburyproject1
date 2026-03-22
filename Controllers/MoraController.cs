@@ -1,7 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
@@ -17,6 +16,7 @@ namespace TheBuryProject.Controllers
     {
         private readonly IMoraService _moraService;
         private readonly IMapper _mapper;
+        private readonly ICurrentUserService _currentUser;
         private readonly ILogger<MoraController> _logger;
 
         private string? GetSafeReturnUrl(string? returnUrl)
@@ -34,18 +34,15 @@ namespace TheBuryProject.Controllers
                 : RedirectToAction(nameof(Index));
         }
 
-        private string GetCurrentUserId()
-        {
-            return User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "system";
-        }
-
         public MoraController(
             IMoraService moraService,
             IMapper mapper,
+            ICurrentUserService currentUser,
             ILogger<MoraController> logger)
         {
             _moraService = moraService;
             _mapper = mapper;
+            _currentUser = currentUser;
             _logger = logger;
         }
 
@@ -225,7 +222,7 @@ namespace TheBuryProject.Controllers
                     return View(model);
                 }
 
-                var gestorId = GetCurrentUserId();
+                var gestorId = _currentUser.GetUserId();
                 await _moraService.RegistrarContactoAsync(model, gestorId);
                 
                 TempData["Success"] = "Contacto registrado correctamente";
@@ -291,7 +288,7 @@ namespace TheBuryProject.Controllers
                     return View(model);
                 }
 
-                var gestorId = GetCurrentUserId();
+                var gestorId = _currentUser.GetUserId();
                 await _moraService.RegistrarPromesaPagoAsync(model, gestorId);
                 
                 TempData["Success"] = "Promesa de pago registrada correctamente";
@@ -403,7 +400,7 @@ namespace TheBuryProject.Controllers
                     return View(model);
                 }
 
-                var gestorId = GetCurrentUserId();
+                var gestorId = _currentUser.GetUserId();
                 var acuerdoId = await _moraService.CrearAcuerdoPagoAsync(model, gestorId);
                 
                 TempData["Success"] = "Acuerdo de pago creado correctamente";

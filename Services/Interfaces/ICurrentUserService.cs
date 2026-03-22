@@ -1,4 +1,4 @@
-namespace TheBuryProject.Services
+namespace TheBuryProject.Services.Interfaces
 {
     public interface ICurrentUserService
     {

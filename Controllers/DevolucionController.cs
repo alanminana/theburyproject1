@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Globalization;
@@ -25,20 +24,20 @@ public class DevolucionController : Controller
     private readonly IClienteService _clienteService;
     private readonly IVentaService _ventaService;
     private readonly IProveedorService _proveedorService;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ICurrentUserService _currentUser;
 
     public DevolucionController(
         IDevolucionService devolucionService,
         IClienteService clienteService,
         IVentaService ventaService,
         IProveedorService proveedorService,
-        UserManager<ApplicationUser> userManager)
+        ICurrentUserService currentUser)
     {
         _devolucionService = devolucionService;
         _clienteService = clienteService;
         _ventaService = ventaService;
         _proveedorService = proveedorService;
-        _userManager = userManager;
+        _currentUser = currentUser;
     }
 
     #region Devoluciones
@@ -638,8 +637,7 @@ public class DevolucionController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
-            var usuario = await _userManager.GetUserAsync(User);
-            await _devolucionService.AprobarDevolucionAsync(id, usuario?.UserName ?? Roles.Administrador, rowVersion);
+            await _devolucionService.AprobarDevolucionAsync(id, _currentUser.GetUsername(), rowVersion);
 
             TempData["Success"] = devolucion.TipoResolucion switch
             {

@@ -1,5 +1,5 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
@@ -17,7 +17,7 @@ namespace TheBuryProject.Controllers;
 public class AutorizacionController : Controller
 {
     private readonly IAutorizacionService _autorizacionService;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ICurrentUserService _currentUser;
 
     private string? GetSafeReturnUrl(string? returnUrl)
         => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
@@ -36,10 +36,10 @@ public class AutorizacionController : Controller
 
     public AutorizacionController(
         IAutorizacionService autorizacionService,
-        UserManager<ApplicationUser> userManager)
+        ICurrentUserService currentUser)
     {
         _autorizacionService = autorizacionService;
-        _userManager = userManager;
+        _currentUser = currentUser;
     }
 
     #region Umbrales
@@ -210,9 +210,8 @@ public class AutorizacionController : Controller
     {
         ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
 
-        var usuario = await _userManager.GetUserAsync(User);
         var todasSolicitudes = await _autorizacionService.ObtenerTodasSolicitudesAsync();
-        var misSolicitudes = await _autorizacionService.ObtenerSolicitudesPorUsuarioAsync(usuario?.UserName ?? "");
+        var misSolicitudes = await _autorizacionService.ObtenerSolicitudesPorUsuarioAsync(_currentUser.GetUsername());
 
         var viewModel = new SolicitudesListViewModel
         {
@@ -289,13 +288,15 @@ public class AutorizacionController : Controller
 
         try
         {
-            var usuario = await _userManager.GetUserAsync(User);
-            var roles = await _userManager.GetRolesAsync(usuario!);
-            var rol = roles.FirstOrDefault(r => Roles.GetAllRoles().Contains(r)) ?? Roles.Vendedor;
+            var roleClaims = User.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList();
+            var rol = roleClaims.FirstOrDefault(r => Roles.GetAllRoles().Contains(r)) ?? Roles.Vendedor;
 
             var solicitud = new SolicitudAutorizacion
             {
-                UsuarioSolicitante = usuario?.UserName ?? "Desconocido",
+                UsuarioSolicitante = _currentUser.GetUsername(),
                 RolSolicitante = rol,
                 TipoUmbral = model.TipoUmbral,
                 ValorSolicitado = model.ValorSolicitado,
@@ -325,8 +326,7 @@ public class AutorizacionController : Controller
     {
         try
         {
-            var usuario = await _userManager.GetUserAsync(User);
-            await _autorizacionService.AprobarSolicitudAsync(id, usuario?.UserName ?? Roles.Administrador, comentario);
+            await _autorizacionService.AprobarSolicitudAsync(id, _currentUser.GetUsername(), comentario);
             TempData["Success"] = "Solicitud aprobada exitosamente";
         }
         catch (Exception ex)
@@ -352,8 +352,7 @@ public class AutorizacionController : Controller
 
         try
         {
-            var usuario = await _userManager.GetUserAsync(User);
-            await _autorizacionService.RechazarSolicitudAsync(id, usuario?.UserName ?? Roles.Administrador, comentario);
+            await _autorizacionService.RechazarSolicitudAsync(id, _currentUser.GetUsername(), comentario);
             TempData["Success"] = "Solicitud rechazada";
         }
         catch (Exception ex)

@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
-using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -19,7 +17,7 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly ICategoriaService _categoriaService;
         private readonly IMarcaService _marcaService;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IUsuarioService _usuarioService;
         private readonly ILogger<ReporteController> _logger;
 
         public ReporteController(
@@ -28,7 +26,7 @@ namespace TheBuryProject.Controllers
             IProductoService productoService,
             ICategoriaService categoriaService,
             IMarcaService marcaService,
-            UserManager<ApplicationUser> userManager,
+            IUsuarioService usuarioService,
             ILogger<ReporteController> logger)
         {
             _reporteService = reporteService;
@@ -36,7 +34,7 @@ namespace TheBuryProject.Controllers
             _productoService = productoService;
             _categoriaService = categoriaService;
             _marcaService = marcaService;
-            _userManager = userManager;
+            _usuarioService = usuarioService;
             _logger = logger;
         }
 
@@ -264,8 +262,7 @@ namespace TheBuryProject.Controllers
             var categorias = await _categoriaService.GetAllAsync();
             var marcas = await _marcaService.GetAllAsync();
 
-            // Obtener usuarios de Identity
-            var usuarios = _userManager.Users.ToList();
+            var usuarios = await _usuarioService.GetUsuarioSelectListAsync();
 
             ViewBag.Clientes = new SelectList(clientes, "Id", "NombreCompleto");
             ViewBag.Productos = new SelectList(productos, "Id", "Nombre");

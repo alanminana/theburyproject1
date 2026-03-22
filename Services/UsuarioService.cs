@@ -210,4 +210,22 @@ public class UsuarioService : IUsuarioService
 
         return errors;
     }
+
+    public async Task<List<UsuarioSelectItem>> GetUsuarioSelectListAsync()
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .OrderBy(u => u.UserName)
+            .Select(u => new UsuarioSelectItem(u.Id, u.UserName ?? u.Email ?? ""))
+            .ToListAsync();
+    }
+
+    public async Task<List<UsuarioSelectItem>> GetUsuariosPorRolAsync(string roleName)
+    {
+        var users = await _userManager.GetUsersInRoleAsync(roleName);
+        return users
+            .OrderBy(u => u.UserName)
+            .Select(u => new UsuarioSelectItem(u.Id, u.UserName ?? u.Email ?? ""))
+            .ToList();
+    }
 }

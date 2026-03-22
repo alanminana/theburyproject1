@@ -50,6 +50,16 @@ public interface IUsuarioService
     /// Devuelve lista vacía si no hay conflictos.
     /// </summary>
     Task<List<UsuarioValidacionError>> ValidarUnicidadUsuarioAsync(string userId, string userName, string email);
+
+    /// <summary>
+    /// Obtiene todos los usuarios activos con Id y UserName (para SelectList).
+    /// </summary>
+    Task<List<UsuarioSelectItem>> GetUsuarioSelectListAsync();
+
+    /// <summary>
+    /// Obtiene los usuarios que pertenecen a un rol específico, con Id y UserName.
+    /// </summary>
+    Task<List<UsuarioSelectItem>> GetUsuariosPorRolAsync(string roleName);
 }
 
 /// <summary>
@@ -132,3 +142,8 @@ public sealed class UsuarioUpdateResult
     public static UsuarioUpdateResult Failed(params string[] errors) => new() { Errors = [.. errors] };
     public static UsuarioUpdateResult Failed(IEnumerable<string> errors) => new() { Errors = [.. errors] };
 }
+
+/// <summary>
+/// Item liviano de usuario para poblar SelectLists.
+/// </summary>
+public sealed record UsuarioSelectItem(string Id, string UserName);

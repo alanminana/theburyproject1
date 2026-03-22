@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using TheBuryProject.Helpers;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services
 {

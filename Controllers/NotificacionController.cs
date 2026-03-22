@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
-using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Controllers;
@@ -14,16 +12,16 @@ namespace TheBuryProject.Controllers;
 public class NotificacionController : ControllerBase
 {
     private readonly INotificacionService _notificacionService;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<NotificacionController> _logger;
 
     public NotificacionController(
         INotificacionService notificacionService,
-        UserManager<ApplicationUser> userManager,
+        ICurrentUserService currentUser,
         ILogger<NotificacionController> logger)
     {
         _notificacionService = notificacionService;
-        _userManager = userManager;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -35,14 +33,13 @@ public class NotificacionController : ControllerBase
     {
         try
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (!_currentUser.IsAuthenticated())
             {
                 return Unauthorized();
             }
 
             var notificaciones = await _notificacionService.ObtenerNotificacionesUsuarioAsync(
-                user.UserName ?? user.Email ?? "",
+                _currentUser.GetUsername(),
                 soloNoLeidas,
                 limite);
 
@@ -63,14 +60,13 @@ public class NotificacionController : ControllerBase
     {
         try
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (!_currentUser.IsAuthenticated())
             {
                 return Unauthorized();
             }
 
             var cantidad = await _notificacionService.ObtenerCantidadNoLeidasAsync(
-                user.UserName ?? user.Email ?? "");
+                _currentUser.GetUsername());
 
             return Ok(new { cantidad });
         }
@@ -90,13 +86,12 @@ public class NotificacionController : ControllerBase
     {
         try
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (!_currentUser.IsAuthenticated())
             {
                 return Unauthorized();
             }
 
-            await _notificacionService.MarcarComoLeidaAsync(id, user.UserName ?? user.Email ?? "", rowVersion);
+            await _notificacionService.MarcarComoLeidaAsync(id, _currentUser.GetUsername(), rowVersion);
 
             return Ok(new { success = true });
         }
@@ -120,13 +115,12 @@ public class NotificacionController : ControllerBase
     {
         try
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (!_currentUser.IsAuthenticated())
             {
                 return Unauthorized();
             }
 
-            await _notificacionService.MarcarTodasComoLeidasAsync(user.UserName ?? user.Email ?? "");
+            await _notificacionService.MarcarTodasComoLeidasAsync(_currentUser.GetUsername());
 
             return Ok(new { success = true });
         }
@@ -146,13 +140,12 @@ public class NotificacionController : ControllerBase
     {
         try
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
+            if (!_currentUser.IsAuthenticated())
             {
                 return Unauthorized();
             }
 
-            await _notificacionService.EliminarNotificacionAsync(id, user.UserName ?? user.Email ?? "", rowVersion);
+            await _notificacionService.EliminarNotificacionAsync(id, _currentUser.GetUsername(), rowVersion);
 
             return Ok(new { success = true });
         }

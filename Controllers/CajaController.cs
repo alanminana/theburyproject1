@@ -1,7 +1,6 @@
 // FILE: Controllers/CajaController.cs
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
@@ -20,18 +19,18 @@ namespace TheBuryProject.Controllers
     public class CajaController : Controller
     {
         private readonly ICajaService _cajaService;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICurrentUserService _currentUser;
         private readonly ILogger<CajaController> _logger;
         private readonly IMapper _mapper;
 
         public CajaController(
             ICajaService cajaService,
-            UserManager<ApplicationUser> userManager,
+            ICurrentUserService currentUser,
             ILogger<CajaController> logger,
             IMapper mapper)
         {
             _cajaService = cajaService;
-            _userManager = userManager;
+            _currentUser = currentUser;
             _logger = logger;
             _mapper = mapper;
         }
@@ -230,8 +229,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                var apertura = await _cajaService.AbrirCajaAsync(model, user?.UserName ?? "Unknown");
+                var apertura = await _cajaService.AbrirCajaAsync(model, _currentUser.GetUsername());
 
                 TempData["Success"] = $"Caja abierta exitosamente con ${model.MontoInicial:N2}";
                 return RedirectToAction(nameof(DetallesApertura), new { id = apertura.Id });
@@ -290,8 +288,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                await _cajaService.RegistrarMovimientoAsync(model, user?.UserName ?? "Unknown");
+                await _cajaService.RegistrarMovimientoAsync(model, _currentUser.GetUsername());
 
                 TempData["Success"] = "Movimiento registrado exitosamente";
                 return RedirectToAction(nameof(DetallesApertura), new { id = model.AperturaCajaId });
@@ -353,8 +350,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                var user = await _userManager.GetUserAsync(User);
-                var cierre = await _cajaService.CerrarCajaAsync(model, user?.UserName ?? "Unknown");
+                var cierre = await _cajaService.CerrarCajaAsync(model, _currentUser.GetUsername());
 
                 if (cierre.TieneDiferencia)
                 {

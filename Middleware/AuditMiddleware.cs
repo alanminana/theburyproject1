@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Middleware
 {
