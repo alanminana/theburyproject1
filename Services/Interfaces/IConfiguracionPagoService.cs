@@ -18,9 +18,14 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto);
 
         /// <summary>
-        /// Obtiene todos los perfiles de crédito activos (no eliminados), ordenados.
+        /// Obtiene todos los perfiles de crédito (no eliminados), ordenados.
         /// </summary>
         Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync();
+
+        /// <summary>
+        /// Obtiene solo los perfiles de crédito activos (no eliminados), ordenados.
+        /// </summary>
+        Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync();
 
         /// <summary>
         /// Guarda defaults globales de crédito personal y perfiles (crear/actualizar).

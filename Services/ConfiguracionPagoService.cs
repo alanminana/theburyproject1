@@ -191,6 +191,17 @@ namespace TheBuryProject.Services
             return _mapper.Map<List<PerfilCreditoViewModel>>(perfiles);
         }
 
+        public async Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync()
+        {
+            var perfiles = await _context.PerfilesCredito
+                .Where(p => !p.IsDeleted && p.Activo)
+                .OrderBy(p => p.Orden)
+                .ThenBy(p => p.Nombre)
+                .ToListAsync();
+
+            return _mapper.Map<List<PerfilCreditoViewModel>>(perfiles);
+        }
+
         public async Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config)
         {
             // Actualizar defaults globales en ConfiguracionPago (TipoPago = CreditoPersonal)

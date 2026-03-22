@@ -390,7 +390,7 @@ namespace TheBuryProject.Services
                     c.CreditoId,
                     CreditoNumero = c.Credito.Numero,
                     c.NumeroCuota,
-                    ClienteNombre = c.Credito.Cliente.Nombre + " " + c.Credito.Cliente.Apellido,
+                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre + " - DNI: " + c.Credito.Cliente.NumeroDocumento,
                     ClienteId = c.Credito.ClienteId,
                     c.FechaVencimiento,
                     Monto = c.MontoTotal - c.MontoPagado
@@ -438,7 +438,7 @@ namespace TheBuryProject.Services
                     c.CreditoId,
                     CreditoNumero = c.Credito.Numero,
                     c.NumeroCuota,
-                    ClienteNombre = c.Credito.Cliente.Nombre + " " + c.Credito.Cliente.Apellido,
+                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre + " - DNI: " + c.Credito.Cliente.NumeroDocumento,
                     ClienteId = c.Credito.ClienteId,
                     c.FechaVencimiento,
                     Monto = c.MontoTotal - c.MontoPagado,

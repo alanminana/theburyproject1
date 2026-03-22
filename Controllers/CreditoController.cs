@@ -855,12 +855,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         private async Task<IActionResult> RetornarVistaConPerfilesAsync(ConfiguracionCreditoVentaViewModel modelo)
         {
-            await using var ctx = await _contextFactory.CreateDbContextAsync();
-            ViewBag.PerfilesActivos = await ctx.PerfilesCredito
-                .Where(p => !p.IsDeleted && p.Activo)
-                .OrderBy(p => p.Orden)
-                .ThenBy(p => p.Nombre)
-                .ToListAsync();
+            ViewBag.PerfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
             return View("ConfigurarVenta_tw", modelo);
         }
 
