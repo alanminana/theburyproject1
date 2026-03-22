@@ -25,6 +25,7 @@ namespace TheBuryProject.Controllers
         private readonly IClienteAptitudService _aptitudService;
         private readonly ISituacionCrediticiaBcraService _bcraService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly ICurrentUserService _currentUser;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
 
@@ -36,6 +37,7 @@ namespace TheBuryProject.Controllers
             IClienteAptitudService aptitudService,
             ISituacionCrediticiaBcraService bcraService,
             IConfiguracionPagoService configuracionPagoService,
+            ICurrentUserService currentUser,
             IMapper mapper,
             ILogger<ClienteController> logger)
         {
@@ -46,6 +48,7 @@ namespace TheBuryProject.Controllers
             _aptitudService = aptitudService;
             _bcraService = bcraService;
             _configuracionPagoService = configuracionPagoService;
+            _currentUser = currentUser;
             _mapper = mapper;
             _logger = logger;
         }
@@ -267,7 +270,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewBag.PuedeAdministrarLimites = User.TienePermiso("clientes", "managecreditlimits");
+                ViewBag.PuedeAdministrarLimites = _currentUser.HasPermission("clientes", "managecreditlimits");
                 var model = await ConstruirModeloLimitesPorPuntajeAsync();
                 return PartialView("_LimitesPorPuntajeModal_tw", model);
             }
