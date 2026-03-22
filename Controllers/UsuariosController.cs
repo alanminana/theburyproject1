@@ -606,7 +606,7 @@ public class UsuariosController : Controller
     [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
     public async Task<IActionResult> Bloquear([FromForm] BloquearUsuarioViewModel model)
     {
-        if (model.BloqueadoHasta.HasValue && model.BloqueadoHasta.Value <= DateTime.Now)
+        if (model.BloqueadoHasta.HasValue && model.BloqueadoHasta.Value <= DateTime.UtcNow)
         {
             ModelState.AddModelError(nameof(model.BloqueadoHasta), "La fecha de bloqueo debe ser posterior a la fecha actual.");
         }

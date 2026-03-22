@@ -73,7 +73,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearUsuarioPrueba()
         {
-            var timestamp = DateTime.Now.ToString("HHmmss");
+            var timestamp = DateTime.UtcNow.ToString("HHmmss");
             var email = $"test{timestamp}@diagnostico.com";
             
             var user = new ApplicationUser
@@ -501,7 +501,7 @@ namespace TheBuryProject.Controllers
 
             return Json(new
             {
-                FechaAuditoria = DateTime.Now,
+                FechaAuditoria = DateTime.UtcNow,
                 TotalControladores = controladores.Count,
                 ControladoresProtegidos = controladores.Count(c => EstaProtegido(c.Value)),
                 RolesHardcodeados = 0,
