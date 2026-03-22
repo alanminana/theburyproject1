@@ -363,10 +363,9 @@ namespace TheBuryProject.Controllers
             // Cargar datos del cliente para determinar si tiene configuración personalizada
             await using var contextCliente = await _contextFactory.CreateDbContextAsync();
             var cliente = await contextCliente.Clientes
-                .Include(c => c.PerfilCreditoPreferido) // TAREA 8: Incluir perfil preferido
+                .Include(c => c.PerfilCreditoPreferido)
                 .FirstOrDefaultAsync(c => c.Id == credito.ClienteId && !c.IsDeleted);
 
-            // TAREA 8: Cargar perfil preferido si existe
             PerfilCredito? perfilPreferido = cliente?.PerfilCreditoPreferido;
 
             // Determinar fuente por defecto (si cliente tiene config personalizada, usarla; sino global)
@@ -387,7 +386,7 @@ namespace TheBuryProject.Controllers
 
             if (fuenteDefecto == FuenteConfiguracionCredito.PorCliente && cliente != null)
             {
-                // TAREA 8: Prioridad → cliente personalizado > perfil preferido > global
+                // Prioridad: cliente personalizado > perfil preferido > global
                 tasaInicial = cliente.TasaInteresMensualPersonalizada 
                     ?? perfilPreferido?.TasaMensual 
                     ?? tasaMensualConfig;
@@ -403,7 +402,6 @@ namespace TheBuryProject.Controllers
                 cuotasMinimas = perfilPreferido?.MinCuotas ?? 1;
             }
 
-            // TAREA 9: Cargar perfiles activos para el selector
             var perfilesActivos = await contextCliente.PerfilesCredito
                 .Where(p => !p.IsDeleted && p.Activo)
                 .OrderBy(p => p.Orden)
@@ -428,8 +426,8 @@ namespace TheBuryProject.Controllers
                 ClienteNombre = credito.ClienteNombre ?? string.Empty,
                 NumeroCredito = credito.Numero,
                 FuenteConfiguracion = fuenteDefecto,
-                MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente, // TAREA 9: Default
-                PerfilCreditoSeleccionadoId = perfilPreferido?.Id, // TAREA 9: Preseleccionar perfil del cliente
+                MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente,
+                PerfilCreditoSeleccionadoId = perfilPreferido?.Id,
                 Monto = montoVenta,
                 Anticipo = 0,
                 MontoFinanciado = montoVenta,
@@ -448,8 +446,7 @@ namespace TheBuryProject.Controllers
                 CuotasMaximas = cliente?.CuotasMaximasPersonalizadas ?? cuotasMaximas,
                 CuotasMinimas = cuotasMinimas,
                 TasaGlobal = tasaMensualConfig,
-                GastosGlobales = 0, // TAREA 9: Default, puede configurarse en ConfiguracionPago
-                // TAREA 8: Información del perfil preferido
+                GastosGlobales = 0,
                 TienePerfilPreferido = perfilPreferido != null,
                 PerfilPreferidoId = perfilPreferido?.Id,
                 PerfilNombre = perfilPreferido?.Nombre,
@@ -457,7 +454,6 @@ namespace TheBuryProject.Controllers
                 PerfilGastos = perfilPreferido?.GastosAdministrativos,
                 PerfilMinCuotas = perfilPreferido?.MinCuotas,
                 PerfilMaxCuotas = perfilPreferido?.MaxCuotas,
-                // TAREA 9: Configuración del cliente para validaciones
                 TieneConfiguracionCliente = cliente?.TasaInteresMensualPersonalizada.HasValue == true ||
                                            cliente?.GastosAdministrativosPersonalizados.HasValue == true ||
                                            cliente?.CuotasMaximasPersonalizadas.HasValue == true,
@@ -465,7 +461,6 @@ namespace TheBuryProject.Controllers
                 MontoMaximo = cliente?.MontoMaximoPersonalizado
             };
 
-            // TAREA 9: Pasar perfiles activos a la vista
             ViewBag.PerfilesActivos = perfilesActivos;
 
             return View("ConfigurarVenta_tw", modelo);
@@ -481,7 +476,6 @@ namespace TheBuryProject.Controllers
                 return View("ConfigurarVenta_tw", modelo);
             }
 
-            // PUNTO 1: Validar que MetodoCalculo haya sido seleccionado
             if (!modelo.MetodoCalculo.HasValue)
             {
                 ModelState.AddModelError(nameof(modelo.MetodoCalculo),
@@ -490,7 +484,6 @@ namespace TheBuryProject.Controllers
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
 
-            // TAREA 10: Validar que UsarCliente requiere configuración del cliente
             if (modelo.MetodoCalculo == MetodoCalculoCredito.UsarCliente)
             {
                 await using var contextValidacion = await _contextFactory.CreateDbContextAsync();
@@ -558,7 +551,6 @@ namespace TheBuryProject.Controllers
             else
             {
                 // Manual: usar valores ingresados por el usuario
-                // TAREA 10: Validar que tasa sea > 0 en modo Manual
                 if (modelo.MetodoCalculo == MetodoCalculoCredito.Manual && (!tasaMensual.HasValue || tasaMensual.Value <= 0))
                 {
                     ModelState.AddModelError(nameof(modelo.TasaMensual),
@@ -583,8 +575,7 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // TAREA 10: Validar rangos de cuotas según método activo
-            // Cargar las entidades necesarias para la resolución de rango
+            // Validar rangos de cuotas según método activo
             // modelo.MetodoCalculo.HasValue garantizado por el guard anterior (línea ~474)
             PerfilCredito? perfilParaRango = null;
             if (modelo.PerfilCreditoSeleccionadoId.HasValue &&
@@ -623,14 +614,10 @@ namespace TheBuryProject.Controllers
             // Marcar como Configurado (no Solicitado) para evitar loop al confirmar
             credito.Estado = EstadoCredito.Configurado;
 
-            // TAREA 9.3 / PUNTO 5: Guardar información de auditoría del método de cálculo
             credito.MetodoCalculoAplicado = modelo.MetodoCalculo;
             credito.FuenteConfiguracionAplicada = modelo.FuenteConfiguracion;
             credito.GastosAdministrativos = gastosAdministrativos;
-            credito.TasaInteresAplicada = tasaMensual; // PUNTO 5: Tasa final aplicada
-
-            // TAREA 9.3: Si se usó perfil, guardar ID y nombre para auditoría
-            // perfilParaRango ya fue cargado en el bloque de validación de rango de cuotas
+            credito.TasaInteresAplicada = tasaMensual;
             if (perfilParaRango != null)
             {
                 credito.PerfilCreditoAplicadoId = perfilParaRango.Id;
@@ -641,7 +628,7 @@ namespace TheBuryProject.Controllers
                     modelo.CreditoId, perfilParaRango.Id, perfilParaRango.Nombre);
             }
 
-            // PUNTO 5: Logging completo de auditoría
+            // Logging de auditoría
             _logger.LogInformation(
                 "PUNTO 5 - Auditoría Crédito {CreditoId}: Método={Metodo}, Fuente={Fuente}, " +
                 "Tasa={Tasa:F4}%, Gastos={Gastos:C}, Cuotas=[{Min}-{Max}], Perfil={PerfilId}",
@@ -654,8 +641,6 @@ namespace TheBuryProject.Controllers
                 credito.CuotasMaximasPermitidas,
                 credito.PerfilCreditoAplicadoId?.ToString() ?? "N/A");
 
-            // TAREA 9.3: Guardar rango de cuotas permitidas para auditoría
-            // Valores ya resueltos por ResolverRangoCuotasPermitidos
             credito.CuotasMinimasPermitidas = cuotasMinPermitidas;
             credito.CuotasMaximasPermitidas = cuotasMaxPermitidas;
 
@@ -674,7 +659,6 @@ namespace TheBuryProject.Controllers
                 _ => "Configuración Global"
             };
             
-            // TAREA 9.3: Agregar info del método de cálculo a observaciones
             var metodoTexto = modelo.MetodoCalculo switch
             {
                 MetodoCalculoCredito.AutomaticoPorCliente => "Automático (Por Cliente)",

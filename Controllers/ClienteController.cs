@@ -129,7 +129,7 @@ namespace TheBuryProject.Controllers
         {
             ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
             CargarDropdowns();
-            await CargarPerfilesCredito(); // TAREA 8: Cargar perfiles para el selector
+            await CargarPerfilesCredito();
             return View("Create_tw", new ClienteViewModel());
         }
 
@@ -183,7 +183,7 @@ namespace TheBuryProject.Controllers
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
                 CargarDropdowns();
-                await CargarPerfilesCredito(viewModel.PerfilCreditoPreferidoId); // TAREA 8: Cargar perfiles con selección actual
+                await CargarPerfilesCredito(viewModel.PerfilCreditoPreferidoId);
                 return View("Edit_tw", viewModel);
             }
             catch (Exception ex)
