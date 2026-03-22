@@ -862,20 +862,7 @@ public class SeguridadController : Controller
             RolSeleccionadoNombre = selectedRole?.Name,
             BuscarModulo = buscarModulo,
             GrupoSeleccionado = grupo,
-            Roles = roleList
-                .Select(role =>
-                {
-                    metadataLookup.TryGetValue(role.Id, out var metadata);
-                    return new SeguridadRolSelectorItemViewModel
-                    {
-                        Id = role.Id,
-                        Nombre = role.Name ?? string.Empty,
-                        Activo = metadata?.Activo ?? true
-                    };
-                })
-                .OrderByDescending(role => role.Activo)
-                .ThenBy(role => role.Nombre)
-                .ToList(),
+            Roles = MapRoleSelectorItems(roleList, metadataLookup),
             Grupos = filas
                 .Select(f => f.Grupo)
                 .Distinct()
@@ -1016,7 +1003,13 @@ public class SeguridadController : Controller
     {
         var roles = await _rolService.GetAllRolesAsync();
         var metadataLookup = await _rolService.GetAllRoleMetadataAsync();
+        return MapRoleSelectorItems(roles, metadataLookup);
+    }
 
+    private static List<SeguridadRolSelectorItemViewModel> MapRoleSelectorItems(
+        IEnumerable<IdentityRole> roles,
+        IReadOnlyDictionary<string, RolMetadata> metadataLookup)
+    {
         return roles
             .Select(role =>
             {

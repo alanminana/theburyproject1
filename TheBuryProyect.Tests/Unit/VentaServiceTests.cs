@@ -112,7 +112,6 @@ file static class VentaServiceFactory
             ctx,
             null!,                                          // IMapper
             logger,
-            null!,                                          // IConfiguracionPagoService
             null!,                                          // IAlertaStockService
             null!,                                          // IMovimientoStockService
             financialService,

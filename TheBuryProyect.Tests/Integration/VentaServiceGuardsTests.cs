@@ -125,7 +125,6 @@ public class VentaServiceGuardsTests
             ctx,
             mapper,
             logger,
-            null!,                  // IConfiguracionPagoService
             null!,                  // IAlertaStockService
             null!,                  // IMovimientoStockService
             financialService,

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -29,7 +28,6 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionMoraService _configuracionMoraService;
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
-        private readonly IMapper _mapper;
         private readonly ILogger<CreditoController> _logger;
         private readonly IClienteLookupService _clienteLookup;
         private readonly IProductoService _productoService;
@@ -76,7 +74,6 @@ namespace TheBuryProject.Controllers
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionMoraService configuracionMoraService,
             IDbContextFactory<AppDbContext> contextFactory,
-            IMapper mapper,
             ILogger<CreditoController> logger,
             IClienteLookupService clienteLookup,
             IProductoService productoService,
@@ -88,7 +85,6 @@ namespace TheBuryProject.Controllers
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
             _contextFactory = contextFactory;
-            _mapper = mapper;
             _logger = logger;
             _clienteLookup = clienteLookup;
             _productoService = productoService;

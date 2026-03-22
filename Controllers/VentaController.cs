@@ -31,10 +31,8 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<VentaController> _logger;
         private readonly IFinancialCalculationService _financialCalculationService;
         private readonly IPrequalificationService _prequalificationService;
-        private readonly IDocumentoClienteService _documentoClienteService;
         private readonly ICreditoService _creditoService;
         private readonly IDocumentacionService _documentacionService;
-        private readonly IClienteService _clienteService;
         private readonly IProductoService _productoService;
         private readonly IClienteLookupService _clienteLookup;
         private readonly IValidacionVentaService _validacionVentaService;
@@ -82,10 +80,8 @@ namespace TheBuryProject.Controllers
             ILogger<VentaController> logger,
             IFinancialCalculationService financialCalculationService,
             IPrequalificationService prequalificationService,
-            IDocumentoClienteService documentoClienteService,
             ICreditoService creditoService,
             IDocumentacionService documentacionService,
-            IClienteService clienteService,
             IProductoService productoService,
             IClienteLookupService clienteLookup,
             IValidacionVentaService validacionVentaService,
@@ -97,10 +93,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
             _financialCalculationService = financialCalculationService;
             _prequalificationService = prequalificationService;
-            _documentoClienteService = documentoClienteService;
             _creditoService = creditoService;
             _documentacionService = documentacionService;
-            _clienteService = clienteService;
             _productoService = productoService;
             _clienteLookup = clienteLookup;
             _validacionVentaService = validacionVentaService;

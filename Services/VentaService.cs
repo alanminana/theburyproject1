@@ -20,7 +20,6 @@ namespace TheBuryProject.Services
         private readonly IMapper _mapper;
         private readonly ILogger<VentaService> _logger;
         private readonly IPrecioService _precioService;
-        private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IAlertaStockService _alertaStockService;
         private readonly IMovimientoStockService _movimientoStockService;
         private readonly IFinancialCalculationService _financialService;
@@ -35,7 +34,6 @@ namespace TheBuryProject.Services
             AppDbContext context,
             IMapper mapper,
             ILogger<VentaService> logger,
-            IConfiguracionPagoService configuracionPagoService,
             IAlertaStockService alertaStockService,
             IMovimientoStockService movimientoStockService,
             IFinancialCalculationService financialService,
@@ -50,7 +48,6 @@ namespace TheBuryProject.Services
             _context = context;
             _mapper = mapper;
             _logger = logger;
-            _configuracionPagoService = configuracionPagoService;
             _alertaStockService = alertaStockService;
             _movimientoStockService = movimientoStockService;
             _financialService = financialService;

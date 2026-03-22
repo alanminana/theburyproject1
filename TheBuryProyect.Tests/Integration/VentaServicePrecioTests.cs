@@ -253,7 +253,6 @@ public class VentaServicePrecioTests
             ctx,
             mapper,
             logger,
-            null!,                  // IConfiguracionPagoService — no usado en TipoPago=Efectivo
             null!,                  // IAlertaStockService — no usado en CreateAsync pre-confirmación
             null!,                  // IMovimientoStockService — no usado en CreateAsync
             financialService,
