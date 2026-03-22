@@ -18,17 +18,13 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Número de Crédito")]
         public string? NumeroCredito { get; set; }
 
-        // TAREA 6: Mantener por compatibilidad con código existente
         [Display(Name = "Fuente de Configuración")]
         public FuenteConfiguracionCredito FuenteConfiguracion { get; set; } = FuenteConfiguracionCredito.Global;
 
-        // TAREA 9: Nuevo método de cálculo más intuitivo
-        // PUNTO 1: Sin default automático - el usuario debe seleccionar explícitamente
         [Display(Name = "Método de cálculo")]
         [Required(ErrorMessage = "Debe seleccionar un método de cálculo")]
         public MetodoCalculoCredito? MetodoCalculo { get; set; }
 
-        // TAREA 9: Perfil seleccionado cuando MetodoCalculo = UsarPerfil
         public int? PerfilCreditoSeleccionadoId { get; set; }
 
         [Display(Name = "Monto del Crédito")]

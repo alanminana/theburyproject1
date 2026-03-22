@@ -24,7 +24,6 @@ namespace TheBuryProject.Models.Entities
         public decimal TotalAPagar { get; set; }
         public decimal SaldoPendiente { get; set; }
 
-        // TAREA 9.3: Auditabilidad del método de cálculo aplicado
         /// <summary>
         /// Método de cálculo usado al configurar este crédito
         /// </summary>
@@ -89,7 +88,7 @@ namespace TheBuryProject.Models.Entities
         // Navigation Properties
         public virtual Cliente Cliente { get; set; } = null!;
         public virtual Garante? Garante { get; set; }
-        public virtual PerfilCredito? PerfilCreditoAplicado { get; set; } // TAREA 9.3
+        public virtual PerfilCredito? PerfilCreditoAplicado { get; set; }
         public virtual ICollection<Cuota> Cuotas { get; set; } = new List<Cuota>();
     }
 }

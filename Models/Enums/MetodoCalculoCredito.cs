@@ -4,7 +4,6 @@ namespace TheBuryProject.Models.Enums
 {
     /// <summary>
     /// Define el método de cálculo para configurar un crédito personal
-    /// TAREA 9: Reemplaza FuenteConfiguracionCredito con opciones más claras
     /// </summary>
     public enum MetodoCalculoCredito
     {

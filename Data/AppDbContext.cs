@@ -669,7 +669,6 @@ namespace TheBuryProject.Data
                     .HasForeignKey(e => e.ClienteId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // TAREA 9.3: Relación con perfil aplicado (auditoría)
                 entity.HasOne(e => e.PerfilCreditoAplicado)
                     .WithMany()
                     .HasForeignKey(e => e.PerfilCreditoAplicadoId)
@@ -685,7 +684,6 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.TotalAPagar).HasPrecision(18, 2);
                 entity.Property(e => e.SaldoPendiente).HasPrecision(18, 2);
 
-                // TAREA 9.3 / PUNTO 5: Precision para campos de auditoría
                 entity.Property(e => e.GastosAdministrativos).HasPrecision(18, 2);
                 entity.Property(e => e.TasaInteresAplicada).HasPrecision(8, 4);
 
