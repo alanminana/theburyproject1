@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
@@ -280,11 +279,7 @@ public class AutorizacionController : Controller
 
         try
         {
-            var roleClaims = User.Claims
-                .Where(c => c.Type == ClaimTypes.Role)
-                .Select(c => c.Value)
-                .ToList();
-            var rol = roleClaims.FirstOrDefault(r => Roles.GetAllRoles().Contains(r)) ?? Roles.Vendedor;
+            var rol = Roles.GetAllRoles().FirstOrDefault(r => _currentUser.IsInRole(r)) ?? Roles.Vendedor;
 
             var solicitud = new SolicitudAutorizacion
             {

@@ -14,7 +14,6 @@ namespace TheBuryProject.Services
 {
     /// <summary>
     /// Servicio centralizado para gestión de mora, alertas y cobranzas
-    /// Servicio centralizado para gestión de mora, alertas y cobranzas
     /// </summary>
     public class MoraService : IMoraService
     {
