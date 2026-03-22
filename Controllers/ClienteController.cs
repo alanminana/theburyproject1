@@ -2,12 +2,10 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -30,7 +28,7 @@ namespace TheBuryProject.Controllers
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IClienteAptitudService _aptitudService;
         private readonly ISituacionCrediticiaBcraService _bcraService;
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
+        private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
 
@@ -56,7 +54,7 @@ namespace TheBuryProject.Controllers
             ICreditoDisponibleService creditoDisponibleService,
             IClienteAptitudService aptitudService,
             ISituacionCrediticiaBcraService bcraService,
-            IDbContextFactory<AppDbContext> contextFactory,
+            IConfiguracionPagoService configuracionPagoService,
             IMapper mapper,
             ILogger<ClienteController> logger)
         {
@@ -66,7 +64,7 @@ namespace TheBuryProject.Controllers
             _creditoDisponibleService = creditoDisponibleService;
             _aptitudService = aptitudService;
             _bcraService = bcraService;
-            _contextFactory = contextFactory;
+            _configuracionPagoService = configuracionPagoService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -445,29 +443,17 @@ namespace TheBuryProject.Controllers
             {
                 await _bcraService.ForzarActualizacionAsync(clienteId);
 
-                await using var ctx = await _contextFactory.CreateDbContextAsync();
-                var datos = await ctx.Clientes.AsNoTracking()
-                    .Where(c => c.Id == clienteId)
-                    .Select(c => new
-                    {
-                        c.SituacionCrediticiaBcra,
-                        c.SituacionCrediticiaDescripcion,
-                        c.SituacionCrediticiaPeriodo,
-                        c.SituacionCrediticiaUltimaConsultaUtc,
-                        c.SituacionCrediticiaConsultaOk
-                    })
-                    .FirstOrDefaultAsync();
-
-                if (datos == null)
+                var cliente = await _clienteService.GetByIdAsync(clienteId);
+                if (cliente == null)
                     return NotFound();
 
                 return Json(new
                 {
-                    ok = datos.SituacionCrediticiaConsultaOk ?? false,
-                    situacion = datos.SituacionCrediticiaBcra,
-                    descripcion = datos.SituacionCrediticiaDescripcion,
-                    periodo = datos.SituacionCrediticiaPeriodo,
-                    ultimaConsulta = datos.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm")
+                    ok = cliente.SituacionCrediticiaConsultaOk ?? false,
+                    situacion = cliente.SituacionCrediticiaBcra,
+                    descripcion = cliente.SituacionCrediticiaDescripcion,
+                    periodo = cliente.SituacionCrediticiaPeriodo,
+                    ultimaConsulta = cliente.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm")
                 });
             }
             catch (Exception ex)
@@ -494,28 +480,16 @@ namespace TheBuryProject.Controllers
                 .ToList();
         }
 
-        // TAREA 8: Cargar perfiles de crédito para el selector
         private async Task CargarPerfilesCredito(int? perfilSeleccionadoId = null)
         {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            var perfiles = await context.PerfilesCredito
-                .Where(p => !p.IsDeleted && p.Activo)
-                .OrderBy(p => p.Orden)
-                .ThenBy(p => p.Nombre)
-                .ToListAsync();
-            
+            var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
             ViewBag.PerfilesCredito = new SelectList(perfiles, "Id", "Nombre", perfilSeleccionadoId);
         }
 
         private async Task<ClienteCreditoLimitesViewModel> ConstruirModeloLimitesPorPuntajeAsync(
             IEnumerable<ClienteCreditoLimiteItemViewModel>? cambiosUsuario = null)
         {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            var dbItems = await context.PuntajesCreditoLimite
-                .AsNoTracking()
-                .OrderBy(x => x.Puntaje)
-                .ToListAsync();
+            var dbItems = await _creditoDisponibleService.GetAllLimitesPorPuntajeAsync();
 
             var cambiosMap = (cambiosUsuario ?? Enumerable.Empty<ClienteCreditoLimiteItemViewModel>())
                 .GroupBy(x => x.Puntaje)

@@ -258,5 +258,13 @@ namespace TheBuryProject.Services
             await _context.SaveChangesAsync();
             return (true, errores);
         }
+
+        public async Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync()
+        {
+            return await _context.PuntajesCreditoLimite
+                .AsNoTracking()
+                .OrderBy(x => x.Puntaje)
+                .ToListAsync();
+        }
     }
 }
