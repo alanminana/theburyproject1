@@ -145,7 +145,7 @@ namespace TheBuryProject.Controllers
                     }
 
                     // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
-                    viewModel.PrecioVenta = viewModel.PrecioVenta * (1 + viewModel.PorcentajeIVA / 100m);
+                    viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                     var producto = _mapper.Map<Producto>(viewModel);
                     await _productoService.CreateAsync(producto);
@@ -196,7 +196,7 @@ namespace TheBuryProject.Controllers
                     return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe un producto con este código" } } } });
                 }
 
-                viewModel.PrecioVenta = viewModel.PrecioVenta * (1 + viewModel.PorcentajeIVA / 100m);
+                viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
                 var producto = _mapper.Map<Producto>(viewModel);
                 await _productoService.CreateAsync(producto);
 
@@ -230,8 +230,7 @@ namespace TheBuryProject.Controllers
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
 
                 // Mostrar PrecioVenta sin IVA (el almacenado incluye IVA)
-                if (viewModel.PorcentajeIVA > 0)
-                    viewModel.PrecioVenta = Math.Round(viewModel.PrecioVenta / (1 + viewModel.PorcentajeIVA / 100m), 2);
+                viewModel.PrecioVenta = QuitarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                 await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
                 return View("Edit_tw", viewModel);
@@ -277,7 +276,7 @@ namespace TheBuryProject.Controllers
                     }
 
                     // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
-                    viewModel.PrecioVenta = viewModel.PrecioVenta * (1 + viewModel.PorcentajeIVA / 100m);
+                    viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                     var producto = _mapper.Map<Producto>(viewModel);
                     producto.RowVersion = rowVersion;
@@ -392,6 +391,12 @@ namespace TheBuryProject.Controllers
                 return Json(new List<object>());
             }
         }
+
+        private static decimal AplicarIVA(decimal precio, decimal porcentajeIVA)
+            => precio * (1 + porcentajeIVA / 100m);
+
+        private static decimal QuitarIVA(decimal precio, decimal porcentajeIVA)
+            => porcentajeIVA > 0 ? Math.Round(precio / (1 + porcentajeIVA / 100m), 2) : precio;
 
         private static List<ProductoCaracteristicaViewModel> NormalizarCaracteristicas(IEnumerable<ProductoCaracteristicaViewModel>? caracteristicas)
         {
