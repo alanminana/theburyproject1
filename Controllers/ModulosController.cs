@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -18,18 +19,15 @@ public class ModulosController : Controller
     private readonly IRolService _rolService;
     private readonly ILogger<ModulosController> _logger;
 
-    private string? GetSafeReturnUrl(string? returnUrl)
-        => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
-
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
     }
 
     private IActionResult RedirectToReturnUrlOrDetails(int id, string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Details), new { id });
     }
 
@@ -78,7 +76,7 @@ public class ModulosController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {
@@ -126,7 +124,7 @@ public class ModulosController : Controller
     [PermisoRequerido(Modulo = "modulos", Accion = "create")]
     public IActionResult Create(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
         return View(new CrearModuloViewModel());
     }
 
@@ -138,7 +136,7 @@ public class ModulosController : Controller
     [PermisoRequerido(Modulo = "modulos", Accion = "create")]
     public async Task<IActionResult> Create(CrearModuloViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -181,7 +179,7 @@ public class ModulosController : Controller
     [PermisoRequerido(Modulo = "modulos", Accion = "update")]
     public async Task<IActionResult> Edit(int id, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {
@@ -221,7 +219,7 @@ public class ModulosController : Controller
     [PermisoRequerido(Modulo = "modulos", Accion = "update")]
     public async Task<IActionResult> Edit(EditarModuloViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -273,7 +271,7 @@ public class ModulosController : Controller
     [PermisoRequerido(Modulo = "modulos", Accion = "delete")]
     public async Task<IActionResult> Delete(int id, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         try
         {

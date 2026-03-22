@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
@@ -19,16 +20,9 @@ namespace TheBuryProject.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<MoraController> _logger;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Index));
@@ -53,7 +47,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var kpis = await _moraService.GetDashboardKPIsAsync();
                 var alertas = await _moraService.GetAlertasActivasAsync();
@@ -108,7 +102,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var filtros = new FiltrosBandejaClientes
                 {
@@ -151,7 +145,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var ficha = await _moraService.GetFichaClienteAsync(id);
                 if (ficha == null)
@@ -180,7 +174,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var ficha = await _moraService.GetFichaClienteAsync(clienteId);
                 if (ficha == null)
@@ -226,7 +220,7 @@ namespace TheBuryProject.Controllers
                 await _moraService.RegistrarContactoAsync(model, gestorId);
                 
                 TempData["Success"] = "Contacto registrado correctamente";
-                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (Exception ex)
             {
@@ -246,7 +240,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var alerta = await _moraService.GetAlertaByIdAsync(alertaId);
                 if (alerta == null)
@@ -292,7 +286,7 @@ namespace TheBuryProject.Controllers
                 await _moraService.RegistrarPromesaPagoAsync(model, gestorId);
                 
                 TempData["Success"] = "Promesa de pago registrada correctamente";
-                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (Exception ex)
             {
@@ -318,7 +312,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
@@ -337,7 +331,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(FichaCliente), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         #endregion
@@ -350,7 +344,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var alerta = await _moraService.GetAlertaByIdAsync(alertaId);
                 var config = await _moraService.GetConfiguracionAsync();
@@ -404,7 +398,7 @@ namespace TheBuryProject.Controllers
                 var acuerdoId = await _moraService.CrearAcuerdoPagoAsync(model, gestorId);
                 
                 TempData["Success"] = "Acuerdo de pago creado correctamente";
-                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(FichaCliente), new { id = model.ClienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (InvalidOperationException ex)
             {
@@ -429,7 +423,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var config = await _moraService.GetConfiguracionAsync();
                 var vm = _mapper.Map<ConfiguracionMoraViewModel>(config);
@@ -449,7 +443,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var config = await _moraService.GetConfiguracionAsync();
                 var vm = _mapper.Map<ConfiguracionMoraExpandidaViewModel>(config);
@@ -473,7 +467,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["Error"] = "Datos inválidos";
-                    return RedirectToAction(nameof(Configuracion), new { returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Configuracion), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 await _moraService.UpdateConfiguracionAsync(viewModel);
@@ -485,7 +479,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al guardar configuración: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Configuracion), new { returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(Configuracion), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "config")]
@@ -498,7 +492,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     TempData["Error"] = "Datos inválidos";
-                    return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 await _moraService.UpdateConfiguracionExpandidaAsync(viewModel);
@@ -510,7 +504,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al guardar configuración: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         #endregion
@@ -546,7 +540,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var alertas = await _moraService.GetTodasAlertasAsync();
 

@@ -29,16 +29,9 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Details), new { id = creditoId });
@@ -46,7 +39,7 @@ namespace TheBuryProject.Controllers
 
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Index));
@@ -108,7 +101,7 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public IActionResult Simular(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             return View("Simular_tw", new SimularCreditoViewModel
             {
                 CantidadCuotas = 12,
@@ -121,7 +114,7 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Simular(SimularCreditoViewModel modelo, string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             if (!ModelState.IsValid)
                 return View("Simular_tw", modelo);
@@ -144,7 +137,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
@@ -201,7 +194,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al aprobar el crédito: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [HttpPost]
@@ -211,7 +204,7 @@ namespace TheBuryProject.Controllers
             if (string.IsNullOrWhiteSpace(motivo))
             {
                 TempData["Error"] = "Debe especificar un motivo para rechazar.";
-                return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
 
             try
@@ -227,7 +220,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al rechazar el crédito: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [HttpPost]
@@ -237,7 +230,7 @@ namespace TheBuryProject.Controllers
             if (string.IsNullOrWhiteSpace(motivo))
             {
                 TempData["Error"] = "Debe especificar un motivo para cancelar.";
-                return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
 
             try
@@ -253,13 +246,13 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al cancelar el crédito: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+            return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         [HttpGet]
         public async Task<IActionResult> ConfigurarVenta(int id, int? ventaId, string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             var credito = await _creditoService.GetByIdAsync(id);
             if (credito == null)
@@ -464,7 +457,7 @@ namespace TheBuryProject.Controllers
         {
             if (!ModelState.IsValid)
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return View("ConfigurarVenta_tw", modelo);
             }
 
@@ -472,7 +465,7 @@ namespace TheBuryProject.Controllers
             {
                 ModelState.AddModelError(nameof(modelo.MetodoCalculo),
                     "Debe seleccionar un método de cálculo.");
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
 
@@ -490,7 +483,7 @@ namespace TheBuryProject.Controllers
                     ModelState.AddModelError(nameof(modelo.MetodoCalculo),
                         "El cliente no tiene configuración de crédito personal. " +
                         "Configure el cliente con valores personalizados o seleccione otro método.");
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                     return await RetornarVistaConPerfilesAsync(modelo);
                 }
             }
@@ -547,7 +540,7 @@ namespace TheBuryProject.Controllers
                 {
                     ModelState.AddModelError(nameof(modelo.TasaMensual),
                         "La tasa de interés debe ser mayor a 0% en modo Manual.");
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                     return await RetornarVistaConPerfilesAsync(modelo);
                 }
 
@@ -593,7 +586,7 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError(nameof(modelo.CantidadCuotas),
                     $"La cantidad de cuotas debe estar entre {cuotasMinPermitidas} y {cuotasMaxPermitidas} " +
                     $"según el método '{descripcionMetodo}'.");
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
 
@@ -877,7 +870,7 @@ namespace TheBuryProject.Controllers
         // GET: Credito/Create
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             await CargarViewBags();
             return View("Create_tw", new CreditoViewModel
             {
@@ -903,7 +896,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("ModelState inválido al crear crédito");
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                     await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
                     return View("Create_tw", viewModel);
                 }
@@ -911,13 +904,13 @@ namespace TheBuryProject.Controllers
                 var credito = await _creditoService.CreateAsync(viewModel);
 
                 TempData["Success"] = $"Línea de Crédito {credito.Numero} creada exitosamente";
-                return RedirectToAction(nameof(Details), new { id = credito.Id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = credito.Id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (CreditoDisponibleException ex)
             {
                 _logger.LogWarning(ex, "Alta de crédito bloqueada por disponible insuficiente para cliente {ClienteId}", viewModel.ClienteId);
                 ModelState.AddModelError("", ex.Message);
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
                 return View("Create_tw", viewModel);
             }
@@ -925,7 +918,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al crear línea de crédito");
                 ModelState.AddModelError("", "Error al crear la línea de crédito: " + ex.Message);
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
                 return View("Create_tw", viewModel);
             }
@@ -936,7 +929,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
@@ -948,7 +941,7 @@ namespace TheBuryProject.Controllers
                 if (credito.Estado != EstadoCredito.Solicitado)
                 {
                     TempData["Error"] = "Solo se pueden editar créditos en estado Solicitado";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 await CargarViewBags(credito.ClienteId, credito.GaranteId);
@@ -974,7 +967,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                     await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
                     return View("Edit_tw", viewModel);
                 }
@@ -983,7 +976,7 @@ namespace TheBuryProject.Controllers
                 if (resultado)
                 {
                     TempData["Success"] = "Crédito actualizado exitosamente";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 TempData["Error"] = "No se pudo actualizar el crédito";
@@ -993,7 +986,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al actualizar crédito: {Id}", id);
                 ModelState.AddModelError("", "Error al actualizar el crédito: " + ex.Message);
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
                 return View("Edit_tw", viewModel);
             }
@@ -1004,7 +997,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
@@ -1050,7 +1043,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
@@ -1067,7 +1060,7 @@ namespace TheBuryProject.Controllers
                 if (!cuotasDisponibles.Any())
                 {
                     TempData["Warning"] = "No hay cuotas pendientes o vencidas para registrar pago.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 var cuotasPendientes = cuotasDisponibles
@@ -1087,7 +1080,7 @@ namespace TheBuryProject.Controllers
                 if (cuotaSeleccionada == null)
                 {
                     TempData["Error"] = "Cuota no encontrada.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 var estaVencida = cuotaSeleccionada.FechaVencimiento.Date < DateTime.Today;
@@ -1129,7 +1122,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                     var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
                     if (credito == null)
@@ -1159,7 +1152,7 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError("", "Error al registrar el pago: " + ex.Message);
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             try
             {
@@ -1179,7 +1172,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
@@ -1193,7 +1186,7 @@ namespace TheBuryProject.Controllers
                 if (ultimaCuota == null)
                 {
                     TempData["Warning"] = "No hay cuotas pendientes para adelantar.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 var modelo = new PagarCuotaViewModel
@@ -1232,7 +1225,7 @@ namespace TheBuryProject.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                     return View("AdelantarCuota_tw", modelo);
                 }
 
@@ -1252,7 +1245,7 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError("", "Error al registrar el adelanto: " + ex.Message);
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             return View("AdelantarCuota_tw", modelo);
         }
 
@@ -1280,7 +1273,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var cuotasViewModel = await _creditoService.GetCuotasVencidasAsync();
 

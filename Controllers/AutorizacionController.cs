@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -19,18 +20,15 @@ public class AutorizacionController : Controller
     private readonly IAutorizacionService _autorizacionService;
     private readonly ICurrentUserService _currentUser;
 
-    private string? GetSafeReturnUrl(string? returnUrl)
-        => !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : null;
-
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
     }
 
     private IActionResult RedirectToReturnUrlOrSolicitudes(string? returnUrl)
     {
-        var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Solicitudes));
     }
 
@@ -49,7 +47,7 @@ public class AutorizacionController : Controller
     /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.GestionarUmbrales)]
     public async Task<IActionResult> Index(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         var umbrales = await _autorizacionService.ObtenerTodosUmbralesAsync();
 
@@ -70,7 +68,7 @@ public class AutorizacionController : Controller
     [HttpGet]
     public IActionResult CrearUmbral(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
         ViewBag.Roles = new List<string> { Roles.Administrador, Roles.Gerente, Roles.Vendedor, Roles.Contador };
         return View(new UmbralAutorizacionViewModel());
     }
@@ -82,7 +80,7 @@ public class AutorizacionController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CrearUmbral(UmbralAutorizacionViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -119,7 +117,7 @@ public class AutorizacionController : Controller
     [HttpGet]
     public async Task<IActionResult> EditarUmbral(int id, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         var umbral = await _autorizacionService.ObtenerUmbralAsync(id);
         if (umbral == null)
@@ -149,7 +147,7 @@ public class AutorizacionController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditarUmbral(UmbralAutorizacionViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {
@@ -208,7 +206,7 @@ public class AutorizacionController : Controller
     /// </summary>    [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
     public async Task<IActionResult> Solicitudes(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         var todasSolicitudes = await _autorizacionService.ObtenerTodasSolicitudesAsync();
         var misSolicitudes = await _autorizacionService.ObtenerSolicitudesPorUsuarioAsync(_currentUser.GetUsername());
@@ -232,7 +230,7 @@ public class AutorizacionController : Controller
     [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
     public async Task<IActionResult> DetallesSolicitud(int id, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         var solicitud = await _autorizacionService.ObtenerSolicitudAsync(id);
         if (solicitud == null)
@@ -267,7 +265,7 @@ public class AutorizacionController : Controller
     [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
     public IActionResult CrearSolicitud(string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
         return View(new CrearSolicitudAutorizacionViewModel());
     }
 
@@ -279,7 +277,7 @@ public class AutorizacionController : Controller
     [PermisoRequerido(Modulo = AutorizacionesConstants.Modulo, Accion = AutorizacionesConstants.Acciones.Ver)]
     public async Task<IActionResult> CrearSolicitud(CrearSolicitudAutorizacionViewModel model, string? returnUrl)
     {
-        ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+        ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid)
         {

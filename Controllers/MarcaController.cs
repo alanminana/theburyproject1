@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -18,16 +19,9 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<MarcaController> _logger;
         private readonly IMapper _mapper;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Index));
@@ -51,7 +45,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 // Ejecutar b�squeda con filtros
                 var marcas = await _marcaService.SearchAsync(
@@ -92,7 +86,7 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             try
             {
@@ -117,7 +111,7 @@ namespace TheBuryProject.Controllers
         // GET: Marca/Create
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             await CargarMarcasParaDropdown();
             return View("Create_tw");
         }
@@ -127,7 +121,7 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(MarcaViewModel viewModel, string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             if (ModelState.IsValid)
             {
                 try
@@ -172,7 +166,7 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             try
             {
@@ -205,7 +199,7 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             if (ModelState.IsValid)
             {
@@ -266,7 +260,7 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             try
             {

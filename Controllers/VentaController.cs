@@ -39,13 +39,6 @@ namespace TheBuryProject.Controllers
         private readonly IUsuarioService _usuarioService;
         private readonly ICajaService _cajaService;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private async Task<bool> UsuarioTieneCajaAbiertaAsync()
         {
             var userName = User?.Identity?.Name;
@@ -475,7 +468,7 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl) ?? Url.Action(nameof(Details), new { id = ventaId });
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl) ?? Url.Action(nameof(Details), new { id = ventaId });
 
             if (venta.TipoPago != TipoPago.CreditoPersonal)
             {

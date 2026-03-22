@@ -28,16 +28,9 @@ namespace TheBuryProject.Controllers
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Index));
@@ -69,7 +62,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var clientes = await _clienteService.SearchAsync(
                     searchTerm: filter.SearchTerm,
@@ -104,7 +97,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
@@ -123,7 +116,7 @@ namespace TheBuryProject.Controllers
 
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             CargarDropdowns();
             await CargarPerfilesCredito();
             return View("Create_tw", new ClienteViewModel());
@@ -135,7 +128,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 if (!ModelState.IsValid)
                 {
@@ -148,7 +141,7 @@ namespace TheBuryProject.Controllers
                 await _clienteService.CreateAsync(cliente);
 
                 TempData["Success"] = $"Cliente {cliente.NombreCompleto} creado exitosamente";
-                return RedirectToAction(nameof(Details), new { id = cliente.Id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = cliente.Id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (InvalidOperationException ex)
             {
@@ -171,7 +164,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
@@ -199,7 +192,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 if (!ModelState.IsValid)
                 {
@@ -212,7 +205,7 @@ namespace TheBuryProject.Controllers
                 await _clienteService.UpdateAsync(cliente);
 
                 TempData["Success"] = "Cliente actualizado exitosamente";
-                return RedirectToAction(nameof(Details), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (InvalidOperationException ex)
             {
@@ -235,7 +228,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
@@ -265,13 +258,13 @@ namespace TheBuryProject.Controllers
             catch (InvalidOperationException ex)
             {
                 TempData["Error"] = ex.Message;
-                return RedirectToAction(nameof(Delete), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Delete), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar cliente {Id}", id);
                 TempData["Error"] = "Error al eliminar el cliente";
-                return RedirectToAction(nameof(Delete), new { id, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Delete), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }
 
@@ -336,7 +329,7 @@ namespace TheBuryProject.Controllers
                 if (limiteCredito < 0)
                 {
                     TempData["Error"] = "El límite de crédito no puede ser negativo";
-                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
                 var exito = await _aptitudService.AsignarLimiteCreditoAsync(clienteId, limiteCredito, motivo);
@@ -352,13 +345,13 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "Error al actualizar el límite de crédito";
                 }
 
-                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al asignar límite de crédito al cliente {ClienteId}", clienteId);
                 TempData["Error"] = "Error al actualizar el límite de crédito";
-                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }
 
@@ -373,13 +366,13 @@ namespace TheBuryProject.Controllers
             {
                 await _aptitudService.EvaluarAptitudAsync(clienteId, guardarResultado: true);
                 TempData["Success"] = "Aptitud crediticia recalculada";
-                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al recalcular aptitud del cliente {ClienteId}", clienteId);
                 TempData["Error"] = "Error al recalcular aptitud";
-                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = GetSafeReturnUrl(returnUrl) });
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }
 

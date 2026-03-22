@@ -22,16 +22,9 @@ namespace TheBuryProject.Controllers
         private readonly IDocumentacionService _documentacionService;
         private readonly IClienteLookupService _clienteLookup;
 
-        private string? GetSafeReturnUrl(string? returnUrl)
-        {
-            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
-                ? returnUrl
-                : null;
-        }
-
         private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl, object? indexRouteValues = null)
         {
-            var safeReturnUrl = GetSafeReturnUrl(returnUrl);
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Index), indexRouteValues);
@@ -56,7 +49,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 if (filtro == null)
                     filtro = new DocumentoClienteFilterViewModel();
@@ -114,7 +107,7 @@ namespace TheBuryProject.Controllers
             var viewModel = new DocumentoClienteViewModel();
             var bloquearCliente = false;
 
-            ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             if (clienteId.HasValue)
                 viewModel.ClienteId = clienteId.Value;
@@ -288,7 +281,7 @@ namespace TheBuryProject.Controllers
                     return RedirectToReturnUrlOrIndex(returnUrl);
                 }
 
-                ViewData["ReturnUrl"] = GetSafeReturnUrl(returnUrl);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
                 return View("Details_tw", documento);
             }
