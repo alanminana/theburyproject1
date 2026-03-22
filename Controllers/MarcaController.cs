@@ -19,14 +19,6 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<MarcaController> _logger;
         private readonly IMapper _mapper;
 
-        private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-        {
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-            return safeReturnUrl != null
-                ? LocalRedirect(safeReturnUrl)
-                : RedirectToAction(nameof(Index));
-        }
-
         public MarcaController(IMarcaService marcaService, ILogger<MarcaController> logger, IMapper mapper)
         {
             _marcaService = marcaService;
@@ -145,7 +137,7 @@ namespace TheBuryProject.Controllers
 
                     await _marcaService.CreateAsync(marca);
                     TempData["Success"] = "Marca creada exitosamente";
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
                 }
                 catch (Exception ex)
                 {
@@ -234,7 +226,7 @@ namespace TheBuryProject.Controllers
 
                     await _marcaService.UpdateAsync(marca);
                     TempData["Success"] = "Marca actualizada exitosamente";
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -310,7 +302,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al eliminar la marca. Por favor, intente nuevamente.";
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         /// <summary>

@@ -20,12 +20,6 @@ public class AutorizacionController : Controller
     private readonly IAutorizacionService _autorizacionService;
     private readonly ICurrentUserService _currentUser;
 
-    private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-    {
-        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-        return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
-    }
-
     private IActionResult RedirectToReturnUrlOrSolicitudes(string? returnUrl)
     {
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
@@ -101,7 +95,7 @@ public class AutorizacionController : Controller
 
             await _autorizacionService.CrearUmbralAsync(umbral);
             TempData["Success"] = "Umbral creado exitosamente";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
         catch (InvalidOperationException ex)
         {
@@ -123,7 +117,7 @@ public class AutorizacionController : Controller
         if (umbral == null)
         {
             TempData["Error"] = "Umbral no encontrado";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         var viewModel = new UmbralAutorizacionViewModel
@@ -167,7 +161,7 @@ public class AutorizacionController : Controller
 
             await _autorizacionService.ActualizarUmbralAsync(umbral);
             TempData["Success"] = "Umbral actualizado exitosamente";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
         catch (Exception ex)
         {
@@ -194,7 +188,7 @@ public class AutorizacionController : Controller
             TempData["Error"] = $"Error al eliminar umbral: {ex.Message}";
         }
 
-        return RedirectToReturnUrlOrIndex(returnUrl);
+        return this.RedirectToReturnUrlOrIndex(returnUrl);
     }
 
     #endregion

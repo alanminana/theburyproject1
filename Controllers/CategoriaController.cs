@@ -20,14 +20,6 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<CategoriaController> _logger;
         private readonly IMapper _mapper;
 
-        private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-        {
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-            return safeReturnUrl != null
-                ? LocalRedirect(safeReturnUrl)
-                : RedirectToAction(nameof(Index));
-        }
-
         public CategoriaController(
             ICategoriaService categoriaService,
             ILogger<CategoriaController> logger,
@@ -119,7 +111,7 @@ namespace TheBuryProject.Controllers
 
                     await _categoriaService.CreateAsync(categoria);
                     TempData["Success"] = "Categoría creada exitosamente";
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
                 }
                 catch (Exception ex)
                 {
@@ -260,7 +252,7 @@ namespace TheBuryProject.Controllers
 
                     await _categoriaService.UpdateAsync(categoria);
                     TempData["Success"] = "Categoría actualizada exitosamente";
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -345,7 +337,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al eliminar la categoría. Por favor, intente nuevamente.";
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         /// <summary>

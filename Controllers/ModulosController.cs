@@ -19,12 +19,6 @@ public class ModulosController : Controller
     private readonly IRolService _rolService;
     private readonly ILogger<ModulosController> _logger;
 
-    private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-    {
-        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-        return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
-    }
-
     private IActionResult RedirectToReturnUrlOrDetails(int id, string? returnUrl)
     {
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
@@ -161,7 +155,7 @@ public class ModulosController : Controller
             _logger.LogInformation("Módulo creado: {ModuloNombre} por usuario {User}",
                 model.Nombre, User.Identity?.Name);
             TempData["Success"] = $"Módulo '{model.Nombre}' creado exitosamente";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
         catch (Exception ex)
         {
@@ -334,6 +328,6 @@ public class ModulosController : Controller
             TempData["Error"] = "Error al eliminar el módulo";
         }
 
-        return RedirectToReturnUrlOrIndex(returnUrl);
+        return this.RedirectToReturnUrlOrIndex(returnUrl);
     }
 }

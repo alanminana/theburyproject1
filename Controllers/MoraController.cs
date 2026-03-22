@@ -20,14 +20,6 @@ namespace TheBuryProject.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<MoraController> _logger;
 
-        private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-        {
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-            return safeReturnUrl != null
-                ? LocalRedirect(safeReturnUrl)
-                : RedirectToAction(nameof(Index));
-        }
-
         public MoraController(
             IMoraService moraService,
             IMapper mapper,
@@ -527,7 +519,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al ejecutar mora: " + ex.Message;
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         #endregion
@@ -585,7 +577,7 @@ namespace TheBuryProject.Controllers
         public IActionResult MarcarLeida(int id, string? returnUrl = null)
         {
             TempData["Error"] = "Acción no disponible por GET. Use los botones de la pantalla.";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
@@ -618,14 +610,14 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al marcar alerta como leída: " + ex.Message;
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         [HttpGet]
         public IActionResult Resolver(int id, string? returnUrl = null)
         {
             TempData["Error"] = "Acción no disponible por GET. Use los botones de la pantalla.";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]
@@ -661,7 +653,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al resolver alerta: " + ex.Message;
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         [PermisoRequerido(Modulo = "mora", Accion = "manage")]

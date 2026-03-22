@@ -37,14 +37,6 @@ namespace TheBuryProject.Controllers
                 : RedirectToAction(nameof(Details), new { id = creditoId });
         }
 
-        private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-        {
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-            return safeReturnUrl != null
-                ? LocalRedirect(safeReturnUrl)
-                : RedirectToAction(nameof(Index));
-        }
-
         private static List<SelectListItem> ProyectarCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
             (cuotas ?? Enumerable.Empty<CuotaViewModel>())
                 .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
@@ -1035,7 +1027,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al eliminar el crédito: " + ex.Message;
             }
 
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         // GET: Credito/PagarCuota/5

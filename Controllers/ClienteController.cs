@@ -28,14 +28,6 @@ namespace TheBuryProject.Controllers
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
 
-        private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-        {
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-            return safeReturnUrl != null
-                ? LocalRedirect(safeReturnUrl)
-                : RedirectToAction(nameof(Index));
-        }
-
         public ClienteController(
             IClienteService clienteService,
             IDocumentoClienteService documentoService,
@@ -100,7 +92,7 @@ namespace TheBuryProject.Controllers
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
 
                 var detalleViewModel = await ConstructDetalleViewModel(cliente!, tab);
                 return View("Details_tw", detalleViewModel);
@@ -109,7 +101,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al obtener cliente {Id}", id);
                 TempData["Error"] = "Error al cargar el cliente";
-                return RedirectToReturnUrlOrIndex(returnUrl);
+                return this.RedirectToReturnUrlOrIndex(returnUrl);
             }
         }
 
@@ -167,7 +159,7 @@ namespace TheBuryProject.Controllers
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
                 CargarDropdowns();
@@ -178,7 +170,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al cargar cliente {Id} para edición", id);
                 TempData["Error"] = "Error al cargar el cliente";
-                return RedirectToReturnUrlOrIndex(returnUrl);
+                return this.RedirectToReturnUrlOrIndex(returnUrl);
             }
         }
 
@@ -231,7 +223,7 @@ namespace TheBuryProject.Controllers
 
                 var cliente = await _clienteService.GetByIdAsync(id);
                 if (cliente == null)
-                    return RedirectToReturnUrlOrIndex(returnUrl);
+                    return this.RedirectToReturnUrlOrIndex(returnUrl);
 
                 var viewModel = _mapper.Map<ClienteViewModel>(cliente!);
                 return View("Delete_tw", viewModel);
@@ -240,7 +232,7 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al cargar cliente {Id} para eliminación", id);
                 TempData["Error"] = "Error al cargar el cliente";
-                return RedirectToReturnUrlOrIndex(returnUrl);
+                return this.RedirectToReturnUrlOrIndex(returnUrl);
             }
         }
 
@@ -252,7 +244,7 @@ namespace TheBuryProject.Controllers
             {
                 await _clienteService.DeleteAsync(id);
                 TempData["Success"] = "Cliente eliminado exitosamente";
-                return RedirectToReturnUrlOrIndex(returnUrl);
+                return this.RedirectToReturnUrlOrIndex(returnUrl);
             }
             catch (InvalidOperationException ex)
             {

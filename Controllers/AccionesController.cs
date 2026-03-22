@@ -22,12 +22,6 @@ public class AccionesController : Controller
 
     private string CurrentUserName => User.Identity?.Name ?? "Sistema";
 
-    private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
-    {
-        var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
-        return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Index));
-    }
-
     private IActionResult RedirectToReturnUrlOrDetails(int id, string? returnUrl)
     {
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
@@ -166,7 +160,7 @@ public class AccionesController : Controller
             _logger.LogInformation("Acción creada: {AccionNombre} por usuario {User}",
                 model.Nombre, User.Identity?.Name);
             TempData["Success"] = $"Acción '{model.Nombre}' creada exitosamente";
-            return RedirectToReturnUrlOrIndex(returnUrl);
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
         catch (Exception ex)
         {
@@ -342,7 +336,7 @@ public class AccionesController : Controller
             TempData["Error"] = "Error al eliminar la acción";
         }
 
-        return RedirectToReturnUrlOrIndex(returnUrl);
+        return this.RedirectToReturnUrlOrIndex(returnUrl);
     }
 
     /// <summary>
