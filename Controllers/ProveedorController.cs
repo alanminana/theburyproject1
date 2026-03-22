@@ -362,12 +362,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                await using var context = await _contextFactory.CreateDbContextAsync();
-
-                var productosProveedor = await context.ProveedorProductos
-                    .Include(pp => pp.Producto)
-                    .Where(pp => pp.ProveedorId == id && pp.IsDeleted == false)
-                    .ToListAsync();
+                var productosProveedor = await _proveedorService.GetProductosProveedorAsync(id);
 
                 if (!productosProveedor.Any())
                 {

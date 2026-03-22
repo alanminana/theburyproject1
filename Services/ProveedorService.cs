@@ -363,5 +363,13 @@ namespace TheBuryProject.Services
                 .Select(id => new ProveedorCategoria { ProveedorId = proveedorId, CategoriaId = id })
                 .ToList();
         }
+
+        public async Task<List<ProveedorProducto>> GetProductosProveedorAsync(int proveedorId)
+        {
+            return await _context.ProveedorProductos
+                .Include(pp => pp.Producto)
+                .Where(pp => pp.ProveedorId == proveedorId && !pp.IsDeleted)
+                .ToListAsync();
+        }
     }
 }

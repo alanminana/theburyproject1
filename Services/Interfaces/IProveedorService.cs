@@ -15,5 +15,10 @@ namespace TheBuryProject.Services.Interfaces
             bool soloActivos = false,
             string? orderBy = null,
             string? orderDirection = "asc");
+
+        /// <summary>
+        /// Obtiene los productos asociados a un proveedor (activos, no eliminados).
+        /// </summary>
+        Task<List<ProveedorProducto>> GetProductosProveedorAsync(int proveedorId);
     }
 }
