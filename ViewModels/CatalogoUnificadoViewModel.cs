@@ -200,35 +200,4 @@ namespace TheBuryProject.ViewModels
         }
     }
 
-    /// <summary>
-    /// Item de producto para el catálogo unificado (legacy - usar FilaCatalogo)
-    /// </summary>
-    [Obsolete("Usar FilaCatalogo en su lugar")]
-    public class CatalogoProductoItemViewModel
-    {
-        public int Id { get; set; }
-        public string Codigo { get; set; } = string.Empty;
-        public string Nombre { get; set; } = string.Empty;
-        public string? Descripcion { get; set; }
-
-        // Categoría y Marca
-        public int? CategoriaId { get; set; }
-        public string? CategoriaNombre { get; set; }
-        public int? MarcaId { get; set; }
-        public string? MarcaNombre { get; set; }
-
-        // Precios
-        public decimal PrecioCompra { get; set; }
-        public decimal PrecioVenta { get; set; }
-        public decimal? PrecioLista { get; set; }
-        public decimal MargenPorcentaje { get; set; }
-
-        // Stock
-        public decimal StockActual { get; set; }
-        public decimal StockMinimo { get; set; }
-        public string EstadoStock { get; set; } = "Normal";
-
-        // Estado
-        public bool Activo { get; set; }
-    }
 }

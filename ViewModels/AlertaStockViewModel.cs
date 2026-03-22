@@ -131,15 +131,6 @@ namespace TheBuryProject.ViewModels
         public List<ProductoAlertaViewModel> ProductosMasAlertas { get; set; } = new();
         public List<CategoriaAlertaViewModel> CategoriasConMasAlertas { get; set; } = new();
 
-        // Propiedades de compatibilidad (deprecated, usar las nuevas)
-        [Obsolete("Use AlertasPendientes instead")]
-        public int TotalAlertasPendientes => AlertasPendientes;
-        [Obsolete("Use AlertasStockCritico instead")]
-        public int ProductosCriticos => AlertasStockCritico;
-        [Obsolete("Use AlertasStockBajo instead")]
-        public int ProductosStockBajo => AlertasStockBajo;
-        [Obsolete("Use AlertasStockAgotado instead")]
-        public int ProductosStockAgotado => AlertasStockAgotado;
     }
 
     /// <summary>

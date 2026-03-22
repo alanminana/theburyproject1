@@ -30,20 +30,6 @@ namespace TheBuryProject.Helpers
         }
 
         /// <summary>
-        /// Obtiene la descripción de un valor enum desde su atributo [Display(Description="...")]
-        /// </summary>
-        [Obsolete("Sin usos actuales. Mantener para uso futuro si se necesitan descripciones.")]
-        public static string GetDisplayDescription(this Enum value)
-        {
-            var field = value.GetType().GetField(value.ToString());
-            if (field == null)
-                return string.Empty;
-
-            var displayAttribute = field.GetCustomAttribute<DisplayAttribute>();
-            return displayAttribute?.Description ?? string.Empty;
-        }
-
-        /// <summary>
         /// Genera una lista de SelectListItem para un enum (útil para dropdowns)
         /// </summary>
         /// <typeparam name="TEnum">Tipo del enum</typeparam>
@@ -79,13 +65,5 @@ namespace TheBuryProject.Helpers
             }
         }
 
-        /// <summary>
-        /// Verifica si un valor de enum está marcado con [Obsolete]
-        /// </summary>
-        private static bool IsObsolete<TEnum>(TEnum value) where TEnum : struct, Enum
-        {
-            var field = typeof(TEnum).GetField(value.ToString());
-            return field?.GetCustomAttribute<ObsoleteAttribute>() != null;
-        }
     }
 }
