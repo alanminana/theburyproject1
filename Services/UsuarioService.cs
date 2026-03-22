@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services;
 
@@ -17,6 +19,70 @@ public class UsuarioService : IUsuarioService
     {
         _userManager = userManager;
         _context = context;
+    }
+
+    public async Task<UsuarioDashboardStats> GetDashboardStatsAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var activos = await _context.Users.AsNoTracking().CountAsync(u => u.Activo);
+        var bloqueados = await _context.Users.AsNoTracking().CountAsync(u =>
+            u.LockoutEnabled &&
+            u.LockoutEnd.HasValue &&
+            u.LockoutEnd > now);
+
+        return new UsuarioDashboardStats(activos, bloqueados);
+    }
+
+    public async Task<List<UsuarioResumen>> GetUsuariosConRolesAsync(bool incluirInactivos = false)
+    {
+        var query = _context.Users.AsQueryable();
+
+        if (!incluirInactivos)
+            query = query.Where(u => u.Activo);
+
+        var users = await query
+            .OrderBy(u => u.UserName)
+            .ToListAsync();
+
+        var sucursales = await _context.GetSucursalOptionsAsync();
+        var sucursalesLookup = sucursales.ToDictionary(s => s.Id, s => s.Nombre);
+
+        var rolesLookup = await _context.UserRoles
+            .Join(_context.Roles,
+                ur => ur.RoleId,
+                r => r.Id,
+                (ur, r) => new { ur.UserId, r.Name })
+            .GroupBy(x => x.UserId)
+            .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Name!).ToList());
+
+        return users.Select(user => new UsuarioResumen
+        {
+            Id = user.Id,
+            Email = user.Email!,
+            UserName = user.UserName!,
+            EmailConfirmed = user.EmailConfirmed,
+            LockoutEnabled = user.LockoutEnabled,
+            LockoutEnd = user.LockoutEnd,
+            Roles = rolesLookup.GetValueOrDefault(user.Id, []),
+            Activo = user.Activo,
+            NombreCompleto = user.NombreCompleto,
+            SucursalId = user.SucursalId,
+            Sucursal = user.SucursalId.HasValue && sucursalesLookup.TryGetValue(user.SucursalId.Value, out var sucursalNombre)
+                ? sucursalNombre
+                : user.Sucursal,
+            UltimoAcceso = user.UltimoAcceso,
+            FechaCreacion = user.FechaCreacion
+        }).ToList();
+    }
+
+    public Task<List<SucursalOptionViewModel>> GetSucursalOptionsAsync()
+        => _context.GetSucursalOptionsAsync();
+
+    public async Task<bool> ExistsSucursalActivaAsync(int sucursalId)
+    {
+        return await _context.Sucursales
+            .AsNoTracking()
+            .AnyAsync(s => s.Id == sucursalId && s.Activa);
     }
 
     public async Task<UsuarioUpdateResult> UpdateUsuarioAsync(UsuarioUpdateRequest request)

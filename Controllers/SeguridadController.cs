@@ -68,19 +68,16 @@ public class SeguridadController : Controller
         DateOnly? hasta = null)
     {
         var activeTab = NormalizeTab(tab);
-        var now = DateTimeOffset.UtcNow;
         var roles = await _rolService.GetAllRolesAsync();
         var roleMetadata = await _rolService.GetAllRoleMetadataAsync();
         var stats = await _rolService.GetRoleAggregateStatsAsync();
+        var userStats = await _usuarioService.GetDashboardStatsAsync();
 
         var viewModel = new SeguridadIndexViewModel
         {
             ActiveTab = activeTab,
-            UsuariosActivos = await _context.Users.AsNoTracking().CountAsync(u => u.Activo),
-            UsuariosBloqueados = await _context.Users.AsNoTracking().CountAsync(u =>
-                u.LockoutEnabled &&
-                u.LockoutEnd.HasValue &&
-                u.LockoutEnd > now),
+            UsuariosActivos = userStats.Activos,
+            UsuariosBloqueados = userStats.Bloqueados,
             RolesActivos = roles.Count(role =>
                 !roleMetadata.TryGetValue(role.Id, out var metadata) || metadata.Activo),
             PermisosAsignados = stats.PermissionCounts.Values.Sum(),
@@ -156,10 +153,18 @@ public class SeguridadController : Controller
 
         try
         {
-            var sucursal = await _context.GetSucursalAsync(model.SucursalId);
-            if (model.SucursalId.HasValue && sucursal == null)
+            string? sucursalNombre = null;
+            if (model.SucursalId.HasValue)
             {
-                ModelState.AddModelError(nameof(model.SucursalId), "La sucursal seleccionada no existe o está inactiva.");
+                var sucursalOption = model.AllSucursales?.FirstOrDefault(s => s.Id == model.SucursalId.Value);
+                if (sucursalOption == null && !await _usuarioService.ExistsSucursalActivaAsync(model.SucursalId.Value))
+                {
+                    ModelState.AddModelError(nameof(model.SucursalId), "La sucursal seleccionada no existe o está inactiva.");
+                }
+                else
+                {
+                    sucursalNombre = sucursalOption?.Nombre;
+                }
             }
 
             var user = await _userManager.FindByIdAsync(model.Id);
@@ -208,8 +213,8 @@ public class SeguridadController : Controller
                 Nombre = model.Nombre,
                 Apellido = model.Apellido,
                 Telefono = model.Telefono,
-                SucursalId = sucursal?.Id,
-                SucursalNombre = sucursal?.Nombre,
+                SucursalId = model.SucursalId,
+                SucursalNombre = sucursalNombre,
                 Activo = model.Activo,
                 RolesDeseados = model.RolesSeleccionados,
                 RowVersion = model.RowVersion!,
@@ -238,7 +243,7 @@ public class SeguridadController : Controller
                 "Seguridad",
                 "Editar",
                 $"Usuario \"{model.UserName}\"",
-                $"Edición de usuario. Roles: {(model.RolesSeleccionados.Count > 0 ? string.Join(", ", model.RolesSeleccionados) : "sin roles")} · Sucursal: {sucursal?.Nombre ?? "sin sucursal"} · Estado: {(model.Activo ? "activo" : "inactivo")}.");
+                $"Edición de usuario. Roles: {(model.RolesSeleccionados.Count > 0 ? string.Join(", ", model.RolesSeleccionados) : "sin roles")} · Sucursal: {sucursalNombre ?? "sin sucursal"} · Estado: {(model.Activo ? "activo" : "inactivo")}.");
 
             var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             if (safeReturnUrl != null)
@@ -802,45 +807,24 @@ public class SeguridadController : Controller
 
     private async Task<SeguridadUsuariosTabViewModel> BuildUsuariosTabViewModelAsync(bool mostrarInactivos)
     {
-        var query = _context.Users.AsQueryable();
+        var resumenList = await _usuarioService.GetUsuariosConRolesAsync(incluirInactivos: mostrarInactivos);
+        var sucursales = await _usuarioService.GetSucursalOptionsAsync();
 
-        if (!mostrarInactivos)
+        var usuarios = resumenList.Select(u => new UsuarioViewModel
         {
-            query = query.Where(u => u.Activo);
-        }
-
-        var users = await query
-            .OrderBy(u => u.UserName)
-            .ToListAsync();
-
-        var sucursales = await _context.GetSucursalOptionsAsync();
-        var sucursalesLookup = sucursales.ToDictionary(s => s.Id, s => s.Nombre);
-
-        var rolesLookup = await _context.UserRoles
-            .Join(_context.Roles,
-                ur => ur.RoleId,
-                r => r.Id,
-                (ur, r) => new { ur.UserId, r.Name })
-            .GroupBy(x => x.UserId)
-            .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Name!).ToList());
-
-        var usuarios = users.Select(user => new UsuarioViewModel
-        {
-            Id = user.Id,
-            Email = user.Email!,
-            UserName = user.UserName!,
-            EmailConfirmed = user.EmailConfirmed,
-            LockoutEnabled = user.LockoutEnabled,
-            LockoutEnd = user.LockoutEnd,
-            Roles = rolesLookup.GetValueOrDefault(user.Id, new List<string>()),
-            Activo = user.Activo,
-            NombreCompleto = user.NombreCompleto,
-            SucursalId = user.SucursalId,
-            Sucursal = user.SucursalId.HasValue && sucursalesLookup.TryGetValue(user.SucursalId.Value, out var sucursalNombre)
-                ? sucursalNombre
-                : user.Sucursal,
-            UltimoAcceso = user.UltimoAcceso,
-            FechaCreacion = user.FechaCreacion
+            Id = u.Id,
+            Email = u.Email,
+            UserName = u.UserName,
+            EmailConfirmed = u.EmailConfirmed,
+            LockoutEnabled = u.LockoutEnabled,
+            LockoutEnd = u.LockoutEnd,
+            Roles = u.Roles,
+            Activo = u.Activo,
+            NombreCompleto = u.NombreCompleto,
+            SucursalId = u.SucursalId,
+            Sucursal = u.Sucursal,
+            UltimoAcceso = u.UltimoAcceso,
+            FechaCreacion = u.FechaCreacion
         }).ToList();
 
         return new SeguridadUsuariosTabViewModel
@@ -1009,7 +993,7 @@ public class SeguridadController : Controller
             .OrderBy(name => name)
             .ToList();
 
-        model.AllSucursales = await _context.GetSucursalOptionsAsync();
+        model.AllSucursales = await _usuarioService.GetSucursalOptionsAsync();
     }
 
     private async Task<RolDetalleViewModel?> BuildRoleDetailsViewModelAsync(string id)
