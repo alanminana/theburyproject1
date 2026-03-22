@@ -1,9 +1,7 @@
 using AutoMapper;
-using System.Security.Claims;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
-using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -28,7 +26,7 @@ namespace TheBuryProject.Services
         private readonly IFinancialCalculationService _financialService;
         private readonly IVentaValidator _validator;
         private readonly VentaNumberGenerator _numberGenerator;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUserService;
         private readonly IValidacionVentaService _validacionVentaService;
         private readonly ICajaService _cajaService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
@@ -44,7 +42,7 @@ namespace TheBuryProject.Services
             IVentaValidator validator,
             VentaNumberGenerator numberGenerator,
             IPrecioService precioService,
-            IHttpContextAccessor httpContextAccessor,
+            ICurrentUserService currentUserService,
             IValidacionVentaService validacionVentaService,
             ICajaService cajaService,
             ICreditoDisponibleService creditoDisponibleService)
@@ -59,7 +57,7 @@ namespace TheBuryProject.Services
             _validator = validator;
             _numberGenerator = numberGenerator;
             _precioService = precioService;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUserService = currentUserService;
             _validacionVentaService = validacionVentaService;
             _cajaService = cajaService;
             _creditoDisponibleService = creditoDisponibleService;
@@ -146,9 +144,8 @@ namespace TheBuryProject.Services
 
         public async Task<VentaViewModel> CreateAsync(VentaViewModel viewModel)
         {
-            var currentUser = _httpContextAccessor.HttpContext?.User;
-            var currentUserName = currentUser?.Identity?.Name ?? "System";
-            var currentUserId = await ObtenerUserIdActualAsync(currentUser, currentUserName);
+            var currentUserName = _currentUserService.GetUsername();
+            var currentUserId = await ObtenerUserIdActualAsync();
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                 "No se puede registrar la venta: no hay una caja abierta para el usuario actual. Abra una caja antes de realizar ventas.");
 
@@ -159,7 +156,7 @@ namespace TheBuryProject.Services
                 var venta = _mapper.Map<Venta>(viewModel);
                 venta.AperturaCajaId = aperturaActiva.Id;
 
-                var vendedorResuelto = await ResolverVendedorAsync(viewModel, currentUser, currentUserId, currentUserName);
+                var vendedorResuelto = await ResolverVendedorAsync(viewModel, currentUserId, currentUserName);
                 venta.VendedorUserId = vendedorResuelto.UserId;
                 venta.VendedorNombre = vendedorResuelto.Nombre;
 
@@ -185,7 +182,7 @@ namespace TheBuryProject.Services
                     // E2: Si NoViable, rechazar guardado completamente
                     if (validacion.NoViable)
                     {
-                        if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion, currentUser))
+                        if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
                         {
                             var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
                             AplicarAuditoriaExcepcionDocumentalEnCreate(venta, currentUserName, motivoExcepcion);
@@ -409,10 +406,9 @@ namespace TheBuryProject.Services
             await Task.CompletedTask;
         }
 
-        private static bool PuedeAplicarExcepcionDocumentalCreate(
+        private bool PuedeAplicarExcepcionDocumentalCreate(
             VentaViewModel viewModel,
-            ValidacionVentaResult validacion,
-            ClaimsPrincipal? currentUser)
+            ValidacionVentaResult validacion)
         {
             if (!viewModel.AplicarExcepcionDocumental)
             {
@@ -424,7 +420,7 @@ namespace TheBuryProject.Services
                 return false;
             }
 
-            if (currentUser == null || !currentUser.TienePermiso("ventas", "authorize"))
+            if (!_currentUserService.HasPermission("ventas", "authorize"))
             {
                 return false;
             }
@@ -807,7 +803,7 @@ namespace TheBuryProject.Services
                 var anticipo = venta.Total - credito.MontoAprobado;
                 if (anticipo > 0)
                 {
-                    var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+                    var usuario = _currentUserService.GetUsername();
                     await _cajaService.RegistrarMovimientoAnticipoAsync(
                         credito.Id,
                         credito.Numero,
@@ -962,7 +958,7 @@ namespace TheBuryProject.Services
             // Las ventas a crédito se cobran vía cuotas, no al facturar
             if (venta.TipoPago != TipoPago.CreditoPersonal)
             {
-                var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+                var usuario = _currentUserService.GetUsername();
                 await _cajaService.RegistrarMovimientoVentaAsync(
                     venta.Id,
                     venta.Numero,
@@ -977,14 +973,12 @@ namespace TheBuryProject.Services
 
         private async Task<AperturaCaja> AsegurarCajaAbiertaParaUsuarioActualAsync(string mensajeError)
         {
-            var currentUser = _httpContextAccessor.HttpContext?.User;
-            var currentUserName = currentUser?.Identity?.Name;
-
-            if (string.IsNullOrWhiteSpace(currentUserName))
+            if (!_currentUserService.IsAuthenticated())
             {
                 throw new InvalidOperationException(mensajeError);
             }
 
+            var currentUserName = _currentUserService.GetUsername();
             var aperturaActiva = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(currentUserName);
             if (aperturaActiva == null)
             {
@@ -1453,29 +1447,29 @@ namespace TheBuryProject.Services
 
         #region MÃ©todos Privados - Helpers
 
-        private static bool PuedeDelegarVendedor(ClaimsPrincipal? user)
+        private bool PuedeDelegarVendedor()
         {
-            if (user == null)
-            {
-                return false;
-            }
-
-            return user.IsInRole(Roles.SuperAdmin) ||
-                   user.IsInRole(Roles.Administrador) ||
-                   user.IsInRole(Roles.Gerente);
+            return _currentUserService.IsInRole(Roles.SuperAdmin) ||
+                   _currentUserService.IsInRole(Roles.Administrador) ||
+                   _currentUserService.IsInRole(Roles.Gerente);
         }
 
-        private async Task<string?> ObtenerUserIdActualAsync(ClaimsPrincipal? user, string userName)
+        private async Task<string?> ObtenerUserIdActualAsync()
         {
-            var userId = user?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = _currentUserService.GetUserId();
 
-            if (string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(userName))
+            // Fallback: si no hay claim de ID, buscar por username en DB
+            if (userId == "system")
             {
-                userId = await _context.Users
-                    .AsNoTracking()
-                    .Where(u => u.UserName == userName)
-                    .Select(u => u.Id)
-                    .FirstOrDefaultAsync();
+                var userName = _currentUserService.GetUsername();
+                if (userName != "Sistema")
+                {
+                    userId = await _context.Users
+                        .AsNoTracking()
+                        .Where(u => u.UserName == userName)
+                        .Select(u => u.Id)
+                        .FirstOrDefaultAsync();
+                }
             }
 
             return userId;
@@ -1483,16 +1477,15 @@ namespace TheBuryProject.Services
 
         private async Task<(string? UserId, string Nombre)> ResolverVendedorAsync(
             VentaViewModel viewModel,
-            ClaimsPrincipal? currentUser,
             string? currentUserId,
             string currentUserName)
         {
             if (string.IsNullOrWhiteSpace(currentUserId))
             {
-                currentUserId = await ObtenerUserIdActualAsync(currentUser, currentUserName);
+                currentUserId = await ObtenerUserIdActualAsync();
             }
 
-            var puedeDelegar = PuedeDelegarVendedor(currentUser);
+            var puedeDelegar = PuedeDelegarVendedor();
             var vendedorSeleccionadoId = viewModel.VendedorUserId;
 
             if (!puedeDelegar ||
@@ -1693,7 +1686,7 @@ namespace TheBuryProject.Services
 
         private async Task DescontarStockYRegistrarMovimientos(Venta venta)
         {
-            var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+            var usuario = _currentUserService.GetUsername();
 
             var referencia = $"Venta {venta.Numero}";
             var motivo = $"Confirmación de venta - Cliente: {venta.Cliente?.Nombre ?? "(sin cliente)"}";
@@ -1711,7 +1704,7 @@ namespace TheBuryProject.Services
 
         private async Task DevolverStock(Venta venta, string motivo)
         {
-            var usuario = _httpContextAccessor?.HttpContext?.User?.Identity?.Name ?? "System";
+            var usuario = _currentUserService.GetUsername();
 
             var referencia = $"Cancelación Venta {venta.Numero}";
 

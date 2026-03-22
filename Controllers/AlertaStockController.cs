@@ -16,20 +16,17 @@ namespace TheBuryProject.Controllers
         private readonly IAlertaStockService _alertaStockService;
         private readonly IProductoService _productoService;
         private readonly ILogger<AlertaStockController> _logger;
-        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        private string CurrentUserName => _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "Sistema";
+        private string CurrentUserName => User?.Identity?.Name ?? "Sistema";
 
         public AlertaStockController(
             IAlertaStockService alertaStockService,
             IProductoService productoService,
-            ILogger<AlertaStockController> logger,
-            IHttpContextAccessor httpContextAccessor)
+            ILogger<AlertaStockController> logger)
         {
             _alertaStockService = alertaStockService;
             _productoService = productoService;
             _logger = logger;
-            _httpContextAccessor = httpContextAccessor;
         }
 
         // GET: AlertaStock

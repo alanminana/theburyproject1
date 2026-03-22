@@ -1,9 +1,7 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Security.Claims;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
@@ -100,6 +98,21 @@ file sealed class StubPrecioServiceP : IPrecioService
 }
 
 // ---------------------------------------------------------------------------
+// Stub de ICurrentUserService
+// ---------------------------------------------------------------------------
+
+file sealed class StubCurrentUserServiceP : ICurrentUserService
+{
+    public string GetUsername() => "testuser";
+    public string GetUserId() => "system";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => "test@test.com";
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => "127.0.0.1";
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -112,7 +125,7 @@ file sealed class StubPrecioServiceP : IPrecioService
 ///   - IMapper real (MappingProfile)
 ///   - ICajaService stub (ObtenerAperturaActivaParaUsuarioAsync devuelve AperturaCaja { Id=1 })
 ///   - IPrecioService stub (GetListaPredeterminadaAsync configurable por test)
-///   - IHttpContextAccessor con ClaimsPrincipal { Name = "testuser" }
+///   - ICurrentUserService stub (GetUsername = "testuser", IsAuthenticated = true)
 ///   - SQLite :memory: con EnsureCreated()
 ///   - TipoPago = Efectivo (evita bloque CreditoPersonal y CapturarSnapshotLimiteCreditoAsync)
 ///
@@ -146,15 +159,7 @@ public class VentaServicePrecioTests
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
-    private static IHttpContextAccessor CreateHttpContextAccessor()
-    {
-        var identity = new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.Name, TestUser) },
-            authenticationType: "Test");
-        var principal = new ClaimsPrincipal(identity);
-        var context = new DefaultHttpContext { User = principal };
-        return new HttpContextAccessor { HttpContext = context };
-    }
+    private static ICurrentUserService CreateCurrentUserService() => new StubCurrentUserServiceP();
 
     /// <summary>
     /// Siembra la infraestructura base: Caja, AperturaCaja, Categoria, Marca, Cliente, Producto.
@@ -237,8 +242,7 @@ public class VentaServicePrecioTests
         AppDbContext ctx,
         IMapper mapper,
         ICajaService cajaService,
-        IPrecioService precioService,
-        IHttpContextAccessor httpContextAccessor)
+        IPrecioService precioService)
     {
         var logger = NullLogger<VentaService>.Instance;
         var validator = new VentaValidator();
@@ -256,7 +260,7 @@ public class VentaServicePrecioTests
             validator,
             numberGenerator,
             precioService,
-            httpContextAccessor,
+            CreateCurrentUserService(),
             null!,                  // IValidacionVentaService — solo para CreditoPersonal
             cajaService,
             null!);                 // ICreditoDisponibleService — solo para CreditoPersonal
@@ -320,11 +324,10 @@ public class VentaServicePrecioTests
             await ctx.SaveChangesAsync();
 
             var mapper = CreateMapper();
-            var http = CreateHttpContextAccessor();
             var cajaStub = new StubCajaService(apertura);
             var precioStub = new StubPrecioServiceP(new ListaPrecio { Id = lista.Id });
 
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub, http);
+            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -377,11 +380,10 @@ public class VentaServicePrecioTests
             await ctx.SaveChangesAsync();
 
             var mapper = CreateMapper();
-            var http = CreateHttpContextAccessor();
             var cajaStub = new StubCajaService(apertura);
             var precioStub = new StubPrecioServiceP(new ListaPrecio { Id = lista.Id });
 
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub, http);
+            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -410,11 +412,10 @@ public class VentaServicePrecioTests
             // No se siembra ninguna ListaPrecio ni ProductoPrecioLista
 
             var mapper = CreateMapper();
-            var http = CreateHttpContextAccessor();
             var cajaStub = new StubCajaService(apertura);
             var precioStub = new StubPrecioServiceP(null); // sin lista
 
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub, http);
+            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 

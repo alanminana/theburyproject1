@@ -1,5 +1,3 @@
-using System.Security.Claims;
-
 namespace TheBuryProject.Services
 {
     public interface ICurrentUserService
@@ -8,5 +6,8 @@ namespace TheBuryProject.Services
         string GetUserId();
         bool IsAuthenticated();
         string? GetEmail();
+        bool IsInRole(string role);
+        bool HasPermission(string modulo, string accion);
+        string? GetIpAddress();
     }
 }

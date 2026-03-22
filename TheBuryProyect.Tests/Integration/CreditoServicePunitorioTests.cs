@@ -75,9 +75,12 @@ file sealed class StubCreditoDisponibleService : ICreditoDisponibleService
 file sealed class StubCurrentUserService : ICurrentUserService
 {
     public string GetUsername() => "TestUser";
-    public string GetUserId() => "test-user-id";
+    public string GetUserId() => "system";
     public bool IsAuthenticated() => true;
     public string? GetEmail() => "test@test.com";
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => "127.0.0.1";
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using TheBuryProject.Helpers;
 
 namespace TheBuryProject.Services
 {
@@ -32,6 +33,22 @@ namespace TheBuryProject.Services
         public string? GetEmail()
         {
             return _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
+        }
+
+        public bool IsInRole(string role)
+        {
+            return _httpContextAccessor.HttpContext?.User?.IsInRole(role) ?? false;
+        }
+
+        public bool HasPermission(string modulo, string accion)
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user != null && user.TienePermiso(modulo, accion);
+        }
+
+        public string? GetIpAddress()
+        {
+            return _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
         }
     }
 }

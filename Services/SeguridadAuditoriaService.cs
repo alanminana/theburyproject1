@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -9,16 +8,16 @@ namespace TheBuryProject.Services;
 public class SeguridadAuditoriaService : ISeguridadAuditoriaService
 {
     private readonly AppDbContext _context;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SeguridadAuditoriaService> _logger;
 
     public SeguridadAuditoriaService(
         AppDbContext context,
-        IHttpContextAccessor httpContextAccessor,
+        ICurrentUserService currentUserService,
         ILogger<SeguridadAuditoriaService> logger)
     {
         _context = context;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserService = currentUserService;
         _logger = logger;
     }
 
@@ -26,19 +25,16 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
     {
         try
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            var user = httpContext?.User;
-
             var evento = new SeguridadEventoAuditoria
             {
                 FechaEvento = DateTime.UtcNow,
-                UsuarioId = user?.FindFirstValue(ClaimTypes.NameIdentifier),
-                UsuarioNombre = user?.Identity?.Name ?? "Sistema",
+                UsuarioId = _currentUserService.GetUserId(),
+                UsuarioNombre = _currentUserService.GetUsername(),
                 Modulo = string.IsNullOrWhiteSpace(modulo) ? "Seguridad" : modulo.Trim(),
                 Accion = accion.Trim(),
                 Entidad = entidad.Trim(),
                 Detalle = string.IsNullOrWhiteSpace(detalle) ? null : detalle.Trim(),
-                DireccionIp = httpContext?.Connection.RemoteIpAddress?.ToString()
+                DireccionIp = _currentUserService.GetIpAddress()
             };
 
             _context.Set<SeguridadEventoAuditoria>().Add(evento);

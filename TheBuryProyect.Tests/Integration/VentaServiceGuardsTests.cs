@@ -1,9 +1,7 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Security.Claims;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
@@ -56,6 +54,32 @@ file sealed class StubCajaServiceG : ICajaService
 }
 
 // ---------------------------------------------------------------------------
+// Stubs de ICurrentUserService
+// ---------------------------------------------------------------------------
+
+file sealed class StubCurrentUserServiceAuthenticated : ICurrentUserService
+{
+    public string GetUsername() => "testuser";
+    public string GetUserId() => "system";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => "test@test.com";
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => "127.0.0.1";
+}
+
+file sealed class StubCurrentUserServiceNotAuthenticated : ICurrentUserService
+{
+    public string GetUsername() => "Sistema";
+    public string GetUserId() => "system";
+    public bool IsAuthenticated() => false;
+    public string? GetEmail() => null;
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => null;
+}
+
+// ---------------------------------------------------------------------------
 // Tests de guards tempranos en CreateAsync
 // ---------------------------------------------------------------------------
 
@@ -88,7 +112,7 @@ public class VentaServiceGuardsTests
 
     private static VentaService BuildService(
         AppDbContext ctx,
-        IHttpContextAccessor httpContextAccessor,
+        ICurrentUserService currentUserService,
         ICajaService cajaService)
     {
         var mapper = CreateMapper();
@@ -108,7 +132,7 @@ public class VentaServiceGuardsTests
             validator,
             numberGenerator,
             null!,                  // IPrecioService — no se alcanza en estos tests
-            httpContextAccessor,
+            currentUserService,
             null!,                  // IValidacionVentaService
             cajaService,
             null!);                 // ICreditoDisponibleService
@@ -128,9 +152,9 @@ public class VentaServiceGuardsTests
     // ---------------------------------------------------------------------------
 
     /// <summary>
-    /// AsegurarCajaAbiertaParaUsuarioActualAsync: currentUserName tiene valor,
+    /// AsegurarCajaAbiertaParaUsuarioActualAsync: IsAuthenticated() = true,
     /// pero ICajaService.ObtenerAperturaActivaParaUsuarioAsync devuelve null.
-    /// La excepción se lanza en línea ~991, antes de abrir la transacción EF.
+    /// La excepción se lanza antes de abrir la transacción EF.
     /// </summary>
     [Fact]
     public async Task CreateAsync_SinCajaAbierta_LanzaInvalidOperationException()
@@ -138,16 +162,10 @@ public class VentaServiceGuardsTests
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
         {
-            var identity = new ClaimsIdentity(
-                new[] { new Claim(ClaimTypes.Name, "testuser") },
-                authenticationType: "Test");
-            var httpCtx = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
-            var httpAccessor = new HttpContextAccessor { HttpContext = httpCtx };
-
             // Stub devuelve null — sin caja abierta para el usuario
             var cajaStub = new StubCajaServiceG(null);
 
-            var svc = BuildService(ctx, httpAccessor, cajaStub);
+            var svc = BuildService(ctx, new StubCurrentUserServiceAuthenticated(), cajaStub);
 
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => svc.CreateAsync(MinimalViewModel()));
@@ -159,10 +177,9 @@ public class VentaServiceGuardsTests
     // ---------------------------------------------------------------------------
 
     /// <summary>
-    /// AsegurarCajaAbiertaParaUsuarioActualAsync: _httpContextAccessor.HttpContext es null,
-    /// por lo que currentUserName resulta null en línea ~981.
-    /// IsNullOrWhiteSpace(null) == true → lanza antes de llamar a ICajaService.
-    /// La excepción se lanza en línea ~985, antes de abrir la transacción EF.
+    /// AsegurarCajaAbiertaParaUsuarioActualAsync: IsAuthenticated() = false,
+    /// lanza antes de llamar a ICajaService.
+    /// La excepción se lanza antes de abrir la transacción EF.
     /// </summary>
     [Fact]
     public async Task CreateAsync_SinUsuarioAutenticado_LanzaInvalidOperationException()
@@ -170,13 +187,10 @@ public class VentaServiceGuardsTests
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
         {
-            // HttpContext = null simula ausencia total de contexto HTTP
-            var httpAccessor = new HttpContextAccessor { HttpContext = null };
-
-            // El stub no debería ser llamado en este caso, pero se pasa de todas formas
+            // Stub simula ausencia de usuario autenticado
             var cajaStub = new StubCajaServiceG(null);
 
-            var svc = BuildService(ctx, httpAccessor, cajaStub);
+            var svc = BuildService(ctx, new StubCurrentUserServiceNotAuthenticated(), cajaStub);
 
             await Assert.ThrowsAsync<InvalidOperationException>(
                 () => svc.CreateAsync(MinimalViewModel()));

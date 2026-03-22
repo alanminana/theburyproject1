@@ -1,9 +1,7 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Security.Claims;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
@@ -72,6 +70,21 @@ file sealed class StubValidacionVentaService : IValidacionVentaService
     public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
     public Task<bool> ClientePuedeRecibirCreditoAsync(int clienteId, decimal montoSolicitado) => throw new NotImplementedException();
     public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
+}
+
+// ---------------------------------------------------------------------------
+// Stub de ICurrentUserService
+// ---------------------------------------------------------------------------
+
+file sealed class StubCurrentUserServiceCP : ICurrentUserService
+{
+    public string GetUsername() => "testuser";
+    public string GetUserId() => "system";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => "test@test.com";
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => "127.0.0.1";
 }
 
 // ---------------------------------------------------------------------------
@@ -148,7 +161,6 @@ public class VentaServiceCreditoPersonalTests
 
     private static VentaService BuildService(
         AppDbContext ctx,
-        IHttpContextAccessor httpContextAccessor,
         ICajaService cajaService,
         IValidacionVentaService validacionVentaService)
     {
@@ -169,7 +181,7 @@ public class VentaServiceCreditoPersonalTests
             validator,
             numberGenerator,
             null!,                   // IPrecioService — Detalles vacío, no se llama
-            httpContextAccessor,
+            new StubCurrentUserServiceCP(),
             validacionVentaService,
             cajaService,
             null!);                  // ICreditoDisponibleService
@@ -202,12 +214,6 @@ public class VentaServiceCreditoPersonalTests
         {
             var apertura = await SeedCajaAsync(ctx);
 
-            var identity = new ClaimsIdentity(
-                new[] { new Claim(ClaimTypes.Name, TestUser) },
-                authenticationType: "Test");
-            var httpCtx = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
-            var httpAccessor = new HttpContextAccessor { HttpContext = httpCtx };
-
             var resultadoNoViable = new ValidacionVentaResult
             {
                 NoViable = true,
@@ -220,7 +226,7 @@ public class VentaServiceCreditoPersonalTests
             var cajaStub = new StubCajaServiceCP(apertura);
             var validacionStub = new StubValidacionVentaService(resultadoNoViable);
 
-            var svc = BuildService(ctx, httpAccessor, cajaStub, validacionStub);
+            var svc = BuildService(ctx, cajaStub, validacionStub);
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 () => svc.CreateAsync(CreditoPersonalViewModel()));

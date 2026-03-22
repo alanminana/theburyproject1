@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -80,6 +79,17 @@ file sealed class NoOpVentaValidator : IVentaValidator
     public void ValidarEstadoAutorizacion(Venta venta, EstadoAutorizacionVenta estadoEsperado) { }
 }
 
+file sealed class StubCurrentUserService : ICurrentUserService
+{
+    public string GetUsername() => "TestUser";
+    public string GetUserId() => "system";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => "test@test.com";
+    public bool IsInRole(string role) => false;
+    public bool HasPermission(string modulo, string accion) => false;
+    public string? GetIpAddress() => "127.0.0.1";
+}
+
 // ---------------------------------------------------------------------------
 // Helpers compartidos
 // ---------------------------------------------------------------------------
@@ -96,7 +106,6 @@ file static class VentaServiceFactory
         var logger = NullLogger<VentaService>.Instance;
         var validator = new NoOpVentaValidator();
         var numberGenerator = new VentaNumberGenerator(ctx);
-        var httpContextAccessor = new HttpContextAccessor();
 
         // Dependencias no usadas en el lote 1 — se pasan como null! (no se invocan en estos tests)
         return new VentaService(
@@ -110,7 +119,7 @@ file static class VentaServiceFactory
             validator,
             numberGenerator,
             precioService ?? new StubPrecioService(null),
-            httpContextAccessor,
+            new StubCurrentUserService(),
             null!,                                          // IValidacionVentaService
             null!,                                          // ICajaService
             null!);
