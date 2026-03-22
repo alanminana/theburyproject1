@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Globalization;
-using System.Text;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -64,14 +62,14 @@ public class DevolucionController : Controller
             : "devoluciones";
         var searchTerm = search?.Trim() ?? string.Empty;
 
-        var devolucionesFiltradas = FiltrarDevoluciones(todasDevoluciones, searchTerm, estado, resolucion);
-        var garantiasFiltradas = FiltrarGarantias(todasGarantias, searchTerm, garantiaEstado, garantiaVentana);
+        var devolucionesFiltradas = _devolucionService.FiltrarDevoluciones(todasDevoluciones, searchTerm, estado, resolucion);
+        var garantiasFiltradas = _devolucionService.FiltrarGarantias(todasGarantias, searchTerm, garantiaEstado, garantiaVentana);
 
         if (exportCsv)
         {
             return activeTab == "garantias"
-                ? ExportarGarantiasCsv(garantiasFiltradas)
-                : ExportarDevolucionesCsv(devolucionesFiltradas);
+                ? File(_devolucionService.GenerarCsvGarantias(garantiasFiltradas), "text/csv", $"garantias-{DateTime.UtcNow:yyyyMMddHHmmss}.csv")
+                : File(_devolucionService.GenerarCsvDevoluciones(devolucionesFiltradas), "text/csv", $"devoluciones-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
         }
 
         const int pageSize = 10;
@@ -143,145 +141,6 @@ public class DevolucionController : Controller
         };
 
         return View(viewModel);
-    }
-
-    private static List<Devolucion> FiltrarDevoluciones(
-        IEnumerable<Devolucion> devoluciones,
-        string search,
-        string? estado,
-        string? resolucion)
-    {
-        var query = devoluciones.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            query = query.Where(d =>
-                Contiene(d.NumeroDevolucion, search) ||
-                Contiene(d.Cliente != null ? d.Cliente.ToDisplayName() : null, search) ||
-                Contiene(d.Cliente?.NumeroDocumento, search) ||
-                Contiene(d.Venta?.Numero, search) ||
-                Contiene(d.Descripcion, search));
-        }
-
-        if (Enum.TryParse<EstadoDevolucion>(estado, true, out var estadoParsed))
-        {
-            query = query.Where(d => d.Estado == estadoParsed);
-        }
-
-        if (Enum.TryParse<TipoResolucionDevolucion>(resolucion, true, out var resolucionParsed))
-        {
-            query = query.Where(d => d.TipoResolucion == resolucionParsed);
-        }
-
-        return query
-            .OrderByDescending(d => d.FechaDevolucion)
-            .ThenByDescending(d => d.Id)
-            .ToList();
-    }
-
-    private static List<Garantia> FiltrarGarantias(
-        IEnumerable<Garantia> garantias,
-        string search,
-        string? garantiaEstado,
-        string? garantiaVentana)
-    {
-        var hoy = DateTime.UtcNow.Date;
-        var query = garantias.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            query = query.Where(g =>
-                Contiene(g.NumeroGarantia, search) ||
-                Contiene(g.Cliente != null ? g.Cliente.ToDisplayName() : null, search) ||
-                Contiene(g.Cliente?.NumeroDocumento, search) ||
-                Contiene(g.Producto?.Nombre, search) ||
-                Contiene(g.Producto?.Codigo, search) ||
-                Contiene(g.ObservacionesActivacion, search));
-        }
-
-        if (Enum.TryParse<EstadoGarantia>(garantiaEstado, true, out var estadoParsed))
-        {
-            query = query.Where(g => g.Estado == estadoParsed);
-        }
-
-        query = garantiaVentana?.Trim().ToLowerInvariant() switch
-        {
-            "proximas" => query.Where(g => g.FechaVencimiento.Date >= hoy && g.FechaVencimiento.Date <= hoy.AddDays(30)),
-            "vencidas" => query.Where(g => g.FechaVencimiento.Date < hoy || g.Estado == EstadoGarantia.Vencida),
-            "enuso" => query.Where(g => g.Estado == EstadoGarantia.EnUso),
-            "extendidas" => query.Where(g => g.GarantiaExtendida),
-            _ => query
-        };
-
-        return query
-            .OrderBy(g => g.FechaVencimiento)
-            .ThenByDescending(g => g.Id)
-            .ToList();
-    }
-
-    private static bool Contiene(string? source, string search)
-    {
-        return !string.IsNullOrWhiteSpace(source) &&
-               source.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private FileContentResult ExportarDevolucionesCsv(IEnumerable<Devolucion> devoluciones)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Id;Cliente;Documento;Venta;Motivo;Resolucion;Impacto;Estado;Fecha;Monto");
-
-        foreach (var devolucion in devoluciones)
-        {
-            var impacto = devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero
-                ? (devolucion.RegistrarEgresoCaja ? "Reembolso por caja" : "Reembolso sin caja")
-                : devolucion.TipoResolucion == TipoResolucionDevolucion.NotaCredito
-                    ? "Nota de credito"
-                    : "Cambio / reposicion";
-
-            sb.AppendLine(string.Join(";",
-                EscapeCsv(devolucion.NumeroDevolucion),
-                EscapeCsv(devolucion.Cliente != null ? devolucion.Cliente.ToDisplayName() : null),
-                EscapeCsv(devolucion.Cliente?.NumeroDocumento),
-                EscapeCsv(devolucion.Venta?.Numero),
-                EscapeCsv(devolucion.Motivo.GetDisplayName()),
-                EscapeCsv(devolucion.TipoResolucion.GetDisplayName()),
-                EscapeCsv(impacto),
-                EscapeCsv(devolucion.Estado.GetDisplayName()),
-                EscapeCsv(devolucion.FechaDevolucion.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)),
-                EscapeCsv(devolucion.TotalDevolucion.ToString("F2", CultureInfo.InvariantCulture))));
-        }
-
-        return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"devoluciones-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
-    }
-
-    private FileContentResult ExportarGarantiasCsv(IEnumerable<Garantia> garantias)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("Garantia;Cliente;Documento;Producto;Codigo;Estado;Inicio;Vencimiento;CoberturaMeses;Extendida;Observacion");
-
-        foreach (var garantia in garantias)
-        {
-            sb.AppendLine(string.Join(";",
-                EscapeCsv(garantia.NumeroGarantia),
-                EscapeCsv(garantia.Cliente != null ? garantia.Cliente.ToDisplayName() : null),
-                EscapeCsv(garantia.Cliente?.NumeroDocumento),
-                EscapeCsv(garantia.Producto?.Nombre),
-                EscapeCsv(garantia.Producto?.Codigo),
-                EscapeCsv(garantia.Estado.GetDisplayName()),
-                EscapeCsv(garantia.FechaInicio.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
-                EscapeCsv(garantia.FechaVencimiento.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
-                EscapeCsv(garantia.MesesGarantia.ToString(CultureInfo.InvariantCulture)),
-                EscapeCsv(garantia.GarantiaExtendida ? "Si" : "No"),
-                EscapeCsv(garantia.ObservacionesActivacion)));
-        }
-
-        return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv", $"garantias-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
-    }
-
-    private static string EscapeCsv(string? value)
-    {
-        var sanitized = (value ?? string.Empty).Replace("\"", "\"\"");
-        return $"\"{sanitized}\"";
     }
 
     /// <summary>

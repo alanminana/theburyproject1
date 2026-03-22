@@ -91,6 +91,15 @@ public interface IDevolucionService
     Task<int> ObtenerCantidadRMAsPendientesAsync();
 
     // ============================================
+    // Filtrado y exportación
+    // ============================================
+
+    List<Devolucion> FiltrarDevoluciones(IEnumerable<Devolucion> devoluciones, string search, string? estado, string? resolucion);
+    List<Garantia> FiltrarGarantias(IEnumerable<Garantia> garantias, string search, string? garantiaEstado, string? garantiaVentana);
+    byte[] GenerarCsvDevoluciones(IEnumerable<Devolucion> devoluciones);
+    byte[] GenerarCsvGarantias(IEnumerable<Garantia> garantias);
+
+    // ============================================
     // Reglas de negocio
     // ============================================
 
