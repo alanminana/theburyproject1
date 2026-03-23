@@ -53,6 +53,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region CRUD
+
         public async Task<IActionResult> Index(ClienteFilterViewModel filter, string? returnUrl = null)
         {
             try
@@ -262,6 +264,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Crédito y aptitud
+
         /// <summary>
         /// GET: Devuelve el contenido parcial del modal de límites por puntaje (carga vía AJAX).
         /// </summary>
@@ -369,6 +375,8 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }
+
+        #endregion
 
         #region Métodos Privados
 

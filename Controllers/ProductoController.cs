@@ -31,6 +31,8 @@ namespace TheBuryProject.Controllers
             _mapper = mapper;
         }
 
+        #region CRUD
+
         // GET: Producto
         /// <summary>
         /// Vista legacy de productos. Redirige al Catálogo unificado.
@@ -354,6 +356,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        #endregion
+
+        #region API y helpers
+
         /// <summary>
         /// Obtiene las subcategorías (hijas) de una categoría padre para dropdown AJAX
         /// </summary>
@@ -412,5 +418,6 @@ namespace TheBuryProject.Controllers
                 .ToList();
         }
 
+        #endregion
     }
 }

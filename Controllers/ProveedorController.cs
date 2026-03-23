@@ -32,6 +32,8 @@ namespace TheBuryProject.Controllers
             _mapper = mapper;
         }
 
+        #region CRUD
+
         // GET: Proveedor
         public async Task<IActionResult> Index(
             string? searchTerm = null,
@@ -351,6 +353,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        #endregion
+
+        #region API y helpers
+
         // API: Obtener productos del proveedor
         [HttpGet]
         public async Task<IActionResult> GetProductos(int id)
@@ -421,5 +427,7 @@ namespace TheBuryProject.Controllers
                 })
                 .ToList();
         }
+
+        #endregion
     }
 }

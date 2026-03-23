@@ -47,6 +47,8 @@ namespace TheBuryProject.Controllers
             _clienteLookup = clienteLookup;
         }
 
+        #region Listado y consultas
+
         // GET: DocumentoCliente
         public async Task<IActionResult> Index(DocumentoClienteFilterViewModel? filtro, int? returnToVentaId, string? returnUrl = null)
         {
@@ -103,6 +105,10 @@ namespace TheBuryProject.Controllers
                 return View("Index_tw", emptyModel);
             }
         }
+
+        #endregion
+
+        #region Carga de documentos
 
         // GET: DocumentoCliente/Upload
         public async Task<IActionResult> Upload(int? clienteId, int? returnToVentaId, int? replaceId, string? returnUrl = null)
@@ -272,6 +278,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Detalle, verificación y eliminación
+
         // GET: DocumentoCliente/Details/5
         public async Task<IActionResult> Details(int id, string? returnUrl = null)
         {
@@ -436,6 +446,10 @@ namespace TheBuryProject.Controllers
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
         }
+
+        #endregion
+
+        #region Operaciones batch y API
 
         private async Task CargarViewBags(int? clienteIdSeleccionado = null, bool limitarAClienteSeleccionado = false)
         {
@@ -642,5 +656,7 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "Error al obtener documentos" });
             }
         }
+
+        #endregion
     }
 }

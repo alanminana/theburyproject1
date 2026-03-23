@@ -49,6 +49,8 @@ public class SeguridadController : Controller
         _logger = logger;
     }
 
+    #region Dashboard
+
     [HttpGet]
     public async Task<IActionResult> Index(
         string? tab,
@@ -92,6 +94,10 @@ public class SeguridadController : Controller
 
         return View(viewModel);
     }
+
+    #endregion
+
+    #region Gestión de usuarios
 
     [HttpGet]
     [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
@@ -243,6 +249,10 @@ public class SeguridadController : Controller
             return View("EditUsuario_tw", model);
         }
     }
+
+    #endregion
+
+    #region Gestión de roles
 
     [HttpGet]
     [PermisoRequerido(Modulo = "roles", Accion = "view")]
@@ -549,6 +559,10 @@ public class SeguridadController : Controller
             : RedirectToAction(nameof(Index), new { tab = "roles" });
     }
 
+    #endregion
+
+    #region Gestión de permisos
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [PermisoRequerido(Modulo = "roles", Accion = "assignpermissions")]
@@ -687,6 +701,10 @@ public class SeguridadController : Controller
         }
     }
 
+    #endregion
+
+    #region Auditoría
+
     [HttpGet]
     [PermisoRequerido(Modulo = "roles", Accion = "view")]
     public async Task<IActionResult> Auditoria(
@@ -696,6 +714,10 @@ public class SeguridadController : Controller
         DateOnly? desde,
         DateOnly? hasta)
         => View("Auditoria_tw", await BuildAuditoriaViewModelAsync(usuario, modulo, accion, desde, hasta));
+
+    #endregion
+
+    #region Métodos privados
 
     private async Task<SeguridadAuditoriaViewModel> BuildAuditoriaViewModelAsync(
         string? usuario,
@@ -1058,4 +1080,6 @@ public class SeguridadController : Controller
         string Label,
         bool Required,
         string[] Aliases);
+
+    #endregion
 }
