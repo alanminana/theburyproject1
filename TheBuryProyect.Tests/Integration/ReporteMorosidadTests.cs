@@ -21,12 +21,11 @@ public class ReporteMorosidadTests : IDisposable
     private readonly AppDbContext _context;
     private readonly ReporteService _service;
 
-    // Fecha fija para tests deterministas
-    // hoy = UtcNow.Date en el service, pero los datos se construyen relativos a "ahora"
-    // Usamos fechas absolutas alejadas del presente para evitar falsos positivos por tiempo.
-    private static readonly DateTime Ayer = new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc);
-    private static readonly DateTime Hoy = new DateTime(2026, 3, 21, 0, 0, 0, DateTimeKind.Utc);
-    private static readonly DateTime Manana = new DateTime(2026, 3, 22, 0, 0, 0, DateTimeKind.Utc);
+    // Fechas relativas para tests deterministas independientes de la fecha real.
+    // El service usa DateTime.UtcNow.Date para determinar vencimiento.
+    private static readonly DateTime Ayer = DateTime.UtcNow.Date.AddDays(-1);
+    private static readonly DateTime Hoy = DateTime.UtcNow.Date;
+    private static readonly DateTime Manana = DateTime.UtcNow.Date.AddDays(1);
 
     public ReporteMorosidadTests()
     {
