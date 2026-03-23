@@ -62,6 +62,7 @@ namespace TheBuryProject.Controllers
 
         // POST: Reporte/Ventas
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Ventas(ReporteVentasFiltroViewModel filtro)
         {
             try
