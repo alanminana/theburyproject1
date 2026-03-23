@@ -1076,7 +1076,7 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region AutorizaciÃ³n
+        #region Autorización
 
         public async Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo)
         {
@@ -1093,7 +1093,7 @@ namespace TheBuryProject.Services
 
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Solicitud de autorizaciÃ³n creada para venta {Id} por {Usuario}", id, usuarioSolicita);
+            _logger.LogInformation("Solicitud de autorización creada para venta {Id} por {Usuario}", id, usuarioSolicita);
             return true;
         }
 
@@ -1239,14 +1239,14 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region MÃ©todos de CÃ¡lculo - Tarjetas
+        #region Métodos de Cálculo - Tarjetas
 
         public async Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas)
         {
             var configuracion = await _context.ConfiguracionesTarjeta
                 .FirstOrDefaultAsync(t => t.Id == tarjetaId && !t.IsDeleted);
             if (configuracion == null)
-                throw new InvalidOperationException("ConfiguraciÃ³n de tarjeta no encontrada");
+                throw new InvalidOperationException("Configuración de tarjeta no encontrada");
 
             var resultado = new DatosTarjetaViewModel
             {
@@ -1315,7 +1315,7 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region MÃ©todos de CÃ¡lculo - CrÃ©dito Personal
+        #region Métodos de Cálculo - Crédito Personal
 
         public async Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(
             int creditoId,
@@ -1334,7 +1334,7 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException(VentaConstants.ErrorMessages.CREDITO_NO_ENCONTRADO);
 
             if (credito.Estado != EstadoCredito.Activo && credito.Estado != EstadoCredito.Aprobado)
-                throw new InvalidOperationException("El crÃ©dito debe estar en estado Activo o Aprobado");
+                throw new InvalidOperationException("El crédito debe estar en estado Activo o Aprobado");
 
             var creditoDisponible = credito.SaldoPendiente;
 
@@ -1425,7 +1425,7 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region MÃ©todos Auxiliares - Cheques
+        #region Métodos Auxiliares - Cheques
 
         public async Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque)
         {
@@ -1445,7 +1445,7 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region MÃ©todos Privados - Helpers
+        #region Métodos Privados - Helpers
 
         private bool PuedeDelegarVendedor()
         {
@@ -1802,7 +1802,7 @@ namespace TheBuryProject.Services
             _context.VentaCreditoCuotas.RemoveRange(venta.VentaCreditoCuotas);
 
             _logger.LogInformation(
-                "CrÃ©dito {CreditoId} restaurado por cancelaciÃ³n de venta {VentaId}. Monto: ${Monto}",
+                "Crédito {CreditoId} restaurado por cancelación de venta {VentaId}. Monto: ${Monto}",
                 credito.Id, venta.Id, montoFinanciado);
         }
 
