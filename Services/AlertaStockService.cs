@@ -22,10 +22,10 @@ namespace TheBuryProject.Services
 
         public AlertaStockService(
             AppDbContext context,
-            ILogger<AlertaStockService> _logger)
+            ILogger<AlertaStockService> logger)
         {
             _context = context;
-            this._logger = _logger;
+            _logger = logger;
         }
 
         #endregion

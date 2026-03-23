@@ -11,6 +11,9 @@ namespace TheBuryProject.Services
     {
         #region Constructor y dependencias
 
+        /// <summary>Alícuota de IVA general (21%).</summary>
+        private const decimal AlicuotaIva = 0.21m;
+
         private readonly AppDbContext _context;
         private readonly ILogger<OrdenCompraService> _logger;
         private readonly IMovimientoStockService _movimientoStockService;
@@ -445,7 +448,7 @@ namespace TheBuryProject.Services
 
             ordenCompra.Subtotal = ordenCompra.Detalles.Sum(d => d.Subtotal);
             var subtotalConDescuento = ordenCompra.Subtotal - ordenCompra.Descuento;
-            ordenCompra.Iva = subtotalConDescuento * 0.21m;
+            ordenCompra.Iva = subtotalConDescuento * AlicuotaIva;
             ordenCompra.Total = subtotalConDescuento + ordenCompra.Iva;
         }
 

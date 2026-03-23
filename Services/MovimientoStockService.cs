@@ -8,6 +8,9 @@ namespace TheBuryProject.Services
 {
     public class MovimientoStockService : IMovimientoStockService
     {
+        /// <summary>Cantidad máxima permitida por movimiento de stock.</summary>
+        private const decimal MaxCantidadMovimiento = 999999.99m;
+
         private readonly AppDbContext _context;
         private readonly ILogger<MovimientoStockService> _logger;
 
@@ -496,8 +499,8 @@ namespace TheBuryProject.Services
             if (cantidad <= 0)
                 return (false, "La cantidad debe ser mayor a 0");
 
-            if (cantidad > 999999.99m)
-                return (false, "La cantidad no puede exceder 999999.99");
+            if (cantidad > MaxCantidadMovimiento)
+                return (false, $"La cantidad no puede exceder {MaxCantidadMovimiento}");
 
             return (true, "Cantidad válida");
         }
