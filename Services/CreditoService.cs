@@ -12,6 +12,9 @@ namespace TheBuryProject.Services
 {
     public class CreditoService : ICreditoService
     {
+        private const int MinCuotasCredito = 1;
+        private const int MaxCuotasCredito = 120;
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<CreditoService> _logger;
@@ -834,7 +837,7 @@ namespace TheBuryProject.Services
             if (solicitud.MontoSolicitado <= 0)
                 return (false, null, "Monto inválido");
 
-            if (solicitud.CantidadCuotas < 1 || solicitud.CantidadCuotas > 120)
+            if (solicitud.CantidadCuotas < MinCuotasCredito || solicitud.CantidadCuotas > MaxCuotasCredito)
                 return (false, null, "Cantidad de cuotas inválida");
 
             // Cargar cliente

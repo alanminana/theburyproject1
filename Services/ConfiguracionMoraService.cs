@@ -9,6 +9,9 @@ namespace TheBuryProject.Services
 {
     public class ConfiguracionMoraService : IConfiguracionMoraService
     {
+        private const decimal TasaMoraDiariaDefault = 0.1m;
+        private const int DiasGraciaDefault = 3;
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<ConfiguracionMoraService> _logger;
@@ -41,8 +44,8 @@ namespace TheBuryProject.Services
                 // Crear configuración por defecto
                 return new ConfiguracionMoraCompletaViewModel
                 {
-                    TasaMoraDiaria = 0.1m,
-                    DiasGracia = 3,
+                    TasaMoraDiaria = TasaMoraDiariaDefault,
+                    DiasGracia = DiasGraciaDefault,
                     ProcesoAutomaticoActivo = true,
                     HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
                     Alertas = new List<AlertaMoraViewModel>
@@ -63,8 +66,8 @@ namespace TheBuryProject.Services
             var viewModel = new ConfiguracionMoraCompletaViewModel
             {
                 Id = config.Id,
-                TasaMoraDiaria = config.TasaMoraBase ?? 0.1m,
-                DiasGracia = config.DiasGracia ?? 3,
+                TasaMoraDiaria = config.TasaMoraBase ?? TasaMoraDiariaDefault,
+                DiasGracia = config.DiasGracia ?? DiasGraciaDefault,
                 ProcesoAutomaticoActivo = config.ProcesoAutomaticoActivo,
                 HoraEjecucionDiaria = config.HoraEjecucionDiaria ?? new TimeSpan(8, 0, 0),
                 Alertas = _mapper.Map<List<AlertaMoraViewModel>>(alertas)

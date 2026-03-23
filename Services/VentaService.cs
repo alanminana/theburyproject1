@@ -16,6 +16,9 @@ namespace TheBuryProject.Services
 {
     public class VentaService : IVentaService
     {
+        /// <summary>Longitud máxima del campo MotivoAutorizacion en la entidad Venta.</summary>
+        private const int MaxLongitudMotivoAutorizacion = 1000;
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<VentaService> _logger;
@@ -445,11 +448,11 @@ namespace TheBuryProject.Services
             else
             {
                 var compuesto = $"{venta.MotivoAutorizacion}\n{traza}";
-                venta.MotivoAutorizacion = compuesto.Length <= 1000
+                venta.MotivoAutorizacion = compuesto.Length <= MaxLongitudMotivoAutorizacion
                     ? compuesto
-                    : traza.Length <= 1000
+                    : traza.Length <= MaxLongitudMotivoAutorizacion
                         ? traza
-                        : traza.Substring(0, 1000);
+                        : traza.Substring(0, MaxLongitudMotivoAutorizacion);
             }
         }
 
@@ -1175,11 +1178,11 @@ namespace TheBuryProject.Services
             else
             {
                 var compuesto = $"{venta.MotivoAutorizacion}\n{traza}";
-                venta.MotivoAutorizacion = compuesto.Length <= 1000
+                venta.MotivoAutorizacion = compuesto.Length <= MaxLongitudMotivoAutorizacion
                     ? compuesto
-                    : traza.Length <= 1000
+                    : traza.Length <= MaxLongitudMotivoAutorizacion
                         ? traza
-                        : traza.Substring(0, 1000);
+                        : traza.Substring(0, MaxLongitudMotivoAutorizacion);
             }
 
             await _context.SaveChangesAsync();

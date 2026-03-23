@@ -20,6 +20,9 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<MoraService> _logger;
+        /// <summary>Umbral de días de atraso para clasificar una mora como elevada.</summary>
+        private const int DiasMoraElevada = 90;
+
         private ConfiguracionMora? _configuracion;
 
         public MoraService(
@@ -1363,7 +1366,7 @@ namespace TheBuryProject.Services
 
         private TipoAlertaCobranza ObtenerTipoAlerta(int diasAtraso)
         {
-            return diasAtraso > 90 ? TipoAlertaCobranza.MoraElevada : TipoAlertaCobranza.CuotaVencida;
+            return diasAtraso > DiasMoraElevada ? TipoAlertaCobranza.MoraElevada : TipoAlertaCobranza.CuotaVencida;
         }
 
         private string GenerarMensajeAlerta(Cliente cliente, decimal montoVencido, int cuotasVencidas, int diasAtraso)
