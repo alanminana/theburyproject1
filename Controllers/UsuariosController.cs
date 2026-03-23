@@ -23,6 +23,7 @@ public class UsuariosController : Controller
     private readonly AppDbContext _context;
     private readonly IRolService _rolService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
+    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<UsuariosController> _logger;
     private readonly IdentityOptions _identityOptions;
 
@@ -43,6 +44,7 @@ public class UsuariosController : Controller
         AppDbContext context,
         IRolService rolService,
         ISeguridadAuditoriaService seguridadAuditoria,
+        ICurrentUserService currentUser,
         ILogger<UsuariosController> logger,
         IOptions<IdentityOptions> identityOptions)
     {
@@ -50,6 +52,7 @@ public class UsuariosController : Controller
         _context = context;
         _rolService = rolService;
         _seguridadAuditoria = seguridadAuditoria;
+        _currentUser = currentUser;
         _logger = logger;
         _identityOptions = identityOptions.Value;
     }
@@ -197,7 +200,7 @@ public class UsuariosController : Controller
                 }
 
                 _logger.LogInformation("Usuario creado: {Email} por {Admin}",
-                    model.Email, User.Identity?.Name);
+                    model.Email, _currentUser.GetUsername());
                 TempData["Success"] = $"Usuario '{model.UserName}' creado exitosamente.";
                 await _seguridadAuditoria.RegistrarEventoAsync(
                     "Seguridad",
@@ -241,7 +244,7 @@ public class UsuariosController : Controller
 
             user.Activo = false;
             user.FechaDesactivacion = DateTime.UtcNow;
-            user.DesactivadoPor = User.Identity?.Name;
+            user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = "Desactivación rápida desde la grilla de usuarios.";
 
             var result = await _userManager.UpdateAsync(user);
@@ -249,7 +252,7 @@ public class UsuariosController : Controller
             if (result.Succeeded)
             {
                 _logger.LogInformation("Usuario desactivado rápidamente: {UserId} por usuario {User}",
-                    id, User.Identity?.Name);
+                    id, _currentUser.GetUsername());
                 TempData["Success"] = $"Usuario '{user.UserName}' desactivado exitosamente.";
             }
             else
@@ -328,7 +331,7 @@ public class UsuariosController : Controller
             // Soft delete: marcar como inactivo en lugar de eliminar
             user.Activo = false;
             user.FechaDesactivacion = DateTime.UtcNow;
-            user.DesactivadoPor = User.Identity?.Name;
+            user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = motivo;
 
             var result = await _userManager.UpdateAsync(user);
@@ -336,7 +339,7 @@ public class UsuariosController : Controller
             if (result.Succeeded)
             {
                 _logger.LogInformation("Usuario desactivado: {UserId} por usuario {User}. Motivo: {Motivo}",
-                    id, User.Identity?.Name, motivo ?? "No especificado");
+                    id, _currentUser.GetUsername(), motivo ?? "No especificado");
                 TempData["Success"] = "Usuario desactivado exitosamente. El usuario no podrá iniciar sesión, pero se mantiene el historial de ventas y auditorías.";
             }
             else
@@ -387,7 +390,7 @@ public class UsuariosController : Controller
             if (result.Succeeded)
             {
                 _logger.LogInformation("Usuario reactivado: {UserId} por usuario {User}",
-                    id, User.Identity?.Name);
+                    id, _currentUser.GetUsername());
                 TempData["Success"] = "Usuario reactivado exitosamente";
             }
             else
@@ -460,7 +463,7 @@ public class UsuariosController : Controller
             if (result.Succeeded)
             {
                 _logger.LogInformation("Contraseña cambiada para usuario {UserId} por {User}",
-                    model.UserId, User.Identity?.Name);
+                    model.UserId, _currentUser.GetUsername());
                 await _seguridadAuditoria.RegistrarEventoAsync(
                     "Seguridad",
                     "Reset Password",
@@ -542,7 +545,7 @@ public class UsuariosController : Controller
             if (result.Succeeded)
             {
                 _logger.LogInformation("Email confirmado para usuario {UserId} por {Admin}",
-                    id, User.Identity?.Name);
+                    id, _currentUser.GetUsername());
                 TempData["Success"] = $"Email confirmado exitosamente para {user.Email}. Ahora puede iniciar sesión.";
             }
             else
@@ -637,7 +640,7 @@ public class UsuariosController : Controller
             _logger.LogInformation(
                 "Usuario {UserId} bloqueado por {Admin}. Motivo: {Motivo}. Bloqueado hasta: {BloqueadoHasta}",
                 model.UserId,
-                User.Identity?.Name,
+                _currentUser.GetUsername(),
                 model.MotivoBloqueo,
                 model.BloqueadoHasta?.ToString("O") ?? "indefinido");
 
@@ -671,7 +674,7 @@ public class UsuariosController : Controller
 
             await _userManager.SetLockoutEndDateAsync(user, null);
 
-            _logger.LogInformation("Usuario {UserId} desbloqueado por {Admin}", id, User.Identity?.Name);
+            _logger.LogInformation("Usuario {UserId} desbloqueado por {Admin}", id, _currentUser.GetUsername());
             TempData["Success"] = $"Usuario {user.UserName} desbloqueado correctamente.";
             await _seguridadAuditoria.RegistrarEventoAsync(
                 "Seguridad",
@@ -796,7 +799,7 @@ public class UsuariosController : Controller
 
                         user.Activo = false;
                         user.FechaDesactivacion = DateTime.UtcNow;
-                        user.DesactivadoPor = User.Identity?.Name;
+                        user.DesactivadoPor = _currentUser.GetUsername();
                         user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";
 
                         var desactivarResult = await _userManager.UpdateAsync(user);
@@ -872,7 +875,7 @@ public class UsuariosController : Controller
             };
 
             _logger.LogInformation("Acción masiva '{Accion}' ejecutada sobre {Count} usuarios por {Admin}",
-                accion, count, User.Identity?.Name);
+                accion, count, _currentUser.GetUsername());
 
             if (count > 0)
             {
