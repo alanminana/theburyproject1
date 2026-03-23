@@ -53,7 +53,7 @@ namespace TheBuryProject.Services
 
             await NotificarActualizacionAsync(notificacion.UsuarioDestino);
 
-            _logger.LogInformation($"Notificación creada para {model.UsuarioDestino}: {model.Titulo}");
+            _logger.LogInformation("Notificación creada para {Usuario}: {Titulo}", model.UsuarioDestino, model.Titulo);
 
             return notificacion;
         }
@@ -101,7 +101,7 @@ namespace TheBuryProject.Services
                     prioridad);
             }
 
-            _logger.LogInformation($"Notificaciones creadas para rol {rol}: {usuariosEnRol.Count} usuarios");
+            _logger.LogInformation("Notificaciones creadas para rol {Rol}: {Count} usuarios", rol, usuariosEnRol.Count);
         }
 
         #endregion
@@ -215,7 +215,7 @@ namespace TheBuryProject.Services
 
             if (updated > 0)
             {
-                _logger.LogInformation($"Marcadas {updated} notificaciones como leídas para {usuario}");
+                _logger.LogInformation("Marcadas {Count} notificaciones como leídas para {Usuario}", updated, usuario);
                 await NotificarActualizacionAsync(usuario);
             }
         }
@@ -266,7 +266,7 @@ namespace TheBuryProject.Services
 
             if (updated > 0)
             {
-                _logger.LogInformation($"Limpiadas {updated} notificaciones antiguas");
+                _logger.LogInformation("Limpiadas {Count} notificaciones antiguas", updated);
             }
         }
 
