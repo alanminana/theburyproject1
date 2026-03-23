@@ -14,6 +14,9 @@ namespace TheBuryProject.Services;
 /// </summary>
 public class DevolucionService : IDevolucionService
 {
+    /// <summary>Plazo máximo (días) para aceptar una devolución desde la fecha de venta.</summary>
+    private const int DiasLimiteDevolucion = 30;
+
     private readonly AppDbContext _context;
     private readonly IMovimientoStockService _movimientoStockService;
     private readonly ICurrentUserService _currentUserService;
@@ -437,8 +440,7 @@ public class DevolucionService : IDevolucionService
     public async Task<bool> PuedeDevolverVentaAsync(int ventaId)
     {
         var diasDesdeVenta = await ObtenerDiasDesdeVentaAsync(ventaId);
-        // Política: se pueden devolver productos hasta 30 días después de la compra
-        return diasDesdeVenta <= 30;
+        return diasDesdeVenta <= DiasLimiteDevolucion;
     }
 
     public async Task<int> ObtenerDiasDesdeVentaAsync(int ventaId)

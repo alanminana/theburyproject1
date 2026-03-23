@@ -16,6 +16,15 @@ namespace TheBuryProject.Services
     {
         #region Constructor y dependencias
 
+        // Umbrales de margen para clasificación de productos
+        private const decimal UmbralMargenBajo = 20m;
+        private const decimal UmbralMargenAlto = 35m;
+
+        // Tramos de antigüedad de mora (días)
+        private const int TramoMora30Dias = 30;
+        private const int TramoMora60Dias = 60;
+        private const int TramoMora90Dias = 90;
+
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
 
@@ -232,8 +241,8 @@ namespace TheBuryProject.Services
                         ? productosMargen.Average(p => p.MargenPorcentaje)
                         : 0,
                     GananciaTotalPotencial = productosMargen.Sum(p => p.GananciaPotencial),
-                    ProductosConMargenBajo = productosMargen.Count(p => p.MargenPorcentaje < 20),
-                    ProductosConMargenAlto = productosMargen.Count(p => p.MargenPorcentaje >= 35)
+                    ProductosConMargenBajo = productosMargen.Count(p => p.MargenPorcentaje < UmbralMargenBajo),
+                    ProductosConMargenAlto = productosMargen.Count(p => p.MargenPorcentaje >= UmbralMargenAlto)
                 };
             }
             catch (Exception ex)
@@ -326,9 +335,9 @@ namespace TheBuryProject.Services
                     PromedioDeudaPorCliente = clientesMorosos.Any()
                         ? totalDeudaVencida / clientesMorosos.Count
                         : 0,
-                    DeudaMayor30Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= 30).Sum(c => c.TotalDeudaVencida),
-                    DeudaMayor60Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= 60).Sum(c => c.TotalDeudaVencida),
-                    DeudaMayor90Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= 90).Sum(c => c.TotalDeudaVencida)
+                    DeudaMayor30Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora30Dias).Sum(c => c.TotalDeudaVencida),
+                    DeudaMayor60Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora60Dias).Sum(c => c.TotalDeudaVencida),
+                    DeudaMayor90Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora90Dias).Sum(c => c.TotalDeudaVencida)
                 };
             }
             catch (Exception ex)
