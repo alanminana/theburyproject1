@@ -13,6 +13,11 @@ namespace TheBuryProject.Services
     {
         #region Constructor y dependencias
 
+        // Umbrales de margen para alertas en simulación de cambio de precio
+        private const decimal UmbralMargenMinimo = 10m;
+        private const decimal UmbralCambioMargenSignificativo = 10m;
+        private const decimal UmbralAumentoPrecioVentaGrande = 50m;
+
         private readonly AppDbContext _context;
         private readonly ILogger<PrecioHistoricoService> _logger;
 
@@ -357,17 +362,17 @@ namespace TheBuryProject.Services
                 simulacion.Alertas.Add("⚠️ ALERTA: El margen propuesto es NEGATIVO. Venderás con pérdida.");
                 simulacion.EsRecomendable = false;
             }
-            else if (simulacion.MargenPropuesto < 10)
+            else if (simulacion.MargenPropuesto < UmbralMargenMinimo)
             {
-                simulacion.Alertas.Add("⚠️ ADVERTENCIA: El margen propuesto es muy bajo (< 10%).");
+                simulacion.Alertas.Add($"⚠️ ADVERTENCIA: El margen propuesto es muy bajo (< {UmbralMargenMinimo}%).");
                 simulacion.EsRecomendable = false;
             }
-            else if (simulacion.DiferenciaMargen < -10)
+            else if (simulacion.DiferenciaMargen < -UmbralCambioMargenSignificativo)
             {
                 simulacion.Alertas.Add($"⚠️ El margen disminuirá en {Math.Abs(simulacion.DiferenciaMargen):F2}%.");
                 simulacion.EsRecomendable = false;
             }
-            else if (simulacion.DiferenciaMargen > 10)
+            else if (simulacion.DiferenciaMargen > UmbralCambioMargenSignificativo)
             {
                 simulacion.Alertas.Add($"✅ El margen aumentará en {simulacion.DiferenciaMargen:F2}%.");
                 simulacion.EsRecomendable = true;
@@ -379,7 +384,7 @@ namespace TheBuryProject.Services
                 simulacion.EsRecomendable = false;
             }
 
-            if (simulacion.PorcentajeCambioVenta > 50)
+            if (simulacion.PorcentajeCambioVenta > UmbralAumentoPrecioVentaGrande)
             {
                 simulacion.Alertas.Add($"⚠️ Aumento muy grande en precio de venta ({simulacion.PorcentajeCambioVenta:F2}%).");
             }

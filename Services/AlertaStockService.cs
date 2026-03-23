@@ -14,6 +14,9 @@ namespace TheBuryProject.Services
     {
         #region Constructor y dependencias
 
+        /// <summary>Factor sobre StockMinimo para clasificar stock como crítico (no agotado).</summary>
+        private const decimal FactorStockCritico = 0.3m;
+
         private readonly AppDbContext _context;
         private readonly ILogger<AlertaStockService> _logger;
 
@@ -185,7 +188,7 @@ namespace TheBuryProject.Services
                     prioridad = PrioridadAlerta.Critica;
                     mensaje = $"CRÍTICO: El producto '{producto.Nombre}' está AGOTADO. Stock actual: {producto.StockActual}";
                 }
-                else if (producto.StockActual <= (producto.StockMinimo * 0.3m))
+                else if (producto.StockActual <= (producto.StockMinimo * FactorStockCritico))
                 {
                     tipo = TipoAlertaStock.StockCritico;
                     prioridad = PrioridadAlerta.Alta;
