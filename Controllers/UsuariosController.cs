@@ -717,7 +717,7 @@ public class UsuariosController : Controller
             _ => default
         };
 
-        if (string.IsNullOrWhiteSpace(permisoRequerido.modulo) || !User.TienePermiso(permisoRequerido.modulo, permisoRequerido.accion))
+        if (string.IsNullOrWhiteSpace(permisoRequerido.modulo) || !_currentUser.HasPermission(permisoRequerido.modulo, permisoRequerido.accion))
         {
             TempData["Error"] = "No tenés permisos para ejecutar esta acción masiva.";
             return RedirectToReturnUrlOrIndex(returnUrl);
