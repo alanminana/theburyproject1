@@ -9,6 +9,8 @@ namespace TheBuryProject.Services
 {
     public class ProveedorService : IProveedorService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<ProveedorService> _logger;
 
@@ -17,6 +19,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region CRUD
 
         public async Task<IEnumerable<Proveedor>> GetAllAsync()
         {
@@ -223,6 +229,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Validación y búsqueda
+
         public async Task<bool> ExistsCuitAsync(string cuit, int? excludeId = null)
         {
             try
@@ -371,5 +381,7 @@ namespace TheBuryProject.Services
                 .Where(pp => pp.ProveedorId == proveedorId && !pp.IsDeleted)
                 .ToListAsync();
         }
+
+        #endregion
     }
 }

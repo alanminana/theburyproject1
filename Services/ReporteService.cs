@@ -14,6 +14,8 @@ namespace TheBuryProject.Services
 {
     public class ReporteService : IReporteService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
 
@@ -24,6 +26,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region Generación de reportes
 
         public async Task<ReporteVentasResultadoViewModel> GenerarReporteVentasAsync(ReporteVentasFiltroViewModel filtro)
         {
@@ -332,6 +338,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Consultas y agregaciones
+
         public async Task<List<VentasAgrupadasViewModel>> ObtenerVentasAgrupadasAsync(
             DateTime fechaDesde,
             DateTime fechaHasta,
@@ -497,7 +507,9 @@ namespace TheBuryProject.Services
             return clientes;
         }
 
-        // Métodos de exportación a Excel
+        #endregion
+
+        #region Exportación Excel
         public async Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro)
         {
             try
@@ -676,7 +688,10 @@ namespace TheBuryProject.Services
             }
         }
 
-        // Métodos de exportación a PDF
+        #endregion
+
+        #region Exportación PDF
+
         public async Task<byte[]> GenerarVentasPdfAsync(ReporteVentasFiltroViewModel filtro)
         {
             try
@@ -841,5 +856,7 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
     }
 }

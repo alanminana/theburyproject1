@@ -11,6 +11,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class PrecioHistoricoService : IPrecioHistoricoService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<PrecioHistoricoService> _logger;
 
@@ -21,6 +23,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region Registro y reversión
 
         public async Task<PrecioHistorico> RegistrarCambioAsync(
             int productoId,
@@ -153,6 +159,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
+
+        #region Búsqueda y estadísticas
 
         public async Task<PrecioHistoricoEstadisticasViewModel> GetEstadisticasAsync(
             DateTime? fechaDesde,
@@ -300,6 +310,10 @@ namespace TheBuryProject.Services
             };
         }
 
+        #endregion
+
+        #region Simulación
+
         public async Task<PrecioSimulacionViewModel> SimularCambioAsync(
             int productoId,
             decimal precioCompraNuevo,
@@ -415,5 +429,7 @@ namespace TheBuryProject.Services
                 MargenNuevo = historial.MargenNuevo
             };
         }
+
+        #endregion
     }
 }

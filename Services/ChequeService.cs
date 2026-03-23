@@ -8,6 +8,8 @@ namespace TheBuryProject.Services
 {
     public class ChequeService : IChequeService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<ChequeService> _logger;
 
@@ -16,6 +18,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region CRUD
 
         public async Task<IEnumerable<Cheque>> GetAllAsync()
         {
@@ -140,6 +146,10 @@ namespace TheBuryProject.Services
             _logger.LogInformation("Cheque {Id} eliminado exitosamente", id);
             return true;
         }
+
+        #endregion
+
+        #region Búsqueda y consultas
 
         public async Task<IEnumerable<Cheque>> SearchAsync(
             string? searchTerm = null,
@@ -308,6 +318,10 @@ namespace TheBuryProject.Services
                 .ToListAsync();
         }
 
+        #endregion
+
+        #region Operaciones
+
         public async Task<bool> CambiarEstadoAsync(int id, EstadoCheque nuevoEstado)
         {
             var cheque = await _context.Cheques.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
@@ -329,5 +343,7 @@ namespace TheBuryProject.Services
                     !c.IsDeleted &&
                     (excludeId == null || c.Id != excludeId.Value));
         }
+
+        #endregion
     }
 }

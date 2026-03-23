@@ -9,6 +9,8 @@ namespace TheBuryProject.Services
 {
     public class OrdenCompraService : IOrdenCompraService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<OrdenCompraService> _logger;
         private readonly IMovimientoStockService _movimientoStockService;
@@ -25,6 +27,10 @@ namespace TheBuryProject.Services
             _movimientoStockService = movimientoStockService;
             _currentUserService = currentUserService;
         }
+
+        #endregion
+
+        #region CRUD
 
         public async Task<IEnumerable<OrdenCompra>> GetAllAsync()
         {
@@ -218,6 +224,10 @@ namespace TheBuryProject.Services
             return true;
         }
 
+        #endregion
+
+        #region Búsqueda
+
         public async Task<IEnumerable<OrdenCompra>> SearchAsync(
             string? searchTerm = null,
             int? proveedorId = null,
@@ -278,6 +288,10 @@ namespace TheBuryProject.Services
                 .OrderByDescending(o => o.FechaEmision)
                 .ToListAsync();
         }
+
+        #endregion
+
+        #region Operaciones
 
         public async Task<bool> CambiarEstadoAsync(int id, EstadoOrdenCompra nuevoEstado)
         {
@@ -412,6 +426,10 @@ namespace TheBuryProject.Services
             return orden;
         }
 
+        #endregion
+
+        #region Cálculos
+
         public async Task<decimal> CalcularTotalOrdenAsync(int ordenId)
         {
             var orden = await GetByIdAsync(ordenId);
@@ -430,5 +448,7 @@ namespace TheBuryProject.Services
             ordenCompra.Iva = subtotalConDescuento * 0.21m;
             ordenCompra.Total = subtotalConDescuento + ordenCompra.Iva;
         }
+
+        #endregion
     }
 }

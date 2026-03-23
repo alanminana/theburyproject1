@@ -15,6 +15,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class EvaluacionCreditoService : IEvaluacionCreditoService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<EvaluacionCreditoService> _logger;
@@ -38,6 +40,10 @@ namespace TheBuryProject.Services
             _mapper = mapper;
             _logger = logger;
         }
+
+        #endregion
+
+        #region Evaluación principal
 
         public async Task<EvaluacionCreditoViewModel> EvaluarSolicitudAsync(
             int clienteId,
@@ -132,6 +138,10 @@ namespace TheBuryProject.Services
             var reglaGarante = EvaluarGarante(montoSolicitado, evaluacion.TieneGarante);
             evaluacion.Reglas.Add(reglaGarante);
         }
+
+        #endregion
+
+        #region Reglas de evaluación
 
         internal static decimal CalcularRelacionCuotaIngreso(decimal cuota, decimal sueldo) =>
             sueldo == 0 ? 0 : cuota / sueldo;
@@ -308,6 +318,10 @@ namespace TheBuryProject.Services
             return regla;
         }
 
+        #endregion
+
+        #region Resultado y motivos
+
         private void DeterminarResultado(EvaluacionCreditoViewModel evaluacion)
         {
             // Validar reglas críticas
@@ -352,6 +366,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Persistencia
+
         private async Task GuardarEvaluacionAsync(EvaluacionCreditoViewModel evaluacion)
         {
             try
@@ -387,6 +405,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
+
+        #region Consultas
 
         public async Task<EvaluacionCreditoViewModel?> GetEvaluacionByCreditoIdAsync(int creditoId)
         {
@@ -437,6 +459,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Configuración
+
         public async Task<ConfiguracionEvaluacionViewModel> GetConfiguracionAsync()
         {
             try
@@ -465,5 +491,7 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
     }
 }

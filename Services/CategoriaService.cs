@@ -10,6 +10,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class CategoriaService : ICategoriaService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<CategoriaService> _logger;
 
@@ -18,6 +20,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region CRUD
 
         public async Task<IEnumerable<Categoria>> GetAllAsync()
         {
@@ -213,6 +219,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Validación y búsqueda
+
         public async Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null)
         {
             try
@@ -321,5 +331,7 @@ namespace TheBuryProject.Services
                 .OrderBy(c => c.Nombre)
                 .ToListAsync();
         }
+
+        #endregion
     }
 }

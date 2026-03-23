@@ -12,6 +12,8 @@ namespace TheBuryProject.Services
 {
     public class DocumentoClienteService : IDocumentoClienteService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<DocumentoClienteService> _logger;
@@ -29,6 +31,10 @@ namespace TheBuryProject.Services
             _logger = logger;
             _environment = environment;
         }
+
+        #endregion
+
+        #region Consultas
 
         public async Task<List<DocumentoClienteViewModel>> GetAllAsync()
         {
@@ -60,6 +66,10 @@ namespace TheBuryProject.Services
 
             return _mapper.Map<List<DocumentoClienteViewModel>>(documentos);
         }
+
+        #endregion
+
+        #region Carga y descarga de archivos
 
         public async Task<DocumentoClienteViewModel> UploadAsync(DocumentoClienteViewModel viewModel)
         {
@@ -150,6 +160,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
+
+        #region Validación y verificación
 
         public async Task<DocumentacionClienteEstadoViewModel> ValidarDocumentacionObligatoriaAsync(
             int clienteId,
@@ -293,6 +307,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Búsqueda
+
         public async Task<(List<DocumentoClienteViewModel> Documentos, int Total)> BuscarAsync(DocumentoClienteFilterViewModel filtro)
         {
             try
@@ -403,6 +421,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
+
+        #region Operaciones batch
 
         /// <inheritdoc/>
         public async Task<BatchOperacionResultado> VerificarBatchAsync(
@@ -560,5 +582,7 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
     }
 }

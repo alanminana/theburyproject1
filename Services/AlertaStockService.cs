@@ -12,6 +12,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class AlertaStockService : IAlertaStockService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<AlertaStockService> _logger;
 
@@ -22,6 +24,10 @@ namespace TheBuryProject.Services
             _context = context;
             this._logger = _logger;
         }
+
+        #endregion
+
+        #region Generación de alertas
 
         public async Task<int> GenerarAlertasStockBajoAsync()
         {
@@ -243,6 +249,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Consultas
+
         public async Task<List<AlertaStock>> GetAlertasPendientesAsync()
         {
             return await _context.AlertasStock
@@ -267,6 +277,10 @@ namespace TheBuryProject.Services
                 .Select(a => MapToViewModel(a))
                 .FirstOrDefaultAsync();
         }
+
+        #endregion
+
+        #region Resolución
 
         public async Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null)
         {
@@ -353,6 +367,10 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        #endregion
+
+        #region Búsqueda y estadísticas
 
         public async Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro)
         {
@@ -555,6 +573,10 @@ namespace TheBuryProject.Services
                 .ToListAsync();
         }
 
+        #endregion
+
+        #region Mantenimiento y mapeo
+
         public async Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30)
         {
             try
@@ -681,5 +703,7 @@ namespace TheBuryProject.Services
                 EstaVencida = alerta.EstaVencida
             };
         }
+
+        #endregion
     }
 }

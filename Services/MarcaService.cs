@@ -11,6 +11,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class MarcaService : IMarcaService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<MarcaService> _logger;
 
@@ -19,6 +21,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region CRUD
 
         public async Task<IEnumerable<Marca>> GetAllAsync()
         {
@@ -244,6 +250,10 @@ namespace TheBuryProject.Services
             }
         }
 
+        #endregion
+
+        #region Validación y búsqueda
+
         public async Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null)
         {
             try
@@ -378,5 +388,7 @@ namespace TheBuryProject.Services
                 .OrderBy(m => m.Nombre)
                 .ToListAsync();
         }
+
+        #endregion
     }
 }

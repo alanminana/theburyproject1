@@ -11,6 +11,8 @@ namespace TheBuryProject.Services
     /// </summary>
     public class CatalogoService : ICatalogoService
     {
+        #region Constructor y dependencias
+
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly IProductoService _productoService;
         private readonly IPrecioService _precioService;
@@ -30,6 +32,10 @@ namespace TheBuryProject.Services
             _logger = logger;
             _currentUserService = currentUserService;
         }
+
+        #endregion
+
+        #region Consultas de catálogo
 
         /// <inheritdoc />
         public async Task<ResultadoCatalogo> ObtenerCatalogoAsync(FiltrosCatalogo filtros)
@@ -187,8 +193,9 @@ namespace TheBuryProject.Services
         }
 
         // ──────────────────────────────────────────────────────────────
-        // Acciones masivas de precios
-        // ──────────────────────────────────────────────────────────────
+        #endregion
+
+        #region Cambios de precios
 
         /// <inheritdoc />
         public async Task<ResultadoSimulacionPrecios> SimularCambioPreciosAsync(SolicitudSimulacionPrecios solicitud)
@@ -351,6 +358,10 @@ namespace TheBuryProject.Services
             return await _precioService.AplicarCambioPrecioDirectoAsync(model);
         }
 
+        #endregion
+
+        #region Historial de precios
+
         public async Task<CambioPrecioHistorialViewModel> GetHistorialCambiosPrecioAsync()
         {
             var eventos = await _precioService.GetCambioPrecioEventosAsync();
@@ -430,5 +441,7 @@ namespace TheBuryProject.Services
                                 && !string.Equals(d.Evento.Alcance, "reversion", StringComparison.OrdinalIgnoreCase)
             }).ToList();
         }
+
+        #endregion
     }
 }

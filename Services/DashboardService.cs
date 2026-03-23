@@ -10,6 +10,8 @@ namespace TheBuryProject.Services
 {
     public class DashboardService : IDashboardService
     {
+        #region Constructor y dependencias
+
         private readonly AppDbContext _context;
         private readonly ILogger<DashboardService> _logger;
 
@@ -18,6 +20,10 @@ namespace TheBuryProject.Services
             _context = context;
             _logger = logger;
         }
+
+        #endregion
+
+        #region Dashboard principal
 
         public async Task<DashboardViewModel> GetDashboardDataAsync()
         {
@@ -159,6 +165,10 @@ namespace TheBuryProject.Services
             return dashboard;
         }
 
+        #endregion
+
+        #region KPIs
+
         private async Task<decimal> CalcularTicketPromedioAsync()
         {
             var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -227,6 +237,10 @@ namespace TheBuryProject.Services
 
             return (montoRecaudado / montoEsperado) * 100;
         }
+
+        #endregion
+
+        #region Datos para gráficos
 
         private async Task<List<VentasPorDiaDto>> GetVentasUltimos7DiasAsync()
         {
@@ -361,6 +375,10 @@ namespace TheBuryProject.Services
 
             return cobranza;
         }
+
+        #endregion
+
+        #region Listas de detalle
 
         /// <summary>
         /// Obtiene las cuotas que vencen en los próximos 7 días
@@ -502,5 +520,7 @@ namespace TheBuryProject.Services
 
             return ordenes;
         }
+
+        #endregion
     }
 }
