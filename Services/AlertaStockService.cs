@@ -41,7 +41,7 @@ namespace TheBuryProject.Services
                     .Include(p => p.Categoria)
                     .Include(p => p.Marca)
                     .Where(p => !p.IsDeleted && p.Activo && p.StockActual <= p.StockMinimo)
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
                 if (productosConStockBajo.Count == 0)
                 {
@@ -57,7 +57,7 @@ namespace TheBuryProject.Services
                     .Where(a => !a.IsDeleted && a.FechaResolucion == null && productoIds.Contains(a.ProductoId))
                     .Select(a => a.ProductoId)
                     .Distinct()
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
                 var setPendientes = new HashSet<int>(productoIdsConAlertaPendiente);
 
@@ -595,7 +595,7 @@ namespace TheBuryProject.Services
                         a.FechaResolucion.Value < fechaLimite)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(a => a.IsDeleted, true)
-                        .SetProperty(a => a.UpdatedAt, now));
+                        .SetProperty(a => a.UpdatedAt, now), ct);
 
                 _logger.LogInformation("Eliminadas {Cantidad} alertas antiguas", updated);
                 return updated;

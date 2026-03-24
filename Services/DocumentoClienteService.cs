@@ -411,7 +411,7 @@ namespace TheBuryProject.Services
                              && d.FechaVencimiento.Value < today)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(d => d.Estado, EstadoDocumento.Vencido)
-                        .SetProperty(d => d.UpdatedAt, now));
+                        .SetProperty(d => d.UpdatedAt, now), ct);
 
                 _logger.LogInformation("Se marcaron {Count} documentos como vencidos", updated);
             }

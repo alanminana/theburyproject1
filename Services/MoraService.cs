@@ -136,7 +136,7 @@ namespace TheBuryProject.Services
                            !c.Credito!.Cliente!.IsDeleted &&
                            c.Estado == EstadoCuota.Pendiente &&
                            c.FechaVencimiento < fechaLimite)
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
                 log.CuotasProcesadas = cuotasVencidas.Count;
 
@@ -165,7 +165,7 @@ namespace TheBuryProject.Services
                             .AnyAsync(a => a.CreditoId == creditoId &&
                                       !a.Resuelta &&
                                       a.Tipo == TipoAlertaCobranza.CuotaVencida &&
-                                      !a.IsDeleted);
+                                      !a.IsDeleted, ct);
 
                         if (alertaExistente)
                             continue;
@@ -210,7 +210,7 @@ namespace TheBuryProject.Services
                 }
 
                 // Generar alertas de próximos vencimientos
-                await GenerarAlertasProximosVencimientosAsync(config);
+                await GenerarAlertasProximosVencimientosAsync(config, ct);
 
                 // Actualizar configuración
                 config.UltimaEjecucion = DateTime.UtcNow;
@@ -219,7 +219,7 @@ namespace TheBuryProject.Services
                 log.Mensaje = $"Proceso completado. {cuotasVencidas.Count} cuotas procesadas, " +
                     $"{alertasCreadas} alertas generadas, ${log.TotalMora:F2} en mora.";
 
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
 
                 _logger.LogInformation("=== PROCESAMIENTO DE MORA COMPLETADO ===");
                 _logger.LogInformation(log.Mensaje);
@@ -246,7 +246,7 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task GenerarAlertasProximosVencimientosAsync(ConfiguracionMora config)
+        private async Task GenerarAlertasProximosVencimientosAsync(ConfiguracionMora config, CancellationToken ct = default)
         {
             try
             {
@@ -264,7 +264,7 @@ namespace TheBuryProject.Services
                            c.Estado == EstadoCuota.Pendiente &&
                            c.FechaVencimiento > hoy &&
                            c.FechaVencimiento <= proximosDias)
-                    .ToListAsync();
+                    .ToListAsync(ct);
 
                 var creditoIds = cuotasPorVencer
                     .Where(c => c.Credito?.Cliente != null)
@@ -282,7 +282,7 @@ namespace TheBuryProject.Services
                                    !a.IsDeleted)
                         .Select(a => a.CreditoId)
                         .Distinct()
-                        .ToListAsync())
+                        .ToListAsync(ct))
                         .ToHashSet();
 
                 foreach (var cuota in cuotasPorVencer)
@@ -314,7 +314,7 @@ namespace TheBuryProject.Services
                     _context.AlertasCobranza.Add(alerta);
                 }
 
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
                 _logger.LogInformation("Alertas de próximos vencimientos generadas");
             }
             catch (Exception ex)
