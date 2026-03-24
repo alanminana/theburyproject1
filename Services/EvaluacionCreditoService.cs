@@ -64,6 +64,7 @@ namespace TheBuryProject.Services
                 _config ??= await GetConfiguracionAsync();
 
                 var cliente = await _context.Clientes
+                    .AsNoTracking()
                     .Include(c => c.Creditos)
                     .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
 
@@ -175,6 +176,7 @@ namespace TheBuryProject.Services
             var regla = new ReglaEvaluacionViewModel { Nombre = "Documentación", EsCritica = true };
 
             var documentosVerificados = await _context.Set<DocumentoCliente>()
+                .AsNoTracking()
                 .Where(d => d.ClienteId == clienteId
                          && !d.IsDeleted
                          && d.Estado == EstadoDocumento.Verificado
@@ -419,6 +421,7 @@ namespace TheBuryProject.Services
             try
             {
                 var evaluacion = await _context.EvaluacionesCredito
+                    .AsNoTracking()
                     .Include(e => e.Cliente)
                     .Include(e => e.Credito)
                     .Where(e => e.CreditoId == creditoId &&
@@ -444,6 +447,7 @@ namespace TheBuryProject.Services
             try
             {
                 var evaluaciones = await _context.EvaluacionesCredito
+                    .AsNoTracking()
                     .Include(e => e.Credito)
                     .Where(e => e.ClienteId == clienteId &&
                                !e.IsDeleted &&
