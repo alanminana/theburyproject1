@@ -45,6 +45,7 @@ namespace TheBuryProject.Services
             try
             {
                 var query = _context.Ventas
+                    .AsNoTracking()
                     .Include(v => v.Cliente)
                     .Include(v => v.VendedorUser)
                     .Include(v => v.Detalles.Where(d =>
@@ -191,6 +192,7 @@ namespace TheBuryProject.Services
                 // Obtener ventas de los últimos 30 días para cada producto
                 var hace30Dias = DateTime.UtcNow.AddDays(-30);
                 var ventasRecientes = await _context.VentaDetalles
+                    .AsNoTracking()
                     .Include(vd => vd.Venta)
                     .Where(vd => !vd.IsDeleted &&
                                  vd.Venta != null &&
@@ -260,6 +262,7 @@ namespace TheBuryProject.Services
 
                 // Obtener todas las cuotas vencidas con sus créditos y clientes
                 var cuotasVencidas = await _context.Cuotas
+                    .AsNoTracking()
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr.Cliente)
                     .Where(c => !c.IsDeleted
@@ -276,6 +279,7 @@ namespace TheBuryProject.Services
                     .ToList();
 
                 var deudaVigenteRaw = await _context.Cuotas
+                    .AsNoTracking()
                     .Where(c => !c.IsDeleted
                              && !c.Credito.IsDeleted
                              && clienteIds.Contains(c.Credito.ClienteId)
@@ -359,6 +363,7 @@ namespace TheBuryProject.Services
             try
             {
                 var ventas = await _context.Ventas
+                    .AsNoTracking()
                     .Include(v => v.Detalles.Where(d =>
                         !d.IsDeleted &&
                         d.Producto != null &&
@@ -429,6 +434,7 @@ namespace TheBuryProject.Services
         private async Task<List<ProductoMasVendidoViewModel>> ObtenerProductosMasVendidosAsync(ReporteVentasFiltroViewModel filtro)
         {
             var query = _context.VentaDetalles
+                .AsNoTracking()
                 .Include(vd => vd.Venta)
                 .Include(vd => vd.Producto)
                     .ThenInclude(p => p.Categoria)
@@ -476,6 +482,7 @@ namespace TheBuryProject.Services
         private async Task<List<ClienteTopViewModel>> ObtenerClientesTopAsync(ReporteVentasFiltroViewModel filtro)
         {
             var query = _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Where(v => !v.IsDeleted && v.Cliente != null && !v.Cliente.IsDeleted)
                 .AsQueryable();
