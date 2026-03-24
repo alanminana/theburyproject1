@@ -29,6 +29,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
             _mapper = mapper;
         }
+        #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
         public async Task<IActionResult> Index(
          string? searchTerm = null,
          bool soloActivos = false,
@@ -343,6 +345,10 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Carga las categorías disponibles para el dropdown de categoría padre
         /// </summary>
+        #endregion
+
+        #region Métodos auxiliares y AJAX
+
         private async Task CargarCategoriasParaDropdown(int? selectedId = null, int? excludeId = null)
         {
             var categorias = await _categoriaService.GetAllAsync();
@@ -410,5 +416,7 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la categoría. Intentá nuevamente." } } } });
             }
         }
+
+        #endregion
     }
 }

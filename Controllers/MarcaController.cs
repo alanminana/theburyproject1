@@ -26,7 +26,8 @@ namespace TheBuryProject.Controllers
             _mapper = mapper;
         }
 
-        // GET: Marca
+        #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
         // GET: Marca
         public async Task<IActionResult> Index(
             string? searchTerm = null,
@@ -308,6 +309,10 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Carga las marcas disponibles para el dropdown de marca padre
         /// </summary>
+        #endregion
+
+        #region Métodos auxiliares y AJAX
+
         private async Task CargarMarcasParaDropdown(int? selectedId = null, int? excludeId = null)
         {
             var marcas = await _marcaService.GetAllAsync();
@@ -375,5 +380,7 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la marca. Intentá nuevamente." } } } });
             }
         }
+
+        #endregion
     }
 }

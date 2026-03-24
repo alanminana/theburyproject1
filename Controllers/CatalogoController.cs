@@ -29,6 +29,8 @@ namespace TheBuryProject.Controllers
             _mapper = mapper;
         }
 
+        #region Vistas — Index / Resumen / Historial / Detalle
+
         /// <summary>
         /// Vista unificada del catálogo con productos, filtros y precios.
         /// Usa ICatalogoService.ObtenerCatalogoAsync como único punto de acceso a datos.
@@ -104,6 +106,10 @@ namespace TheBuryProject.Controllers
                 return View("Resumen_tw", new CatalogoViewModel());
             }
         }
+
+        #endregion
+
+        #region API de precios — Simular / Aplicar / Historial / Revertir
 
         // ──────────────────────────────────────────────────────────────
         // Acciones masivas de precios
@@ -374,6 +380,8 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { success = false, mensaje = "Error al revertir el cambio" });
             }
         }
+
+        #endregion
     }
 }
 

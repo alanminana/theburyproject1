@@ -36,6 +36,8 @@ public class ListasPreciosController : Controller
     // INDEX - Listar todas las listas de precios
     // ============================================
 
+    #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
     /// <summary>
     /// Muestra todas las listas de precios
     /// </summary>
@@ -375,4 +377,6 @@ public class ListasPreciosController : Controller
 
         return RedirectToAction(nameof(Index));
     }
+
+    #endregion
 }
