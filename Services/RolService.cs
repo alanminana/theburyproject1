@@ -132,6 +132,19 @@ public class RolService : IRolService
 
     public Task<bool> RoleExistsAsync(string roleName) => _roleManager.RoleExistsAsync(roleName);
 
+    public async Task<List<string>> GetRolesInvalidosAsync(IEnumerable<string> roleNames)
+    {
+        var names = roleNames.ToList();
+        if (names.Count == 0) return new List<string>();
+
+        var existentes = await _roleManager.Roles
+            .Where(r => names.Contains(r.Name!))
+            .Select(r => r.Name!)
+            .ToListAsync();
+
+        return names.Except(existentes, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     #endregion
 
     #region Gestión de Permisos

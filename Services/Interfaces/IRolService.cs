@@ -88,6 +88,12 @@ public interface IRolService
     /// </summary>
     Task<bool> RoleExistsAsync(string roleName);
 
+    /// <summary>
+    /// Devuelve los nombres de roles que no existen en el sistema.
+    /// Una sola query en lugar de N llamadas a RoleExistsAsync.
+    /// </summary>
+    Task<List<string>> GetRolesInvalidosAsync(IEnumerable<string> roleNames);
+
     // ============================================
     // GESTIÓN DE PERMISOS
     // ============================================

@@ -143,14 +143,7 @@ public class UsuariosController : Controller
 
         try
         {
-            var invalidRoles = new List<string>();
-            foreach (var roleName in model.RolesSeleccionados)
-            {
-                if (!await _rolService.RoleExistsAsync(roleName))
-                {
-                    invalidRoles.Add(roleName);
-                }
-            }
+            var invalidRoles = await _rolService.GetRolesInvalidosAsync(model.RolesSeleccionados);
 
             if (invalidRoles.Any())
             {
