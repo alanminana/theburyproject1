@@ -348,6 +348,7 @@ namespace TheBuryProject.Services
             try
             {
                 var alertas = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .Where(a => !a.IsDeleted && !a.Resuelta)
@@ -369,6 +370,7 @@ namespace TheBuryProject.Services
             try
             {
                 var alertas = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .Where(a => !a.IsDeleted)
@@ -389,6 +391,7 @@ namespace TheBuryProject.Services
             try
             {
                 var alerta = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
@@ -407,6 +410,7 @@ namespace TheBuryProject.Services
             try
             {
                 var alertas = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .Where(a => a.ClienteId == clienteId && !a.IsDeleted)
@@ -504,6 +508,7 @@ namespace TheBuryProject.Services
             try
             {
                 return await _context.LogsMora
+                    .AsNoTracking()
                     .Where(l => !l.IsDeleted)
                     .OrderByDescending(l => l.FechaEjecucion)
                     .Take(cantidad)
@@ -600,6 +605,7 @@ namespace TheBuryProject.Services
 
                 // Base query: clientes con alertas activas
                 var queryBase = _context.AlertasCobranza
+                    .AsNoTracking()
                     .Include(a => a.Cliente)
                     .Include(a => a.Credito)
                     .Where(a => !a.IsDeleted && !a.Resuelta && a.Cliente != null && !a.Cliente.IsDeleted)
@@ -732,6 +738,7 @@ namespace TheBuryProject.Services
             try
             {
                 var conteos = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Where(a => !a.IsDeleted && !a.Resuelta)
                     .GroupBy(a => a.Prioridad)
                     .Select(g => new { Prioridad = g.Key, Cantidad = g.Select(a => a.ClienteId).Distinct().Count() })
@@ -836,6 +843,7 @@ namespace TheBuryProject.Services
             {
                 var hoy = DateTime.Today;
                 var creditos = await _context.Creditos
+                    .AsNoTracking()
                     .Include(c => c.Cuotas)
                     .Where(c => c.ClienteId == clienteId && !c.IsDeleted)
                     .ToListAsync();
@@ -951,6 +959,7 @@ namespace TheBuryProject.Services
             try
             {
                 var historial = await _context.HistorialContactos
+                    .AsNoTracking()
                     .Where(h => h.ClienteId == clienteId && !h.IsDeleted)
                     .OrderByDescending(h => h.FechaContacto)
                     .ToListAsync();
@@ -1032,9 +1041,10 @@ namespace TheBuryProject.Services
             {
                 var hoy = DateTime.Today;
                 var alertasConPromesa = await _context.AlertasCobranza
-                    .Where(a => a.ClienteId == clienteId && 
-                           !a.IsDeleted && 
-                           !a.Resuelta && 
+                    .AsNoTracking()
+                    .Where(a => a.ClienteId == clienteId &&
+                           !a.IsDeleted &&
+                           !a.Resuelta &&
                            a.FechaPromesaPago != null)
                     .ToListAsync();
 
@@ -1174,6 +1184,7 @@ namespace TheBuryProject.Services
             try
             {
                 var acuerdos = await _context.AcuerdosPago
+                    .AsNoTracking()
                     .Include(a => a.Cuotas)
                     .Where(a => a.ClienteId == clienteId && !a.IsDeleted)
                     .OrderByDescending(a => a.FechaCreacion)
@@ -1244,6 +1255,7 @@ namespace TheBuryProject.Services
 
                 // Alertas activas (no resueltas)
                 var alertas = await _context.AlertasCobranza
+                    .AsNoTracking()
                     .Where(a => !a.IsDeleted && !a.Resuelta)
                     .Include(a => a.Cliente)
                     .ToListAsync();
@@ -1276,6 +1288,7 @@ namespace TheBuryProject.Services
 
                 // Acuerdos activos (calcular saldo pendiente a partir de cuotas)
                 var acuerdos = await _context.AcuerdosPago
+                    .AsNoTracking()
                     .Include(a => a.Cuotas)
                     .Where(a => a.Estado == EstadoAcuerdo.Activo && !a.IsDeleted)
                     .ToListAsync();
@@ -1292,6 +1305,7 @@ namespace TheBuryProject.Services
 
                 // Cobros hoy (cuotas pagadas hoy)
                 var cuotasPagadasHoy = await _context.Cuotas
+                    .AsNoTracking()
                     .Where(c => c.FechaPago.HasValue && c.FechaPago.Value.Date == hoy && !c.IsDeleted)
                     .ToListAsync();
                 var cantidadCobrosHoy = cuotasPagadasHoy.Count;
