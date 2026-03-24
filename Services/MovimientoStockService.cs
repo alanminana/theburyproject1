@@ -254,7 +254,7 @@ namespace TheBuryProject.Services
                 if (transaction != null)
                     await transaction.RollbackAsync();
                 _logger.LogWarning(ex, "Conflicto de concurrencia al ajustar stock - ProductoId {ProductoId}", productoId);
-                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargue e intente nuevamente.");
+                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargá e intentá nuevamente.");
             }
             catch (Exception ex)
             {
@@ -362,7 +362,7 @@ namespace TheBuryProject.Services
                     await transaction.RollbackAsync();
 
                 _logger.LogWarning(ex, "Conflicto de concurrencia al registrar entradas batch - OrdenCompraId {OrdenCompraId}", ordenCompraId);
-                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargue e intente nuevamente.");
+                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargá e intentá nuevamente.");
             }
             catch
             {
@@ -476,7 +476,7 @@ namespace TheBuryProject.Services
                     await transaction.RollbackAsync();
 
                 _logger.LogWarning(ex, "Conflicto de concurrencia al registrar salidas batch");
-                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargue e intente nuevamente.");
+                throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargá e intentá nuevamente.");
             }
             catch
             {

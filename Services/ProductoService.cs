@@ -339,7 +339,7 @@ namespace TheBuryProject.Services
 
                 // Concurrencia optimista: RowVersion es obligatorio para evitar actualizaciones perdidas.
                 if (producto.RowVersion is null || producto.RowVersion.Length == 0)
-                    throw new InvalidOperationException("No se recibió la versión de fila (RowVersion). Recargue los datos e intente nuevamente.");
+                    throw new InvalidOperationException("No se recibió la versión de fila (RowVersion). Recargá los datos e intentá nuevamente.");
 
                 _context.Entry(existing).Property(e => e.RowVersion).OriginalValue = producto.RowVersion;
 
@@ -379,7 +379,7 @@ namespace TheBuryProject.Services
             {
                 _logger.LogWarning(ex, "Conflicto de concurrencia al actualizar producto {Id}", producto.Id);
                 throw new InvalidOperationException(
-                    "El producto fue modificado por otro usuario. Recargue los datos e intente nuevamente.");
+                    "El producto fue modificado por otro usuario. Recargá los datos e intentá nuevamente.");
             }
             catch (Exception ex)
             {

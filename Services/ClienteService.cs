@@ -126,7 +126,7 @@ namespace TheBuryProject.Services
             }
             catch (DbUpdateConcurrencyException)
             {
-                throw new InvalidOperationException("Conflicto de concurrencia: el cliente fue modificado por otro usuario. Por favor recargue y reintente.");
+                throw new InvalidOperationException("Conflicto de concurrencia: el cliente fue modificado por otro usuario. Recargá e intentá nuevamente.");
             }
 
             return clienteExistente;
