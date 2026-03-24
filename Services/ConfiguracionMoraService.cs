@@ -30,10 +30,12 @@ namespace TheBuryProject.Services
         {
             // Obtener configuración principal (solo debe haber una)
             var config = await _context.ConfiguracionesMora
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => !c.IsDeleted);
 
             // Obtener alertas
             var alertas = await _context.Set<AlertaMora>()
+                .AsNoTracking()
                 .Where(a => !a.IsDeleted)
                 .OrderBy(a => a.Orden)
                 .ThenBy(a => a.DiasRelativoVencimiento)

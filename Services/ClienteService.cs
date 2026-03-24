@@ -31,6 +31,7 @@ namespace TheBuryProject.Services
         public async Task<Cliente?> GetByIdAsync(int id)
         {
             return await _context.Clientes
+                .AsNoTracking()
                 .Include(c => c.Creditos.Where(cr => !cr.IsDeleted))
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
         }
