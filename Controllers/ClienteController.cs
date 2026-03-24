@@ -376,6 +376,33 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost]
+        public async Task<IActionResult> ActualizarBcra(int clienteId)
+        {
+            try
+            {
+                await _bcraService.ForzarActualizacionAsync(clienteId);
+
+                var cliente = await _clienteService.GetByIdAsync(clienteId);
+                if (cliente == null)
+                    return NotFound();
+
+                return Json(new
+                {
+                    ok = cliente.SituacionCrediticiaConsultaOk ?? false,
+                    situacion = cliente.SituacionCrediticiaBcra,
+                    descripcion = cliente.SituacionCrediticiaDescripcion,
+                    periodo = cliente.SituacionCrediticiaPeriodo,
+                    ultimaConsulta = cliente.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm")
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forzando actualización BCRA para cliente {Id}", clienteId);
+                return Json(new { ok = false, descripcion = "Error al consultar BCRA" });
+            }
+        }
+
         #endregion
 
         #region Métodos Privados
@@ -424,33 +451,6 @@ namespace TheBuryProject.Controllers
             }
 
             return detalleViewModel;
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> ActualizarBcra(int clienteId)
-        {
-            try
-            {
-                await _bcraService.ForzarActualizacionAsync(clienteId);
-
-                var cliente = await _clienteService.GetByIdAsync(clienteId);
-                if (cliente == null)
-                    return NotFound();
-
-                return Json(new
-                {
-                    ok = cliente.SituacionCrediticiaConsultaOk ?? false,
-                    situacion = cliente.SituacionCrediticiaBcra,
-                    descripcion = cliente.SituacionCrediticiaDescripcion,
-                    periodo = cliente.SituacionCrediticiaPeriodo,
-                    ultimaConsulta = cliente.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm")
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error forzando actualización BCRA para cliente {Id}", clienteId);
-                return Json(new { ok = false, descripcion = "Error al consultar BCRA" });
-            }
         }
 
         private void CargarDropdowns()
