@@ -48,6 +48,7 @@ namespace TheBuryProject.Services
             try
             {
                 var query = _context.Creditos
+                    .AsNoTracking()
                     .Where(c => !c.IsDeleted &&
                                 c.Cliente != null &&
                                 !c.Cliente.IsDeleted)
@@ -108,6 +109,7 @@ namespace TheBuryProject.Services
             try
             {
                 var credito = await _context.Creditos
+                    .AsNoTracking()
                     .Include(c => c.Cliente)
                     .Include(c => c.Garante)
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted).OrderBy(cu => cu.NumeroCuota))
@@ -133,6 +135,7 @@ namespace TheBuryProject.Services
             try
             {
                 var creditos = await _context.Creditos
+                    .AsNoTracking()
                     .Include(c => c.Cliente)
                     .Include(c => c.Garante)
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted).OrderBy(cu => cu.NumeroCuota))
@@ -418,6 +421,7 @@ namespace TheBuryProject.Services
             try
             {
                 var cuotas = await _context.Cuotas
+                    .AsNoTracking()
                     .Where(c => c.CreditoId == creditoId &&
                                 !c.IsDeleted &&
                                 c.Credito != null &&
@@ -441,6 +445,7 @@ namespace TheBuryProject.Services
             try
             {
                 var cuota = await _context.Cuotas
+                    .AsNoTracking()
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr.Cliente)
                     .FirstOrDefaultAsync(c => c.Id == cuotaId &&
@@ -640,6 +645,7 @@ namespace TheBuryProject.Services
             try
             {
                 var cuotas = await _context.Cuotas
+                    .AsNoTracking()
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr.Cliente)
                     .Where(c => !c.IsDeleted &&
