@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels.Requests;
@@ -148,17 +149,17 @@ namespace TheBuryProject.Controllers
                     .ToList();
 
                 var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
+                var preciosBatch = listaPredeterminada != null
+                    ? await _precioService.GetPreciosVigentesBatchAsync(
+                        productos.Select(p => p.Id), listaPredeterminada.Id)
+                    : new Dictionary<int, ProductoPrecioLista>();
                 var resultado = new List<object>(productos.Count);
 
                 foreach (var producto in productos)
                 {
                     var precioVenta = producto.PrecioVenta;
-                    if (listaPredeterminada != null)
-                    {
-                        var vigente = await _precioService.GetPrecioVigenteAsync(producto.Id, listaPredeterminada.Id);
-                        if (vigente != null)
-                            precioVenta = vigente.Precio;
-                    }
+                    if (preciosBatch.TryGetValue(producto.Id, out var vigente))
+                        precioVenta = vigente.Precio;
 
                     if (soloConStock && producto.StockActual <= 0)
                         continue;
