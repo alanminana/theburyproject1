@@ -39,6 +39,8 @@ namespace TheBuryProject.Controllers
         private readonly IUsuarioService _usuarioService;
         private readonly ICajaService _cajaService;
 
+        #region Helpers de caja
+
         private async Task<bool> UsuarioTieneCajaAbiertaAsync()
         {
             var userName = _currentUser.GetUsername();
@@ -91,6 +93,10 @@ namespace TheBuryProject.Controllers
             _usuarioService = usuarioService;
             _cajaService = cajaService;
         }
+
+        #endregion
+
+        #region Index / Detalle
 
         // GET: Venta
         public async Task<IActionResult> Index(VentaFilterViewModel filter)
@@ -148,6 +154,10 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
+
+        #endregion
+
+        #region Cotizar / Crear
 
         // GET: Venta/Cotizar
         [HttpGet]
@@ -265,6 +275,10 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "Error interno al validar aptitud crediticia" });
             }
         }
+
+        #endregion
+
+        #region Editar
 
         // GET: Venta/Edit/5
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
@@ -496,6 +510,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction("ConfigurarVenta", "Credito", new { id = resultado.CreditoId, ventaId, returnUrl = safeReturnUrl });
         }
 
+        #endregion
+
+        #region Eliminar
+
         // GET: Venta/Delete/5
         public async Task<IActionResult> Delete(int id)
         {
@@ -543,6 +561,10 @@ namespace TheBuryProject.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+
+        #endregion
+
+        #region Confirmar
 
         // POST: Venta/Confirmar/5
         [HttpPost]
@@ -748,6 +770,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        #endregion
+
+        #region Cancelar
+
         // GET: Venta/Cancelar/5
         public async Task<IActionResult> Cancelar(int id)
         {
@@ -819,6 +845,10 @@ namespace TheBuryProject.Controllers
 
             return RedirectToAction(nameof(Details), new { id });
         }
+
+        #endregion
+
+        #region Autorizar / Rechazar
 
         // GET: Venta/Autorizar/5
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionAutorizar)]
@@ -984,6 +1014,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        #endregion
+
+        #region Facturar
+
         // GET: Venta/Facturar/5
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionFacturar)]
         public async Task<IActionResult> Facturar(int id)
@@ -1131,6 +1165,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        #endregion
+
+        #region API JSON — Financiamiento y crédito
+
         // GET: API endpoint para obtener tarjetas activas
         [HttpGet]
         public async Task<IActionResult> GetTarjetasActivas()
@@ -1161,7 +1199,9 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        #region Métodos Privados
+        #endregion
+
+        #region Métodos privados
 
         private async Task CargarViewBags(
             int? clienteIdSeleccionado = null,
@@ -1275,7 +1315,6 @@ namespace TheBuryProject.Controllers
                 vendedoresCount);
         }
 
-        #endregion
         // GET: API endpoint para calcular crédito personal
         [HttpGet]
         public async Task<IActionResult> CalcularCreditoPersonall(int creditoId, decimal monto, int cuotas, string fechaPrimeraCuota)
@@ -1429,6 +1468,8 @@ namespace TheBuryProject.Controllers
             ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", viewModel);
         }
+
+        #endregion
     }
 }
 
