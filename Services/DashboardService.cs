@@ -173,6 +173,7 @@ namespace TheBuryProject.Services
         {
             var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
             var agregados = await _context.Ventas
+                .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
                 .Select(v => new { v.Total })
                 .ToListAsync();
@@ -247,6 +248,7 @@ namespace TheBuryProject.Services
             var hace7Dias = DateTime.Today.AddDays(-7);
 
             var ventas = await _context.Ventas
+                .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.FechaVenta >= hace7Dias)
                 .GroupBy(v => v.FechaVenta.Date)
                 .Select(g => new VentasPorDiaDto
@@ -280,6 +282,7 @@ namespace TheBuryProject.Services
             var hace12Meses = DateTime.Today.AddMonths(-12);
 
             var ventas = await _context.Ventas
+                .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.FechaVenta >= hace12Meses)
                 .GroupBy(v => new { v.FechaVenta.Year, v.FechaVenta.Month })
                 .Select(g => new VentasPorMesDto
@@ -302,6 +305,7 @@ namespace TheBuryProject.Services
             var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
 
             var productos = await _context.VentaDetalles
+                .AsNoTracking()
                 .Where(vd => !vd.IsDeleted &&
                     vd.Producto != null &&
                     !vd.Producto.IsDeleted &&
@@ -327,6 +331,7 @@ namespace TheBuryProject.Services
         {
             // USANDO TotalAPagar en lugar de MontoTotal
             var creditos = await _context.Creditos
+                .AsNoTracking()
                 .Where(c => !c.IsDeleted &&
                             c.Cliente != null &&
                             !c.Cliente.IsDeleted)
@@ -349,6 +354,7 @@ namespace TheBuryProject.Services
 
             // USANDO MontoTotal en lugar de Monto
             var cobranza = await _context.Cuotas
+                .AsNoTracking()
                 .Where(c => !c.IsDeleted &&
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
@@ -390,6 +396,7 @@ namespace TheBuryProject.Services
 
             // Consulta a la base de datos sin cálculos de fechas complejos
             var cuotasDb = await _context.Cuotas
+                .AsNoTracking()
                 .Include(c => c.Credito)
                     .ThenInclude(cr => cr.Cliente)
                 .Where(c => !c.IsDeleted &&
@@ -439,6 +446,7 @@ namespace TheBuryProject.Services
 
             // Consulta a la base de datos sin cálculos de fechas complejos
             var cuotasDb = await _context.Cuotas
+                .AsNoTracking()
                 .Include(c => c.Credito)
                     .ThenInclude(cr => cr.Cliente)
                 .Where(c => !c.IsDeleted &&
@@ -494,6 +502,7 @@ namespace TheBuryProject.Services
             };
 
             var ordenes = await _context.OrdenesCompra
+                .AsNoTracking()
                 .Include(oc => oc.Proveedor)
                 .Where(oc => !oc.IsDeleted &&
                              oc.Proveedor != null &&
