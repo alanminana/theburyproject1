@@ -292,7 +292,7 @@ public class DevolucionService : IDevolucionService
         {
             if (transaction != null)
                 await transaction.RollbackAsync();
-            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Por favor, recargue los datos.");
+            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
         }
         catch
         {
@@ -329,7 +329,7 @@ public class DevolucionService : IDevolucionService
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Por favor, recargue los datos.");
+            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
         }
     }
 
@@ -417,7 +417,7 @@ public class DevolucionService : IDevolucionService
         {
             if (transaction != null)
                 await transaction.RollbackAsync();
-            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Por favor, recargue los datos.");
+            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
         }
         catch
         {
@@ -797,7 +797,7 @@ public class DevolucionService : IDevolucionService
         {
             if (transaction != null)
                 await transaction.RollbackAsync();
-            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Por favor, recargue los datos.");
+            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
         }
         catch
         {

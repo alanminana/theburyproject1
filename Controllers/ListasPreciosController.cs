@@ -288,7 +288,7 @@ public class ListasPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "La lista fue modificada por otro usuario. Recargue la página e intente nuevamente.";
+            TempData["Error"] = "La lista fue modificada por otro usuario. Recargá la página e intentá nuevamente.";
             return RedirectToAction(nameof(Edit), new { id });
         }
         catch (Exception ex)
@@ -365,7 +365,7 @@ public class ListasPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "La lista fue modificada por otro usuario. Recargue la página e intente nuevamente.";
+            TempData["Error"] = "La lista fue modificada por otro usuario. Recargá la página e intentá nuevamente.";
         }
         catch (Exception ex)
         {

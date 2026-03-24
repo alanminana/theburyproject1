@@ -18,6 +18,7 @@ public class AutorizacionController : Controller
 {
     private readonly IAutorizacionService _autorizacionService;
     private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<AutorizacionController> _logger;
 
     private IActionResult RedirectToReturnUrlOrSolicitudes(string? returnUrl)
     {
@@ -27,10 +28,12 @@ public class AutorizacionController : Controller
 
     public AutorizacionController(
         IAutorizacionService autorizacionService,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ILogger<AutorizacionController> logger)
     {
         _autorizacionService = autorizacionService;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     #region Umbrales

@@ -174,7 +174,7 @@ namespace TheBuryProject.Services
             catch (DbUpdateConcurrencyException ex)
             {
                 _logger.LogWarning(ex, "Conflicto de concurrencia al actualizar categoría {Id}", categoria.Id);
-                throw new InvalidOperationException("La categoría fue modificada por otro usuario. Por favor, recargue los datos.");
+                throw new InvalidOperationException("La categoría fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
             }
             catch (Exception ex)
             {

@@ -72,7 +72,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener listado de proveedores");
-                TempData["Error"] = "Error al cargar los proveedores. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar los proveedores. Intentá nuevamente.";
                 return View("Index_tw", new ProveedorFilterViewModel());
             }
         }
@@ -94,7 +94,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener detalles del proveedor {Id}", id);
-                TempData["Error"] = "Error al cargar los detalles del proveedor. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar los detalles del proveedor. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -135,7 +135,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al crear proveedor");
-                    ModelState.AddModelError("", "Error al crear el proveedor. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al crear el proveedor. Intentá nuevamente.");
                 }
             }
 
@@ -173,7 +173,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear proveedor vía AJAX");
-                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear el proveedor. Intente nuevamente." } } } });
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear el proveedor. Intentá nuevamente." } } } });
             }
         }
 
@@ -214,7 +214,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al actualizar proveedor {Id}", id);
-                    TempData["Error"] = "Error al actualizar el proveedor. Por favor, intente nuevamente.";
+                    TempData["Error"] = "Error al actualizar el proveedor. Intentá nuevamente.";
                 }
             }
 
@@ -295,7 +295,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar proveedor vía AJAX {Id}", viewModel.Id);
-                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar el proveedor. Intente nuevamente." } } } });
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar el proveedor. Intentá nuevamente." } } } });
             }
         }
 
@@ -317,7 +317,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar proveedor para eliminar {Id}", id);
-                TempData["Error"] = "Error al cargar el proveedor. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar el proveedor. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -347,7 +347,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar proveedor {Id}", id);
-                TempData["Error"] = "Error al eliminar el proveedor. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al eliminar el proveedor. Intentá nuevamente.";
             }
 
             return RedirectToAction(nameof(Index));

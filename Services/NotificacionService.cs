@@ -194,7 +194,7 @@ namespace TheBuryProject.Services
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    throw new InvalidOperationException("La notificación fue modificada por otro proceso. Por favor, recargue los datos.");
+                    throw new InvalidOperationException("La notificación fue modificada por otro proceso. Recargá los datos e intentá nuevamente.");
                 }
 
                 await NotificarActualizacionAsync(usuario);
@@ -246,7 +246,7 @@ namespace TheBuryProject.Services
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    throw new InvalidOperationException("La notificación fue modificada por otro proceso. Por favor, recargue los datos.");
+                    throw new InvalidOperationException("La notificación fue modificada por otro proceso. Recargá los datos e intentá nuevamente.");
                 }
 
                 await NotificarActualizacionAsync(usuario);

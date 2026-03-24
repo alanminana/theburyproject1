@@ -66,7 +66,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener listado de categorías");
-                TempData["Error"] = "Error al cargar las categorías. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar las categorías. Intentá nuevamente.";
                 return View("Index_tw", new CategoriaFilterViewModel());
             }
         }
@@ -116,7 +116,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al crear categoría");
-                    ModelState.AddModelError("", "Error al crear la categoría. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al crear la categoría. Intentá nuevamente.");
                 }
             }
 
@@ -160,7 +160,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener detalles de categoría {Id}", id);
-                TempData["Error"] = "Error al cargar los detalles. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar los detalles. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -201,7 +201,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar categoría para editar {Id}", id);
-                TempData["Error"] = "Error al cargar la categoría. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar la categoría. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -225,7 +225,7 @@ namespace TheBuryProject.Controllers
                     var rowVersion = viewModel.RowVersion;
                     if (rowVersion is null || rowVersion.Length == 0)
                     {
-                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargue la página e intente nuevamente.");
+                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
                         await CargarCategoriasParaDropdown(viewModel.ParentId, id);
                         return View("Edit_tw", viewModel);
                     }
@@ -262,7 +262,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al actualizar categoría {Id}", id);
-                    ModelState.AddModelError("", "Error al actualizar la categoría. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al actualizar la categoría. Intentá nuevamente.");
                 }
             }
 
@@ -304,7 +304,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar categoría para eliminar {Id}", id);
-                TempData["Error"] = "Error al cargar la categoría. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar la categoría. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -334,7 +334,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar categoría {Id}", id);
-                TempData["Error"] = "Error al eliminar la categoría. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al eliminar la categoría. Intentá nuevamente.";
             }
 
             return this.RedirectToReturnUrlOrIndex(returnUrl);
@@ -407,7 +407,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear categoría vía AJAX");
-                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la categoría. Intente nuevamente." } } } });
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la categoría. Intentá nuevamente." } } } });
             }
         }
     }

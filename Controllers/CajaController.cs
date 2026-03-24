@@ -138,7 +138,7 @@ namespace TheBuryProject.Controllers
             var rowVersion = model.RowVersion;
             if (rowVersion is null || rowVersion.Length == 0)
             {
-                var msg = "No se recibió la versión de fila (RowVersion). Recargue la página e intente nuevamente.";
+                var msg = "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.";
                 if (isAjax)
                     return Json(new { ok = false, errors = new[] { msg } });
                 ModelState.AddModelError("", msg);
@@ -178,7 +178,7 @@ namespace TheBuryProject.Controllers
             {
                 if (rowVersion is null || rowVersion.Length == 0)
                 {
-                    TempData["Error"] = "No se recibió la versión de fila (RowVersion). Recargue la página e intente nuevamente.";
+                    TempData["Error"] = "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.";
                     return RedirectToAction(nameof(Index));
                 }
 

@@ -137,7 +137,7 @@ namespace TheBuryProject.Services
             catch (DbUpdateConcurrencyException ex)
             {
                 _logger.LogWarning(ex, "Conflicto de concurrencia al actualizar caja {Id}", id);
-                throw new InvalidOperationException("La caja fue modificada por otro usuario. Por favor, recargue los datos.");
+                throw new InvalidOperationException("La caja fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
             }
             catch (Exception ex)
             {
@@ -180,7 +180,7 @@ namespace TheBuryProject.Services
             catch (DbUpdateConcurrencyException ex)
             {
                 _logger.LogWarning(ex, "Conflicto de concurrencia al eliminar caja {Id}", id);
-                throw new InvalidOperationException("La caja fue modificada por otro usuario. Por favor, recargue los datos.");
+                throw new InvalidOperationException("La caja fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
             }
             catch (Exception ex)
             {

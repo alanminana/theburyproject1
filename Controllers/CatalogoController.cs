@@ -74,7 +74,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener catálogo unificado");
-                TempData["Error"] = "Error al cargar el catálogo. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar el catálogo. Intentá nuevamente.";
                 return View("Index_tw", new CatalogoUnificadoViewModel());
             }
         }

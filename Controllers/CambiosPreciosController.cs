@@ -741,7 +741,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            return Conflict(new { success = false, error = "El batch fue modificado por otro usuario. Recargue el historial y reintente." });
+            return Conflict(new { success = false, error = "El batch fue modificado por otro usuario. Recargá el historial e intentá nuevamente." });
         }
         catch (InvalidOperationException ex)
         {
@@ -908,7 +908,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargue y reintente.";
+            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Autorizar), new { id });
         }
         catch (Exception ex)
@@ -943,7 +943,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargue y reintente.";
+            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Autorizar), new { id });
         }
         catch (Exception ex)
@@ -972,7 +972,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargue y reintente.";
+            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Preview), new { id });
         }
         catch (Exception ex)
@@ -1048,7 +1048,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargue y reintente.";
+            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Aplicar), new { id });
         }
         catch (Exception ex)
@@ -1130,7 +1130,7 @@ public class CambiosPreciosController : Controller
         }
         catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            TempData["Error"] = "El batch fue modificado por otro usuario. Recargue y reintente.";
+            TempData["Error"] = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente.";
             return RedirectToAction(nameof(Revertir), new { id });
         }
         catch (Exception ex)
@@ -1210,7 +1210,7 @@ public class CambiosPreciosController : Controller
         {
             return Conflict(new { 
                 success = false, 
-                error = "El batch fue modificado por otro usuario. Recargue y reintente." 
+                error = "El batch fue modificado por otro usuario. Recargá e intentá nuevamente." 
             });
         }
         catch (InvalidOperationException ex)

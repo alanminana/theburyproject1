@@ -602,7 +602,7 @@ namespace TheBuryProject.Controllers
             }
             catch (FormatException)
             {
-                TempData["Error"] = "RowVersion inválida. Recargue la página e intente nuevamente.";
+                TempData["Error"] = "RowVersion inválida. Recargá la página e intentá nuevamente.";
             }
             catch (Exception ex)
             {
@@ -645,7 +645,7 @@ namespace TheBuryProject.Controllers
             }
             catch (FormatException)
             {
-                TempData["Error"] = "RowVersion inválida. Recargue la página e intente nuevamente.";
+                TempData["Error"] = "RowVersion inválida. Recargá la página e intentá nuevamente.";
             }
             catch (Exception ex)
             {

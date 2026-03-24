@@ -273,7 +273,7 @@ namespace TheBuryProject.Services
             }
 
             throw new InvalidOperationException(
-                "No se pudo generar un número de venta único tras varios reintentos. Intente nuevamente.");
+                "No se pudo generar un número de venta único tras varios reintentos. Intentá nuevamente.");
         }
 
         private async Task CapturarSnapshotLimiteCreditoAsync(Venta venta)

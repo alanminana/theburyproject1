@@ -23,19 +23,22 @@ public class DevolucionController : Controller
     private readonly IVentaService _ventaService;
     private readonly IProveedorService _proveedorService;
     private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<DevolucionController> _logger;
 
     public DevolucionController(
         IDevolucionService devolucionService,
         IClienteService clienteService,
         IVentaService ventaService,
         IProveedorService proveedorService,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ILogger<DevolucionController> logger)
     {
         _devolucionService = devolucionService;
         _clienteService = clienteService;
         _ventaService = ventaService;
         _proveedorService = proveedorService;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     #region Devoluciones

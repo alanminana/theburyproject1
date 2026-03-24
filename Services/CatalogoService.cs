@@ -289,7 +289,7 @@ namespace TheBuryProject.Services
                     return new ResultadoAplicacionPrecios
                     {
                         Exitoso = false,
-                        Mensaje = "Los datos han sido modificados por otro usuario. Por favor, vuelva a simular."
+                        Mensaje = "Los datos fueron modificados por otro usuario. Volvé a simular."
                     };
                 }
 

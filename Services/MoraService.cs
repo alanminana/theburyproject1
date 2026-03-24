@@ -433,7 +433,7 @@ namespace TheBuryProject.Services
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    throw new InvalidOperationException("La alerta fue modificada por otro usuario. Por favor, recargue los datos.");
+                    throw new InvalidOperationException("La alerta fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
                 }
 
                 _logger.LogInformation("Alerta {Id} resuelta. Observaciones: {Obs}", id, observaciones ?? "Ninguna");
@@ -467,7 +467,7 @@ namespace TheBuryProject.Services
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    throw new InvalidOperationException("La alerta fue modificada por otro usuario. Por favor, recargue los datos.");
+                    throw new InvalidOperationException("La alerta fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
                 }
 
                 return true;

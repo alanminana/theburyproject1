@@ -81,7 +81,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener detalles del producto {Id}", id);
-                TempData["Error"] = "Error al cargar los detalles del producto. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar los detalles del producto. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -163,7 +163,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al crear producto");
-                    ModelState.AddModelError("", "Error al crear el producto. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al crear el producto. Intentá nuevamente.");
                 }
             }
 
@@ -212,7 +212,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear producto vía AJAX");
-                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear el producto. Intente nuevamente." } } } });
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear el producto. Intentá nuevamente." } } } });
             }
         }
 
@@ -263,7 +263,7 @@ namespace TheBuryProject.Controllers
                     var rowVersion = viewModel.RowVersion;
                     if (rowVersion is null || rowVersion.Length == 0)
                     {
-                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargue la página e intente nuevamente.");
+                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
                         await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
                         return View("Edit_tw", viewModel);
                     }
@@ -294,7 +294,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al actualizar producto {Id}", id);
-                    ModelState.AddModelError("", "Error al actualizar el producto. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al actualizar el producto. Intentá nuevamente.");
                 }
             }
 
@@ -350,7 +350,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar producto {Id}", id);
-                TempData["Error"] = "Error al eliminar el producto. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al eliminar el producto. Intentá nuevamente.";
             }
 
             return RedirectToAction(nameof(Index));

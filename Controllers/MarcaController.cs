@@ -65,7 +65,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener listado de marcas");
-                TempData["Error"] = "Error al cargar las marcas. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar las marcas. Intentá nuevamente.";
                 return View("Index_tw", new MarcaFilterViewModel());
             }
         }
@@ -95,7 +95,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener detalles de marca {Id}", id);
-                TempData["Error"] = "Error al cargar los detalles. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar los detalles. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -142,7 +142,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al crear marca");
-                    ModelState.AddModelError("", "Error al crear la marca. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al crear la marca. Intentá nuevamente.");
                 }
             }
 
@@ -176,7 +176,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar marca para editar {Id}", id);
-                TempData["Error"] = "Error al cargar la marca. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar la marca. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -200,7 +200,7 @@ namespace TheBuryProject.Controllers
                     var rowVersion = viewModel.RowVersion;
                     if (rowVersion is null || rowVersion.Length == 0)
                     {
-                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargue la página e intente nuevamente.");
+                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
                         await CargarMarcasParaDropdown(viewModel.ParentId, id);
                         return View("Edit_tw", viewModel);
                     }
@@ -236,7 +236,7 @@ namespace TheBuryProject.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error al actualizar marca {Id}", id);
-                    ModelState.AddModelError("", "Error al actualizar la marca. Por favor, intente nuevamente.");
+                    ModelState.AddModelError("", "Error al actualizar la marca. Intentá nuevamente.");
                 }
             }
 
@@ -269,7 +269,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar marca para eliminar {Id}", id);
-                TempData["Error"] = "Error al cargar la marca. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al cargar la marca. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -299,7 +299,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar marca {Id}", id);
-                TempData["Error"] = "Error al eliminar la marca. Por favor, intente nuevamente.";
+                TempData["Error"] = "Error al eliminar la marca. Intentá nuevamente.";
             }
 
             return this.RedirectToReturnUrlOrIndex(returnUrl);
@@ -372,7 +372,7 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear marca vía AJAX");
-                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la marca. Intente nuevamente." } } } });
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la marca. Intentá nuevamente." } } } });
             }
         }
     }
