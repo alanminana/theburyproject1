@@ -35,6 +35,7 @@ file sealed class StubPrecioService : IPrecioService
     public Task<ListaPrecio> UpdateListaAsync(ListaPrecio lista, byte[] rowVersion) => throw new NotImplementedException();
     public Task<bool> DeleteListaAsync(int id, byte[] rowVersion) => throw new NotImplementedException();
     public Task<ProductoPrecioLista?> GetPrecioVigenteAsync(int productoId, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
+    public Task<Dictionary<int, ProductoPrecioLista>> GetPreciosVigentesBatchAsync(IEnumerable<int> productoIds, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
     public Task<List<ProductoPrecioLista>> GetPreciosProductoAsync(int productoId, DateTime? fecha = null) => throw new NotImplementedException();
     public Task<List<ProductoPrecioLista>> GetHistorialPreciosAsync(int productoId, int listaId) => throw new NotImplementedException();
     public Task<ProductoPrecioLista> SetPrecioManualAsync(int productoId, int listaId, decimal precio, decimal costo, DateTime? vigenciaDesde = null, string? notas = null) => throw new NotImplementedException();

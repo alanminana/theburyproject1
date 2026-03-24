@@ -712,6 +712,34 @@ public class PrecioService : IPrecioService
             .FirstOrDefaultAsync();
     }
 
+    public async Task<Dictionary<int, ProductoPrecioLista>> GetPreciosVigentesBatchAsync(
+        IEnumerable<int> productoIds,
+        int listaId,
+        DateTime? fecha = null)
+    {
+        fecha ??= DateTime.UtcNow;
+
+        var ids = productoIds.ToList();
+        if (ids.Count == 0)
+            return new Dictionary<int, ProductoPrecioLista>();
+
+        // Una sola query para todos los productos: filtramos por lista y vigencia,
+        // luego agrupamos en memoria tomando el precio más reciente por producto.
+        var precios = await _context.ProductosPrecios
+            .Where(p => ids.Contains(p.ProductoId)
+                     && p.ListaId == listaId
+                     && p.VigenciaDesde <= fecha
+                     && (p.VigenciaHasta == null || p.VigenciaHasta >= fecha)
+                     && p.EsVigente
+                     && !p.IsDeleted)
+            .OrderByDescending(p => p.VigenciaDesde)
+            .ToListAsync();
+
+        return precios
+            .GroupBy(p => p.ProductoId)
+            .ToDictionary(g => g.Key, g => g.First());
+    }
+
     public async Task<List<ProductoPrecioLista>> GetPreciosProductoAsync(
         int productoId,
         DateTime? fecha = null)

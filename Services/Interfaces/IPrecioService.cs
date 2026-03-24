@@ -55,6 +55,13 @@ public interface IPrecioService
     Task<ProductoPrecioLista?> GetPrecioVigenteAsync(int productoId, int listaId, DateTime? fecha = null);
 
     /// <summary>
+    /// Obtiene el precio vigente de cada producto de la lista para una lista de precios dada,
+    /// en una sola query. Devuelve un diccionario productoId → precio.
+    /// Los productos sin precio en la lista no aparecen en el resultado.
+    /// </summary>
+    Task<Dictionary<int, ProductoPrecioLista>> GetPreciosVigentesBatchAsync(IEnumerable<int> productoIds, int listaId, DateTime? fecha = null);
+
+    /// <summary>
     /// Obtiene todos los precios vigentes de un producto en todas las listas
     /// </summary>
     Task<List<ProductoPrecioLista>> GetPreciosProductoAsync(int productoId, DateTime? fecha = null);

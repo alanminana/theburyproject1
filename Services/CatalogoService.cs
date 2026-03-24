@@ -62,15 +62,19 @@ namespace TheBuryProject.Services
                 filtros.DireccionOrden
             );
 
-            // 5. Obtener precios de todos los productos en batch si es posible
-            // (optimización futura: usar GetPreciosProductosAsync batch)
-            var filas = new List<FilaCatalogo>();
+            // 5. Obtener precios de todos los productos en batch (una sola query)
+            var productoIds = productos.Select(p => p.Id).ToList();
+            var preciosBatch = listaActual != null
+                ? await _precioService.GetPreciosVigentesBatchAsync(productoIds, listaActual.Id)
+                : new Dictionary<int, ProductoPrecioLista>();
 
-            foreach (var producto in productos)
-            {
-                var fila = await CrearFilaCatalogoAsync(producto, listaActual?.Id);
-                filas.Add(fila);
-            }
+            var filas = productos
+                .Select(producto =>
+                {
+                    preciosBatch.TryGetValue(producto.Id, out var precioLista);
+                    return CrearFilaCatalogo(producto, precioLista);
+                })
+                .ToList();
 
             var ultimosCambios = await _precioService.GetUltimoCambioPorProductosAsync(filas.Select(f => f.ProductoId));
             foreach (var fila in filas)
@@ -131,32 +135,24 @@ namespace TheBuryProject.Services
                 listaPrecioId = listaPredeterminada?.Id;
             }
 
-            return await CrearFilaCatalogoAsync(producto, listaPrecioId);
+            ProductoPrecioLista? precioListaUnico = null;
+            if (listaPrecioId.HasValue)
+                precioListaUnico = await _precioService.GetPrecioVigenteAsync(producto.Id, listaPrecioId.Value);
+
+            return CrearFilaCatalogo(producto, precioListaUnico);
         }
 
         /// <summary>
-        /// Crea una fila del catálogo a partir de un producto y su precio en la lista
+        /// Crea una fila del catálogo a partir de un producto y su precio ya resuelto (puede ser null).
         /// </summary>
-        private async Task<FilaCatalogo> CrearFilaCatalogoAsync(
-            Producto producto,
-            int? listaPrecioId)
+        private static FilaCatalogo CrearFilaCatalogo(Producto producto, ProductoPrecioLista? precioLista)
         {
-            // Obtener precio de la lista si existe
-            ProductoPrecioLista? precioLista = null;
-            if (listaPrecioId.HasValue)
-            {
-                precioLista = await _precioService.GetPrecioVigenteAsync(producto.Id, listaPrecioId.Value);
-            }
-
-            // Calcular precio actual (lista > base)
             var precioActual = precioLista?.Precio ?? producto.PrecioVenta;
 
-            // Calcular margen
             var margen = producto.PrecioCompra > 0
                 ? Math.Round((precioActual - producto.PrecioCompra) / producto.PrecioCompra * 100, 2)
                 : 0;
 
-            // Determinar estado de stock
             var estadoStock = producto.StockActual <= 0 ? "Sin Stock"
                 : producto.StockActual <= producto.StockMinimo ? "Stock Bajo"
                 : "Normal";
