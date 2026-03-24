@@ -21,16 +21,19 @@ public class DevolucionService : IDevolucionService
     private readonly IMovimientoStockService _movimientoStockService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICajaService? _cajaService;
+    private readonly ILogger<DevolucionService> _logger;
 
     public DevolucionService(
         AppDbContext context,
         IMovimientoStockService movimientoStockService,
         ICurrentUserService currentUserService,
+        ILogger<DevolucionService> logger,
         ICajaService? cajaService = null)
     {
         _context = context;
         _movimientoStockService = movimientoStockService;
         _currentUserService = currentUserService;
+        _logger = logger;
         _cajaService = cajaService;
     }
 
@@ -195,6 +198,10 @@ public class DevolucionService : IDevolucionService
             if (transaction != null)
                 await transaction.CommitAsync();
 
+            _logger.LogInformation(
+                "Devolución creada - Numero {Numero} - Cliente {ClienteId} - Venta {VentaId} - Total {Total}",
+                devolucion.NumeroDevolucion, devolucion.ClienteId, devolucion.VentaId, devolucion.TotalDevolucion);
+
             return devolucion;
         }
         catch
@@ -286,6 +293,10 @@ public class DevolucionService : IDevolucionService
             if (transaction != null)
                 await transaction.CommitAsync();
 
+            _logger.LogInformation(
+                "Devolución aprobada - Numero {Numero} - AprobadoPor {AprobadoPor} - Resolucion {Resolucion}",
+                devolucion.NumeroDevolucion, aprobadoPor, devolucion.TipoResolucion);
+
             return devolucion;
         }
         catch (DbUpdateConcurrencyException)
@@ -325,6 +336,11 @@ public class DevolucionService : IDevolucionService
         try
         {
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Devolución rechazada - Numero {Numero} - Motivo {Motivo}",
+                devolucion.NumeroDevolucion, motivo);
+
             return devolucion;
         }
         catch (DbUpdateConcurrencyException)
@@ -410,6 +426,10 @@ public class DevolucionService : IDevolucionService
 
             if (transaction != null)
                 await transaction.CommitAsync();
+
+            _logger.LogInformation(
+                "Devolución completada - Numero {Numero} - StockReintegrado {Reintegros} - Cuarentenas {Cuarentenas}",
+                devolucion.NumeroDevolucion, reintegros.Count, cuarentenas.Count);
 
             return devolucion;
         }
@@ -791,6 +811,10 @@ public class DevolucionService : IDevolucionService
             if (transaction != null)
                 await transaction.CommitAsync();
 
+            _logger.LogInformation(
+                "RMA creado - Numero {NumeroRMA} - Devolucion {DevolucionId}",
+                rma.NumeroRMA, rma.DevolucionId);
+
             return rma;
         }
         catch (DbUpdateConcurrencyException)
@@ -836,6 +860,11 @@ public class DevolucionService : IDevolucionService
         rma.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "RMA aprobado por proveedor - Id {RMAId} - NumeroRMAProveedor {NumeroRMAProveedor}",
+            rmaId, numeroRMAProveedor);
+
         return rma;
     }
 
@@ -853,6 +882,11 @@ public class DevolucionService : IDevolucionService
         rma.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "RMA enviado a proveedor - Id {RMAId} - Guia {NumeroGuia}",
+            rmaId, numeroGuia);
+
         return rma;
     }
 
@@ -869,6 +903,9 @@ public class DevolucionService : IDevolucionService
         rma.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("RMA recibido por proveedor - Id {RMAId}", rmaId);
+
         return rma;
     }
 
@@ -888,6 +925,11 @@ public class DevolucionService : IDevolucionService
         rma.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "RMA resuelto - Id {RMAId} - Resolucion {TipoResolucion} - Monto {MontoReembolso}",
+            rmaId, tipoResolucion, montoReembolso);
+
         return rma;
     }
 
@@ -980,6 +1022,11 @@ public class DevolucionService : IDevolucionService
 
         _context.NotasCredito.Add(notaCredito);
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Nota de crédito creada - Numero {Numero} - Cliente {ClienteId} - Monto {Monto}",
+            notaCredito.NumeroNotaCredito, notaCredito.ClienteId, notaCredito.MontoTotal);
+
         return notaCredito;
     }
 
@@ -1009,6 +1056,10 @@ public class DevolucionService : IDevolucionService
 
         notaCredito.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Nota de crédito utilizada - Id {NotaCreditoId} - MontoUtilizado {Monto} - EstadoResultante {Estado}",
+            notaCreditoId, monto, notaCredito.Estado);
 
         return notaCredito;
     }

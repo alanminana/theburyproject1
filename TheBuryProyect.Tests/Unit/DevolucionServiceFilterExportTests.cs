@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
@@ -14,7 +15,7 @@ public class DevolucionServiceFilterExportTests
 
     public DevolucionServiceFilterExportTests()
     {
-        _sut = new DevolucionService(null!, null!, null!, null);
+        _sut = new DevolucionService(null!, null!, null!, NullLogger<TheBuryProject.Services.DevolucionService>.Instance, null);
     }
 
     // ---------------------------------------------------------------

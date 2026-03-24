@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
@@ -17,7 +18,7 @@ public class DevolucionServiceBusinessRulesTests
     {
         // DevolucionService requiere dependencias para operaciones de DB,
         // pero los métodos de reglas de negocio son puros y no las usan.
-        _sut = new DevolucionService(null!, null!, null!, null);
+        _sut = new DevolucionService(null!, null!, null!, NullLogger<TheBuryProject.Services.DevolucionService>.Instance, null);
     }
 
     // ---------------------------------------------------------------
