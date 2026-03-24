@@ -57,7 +57,7 @@ public class ClienteAptitudServiceTests
 
     private static ClienteAptitudService BuildService(AppDbContext ctx)
     {
-        var creditoDisponible = new CreditoDisponibleService(ctx);
+        var creditoDisponible = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
         return new ClienteAptitudService(ctx, NullLogger<ClienteAptitudService>.Instance, creditoDisponible);
     }
 

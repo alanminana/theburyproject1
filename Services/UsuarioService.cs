@@ -12,13 +12,16 @@ public class UsuarioService : IUsuarioService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly AppDbContext _context;
+    private readonly ILogger<UsuarioService> _logger;
 
     public UsuarioService(
         UserManager<ApplicationUser> userManager,
-        AppDbContext context)
+        AppDbContext context,
+        ILogger<UsuarioService> logger)
     {
         _userManager = userManager;
         _context = context;
+        _logger = logger;
     }
 
     public async Task<UsuarioDashboardStats> GetDashboardStatsAsync()
@@ -161,6 +164,11 @@ public class UsuarioService : IUsuarioService
             }
 
             await transaction.CommitAsync();
+
+            _logger.LogInformation(
+                "Usuario actualizado - Id {UserId} - Activo {Activo} - RolesAgregados {Added} - RolesQuitados {Removed}",
+                user.Id, user.Activo, rolesToAdd.Count, rolesToRemove.Count);
+
             return UsuarioUpdateResult.Success();
         }
         catch

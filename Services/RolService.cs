@@ -18,15 +18,18 @@ public class RolService : IRolService
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly AppDbContext _context;
+    private readonly ILogger<RolService> _logger;
 
     public RolService(
         RoleManager<IdentityRole> roleManager,
         UserManager<ApplicationUser> userManager,
-        AppDbContext context)
+        AppDbContext context,
+        ILogger<RolService> logger)
     {
         _roleManager = roleManager;
         _userManager = userManager;
         _context = context;
+        _logger = logger;
     }
 
     private static string Canon(string value) => (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -47,8 +50,16 @@ public class RolService : IRolService
 
     public Task<IdentityRole?> GetRoleByNameAsync(string roleName) => _roleManager.FindByNameAsync(roleName);
 
-    public Task<IdentityResult> CreateRoleAsync(string roleName)
-        => _roleManager.CreateAsync(new IdentityRole(roleName));
+    public async Task<IdentityResult> CreateRoleAsync(string roleName)
+    {
+        var result = await _roleManager.CreateAsync(new IdentityRole(roleName));
+        if (result.Succeeded)
+            _logger.LogInformation("Rol creado - Nombre {RoleName}", roleName);
+        else
+            _logger.LogWarning("Error al crear rol {RoleName}: {Errors}", roleName,
+                string.Join(", ", result.Errors.Select(e => e.Description)));
+        return result;
+    }
 
     public async Task<IdentityResult> UpdateRoleAsync(string roleId, string newRoleName)
     {
@@ -107,6 +118,8 @@ public class RolService : IRolService
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            _logger.LogInformation("Rol eliminado - Id {RoleId} - Nombre {RoleName}", roleId, role.Name);
 
             return IdentityResult.Success;
         }
@@ -275,6 +288,9 @@ public class RolService : IRolService
             if (!existingClaimValues.Contains(cv))
                 await _roleManager.AddClaimAsync(role, new Claim("Permission", cv));
         }
+
+        _logger.LogInformation("Claims sincronizados - Rol {RoleName} - {Count} permisos activos",
+            role.Name, permisoClaims.Count);
     }
 
     #endregion

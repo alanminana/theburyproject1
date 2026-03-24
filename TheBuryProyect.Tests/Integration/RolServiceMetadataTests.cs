@@ -30,7 +30,7 @@ public class RolServiceMetadataTests : IDisposable
 
         // RolService requiere RoleManager y UserManager en constructor,
         // pero los tests de metadata solo usan _context — pasamos null.
-        _service = new RolService(null!, null!, _context);
+        _service = new RolService(null!, null!, _context, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.RolService>.Instance);
     }
 
     public void Dispose()

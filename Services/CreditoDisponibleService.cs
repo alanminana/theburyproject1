@@ -21,10 +21,12 @@ namespace TheBuryProject.Services
         };
 
         private readonly AppDbContext _context;
+        private readonly ILogger<CreditoDisponibleService> _logger;
 
-        public CreditoDisponibleService(AppDbContext context)
+        public CreditoDisponibleService(AppDbContext context, ILogger<CreditoDisponibleService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<decimal> ObtenerLimitePorPuntajeAsync(
@@ -256,6 +258,10 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Límites de crédito por puntaje guardados - {Count} registros - Usuario {Usuario}",
+                items.Count, usuario);
+
             return (true, errores);
         }
 

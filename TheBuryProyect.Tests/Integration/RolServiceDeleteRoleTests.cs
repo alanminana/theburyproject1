@@ -49,7 +49,7 @@ public class RolServiceDeleteRoleTests : IDisposable
             null!,
             NullLogger<UserManager<ApplicationUser>>.Instance);
 
-        _service = new RolService(roleManager, _userManager, _context);
+        _service = new RolService(roleManager, _userManager, _context, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.RolService>.Instance);
     }
 
     public void Dispose()

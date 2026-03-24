@@ -102,7 +102,7 @@ public class CreditoDisponibleServiceTests
             ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoTotal));
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(100_000m, resultado.Limite);
@@ -127,7 +127,7 @@ public class CreditoDisponibleServiceTests
             ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoTotal));
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
 
             await Assert.ThrowsAsync<CreditoDisponibleException>(
                 () => service.CalcularDisponibleAsync(1));
@@ -152,7 +152,7 @@ public class CreditoDisponibleServiceTests
             });
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(200_000m, resultado.Limite);
@@ -178,7 +178,7 @@ public class CreditoDisponibleServiceTests
             });
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(300_000m, resultado.Limite);
@@ -206,7 +206,7 @@ public class CreditoDisponibleServiceTests
             });
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(150_000m, resultado.Limite);
@@ -235,7 +235,7 @@ public class CreditoDisponibleServiceTests
             });
             await ctx.SaveChangesAsync();
 
-            var service = new CreditoDisponibleService(ctx);
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(100_000m, resultado.Limite);

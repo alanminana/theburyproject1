@@ -12,10 +12,12 @@ namespace TheBuryProject.Services;
 public class AutorizacionService : IAutorizacionService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<AutorizacionService> _logger;
 
-    public AutorizacionService(AppDbContext context)
+    public AutorizacionService(AppDbContext context, ILogger<AutorizacionService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     #region Gestión de Umbrales
@@ -64,6 +66,10 @@ public class AutorizacionService : IAutorizacionService
 
         _context.UmbralesAutorizacion.Add(umbral);
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Umbral creado - Id {UmbralId} - Rol {Rol} - Tipo {Tipo} - Máximo {Maximo}",
+            umbral.Id, umbral.Rol, umbral.TipoUmbral, umbral.ValorMaximo);
+
         return umbral;
     }
 
@@ -81,6 +87,10 @@ public class AutorizacionService : IAutorizacionService
         existente.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Umbral actualizado - Id {UmbralId} - Máximo {Maximo} - Activo {Activo}",
+            existente.Id, existente.ValorMaximo, existente.Activo);
+
         return existente;
     }
 
@@ -94,6 +104,8 @@ public class AutorizacionService : IAutorizacionService
 
         umbral.IsDeleted = true;
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Umbral eliminado (soft-delete) - Id {UmbralId}", id);
     }
 
     #endregion
@@ -204,6 +216,10 @@ public class AutorizacionService : IAutorizacionService
 
         _context.SolicitudesAutorizacion.Add(solicitud);
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Solicitud de autorización creada - Id {SolicitudId} - Solicitante {Solicitante} - Tipo {Tipo}",
+            solicitud.Id, solicitud.UsuarioSolicitante, solicitud.TipoOperacion);
+
         return solicitud;
     }
 
@@ -227,6 +243,10 @@ public class AutorizacionService : IAutorizacionService
         solicitud.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Solicitud aprobada - Id {SolicitudId} - Autorizador {Autorizador}",
+            solicitud.Id, autorizador);
+
         return solicitud;
     }
 
@@ -250,6 +270,10 @@ public class AutorizacionService : IAutorizacionService
         solicitud.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Solicitud rechazada - Id {SolicitudId} - Autorizador {Autorizador}",
+            solicitud.Id, autorizador);
+
         return solicitud;
     }
 
@@ -272,6 +296,9 @@ public class AutorizacionService : IAutorizacionService
         solicitud.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Solicitud cancelada - Id {SolicitudId}", id);
+
         return solicitud;
     }
 

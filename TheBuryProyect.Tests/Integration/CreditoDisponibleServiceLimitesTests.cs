@@ -25,7 +25,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        _service = new CreditoDisponibleService(_context);
+        _service = new CreditoDisponibleService(_context, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
     }
 
     public void Dispose()

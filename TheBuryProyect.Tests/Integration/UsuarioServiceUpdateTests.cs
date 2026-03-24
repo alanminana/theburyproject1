@@ -51,7 +51,7 @@ public class UsuarioServiceUpdateTests : IDisposable
             null!,
             NullLogger<UserManager<ApplicationUser>>.Instance);
 
-        _service = new UsuarioService(_userManager, _context);
+        _service = new UsuarioService(_userManager, _context, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.UsuarioService>.Instance);
     }
 
     public void Dispose()

@@ -39,7 +39,7 @@ public class RolServiceToggleActivoTests : IDisposable
             new IdentityErrorDescriber(),
             NullLogger<RoleManager<IdentityRole>>.Instance);
 
-        _service = new RolService(roleManager, null!, _context);
+        _service = new RolService(roleManager, null!, _context, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.RolService>.Instance);
     }
 
     public void Dispose()
