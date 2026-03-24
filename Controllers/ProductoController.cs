@@ -339,7 +339,7 @@ namespace TheBuryProject.Controllers
                 }
                 else
                 {
-                    TempData["Error"] = "No se encontr� el producto a eliminar";
+                    TempData["Error"] = "No se encontró el producto a eliminar";
                 }
             }
             catch (InvalidOperationException ex)
