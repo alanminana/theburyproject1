@@ -34,6 +34,8 @@ namespace TheBuryProject.Controllers
             _currentUser = currentUser;
         }
 
+        #region Vistas — Index / Kardex / Crear ajuste
+
         // GET: MovimientoStock
         public async Task<IActionResult> Index(MovimientoStockFilterViewModel filter)
         {
@@ -272,6 +274,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region API — Info de producto / Búsqueda
+
         // GET API: MovimientoStock/GetProductoInfo/5
         [HttpGet]
         [Produces("application/json")] // negociación de contenido JSON
@@ -340,5 +346,7 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "No se pudo buscar productos" });
             }
         }
+
+        #endregion
     }
 }

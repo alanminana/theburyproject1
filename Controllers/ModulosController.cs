@@ -36,6 +36,8 @@ public class ModulosController : Controller
         _logger = logger;
     }
 
+    #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
     /// <summary>
     /// Lista todos los módulos del sistema
     /// </summary>
@@ -333,4 +335,6 @@ public class ModulosController : Controller
 
         return this.RedirectToReturnUrlOrIndex(returnUrl);
     }
+
+    #endregion
 }

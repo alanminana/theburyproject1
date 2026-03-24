@@ -37,6 +37,8 @@ public class AccionesController : Controller
         _logger = logger;
     }
 
+    #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
     /// <summary>
     /// Lista todas las acciones del sistema
     /// </summary>
@@ -340,6 +342,10 @@ public class AccionesController : Controller
         return this.RedirectToReturnUrlOrIndex(returnUrl);
     }
 
+    #endregion
+
+    #region Métodos auxiliares
+
     /// <summary>
     /// Carga la lista de módulos en ViewBag para dropdowns
     /// </summary>
@@ -348,4 +354,6 @@ public class AccionesController : Controller
         var modulos = await _rolService.GetAllModulosAsync();
         ViewBag.Modulos = new SelectList(modulos.OrderBy(m => m.Nombre), "Id", "Nombre");
     }
+
+    #endregion
 }

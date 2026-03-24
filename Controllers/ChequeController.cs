@@ -35,6 +35,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region API — Órdenes por proveedor
+
         [HttpGet]
         public async Task<IActionResult> OrdenesPorProveedor(int proveedorId)
         {
@@ -48,6 +50,10 @@ namespace TheBuryProject.Controllers
 
             return Json(resultado);
         }
+
+        #endregion
+
+        #region CRUD — Index / Detalle / Crear / Editar / Eliminar / CambiarEstado
 
         // GET: Cheque
         public async Task<IActionResult> Index(ChequeFilterViewModel filter)
@@ -328,6 +334,10 @@ namespace TheBuryProject.Controllers
         }
 
         // Helper: Cargar datos para los SelectLists
+        #endregion
+
+        #region Métodos auxiliares
+
         private async Task CargarDatosSelectListsAsync(int? proveedorIdSeleccionado = null, int? ordenCompraIdSeleccionado = null)
         {
             var proveedores = await _proveedorService.SearchAsync(soloActivos: true);
@@ -346,5 +356,7 @@ namespace TheBuryProject.Controllers
                 ViewBag.OrdenesCompra = new SelectList(Enumerable.Empty<OrdenCompra>(), "Id", "Numero");
             }
         }
+
+        #endregion
     }
 }

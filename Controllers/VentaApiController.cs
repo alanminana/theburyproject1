@@ -38,6 +38,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region Clientes
+
         /// <summary>
         /// Busca clientes por nombre, apellido o número de documento.
         /// </summary>
@@ -76,6 +78,10 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "Error al buscar clientes" });
             }
         }
+
+        #endregion
+
+        #region Productos
 
         [HttpGet]
         public async Task<IActionResult> GetPrecioProducto(int id)
@@ -205,6 +211,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Crédito y cálculos
+
         [HttpGet]
         public async Task<IActionResult> GetCreditosCliente(int clienteId)
         {
@@ -323,5 +333,7 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "No se pudieron calcular los totales" });
             }
         }
+
+        #endregion
     }
 }
