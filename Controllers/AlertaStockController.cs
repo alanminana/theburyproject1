@@ -29,6 +29,8 @@ namespace TheBuryProject.Controllers
             _currentUser = currentUser;
         }
 
+        #region Vistas — Index / Pendientes / Críticos / Detalle / Estadísticas / PorProducto
+
         // GET: AlertaStock
         public async Task<IActionResult> Index(AlertaStockFiltroViewModel filtro)
         {
@@ -127,6 +129,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Acciones — Resolver / Ignorar / GenerarAlertas
+
         // POST: AlertaStock/Resolver/5
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -211,6 +217,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Métodos auxiliares
+
         private async Task<IActionResult> ProcesarAccionAlerta(
             int id,
             string? observaciones,
@@ -240,5 +250,7 @@ namespace TheBuryProject.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+
+        #endregion
     }
 }

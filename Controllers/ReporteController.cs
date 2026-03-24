@@ -38,6 +38,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region Vistas — Index / Ventas / Márgenes / Morosidad / Agrupadas
+
         // GET: Reporte
         public IActionResult Index()
         {
@@ -139,6 +141,10 @@ namespace TheBuryProject.Controllers
                 return BadRequest("Error al obtener datos");
             }
         }
+
+        #endregion
+
+        #region Exportar — Excel y PDF
 
         // GET: Reporte/ExportarVentasExcel
         public async Task<IActionResult> ExportarVentasExcel([FromQuery] ReporteVentasFiltroViewModel filtro)
@@ -255,7 +261,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        // Métodos auxiliares
+        #endregion
+
+        #region Métodos auxiliares
+
         private async Task CargarFiltrosViewBagAsync()
         {
             var clientes = await _clienteService.GetAllAsync();
@@ -271,5 +280,7 @@ namespace TheBuryProject.Controllers
             ViewBag.Marcas = new SelectList(marcas, "Id", "Nombre");
             ViewBag.Vendedores = new SelectList(usuarios, "Id", "UserName");
         }
+
+        #endregion
     }
 }
