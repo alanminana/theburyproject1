@@ -2064,5 +2064,48 @@ namespace TheBuryProject.Services
         }
 
         #endregion
+
+        #region Resolución de Totales
+
+        public async Task<decimal?> GetTotalVentaAsync(int ventaId)
+        {
+            var venta = await _context.Ventas
+                .Include(v => v.Detalles)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
+
+            if (venta == null)
+                return null;
+
+            if (venta.Total > 0)
+                return venta.Total;
+
+            var detalles = (venta.Detalles ?? new List<VentaDetalle>())
+                .Where(d => !d.IsDeleted)
+                .ToList();
+
+            if (detalles.Count == 0)
+            {
+                // Último recurso: consulta directa si la navegación no trajo datos
+                detalles = await _context.VentaDetalles
+                    .AsNoTracking()
+                    .Where(d => d.VentaId == ventaId && !d.IsDeleted)
+                    .ToListAsync();
+            }
+
+            if (detalles.Count == 0)
+                return 0m;
+
+            var subtotal = detalles.Sum(d =>
+                d.Subtotal > 0
+                    ? d.Subtotal
+                    : Math.Max(0, (d.Cantidad * d.PrecioUnitario) - d.Descuento));
+
+            var subtotalConDescuento = subtotal - venta.Descuento;
+            var iva = venta.IVA > 0 ? venta.IVA : subtotalConDescuento * VentaConstants.IVA_RATE;
+            return subtotalConDescuento + iva;
+        }
+
+        #endregion
     }
 }

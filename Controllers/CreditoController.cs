@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Data;
-using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
@@ -24,6 +23,7 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionMoraService _configuracionMoraService;
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
+        private readonly IVentaService _ventaService;
         private readonly ILogger<CreditoController> _logger;
         private readonly IClienteLookupService _clienteLookup;
         private readonly IProductoService _productoService;
@@ -56,6 +56,7 @@ namespace TheBuryProject.Controllers
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionMoraService configuracionMoraService,
             IDbContextFactory<AppDbContext> contextFactory,
+            IVentaService ventaService,
             ILogger<CreditoController> logger,
             IClienteLookupService clienteLookup,
             IProductoService productoService,
@@ -68,6 +69,7 @@ namespace TheBuryProject.Controllers
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
             _contextFactory = contextFactory;
+            _ventaService = ventaService;
             _logger = logger;
             _clienteLookup = clienteLookup;
             _productoService = productoService;
@@ -300,54 +302,7 @@ namespace TheBuryProject.Controllers
 
             if (ventaId.HasValue)
             {
-                await using var context = await _contextFactory.CreateDbContextAsync();
-
-                var venta = await context.Ventas
-                    .Include(v => v.Detalles)
-                    .FirstOrDefaultAsync(v => v.Id == ventaId.Value && !v.IsDeleted);
-
-                if (venta != null)
-                {
-                    // Prioriza el total guardado; si no existe, recalcula desde el detalle
-                    montoVenta = venta.Total;
-
-                    var detallesVenta = (venta.Detalles ?? new List<VentaDetalle>())
-                        .Where(d => !d.IsDeleted)
-                        .ToList();
-
-                    if (montoVenta <= 0 && detallesVenta.Count > 0)
-                    {
-                        var subtotal = detallesVenta.Sum(d =>
-                            d.Subtotal > 0
-                                ? d.Subtotal
-                                : Math.Max(0, (d.Cantidad * d.PrecioUnitario) - d.Descuento));
-
-                        var subtotalConDescuento = subtotal - venta.Descuento;
-                        var iva = venta.IVA > 0 ? venta.IVA : subtotalConDescuento * VentaConstants.IVA_RATE;
-                        montoVenta = subtotalConDescuento + iva;
-                    }
-
-                    if (montoVenta <= 0)
-                    {
-                        // Último recurso: traer los detalles directamente y recalcular cuando la navegación no trae datos
-                        var detallesPersistidos = await context.VentaDetalles
-                            .Where(d => d.VentaId == venta.Id && !d.IsDeleted)
-                            .ToListAsync();
-
-                        if (detallesPersistidos.Any())
-                        {
-                            var subtotalPersistido = detallesPersistidos.Sum(d =>
-                                d.Subtotal > 0
-                                    ? d.Subtotal
-                                    : Math.Max(0, (d.Cantidad * d.PrecioUnitario) - d.Descuento));
-
-                            var subtotalConDescuento = subtotalPersistido - venta.Descuento;
-                            var iva = venta.IVA > 0 ? venta.IVA : subtotalConDescuento * VentaConstants.IVA_RATE;
-                            montoVenta = subtotalConDescuento + iva;
-                        }
-                    }
-
-                }
+                montoVenta = await _ventaService.GetTotalVentaAsync(ventaId.Value) ?? montoVenta;
             }
 
             // Resolver parámetros de crédito del cliente (Personalizado > Perfil > Global)
