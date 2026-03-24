@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -9,10 +10,12 @@ namespace TheBuryProject.Services
     public class ClienteService : IClienteService
     {
         private readonly AppDbContext _context;
+        private readonly ILogger<ClienteService> _logger;
 
-        public ClienteService(AppDbContext context)
+        public ClienteService(AppDbContext context, ILogger<ClienteService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<Cliente>> GetAllAsync()
@@ -63,6 +66,10 @@ namespace TheBuryProject.Services
 
             _context.Clientes.Add(cliente);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Cliente creado - Id {ClienteId} - Documento {TipoDocumento} {NumeroDocumento}",
+                cliente.Id, cliente.TipoDocumento, cliente.NumeroDocumento);
+
             return cliente;
         }
 
@@ -124,10 +131,13 @@ namespace TheBuryProject.Services
             {
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException ex)
             {
+                _logger.LogWarning(ex, "Conflicto de concurrencia al actualizar cliente {ClienteId}", cliente.Id);
                 throw new InvalidOperationException("Conflicto de concurrencia: el cliente fue modificado por otro usuario. Recargá e intentá nuevamente.");
             }
+
+            _logger.LogInformation("Cliente actualizado - Id {ClienteId}", clienteExistente.Id);
 
             return clienteExistente;
         }
@@ -144,6 +154,9 @@ namespace TheBuryProject.Services
             cliente.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Cliente eliminado (soft-delete) - Id {ClienteId}", id);
+
             return true;
         }
 
@@ -239,6 +252,10 @@ namespace TheBuryProject.Services
             });
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Puntaje de riesgo actualizado - ClienteId {ClienteId} - De {PuntajeAnterior} a {NuevoPuntaje} - Por {Usuario}",
+                clienteId, puntajeAnterior, nuevoPuntaje, actualizadoPor);
         }
     }
 }
