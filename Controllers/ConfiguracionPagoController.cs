@@ -24,6 +24,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
         // GET: ConfiguracionPago
         public async Task<IActionResult> Index()
         {
@@ -207,6 +209,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        #endregion
+
+        #region Tarjetas — Configurar / Calcular cuotas
+
         // GET: ConfiguracionPago/ConfigurarTarjeta/5
         public async Task<IActionResult> ConfigurarTarjeta(int configuracionPagoId)
         {
@@ -315,6 +321,10 @@ namespace TheBuryProject.Controllers
         /// Obtiene todas las configuraciones de pago para el modal de configuración
         /// </summary>
         [HttpGet]
+        #endregion
+
+        #region Configuraciones modal
+
         public async Task<IActionResult> GetConfiguracionesModal()
         {
             try
@@ -367,6 +377,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Crédito personal — Perfiles y configuración
+
         /// <summary>
         /// Obtiene todos los perfiles de crédito.
         /// </summary>
@@ -405,6 +419,8 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, message = "Error al guardar: " + ex.Message });
             }
         }
+
+        #endregion
     }
 
 }

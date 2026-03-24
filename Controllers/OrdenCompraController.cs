@@ -42,6 +42,8 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        #region CRUD — Index / Detalle / Crear / Editar / Eliminar
+
         // GET: OrdenCompra
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionVer)]
         public async Task<IActionResult> Index(OrdenCompraFilterViewModel filter)
@@ -303,6 +305,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Operaciones especiales — Cambiar estado / Recepcionar
+
         // POST: OrdenCompra/CambiarEstado
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -397,6 +403,10 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Recepcionar), new { id });
             }
         }
+        #endregion
+
+        #region Métodos auxiliares
+
         // Helper: Cargar datos para los SelectLists
         private async Task CargarDatosSelectListsAsync(int? proveedorIdSeleccionado = null)
         {
@@ -409,5 +419,7 @@ namespace TheBuryProject.Controllers
 
             ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoOrdenCompra)));
         }
+
+        #endregion
     }
 }
