@@ -397,7 +397,7 @@ namespace TheBuryProject.Services
             }
         }
 
-        public async Task MarcarVencidosAsync()
+        public async Task MarcarVencidosAsync(CancellationToken ct = default)
         {
             try
             {

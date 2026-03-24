@@ -48,7 +48,7 @@ namespace TheBuryProject.Services
                         var documentoService = scope.ServiceProvider
                             .GetRequiredService<IDocumentoClienteService>();
                         
-                        await documentoService.MarcarVencidosAsync();
+                        await documentoService.MarcarVencidosAsync(stoppingToken);
                     }
 
                     _logger.LogInformation("Marcado de documentos vencidos completado");

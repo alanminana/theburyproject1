@@ -32,7 +32,7 @@ namespace TheBuryProject.Services
 
         #region Generación de alertas
 
-        public async Task<int> GenerarAlertasStockBajoAsync()
+        public async Task<int> GenerarAlertasStockBajoAsync(CancellationToken ct = default)
         {
             try
             {
@@ -580,7 +580,7 @@ namespace TheBuryProject.Services
 
         #region Mantenimiento y mapeo
 
-        public async Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30)
+        public async Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default)
         {
             try
             {

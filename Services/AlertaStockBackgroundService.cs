@@ -84,7 +84,7 @@ namespace TheBuryProject.Services
                 var alertaStockService = scope.ServiceProvider.GetRequiredService<IAlertaStockService>();
 
                 _logger.LogInformation("Iniciando verificación de stock.");
-                var alertasCreadas = await alertaStockService.GenerarAlertasStockBajoAsync();
+                var alertasCreadas = await alertaStockService.GenerarAlertasStockBajoAsync(stoppingToken);
 
                 if (alertasCreadas > 0)
                 {
@@ -113,7 +113,7 @@ namespace TheBuryProject.Services
                 var alertaStockService = scope.ServiceProvider.GetRequiredService<IAlertaStockService>();
 
                 _logger.LogInformation("Iniciando limpieza de alertas antiguas.");
-                var alertasEliminadas = await alertaStockService.LimpiarAlertasAntiguasAsync(30);
+                var alertasEliminadas = await alertaStockService.LimpiarAlertasAntiguasAsync(30, stoppingToken);
 
                 if (alertasEliminadas > 0)
                 {

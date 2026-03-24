@@ -20,7 +20,7 @@ namespace TheBuryProject.Services.Interfaces
 
         #region Procesamiento de mora
         
-        Task ProcesarMoraAsync();
+        Task ProcesarMoraAsync(CancellationToken ct = default);
         
         #endregion
         

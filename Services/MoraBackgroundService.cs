@@ -55,7 +55,7 @@ namespace TheBuryProject.Services
                                 
                                 try
                                 {
-                                    await moraService.ProcesarMoraAsync();
+                                    await moraService.ProcesarMoraAsync(stoppingToken);
                                     _ultimaEjecucion = DateTime.UtcNow;
                                     
                                     _logger.LogInformation("Procesamiento de mora completado exitosamente");

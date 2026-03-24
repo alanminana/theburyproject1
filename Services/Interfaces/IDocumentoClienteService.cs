@@ -28,7 +28,7 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>
         /// Marca documentos vencidos automticamente (ejecutado por BackgroundService)
         /// </summary>
-        Task MarcarVencidosAsync();
+        Task MarcarVencidosAsync(CancellationToken ct = default);
         /// <summary>
         /// Verifica una lista de documentos por sus IDs (batch)
         /// </summary>

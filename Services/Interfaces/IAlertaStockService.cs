@@ -18,7 +18,7 @@ namespace TheBuryProject.Services.Interfaces
     Task<int> VerificarYGenerarAlertasAsync(IEnumerable<int> productoIds);
         /// Genera alertas para todos los productos con stock bajo
         /// </summary>
-        Task<int> GenerarAlertasStockBajoAsync();
+        Task<int> GenerarAlertasStockBajoAsync(CancellationToken ct = default);
 
         /// <summary>
         /// Obtiene todas las alertas de stock pendientes
@@ -63,7 +63,7 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>
         /// Elimina alertas resueltas antiguas (m�s de X d�as)
         /// </summary>
-        Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30);
+        Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default);
 
         /// <summary>
         /// Obtiene productos cr�ticos (sin stock o stock agotado)

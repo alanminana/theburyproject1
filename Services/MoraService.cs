@@ -104,7 +104,7 @@ namespace TheBuryProject.Services
 
         #region Procesamiento de Mora
 
-        public async Task ProcesarMoraAsync()
+        public async Task ProcesarMoraAsync(CancellationToken ct = default)
         {
             var inicioEjecucion = DateTime.UtcNow;
             var log = new LogMora
