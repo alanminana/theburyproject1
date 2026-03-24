@@ -27,6 +27,8 @@ public class UsuariosController : Controller
     private readonly ILogger<UsuariosController> _logger;
     private readonly IdentityOptions _identityOptions;
 
+    #region Helpers de navegación
+
     private IActionResult RedirectToReturnUrlOrIndex(string? returnUrl)
     {
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
@@ -38,6 +40,8 @@ public class UsuariosController : Controller
         var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
         return safeReturnUrl != null ? LocalRedirect(safeReturnUrl) : RedirectToAction(nameof(Details), new { id });
     }
+
+    #endregion
 
     public UsuariosController(
         UserManager<ApplicationUser> userManager,
@@ -56,6 +60,8 @@ public class UsuariosController : Controller
         _logger = logger;
         _identityOptions = identityOptions.Value;
     }
+
+    #region Detalles
 
     /// <summary>
     /// Muestra detalles de un usuario
@@ -103,6 +109,10 @@ public class UsuariosController : Controller
             return RedirectToAction(nameof(Index));
         }
     }
+
+    #endregion
+
+    #region Crear usuario
 
     /// <summary>
     /// Devuelve el partial del modal para crear usuario (AJAX)
@@ -218,6 +228,10 @@ public class UsuariosController : Controller
             return Json(new { success = false, errors = new[] { "Error interno al crear el usuario." } });
         }
     }
+
+    #endregion
+
+    #region Ciclo de vida — Desactivar / Reactivar / Eliminar
 
     /// <summary>
     /// Desactiva rápidamente un usuario (soft delete)
@@ -407,6 +421,10 @@ public class UsuariosController : Controller
         return RedirectToReturnUrlOrIndex(returnUrl);
     }
 
+    #endregion
+
+    #region Cambiar contraseña
+
     /// <summary>
     /// Devuelve el partial del modal para cambiar contraseña (AJAX)
     /// </summary>
@@ -516,6 +534,10 @@ public class UsuariosController : Controller
         }
     }
 
+    #endregion
+
+    #region Confirmar email
+
     /// <summary>
     /// Confirma el email de un usuario manualmente (sin token)
     /// </summary>
@@ -562,20 +584,9 @@ public class UsuariosController : Controller
         return RedirectToReturnUrlOrDetails(id, returnUrl);
     }
 
-    /// <summary>
-    /// Carga la lista de roles en ViewBag
-    /// </summary>
-    private async Task CargarRolesEnViewBag()
-    {
-        var roles = await _rolService.GetAllRolesAsync();
-        ViewBag.Roles = roles.Select(r => r.Name).ToList();
-    }
+    #endregion
 
-    private async Task CargarSucursalesEnViewBag()
-    {
-        var sucursales = await _context.GetSucursalOptionsAsync();
-        ViewBag.Sucursales = sucursales;
-    }
+    #region Bloqueo / Desbloqueo
 
     /// <summary>
     /// Devuelve el partial del modal para bloquear usuario (AJAX)
@@ -689,6 +700,10 @@ public class UsuariosController : Controller
         }
         return RedirectToReturnUrlOrIndex(returnUrl);
     }
+
+    #endregion
+
+    #region Acciones masivas
 
     /// <summary>
     /// Acción masiva sobre múltiples usuarios
@@ -902,4 +917,22 @@ public class UsuariosController : Controller
 
         return RedirectToReturnUrlOrIndex(returnUrl);
     }
+
+    #endregion
+
+    #region Métodos auxiliares
+
+    private async Task CargarRolesEnViewBag()
+    {
+        var roles = await _rolService.GetAllRolesAsync();
+        ViewBag.Roles = roles.Select(r => r.Name).ToList();
+    }
+
+    private async Task CargarSucursalesEnViewBag()
+    {
+        var sucursales = await _context.GetSucursalOptionsAsync();
+        ViewBag.Sucursales = sucursales;
+    }
+
+    #endregion
 }
