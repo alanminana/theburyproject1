@@ -302,7 +302,7 @@ namespace TheBuryProject.Controllers
                     .ToList()
                     .AsReadOnly();
 
-                var usuario = User?.Identity?.Name ?? "System";
+                var usuario = _currentUser.GetUsername();
 
                 var (ok, errores) = await _creditoDisponibleService.GuardarLimitesPorPuntajeAsync(items, usuario);
 

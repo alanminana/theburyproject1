@@ -41,7 +41,7 @@ namespace TheBuryProject.Controllers
 
         private async Task<bool> UsuarioTieneCajaAbiertaAsync()
         {
-            var userName = User?.Identity?.Name;
+            var userName = _currentUser.GetUsername();
             if (string.IsNullOrWhiteSpace(userName))
             {
                 return false;
@@ -108,7 +108,7 @@ namespace TheBuryProject.Controllers
                 ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
                 ViewBag.Filter = filter;
 
-                var userName = User?.Identity?.Name;
+                var userName = _currentUser.GetUsername();
                 var aperturaActiva = !string.IsNullOrWhiteSpace(userName)
                     ? await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
                     : null;
@@ -286,7 +286,7 @@ namespace TheBuryProject.Controllers
                     id,
                     Request.Path.Value ?? string.Empty,
                     Request.QueryString.HasValue ? Request.QueryString.Value : string.Empty,
-                    User?.Identity?.Name ?? "anonymous");
+                    _currentUser.GetUsername());
 
                 var venta = await _ventaService.GetByIdAsync(id);
                 if (venta == null)
@@ -563,7 +563,7 @@ namespace TheBuryProject.Controllers
                 _logger.LogInformation(
                     "Confirmar(POST) venta {Id} requested. User:{User}",
                     id,
-                    User?.Identity?.Name ?? "anonymous");
+                    _currentUser.GetUsername());
 
                 var venta = await _ventaService.GetByIdAsync(id);
                 if (venta == null)
@@ -666,7 +666,7 @@ namespace TheBuryProject.Controllers
                             return RedirectToAction(nameof(Details), new { id });
                         }
 
-                        var usuarioAutoriza = User?.Identity?.Name ?? "desconocido";
+                        var usuarioAutoriza = _currentUser.GetUsername();
                         var motivoNormalizado = motivoExcepcionDocumental.Trim();
                         var auditoriaRegistrada = await _ventaService.RegistrarExcepcionDocumentalAsync(
                             id,
@@ -881,7 +881,7 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Autorizar), new { id });
                 }
 
-                var usuarioAutoriza = User.Identity?.Name ?? Roles.Administrador;
+                var usuarioAutoriza = _currentUser.GetUsername();
 
                 var resultado = await _ventaService.AutorizarVentaAsync(id, usuarioAutoriza, motivo);
                 if (resultado)
@@ -963,7 +963,7 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Rechazar), new { id });
                 }
 
-                var usuarioAutoriza = User.Identity?.Name ?? Roles.Administrador;
+                var usuarioAutoriza = _currentUser.GetUsername();
 
                 var resultado = await _ventaService.RechazarVentaAsync(id, usuarioAutoriza, motivo);
                 if (resultado)

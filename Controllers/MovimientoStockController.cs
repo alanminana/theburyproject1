@@ -18,17 +18,20 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly IMapper _mapper;
         private readonly ILogger<MovimientoStockController> _logger;
+        private readonly ICurrentUserService _currentUser;
 
         public MovimientoStockController(
             IMovimientoStockService movimientoStockService,
             IProductoService productoService,
             IMapper mapper,
-            ILogger<MovimientoStockController> logger)
+            ILogger<MovimientoStockController> logger,
+            ICurrentUserService currentUser)
         {
             _movimientoStockService = movimientoStockService;
             _productoService = productoService;
             _mapper = mapper;
             _logger = logger;
+            _currentUser = currentUser;
         }
 
         // GET: MovimientoStock
@@ -229,7 +232,7 @@ namespace TheBuryProject.Controllers
                     return View("Create_tw", viewModel);
                 }
 
-                var usuarioActual = User?.Identity?.Name ?? "Sistema";
+                var usuarioActual = _currentUser.GetUsername();
                 // Registrar el ajuste en servicio de dominio
                 await _movimientoStockService.RegistrarAjusteAsync(
                     viewModel.ProductoId,

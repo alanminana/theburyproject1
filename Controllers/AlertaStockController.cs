@@ -15,17 +15,18 @@ namespace TheBuryProject.Controllers
         private readonly IAlertaStockService _alertaStockService;
         private readonly IProductoService _productoService;
         private readonly ILogger<AlertaStockController> _logger;
-
-        private string CurrentUserName => User?.Identity?.Name ?? "Sistema";
+        private readonly ICurrentUserService _currentUser;
 
         public AlertaStockController(
             IAlertaStockService alertaStockService,
             IProductoService productoService,
-            ILogger<AlertaStockController> logger)
+            ILogger<AlertaStockController> logger,
+            ICurrentUserService currentUser)
         {
             _alertaStockService = alertaStockService;
             _productoService = productoService;
             _logger = logger;
+            _currentUser = currentUser;
         }
 
         // GET: AlertaStock
@@ -222,7 +223,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var exito = await accion(id, CurrentUserName, observaciones, rowVersion);
+                var exito = await accion(id, _currentUser.GetUsername(), observaciones, rowVersion);
 
                 TempData[exito ? "Success" : "Error"] = exito ? mensajeExito : mensajeError;
             }
