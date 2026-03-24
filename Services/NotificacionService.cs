@@ -87,21 +87,35 @@ namespace TheBuryProject.Services
             string? url = null,
             PrioridadNotificacion prioridad = PrioridadNotificacion.Media)
         {
-            // Obtener todos los usuarios con ese rol
             var usuariosEnRol = await _userManager.GetUsersInRoleAsync(rol);
+            if (usuariosEnRol.Count == 0) return;
 
-            foreach (var usuario in usuariosEnRol)
-            {
-                await CrearNotificacionParaUsuarioAsync(
-                    usuario.UserName ?? usuario.Email ?? "",
-                    tipo,
-                    titulo,
-                    mensaje,
-                    url,
-                    prioridad);
-            }
+            var ahora = DateTime.UtcNow;
+            var iconoCss = ObtenerIconoPorTipo(tipo);
+            var notificaciones = usuariosEnRol
+                .Select(u => new Notificacion
+                {
+                    UsuarioDestino = u.UserName ?? u.Email ?? "",
+                    Tipo = tipo,
+                    Prioridad = prioridad,
+                    Titulo = titulo,
+                    Mensaje = mensaje,
+                    Url = url,
+                    IconoCss = iconoCss,
+                    FechaNotificacion = ahora,
+                    Leida = false
+                })
+                .ToList();
 
-            _logger.LogInformation("Notificaciones creadas para rol {Rol}: {Count} usuarios", rol, usuariosEnRol.Count);
+            _context.Notificaciones.AddRange(notificaciones);
+            await _context.SaveChangesAsync();
+
+            // SignalR: notificar a cada usuario individualmente (no se puede hacer en batch)
+            var tareas = notificaciones
+                .Select(n => NotificarActualizacionAsync(n.UsuarioDestino));
+            await Task.WhenAll(tareas);
+
+            _logger.LogInformation("Notificaciones creadas para rol {Rol}: {Count} usuarios", rol, notificaciones.Count);
         }
 
         #endregion
