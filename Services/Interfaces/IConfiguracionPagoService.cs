@@ -13,6 +13,11 @@ namespace TheBuryProject.Services.Interfaces
         Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel);
         Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel);
         Task<bool> DeleteAsync(int id);
+
+        /// <summary>
+        /// Upsert transaccional de múltiples configuraciones de pago (una sola operación DB).
+        /// </summary>
+        Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones);
         Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync();
         Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id);
         Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento);

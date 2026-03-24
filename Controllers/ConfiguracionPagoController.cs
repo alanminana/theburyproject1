@@ -354,19 +354,7 @@ namespace TheBuryProject.Controllers
                     return Json(new { success = false, message = "No se recibieron configuraciones" });
                 }
 
-                foreach (var config in configuraciones)
-                {
-                    if (config.Id > 0)
-                    {
-                        // Actualizar existente
-                        await _configuracionPagoService.UpdateAsync(config.Id, config);
-                    }
-                    else
-                    {
-                        // Crear nueva
-                        await _configuracionPagoService.CreateAsync(config);
-                    }
-                }
+                await _configuracionPagoService.GuardarConfiguracionesModalAsync(configuraciones);
 
                 return Json(new { success = true, message = "Configuraciones guardadas exitosamente" });
             }

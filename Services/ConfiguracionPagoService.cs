@@ -136,6 +136,51 @@ namespace TheBuryProject.Services
             return true;
         }
 
+        public async Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones)
+        {
+            if (configuraciones.Count == 0) return;
+
+            var ahora = DateTime.UtcNow;
+            var idsExistentes = configuraciones
+                .Where(c => c.Id > 0)
+                .Select(c => c.Id)
+                .ToList();
+
+            // Carga batch de las entidades a actualizar
+            var existentes = idsExistentes.Count > 0
+                ? await _context.ConfiguracionesPago
+                    .Where(c => idsExistentes.Contains(c.Id) && !c.IsDeleted)
+                    .ToListAsync()
+                : new List<ConfiguracionPago>();
+
+            var existentesMap = existentes.ToDictionary(c => c.Id);
+
+            foreach (var vm in configuraciones)
+            {
+                if (vm.Id > 0 && existentesMap.TryGetValue(vm.Id, out var entidad))
+                {
+                    entidad.Nombre = vm.Nombre;
+                    entidad.Descripcion = vm.Descripcion;
+                    entidad.Activo = vm.Activo;
+                    entidad.PermiteDescuento = vm.PermiteDescuento;
+                    entidad.PorcentajeDescuentoMaximo = vm.PorcentajeDescuentoMaximo;
+                    entidad.TieneRecargo = vm.TieneRecargo;
+                    entidad.PorcentajeRecargo = vm.PorcentajeRecargo;
+                    entidad.TasaInteresMensualCreditoPersonal =
+                        vm.TipoPago == TipoPago.CreditoPersonal
+                            ? vm.TasaInteresMensualCreditoPersonal
+                            : null;
+                    entidad.UpdatedAt = ahora;
+                }
+                else if (vm.Id == 0)
+                {
+                    _context.ConfiguracionesPago.Add(_mapper.Map<ConfiguracionPago>(vm));
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
         public async Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync()
         {
             var tarjetas = await _context.ConfiguracionesTarjeta
