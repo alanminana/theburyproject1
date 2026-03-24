@@ -415,3 +415,152 @@ public class VentaService_CalcularCreditoPersonallAsync
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// C. GetTotalVentaAsync — resolución de monto efectivo
+// ---------------------------------------------------------------------------
+
+public class VentaService_GetTotalVentaAsync
+{
+    private const decimal IVA_RATE = 0.21m;
+
+    private static (AppDbContext ctx, SqliteConnection conn) CreateDb()
+        => VentaServiceFactory.CreateDb();
+
+    private static async Task<(int clienteId, int productoId)> SeedAsync(AppDbContext ctx)
+    {
+        var cat = new Categoria { Codigo = "C1", Nombre = "Cat", IsDeleted = false, RowVersion = new byte[8] };
+        var marca = new Marca { Codigo = "M1", Nombre = "Marca", IsDeleted = false, RowVersion = new byte[8] };
+        ctx.Categorias.Add(cat);
+        ctx.Marcas.Add(marca);
+        await ctx.SaveChangesAsync();
+
+        var producto = new Producto
+        {
+            Nombre = "Prod Test", Codigo = "P01", PrecioVenta = 100m,
+            StockActual = 10, CategoriaId = cat.Id, MarcaId = marca.Id,
+            IsDeleted = false, RowVersion = new byte[8]
+        };
+        ctx.Productos.Add(producto);
+
+        var cliente = new Cliente
+        {
+            Nombre = "Test", Apellido = "Cliente", TipoDocumento = "DNI",
+            NumeroDocumento = "30000001", NivelRiesgo = NivelRiesgoCredito.AprobadoTotal,
+            IsDeleted = false, RowVersion = new byte[8]
+        };
+        ctx.Clientes.Add(cliente);
+        await ctx.SaveChangesAsync();
+        return (cliente.Id, producto.Id);
+    }
+
+    private static Venta VentaBase(int clienteId, decimal total = 0m) => new()
+    {
+        Numero = "V-001",
+        ClienteId = clienteId,
+        Estado = EstadoVenta.Cotizacion,
+        Total = total,
+        Descuento = 0m,
+        IVA = 0m,
+        IsDeleted = false,
+        RowVersion = new byte[8]
+    };
+
+    private static VentaDetalle Detalle(int ventaId, int productoId, decimal precio, int cantidad = 1) => new()
+    {
+        VentaId = ventaId,
+        ProductoId = productoId,
+        Cantidad = cantidad,
+        PrecioUnitario = precio,
+        Subtotal = precio * cantidad,
+        Descuento = 0m,
+        IsDeleted = false,
+        RowVersion = new byte[8]
+    };
+
+    [Fact]
+    public async Task VentaInexistente_DevuelveNull()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var svc = VentaServiceFactory.Create(ctx);
+            var result = await svc.GetTotalVentaAsync(999);
+            Assert.Null(result);
+        }
+    }
+
+    [Fact]
+    public async Task TotalGuardadoValido_DevuelveTotalDirectamente()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (clienteId, _) = await SeedAsync(ctx);
+            ctx.Ventas.Add(VentaBase(clienteId, total: 12_100m));
+            await ctx.SaveChangesAsync();
+
+            var svc = VentaServiceFactory.Create(ctx);
+            var ventaId = (await ctx.Ventas.FirstAsync()).Id;
+            var result = await svc.GetTotalVentaAsync(ventaId);
+            Assert.Equal(12_100m, result);
+        }
+    }
+
+    [Fact]
+    public async Task TotalCero_RecalculaDesdeDetalles()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (clienteId, productoId) = await SeedAsync(ctx);
+            ctx.Ventas.Add(VentaBase(clienteId, total: 0m));
+            await ctx.SaveChangesAsync();
+            var ventaId = (await ctx.Ventas.FirstAsync()).Id;
+            ctx.VentaDetalles.Add(Detalle(ventaId, productoId, precio: 1_000m, cantidad: 2));
+            await ctx.SaveChangesAsync();
+
+            var svc = VentaServiceFactory.Create(ctx);
+            var result = await svc.GetTotalVentaAsync(ventaId);
+
+            // subtotal = 2000, descuento = 0, iva = 2000 * 0.21 = 420, total = 2420
+            Assert.Equal(2_000m + 2_000m * IVA_RATE, result);
+        }
+    }
+
+    [Fact]
+    public async Task TotalCeroSinDetalles_DevuelveCero()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (clienteId, _) = await SeedAsync(ctx);
+            ctx.Ventas.Add(VentaBase(clienteId, total: 0m));
+            await ctx.SaveChangesAsync();
+            var ventaId = (await ctx.Ventas.FirstAsync()).Id;
+
+            var svc = VentaServiceFactory.Create(ctx);
+            var result = await svc.GetTotalVentaAsync(ventaId);
+            Assert.Equal(0m, result);
+        }
+    }
+
+    [Fact]
+    public async Task VentaEliminada_DevuelveNull()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (clienteId, _) = await SeedAsync(ctx);
+            var venta = VentaBase(clienteId, total: 5_000m);
+            venta.IsDeleted = true;
+            ctx.Ventas.Add(venta);
+            await ctx.SaveChangesAsync();
+            var ventaId = (await ctx.Ventas.IgnoreQueryFilters().FirstAsync()).Id;
+
+            var svc = VentaServiceFactory.Create(ctx);
+            var result = await svc.GetTotalVentaAsync(ventaId);
+            Assert.Null(result);
+        }
+    }
+}
