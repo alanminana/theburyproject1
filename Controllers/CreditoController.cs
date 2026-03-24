@@ -75,6 +75,8 @@ namespace TheBuryProject.Controllers
             _currentUser = currentUser;
         }
 
+        #region Index / Detalle / Simular
+
         // GET: Credito
         public async Task<IActionResult> Index(CreditoFilterViewModel filter)
         {
@@ -172,6 +174,10 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        #endregion
+
+        #region Aprobar / Rechazar / Cancelar
+
         public async Task<IActionResult> Aprobar(int id, string? returnUrl = null)
         {
             try
@@ -245,6 +251,10 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpGet]
+        #endregion
+
+        #region Configurar venta
+
         public async Task<IActionResult> ConfigurarVenta(int id, int? ventaId, string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -862,6 +872,10 @@ namespace TheBuryProject.Controllers
             return (tasaGlobal, gastosBase);
         }
 
+        #endregion
+
+        #region Crear / Editar
+
         // GET: Credito/Create
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
@@ -987,6 +1001,10 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Eliminar
+
         // GET: Credito/Delete/5
         public async Task<IActionResult> Delete(int id, string? returnUrl = null)
         {
@@ -1032,6 +1050,10 @@ namespace TheBuryProject.Controllers
 
             return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
+
+        #endregion
+
+        #region Pagar / Adelantar cuota
 
         // GET: Credito/PagarCuota/5
         public async Task<IActionResult> PagarCuota(int id, int? cuotaId = null, string? returnUrl = null)
@@ -1244,6 +1266,10 @@ namespace TheBuryProject.Controllers
             return View("AdelantarCuota_tw", modelo);
         }
 
+        #endregion
+
+        #region API JSON — Evaluar crédito
+
         // GET: API endpoint para evaluar crédito en tiempo real
         [HttpGet]
         public async Task<IActionResult> EvaluarCredito(int clienteId, decimal montoSolicitado, int? garanteId = null)
@@ -1262,6 +1288,10 @@ namespace TheBuryProject.Controllers
                 return StatusCode(500, new { error = "Error al evaluar crédito: " + ex.Message });
             }
         }
+
+        #endregion
+
+        #region Cuotas vencidas
 
         // GET: Credito/CuotasVencidas
         public async Task<IActionResult> CuotasVencidas(string? returnUrl = null)
@@ -1302,7 +1332,9 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        #region Métodos Privados
+        #endregion
+
+        #region Métodos privados
 
         private async Task CargarViewBags(int? clienteIdSeleccionado = null, int? garanteIdSeleccionado = null)
         {
