@@ -68,6 +68,7 @@ namespace TheBuryProject.Services
         public async Task<List<VentaViewModel>> GetAllAsync(VentaFilterViewModel? filter = null)
         {
             var query = _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Credito)
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
@@ -93,6 +94,7 @@ namespace TheBuryProject.Services
         {
             _logger.LogDebug("GetByIdAsync venta {Id} requested", id);
             var venta = await _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Credito)
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
@@ -1244,6 +1246,7 @@ namespace TheBuryProject.Services
         public async Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas)
         {
             var configuracion = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == tarjetaId && !t.IsDeleted);
             if (configuracion == null)
                 throw new InvalidOperationException("Configuración de tarjeta no encontrada");
@@ -1324,6 +1327,7 @@ namespace TheBuryProject.Services
             DateTime fechaPrimeraCuota)
         {
             var credito = await _context.Creditos
+                .AsNoTracking()
                 .Include(c => c.Cuotas)
                 .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                           !c.IsDeleted &&
@@ -1358,6 +1362,7 @@ namespace TheBuryProject.Services
         public async Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId)
         {
             var venta = await _context.Ventas
+                .AsNoTracking()
                 .Include(v => v.Credito)
                     .ThenInclude(c => c!.Cliente)
                 .Include(v => v.VentaCreditoCuotas.OrderBy(c => c.NumeroCuota))
@@ -1407,6 +1412,7 @@ namespace TheBuryProject.Services
         public async Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto)
         {
             var credito = await _context.Creditos
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == creditoId &&
                                           !c.IsDeleted &&
                                           c.Cliente != null &&
