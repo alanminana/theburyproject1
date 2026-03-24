@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
@@ -31,5 +32,11 @@ namespace TheBuryProject.Services.Interfaces
         /// Guarda defaults globales de crédito personal y perfiles (crear/actualizar).
         /// </summary>
         Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config);
+
+        /// <summary>
+        /// Resuelve los parámetros de crédito aplicables para un cliente según la cadena de prioridad:
+        /// Personalizado por cliente > Perfil preferido del cliente > Global.
+        /// </summary>
+        Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal);
     }
 }

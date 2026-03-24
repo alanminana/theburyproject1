@@ -350,52 +350,58 @@ namespace TheBuryProject.Controllers
                 }
             }
 
-            // Cargar datos del cliente para determinar si tiene configuración personalizada
-            await using var contextCliente = await _contextFactory.CreateDbContextAsync();
-            var cliente = await contextCliente.Clientes
-                .Include(c => c.PerfilCreditoPreferido)
-                .FirstOrDefaultAsync(c => c.Id == credito.ClienteId && !c.IsDeleted);
+            // Resolver parámetros de crédito del cliente (Personalizado > Perfil > Global)
+            var parametrosCliente = await _configuracionPagoService
+                .ObtenerParametrosCreditoClienteAsync(credito.ClienteId, tasaMensualConfig);
 
-            PerfilCredito? perfilPreferido = cliente?.PerfilCreditoPreferido;
+            var perfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
 
-            // Determinar fuente por defecto (si cliente tiene config personalizada, usarla; sino global)
-            var fuenteDefecto = FuenteConfiguracionCredito.Global;
-            if (cliente != null && 
-                (cliente.TasaInteresMensualPersonalizada.HasValue || 
-                 cliente.GastosAdministrativosPersonalizados.HasValue ||
-                 cliente.CuotasMaximasPersonalizadas.HasValue))
+            var modelo = new ConfiguracionCreditoVentaViewModel
             {
-                fuenteDefecto = FuenteConfiguracionCredito.PorCliente;
-            }
+                CreditoId = credito.Id,
+                VentaId = ventaId,
+                ClienteId = credito.ClienteId,
+                ClienteNombre = credito.ClienteNombre ?? string.Empty,
+                NumeroCredito = credito.Numero,
+                FuenteConfiguracion = parametrosCliente.Fuente,
+                MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente,
+                PerfilCreditoSeleccionadoId = parametrosCliente.PerfilPreferidoId,
+                Monto = montoVenta,
+                Anticipo = 0,
+                MontoFinanciado = montoVenta,
+                CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
+                TasaMensual = parametrosCliente.TasaMensual,
+                GastosAdministrativos = parametrosCliente.GastosAdministrativos,
+                FechaPrimeraCuota = credito.FechaPrimeraCuota
+            };
 
-            // Determinar valores según fuente (prioridad: Personalizado > Perfil > Global)
-            decimal? tasaInicial = tasaMensualConfig;
-            decimal? gastosIniciales = 0;
-            int cuotasMaximas = 24; // Global default
-            int cuotasMinimas = 1;
+            // Pasar datos del cliente a la vista para JS
+            var perfilPreferido = parametrosCliente.PerfilPreferidoId.HasValue
+                ? perfilesActivos.FirstOrDefault(p => p.Id == parametrosCliente.PerfilPreferidoId.Value)
+                : null;
 
-            if (fuenteDefecto == FuenteConfiguracionCredito.PorCliente && cliente != null)
+            ViewBag.ClienteConfigPersonalizada = new
             {
-                // Prioridad: cliente personalizado > perfil preferido > global
-                tasaInicial = cliente.TasaInteresMensualPersonalizada 
-                    ?? perfilPreferido?.TasaMensual 
-                    ?? tasaMensualConfig;
-                    
-                gastosIniciales = cliente.GastosAdministrativosPersonalizados 
-                    ?? perfilPreferido?.GastosAdministrativos 
-                    ?? 0;
-                    
-                cuotasMaximas = cliente.CuotasMaximasPersonalizadas 
-                    ?? perfilPreferido?.MaxCuotas 
-                    ?? 24;
-                    
-                cuotasMinimas = perfilPreferido?.MinCuotas ?? 1;
-            }
+                TieneTasaPersonalizada = parametrosCliente.TieneTasaPersonalizada,
+                TasaPersonalizada = parametrosCliente.TasaPersonalizada,
+                GastosPersonalizados = parametrosCliente.GastosPersonalizados,
+                CuotasMaximas = parametrosCliente.CuotasMaximas,
+                CuotasMinimas = parametrosCliente.CuotasMinimas,
+                TasaGlobal = tasaMensualConfig,
+                GastosGlobales = 0,
+                TienePerfilPreferido = parametrosCliente.PerfilPreferidoId.HasValue,
+                PerfilPreferidoId = parametrosCliente.PerfilPreferidoId,
+                PerfilNombre = parametrosCliente.PerfilPreferidoNombre,
+                PerfilTasa = perfilPreferido?.TasaMensual,
+                PerfilGastos = perfilPreferido?.GastosAdministrativos,
+                PerfilMinCuotas = perfilPreferido?.MinCuotas,
+                PerfilMaxCuotas = perfilPreferido?.MaxCuotas,
+                TieneConfiguracionCliente = parametrosCliente.TieneConfiguracionPersonalizada,
+                MontoMinimo = parametrosCliente.MontoMinimo,
+                MontoMaximo = parametrosCliente.MontoMaximo
+            };
 
-            var perfilesActivos = await contextCliente.PerfilesCredito
-                .Where(p => !p.IsDeleted && p.Activo)
-                .OrderBy(p => p.Orden)
-                .ThenBy(p => p.Nombre)
+            ViewBag.PerfilesActivos = perfilesActivos
                 .Select(p => new
                 {
                     p.Id,
@@ -406,52 +412,7 @@ namespace TheBuryProject.Controllers
                     p.MinCuotas,
                     p.MaxCuotas
                 })
-                .ToListAsync();
-
-            var modelo = new ConfiguracionCreditoVentaViewModel
-            {
-                CreditoId = credito.Id,
-                VentaId = ventaId,
-                ClienteId = credito.ClienteId,
-                ClienteNombre = credito.ClienteNombre ?? string.Empty,
-                NumeroCredito = credito.Numero,
-                FuenteConfiguracion = fuenteDefecto,
-                MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente,
-                PerfilCreditoSeleccionadoId = perfilPreferido?.Id,
-                Monto = montoVenta,
-                Anticipo = 0,
-                MontoFinanciado = montoVenta,
-                CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
-                TasaMensual = tasaInicial,
-                GastosAdministrativos = gastosIniciales,
-                FechaPrimeraCuota = credito.FechaPrimeraCuota
-            };
-
-            // Pasar datos del cliente a la vista para JS
-            ViewBag.ClienteConfigPersonalizada = new
-            {
-                TieneTasaPersonalizada = cliente?.TasaInteresMensualPersonalizada.HasValue ?? false,
-                TasaPersonalizada = cliente?.TasaInteresMensualPersonalizada,
-                GastosPersonalizados = cliente?.GastosAdministrativosPersonalizados,
-                CuotasMaximas = cliente?.CuotasMaximasPersonalizadas ?? cuotasMaximas,
-                CuotasMinimas = cuotasMinimas,
-                TasaGlobal = tasaMensualConfig,
-                GastosGlobales = 0,
-                TienePerfilPreferido = perfilPreferido != null,
-                PerfilPreferidoId = perfilPreferido?.Id,
-                PerfilNombre = perfilPreferido?.Nombre,
-                PerfilTasa = perfilPreferido?.TasaMensual,
-                PerfilGastos = perfilPreferido?.GastosAdministrativos,
-                PerfilMinCuotas = perfilPreferido?.MinCuotas,
-                PerfilMaxCuotas = perfilPreferido?.MaxCuotas,
-                TieneConfiguracionCliente = cliente?.TasaInteresMensualPersonalizada.HasValue == true ||
-                                           cliente?.GastosAdministrativosPersonalizados.HasValue == true ||
-                                           cliente?.CuotasMaximasPersonalizadas.HasValue == true,
-                MontoMinimo = cliente?.MontoMinimoPersonalizado,
-                MontoMaximo = cliente?.MontoMaximoPersonalizado
-            };
-
-            ViewBag.PerfilesActivos = perfilesActivos;
+                .ToList();
 
             return View("ConfigurarVenta_tw", modelo);
         }

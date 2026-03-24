@@ -4,6 +4,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
@@ -241,6 +242,61 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal)
+        {
+            // Valores globales por defecto
+            const int CuotasMaximasGlobal = 24;
+            const int CuotasMinimas = 1;
+
+            var cliente = await _context.Clientes
+                .AsNoTracking()
+                .Include(c => c.PerfilCreditoPreferido)
+                .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
+
+            var perfil = cliente?.PerfilCreditoPreferido;
+
+            var tieneConfigPersonalizada = cliente != null &&
+                (cliente.TasaInteresMensualPersonalizada.HasValue ||
+                 cliente.GastosAdministrativosPersonalizados.HasValue ||
+                 cliente.CuotasMaximasPersonalizadas.HasValue);
+
+            var fuente = tieneConfigPersonalizada
+                ? FuenteConfiguracionCredito.PorCliente
+                : FuenteConfiguracionCredito.Global;
+
+            // Cadena de prioridad: personalizado > perfil preferido > global
+            var tasaMensual = tieneConfigPersonalizada
+                ? (cliente!.TasaInteresMensualPersonalizada ?? perfil?.TasaMensual ?? tasaGlobal)
+                : tasaGlobal;
+
+            var gastos = tieneConfigPersonalizada
+                ? (cliente!.GastosAdministrativosPersonalizados ?? perfil?.GastosAdministrativos ?? 0m)
+                : 0m;
+
+            var cuotasMaximas = tieneConfigPersonalizada
+                ? (cliente!.CuotasMaximasPersonalizadas ?? perfil?.MaxCuotas ?? CuotasMaximasGlobal)
+                : CuotasMaximasGlobal;
+
+            var cuotasMinimas = perfil?.MinCuotas ?? CuotasMinimas;
+
+            return new ParametrosCreditoCliente
+            {
+                Fuente = fuente,
+                TasaMensual = tasaMensual,
+                GastosAdministrativos = gastos,
+                CuotasMaximas = cuotasMaximas,
+                CuotasMinimas = cuotasMinimas,
+                MontoMinimo = cliente?.MontoMinimoPersonalizado,
+                MontoMaximo = cliente?.MontoMaximoPersonalizado,
+                PerfilPreferidoId = perfil?.Id,
+                PerfilPreferidoNombre = perfil?.Nombre,
+                TieneConfiguracionPersonalizada = tieneConfigPersonalizada,
+                TieneTasaPersonalizada = cliente?.TasaInteresMensualPersonalizada.HasValue ?? false,
+                TasaPersonalizada = cliente?.TasaInteresMensualPersonalizada,
+                GastosPersonalizados = cliente?.GastosAdministrativosPersonalizados
+            };
         }
     }
 }
