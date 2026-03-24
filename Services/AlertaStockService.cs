@@ -259,6 +259,7 @@ namespace TheBuryProject.Services
         public async Task<List<AlertaStock>> GetAlertasPendientesAsync()
         {
             return await _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                     .ThenInclude(p => p.Categoria)
                 .Include(a => a.Producto)
@@ -272,6 +273,7 @@ namespace TheBuryProject.Services
         public async Task<AlertaStockViewModel?> GetByIdAsync(int id)
         {
             return await _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                     .ThenInclude(p => p.Categoria)
                 .Include(a => a.Producto)
@@ -378,6 +380,7 @@ namespace TheBuryProject.Services
         public async Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro)
         {
             var query = _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                     .ThenInclude(p => p.Categoria)
                 .Include(a => a.Producto)
@@ -441,6 +444,7 @@ namespace TheBuryProject.Services
         public async Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync()
         {
             var todasAlertas = await _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                     .ThenInclude(p => p.Categoria)
                 .Where(a => !a.IsDeleted && !a.Producto.IsDeleted)
@@ -515,6 +519,7 @@ namespace TheBuryProject.Services
 
                 // Listas detalladas
                 UltimasAlertas = await _context.AlertasStock
+                    .AsNoTracking()
                     .Include(a => a.Producto)
                         .ThenInclude(p => p.Categoria)
                     .Include(a => a.Producto)
@@ -526,6 +531,7 @@ namespace TheBuryProject.Services
                     .ToListAsync(),
 
                 ProductosMasAlertas = await _context.AlertasStock
+                    .AsNoTracking()
                     .Include(a => a.Producto)
                         .ThenInclude(p => p.Categoria)
                     .Include(a => a.Producto)
@@ -570,6 +576,7 @@ namespace TheBuryProject.Services
         public async Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId)
         {
             return await _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                 .Where(a => !a.IsDeleted && a.ProductoId == productoId && a.Producto != null && !a.Producto.IsDeleted)
                 .OrderByDescending(a => a.FechaAlerta)
@@ -611,6 +618,7 @@ namespace TheBuryProject.Services
         {
             // Obtener productos con alertas críticas o agotadas pendientes
             var productosConAlertas = await _context.AlertasStock
+                .AsNoTracking()
                 .Include(a => a.Producto)
                     .ThenInclude(p => p.Categoria)
                 .Include(a => a.Producto)

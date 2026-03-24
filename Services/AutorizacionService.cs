@@ -25,6 +25,7 @@ public class AutorizacionService : IAutorizacionService
     public async Task<List<UmbralAutorizacion>> ObtenerTodosUmbralesAsync()
     {
         return await _context.UmbralesAutorizacion
+            .AsNoTracking()
             .Where(u => !u.IsDeleted)
             .OrderBy(u => u.Rol)
             .ThenBy(u => u.TipoUmbral)
@@ -34,6 +35,7 @@ public class AutorizacionService : IAutorizacionService
     public async Task<List<UmbralAutorizacion>> ObtenerUmbralesPorRolAsync(string rol)
     {
         return await _context.UmbralesAutorizacion
+            .AsNoTracking()
             .Where(u => !u.IsDeleted && u.Rol == rol && u.Activo)
             .OrderBy(u => u.TipoUmbral)
             .ToListAsync();
@@ -54,6 +56,7 @@ public class AutorizacionService : IAutorizacionService
 
         // Verificar si ya existe un umbral para ese rol y tipo
         var existente = await _context.UmbralesAutorizacion
+            .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Rol == umbral.Rol &&
                                      u.TipoUmbral == umbral.TipoUmbral &&
                                      !u.IsDeleted);
@@ -148,6 +151,7 @@ public class AutorizacionService : IAutorizacionService
 
         // Buscar umbral configurado para el rol
         var umbral = await _context.UmbralesAutorizacion
+            .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Rol == rol &&
                                      u.TipoUmbral == tipoUmbral &&
                                      u.Activo &&
@@ -180,6 +184,7 @@ public class AutorizacionService : IAutorizacionService
     public async Task<List<SolicitudAutorizacion>> ObtenerTodasSolicitudesAsync()
     {
         return await _context.SolicitudesAutorizacion
+            .AsNoTracking()
             .Where(s => !s.IsDeleted)
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
@@ -188,6 +193,7 @@ public class AutorizacionService : IAutorizacionService
     public async Task<List<SolicitudAutorizacion>> ObtenerSolicitudesPendientesAsync()
     {
         return await _context.SolicitudesAutorizacion
+            .AsNoTracking()
             .Where(s => !s.IsDeleted && s.Estado == EstadoSolicitud.Pendiente)
             .OrderBy(s => s.CreatedAt)
             .ToListAsync();
@@ -196,6 +202,7 @@ public class AutorizacionService : IAutorizacionService
     public async Task<List<SolicitudAutorizacion>> ObtenerSolicitudesPorUsuarioAsync(string usuario)
     {
         return await _context.SolicitudesAutorizacion
+            .AsNoTracking()
             .Where(s => !s.IsDeleted && s.UsuarioSolicitante == usuario)
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
