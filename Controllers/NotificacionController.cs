@@ -101,7 +101,7 @@ public class NotificacionController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error al marcar notificación {id} como leída");
+            _logger.LogError(ex, "Error al marcar notificación {NotificacionId} como leída", id);
             return StatusCode(500, new { error = "Error al marcar como leída" });
         }
     }
@@ -155,7 +155,7 @@ public class NotificacionController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error al eliminar notificación {id}");
+            _logger.LogError(ex, "Error al eliminar notificación {NotificacionId}", id);
             return StatusCode(500, new { error = "Error al eliminar notificación" });
         }
     }
