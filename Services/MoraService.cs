@@ -23,21 +23,18 @@ namespace TheBuryProject.Services
         /// <summary>Umbral de días de atraso para clasificar una mora como elevada.</summary>
         private const int DiasMoraElevada = 90;
 
-        // Días de anticipación para generar alertas de cuotas próximas a vencer.
-        // TODO: Hacer configurable en ConfiguracionMora.
+        // Fallback cuando ConfiguracionMora.DiasAntesAlertaPreventiva no está configurado.
         private const int DiasAnticipacionAlerta = 5;
 
         // Divisor mensual para convertir tasa mensual en tasa diaria (días por mes comercial).
         private const decimal DiasPorMesComercial = 30m;
 
-        // Umbrales de días de mora para clasificación de prioridad de alerta.
-        // TODO: Hacer configurables en ConfiguracionMora.
+        // Fallbacks cuando ConfiguracionMora.DiasParaPrioridad* no están configurados.
         private const int DiasUmbralAlertaCritica = 30;
         private const int DiasUmbralAlertaAlta = 15;
         private const int DiasUmbralAlertaMedia = 7;
 
-        // Umbrales de monto vencido para clasificación de prioridad de alerta.
-        // TODO: Hacer configurables en ConfiguracionMora.
+        // Fallbacks cuando ConfiguracionMora.MontoParaPrioridad* no están configurados.
         private const decimal MontoUmbralAlertaCritica = 50_000m;
         private const decimal MontoUmbralAlertaAlta = 30_000m;
         private const decimal MontoUmbralAlertaMedia = 15_000m;
@@ -270,7 +267,7 @@ namespace TheBuryProject.Services
             try
             {
                 var hoy = DateTime.Today;
-                var diasAntesAlerta = DiasAnticipacionAlerta;
+                var diasAntesAlerta = config.DiasAntesAlertaPreventiva ?? DiasAnticipacionAlerta;
                 var proximosDias = hoy.AddDays(diasAntesAlerta);
                 var now = DateTime.UtcNow;
 
@@ -1365,11 +1362,18 @@ namespace TheBuryProject.Services
 
         private PrioridadAlerta DeterminarPrioridad(int diasMora, decimal montoVencido, ConfiguracionMora config)
         {
-            if (diasMora > DiasUmbralAlertaCritica || montoVencido > MontoUmbralAlertaCritica)
+            var diasCritica = config.DiasParaPrioridadCritica ?? DiasUmbralAlertaCritica;
+            var diasAlta = config.DiasParaPrioridadAlta ?? DiasUmbralAlertaAlta;
+            var diasMedia = config.DiasParaPrioridadMedia ?? DiasUmbralAlertaMedia;
+            var montoCritica = config.MontoParaPrioridadCritica ?? MontoUmbralAlertaCritica;
+            var montoAlta = config.MontoParaPrioridadAlta ?? MontoUmbralAlertaAlta;
+            var montoMedia = config.MontoParaPrioridadMedia ?? MontoUmbralAlertaMedia;
+
+            if (diasMora > diasCritica || montoVencido > montoCritica)
                 return PrioridadAlerta.Critica;
-            if (diasMora > DiasUmbralAlertaAlta || montoVencido > MontoUmbralAlertaAlta)
+            if (diasMora > diasAlta || montoVencido > montoAlta)
                 return PrioridadAlerta.Alta;
-            if (diasMora > DiasUmbralAlertaMedia || montoVencido > MontoUmbralAlertaMedia)
+            if (diasMora > diasMedia || montoVencido > montoMedia)
                 return PrioridadAlerta.Media;
 
             return PrioridadAlerta.Baja;
