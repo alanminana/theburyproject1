@@ -65,6 +65,11 @@ public interface IUsuarioService
     /// Obtiene los usuarios que pertenecen a un rol específico, con Id y UserName.
     /// </summary>
     Task<List<UsuarioSelectItem>> GetUsuariosPorRolAsync(string roleName);
+
+    /// <summary>
+    /// Carga múltiples usuarios por IDs en una sola query.
+    /// </summary>
+    Task<List<ApplicationUser>> GetUsuariosByIdsAsync(IEnumerable<string> ids);
 }
 
 /// <summary>

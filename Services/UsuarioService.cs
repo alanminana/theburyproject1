@@ -91,6 +91,16 @@ public class UsuarioService : IUsuarioService
     public Task<Sucursal?> GetSucursalByIdAsync(int? sucursalId)
         => _context.GetSucursalAsync(sucursalId);
 
+    public async Task<List<ApplicationUser>> GetUsuariosByIdsAsync(IEnumerable<string> ids)
+    {
+        var idList = ids.ToList();
+        if (idList.Count == 0) return new List<ApplicationUser>();
+
+        return await _userManager.Users
+            .Where(u => idList.Contains(u.Id))
+            .ToListAsync();
+    }
+
     public async Task<UsuarioUpdateResult> UpdateUsuarioAsync(UsuarioUpdateRequest request)
     {
         var user = await _userManager.FindByIdAsync(request.UserId);

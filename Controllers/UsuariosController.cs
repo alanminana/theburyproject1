@@ -768,10 +768,10 @@ public class UsuariosController : Controller
 
         try
         {
-            foreach (var uid in userIds)
+            var usuarios = await _usuarioService.GetUsuariosByIdsAsync(userIds);
+
+            foreach (var user in usuarios)
             {
-                var user = await _userManager.FindByIdAsync(uid);
-                if (user == null) continue;
 
                 switch (accion)
                 {
