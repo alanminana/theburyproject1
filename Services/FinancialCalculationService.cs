@@ -4,6 +4,8 @@ namespace TheBuryProject.Services
 {
     public class FinancialCalculationService : IFinancialCalculationService
     {
+        private const double MesesPorAnio = 12.0;
+
         public decimal CalcularCuotaSistemaFrances(decimal monto, decimal tasaMensual, int cuotas)
         {
             if (monto <= 0)
@@ -34,7 +36,7 @@ namespace TheBuryProject.Services
                 return 0;
 
             var baseCFTEA = (double)(totalAPagar / montoInicial);
-            var expCFTEA = 12.0 / cuotas;
+            var expCFTEA = MesesPorAnio / cuotas;
             return (decimal)(Math.Pow(baseCFTEA, expCFTEA) - 1) * 100;
         }
 

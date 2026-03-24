@@ -31,6 +31,10 @@ namespace TheBuryProject.Services
         private const decimal UmbralCuotaIngresoBajo = 0.25m;
         private const decimal UmbralCuotaIngresoAlto = 0.45m;
 
+        // Umbrales de puntaje de riesgo para clasificación cualitativa (escala 0-10).
+        private const decimal PuntajeRiesgoExcelente = 7.0m;
+        private const decimal PuntajeRiesgoMedio = 5.0m;
+
         public EvaluacionCreditoService(
             AppDbContext context,
             IMapper mapper,
@@ -150,10 +154,10 @@ namespace TheBuryProject.Services
         {
             var regla = new ReglaEvaluacionViewModel { Nombre = "Puntaje de Riesgo" };
 
-            if (puntajeRiesgo >= 7.0m)
-                (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) = 
+            if (puntajeRiesgo >= PuntajeRiesgoExcelente)
+                (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) =
                     (true, 30, $"Excelente: {puntajeRiesgo}/10", false);
-            else if (puntajeRiesgo >= 5.0m)
+            else if (puntajeRiesgo >= PuntajeRiesgoMedio)
                 (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) = 
                     (true, 20, $"Bueno: {puntajeRiesgo}/10", false);
             else if (puntajeRiesgo >= _config!.PuntajeRiesgoMinimo)

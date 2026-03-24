@@ -6,6 +6,10 @@ namespace TheBuryProject.Services
 {
     public class PrequalificationService : IPrequalificationService
     {
+        // Política de cuota/ingreso: la cuota no puede superar el 30% del ingreso efectivo.
+        // 3.33 = 1 / 0.30 — el ingreso debe ser al menos 3.33x la cuota.
+        private const decimal RatioIngresoMinimoPorCuota = 3.33m;
+
         public PrequalificationResult Evaluate(decimal installmentAmount, decimal? declaredNetIncome, decimal? declaredDebt, int? employmentSeniorityMonths)
         {
             if (installmentAmount < 0)
@@ -34,7 +38,7 @@ namespace TheBuryProject.Services
 
             var netIncome = declaredNetIncome.Value;
             var effectiveIncome = declaredDebt.HasValue ? netIncome - declaredDebt.Value : netIncome;
-            var meetsPolicy = effectiveIncome >= installmentAmount * 3.33m;
+            var meetsPolicy = effectiveIncome >= installmentAmount * RatioIngresoMinimoPorCuota;
             result.MeetsThirtyPercentPolicy = meetsPolicy;
 
             if (!meetsPolicy)
