@@ -23,6 +23,25 @@ namespace TheBuryProject.Services
         /// <summary>Umbral de días de atraso para clasificar una mora como elevada.</summary>
         private const int DiasMoraElevada = 90;
 
+        // Días de anticipación para generar alertas de cuotas próximas a vencer.
+        // TODO: Hacer configurable en ConfiguracionMora.
+        private const int DiasAnticipacionAlerta = 5;
+
+        // Divisor mensual para convertir tasa mensual en tasa diaria (días por mes comercial).
+        private const decimal DiasPorMesComercial = 30m;
+
+        // Umbrales de días de mora para clasificación de prioridad de alerta.
+        // TODO: Hacer configurables en ConfiguracionMora.
+        private const int DiasUmbralAlertaCritica = 30;
+        private const int DiasUmbralAlertaAlta = 15;
+        private const int DiasUmbralAlertaMedia = 7;
+
+        // Umbrales de monto vencido para clasificación de prioridad de alerta.
+        // TODO: Hacer configurables en ConfiguracionMora.
+        private const decimal MontoUmbralAlertaCritica = 50_000m;
+        private const decimal MontoUmbralAlertaAlta = 30_000m;
+        private const decimal MontoUmbralAlertaMedia = 15_000m;
+
         private ConfiguracionMora? _configuracion;
 
         public MoraService(
@@ -251,7 +270,7 @@ namespace TheBuryProject.Services
             try
             {
                 var hoy = DateTime.Today;
-                var diasAntesAlerta = 5; // TODO: Hacer configurable en ConfiguracionMora
+                var diasAntesAlerta = DiasAnticipacionAlerta;
                 var proximosDias = hoy.AddDays(diasAntesAlerta);
                 var now = DateTime.UtcNow;
 
@@ -1338,7 +1357,7 @@ namespace TheBuryProject.Services
                 return 0;
 
             var tasaBase = config.TasaMoraBase ?? 0m;
-            var tasaDiaria = tasaBase / 100m / 30m; // Convertir a tasa diaria
+            var tasaDiaria = tasaBase / 100m / DiasPorMesComercial; // Convertir a tasa diaria
             var mora = montoVencido * tasaDiaria * diasAtraso;
 
             return Math.Round(mora, 2);
@@ -1346,19 +1365,11 @@ namespace TheBuryProject.Services
 
         private PrioridadAlerta DeterminarPrioridad(int diasMora, decimal montoVencido, ConfiguracionMora config)
         {
-            // Umbrales por defecto (TODO: Hacer configurables)
-            const int diasAlertaCritica = 30;
-            const int diasAlertaAlta = 15;
-            const int diasAlertaMedia = 7;
-            const decimal montoAlertaCritica = 50000;
-            const decimal montoAlertaAlta = 30000;
-            const decimal montoAlertaMedia = 15000;
-
-            if (diasMora > diasAlertaCritica || montoVencido > montoAlertaCritica)
+            if (diasMora > DiasUmbralAlertaCritica || montoVencido > MontoUmbralAlertaCritica)
                 return PrioridadAlerta.Critica;
-            if (diasMora > diasAlertaAlta || montoVencido > montoAlertaAlta)
+            if (diasMora > DiasUmbralAlertaAlta || montoVencido > MontoUmbralAlertaAlta)
                 return PrioridadAlerta.Alta;
-            if (diasMora > diasAlertaMedia || montoVencido > montoAlertaMedia)
+            if (diasMora > DiasUmbralAlertaMedia || montoVencido > MontoUmbralAlertaMedia)
                 return PrioridadAlerta.Media;
 
             return PrioridadAlerta.Baja;
