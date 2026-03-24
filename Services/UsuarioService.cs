@@ -88,6 +88,9 @@ public class UsuarioService : IUsuarioService
             .AnyAsync(s => s.Id == sucursalId && s.Activa);
     }
 
+    public Task<Sucursal?> GetSucursalByIdAsync(int? sucursalId)
+        => _context.GetSucursalAsync(sucursalId);
+
     public async Task<UsuarioUpdateResult> UpdateUsuarioAsync(UsuarioUpdateRequest request)
     {
         var user = await _userManager.FindByIdAsync(request.UserId);

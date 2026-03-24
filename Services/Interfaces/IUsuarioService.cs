@@ -40,6 +40,11 @@ public interface IUsuarioService
     Task<bool> ExistsSucursalActivaAsync(int sucursalId);
 
     /// <summary>
+    /// Obtiene una sucursal activa por ID. Devuelve null si no existe o está inactiva.
+    /// </summary>
+    Task<Sucursal?> GetSucursalByIdAsync(int? sucursalId);
+
+    /// <summary>
     /// Obtiene los datos de un usuario para el formulario de edición.
     /// Devuelve null si el usuario no existe.
     /// </summary>

@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
@@ -20,7 +18,7 @@ namespace TheBuryProject.Controllers;
 public class UsuariosController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly AppDbContext _context;
+    private readonly IUsuarioService _usuarioService;
     private readonly IRolService _rolService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
     private readonly ICurrentUserService _currentUser;
@@ -45,7 +43,7 @@ public class UsuariosController : Controller
 
     public UsuariosController(
         UserManager<ApplicationUser> userManager,
-        AppDbContext context,
+        IUsuarioService usuarioService,
         IRolService rolService,
         ISeguridadAuditoriaService seguridadAuditoria,
         ICurrentUserService currentUser,
@@ -53,7 +51,7 @@ public class UsuariosController : Controller
         IOptions<IdentityOptions> identityOptions)
     {
         _userManager = userManager;
-        _context = context;
+        _usuarioService = usuarioService;
         _rolService = rolService;
         _seguridadAuditoria = seguridadAuditoria;
         _currentUser = currentUser;
@@ -163,7 +161,7 @@ public class UsuariosController : Controller
                 });
             }
 
-            var sucursal = await _context.GetSucursalAsync(model.SucursalId);
+            var sucursal = await _usuarioService.GetSucursalByIdAsync(model.SucursalId);
             if (model.SucursalId.HasValue && sucursal == null)
             {
                 return Json(new { success = false, errors = new[] { "La sucursal seleccionada no existe o está inactiva." } });
@@ -763,7 +761,7 @@ public class UsuariosController : Controller
                 return RedirectToReturnUrlOrIndex(returnUrl);
             }
 
-            sucursalDestino = await _context.GetSucursalAsync(sucursalId);
+            sucursalDestino = await _usuarioService.GetSucursalByIdAsync(sucursalId);
             if (sucursalDestino == null)
             {
                 TempData["Error"] = "La sucursal seleccionada no existe o está inactiva.";
@@ -930,7 +928,7 @@ public class UsuariosController : Controller
 
     private async Task CargarSucursalesEnViewBag()
     {
-        var sucursales = await _context.GetSucursalOptionsAsync();
+        var sucursales = await _usuarioService.GetSucursalOptionsAsync();
         ViewBag.Sucursales = sucursales;
     }
 
