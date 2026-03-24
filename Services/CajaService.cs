@@ -514,6 +514,7 @@ namespace TheBuryProject.Services
                 if (ventaId > 0)
                 {
                     var ventaData = await _context.Ventas
+                        .AsNoTracking()
                         .Where(v => v.Id == ventaId && !v.IsDeleted)
                         .Select(v => new { v.AperturaCajaId, v.VendedorUserId })
                         .FirstOrDefaultAsync();
@@ -849,6 +850,7 @@ namespace TheBuryProject.Services
             try
             {
                 return await _context.CierresCaja
+                    .AsNoTracking()
                     .Include(c => c.AperturaCaja)
                         .ThenInclude(a => a.Caja)
                     .Include(c => c.AperturaCaja)
@@ -870,6 +872,7 @@ namespace TheBuryProject.Services
             try
             {
                 var query = _context.CierresCaja
+                    .AsNoTracking()
                     .Include(c => c.AperturaCaja)
                         .ThenInclude(a => a.Caja)
                     .Where(c => !c.IsDeleted);
@@ -946,6 +949,7 @@ namespace TheBuryProject.Services
             try
             {
                 var query = _context.AperturasCaja
+                    .AsNoTracking()
                     .Include(a => a.Caja)
                     .Include(a => a.Movimientos)
                     .Include(a => a.Cierre)

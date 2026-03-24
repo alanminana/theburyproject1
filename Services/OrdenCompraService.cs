@@ -38,6 +38,7 @@ namespace TheBuryProject.Services
         public async Task<IEnumerable<OrdenCompra>> GetAllAsync()
         {
             return await _context.OrdenesCompra
+                .AsNoTracking()
                 .Where(o => !o.IsDeleted)
                 .Include(o => o.Proveedor)
                 .Include(o => o.Detalles.Where(d => !d.IsDeleted))
@@ -241,6 +242,7 @@ namespace TheBuryProject.Services
             string? orderDirection = "asc")
         {
             var query = _context.OrdenesCompra
+                .AsNoTracking()
                 .Include(o => o.Proveedor)
                 .Include(o => o.Detalles.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Producto)
@@ -286,6 +288,7 @@ namespace TheBuryProject.Services
         public async Task<IEnumerable<OrdenCompra>> GetByProveedorIdAsync(int proveedorId)
         {
             return await _context.OrdenesCompra
+                .AsNoTracking()
                 .Include(o => o.Detalles.Where(d => !d.IsDeleted))
                 .Where(o => o.ProveedorId == proveedorId && !o.IsDeleted)
                 .OrderByDescending(o => o.FechaEmision)
@@ -326,6 +329,7 @@ namespace TheBuryProject.Services
             
             // Obtener el último número de orden del año actual
             var ultimaOrden = await _context.OrdenesCompra
+                .AsNoTracking()
                 .Where(o => o.Numero.StartsWith(prefijo) && !o.IsDeleted)
                 .OrderByDescending(o => o.Numero)
                 .Select(o => o.Numero)

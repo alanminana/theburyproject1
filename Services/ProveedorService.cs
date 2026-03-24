@@ -377,6 +377,7 @@ namespace TheBuryProject.Services
         public async Task<List<ProveedorProducto>> GetProductosProveedorAsync(int proveedorId)
         {
             return await _context.ProveedorProductos
+                .AsNoTracking()
                 .Include(pp => pp.Producto)
                 .Where(pp => pp.ProveedorId == proveedorId && !pp.IsDeleted)
                 .ToListAsync();
