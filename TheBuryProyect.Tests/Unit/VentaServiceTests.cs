@@ -105,7 +105,7 @@ file static class VentaServiceFactory
         var financialService = new FinancialCalculationService();
         var logger = NullLogger<VentaService>.Instance;
         var validator = new NoOpVentaValidator();
-        var numberGenerator = new VentaNumberGenerator(ctx);
+        var numberGenerator = new VentaNumberGenerator(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.VentaNumberGenerator>.Instance);
 
         // Dependencias no usadas en el lote 1 — se pasan como null! (no se invocan en estos tests)
         return new VentaService(

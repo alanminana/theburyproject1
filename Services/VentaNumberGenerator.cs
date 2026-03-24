@@ -8,11 +8,13 @@ namespace TheBuryProject.Services
     public class VentaNumberGenerator
     {
         private readonly AppDbContext _context;
+        private readonly ILogger<VentaNumberGenerator> _logger;
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
-        public VentaNumberGenerator(AppDbContext context)
+        public VentaNumberGenerator(AppDbContext context, ILogger<VentaNumberGenerator> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<string> GenerarNumeroAsync(EstadoVenta estado)
@@ -44,7 +46,9 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                return string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijo, periodo, siguiente);
+                var numero = string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijo, periodo, siguiente);
+                _logger.LogDebug("Número generado: {Numero}", numero);
+                return numero;
             }
             finally
             {
@@ -78,7 +82,9 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                return string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijo, periodo, siguiente);
+                var numero = string.Format(VentaConstants.FORMATO_NUMERO_VENTA, prefijo, periodo, siguiente);
+                _logger.LogDebug("Número de factura generado: {Numero} - Tipo {Tipo}", numero, tipo);
+                return numero;
             }
             finally
             {

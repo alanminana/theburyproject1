@@ -118,7 +118,7 @@ public class VentaServiceGuardsTests
         var mapper = CreateMapper();
         var logger = NullLogger<VentaService>.Instance;
         var validator = new VentaValidator();
-        var numberGenerator = new VentaNumberGenerator(ctx);
+        var numberGenerator = new VentaNumberGenerator(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.VentaNumberGenerator>.Instance);
         var financialService = new FinancialCalculationService();
 
         return new VentaService(
