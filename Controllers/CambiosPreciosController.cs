@@ -49,9 +49,7 @@ public class CambiosPreciosController : Controller
         _logger = logger;
     }
 
-    // ============================================
-    // INDEX - Listar batches de cambios
-    // ============================================
+    #region Index — Listar batches
 
     /// <summary>
     /// Lista todos los batches de cambios con filtros
@@ -107,9 +105,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // SIMULAR - Crear nueva simulación
-    // ============================================
+    #endregion
+
+    #region Simular — Crear simulación
 
     /// <summary>
     /// Muestra el formulario para simular un cambio masivo de precios.
@@ -768,9 +766,9 @@ public class CambiosPreciosController : Controller
         _ => "bg-secondary"
     };
 
-    // ============================================
-    // PREVIEW - Ver resultados de simulación
-    // ============================================
+    #endregion
+
+    #region Preview — Ver resultados de simulación
 
     /// <summary>
     /// Muestra los resultados de una simulación
@@ -841,9 +839,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // AUTORIZAR - Aprobar o rechazar batch
-    // ============================================
+    #endregion
+
+    #region Autorizar — Aprobar o rechazar batch
 
     /// <summary>
     /// Muestra el formulario para autorizar (aprobar/rechazar) un batch
@@ -983,9 +981,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // APLICAR - Aplicar batch aprobado
-    // ============================================
+    #endregion
+
+    #region Aplicar — Aplicar batch aprobado
 
     /// <summary>
     /// Muestra el formulario para aplicar un batch aprobado
@@ -1059,9 +1057,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // REVERTIR - Revertir batch aplicado
-    // ============================================
+    #endregion
+
+    #region Revertir — Revertir batch aplicado
 
     /// <summary>
     /// Muestra el formulario para revertir un batch aplicado
@@ -1224,9 +1222,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // HISTORIAL - Ver historial de precios
-    // ============================================
+    #endregion
+
+    #region Historial — Ver historial de precios
 
     /// <summary>
     /// Muestra el historial de precios de un producto
@@ -1290,9 +1288,9 @@ public class CambiosPreciosController : Controller
         }
     }
 
-    // ============================================
-    // MÉTODOS AUXILIARES
-    // ============================================
+    #endregion
+
+    #region Métodos auxiliares
 
     /// <summary>
     /// Carga datos necesarios para el formulario de simulación
@@ -1358,4 +1356,6 @@ public class CambiosPreciosController : Controller
         public bool? StockBajo { get; set; }
         public int? ListaPrecioId { get; set; }
     }
+
+    #endregion
 }
