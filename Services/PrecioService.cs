@@ -45,6 +45,7 @@ public class PrecioService : IPrecioService
     public async Task<List<ListaPrecio>> GetAllListasAsync(bool soloActivas = true)
     {
         var query = _context.ListasPrecios
+            .AsNoTracking()
             .Where(l => !l.IsDeleted)
             .AsQueryable();
 
@@ -60,6 +61,7 @@ public class PrecioService : IPrecioService
     public async Task<ListaPrecio?> GetListaByIdAsync(int id)
     {
         return await _context.ListasPrecios
+            .AsNoTracking()
             .Include(l => l.Precios)
             .FirstOrDefaultAsync(l => l.Id == id && !l.IsDeleted);
     }
@@ -67,6 +69,7 @@ public class PrecioService : IPrecioService
     public async Task<ListaPrecio?> GetListaPredeterminadaAsync()
     {
         return await _context.ListasPrecios
+            .AsNoTracking()
             .FirstOrDefaultAsync(l => l.EsPredeterminada && l.Activa && !l.IsDeleted);
     }
 
@@ -698,6 +701,7 @@ public class PrecioService : IPrecioService
         fecha ??= DateTime.UtcNow;
 
         return await _context.ProductosPrecios
+            .AsNoTracking()
             .Include(p => p.Producto)
             .Include(p => p.Lista)
             .Where(p => p.ProductoId == productoId
@@ -726,6 +730,7 @@ public class PrecioService : IPrecioService
         // Una sola query para todos los productos: filtramos por lista y vigencia,
         // luego agrupamos en memoria tomando el precio más reciente por producto.
         var precios = await _context.ProductosPrecios
+            .AsNoTracking()
             .Where(p => ids.Contains(p.ProductoId)
                      && p.ListaId == listaId
                      && p.VigenciaDesde <= fecha
@@ -747,6 +752,7 @@ public class PrecioService : IPrecioService
         fecha ??= DateTime.UtcNow;
 
         return await _context.ProductosPrecios
+            .AsNoTracking()
             .Include(p => p.Lista)
             .Where(p => p.ProductoId == productoId
                      && p.VigenciaDesde <= fecha
@@ -765,6 +771,7 @@ public class PrecioService : IPrecioService
         int listaId)
     {
         return await _context.ProductosPrecios
+            .AsNoTracking()
             .Include(p => p.Lista)
             .Include(p => p.Batch)
             .Where(p => p.ProductoId == productoId &&
@@ -1113,6 +1120,7 @@ public class PrecioService : IPrecioService
     public async Task<PriceChangeBatch?> GetSimulacionAsync(int batchId)
     {
         return await _context.PriceChangeBatches
+            .AsNoTracking()
             .Include(b => b.Items.Where(i => !i.IsDeleted))
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
     }
@@ -1123,6 +1131,7 @@ public class PrecioService : IPrecioService
         int take = 50)
     {
         return await _context.PriceChangeItems
+            .AsNoTracking()
             .Include(i => i.Producto)
             .Include(i => i.Lista)
             .Where(i => i.BatchId == batchId
@@ -1138,6 +1147,7 @@ public class PrecioService : IPrecioService
     public async Task<List<int>> GetBatchIdsByProductoAsync(int productoId)
     {
         return await _context.PriceChangeItems
+            .AsNoTracking()
             .Where(i => i.ProductoId == productoId)
             .Select(i => i.BatchId)
             .Distinct()
@@ -1518,6 +1528,7 @@ public class PrecioService : IPrecioService
         int take = 50)
     {
         var query = _context.PriceChangeBatches
+            .AsNoTracking()
             .Where(b => !b.IsDeleted)
             .AsQueryable();
 
@@ -1540,6 +1551,7 @@ public class PrecioService : IPrecioService
     public async Task<Dictionary<string, object>> GetEstadisticasBatchAsync(int batchId)
     {
         var batch = await _context.PriceChangeBatches
+            .AsNoTracking()
             .Include(b => b.Items.Where(i => !i.IsDeleted))
             .FirstOrDefaultAsync(b => b.Id == batchId && !b.IsDeleted);
 
@@ -1573,6 +1585,7 @@ public class PrecioService : IPrecioService
             throw new ArgumentException("fechaHasta debe ser mayor o igual a fechaDesde");
 
         var precios = await _context.ProductosPrecios
+            .AsNoTracking()
             .Include(p => p.Producto)
             .Include(p => p.Lista)
             .Include(p => p.Batch)
@@ -1654,6 +1667,7 @@ public class PrecioService : IPrecioService
     {
         // Obtener margen mínimo de la lista de precios
         var lista = await _context.ListasPrecios
+            .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == listaId && !l.IsDeleted);
         var margenMinimo = lista?.MargenMinimoPorcentaje ?? 10.0m;
 
