@@ -42,6 +42,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Devolucion>> ObtenerTodasDevolucionesAsync()
     {
         return await _context.Devoluciones
+            .AsNoTracking()
             .Include(d => d.Cliente)
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
@@ -54,6 +55,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Devolucion>> ObtenerDevolucionesPorClienteAsync(int clienteId)
     {
         return await _context.Devoluciones
+            .AsNoTracking()
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
@@ -65,6 +67,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Devolucion>> ObtenerDevolucionesPorEstadoAsync(EstadoDevolucion estado)
     {
         return await _context.Devoluciones
+            .AsNoTracking()
             .Include(d => d.Cliente)
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
@@ -89,6 +92,7 @@ public class DevolucionService : IDevolucionService
     public async Task<Devolucion?> ObtenerDevolucionPorNumeroAsync(string numeroDevolucion)
     {
         return await _context.Devoluciones
+            .AsNoTracking()
             .Include(d => d.Cliente)
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
@@ -480,6 +484,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<DevolucionDetalle>> ObtenerDetallesDevolucionAsync(int devolucionId)
     {
         return await _context.DevolucionDetalles
+            .AsNoTracking()
             .Include(dd => dd.Producto)
             .Include(dd => dd.Garantia)
             .Where(dd =>
@@ -548,6 +553,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Garantia>> ObtenerTodasGarantiasAsync()
     {
         return await _context.Garantias
+            .AsNoTracking()
             .Include(g => g.Cliente)
             .Include(g => g.Producto)
             .Where(g =>
@@ -564,6 +570,7 @@ public class DevolucionService : IDevolucionService
     {
         var hoy = DateTime.UtcNow;
         return await _context.Garantias
+            .AsNoTracking()
             .Include(g => g.Cliente)
             .Include(g => g.Producto)
             .Where(g => !g.IsDeleted &&
@@ -580,6 +587,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Garantia>> ObtenerGarantiasPorClienteAsync(int clienteId)
     {
         return await _context.Garantias
+            .AsNoTracking()
             .Include(g => g.Producto)
             .Where(g =>
                 g.ClienteId == clienteId &&
@@ -610,6 +618,7 @@ public class DevolucionService : IDevolucionService
     public async Task<Garantia?> ObtenerGarantiaPorNumeroAsync(string numeroGarantia)
     {
         return await _context.Garantias
+            .AsNoTracking()
             .Include(g => g.Cliente)
             .Include(g => g.Producto)
             .FirstOrDefaultAsync(g =>
@@ -694,6 +703,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<RMA>> ObtenerTodosRMAsAsync()
     {
         return await _context.RMAs
+            .AsNoTracking()
             .Include(r => r.Proveedor)
             .Include(r => r.Devolucion).ThenInclude(d => d.Cliente)
             .Where(r =>
@@ -709,6 +719,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<RMA>> ObtenerRMAsPorEstadoAsync(EstadoRMA estado)
     {
         return await _context.RMAs
+            .AsNoTracking()
             .Include(r => r.Proveedor)
             .Include(r => r.Devolucion)
             .Where(r =>
@@ -725,6 +736,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<RMA>> ObtenerRMAsPorProveedorAsync(int proveedorId)
     {
         return await _context.RMAs
+            .AsNoTracking()
             .Include(r => r.Devolucion).ThenInclude(d => d.Cliente)
             .Where(r =>
                 r.ProveedorId == proveedorId &&
@@ -760,6 +772,7 @@ public class DevolucionService : IDevolucionService
     public async Task<RMA?> ObtenerRMAPorNumeroAsync(string numeroRMA)
     {
         return await _context.RMAs
+            .AsNoTracking()
             .Include(r => r.Proveedor)
             .Include(r => r.Devolucion)
             .FirstOrDefaultAsync(r =>
@@ -950,6 +963,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<NotaCredito>> ObtenerTodasNotasCreditoAsync()
     {
         return await _context.NotasCredito
+            .AsNoTracking()
             .Include(nc => nc.Cliente)
             .Include(nc => nc.Devolucion)
             .Where(nc =>
@@ -964,6 +978,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<NotaCredito>> ObtenerNotasCreditoPorClienteAsync(int clienteId)
     {
         return await _context.NotasCredito
+            .AsNoTracking()
             .Include(nc => nc.Devolucion)
             .Where(nc =>
                 nc.ClienteId == clienteId &&
@@ -979,6 +994,7 @@ public class DevolucionService : IDevolucionService
     {
         var hoy = DateTime.UtcNow;
         return await _context.NotasCredito
+            .AsNoTracking()
             .Where(nc => nc.ClienteId == clienteId &&
                         !nc.IsDeleted &&
                         nc.Cliente != null &&
@@ -1006,6 +1022,7 @@ public class DevolucionService : IDevolucionService
     public async Task<NotaCredito?> ObtenerNotaCreditoPorNumeroAsync(string numeroNotaCredito)
     {
         return await _context.NotasCredito
+            .AsNoTracking()
             .Include(nc => nc.Cliente)
             .FirstOrDefaultAsync(nc =>
                 nc.NumeroNotaCredito == numeroNotaCredito &&
@@ -1086,7 +1103,7 @@ public class DevolucionService : IDevolucionService
 
     public async Task<Dictionary<MotivoDevolucion, int>> ObtenerEstadisticasMotivoDevolucionAsync(DateTime? desde = null, DateTime? hasta = null)
     {
-        var query = _context.Devoluciones.Where(d => !d.IsDeleted);
+        var query = _context.Devoluciones.AsNoTracking().Where(d => !d.IsDeleted);
 
         if (desde.HasValue)
             query = query.Where(d => d.FechaDevolucion >= desde.Value);
@@ -1103,6 +1120,7 @@ public class DevolucionService : IDevolucionService
     public async Task<List<Producto>> ObtenerProductosMasDevueltosAsync(int top = 10)
     {
         var productosIds = await _context.DevolucionDetalles
+            .AsNoTracking()
             .Where(dd => !dd.IsDeleted)
             .GroupBy(dd => dd.ProductoId)
             .OrderByDescending(g => g.Sum(dd => dd.Cantidad))
@@ -1114,6 +1132,7 @@ public class DevolucionService : IDevolucionService
             return new List<Producto>();
 
         var productos = await _context.Productos
+            .AsNoTracking()
             .Where(p => productosIds.Contains(p.Id) && !p.IsDeleted)
             .ToListAsync();
 
@@ -1126,6 +1145,7 @@ public class DevolucionService : IDevolucionService
     public async Task<decimal> ObtenerTotalDevolucionesPeriodoAsync(DateTime desde, DateTime hasta)
     {
         return await _context.Devoluciones
+            .AsNoTracking()
             .Where(d => !d.IsDeleted &&
                        d.FechaDevolucion >= desde &&
                        d.FechaDevolucion <= hasta &&
@@ -1136,6 +1156,7 @@ public class DevolucionService : IDevolucionService
     public async Task<int> ObtenerCantidadRMAsPendientesAsync()
     {
         return await _context.RMAs
+            .AsNoTracking()
             .Where(r => !r.IsDeleted &&
                        (r.Estado == EstadoRMA.Pendiente ||
                         r.Estado == EstadoRMA.AprobadoProveedor ||

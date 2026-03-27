@@ -128,6 +128,7 @@ namespace TheBuryProject.Services
             int limite = 50)
         {
             var query = _context.Notificaciones
+                .AsNoTracking()
                 .Where(n => n.UsuarioDestino == usuario && !n.IsDeleted);
 
             if (soloNoLeidas)
@@ -159,12 +160,14 @@ namespace TheBuryProject.Services
         public async Task<int> ObtenerCantidadNoLeidasAsync(string usuario)
         {
             return await _context.Notificaciones
+                .AsNoTracking()
                 .CountAsync(n => n.UsuarioDestino == usuario && !n.Leida && !n.IsDeleted);
         }
 
         public async Task<Notificacion?> ObtenerNotificacionPorIdAsync(int id)
         {
             return await _context.Notificaciones
+                .AsNoTracking()
                 .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
         }
 
