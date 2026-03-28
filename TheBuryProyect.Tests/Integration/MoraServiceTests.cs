@@ -907,4 +907,160 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(0, resultado["Critica"]);
     }
 
+    // =========================================================================
+    // GetCreditosEnMoraAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetCreditosEnMora_ClienteSinCreditosVencidos_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_ConCuotasVencidas_RetornaCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 15);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(credito.Id, resultado[0].CreditoId);
+        Assert.Equal(1, resultado[0].CuotasVencidas);
+    }
+
+    // =========================================================================
+    // GetHistorialContactosAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetHistorialContactos_ClienteSinContactos_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetHistorialContactosAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetHistorialContactos_ConContactos_RetornaSolosLosDelCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        var cred = await SeedCreditoAsync(c1.Id);
+        var alerta = await SeedAlertaAsync(c1.Id, cred.Id);
+
+        var contactoVm = new RegistrarContactoViewModel
+        {
+            ClienteId = c1.Id,
+            AlertaId = alerta.Id,
+            TipoContacto = TipoContacto.LlamadaTelefonica,
+            Resultado = ResultadoContacto.ContactoExitoso,
+            Observaciones = "Llamada realizada"
+        };
+        await _service.RegistrarContactoAsync(contactoVm, gestorId: "gestor1");
+
+        var resultado = await _service.GetHistorialContactosAsync(c1.Id);
+        var resultadoC2 = await _service.GetHistorialContactosAsync(c2.Id);
+
+        Assert.Single(resultado);
+        Assert.Empty(resultadoC2);
+    }
+
+    // =========================================================================
+    // GetPromesasActivasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetPromesasActivas_ClienteSinPromesas_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetPromesasActivasAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetPromesasActivas_ConPromesa_RetornaPromesas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var promesaVm = new RegistrarPromesaViewModel
+        {
+            AlertaId = alerta.Id,
+            ClienteId = cliente.Id,
+            FechaPromesa = DateTime.Today.AddDays(7),
+            MontoPromesa = 1_000m
+        };
+        await _service.RegistrarPromesaPagoAsync(promesaVm, gestorId: "gestor1");
+
+        var resultado = await _service.GetPromesasActivasAsync(cliente.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(1_000m, resultado[0].MontoPrometido);
+    }
+
+    // =========================================================================
+    // GetAcuerdosPagoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAcuerdosPago_ClienteSinAcuerdos_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetAcuerdosPagoAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // GetAcuerdoPagoDetalleAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAcuerdoPagoDetalle_AcuerdoInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetAcuerdoPagoDetalleAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // GetClientesEnMoraAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetClientesEnMora_SinAlertas_RetornaVacio()
+    {
+        var filtros = new FiltrosBandejaClientes();
+        var resultado = await _service.GetClientesEnMoraAsync(filtros);
+
+        Assert.NotNull(resultado);
+        Assert.Empty(resultado.Clientes);
+    }
+
+    [Fact]
+    public async Task GetClientesEnMora_ConAlertasActivas_RetornaCliente()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var filtros = new FiltrosBandejaClientes();
+        var resultado = await _service.GetClientesEnMoraAsync(filtros);
+
+        Assert.NotNull(resultado);
+        Assert.Single(resultado.Clientes);
+        Assert.Equal(cliente.Id, resultado.Clientes[0].ClienteId);
+    }
 }
