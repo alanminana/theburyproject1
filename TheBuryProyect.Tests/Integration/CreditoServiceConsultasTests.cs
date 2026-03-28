@@ -955,4 +955,131 @@ public class CreditoServiceConsultasTests : IDisposable
         Assert.Equal(8_000m, resultado.MontoAprobado);
         Assert.Equal(8_000m, resultado.SaldoPendiente);
     }
+
+    // =========================================================================
+    // UpdateAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Update_Existente_ActualizaYRetornaTrue()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var vm = new CreditoViewModel
+        {
+            Id = credito.Id,
+            Numero = credito.Numero,
+            ClienteId = cliente.Id,
+            MontoSolicitado = credito.MontoSolicitado,
+            MontoAprobado = credito.MontoAprobado,
+            SaldoPendiente = credito.SaldoPendiente,
+            TasaInteres = credito.TasaInteres,
+            CantidadCuotas = credito.CantidadCuotas,
+            Estado = EstadoCredito.Aprobado
+        };
+
+        var resultado = await _service.UpdateAsync(vm);
+
+        Assert.True(resultado);
+    }
+
+    [Fact]
+    public async Task Update_CreditoInexistente_RetornaFalse()
+    {
+        var vm = new CreditoViewModel
+        {
+            Id = 99999,
+            ClienteId = 1,
+            MontoSolicitado = 1_000m,
+            TasaInteres = 2m,
+            CantidadCuotas = 3,
+            Estado = EstadoCredito.Aprobado
+        };
+
+        var resultado = await _service.UpdateAsync(vm);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // CreatePendienteConfiguracionAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task CreatePendienteConfiguracion_Persiste_EstadoPendienteConfiguracion()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.CreatePendienteConfiguracionAsync(cliente.Id, 5_000m);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal(EstadoCredito.PendienteConfiguracion, resultado.Estado);
+        Assert.Equal(5_000m, resultado.MontoSolicitado);
+    }
+
+    [Fact]
+    public async Task CreatePendienteConfiguracion_CuotasYTasaCero()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.CreatePendienteConfiguracionAsync(cliente.Id, 3_000m);
+
+        Assert.Equal(0, resultado.CantidadCuotas);
+        Assert.Equal(0m, resultado.TasaInteres);
+    }
+
+    // =========================================================================
+    // GetCuotasByCreditoAsync / GetCuotaByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetCuotasByCredito_SinCuotas_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var resultado = await _service.GetCuotasByCreditoAsync(credito.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCuotasByCredito_ConCuotas_RetornaOrdenadas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetCuotasByCreditoAsync(credito.Id);
+
+        Assert.Equal(3, resultado.Count);
+        Assert.Equal(1, resultado[0].NumeroCuota);
+        Assert.Equal(2, resultado[1].NumeroCuota);
+        Assert.Equal(3, resultado[2].NumeroCuota);
+    }
+
+    [Fact]
+    public async Task GetCuotaById_Existente_RetornaCuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetCuotaByIdAsync(cuota.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(cuota.Id, resultado!.Id);
+        Assert.Equal(1, resultado.NumeroCuota);
+    }
+
+    [Fact]
+    public async Task GetCuotaById_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetCuotaByIdAsync(99999);
+
+        Assert.Null(resultado);
+    }
 }
