@@ -56,7 +56,9 @@ file sealed class StubCreditoDisponibleServiceConsultas : ICreditoDisponibleServ
 {
     public Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-    public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    // Devuelve disponible ilimitado para no bloquear los tests de CreateAsync
+    public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new CreditoDisponibleResultado { Limite = 1_000_000m, Disponible = 1_000_000m });
     public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
@@ -806,5 +808,151 @@ public class CreditoServiceConsultasTests : IDisposable
 
         Assert.Contains(resultado, c => c.Id == conVencida.Id);
         Assert.DoesNotContain(resultado, c => c.Id == sinVencidas.Id);
+    }
+
+    // =========================================================================
+    // DeleteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Delete_Inexistente_RetornaFalse()
+    {
+        var resultado = await _service.DeleteAsync(id: 99_999);
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task Delete_EstadoSolicitado_SoftDeleteCreditoYCuotas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = cliente.Id,
+            Estado = EstadoCredito.Solicitado,
+            MontoSolicitado = 5_000m,
+            MontoAprobado = 0m,
+            SaldoPendiente = 0m,
+            TasaInteres = 3m,
+            CantidadCuotas = 3,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+
+        var resultado = await _service.DeleteAsync(credito.Id);
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var eliminado = await _context.Creditos.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == credito.Id);
+        Assert.True(eliminado!.IsDeleted);
+        var cuotaEliminada = await _context.Cuotas.IgnoreQueryFilters()
+            .FirstAsync(c => c.CreditoId == credito.Id);
+        Assert.True(cuotaEliminada.IsDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_EstadoAprobado_LanzaInvalidOperation()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id); // estado Aprobado
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.DeleteAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task Delete_ConCuotaPagada_LanzaInvalidOperation()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = cliente.Id,
+            Estado = EstadoCredito.Solicitado,
+            MontoSolicitado = 5_000m,
+            MontoAprobado = 0m,
+            SaldoPendiente = 0m,
+            TasaInteres = 3m,
+            CantidadCuotas = 3,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pagada);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.DeleteAsync(credito.Id));
+    }
+
+    // =========================================================================
+    // CreateAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Create_ClienteInexistente_LanzaInvalidOperation()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CreateAsync(new CreditoViewModel
+            {
+                ClienteId = 99_999,
+                MontoSolicitado = 10_000m,
+                TasaInteres = 3m,
+                CantidadCuotas = 6
+            }));
+    }
+
+    [Fact]
+    public async Task Create_ClienteValido_GeneraNumeroYPersiste()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.CreateAsync(new CreditoViewModel
+        {
+            ClienteId = cliente.Id,
+            MontoSolicitado = 10_000m,
+            TasaInteres = 3m,
+            CantidadCuotas = 6
+        });
+
+        Assert.True(resultado.Id > 0);
+        Assert.False(string.IsNullOrWhiteSpace(resultado.Numero));
+        var enDb = await _context.Creditos.FindAsync(resultado.Id);
+        Assert.NotNull(enDb);
+    }
+
+    [Fact]
+    public async Task Create_EstadoDefault_QuedaSolicitado()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.CreateAsync(new CreditoViewModel
+        {
+            ClienteId = cliente.Id,
+            MontoSolicitado = 5_000m,
+            TasaInteres = 2m,
+            CantidadCuotas = 3
+        });
+
+        Assert.Equal(EstadoCredito.Solicitado, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task Create_MontoAprobadoIgualMontoSolicitado()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.CreateAsync(new CreditoViewModel
+        {
+            ClienteId = cliente.Id,
+            MontoSolicitado = 8_000m,
+            TasaInteres = 2m,
+            CantidadCuotas = 6
+        });
+
+        Assert.Equal(8_000m, resultado.MontoAprobado);
+        Assert.Equal(8_000m, resultado.SaldoPendiente);
     }
 }
