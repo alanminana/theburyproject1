@@ -285,4 +285,176 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
     }
+
+    // =========================================================================
+    // ValidarDisponibilidadCreditoAsync
+    // =========================================================================
+
+    private async Task<Credito> SeedCreditoAsync(int clienteId, decimal saldo = 5_000m, EstadoCredito estado = EstadoCredito.Activo)
+    {
+        var credito = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = clienteId,
+            Estado = estado,
+            MontoSolicitado = saldo,
+            MontoAprobado = saldo,
+            SaldoPendiente = saldo,
+            TasaInteres = 3m,
+            CantidadCuotas = 12,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Set<Credito>().Add(credito);
+        await _context.SaveChangesAsync();
+        return credito;
+    }
+
+    [Fact]
+    public async Task ValidarDisponibilidad_SaldoSuficiente_RetornaTrue()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m);
+
+        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 3_000m);
+
+        Assert.True(resultado);
+    }
+
+    [Fact]
+    public async Task ValidarDisponibilidad_SaldoInsuficiente_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, saldo: 1_000m);
+
+        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 5_000m);
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task ValidarDisponibilidad_CreditoInexistente_RetornaFalse()
+    {
+        var resultado = await _service.ValidarDisponibilidadCreditoAsync(99999, 100m);
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task ValidarDisponibilidad_CreditoNoActivo_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m, estado: EstadoCredito.Cancelado);
+
+        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 1_000m);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // GuardarDatosChequeAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GuardarDatosCheque_VentaExistente_PersisteDatos()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
+
+        var datosCheque = new DatosChequeViewModel
+        {
+            NumeroCheque = "00012345",
+            Banco = "Banco Nación",
+            Titular = "Juan Pérez",
+            FechaEmision = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddDays(30),
+            Monto = 1_500m
+        };
+
+        var resultado = await _service.GuardarDatosChequeAsync(venta.Id, datosCheque);
+
+        Assert.True(resultado);
+        var chequeDb = await _context.DatosCheque.FirstOrDefaultAsync(c => c.VentaId == venta.Id);
+        Assert.NotNull(chequeDb);
+        Assert.Equal("00012345", chequeDb!.NumeroCheque);
+        Assert.Equal("Banco Nación", chequeDb.Banco);
+    }
+
+    [Fact]
+    public async Task GuardarDatosCheque_VentaInexistente_RetornaFalse()
+    {
+        var datosCheque = new DatosChequeViewModel
+        {
+            NumeroCheque = "00000001",
+            Banco = "Test",
+            Titular = "Test",
+            FechaEmision = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddDays(30),
+            Monto = 100m
+        };
+
+        var resultado = await _service.GuardarDatosChequeAsync(99999, datosCheque);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // CalcularCuotasTarjetaAsync
+    // =========================================================================
+
+    private async Task<ConfiguracionTarjeta> SeedConfiguracionTarjetaAsync(
+        TipoCuotaTarjeta tipoCuota = TipoCuotaTarjeta.SinInteres,
+        decimal? tasaMensual = null)
+    {
+        var configPago = new ConfiguracionPago
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Nombre = "Config Tarjeta Test",
+            Activo = true
+        };
+        _context.Set<ConfiguracionPago>().Add(configPago);
+        await _context.SaveChangesAsync();
+
+        var config = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = configPago.Id,
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            TipoCuota = tipoCuota,
+            TasaInteresesMensual = tasaMensual,
+            PermiteCuotas = true
+        };
+        _context.Set<ConfiguracionTarjeta>().Add(config);
+        await _context.SaveChangesAsync();
+        return config;
+    }
+
+    [Fact]
+    public async Task CalcularCuotasTarjeta_SinInteres_MontoCuotaIgualMontoSobreCuotas()
+    {
+        var config = await SeedConfiguracionTarjetaAsync(TipoCuotaTarjeta.SinInteres);
+
+        var resultado = await _service.CalcularCuotasTarjetaAsync(config.Id, 1_200m, 4);
+
+        Assert.Equal(0, resultado.TasaInteres);
+        Assert.Equal(300m, resultado.MontoCuota);
+        Assert.Equal(1_200m, resultado.MontoTotalConInteres);
+    }
+
+    [Fact]
+    public async Task CalcularCuotasTarjeta_ConInteres_MontoTotalMayorAlOriginal()
+    {
+        var config = await SeedConfiguracionTarjetaAsync(TipoCuotaTarjeta.ConInteres, tasaMensual: 5m);
+
+        var resultado = await _service.CalcularCuotasTarjetaAsync(config.Id, 1_000m, 3);
+
+        Assert.Equal(5m, resultado.TasaInteres);
+        Assert.NotNull(resultado.MontoCuota);
+        Assert.True(resultado.MontoTotalConInteres > 1_000m);
+    }
+
+    [Fact]
+    public async Task CalcularCuotasTarjeta_ConfiguracionInexistente_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CalcularCuotasTarjetaAsync(99999, 1_000m, 3));
+    }
 }
