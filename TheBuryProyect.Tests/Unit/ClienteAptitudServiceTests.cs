@@ -351,4 +351,271 @@ public class ClienteAptitudServiceTests
 
         Assert.Equal("Motivo A. Motivo B. Motivo C", motivo);
     }
+
+    // -----------------------------------------------------------------------
+    // E. ValidarLimiteCredito — sin cupo asignado → NoApto
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ValidarCupo_SinLimiteAsignado_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            // PuntajesCreditoLimite tienen LimiteMonto = 0 por seed
+            // Cliente sin LimiteCredito manual → límite efectivo = 0
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("Cupo", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // F. ValidarLimiteCredito — cupo agotado (saldo cubre límite) → NoApto
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ValidarCupo_CupoAgotado_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            // Asignar límite manual al cliente = 5000
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 5_000m;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            // Crédito activo que consume todo el límite
+            ctx.Creditos.Add(new Credito
+            {
+                ClienteId = 1,
+                Estado = EstadoCredito.Activo,
+                IsDeleted = false,
+                SaldoPendiente = 5_000m,
+                RowVersion = new byte[8]
+            });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("Cupo", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // G. ValidarLimiteCredito — cupo disponible → Apto
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ValidarCupo_CupoDisponible_EstadoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 10_000m;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            // Sin créditos activos → disponible = 10.000
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
+            Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // H. ValidarVencimientoDocumentos — documento vencido → NoApto
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ValidarDocumentacion_DocumentoVencido_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            config.ValidarVencimientoDocumentos = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            // Agregar los 3 tipos requeridos (DNI, ReciboSueldo, Servicio) como Verificados
+            // pero el DNI con fecha de vencimiento pasada
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.DNI,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-30),
+                    FechaVencimiento = DateTime.UtcNow.Date.AddDays(-1) // vencido ayer
+                },
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.ReciboSueldo,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-10)
+                },
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.Servicio,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-10)
+                });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            // El servicio genera un detalle por "faltante" y otro por "vencido"
+            Assert.True(resultado.Detalles.Count >= 1);
+            Assert.All(resultado.Detalles, d => Assert.Equal("Documentación", d.Categoria));
+            Assert.All(resultado.Detalles, d => Assert.True(d.EsBloqueo));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // I. Documentación completa y vigente → Apto (cuando ValidarVencimiento activo)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ValidarDocumentacion_DocumentosVigentes_EstadoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            config.ValidarVencimientoDocumentos = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.DNI,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-5),
+                    FechaVencimiento = DateTime.UtcNow.Date.AddDays(30) // vigente
+                },
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.ReciboSueldo,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-5)
+                },
+                new DocumentoCliente
+                {
+                    ClienteId = 1,
+                    TipoDocumento = TipoDocumentoCliente.Servicio,
+                    Estado = EstadoDocumento.Verificado,
+                    FechaVerificacion = DateTime.UtcNow.AddDays(-5)
+                });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
+            Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // J. Mora (RequiereAutorizacion) + documentación faltante → NoApto gana
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task MoraAutorizacion_MasDocumentacionFaltante_NoAptoPrioridad()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            config.ValidarMora = true;
+            config.DiasParaRequerirAutorizacion = 1;
+            config.DiasParaNoApto = null;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            // Preset permite crédito (para que la mora se evalúe)
+            var preset = await ctx.PuntajesCreditoLimite.FindAsync(5);
+            preset!.LimiteMonto = 100_000m;
+
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            // Cuota vencida → RequiereAutorizacion por mora
+            var credito = new Credito
+            {
+                ClienteId = 1,
+                Estado = EstadoCredito.Activo,
+                IsDeleted = false,
+                SaldoPendiente = 5_000m,
+                RowVersion = new byte[8]
+            };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+
+            ctx.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id,
+                NumeroCuota = 1,
+                FechaVencimiento = DateTime.UtcNow.Date.AddDays(-5),
+                MontoCapital = 400m,
+                MontoInteres = 100m,
+                MontoTotal = 500m,
+                MontoPagado = 0m,
+                MontoPunitorio = 0m,
+                Estado = EstadoCuota.Pendiente
+            });
+            await ctx.SaveChangesAsync();
+
+            // Sin documentos → documentación incompleta (bloqueo)
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            // NoApto debe ganar sobre RequiereAutorizacion
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Equal(2, resultado.Detalles.Count);
+            Assert.Contains(resultado.Detalles, d => d.Categoria == "Documentación" && d.EsBloqueo);
+            Assert.Contains(resultado.Detalles, d => d.Categoria == "Mora" && !d.EsBloqueo);
+        }
+    }
 }
