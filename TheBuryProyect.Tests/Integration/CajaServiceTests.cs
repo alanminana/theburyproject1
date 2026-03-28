@@ -466,4 +466,74 @@ public class CajaServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(apertura.Id, result!.Id);
     }
+
+    // -------------------------------------------------------------------------
+    // RegistrarMovimientoCuotaAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_SinCajaAbierta_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 1, creditoNumero: "CRED-001", numeroCuota: 1,
+            monto: 500m, medioPago: "Efectivo", usuario: "testuser");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConCajaAbierta_PersistMovimiento()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 42, creditoNumero: "CRED-002", numeroCuota: 3,
+            monto: 1_000m, medioPago: "Transferencia", usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(apertura.Id, resultado!.AperturaCajaId);
+        Assert.Equal(1_000m, resultado.Monto);
+        Assert.Equal(42, resultado.ReferenciaId);
+        Assert.Contains("CRED-002", resultado.Descripcion);
+        Assert.Contains("#3", resultado.Descripcion);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConCajaAbierta_TipoEsIngreso()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 1, creditoNumero: "CRED-003", numeroCuota: 1,
+            monto: 500m, medioPago: "Efectivo", usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoMovimientoCaja.Ingreso, resultado!.Tipo);
+    }
+
+    // -------------------------------------------------------------------------
+    // RegistrarMovimientoVentaAsync — crédito personal y cuenta corriente → null
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarMovimientoVenta_CreditoPersonal_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoVentaAsync(
+            ventaId: 0, ventaNumero: "VTA-001", monto: 10_000m,
+            tipoPago: TipoPago.CreditoPersonal, usuario: "cajero1");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoVenta_CuentaCorriente_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoVentaAsync(
+            ventaId: 0, ventaNumero: "VTA-002", monto: 5_000m,
+            tipoPago: TipoPago.CuentaCorriente, usuario: "cajero1");
+
+        Assert.Null(resultado);
+    }
 }
