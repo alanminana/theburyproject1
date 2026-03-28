@@ -383,7 +383,7 @@ namespace TheBuryProject.Services
                 var entidad = new EvaluacionCredito
                 {
                     ClienteId = evaluacion.ClienteId,
-                    CreditoId = evaluacion.CreditoId,
+                    CreditoId = evaluacion.CreditoId > 0 ? evaluacion.CreditoId : null,
                     Resultado = evaluacion.Resultado,
                     PuntajeFinal = evaluacion.PuntajeFinal,
                     PuntajeRiesgoCliente = evaluacion.PuntajeRiesgoCliente,

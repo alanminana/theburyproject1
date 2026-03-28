@@ -9,7 +9,7 @@ namespace TheBuryProject.Models.Entities
     /// </summary>
     public class EvaluacionCredito  : AuditableEntity
     {
-        public int CreditoId { get; set; }
+        public int? CreditoId { get; set; }
         public int ClienteId { get; set; }
 
         public ResultadoEvaluacion Resultado { get; set; }
@@ -37,7 +37,7 @@ namespace TheBuryProject.Models.Entities
         public DateTime FechaEvaluacion { get; set; } = DateTime.UtcNow;
 
         // Navigation
-        public virtual Credito Credito { get; set; } = null!;
+        public virtual Credito? Credito { get; set; }
         public virtual Cliente Cliente { get; set; } = null!;
     }
 }

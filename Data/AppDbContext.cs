@@ -364,6 +364,7 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.Credito)
                     .WithMany()
                     .HasForeignKey(e => e.CreditoId)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
