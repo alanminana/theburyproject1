@@ -444,4 +444,37 @@ public class ClienteServiceTests : IDisposable
 
         Assert.All(resultado, c => Assert.True(c.PuntajeRiesgo >= 9m));
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinClientes_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConClientes_DevuelveTodos()
+    {
+        await SeedClienteAsync();
+        await SeedClienteAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminados()
+    {
+        var cliente = await SeedClienteAsync();
+        await _service.DeleteAsync(cliente.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Empty(resultado);
+    }
 }
