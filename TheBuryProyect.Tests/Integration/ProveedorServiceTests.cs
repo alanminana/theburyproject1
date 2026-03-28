@@ -376,4 +376,106 @@ public class ProveedorServiceTests : IDisposable
         var resultado = await _service.GetByIdAsync(proveedor.Id);
         Assert.Null(resultado);
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinProveedores_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConProveedores_DevuelveTodos()
+    {
+        await SeedProveedorAsync();
+        await SeedProveedorAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminados()
+    {
+        var proveedor = await SeedProveedorAsync();
+        await _service.DeleteAsync(proveedor.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // UpdateAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Update_SinRowVersion_LanzaExcepcion()
+    {
+        var proveedor = await SeedProveedorAsync();
+        proveedor.RowVersion = null!;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(proveedor));
+    }
+
+    [Fact]
+    public async Task Update_HappyPath_ActualizaRazonSocial()
+    {
+        var proveedor = await SeedProveedorAsync();
+        proveedor.RazonSocial = "Nuevo Nombre S.A.";
+
+        await _service.UpdateAsync(proveedor);
+
+        _context.ChangeTracker.Clear();
+        var actualizado = await _context.Set<Proveedor>().FirstAsync(p => p.Id == proveedor.Id);
+        Assert.Equal("Nuevo Nombre S.A.", actualizado.RazonSocial);
+    }
+
+    // =========================================================================
+    // SearchAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Search_SinFiltros_DevuelveTodosLosProveedores()
+    {
+        await SeedProveedorAsync();
+        await SeedProveedorAsync();
+
+        var resultado = await _service.SearchAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task Search_SoloActivos_ExcluyeInactivos()
+    {
+        var activo = await SeedProveedorAsync();
+        var inactivo = await SeedProveedorAsync();
+        inactivo.Activo = false;
+        _context.Set<Proveedor>().Update(inactivo);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.SearchAsync(soloActivos: true);
+
+        Assert.All(resultado, p => Assert.True(p.Activo));
+        Assert.DoesNotContain(resultado, p => p.Id == inactivo.Id);
+    }
+
+    [Fact]
+    public async Task Search_PorRazonSocial_FiltraCorrectamente()
+    {
+        var p1 = await SeedProveedorAsync();
+        await SeedProveedorAsync();
+
+        var resultado = await _service.SearchAsync(searchTerm: p1.RazonSocial);
+
+        Assert.Single(resultado);
+        Assert.Equal(p1.Id, resultado.First().Id);
+    }
 }
