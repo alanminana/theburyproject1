@@ -485,6 +485,180 @@ public class ProductoServiceTests : IDisposable
 
         Assert.Single(resultado);
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinProductos_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConProductos_DevuelveTodos()
+    {
+        await SeedProductoAsync();
+        await SeedProductoAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminados()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.DeleteAsync(producto.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_ProductoExistente_RetornaProducto()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GetByIdAsync(producto.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(producto.Id, resultado!.Id);
+        Assert.Equal(producto.Codigo, resultado.Codigo);
+    }
+
+    [Fact]
+    public async Task GetById_ProductoInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // GetByCategoriaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByCategoria_FiltraPorCategoria()
+    {
+        var p1 = await SeedProductoAsync(); // tiene su propia categoría
+        var p2 = await SeedProductoAsync(); // categoría diferente
+
+        var resultado = await _service.GetByCategoriaAsync(p1.CategoriaId);
+
+        var lista = resultado.ToList();
+        Assert.Single(lista);
+        Assert.Equal(p1.Id, lista[0].Id);
+    }
+
+    [Fact]
+    public async Task GetByCategoria_CategoriaInexistente_RetornaVacio()
+    {
+        var resultado = await _service.GetByCategoriaAsync(99999);
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // GetByMarcaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByMarca_FiltraPorMarca()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+
+        var resultado = await _service.GetByMarcaAsync(p1.MarcaId);
+
+        var lista = resultado.ToList();
+        Assert.Single(lista);
+        Assert.Equal(p1.Id, lista[0].Id);
+    }
+
+    [Fact]
+    public async Task GetByMarca_MarcaInexistente_RetornaVacio()
+    {
+        var resultado = await _service.GetByMarcaAsync(99999);
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // SearchAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Search_SinFiltros_DevuelveTodosLosProductos()
+    {
+        await SeedProductoAsync();
+        await SeedProductoAsync();
+
+        var resultado = await _service.SearchAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task Search_PorNombre_FiltraCorrectamente()
+    {
+        var p1 = await SeedProductoAsync();
+        await SeedProductoAsync();
+
+        // SearchAsync filtra por Nombre.Contains(term)
+        var resultado = await _service.SearchAsync(searchTerm: p1.Nombre);
+
+        Assert.All(resultado, p => Assert.Contains(p1.Nombre, p.Nombre));
+    }
+
+    [Fact]
+    public async Task Search_SoloActivos_ExcluyeInactivos()
+    {
+        var activo = await SeedProductoAsync();
+        var inactivo = await SeedProductoAsync();
+        // Desactivar el segundo
+        inactivo.Activo = false;
+        _context.Set<Producto>().Update(inactivo);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.SearchAsync(soloActivos: true);
+
+        Assert.All(resultado, p => Assert.True(p.Activo));
+    }
+
+    // =========================================================================
+    // SearchIdsAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task SearchIds_SinFiltros_DevuelveIdsDeProductos()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+
+        var ids = await _service.SearchIdsAsync();
+
+        Assert.Contains(p1.Id, ids);
+        Assert.Contains(p2.Id, ids);
+    }
+
+    [Fact]
+    public async Task SearchIds_PorCategoria_DevuelveSolosDeEsaCategoria()
+    {
+        var p1 = await SeedProductoAsync();
+        await SeedProductoAsync();
+
+        var ids = await _service.SearchIdsAsync(categoriaId: p1.CategoriaId);
+
+        Assert.Single(ids);
+        Assert.Equal(p1.Id, ids[0]);
+    }
 }
 
 // ---------------------------------------------------------------------------
