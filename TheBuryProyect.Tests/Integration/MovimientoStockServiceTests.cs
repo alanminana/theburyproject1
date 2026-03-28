@@ -396,4 +396,181 @@ public class MovimientoStockServiceTests : IDisposable
         var stockBd = (await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id)).StockActual;
         Assert.Equal(30m, stockBd); // 100 - 30 - 40
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinMovimientos_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConMovimientos_DevuelveTodos()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(p1.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+        await _service.RegistrarAjusteAsync(p2.Id, TipoMovimiento.Entrada, 5m, null, "test", "user");
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_MovimientoExistente_RetornaMovimiento()
+    {
+        var producto = await SeedProductoAsync();
+        var movimiento = await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+
+        var resultado = await _service.GetByIdAsync(movimiento.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(movimiento.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task GetById_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // GetByProductoIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByProductoId_FiltraPorProducto()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(p1.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+        await _service.RegistrarAjusteAsync(p2.Id, TipoMovimiento.Entrada, 5m, null, "test", "user");
+
+        var resultado = await _service.GetByProductoIdAsync(p1.Id);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, m => Assert.Equal(p1.Id, m.ProductoId));
+    }
+
+    [Fact]
+    public async Task GetByProductoId_SinMovimientos_RetornaVacio()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GetByProductoIdAsync(producto.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // GetByTipoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByTipo_FiltraPorTipo()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Salida, 5m, null, "test", "user");
+
+        var entradas = await _service.GetByTipoAsync(TipoMovimiento.Entrada);
+
+        Assert.Single(entradas);
+        Assert.All(entradas, m => Assert.Equal(TipoMovimiento.Entrada, m.Tipo));
+    }
+
+    // =========================================================================
+    // GetByFechaRangoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByFechaRango_SinMovimientosEnRango_RetornaVacio()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+
+        var resultado = await _service.GetByFechaRangoAsync(
+            DateTime.UtcNow.AddYears(-2),
+            DateTime.UtcNow.AddYears(-1));
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetByFechaRango_ConMovimientosEnRango_DevuelveResultados()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+
+        var resultado = await _service.GetByFechaRangoAsync(
+            DateTime.UtcNow.AddHours(-1),
+            DateTime.UtcNow.AddHours(1));
+
+        Assert.Single(resultado);
+    }
+
+    // =========================================================================
+    // SearchAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Search_SinFiltros_DevuelveTodosLosMovimientos()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(p1.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+        await _service.RegistrarAjusteAsync(p2.Id, TipoMovimiento.Salida, 5m, null, "test", "user");
+
+        var resultado = await _service.SearchAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task Search_PorTipo_FiltraCorrectamente()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "test", "user");
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Salida, 3m, null, "test", "user");
+
+        var resultado = await _service.SearchAsync(tipo: TipoMovimiento.Entrada);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, m => Assert.Equal(TipoMovimiento.Entrada, m.Tipo));
+    }
+
+    // =========================================================================
+    // CreateAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Create_PersisteBrutoSinModificarStock()
+    {
+        var producto = await SeedProductoAsync(stockActual: 50m);
+
+        var movimiento = new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 20m,
+            Motivo = "Recepción manual"
+        };
+
+        var resultado = await _service.CreateAsync(movimiento);
+
+        Assert.True(resultado.Id > 0);
+        // CreateAsync no modifica stock directamente (a diferencia de RegistrarAjusteAsync)
+        var productoBd = await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(50m, productoBd.StockActual); // sin cambio
+    }
 }
