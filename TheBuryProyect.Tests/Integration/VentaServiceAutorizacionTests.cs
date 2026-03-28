@@ -364,6 +364,78 @@ public class VentaServiceAutorizacionTests : IDisposable
         var resultado = await _service.CancelarVentaAsync(99999, "Motivo");
         Assert.False(resultado);
     }
+
+    // -------------------------------------------------------------------------
+    // RegistrarExcepcionDocumentalAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_DatosValidos_GuardaTrazaYRetornaTrue()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id);
+
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "auditor1", "Documento vencido presentado");
+
+        Assert.True(resultado);
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal("auditor1", ventaBd.UsuarioAutoriza);
+        Assert.NotNull(ventaBd.FechaAutorizacion);
+        Assert.Contains("EXCEPCION_DOC", ventaBd.MotivoAutorizacion);
+        Assert.Contains("auditor1", ventaBd.MotivoAutorizacion);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_UsuarioVacio_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id);
+
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "  ", "Motivo");
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_MotivoVacio_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id);
+
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "auditor1", "");
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_VentaNoExiste_RetornaFalse()
+    {
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            99999, "auditor1", "Motivo");
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_SegundaExcepcion_AcumulaTraza()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id);
+
+        await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "auditor1", "Primera excepción");
+        await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "auditor2", "Segunda excepción");
+
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        // El motivo debe contener ambas trazas concatenadas
+        Assert.Contains("Primera excepción", ventaBd.MotivoAutorizacion);
+        Assert.Contains("Segunda excepción", ventaBd.MotivoAutorizacion);
+    }
 }
 
 // ---------------------------------------------------------------------------
