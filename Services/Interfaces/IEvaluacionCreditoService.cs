@@ -3,13 +3,13 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>
-    /// Servicio para evaluación automática de solicitudes de crédito
-    /// Consolida lógica de scoring, validaciones y cálculos de capacidad de pago
+    /// Servicio para evaluaciï¿½n automï¿½tica de solicitudes de crï¿½dito
+    /// Consolida lï¿½gica de scoring, validaciones y cï¿½lculos de capacidad de pago
     /// </summary>
     public interface IEvaluacionCreditoService
     {
         /// <summary>
-        /// Realiza evaluación completa de una solicitud de crédito
+        /// Realiza evaluaciï¿½n completa de una solicitud de crï¿½dito
         /// </summary>
         Task<EvaluacionCreditoViewModel> EvaluarSolicitudAsync(
             int clienteId,
@@ -17,7 +17,7 @@ namespace TheBuryProject.Services.Interfaces
             int? garanteId = null);
 
         /// <summary>
-        /// Obtiene la última evaluación de un crédito
+        /// Obtiene la ï¿½ltima evaluaciï¿½n de un crï¿½dito
         /// </summary>
         Task<EvaluacionCreditoViewModel?> GetEvaluacionByCreditoIdAsync(int creditoId);
 
@@ -26,14 +26,5 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<List<EvaluacionCreditoViewModel>> GetEvaluacionesByClienteIdAsync(int clienteId);
 
-        /// <summary>
-        /// Obtiene configuración de parámetros de evaluación
-        /// </summary>
-        Task<ConfiguracionEvaluacionViewModel> GetConfiguracionAsync();
-
-        /// <summary>
-        /// Actualiza configuración de parámetros de evaluación
-        /// </summary>
-        Task<bool> ActualizarConfiguracionAsync(ConfiguracionEvaluacionViewModel config);
     }
 }

@@ -469,35 +469,11 @@ namespace TheBuryProject.Services
 
         #endregion
 
-        #region Configuración
+        #region Configuración (uso interno)
 
-        public async Task<ConfiguracionEvaluacionViewModel> GetConfiguracionAsync()
+        private async Task<ConfiguracionEvaluacionViewModel> GetConfiguracionAsync()
         {
-            try
-            {
-                // TODO: Implementar lectura desde BD cuando exista tabla
-                return new ConfiguracionEvaluacionViewModel();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener configuración de evaluación");
-                throw;
-            }
-        }
-
-        public async Task<bool> ActualizarConfiguracionAsync(ConfiguracionEvaluacionViewModel config)
-        {
-            try
-            {
-                // TODO: Implementar actualización en BD cuando exista tabla
-                _config = config;
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar configuración de evaluación");
-                throw;
-            }
+            return new ConfiguracionEvaluacionViewModel();
         }
 
         #endregion
