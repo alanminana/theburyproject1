@@ -98,6 +98,9 @@ namespace TheBuryProject.Services
                 config.ProcesoAutomaticoActivo = viewModel.ProcesoAutomaticoActivo;
                 config.HoraEjecucionDiaria = viewModel.HoraEjecucionDiaria;
 
+                // Persistir config primero para obtener su Id si es nueva
+                await _context.SaveChangesAsync();
+
                 // Eliminar alertas existentes
                 var alertasExistentes = await _context.Set<AlertaMora>()
                     .Where(a => !a.IsDeleted)
@@ -114,6 +117,7 @@ namespace TheBuryProject.Services
                 {
                     var alerta = new AlertaMora
                     {
+                        ConfiguracionMoraId = config.Id,
                         DiasRelativoVencimiento = alertaVm.DiasRelativoVencimiento,
                         ColorAlerta = alertaVm.ColorAlerta,
                         Descripcion = alertaVm.Descripcion,

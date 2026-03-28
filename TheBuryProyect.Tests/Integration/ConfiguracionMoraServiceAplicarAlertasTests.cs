@@ -284,3 +284,200 @@ public class ConfiguracionMoraServiceAplicarAlertasTests : IDisposable
         Assert.Equal(5, cuota.NivelPrioridad);
     }
 }
+
+/// <summary>
+/// Tests de integración para ConfiguracionMoraService.GetConfiguracionAsync y SaveConfiguracionAsync.
+/// </summary>
+public class ConfiguracionMoraServiceCrudTests : IDisposable
+{
+    private readonly SqliteConnection _connection;
+    private readonly AppDbContext _context;
+    private readonly ConfiguracionMoraService _service;
+
+    public ConfiguracionMoraServiceCrudTests()
+    {
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+
+        _context = new AppDbContext(options);
+        _context.Database.EnsureCreated();
+
+        var mapper = new MapperConfiguration(
+                cfg => cfg.AddProfile<MappingProfile>(),
+                NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        _service = new ConfiguracionMoraService(
+            _context,
+            mapper,
+            NullLogger<ConfiguracionMoraService>.Instance);
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
+        _connection.Dispose();
+    }
+
+    // -------------------------------------------------------------------------
+    // GetConfiguracionAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetConfiguracion_SinConfig_RetornaDefaults()
+    {
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.NotNull(config);
+        Assert.True(config!.TasaMoraDiaria > 0);
+        Assert.True(config.DiasGracia >= 0);
+        Assert.NotEmpty(config.Alertas);
+    }
+
+    [Fact]
+    public async Task GetConfiguracion_SinConfig_AlertaDefaultEsRojo()
+    {
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.NotNull(config);
+        var alerta = config!.Alertas.FirstOrDefault();
+        Assert.NotNull(alerta);
+        Assert.Equal("#FF0000", alerta!.ColorAlerta);
+    }
+
+    [Fact]
+    public async Task GetConfiguracion_ConConfig_RetornaValoresPersistidos()
+    {
+        var configEntity = new ConfiguracionMora
+        {
+            TasaMoraBase = 0.05m,
+            DiasGracia = 7,
+            ProcesoAutomaticoActivo = false,
+            HoraEjecucionDiaria = new TimeSpan(9, 0, 0)
+        };
+        _context.ConfiguracionesMora.Add(configEntity);
+        await _context.SaveChangesAsync();
+
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.NotNull(config);
+        Assert.Equal(0.05m, config!.TasaMoraDiaria);
+        Assert.Equal(7, config.DiasGracia);
+        Assert.False(config.ProcesoAutomaticoActivo);
+    }
+
+    [Fact]
+    public async Task GetConfiguracion_ConAlertasActivas_RetornaAlertasOrdenadas()
+    {
+        var configEntity = new ConfiguracionMora { TasaMoraBase = 0.1m, DiasGracia = 3, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero };
+        _context.ConfiguracionesMora.Add(configEntity);
+        await _context.SaveChangesAsync();
+
+        _context.AlertasMora.AddRange(
+            new AlertaMora { ConfiguracionMoraId = configEntity.Id, DiasRelativoVencimiento = 30, ColorAlerta = "#FF0000", Descripcion = "Alerta roja", NivelPrioridad = 3, Activa = true, Orden = 2 },
+            new AlertaMora { ConfiguracionMoraId = configEntity.Id, DiasRelativoVencimiento = 5, ColorAlerta = "#FFFF00", Descripcion = "Alerta amarilla", NivelPrioridad = 1, Activa = true, Orden = 1 }
+        );
+        await _context.SaveChangesAsync();
+
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.NotNull(config);
+        Assert.Equal(2, config!.Alertas.Count);
+        // Ordenadas por Orden ascendente
+        Assert.Equal(1, config.Alertas[0].NivelPrioridad);
+    }
+
+    // -------------------------------------------------------------------------
+    // SaveConfiguracionAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task SaveConfiguracion_NuevaConfig_PersisteTasaYDiasGracia()
+    {
+        var viewModel = new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.03m,
+            DiasGracia = 5,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            Alertas = new List<AlertaMoraViewModel>()
+        };
+
+        await _service.SaveConfiguracionAsync(viewModel);
+
+        var persistida = await _context.ConfiguracionesMora.FirstOrDefaultAsync(c => !c.IsDeleted);
+        Assert.NotNull(persistida);
+        Assert.Equal(0.03m, persistida!.TasaMoraBase);
+        Assert.Equal(5, persistida.DiasGracia);
+    }
+
+    [Fact]
+    public async Task SaveConfiguracion_ConAlertas_PersisteSoloActivas()
+    {
+        var viewModel = new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.02m,
+            DiasGracia = 3,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = TimeSpan.Zero,
+            Alertas = new List<AlertaMoraViewModel>
+            {
+                new() { DiasRelativoVencimiento = 5, ColorAlerta = "#FFFF00", Descripcion = "Próximo a vencer", NivelPrioridad = 1, Activa = true },
+                new() { DiasRelativoVencimiento = 30, ColorAlerta = "#FF0000", Descripcion = "Cuota vencida", NivelPrioridad = 3, Activa = false } // inactiva
+            }
+        };
+
+        await _service.SaveConfiguracionAsync(viewModel);
+
+        var alertas = await _context.AlertasMora.Where(a => !a.IsDeleted).ToListAsync();
+        Assert.Single(alertas); // solo la activa
+        Assert.Equal("#FFFF00", alertas[0].ColorAlerta);
+    }
+
+    [Fact]
+    public async Task SaveConfiguracion_SegundoSave_ActualizaConfigExistente()
+    {
+        // Primera save
+        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.01m, DiasGracia = 2, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero, Alertas = []
+        });
+
+        // Segunda save — actualiza
+        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.05m, DiasGracia = 10, ProcesoAutomaticoActivo = false, HoraEjecucionDiaria = TimeSpan.Zero, Alertas = []
+        });
+
+        var configs = await _context.ConfiguracionesMora.Where(c => !c.IsDeleted).ToListAsync();
+        Assert.Single(configs); // No duplica
+        Assert.Equal(0.05m, configs[0].TasaMoraBase);
+        Assert.Equal(10, configs[0].DiasGracia);
+    }
+
+    [Fact]
+    public async Task SaveConfiguracion_SegundoSave_SoftDeleteAlertasAnteriores()
+    {
+        // Primera save con alertas
+        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.01m, DiasGracia = 2, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero,
+            Alertas = [new() { DiasRelativoVencimiento = 5, ColorAlerta = "#FFFF00", Descripcion = "Próximo a vencer", NivelPrioridad = 1, Activa = true }]
+        });
+
+        // Segunda save sin alertas
+        await _service.SaveConfiguracionAsync(new ConfiguracionMoraCompletaViewModel
+        {
+            TasaMoraDiaria = 0.02m, DiasGracia = 3, ProcesoAutomaticoActivo = true, HoraEjecucionDiaria = TimeSpan.Zero,
+            Alertas = []
+        });
+
+        // Las alertas antiguas deben estar soft-deleted
+        var alertasActivas = await _context.AlertasMora.Where(a => !a.IsDeleted).ToListAsync();
+        Assert.Empty(alertasActivas);
+    }
+}
