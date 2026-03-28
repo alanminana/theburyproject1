@@ -457,4 +457,217 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CalcularCuotasTarjetaAsync(99999, 1_000m, 3));
     }
+
+    // =========================================================================
+    // GuardarDatosTarjetaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_VentaExistente_PersisteDatos()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
+
+        var datos = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Debito,
+            NumeroAutorizacion = "AUTH001"
+        };
+
+        var resultado = await _service.GuardarDatosTarjetaAsync(venta.Id, datos);
+
+        Assert.True(resultado);
+        var db = await _context.DatosTarjeta.FirstOrDefaultAsync(d => d.VentaId == venta.Id);
+        Assert.NotNull(db);
+        Assert.Equal("Visa", db!.NombreTarjeta);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_VentaInexistente_RetornaFalse()
+    {
+        var datos = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mastercard",
+            TipoTarjeta = TipoTarjeta.Debito
+        };
+
+        var resultado = await _service.GuardarDatosTarjetaAsync(99999, datos);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // CalcularCreditoPersonallAsync
+    // =========================================================================
+
+    private async Task<Credito> SeedCreditoActivoAsync(int clienteId, decimal saldo = 10_000m)
+    {
+        var credito = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = clienteId,
+            Estado = EstadoCredito.Activo,
+            MontoSolicitado = saldo,
+            MontoAprobado = saldo,
+            SaldoPendiente = saldo,
+            TasaInteres = 3m,
+            CantidadCuotas = 12,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Set<Credito>().Add(credito);
+        await _context.SaveChangesAsync();
+        return credito;
+    }
+
+    [Fact]
+    public async Task CalcularCreditoPersonall_CreditoActivo_RetornaCuotasCalculadas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoActivoAsync(cliente.Id, 10_000m);
+
+        var resultado = await _service.CalcularCreditoPersonallAsync(
+            credito.Id, 3_000m, 3, DateTime.Today.AddMonths(1));
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado.CreditoId);
+        Assert.Equal(3, resultado.CantidadCuotas);
+        Assert.True(resultado.MontoCuota > 0);
+    }
+
+    [Fact]
+    public async Task CalcularCreditoPersonall_MontoSuperiorAlSaldo_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoActivoAsync(cliente.Id, 1_000m);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CalcularCreditoPersonallAsync(
+                credito.Id, 5_000m, 3, DateTime.Today.AddMonths(1)));
+    }
+
+    [Fact]
+    public async Task CalcularCreditoPersonall_CreditoInexistente_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CalcularCreditoPersonallAsync(99999, 1_000m, 3, DateTime.Today));
+    }
+
+    [Fact]
+    public async Task CalcularCreditoPersonall_CreditoCancelado_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m, estado: EstadoCredito.Cancelado);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CalcularCreditoPersonallAsync(
+                credito.Id, 1_000m, 3, DateTime.Today.AddMonths(1)));
+    }
+
+    // =========================================================================
+    // ObtenerDatosCreditoVentaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerDatosCreditoVenta_VentaSinCuotas_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
+
+        var resultado = await _service.ObtenerDatosCreditoVentaAsync(venta.Id);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerDatosCreditoVenta_VentaInexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerDatosCreditoVentaAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerDatosCreditoVenta_ConCuotas_RetornaDatos()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoActivoAsync(cliente.Id, 10_000m);
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
+
+        // Asociar crédito y agregar cuotas
+        var ventaEnt = await _context.Ventas.FindAsync(venta.Id);
+        ventaEnt!.CreditoId = credito.Id;
+        _context.Set<VentaCreditoCuota>().Add(new VentaCreditoCuota
+        {
+            VentaId = venta.Id,
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            FechaVencimiento = DateTime.Today.AddMonths(1),
+            Monto = 1_000m,
+            Saldo = 3_000m
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerDatosCreditoVentaAsync(venta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado!.CreditoId);
+        Assert.Equal(1, resultado.CantidadCuotas);
+    }
+
+    // =========================================================================
+    // GetTotalVentaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetTotalVenta_VentaInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetTotalVentaAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetTotalVenta_VentaConTotalPreCalculado_RetornaTotal()
+    {
+        var cliente = await SeedClienteAsync();
+        var n = Interlocked.Increment(ref _counter);
+        var venta = new Venta
+        {
+            Numero = $"VTA-TOT-{n:D6}",
+            ClienteId = cliente.Id,
+            Estado = EstadoVenta.Cotizacion,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = DateTime.UtcNow,
+            Total = 1_500m
+        };
+        _context.Set<Venta>().Add(venta);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetTotalVentaAsync(venta.Id);
+
+        Assert.Equal(1_500m, resultado);
+    }
+
+    [Fact]
+    public async Task GetTotalVenta_VentaSinDetalles_RetornaCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var n = Interlocked.Increment(ref _counter);
+        var venta = new Venta
+        {
+            Numero = $"VTA-NOTOT-{n:D6}",
+            ClienteId = cliente.Id,
+            Estado = EstadoVenta.Cotizacion,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = DateTime.UtcNow,
+            Total = 0m
+        };
+        _context.Set<Venta>().Add(venta);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetTotalVentaAsync(venta.Id);
+
+        Assert.Equal(0m, resultado);
+    }
 }
