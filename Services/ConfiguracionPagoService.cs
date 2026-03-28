@@ -363,5 +363,32 @@ namespace TheBuryProject.Services
                 GastosPersonalizados = cliente?.GastosAdministrativosPersonalizados
             };
         }
+
+        public async Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(
+            MetodoCalculoCredito metodo,
+            int? perfilId,
+            int? clienteId)
+        {
+            PerfilCredito? perfil = null;
+            if (perfilId.HasValue &&
+                (metodo == MetodoCalculoCredito.UsarPerfil ||
+                 metodo == MetodoCalculoCredito.AutomaticoPorCliente))
+            {
+                perfil = await _context.PerfilesCredito
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == perfilId.Value && !p.IsDeleted);
+            }
+
+            Cliente? cliente = null;
+            if (metodo == MetodoCalculoCredito.UsarCliente && clienteId.HasValue)
+            {
+                cliente = await _context.Clientes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == clienteId.Value && !c.IsDeleted);
+            }
+
+            var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(metodo, perfil, cliente);
+            return (min, max, desc, perfil?.Nombre);
+        }
     }
 }

@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
-using TheBuryProject.Data;
 using TheBuryProject.Models.DTOs;
 using TheBuryProject.Services;
 using TheBuryProject.Models.Entities;
@@ -24,7 +22,6 @@ namespace TheBuryProject.Controllers
         private readonly IFinancialCalculationService _financialService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionMoraService _configuracionMoraService;
-        private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly IVentaService _ventaService;
         private readonly ILogger<CreditoController> _logger;
         private readonly IClienteLookupService _clienteLookup;
@@ -61,7 +58,6 @@ namespace TheBuryProject.Controllers
             IFinancialCalculationService financialService,
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionMoraService configuracionMoraService,
-            IDbContextFactory<AppDbContext> contextFactory,
             IVentaService ventaService,
             ILogger<CreditoController> logger,
             IClienteLookupService clienteLookup,
@@ -74,7 +70,6 @@ namespace TheBuryProject.Controllers
             _financialService = financialService;
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
-            _contextFactory = contextFactory;
             _ventaService = ventaService;
             _logger = logger;
             _clienteLookup = clienteLookup;
@@ -463,28 +458,11 @@ namespace TheBuryProject.Controllers
             }
 
             // Validar rangos de cuotas según método activo
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            PerfilCredito? perfilParaRango = null;
-            if (modelo.PerfilCreditoSeleccionadoId.HasValue &&
-                (modelo.MetodoCalculo == MetodoCalculoCredito.UsarPerfil ||
-                 modelo.MetodoCalculo == MetodoCalculoCredito.AutomaticoPorCliente))
-            {
-                perfilParaRango = await context.PerfilesCredito
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == modelo.PerfilCreditoSeleccionadoId.Value && !p.IsDeleted);
-            }
-
-            Cliente? clienteParaRango = null;
-            if (modelo.MetodoCalculo == MetodoCalculoCredito.UsarCliente)
-            {
-                clienteParaRango = await context.Clientes
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == modelo.ClienteId && !c.IsDeleted);
-            }
-
-            var (cuotasMinPermitidas, cuotasMaxPermitidas, descripcionMetodo) =
-                CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(modelo.MetodoCalculo!.Value, perfilParaRango, clienteParaRango);
+            var (cuotasMinPermitidas, cuotasMaxPermitidas, descripcionMetodo, perfilNombre) =
+                await _configuracionPagoService.ResolverRangoCuotasAsync(
+                    modelo.MetodoCalculo!.Value,
+                    modelo.PerfilCreditoSeleccionadoId,
+                    modelo.ClienteId);
 
             if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
             {
@@ -507,8 +485,8 @@ namespace TheBuryProject.Controllers
                 FechaPrimeraCuota          = modelo.FechaPrimeraCuota,
                 MetodoCalculo              = modelo.MetodoCalculo!.Value,
                 FuenteConfiguracion        = modelo.FuenteConfiguracion,
-                PerfilCreditoAplicadoId    = perfilParaRango?.Id,
-                PerfilCreditoAplicadoNombre = perfilParaRango?.Nombre,
+                PerfilCreditoAplicadoId    = modelo.PerfilCreditoSeleccionadoId,
+                PerfilCreditoAplicadoNombre = perfilNombre,
                 CuotasMinPermitidas        = cuotasMinPermitidas,
                 CuotasMaxPermitidas        = cuotasMaxPermitidas
             };

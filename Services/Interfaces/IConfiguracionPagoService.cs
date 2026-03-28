@@ -43,5 +43,15 @@ namespace TheBuryProject.Services.Interfaces
         /// Personalizado por cliente > Perfil preferido del cliente > Global.
         /// </summary>
         Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal);
+
+        /// <summary>
+        /// Carga las entidades necesarias desde DB y resuelve el rango de cuotas permitidas
+        /// para el método de cálculo especificado. Delega la lógica pura a CreditoConfiguracionHelper.
+        /// También devuelve el nombre del perfil aplicado (null si no aplica).
+        /// </summary>
+        Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(
+            MetodoCalculoCredito metodo,
+            int? perfilId,
+            int? clienteId);
     }
 }
