@@ -1079,4 +1079,211 @@ public class ClienteAptitudServiceTests
             Assert.Null(mensaje);
         }
     }
+
+    // =======================================================================
+    // G. Métodos públicos no cubiertos: GetConfiguracionAsync,
+    //    EvaluarAptitudAsync, EvaluarDocumentacionAsync,
+    //    EvaluarCupoAsync, EvaluarMoraAsync, GetCupoDisponibleAsync
+    // =======================================================================
+
+    public class GetConfiguracionAsyncTests
+    {
+        [Fact]
+        public async Task SinConfig_CreaDefaultYRetorna()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var service = BuildService(ctx);
+
+                var config = await service.GetConfiguracionAsync();
+
+                Assert.NotNull(config);
+                Assert.True(config.Id > 0);
+            }
+        }
+
+        [Fact]
+        public async Task ConConfig_RetornaExistente()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var cfg = ConfigSinValidaciones();
+                cfg.ValidarDocumentacion = true;
+                ctx.Set<ConfiguracionCredito>().Add(cfg);
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var resultado = await service.GetConfiguracionAsync();
+
+                Assert.Equal(cfg.Id, resultado.Id);
+                Assert.True(resultado.ValidarDocumentacion);
+            }
+        }
+    }
+
+    public class EvaluarAptitudAsyncTests
+    {
+        [Fact]
+        public async Task ConGuardar_ActualizaFechaEvaluacionEnCliente()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones();
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                ctx.Clientes.Add(BaseCliente(10));
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                await service.EvaluarAptitudAsync(10, guardarResultado: true);
+
+                ctx.ChangeTracker.Clear();
+                var cliente = await ctx.Clientes.FindAsync(10);
+                Assert.NotNull(cliente!.FechaUltimaEvaluacion);
+            }
+        }
+
+        [Fact]
+        public async Task SinGuardar_FechaEvaluacionNoPersiste()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones();
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                ctx.Clientes.Add(BaseCliente(11));
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                await service.EvaluarAptitudAsync(11, guardarResultado: false);
+
+                ctx.ChangeTracker.Clear();
+                var cliente = await ctx.Clientes.FindAsync(11);
+                Assert.Null(cliente!.FechaUltimaEvaluacion);
+            }
+        }
+    }
+
+    public class EvaluarDocumentacionAsyncTests
+    {
+        [Fact]
+        public async Task ValidacionDeshabilitada_ResultadoCompleto()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones(); // ValidarDocumentacion = false
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var resultado = await service.EvaluarDocumentacionAsync(1);
+
+                Assert.True(resultado.Completa);
+                Assert.False(resultado.Evaluada);
+            }
+        }
+
+        [Fact]
+        public async Task ValidacionHabilitada_ClienteSinDocumentos_TieneFaltantes()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones();
+                config.ValidarDocumentacion = true;
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                ctx.Clientes.Add(BaseCliente(20));
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var resultado = await service.EvaluarDocumentacionAsync(20);
+
+                Assert.True(resultado.Evaluada);
+                Assert.False(resultado.Completa);
+                Assert.True(resultado.DocumentosFaltantes.Count > 0);
+            }
+        }
+    }
+
+    public class EvaluarCupoAsyncTests
+    {
+        [Fact]
+        public async Task ValidacionDeshabilitada_CupoSuficiente()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones(); // ValidarLimiteCredito = false
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var resultado = await service.EvaluarCupoAsync(1);
+
+                Assert.True(resultado.CupoSuficiente);
+                Assert.False(resultado.Evaluado);
+            }
+        }
+    }
+
+    public class EvaluarMoraAsyncTests
+    {
+        [Fact]
+        public async Task ValidacionDeshabilitada_SinMora()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var config = ConfigSinValidaciones(); // ValidarMora = false
+                ctx.Set<ConfiguracionCredito>().Add(config);
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var resultado = await service.EvaluarMoraAsync(1);
+
+                Assert.False(resultado.Evaluada);
+                Assert.False(resultado.TieneMora);
+            }
+        }
+    }
+
+    public class GetCupoDisponibleAsyncTests
+    {
+        [Fact]
+        public async Task ClienteSinLimiteAsignado_RetornaCero()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                ctx.Clientes.Add(BaseCliente(30));
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var disponible = await service.GetCupoDisponibleAsync(30);
+
+                Assert.Equal(0m, disponible);
+            }
+        }
+
+        [Fact]
+        public async Task ClienteConLimite_RetornaDisponible()
+        {
+            var (ctx, conn) = CreateContext();
+            await using (ctx) using (conn)
+            {
+                var cliente = BaseCliente(31);
+                cliente.LimiteCredito = 10_000m;
+                ctx.Clientes.Add(cliente);
+                await ctx.SaveChangesAsync();
+
+                var service = BuildService(ctx);
+                var disponible = await service.GetCupoDisponibleAsync(31);
+
+                Assert.True(disponible >= 0m);
+            }
+        }
+    }
 }
