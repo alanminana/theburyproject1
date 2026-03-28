@@ -1,3 +1,5 @@
+using TheBuryProject.Models.DTOs;
+
 namespace TheBuryProject.Services.Interfaces
 {
     public interface IFinancialCalculationService
@@ -35,5 +37,24 @@ namespace TheBuryProject.Services.Interfaces
         /// <param name="tasaMensual">Tasa de interés mensual en valor decimal (0.05 = 5%).</param>
         /// <returns>CFTEA como porcentaje.</returns>
         decimal CalcularCFTEADesdeTasa(decimal tasaMensual);
+
+        /// <summary>
+        /// Simula un plan de crédito completo: calcula monto financiado, cuota, interés,
+        /// totales y el semáforo de precalificación.
+        /// </summary>
+        /// <param name="totalVenta">Total de la venta.</param>
+        /// <param name="anticipo">Anticipo (0 si no aplica).</param>
+        /// <param name="cuotas">Cantidad de cuotas.</param>
+        /// <param name="tasaMensual">Tasa mensual en porcentaje (ej: 5 = 5%).</param>
+        /// <param name="gastosAdministrativos">Gastos adicionales (0 si no aplica).</param>
+        /// <param name="fechaPrimeraCuota">Fecha del primer pago.</param>
+        /// <returns>DTO con todos los resultados de la simulación.</returns>
+        SimulacionPlanCreditoDto SimularPlanCredito(
+            decimal totalVenta,
+            decimal anticipo,
+            int cuotas,
+            decimal tasaMensual,
+            decimal gastosAdministrativos,
+            DateTime fechaPrimeraCuota);
     }
 }

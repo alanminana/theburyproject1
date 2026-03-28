@@ -1,11 +1,11 @@
-using TheBuryProject.Controllers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit;
 
 /// <summary>
-/// Tests unitarios para CreditoController.ResolverRangoCuotasPermitidos.
+/// Tests unitarios para CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos.
 ///
 /// El método es lógica pura: recibe objetos ya cargados y devuelve (Min, Max, Descripcion).
 /// No accede a DB. No requiere ningún setup de infraestructura.
@@ -22,7 +22,7 @@ public class CreditoControllerRangoCuotasTests
     [Fact]
     public void Manual_SinEntidades_DevuelveRangoMaximo()
     {
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.Manual, perfil: null, cliente: null);
 
         Assert.Equal(1, min);
@@ -37,7 +37,7 @@ public class CreditoControllerRangoCuotasTests
     [Fact]
     public void Global_SinEntidades_DevuelveRangoGlobal()
     {
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.Global, perfil: null, cliente: null);
 
         Assert.Equal(1, min);
@@ -52,7 +52,7 @@ public class CreditoControllerRangoCuotasTests
     [Fact]
     public void AutomaticoPorCliente_SinPerfil_DevuelveRangoGlobal()
     {
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.AutomaticoPorCliente, perfil: null, cliente: null);
 
         Assert.Equal(1, min);
@@ -76,7 +76,7 @@ public class CreditoControllerRangoCuotasTests
             RowVersion = new byte[8]
         };
 
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.UsarPerfil, perfil, cliente: null);
 
         Assert.Equal(3, min);
@@ -96,7 +96,7 @@ public class CreditoControllerRangoCuotasTests
             RowVersion = new byte[8]
         };
 
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.AutomaticoPorCliente, perfil, cliente: null);
 
         Assert.Equal(1, min);
@@ -122,7 +122,7 @@ public class CreditoControllerRangoCuotasTests
             RowVersion = new byte[8]
         };
 
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.UsarCliente, perfil: null, cliente);
 
         Assert.Equal(1, min);
@@ -148,7 +148,7 @@ public class CreditoControllerRangoCuotasTests
             RowVersion = new byte[8]
         };
 
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.UsarCliente, perfil: null, cliente);
 
         Assert.Equal(1, min);
@@ -159,7 +159,7 @@ public class CreditoControllerRangoCuotasTests
     [Fact]
     public void UsarCliente_ClienteNull_DevuelveFallback24()
     {
-        var (min, max, desc) = CreditoController.ResolverRangoCuotasPermitidos(
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito.UsarCliente, perfil: null, cliente: null);
 
         Assert.Equal(1, min);

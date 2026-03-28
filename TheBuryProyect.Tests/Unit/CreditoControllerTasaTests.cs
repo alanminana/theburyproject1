@@ -1,11 +1,11 @@
-using TheBuryProject.Controllers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit;
 
 /// <summary>
-/// Tests unitarios para CreditoController.ResolverTasaYGastos.
+/// Tests unitarios para CreditoConfiguracionHelper.ResolverTasaYGastos.
 ///
 /// Documenta el contrato real del bloque de resolución de tasa extraído de
 /// ConfigurarVenta POST. Todos los casos se verificaron contra el bloque inline
@@ -49,7 +49,7 @@ public class CreditoControllerTasaTests
     [Fact]
     public void PorCliente_ClienteConTasaPersonalizada_UsaTasaDelCliente()
     {
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,
@@ -66,7 +66,7 @@ public class CreditoControllerTasaTests
     [Fact]
     public void PorCliente_ClienteSinTasaPersonalizada_UsaTasaGlobal()
     {
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,
@@ -83,7 +83,7 @@ public class CreditoControllerTasaTests
     [Fact]
     public void PorCliente_ClienteNull_UsaTasaGlobal()
     {
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,
@@ -100,7 +100,7 @@ public class CreditoControllerTasaTests
     [Fact]
     public void PorCliente_GastosDelModeloNull_TomGastosDelCliente()
     {
-        var (_, gastos) = CreditoController.ResolverTasaYGastos(
+        var (_, gastos) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,       // modelo no trajo gastos explícitos
@@ -119,7 +119,7 @@ public class CreditoControllerTasaTests
     {
         const decimal gastosDelModelo = 500m;
 
-        var (_, gastos) = CreditoController.ResolverTasaYGastos(
+        var (_, gastos) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: gastosDelModelo,
@@ -146,7 +146,7 @@ public class CreditoControllerTasaTests
             RowVersion = new byte[8]
         };
 
-        var (_, gastos) = CreditoController.ResolverTasaYGastos(
+        var (_, gastos) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.PorCliente,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,
@@ -163,7 +163,7 @@ public class CreditoControllerTasaTests
     [Fact]
     public void Global_SinImportarCliente_UsaTasaGlobal()
     {
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.Global,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,
@@ -178,7 +178,7 @@ public class CreditoControllerTasaTests
     {
         const decimal gastosDelModelo = 150m;
 
-        var (_, gastos) = CreditoController.ResolverTasaYGastos(
+        var (_, gastos) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.Global,
             tasaMensualDelModelo: null,
             gastosDelModelo: gastosDelModelo,
@@ -201,7 +201,7 @@ public class CreditoControllerTasaTests
         // del controller y nunca llega a ResolverTasaYGastos.
         // Este test documenta que si por algún motivo se llamara, la lógica trataría
         // Manual como Global (no hay rama para Manual en este método).
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.Manual,
             tasaMensualDelModelo: 7m,
             gastosDelModelo: null,
@@ -229,7 +229,7 @@ public class CreditoControllerTasaTests
         // → entra al if, llama ResolverTasaYGastos con fuente=Manual, cliente=null
         // → cae en la rama else → devuelve tasaGlobal
         // → no se muestra error al usuario
-        var (tasa, _) = CreditoController.ResolverTasaYGastos(
+        var (tasa, _) = CreditoConfiguracionHelper.ResolverTasaYGastos(
             FuenteConfiguracionCredito.Manual,
             tasaMensualDelModelo: null,
             gastosDelModelo: null,

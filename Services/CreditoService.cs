@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Threading;
 using TheBuryProject.Data;
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
@@ -1009,6 +1010,101 @@ namespace TheBuryProject.Services
             }
 
             return (false, null, "No se pudo procesar la solicitud de crédito");
+        }
+
+        #endregion
+
+        #region Configuración de crédito
+
+        public async Task ConfigurarCreditoAsync(ConfiguracionCreditoComando cmd)
+        {
+            var credito = await _context.Creditos
+                .FirstOrDefaultAsync(c => c.Id == cmd.CreditoId && !c.IsDeleted);
+
+            if (credito == null)
+                throw new InvalidOperationException($"Crédito {cmd.CreditoId} no encontrado.");
+
+            credito.CantidadCuotas            = cmd.CantidadCuotas;
+            credito.TasaInteres               = cmd.TasaMensual;
+            credito.FechaPrimeraCuota         = cmd.FechaPrimeraCuota;
+            credito.MontoAprobado             = Math.Max(0, cmd.Monto - cmd.Anticipo);
+            credito.MontoSolicitado           = credito.MontoAprobado;
+            credito.SaldoPendiente            = credito.MontoAprobado;
+            credito.Estado                    = EstadoCredito.Configurado;
+            credito.MetodoCalculoAplicado     = cmd.MetodoCalculo;
+            credito.FuenteConfiguracionAplicada = cmd.FuenteConfiguracion;
+            credito.GastosAdministrativos     = cmd.GastosAdministrativos;
+            credito.TasaInteresAplicada       = cmd.TasaMensual;
+            credito.CuotasMinimasPermitidas   = cmd.CuotasMinPermitidas;
+            credito.CuotasMaximasPermitidas   = cmd.CuotasMaxPermitidas;
+
+            if (cmd.PerfilCreditoAplicadoId.HasValue)
+            {
+                credito.PerfilCreditoAplicadoId     = cmd.PerfilCreditoAplicadoId;
+                credito.PerfilCreditoAplicadoNombre = cmd.PerfilCreditoAplicadoNombre;
+            }
+
+            credito.Observaciones = BuildObservaciones(credito.Observaciones, cmd);
+
+            if (cmd.VentaId.HasValue)
+            {
+                var venta = await _context.Ventas.FindAsync(cmd.VentaId.Value);
+                if (venta != null)
+                {
+                    if (!venta.FechaConfiguracionCredito.HasValue)
+                        venta.FechaConfiguracionCredito = DateTime.UtcNow;
+
+                    if (venta.Estado == EstadoVenta.PendienteFinanciacion)
+                    {
+                        venta.Estado = EstadoVenta.Presupuesto;
+                        _logger.LogInformation(
+                            "Venta {VentaId} cambiada de PendienteFinanciacion a Presupuesto",
+                            cmd.VentaId.Value);
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Crédito {CreditoId} configurado: Método={Metodo}, Fuente={Fuente}, " +
+                "Tasa={Tasa:F4}%, Gastos={Gastos:C}, Cuotas=[{Min}-{Max}], Perfil={PerfilId}",
+                cmd.CreditoId, cmd.MetodoCalculo, cmd.FuenteConfiguracion,
+                cmd.TasaMensual, cmd.GastosAdministrativos,
+                cmd.CuotasMinPermitidas, cmd.CuotasMaxPermitidas,
+                cmd.PerfilCreditoAplicadoId?.ToString() ?? "N/A");
+        }
+
+        private static string? BuildObservaciones(string? observacionesActuales, ConfiguracionCreditoComando cmd)
+        {
+            var partes = new List<string>();
+
+            if (observacionesActuales != null)
+                partes.Add(observacionesActuales);
+
+            if (cmd.GastosAdministrativos > 0)
+                partes.Add($"Gastos administrativos declarados: ${cmd.GastosAdministrativos:N2}");
+
+            var fuenteTexto = cmd.FuenteConfiguracion switch
+            {
+                FuenteConfiguracionCredito.PorCliente => "Configuración del Cliente",
+                FuenteConfiguracionCredito.Manual     => "Configuración Manual",
+                _                                     => "Configuración Global"
+            };
+
+            var metodoTexto = cmd.MetodoCalculo switch
+            {
+                MetodoCalculoCredito.AutomaticoPorCliente => "Automático (Por Cliente)",
+                MetodoCalculoCredito.UsarPerfil           => $"Perfil: {cmd.PerfilCreditoAplicadoNombre ?? "N/A"}",
+                MetodoCalculoCredito.UsarCliente          => "Cliente Personalizado",
+                MetodoCalculoCredito.Global               => "Global",
+                MetodoCalculoCredito.Manual               => "Manual",
+                _                                         => "Desconocido"
+            };
+
+            partes.Add($"[{metodoTexto} | {fuenteTexto}]");
+
+            return string.Join(" | ", partes);
         }
 
         #endregion

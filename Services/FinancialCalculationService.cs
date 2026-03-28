@@ -1,3 +1,4 @@
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services
@@ -90,6 +91,56 @@ namespace TheBuryProject.Services
             // CFTEA = ((1 + i)^12 - 1) * 100
             var cftea = ((decimal)Math.Pow((double)(1 + tasaMensual), 12) - 1) * 100;
             return Math.Round(cftea, 4);
+        }
+
+        public SimulacionPlanCreditoDto SimularPlanCredito(
+            decimal totalVenta,
+            decimal anticipo,
+            int cuotas,
+            decimal tasaMensual,
+            decimal gastosAdministrativos,
+            DateTime fechaPrimeraCuota)
+        {
+            var montoFinanciado = ComputeFinancedAmount(totalVenta, anticipo);
+            var tasaDecimal = tasaMensual / 100;
+            var cuota = ComputePmt(tasaDecimal, cuotas, montoFinanciado);
+            var interesTotal = CalcularInteresTotal(montoFinanciado, tasaDecimal, cuotas);
+            var totalCuotas = cuota * cuotas;
+
+            var (estado, mensaje, mostrarIngreso, mostrarAntiguedad) = CalcularSemaforo(cuota, montoFinanciado);
+
+            return new SimulacionPlanCreditoDto
+            {
+                MontoFinanciado = montoFinanciado,
+                CuotaEstimada = cuota,
+                TasaAplicada = tasaMensual,
+                InteresTotal = interesTotal,
+                TotalAPagar = totalCuotas,
+                GastosAdministrativos = gastosAdministrativos,
+                TotalPlan = totalCuotas + gastosAdministrativos,
+                FechaPrimerPago = fechaPrimeraCuota,
+                SemaforoEstado = estado,
+                SemaforoMensaje = mensaje,
+                MostrarMsgIngreso = mostrarIngreso,
+                MostrarMsgAntiguedad = mostrarAntiguedad
+            };
+        }
+
+        private static (string Estado, string Mensaje, bool MostrarIngreso, bool MostrarAntiguedad)
+            CalcularSemaforo(decimal cuota, decimal montoFinanciado)
+        {
+            if (montoFinanciado <= 0 || cuota <= 0)
+                return ("sinDatos", "Completa los datos para precalificar.", false, false);
+
+            var ratio = cuota / montoFinanciado;
+
+            if (ratio <= 0.08m)
+                return ("verde", "Condiciones preliminares saludables.", false, false);
+
+            if (ratio <= 0.15m)
+                return ("amarillo", "Revisar ingresos declarados.", true, false);
+
+            return ("rojo", "Las condiciones requieren ajustes.", true, true);
         }
     }
 }

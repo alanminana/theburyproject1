@@ -1,4 +1,5 @@
-﻿using TheBuryProject.ViewModels;
+﻿using TheBuryProject.Models.DTOs;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -48,5 +49,12 @@ namespace TheBuryProject.Services.Interfaces
 
         // Operaciones de saldo
         Task<bool> RecalcularSaldoCreditoAsync(int creditoId);
+
+        /// <summary>
+        /// Aplica la configuración de un crédito (tasa, cuotas, método, perfil) y actualiza
+        /// el estado de la venta asociada si corresponde. Todos los parámetros ya deben estar
+        /// resueltos por el caller; este método solo persiste y cambia estados.
+        /// </summary>
+        Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando);
     }
 }

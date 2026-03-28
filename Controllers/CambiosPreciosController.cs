@@ -175,9 +175,8 @@ public class CambiosPreciosController : Controller
             if ((viewModel.ProductosIds == null || !viewModel.ProductosIds.Any())
                 && !string.IsNullOrWhiteSpace(viewModel.ProductoIdsText))
             {
-                var parsedIds = new List<int>();
-                var tokens = viewModel.ProductoIdsText
-                    .Split(new[] { ',', ';', '\n', '\r', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var tokens = SplitProductoIdsTokens(viewModel.ProductoIdsText);
+                var parsedIds = new List<int>(tokens.Length);
 
                 foreach (var token in tokens)
                 {
@@ -275,18 +274,7 @@ public class CambiosPreciosController : Controller
                 // Modo Seleccionados: parsear IDs
                 if (!string.IsNullOrWhiteSpace(viewModel.ProductoIdsText))
                 {
-                    var tokens = viewModel.ProductoIdsText
-                        .Split(new[] { ',', ';', '\n', '\r', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                    foreach (var token in tokens)
-                    {
-                        if (int.TryParse(token, out var id) && id > 0)
-                        {
-                            productosIds.Add(id);
-                        }
-                    }
-
-                    productosIds = productosIds.Distinct().ToList();
+                    productosIds = ParseProductoIdsTextLenient(viewModel.ProductoIdsText);
                 }
                 modoDescripcion = "selección manual";
             }
@@ -411,19 +399,8 @@ public class CambiosPreciosController : Controller
             }
 
             // Usar lista predeterminada si no se especifican listas
-            var listasIds = request.ListasPrecioIds?.Where(id => id > 0).ToList();
-            if (listasIds == null || !listasIds.Any())
-            {
-                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-                if (listaPredeterminada != null)
-                {
-                    listasIds = new List<int> { listaPredeterminada.Id };
-                }
-                else
-                {
-                    return BadRequest(new { success = false, error = "Debe seleccionar al menos una lista de precios" });
-                }
-            }
+            var (listasIds, errorListas) = await ResolverListasPrecioAsync(request.ListasPrecioIds);
+            if (errorListas != null) return errorListas;
 
             // Determinar tipo de aplicación
             var valorCambio = request.Porcentaje;
@@ -440,12 +417,12 @@ public class CambiosPreciosController : Controller
                 tipoCambio: TipoCambio.PorcentajeSobrePrecioActual,
                 tipoAplicacion: tipoAplicacion,
                 valorCambio: valorCambio,
-                listasIds: listasIds,
+                listasIds: listasIds!,
                 categoriaIds: null,
                 marcaIds: null,
                 productoIds: productosIds);
 
-            _logger.LogInformation("Simulación rápida creada: BatchId={BatchId}, Productos={Count}", 
+            _logger.LogInformation("Simulación rápida creada: BatchId={BatchId}, Productos={Count}",
                 batch.Id, batch.CantidadProductos);
 
             return Ok(new
@@ -518,21 +495,8 @@ public class CambiosPreciosController : Controller
             }
 
             // Validar listas de precios
-            var listasIds = request.ListasPrecioIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
-            if (!listasIds.Any())
-            {
-                // Usar lista predeterminada
-                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-
-                if (listaPredeterminada != null)
-                {
-                    listasIds.Add(listaPredeterminada.Id);
-                }
-                else
-                {
-                    return BadRequest(new { success = false, error = "No hay lista de precios disponible" });
-                }
-            }
+            var (listasIds, errorListas) = await ResolverListasPrecioAsync(request.ListasPrecioIds);
+            if (errorListas != null) return errorListas;
 
             // Determinar tipo de aplicación
             var valorCambio = request.Porcentaje;
@@ -549,12 +513,12 @@ public class CambiosPreciosController : Controller
                 tipoCambio: TipoCambio.PorcentajeSobrePrecioActual,
                 tipoAplicacion: tipoAplicacion,
                 valorCambio: valorCambio,
-                listasIds: listasIds,
+                listasIds: listasIds!,
                 categoriaIds: null,
                 marcaIds: null,
                 productoIds: productosIds);
 
-            _logger.LogInformation("Simulación creada: BatchId={BatchId}, Productos={Count}", 
+            _logger.LogInformation("Simulación creada: BatchId={BatchId}, Productos={Count}",
                 batch.Id, batch.CantidadProductos);
 
             var usuarioActual = _currentUser.GetUsername();
@@ -750,6 +714,49 @@ public class CambiosPreciosController : Controller
             _logger.LogError(ex, "Error al revertir batch {BatchId} via API", request?.BatchId);
             return StatusCode(500, new { success = false, error = "Error interno al revertir el batch" });
         }
+    }
+
+    /// <summary>
+    /// Resuelve la lista de IDs de listas de precios: filtra IDs válidos y, si queda vacía,
+    /// cae en la lista predeterminada. Devuelve (ids, null) si OK o (null, BadRequest) si falla.
+    /// </summary>
+    private async Task<(List<int>? Ids, IActionResult? Error)> ResolverListasPrecioAsync(
+        IEnumerable<int>? rawIds)
+    {
+        var ids = rawIds?.Where(id => id > 0).Distinct().ToList() ?? new List<int>();
+        if (ids.Any())
+            return (ids, null);
+
+        var predeterminada = await _precioService.GetListaPredeterminadaAsync();
+        if (predeterminada != null)
+            return (new List<int> { predeterminada.Id }, null);
+
+        return (null, BadRequest(new { success = false, error = "Debe seleccionar al menos una lista de precios" }));
+    }
+
+    /// <summary>
+    /// Divide el texto de IDs en tokens individuales usando los separadores estándar.
+    /// </summary>
+    private static string[] SplitProductoIdsTokens(string text) =>
+        text.Split(new[] { ',', ';', '\n', '\r', '\t', ' ' },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// Parsea el texto de IDs de producto de forma permisiva: omite tokens inválidos.
+    /// Usar cuando el origen no requiere validación estricta (ej: desde catálogo).
+    /// </summary>
+    private static List<int> ParseProductoIdsTextLenient(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return new List<int>();
+
+        var result = new List<int>();
+        foreach (var token in SplitProductoIdsTokens(text))
+        {
+            if (int.TryParse(token, out var id) && id > 0)
+                result.Add(id);
+        }
+        return result.Distinct().ToList();
     }
 
     /// <summary>

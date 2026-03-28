@@ -61,6 +61,9 @@ file sealed class StubFinancialService : IFinancialCalculationService
     public decimal ComputePmt(decimal tasaMensual, int cuotas, decimal monto) => throw new NotImplementedException();
     public decimal ComputeFinancedAmount(decimal total, decimal anticipo) => throw new NotImplementedException();
     public decimal CalcularCFTEADesdeTasa(decimal tasaMensual) => throw new NotImplementedException();
+    public TheBuryProject.Models.DTOs.SimulacionPlanCreditoDto SimularPlanCredito(
+        decimal totalVenta, decimal anticipo, int cuotas, decimal tasaMensual,
+        decimal gastosAdministrativos, DateTime fechaPrimeraCuota) => throw new NotImplementedException();
 }
 
 file sealed class StubCreditoDisponibleService : ICreditoDisponibleService
