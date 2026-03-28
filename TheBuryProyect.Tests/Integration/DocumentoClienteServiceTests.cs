@@ -648,4 +648,119 @@ public class DocumentoClienteServiceTests : IDisposable
 
         Assert.Equal(1, total);
     }
+
+    // -------------------------------------------------------------------------
+    // GetAllAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetAll_SinDocumentos_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConDocumentos_RetornaTodos()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminados()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo);
+        doc.IsDeleted = true;
+        _context.DocumentosCliente.Update(doc);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Single(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetByIdAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetById_DocumentoExistente_RetornaViewModel()
+    {
+        var cliente = await SeedClienteAsync();
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+
+        var resultado = await _service.GetByIdAsync(doc.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(doc.Id, resultado!.Id);
+        Assert.Equal(TipoDocumentoCliente.DNI, resultado.TipoDocumento);
+    }
+
+    [Fact]
+    public async Task GetById_DocumentoInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetById_DocumentoEliminado_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var doc = await SeedDocumentoAsync(cliente.Id);
+        await _service.DeleteAsync(doc.Id);
+
+        var resultado = await _service.GetByIdAsync(doc.Id);
+        Assert.Null(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetByClienteIdAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetByClienteId_SinDocumentos_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetByClienteIdAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetByClienteId_ConDocumentos_RetornaSoloLosDelCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        await SeedDocumentoAsync(c1.Id, TipoDocumentoCliente.DNI);
+        await SeedDocumentoAsync(c1.Id, TipoDocumentoCliente.ReciboSueldo);
+        await SeedDocumentoAsync(c2.Id, TipoDocumentoCliente.DNI);
+
+        var resultado = await _service.GetByClienteIdAsync(c1.Id);
+
+        Assert.Equal(2, resultado.Count);
+        Assert.All(resultado, d => Assert.Equal(c1.Id, d.ClienteId));
+    }
+
+    [Fact]
+    public async Task GetByClienteId_ExcluyeEliminados()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo);
+        await _service.DeleteAsync(doc.Id);
+
+        var resultado = await _service.GetByClienteIdAsync(cliente.Id);
+
+        Assert.Single(resultado);
+    }
 }
