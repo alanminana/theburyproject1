@@ -449,4 +449,121 @@ public class ReporteServiceTests : IDisposable
 
         Assert.Empty(resultado);
     }
+
+    // =========================================================================
+    // GenerarReporteMorosidadAsync
+    // =========================================================================
+
+    private async Task<Cuota> SeedCuotaVencidaAsync(int creditoId, decimal montoTotal = 1_000m, int diasVencido = 10)
+    {
+        var cuota = new Cuota
+        {
+            CreditoId = creditoId,
+            NumeroCuota = 1,
+            MontoCapital = montoTotal * 0.8m,
+            MontoInteres = montoTotal * 0.2m,
+            MontoTotal = montoTotal,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = DateTime.UtcNow.Date.AddDays(-diasVencido)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+        return cuota;
+    }
+
+    private async Task<Credito> SeedCreditoAsync(int clienteId, decimal saldo = 5_000m)
+    {
+        var credito = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = clienteId,
+            Estado = EstadoCredito.Activo,
+            MontoSolicitado = saldo,
+            MontoAprobado = saldo,
+            SaldoPendiente = saldo,
+            TasaInteres = 3m,
+            CantidadCuotas = 12,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Set<Credito>().Add(credito);
+        await _context.SaveChangesAsync();
+        return credito;
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_SinCuotasVencidas_RetornaReporteVacio()
+    {
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.NotNull(resultado);
+        Assert.Empty(resultado.ClientesMorosos);
+        Assert.Equal(0, resultado.CantidadClientesMorosos);
+        Assert.Equal(0m, resultado.TotalDeudaVencida);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_ConClienteMoroso_IncluyeClienteEnResultado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, montoTotal: 1_000m);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.Equal(1, resultado.CantidadClientesMorosos);
+        Assert.Equal(1_000m, resultado.TotalDeudaVencida);
+        Assert.Equal(cliente.Id, resultado.ClientesMorosos[0].ClienteId);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_MultiplesCuotasMismoCliente_AgrupaPorCliente()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, montoTotal: 500m, diasVencido: 10);
+        // Segunda cuota del mismo crédito — diferente NumeroCuota sería requerido
+        // pero como es un credito distinto no hay restricción
+        var credito2 = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito2.Id, montoTotal: 800m, diasVencido: 20);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        // Ambas cuotas pertenecen al mismo cliente → 1 registro en ClientesMorosos
+        Assert.Equal(1, resultado.CantidadClientesMorosos);
+        Assert.Equal(1_300m, resultado.TotalDeudaVencida);
+        Assert.Equal(2, resultado.ClientesMorosos[0].CantidadCreditosVencidos);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_MultiplesClientes_DevuelveUnoporCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        var cr1 = await SeedCreditoAsync(c1.Id);
+        var cr2 = await SeedCreditoAsync(c2.Id);
+        await SeedCuotaVencidaAsync(cr1.Id, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(cr2.Id, montoTotal: 2_000m);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.Equal(2, resultado.CantidadClientesMorosos);
+        Assert.Equal(3_000m, resultado.TotalDeudaVencida);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_CalulaPromedioDeudaPorCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        var cr1 = await SeedCreditoAsync(c1.Id);
+        var cr2 = await SeedCreditoAsync(c2.Id);
+        await SeedCuotaVencidaAsync(cr1.Id, montoTotal: 1_000m);
+        await SeedCuotaVencidaAsync(cr2.Id, montoTotal: 3_000m);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        // Promedio = 4000 / 2 = 2000
+        Assert.Equal(2_000m, resultado.PromedioDeudaPorCliente);
+    }
 }
