@@ -293,23 +293,24 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction("Details", new { id });
             }
 
-            decimal montoVenta = credito.MontoAprobado;
+            decimal montoVenta = credito.MontoAprobado > 0 ? credito.MontoAprobado : credito.MontoSolicitado;
 
-            if (montoVenta <= 0)
-                montoVenta = credito.MontoSolicitado;
+            var tasaTask = _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+            var ventaTotalTask = ventaId.HasValue
+                ? _ventaService.GetTotalVentaAsync(ventaId.Value)
+                : Task.FromResult<decimal?>(null);
+            var perfilesTask = _configuracionPagoService.GetPerfilesCreditoActivosAsync();
 
-            var tasaMensualConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+            await Task.WhenAll(tasaTask, ventaTotalTask, perfilesTask);
 
-            if (ventaId.HasValue)
-            {
-                montoVenta = await _ventaService.GetTotalVentaAsync(ventaId.Value) ?? montoVenta;
-            }
+            var tasaMensualConfig = tasaTask.Result;
+            if (ventaTotalTask.Result.HasValue)
+                montoVenta = ventaTotalTask.Result.Value;
+            var perfilesActivos = perfilesTask.Result;
 
             // Resolver parámetros de crédito del cliente (Personalizado > Perfil > Global)
             var parametrosCliente = await _configuracionPagoService
                 .ObtenerParametrosCreditoClienteAsync(credito.ClienteId, tasaMensualConfig);
-
-            var perfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
 
             var modelo = new ConfiguracionCreditoVentaViewModel
             {
