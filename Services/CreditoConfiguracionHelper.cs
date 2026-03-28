@@ -43,38 +43,5 @@ namespace TheBuryProject.Services
             }
         }
 
-        /// <summary>
-        /// Resuelve la tasa mensual y los gastos administrativos a aplicar al crédito,
-        /// a partir de los datos ya cargados. No accede a base de datos ni a infraestructura.
-        ///
-        /// Comportamiento por fuente:
-        ///   PorCliente, cliente != null → tasa del cliente si tiene, sino tasaGlobal;
-        ///                                 gastos del cliente si gastosDelModelo es null, sino 0
-        ///   PorCliente, cliente == null → tasaGlobal, gastos sin cambio (gastosDelModelo ?? 0)
-        ///   Global (o cualquier otro)   → tasaGlobal, gastos sin cambio
-        ///
-        /// El caso Manual no pasa por este método — el caller lo maneja directamente.
-        /// </summary>
-        public static (decimal? Tasa, decimal Gastos) ResolverTasaYGastos(
-            FuenteConfiguracionCredito fuente,
-            decimal? tasaMensualDelModelo,
-            decimal? gastosDelModelo,
-            decimal tasaGlobal,
-            Cliente? cliente)
-        {
-            var gastosBase = gastosDelModelo ?? 0m;
-
-            if (fuente == FuenteConfiguracionCredito.PorCliente && cliente != null)
-            {
-                var tasa = cliente.TasaInteresMensualPersonalizada ?? tasaGlobal;
-                var gastos = gastosDelModelo.HasValue
-                    ? gastosBase
-                    : cliente.GastosAdministrativosPersonalizados ?? 0m;
-                return (tasa, gastos);
-            }
-
-            // Global, cliente no encontrado en PorCliente, o cualquier otro valor de fuente
-            return (tasaGlobal, gastosBase);
-        }
     }
 }
