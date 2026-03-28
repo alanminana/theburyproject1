@@ -127,16 +127,17 @@ public class DevolucionService : IDevolucionService
             throw new InvalidOperationException("No se permiten productos duplicados en la devolución");
 
         // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
-        var vendidoPorProducto = await _context.VentaDetalles
+        var ventaDetallesRaw = await _context.VentaDetalles
             .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
+            .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario })
+            .ToListAsync();
+
+        var vendidoPorProducto = ventaDetallesRaw
             .GroupBy(vd => vd.ProductoId)
-            .Select(g => new
-            {
-                ProductoId = g.Key,
-                CantidadVendida = g.Sum(x => x.Cantidad),
-                TotalVendido = g.Sum(x => x.Cantidad * x.PrecioUnitario)
-            })
-            .ToDictionaryAsync(x => x.ProductoId, x => (x.CantidadVendida, x.TotalVendido));
+            .ToDictionary(
+                g => g.Key,
+                g => (CantidadVendida: g.Sum(x => x.Cantidad),
+                      TotalVendido: g.Sum(x => x.Cantidad * x.PrecioUnitario)));
 
         if (vendidoPorProducto.Count == 0)
             throw new InvalidOperationException("La venta no tiene detalles para devolver");
