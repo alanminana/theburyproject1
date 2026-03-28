@@ -627,7 +627,8 @@ namespace TheBuryProject.Services
         public async Task<decimal> GetCreditoUtilizadoAsync(int clienteId)
         {
             // Suma de saldo pendiente de todos los créditos activos
-            return await _context.Creditos
+            // Se usa ToListAsync + Sum client-side para compatibilidad con todos los proveedores
+            var saldos = await _context.Creditos
                 .Where(c => c.ClienteId == clienteId &&
                            !c.IsDeleted &&
                            (c.Estado == EstadoCredito.Activo ||
@@ -636,7 +637,9 @@ namespace TheBuryProject.Services
                             c.Estado == EstadoCredito.PendienteConfiguracion ||
                             c.Estado == EstadoCredito.Configurado ||
                             c.Estado == EstadoCredito.Generado))
-                .SumAsync(c => c.SaldoPendiente);
+                .Select(c => c.SaldoPendiente)
+                .ToListAsync();
+            return saldos.Sum();
         }
 
         #endregion

@@ -618,4 +618,260 @@ public class ClienteAptitudServiceTests
             Assert.Contains(resultado.Detalles, d => d.Categoria == "Mora" && !d.EsBloqueo);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // K. VerificarAptitudParaMontoAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task VerificarAptitudParaMonto_ClienteNoApto_RetornaFalse()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            // Config: validar mora, sin umbral forzado = bloqueará si hay mora severa
+            var config = ConfigSinValidaciones();
+            config.ValidarMora = true;
+            config.DiasParaNoApto = 1; // 1 día de mora bloquea
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            // Crédito con cuota vencida hace 5 días
+            var credito = new Credito
+            {
+                ClienteId = 1,
+                Numero = "TEST-001",
+                Estado = EstadoCredito.Activo,
+                MontoSolicitado = 5_000m,
+                MontoAprobado = 5_000m,
+                SaldoPendiente = 5_000m,
+                TasaInteres = 3m,
+                CantidadCuotas = 6
+            };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+
+            ctx.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id,
+                NumeroCuota = 1,
+                MontoTotal = 1_000m,
+                MontoCapital = 800m,
+                MontoInteres = 200m,
+                Estado = EstadoCuota.Vencida,
+                FechaVencimiento = DateTime.UtcNow.AddDays(-5),
+                MontoPagado = 0m
+            });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var (esApto, motivo) = await service.VerificarAptitudParaMontoAsync(1, monto: 10_000m);
+
+            Assert.False(esApto);
+            Assert.False(string.IsNullOrWhiteSpace(motivo));
+        }
+    }
+
+    [Fact]
+    public async Task VerificarAptitudParaMonto_CupoInsuficiente_RetornaFalse()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            // Habilitar validación de límite para que CupoDisponible sea calculado
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 5_000m; // límite bajo
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var (esApto, motivo) = await service.VerificarAptitudParaMontoAsync(1, monto: 10_000m);
+
+            Assert.False(esApto);
+            Assert.Contains("Cupo insuficiente", motivo);
+        }
+    }
+
+    [Fact]
+    public async Task VerificarAptitudParaMonto_CupoSuficiente_RetornaTrue()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            // Habilitar validación de límite para que CupoDisponible sea calculado
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 50_000m; // límite amplio
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var (esApto, motivo) = await service.VerificarAptitudParaMontoAsync(1, monto: 10_000m);
+
+            Assert.True(esApto);
+            Assert.Null(motivo);
+        }
+    }
+
+    [Fact]
+    public async Task VerificarAptitudParaMonto_MontoExactoAlCupo_Aprobado()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 10_000m;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            // monto == cupo disponible → debe aprobar (condición: disponible < monto, no <=)
+            var (esApto, _) = await service.VerificarAptitudParaMontoAsync(1, monto: 10_000m);
+
+            Assert.True(esApto);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // L. GetCreditoUtilizadoAsync — filtra 6 estados activos
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetCreditoUtilizado_SinCreditos_RetornaCero()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var utilizado = await service.GetCreditoUtilizadoAsync(1);
+
+            Assert.Equal(0m, utilizado);
+        }
+    }
+
+    [Fact]
+    public async Task GetCreditoUtilizado_CreditosActivos_SumaCorrectamente()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Creditos.AddRange(
+                new Credito { ClienteId = 1, Numero = "C01", Estado = EstadoCredito.Activo, MontoSolicitado = 5_000m, SaldoPendiente = 4_000m, TasaInteres = 3m, CantidadCuotas = 6 },
+                new Credito { ClienteId = 1, Numero = "C02", Estado = EstadoCredito.Aprobado, MontoSolicitado = 3_000m, SaldoPendiente = 3_000m, TasaInteres = 3m, CantidadCuotas = 3 }
+            );
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var utilizado = await service.GetCreditoUtilizadoAsync(1);
+
+            Assert.Equal(7_000m, utilizado);
+        }
+    }
+
+    [Fact]
+    public async Task GetCreditoUtilizado_CreditosFinalizados_ExcluirDeLaSuma()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Creditos.AddRange(
+                new Credito { ClienteId = 1, Numero = "C01", Estado = EstadoCredito.Activo, MontoSolicitado = 5_000m, SaldoPendiente = 4_000m, TasaInteres = 3m, CantidadCuotas = 6 },
+                new Credito { ClienteId = 1, Numero = "C02", Estado = EstadoCredito.Finalizado, MontoSolicitado = 3_000m, SaldoPendiente = 0m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C03", Estado = EstadoCredito.Cancelado, MontoSolicitado = 2_000m, SaldoPendiente = 1_500m, TasaInteres = 3m, CantidadCuotas = 3 }
+            );
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var utilizado = await service.GetCreditoUtilizadoAsync(1);
+
+            // Solo el Activo debe sumar — Finalizado y Cancelado excluidos
+            Assert.Equal(4_000m, utilizado);
+        }
+    }
+
+    [Fact]
+    public async Task GetCreditoUtilizado_TodosLosEstadosActivos_SeIncluyen()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            // Los 6 estados que deben incluirse
+            ctx.Creditos.AddRange(
+                new Credito { ClienteId = 1, Numero = "C01", Estado = EstadoCredito.Activo, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C02", Estado = EstadoCredito.Aprobado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C03", Estado = EstadoCredito.Solicitado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C04", Estado = EstadoCredito.PendienteConfiguracion, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C05", Estado = EstadoCredito.Configurado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 },
+                new Credito { ClienteId = 1, Numero = "C06", Estado = EstadoCredito.Generado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 3m, CantidadCuotas = 3 }
+            );
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var utilizado = await service.GetCreditoUtilizadoAsync(1);
+
+            Assert.Equal(6_000m, utilizado);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // M. AsignarLimiteCreditoAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task AsignarLimite_ClienteInexistente_RetornaFalse()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var service = BuildService(ctx);
+            var resultado = await service.AsignarLimiteCreditoAsync(clienteId: 99_999, limite: 50_000m);
+
+            Assert.False(resultado);
+        }
+    }
+
+    [Fact]
+    public async Task AsignarLimite_ClienteExistente_PersisteLimite()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.AsignarLimiteCreditoAsync(1, limite: 75_000m, motivo: "Actualización anual");
+
+            Assert.True(resultado);
+            ctx.ChangeTracker.Clear();
+            var cliente = await ctx.Clientes.FindAsync(1);
+            Assert.Equal(75_000m, cliente!.LimiteCredito);
+        }
+    }
 }
