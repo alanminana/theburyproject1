@@ -8,6 +8,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Models;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -411,5 +412,191 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var result = await _service.ObtenerTasaInteresMensualCreditoPersonalAsync();
 
         Assert.Equal(7.5m, result);
+    }
+
+    // =========================================================================
+    // GuardarCreditoPersonalAsync — batch update de perfiles
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // 19. Actualiza defaults globales cuando existe ConfiguracionPago CreditoPersonal
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GuardarCreditoPersonal_DefaultsGlobales_ActualizaConfigPago()
+    {
+        _context.ConfiguracionesPago.Add(new ConfiguracionPago
+        {
+            TipoPago = TipoPago.CreditoPersonal,
+            Nombre = "CreditoPersonal",
+            Activo = true,
+            TasaInteresMensualCreditoPersonal = 3m
+        });
+        await _context.SaveChangesAsync();
+
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel
+            {
+                TasaMensual = 6m,
+                GastosAdministrativos = 200m,
+                MinCuotas = 2,
+                MaxCuotas = 36
+            }
+        };
+
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var enDb = await _context.ConfiguracionesPago
+            .FirstAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
+        Assert.Equal(6m, enDb.TasaInteresMensualCreditoPersonal);
+        Assert.Equal(200m, enDb.GastosAdministrativosDefaultCreditoPersonal);
+        Assert.Equal(2, enDb.MinCuotasDefaultCreditoPersonal);
+        Assert.Equal(36, enDb.MaxCuotasDefaultCreditoPersonal);
+    }
+
+    // -------------------------------------------------------------------------
+    // 20. Actualiza perfil existente (batch load — un solo hit a BD por todos)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GuardarCreditoPersonal_PerfilExistente_ActualizaDatos()
+    {
+        var perfil = await SeedPerfil(tasaMensual: 5m, maxCuotas: 12);
+
+        var config = new CreditoPersonalConfigViewModel
+        {
+            Perfiles = new List<PerfilCreditoViewModel>
+            {
+                new()
+                {
+                    Id = perfil.Id,
+                    Nombre = perfil.Nombre,
+                    TasaMensual = 9m,
+                    GastosAdministrativos = 300m,
+                    MinCuotas = 1,
+                    MaxCuotas = 24,
+                    Activo = true
+                }
+            }
+        };
+
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var enDb = await _context.PerfilesCredito.FindAsync(perfil.Id);
+        Assert.Equal(9m, enDb!.TasaMensual);
+        Assert.Equal(24, enDb.MaxCuotas);
+    }
+
+    // -------------------------------------------------------------------------
+    // 21. Crea perfil nuevo (Id == 0)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GuardarCreditoPersonal_PerfilNuevo_CreaRegistro()
+    {
+        var config = new CreditoPersonalConfigViewModel
+        {
+            Perfiles = new List<PerfilCreditoViewModel>
+            {
+                new()
+                {
+                    Id = 0,
+                    Nombre = "Conservador",
+                    TasaMensual = 4m,
+                    GastosAdministrativos = 50m,
+                    MinCuotas = 1,
+                    MaxCuotas = 12,
+                    Activo = true
+                }
+            }
+        };
+
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var enDb = await _context.PerfilesCredito
+            .FirstOrDefaultAsync(p => p.Nombre == "Conservador");
+        Assert.NotNull(enDb);
+        Assert.Equal(4m, enDb.TasaMensual);
+    }
+
+    // -------------------------------------------------------------------------
+    // 22. Mezcla de nuevos y existentes — batch resuelve todo en una query
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GuardarCreditoPersonal_MezclaNuevosYExistentes_TodosPersisten()
+    {
+        var perfilExistente = await SeedPerfil(tasaMensual: 5m);
+
+        var config = new CreditoPersonalConfigViewModel
+        {
+            Perfiles = new List<PerfilCreditoViewModel>
+            {
+                new()
+                {
+                    Id = perfilExistente.Id,
+                    Nombre = perfilExistente.Nombre,
+                    TasaMensual = 7m,
+                    GastosAdministrativos = 0m,
+                    MinCuotas = 1,
+                    MaxCuotas = 24,
+                    Activo = true
+                },
+                new()
+                {
+                    Id = 0,
+                    Nombre = "Riesgoso",
+                    TasaMensual = 12m,
+                    GastosAdministrativos = 500m,
+                    MinCuotas = 1,
+                    MaxCuotas = 6,
+                    Activo = true
+                }
+            }
+        };
+
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var totalPerfiles = await _context.PerfilesCredito.CountAsync(p => !p.IsDeleted);
+        Assert.Equal(2, totalPerfiles);
+
+        var actualizado = await _context.PerfilesCredito.FindAsync(perfilExistente.Id);
+        Assert.Equal(7m, actualizado!.TasaMensual);
+
+        var nuevo = await _context.PerfilesCredito
+            .FirstOrDefaultAsync(p => p.Nombre == "Riesgoso");
+        Assert.NotNull(nuevo);
+    }
+
+    // -------------------------------------------------------------------------
+    // 23. ID inexistente en lista — se ignora sin lanzar excepción
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GuardarCreditoPersonal_IdInexistente_SeIgnora()
+    {
+        var config = new CreditoPersonalConfigViewModel
+        {
+            Perfiles = new List<PerfilCreditoViewModel>
+            {
+                new()
+                {
+                    Id = 99999,
+                    Nombre = "Fantasma",
+                    TasaMensual = 5m,
+                    GastosAdministrativos = 0m,
+                    MinCuotas = 1,
+                    MaxCuotas = 12,
+                    Activo = true
+                }
+            }
+        };
+
+        // No debe lanzar excepción
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var count = await _context.PerfilesCredito.CountAsync();
+        Assert.Equal(0, count);
     }
 }

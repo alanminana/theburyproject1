@@ -273,21 +273,34 @@ namespace TheBuryProject.Services
             // Guardar perfiles de crédito
             if (config.Perfiles != null)
             {
+                // Batch: cargar todos los perfiles existentes en una sola query
+                var idsPerfiles = config.Perfiles
+                    .Where(p => p.Id > 0)
+                    .Select(p => p.Id)
+                    .ToList();
+
+                var perfilesExistentes = idsPerfiles.Count > 0
+                    ? await _context.PerfilesCredito
+                        .Where(p => idsPerfiles.Contains(p.Id))
+                        .ToDictionaryAsync(p => p.Id)
+                    : new Dictionary<int, PerfilCredito>();
+
+                var ahora = DateTime.UtcNow;
+
                 foreach (var perfilViewModel in config.Perfiles)
                 {
                     if (perfilViewModel.Id > 0)
                     {
-                        var perfil = await _context.PerfilesCredito.FindAsync(perfilViewModel.Id);
-                        if (perfil != null)
+                        if (perfilesExistentes.TryGetValue(perfilViewModel.Id, out var perfil))
                         {
                             _mapper.Map(perfilViewModel, perfil);
-                            perfil.UpdatedAt = DateTime.UtcNow;
+                            perfil.UpdatedAt = ahora;
                         }
                     }
                     else
                     {
                         var nuevoPerfil = _mapper.Map<PerfilCredito>(perfilViewModel);
-                        nuevoPerfil.CreatedAt = DateTime.UtcNow;
+                        nuevoPerfil.CreatedAt = ahora;
                         _context.PerfilesCredito.Add(nuevoPerfil);
                     }
                 }
