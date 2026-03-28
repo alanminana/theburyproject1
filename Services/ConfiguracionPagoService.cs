@@ -28,6 +28,7 @@ namespace TheBuryProject.Services
         public async Task<List<ConfiguracionPagoViewModel>> GetAllAsync()
         {
             var configuraciones = await _context.ConfiguracionesPago
+                .AsNoTracking()
                 .Include(c => c.ConfiguracionesTarjeta)
                 .Where(c => !c.IsDeleted)
                 .OrderBy(c => c.TipoPago)
@@ -39,6 +40,7 @@ namespace TheBuryProject.Services
         public async Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id)
         {
             var configuracion = await _context.ConfiguracionesPago
+                .AsNoTracking()
                 .Include(c => c.ConfiguracionesTarjeta)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
@@ -48,6 +50,7 @@ namespace TheBuryProject.Services
         public async Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago)
         {
             var configuracion = await _context.ConfiguracionesPago
+                .AsNoTracking()
                 .Include(c => c.ConfiguracionesTarjeta.Where(t => t.Activa && !t.IsDeleted))
                 .FirstOrDefaultAsync(c => c.TipoPago == tipoPago && c.Activo && !c.IsDeleted);
 
@@ -184,6 +187,7 @@ namespace TheBuryProject.Services
         public async Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync()
         {
             var tarjetas = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
                 .Where(t => t.Activa && !t.IsDeleted)
                 .OrderBy(t => t.TipoTarjeta)
                 .ThenBy(t => t.NombreTarjeta)
@@ -195,6 +199,7 @@ namespace TheBuryProject.Services
         public async Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id)
         {
             var tarjeta = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
 
             return tarjeta == null ? null : _mapper.Map<ConfiguracionTarjetaViewModel>(tarjeta);
@@ -229,6 +234,7 @@ namespace TheBuryProject.Services
         public async Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync()
         {
             var perfiles = await _context.PerfilesCredito
+                .AsNoTracking()
                 .Where(p => !p.IsDeleted)
                 .OrderBy(p => p.Orden)
                 .ThenBy(p => p.Nombre)
@@ -240,6 +246,7 @@ namespace TheBuryProject.Services
         public async Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync()
         {
             var perfiles = await _context.PerfilesCredito
+                .AsNoTracking()
                 .Where(p => !p.IsDeleted && p.Activo)
                 .OrderBy(p => p.Orden)
                 .ThenBy(p => p.Nombre)
