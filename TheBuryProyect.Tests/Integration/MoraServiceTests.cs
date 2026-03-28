@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
 
 namespace TheBuryProject.Tests.Integration;
@@ -677,4 +678,233 @@ public class MoraServiceTests : IDisposable
         var count = await _context.LogsMora.CountAsync();
         Assert.True(count >= 1);
     }
+
+    // =========================================================================
+    // GetConfiguracionAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetConfiguracion_SinConfiguracionEnBD_CreaConfiguracionPorDefecto()
+    {
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.NotNull(config);
+        Assert.Equal(3, config.DiasGracia);
+        Assert.True(config.ProcesoAutomaticoActivo);
+        var persistida = await _context.ConfiguracionesMora.FirstOrDefaultAsync();
+        Assert.NotNull(persistida);
+    }
+
+    [Fact]
+    public async Task GetConfiguracion_ConConfiguracionExistente_LaRetorna()
+    {
+        var existente = new ConfiguracionMora
+        {
+            DiasGracia = 5,
+            TasaMoraBase = 2m,
+            ProcesoAutomaticoActivo = false,
+            NotificacionesActivas = true,
+            HoraEjecucionDiaria = new TimeSpan(9, 0, 0)
+        };
+        _context.ConfiguracionesMora.Add(existente);
+        await _context.SaveChangesAsync();
+
+        var config = await _service.GetConfiguracionAsync();
+
+        Assert.Equal(existente.Id, config.Id);
+        Assert.Equal(5, config.DiasGracia);
+    }
+
+    // =========================================================================
+    // UpdateConfiguracionAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task UpdateConfiguracion_HappyPath_ActualizaCampos()
+    {
+        // Asegurar que existe configuración
+        var config = await _service.GetConfiguracionAsync();
+
+        var vm = new ConfiguracionMoraViewModel
+        {
+            Id = config.Id,
+            DiasGracia = 7,
+            PorcentajeRecargo = 10m,
+            CalculoAutomatico = true,
+            NotificacionAutomatica = false,
+            HoraEjecucion = new TimeSpan(7, 0, 0)
+        };
+
+        var actualizado = await _service.UpdateConfiguracionAsync(vm);
+
+        Assert.Equal(7, actualizado.DiasGracia);
+        Assert.Equal(10m, actualizado.TasaMoraBase);
+    }
+
+    [Fact]
+    public async Task UpdateConfiguracion_IdInexistente_LanzaExcepcion()
+    {
+        var vm = new ConfiguracionMoraViewModel { Id = 99999 };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateConfiguracionAsync(vm));
+    }
+
+    // =========================================================================
+    // GetAlertasActivasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAlertasActivas_SinAlertas_RetornaVacio()
+    {
+        var resultado = await _service.GetAlertasActivasAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAlertasActivas_ExcluyeResueltas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedAlertaAsync(cliente.Id, credito.Id, resuelta: false);
+        await SeedAlertaAsync(cliente.Id, credito.Id, resuelta: true);
+
+        var resultado = await _service.GetAlertasActivasAsync();
+
+        Assert.Single(resultado);
+        Assert.All(resultado, a => Assert.False(a.Resuelta));
+    }
+
+    // =========================================================================
+    // GetTodasAlertasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetTodasAlertas_InclujeResueltasYActivas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedAlertaAsync(cliente.Id, credito.Id, resuelta: false);
+        await SeedAlertaAsync(cliente.Id, credito.Id, resuelta: true);
+
+        var resultado = await _service.GetTodasAlertasAsync();
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    // =========================================================================
+    // GetAlertaByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAlertaById_AlertaExistente_RetornaViewModel()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var resultado = await _service.GetAlertaByIdAsync(alerta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(alerta.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task GetAlertaById_AlertaInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetAlertaByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // GetAlertasPorClienteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAlertasPorCliente_ClienteSinAlertas_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetAlertasPorClienteAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAlertasPorCliente_RetornaSoloLasDelCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        var cred1 = await SeedCreditoAsync(c1.Id);
+        var cred2 = await SeedCreditoAsync(c2.Id);
+        await SeedAlertaAsync(c1.Id, cred1.Id);
+        await SeedAlertaAsync(c2.Id, cred2.Id);
+
+        var resultado = await _service.GetAlertasPorClienteAsync(c1.Id);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, a => Assert.Equal(c1.Id, a.ClienteId));
+    }
+
+    // =========================================================================
+    // GetLogsAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetLogs_SinLogs_RetornaVacio()
+    {
+        var resultado = await _service.GetLogsAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetLogs_ConLogs_RetornaLogs()
+    {
+        await _service.ProcesarMoraAsync(); // genera un log
+
+        var resultado = await _service.GetLogsAsync();
+
+        Assert.NotEmpty(resultado);
+    }
+
+    [Fact]
+    public async Task GetLogs_LimitaCantidad()
+    {
+        // Generar varios logs ejecutando el proceso varias veces
+        for (int i = 0; i < 3; i++)
+            await _service.ProcesarMoraAsync();
+
+        var resultado = await _service.GetLogsAsync(cantidad: 2);
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    // =========================================================================
+    // GetConteoPorPrioridadAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetConteoPorPrioridad_SinAlertas_RetornaCeroEnTodas()
+    {
+        var resultado = await _service.GetConteoPorPrioridadAsync();
+
+        Assert.Equal(0, resultado["Critica"]);
+        Assert.Equal(0, resultado["Alta"]);
+        Assert.Equal(0, resultado["Media"]);
+        Assert.Equal(0, resultado["Baja"]);
+    }
+
+    [Fact]
+    public async Task GetConteoPorPrioridad_ConAlertasActivas_ContaClientesUnicos()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedAlertaAsync(cliente.Id, credito.Id, prioridad: PrioridadAlerta.Alta);
+
+        var resultado = await _service.GetConteoPorPrioridadAsync();
+
+        Assert.Equal(1, resultado["Alta"]);
+        Assert.Equal(0, resultado["Critica"]);
+    }
+
 }
