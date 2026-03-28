@@ -284,4 +284,92 @@ public class UsuarioServiceUpdateTests : IDisposable
         Assert.Single(roles);
         Assert.Equal("Gerente", roles[0]);
     }
+
+    // =========================================================================
+    // GetUsuariosConRolesAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetUsuariosConRoles_SinInactivos_DevuelveSoloActivos()
+    {
+        await SeedUser("usr_activo", "ua@test.com", activo: true);
+        await SeedUser("usr_inactivo", "ui@test.com", activo: false);
+
+        var lista = await _service.GetUsuariosConRolesAsync(incluirInactivos: false);
+
+        Assert.All(lista, u => Assert.True(u.Activo));
+    }
+
+    [Fact]
+    public async Task GetUsuariosConRoles_IncluyendoInactivos_DevuelveTodos()
+    {
+        await SeedUser("usr_a", "ua2@test.com", activo: true);
+        await SeedUser("usr_i", "ui2@test.com", activo: false);
+
+        var lista = await _service.GetUsuariosConRolesAsync(incluirInactivos: true);
+
+        Assert.Equal(2, lista.Count);
+    }
+
+    [Fact]
+    public async Task GetUsuariosConRoles_UsuarioConRol_DevuelveRolEnLista()
+    {
+        var user = await SeedUser("conrol", "conrol@test.com");
+        await SeedRole("Vendedor");
+        await _userManager.AddToRoleAsync(user, "Vendedor");
+
+        var lista = await _service.GetUsuariosConRolesAsync();
+
+        var resumen = lista.First(u => u.UserName == "conrol");
+        Assert.Contains("Vendedor", resumen.Roles);
+    }
+
+    // =========================================================================
+    // ValidarUnicidadUsuarioAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ValidarUnicidad_UserNameYEmailLibres_SinErrores()
+    {
+        var errors = await _service.ValidarUnicidadUsuarioAsync(
+            "nuevo-id", "nuevouser", "nuevo@test.com");
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public async Task ValidarUnicidad_UserNameOcupado_RetornaError()
+    {
+        await SeedUser("ocupado", "libre@test.com");
+
+        var errors = await _service.ValidarUnicidadUsuarioAsync(
+            "otro-id", "ocupado", "diferente@test.com");
+
+        Assert.Single(errors);
+        Assert.Equal("UserName", errors[0].Campo);
+    }
+
+    [Fact]
+    public async Task ValidarUnicidad_EmailOcupado_RetornaError()
+    {
+        await SeedUser("libre2", "ocupado@test.com");
+
+        var errors = await _service.ValidarUnicidadUsuarioAsync(
+            "otro-id", "libreuser", "ocupado@test.com");
+
+        Assert.Single(errors);
+        Assert.Equal("Email", errors[0].Campo);
+    }
+
+    [Fact]
+    public async Task ValidarUnicidad_MismoUsuario_SinErrores()
+    {
+        // El mismo user puede tener su propio userName/email sin conflicto
+        var user = await SeedUser("mismouser", "mismo@test.com");
+
+        var errors = await _service.ValidarUnicidadUsuarioAsync(
+            user.Id, "mismouser", "mismo@test.com");
+
+        Assert.Empty(errors);
+    }
 }
