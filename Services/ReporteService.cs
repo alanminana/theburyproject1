@@ -452,14 +452,27 @@ namespace TheBuryProject.Services
             if (filtro.FechaHasta.HasValue)
                 query = query.Where(vd => vd.Venta.FechaVenta <= filtro.FechaHasta.Value);
 
-            var productos = await query
-                .GroupBy(vd => new
+            var raw = await query
+                .Select(vd => new
                 {
                     vd.ProductoId,
                     vd.Producto.Codigo,
                     vd.Producto.Nombre,
                     CategoriaNombre = vd.Producto.Categoria.Nombre,
-                    vd.Producto.PrecioCompra
+                    vd.Producto.PrecioCompra,
+                    vd.Cantidad,
+                    vd.PrecioUnitario
+                })
+                .ToListAsync();
+
+            var productos = raw
+                .GroupBy(vd => new
+                {
+                    vd.ProductoId,
+                    vd.Codigo,
+                    vd.Nombre,
+                    vd.CategoriaNombre,
+                    vd.PrecioCompra
                 })
                 .Select(g => new ProductoMasVendidoViewModel
                 {
@@ -470,11 +483,14 @@ namespace TheBuryProject.Services
                     CantidadVendida = (int)g.Sum(vd => vd.Cantidad),
                     MontoTotal = g.Sum(vd => vd.PrecioUnitario * vd.Cantidad),
                     GananciaTotal = g.Sum(vd => (vd.PrecioUnitario - g.Key.PrecioCompra) * vd.Cantidad),
-                    MargenPromedio = g.Average(vd => ((vd.PrecioUnitario - g.Key.PrecioCompra) / vd.PrecioUnitario) * 100)
+                    MargenPromedio = g.Any(vd => vd.PrecioUnitario > 0)
+                        ? g.Where(vd => vd.PrecioUnitario > 0)
+                           .Average(vd => ((vd.PrecioUnitario - g.Key.PrecioCompra) / vd.PrecioUnitario) * 100)
+                        : 0
                 })
                 .OrderByDescending(p => p.CantidadVendida)
                 .Take(10)
-                .ToListAsync();
+                .ToList();
 
             return productos;
         }
