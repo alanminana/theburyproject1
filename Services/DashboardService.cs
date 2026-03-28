@@ -28,150 +28,118 @@ namespace TheBuryProject.Services
         public async Task<DashboardViewModel> GetDashboardDataAsync()
         {
             var hoy = DateTime.Today;
+            var manana = hoy.AddDays(1);
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var inicioAnio = new DateTime(hoy.Year, 1, 1);
 
-            // Lanzar todas las queries independientes en paralelo
-            var totalClientesTask      = _context.Clientes.CountAsync(c => !c.IsDeleted);
-            var clientesActivosTask    = _context.Clientes.CountAsync(c => !c.IsDeleted && c.Activo);
-            var clientesNuevosMesTask  = _context.Clientes.CountAsync(c => !c.IsDeleted && c.CreatedAt >= inicioMes);
+            // DbContext no es thread-safe: ejecutar queries secuencialmente
+            var totalClientes     = await _context.Clientes.CountAsync(c => !c.IsDeleted);
+            var clientesActivos   = await _context.Clientes.CountAsync(c => !c.IsDeleted && c.Activo);
+            var clientesNuevosMes = await _context.Clientes.CountAsync(c => !c.IsDeleted && c.CreatedAt >= inicioMes);
 
-            var ventasHoyTask = _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta.Date == hoy)
-                .SumAsync(v => (decimal?)v.Total);
-            var ventasMesTask = _context.Ventas
-                .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
-                .SumAsync(v => (decimal?)v.Total);
-            var cantVentasMesTask = _context.Ventas
-                .CountAsync(v => !v.IsDeleted && v.FechaVenta >= inicioMes);
-            var ventasAnioTask = _context.Ventas
+            // Ventas: fetch raw para evitar expresiones no traducibles (.Date, decimal cast)
+            var ventasRaw = await _context.Ventas
                 .Where(v => !v.IsDeleted && v.FechaVenta >= inicioAnio)
-                .SumAsync(v => (decimal?)v.Total);
-            var ticketPromedioTask = CalcularTicketPromedioAsync();
+                .Select(v => new { v.FechaVenta, v.Total })
+                .ToListAsync();
+            var ventasHoy     = ventasRaw.Where(v => v.FechaVenta >= hoy && v.FechaVenta < manana).Sum(v => v.Total);
+            var ventasMes     = ventasRaw.Where(v => v.FechaVenta >= inicioMes).Sum(v => v.Total);
+            var cantVentasMes = ventasRaw.Count(v => v.FechaVenta >= inicioMes);
+            var ventasAnio    = ventasRaw.Sum(v => v.Total);
+            var ticketPromedio = cantVentasMes > 0
+                ? ventasRaw.Where(v => v.FechaVenta >= inicioMes).Average(v => v.Total)
+                : 0;
 
-            var creditosActivosTask = _context.Creditos
-                .CountAsync(c => !c.IsDeleted &&
-                                 c.Cliente != null && !c.Cliente.IsDeleted &&
-                                 c.Estado == EstadoCredito.Activo);
-            var montoTotalCreditosTask = _context.Creditos
-                .Where(c => !c.IsDeleted &&
-                            c.Cliente != null && !c.Cliente.IsDeleted &&
-                            c.Estado == EstadoCredito.Activo)
-                .SumAsync(c => (decimal?)c.TotalAPagar);
-            var saldoPendienteTask = _context.Creditos
-                .Where(c => !c.IsDeleted &&
-                            c.Cliente != null && !c.Cliente.IsDeleted &&
-                            c.Estado == EstadoCredito.Activo)
-                .SumAsync(c => (decimal?)c.SaldoPendiente);
+            // Créditos: fetch raw para sumas
+            var creditosRaw = await _context.Creditos
+                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted && c.Estado == EstadoCredito.Activo)
+                .Select(c => new { c.TotalAPagar, c.SaldoPendiente })
+                .ToListAsync();
+            var creditosActivos    = creditosRaw.Count;
+            var montoTotalCreditos = creditosRaw.Sum(c => c.TotalAPagar);
+            var saldoPendiente     = creditosRaw.Sum(c => c.SaldoPendiente);
 
-            var cuotasVencidasCountTask = _context.Cuotas
-                .CountAsync(c => !c.IsDeleted &&
-                                 c.Credito != null && !c.Credito.IsDeleted &&
-                                 c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                                 c.Estado == EstadoCuota.Pendiente &&
-                                 c.FechaVencimiento < hoy);
-            var montoVencidoTask = _context.Cuotas
-                .Where(c => !c.IsDeleted &&
-                            c.Credito != null && !c.Credito.IsDeleted &&
+            // Cuotas pendientes
+            var cuotasPendientesRaw = await _context.Cuotas
+                .Where(c => !c.IsDeleted && c.Credito != null && !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pendiente &&
-                            c.FechaVencimiento < hoy)
-                .SumAsync(c => (decimal?)c.MontoTotal);
+                            c.Estado == EstadoCuota.Pendiente)
+                .Select(c => new { c.FechaVencimiento, c.MontoTotal })
+                .ToListAsync();
+            var cuotasVencidasCount = cuotasPendientesRaw.Count(c => c.FechaVencimiento < hoy);
+            var montoVencido        = cuotasPendientesRaw.Where(c => c.FechaVencimiento < hoy).Sum(c => c.MontoTotal);
 
-            var cobranzaHoyTask = _context.Cuotas
-                .Where(c => !c.IsDeleted &&
-                            c.Credito != null && !c.Credito.IsDeleted &&
+            // Cuotas pagadas: fetch raw para evitar .Value.Date
+            var cuotasPagadasRaw = await _context.Cuotas
+                .Where(c => !c.IsDeleted && c.Credito != null && !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pagada &&
-                            c.FechaPago.HasValue && c.FechaPago.Value.Date == hoy)
-                .SumAsync(c => (decimal?)c.MontoPagado);
-            var cobranzaMesTask = _context.Cuotas
-                .Where(c => !c.IsDeleted &&
-                            c.Credito != null && !c.Credito.IsDeleted &&
-                            c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pagada &&
-                            c.FechaPago.HasValue && c.FechaPago.Value >= inicioMes)
-                .SumAsync(c => (decimal?)c.MontoPagado);
-            var cobranzaAnioTask = _context.Cuotas
-                .Where(c => !c.IsDeleted &&
-                            c.Credito != null && !c.Credito.IsDeleted &&
-                            c.Credito.Cliente != null && !c.Credito.Cliente.IsDeleted &&
-                            c.Estado == EstadoCuota.Pagada &&
-                            c.FechaPago.HasValue && c.FechaPago.Value >= inicioAnio)
-                .SumAsync(c => (decimal?)c.MontoPagado);
+                            c.Estado == EstadoCuota.Pagada && c.FechaPago.HasValue &&
+                            c.FechaPago >= inicioAnio)
+                .Select(c => new { c.FechaPago, c.MontoPagado })
+                .ToListAsync();
+            var cobranzaHoy  = cuotasPagadasRaw.Where(c => c.FechaPago!.Value >= hoy && c.FechaPago.Value < manana).Sum(c => c.MontoPagado);
+            var cobranzaMes  = cuotasPagadasRaw.Where(c => c.FechaPago!.Value >= inicioMes).Sum(c => c.MontoPagado);
+            var cobranzaAnio = cuotasPagadasRaw.Sum(c => c.MontoPagado);
 
-            var tasaMorosidadTask       = CalcularTasaMorosidadAsync();
-            var efectividadCobranzaTask = CalcularEfectividadCobranzaAsync();
+            var tasaMorosidad       = await CalcularTasaMorosidadAsync();
+            var efectividadCobranza = await CalcularEfectividadCobranzaAsync();
 
-            var productosTotalesTask  = _context.Productos.CountAsync(p => !p.IsDeleted);
-            var productosStockBajoTask = _context.Productos
-                .CountAsync(p => !p.IsDeleted && p.StockActual < p.StockMinimo);
-            var valorStockTask = _context.Productos
+            // Productos: fetch raw para evitar multiplicación no traducible
+            var productosRaw = await _context.Productos
                 .Where(p => !p.IsDeleted)
-                .SumAsync(p => (decimal?)(p.StockActual * p.PrecioVenta));
+                .Select(p => new { p.StockActual, p.PrecioVenta, p.StockMinimo })
+                .ToListAsync();
+            var productosTotales   = productosRaw.Count;
+            var productosStockBajo = productosRaw.Count(p => p.StockActual < p.StockMinimo);
+            var valorStock         = productosRaw.Sum(p => p.StockActual * p.PrecioVenta);
 
-            var ventasUlt7Task      = GetVentasUltimos7DiasAsync();
-            var ventasUlt12Task     = GetVentasUltimos12MesesAsync();
-            var prodMasVendidosTask = GetProductosMasVendidosAsync();
-            var creditosEstadoTask  = GetCreditosPorEstadoAsync();
-            var cobranzaUlt6Task    = GetCobranzaUltimos6MesesAsync();
-            var cuotasProxTask      = GetCuotasProximasVencerAsync();
-            var cuotasVencListaTask = GetCuotasVencidasListaAsync();
-            var ordenesTask         = GetOrdenesCompraPendientesAsync();
+            var ventasUlt7      = await GetVentasUltimos7DiasAsync();
+            var ventasUlt12     = await GetVentasUltimos12MesesAsync();
+            var prodMasVendidos = await GetProductosMasVendidosAsync();
+            var creditosEstado  = await GetCreditosPorEstadoAsync();
+            var cobranzaUlt6    = await GetCobranzaUltimos6MesesAsync();
+            var cuotasProximas  = await GetCuotasProximasVencerAsync();
+            var cuotasVencLista = await GetCuotasVencidasListaAsync();
+            var ordenes         = await GetOrdenesCompraPendientesAsync();
 
-            await Task.WhenAll(
-                totalClientesTask, clientesActivosTask, clientesNuevosMesTask,
-                ventasHoyTask, ventasMesTask, cantVentasMesTask, ventasAnioTask, ticketPromedioTask,
-                creditosActivosTask, montoTotalCreditosTask, saldoPendienteTask,
-                cuotasVencidasCountTask, montoVencidoTask,
-                cobranzaHoyTask, cobranzaMesTask, cobranzaAnioTask,
-                tasaMorosidadTask, efectividadCobranzaTask,
-                productosTotalesTask, productosStockBajoTask, valorStockTask,
-                ventasUlt7Task, ventasUlt12Task, prodMasVendidosTask,
-                creditosEstadoTask, cobranzaUlt6Task,
-                cuotasProxTask, cuotasVencListaTask, ordenesTask);
-
-            var cuotasProximas = cuotasProxTask.Result;
-            var ordenes        = ordenesTask.Result;
-
-            var dashboard = new DashboardViewModel
+            return new DashboardViewModel
             {
-                TotalClientes        = totalClientesTask.Result,
-                ClientesActivos      = clientesActivosTask.Result,
-                ClientesNuevosMes    = clientesNuevosMesTask.Result,
+                TotalClientes        = totalClientes,
+                ClientesActivos      = clientesActivos,
+                ClientesNuevosMes    = clientesNuevosMes,
 
-                VentasTotalesHoy     = ventasHoyTask.Result ?? 0,
-                VentasTotalesMes     = ventasMesTask.Result ?? 0,
-                CantidadVentasMes    = cantVentasMesTask.Result,
-                VentasTotalesAnio    = ventasAnioTask.Result ?? 0,
-                TicketPromedio       = ticketPromedioTask.Result,
+                VentasTotalesHoy     = ventasHoy,
+                VentasTotalesMes     = ventasMes,
+                CantidadVentasMes    = cantVentasMes,
+                VentasTotalesAnio    = ventasAnio,
+                TicketPromedio       = ticketPromedio,
 
-                CreditosActivos      = creditosActivosTask.Result,
-                MontoTotalCreditos   = montoTotalCreditosTask.Result ?? 0,
-                SaldoPendienteTotal  = saldoPendienteTask.Result ?? 0,
+                CreditosActivos      = creditosActivos,
+                MontoTotalCreditos   = montoTotalCreditos,
+                SaldoPendienteTotal  = saldoPendiente,
 
-                CuotasVencidasTotal  = cuotasVencidasCountTask.Result,
-                MontoVencidoTotal    = montoVencidoTask.Result ?? 0,
+                CuotasVencidasTotal  = cuotasVencidasCount,
+                MontoVencidoTotal    = montoVencido,
 
-                CobranzaHoy          = cobranzaHoyTask.Result ?? 0,
-                CobranzaMes          = cobranzaMesTask.Result ?? 0,
-                CobranzaAnio         = cobranzaAnioTask.Result ?? 0,
+                CobranzaHoy          = cobranzaHoy,
+                CobranzaMes          = cobranzaMes,
+                CobranzaAnio         = cobranzaAnio,
 
-                TasaMorosidad        = tasaMorosidadTask.Result,
-                EfectividadCobranza  = efectividadCobranzaTask.Result,
+                TasaMorosidad        = tasaMorosidad,
+                EfectividadCobranza  = efectividadCobranza,
 
-                ProductosTotales     = productosTotalesTask.Result,
-                ProductosStockBajo   = productosStockBajoTask.Result,
-                ValorTotalStock      = valorStockTask.Result ?? 0,
+                ProductosTotales     = productosTotales,
+                ProductosStockBajo   = productosStockBajo,
+                ValorTotalStock      = valorStock,
 
-                VentasUltimos7Dias      = ventasUlt7Task.Result,
-                VentasUltimos12Meses    = ventasUlt12Task.Result,
-                ProductosMasVendidos    = prodMasVendidosTask.Result,
-                CreditosPorEstado       = creditosEstadoTask.Result,
-                CobranzaUltimos6Meses   = cobranzaUlt6Task.Result,
+                VentasUltimos7Dias      = ventasUlt7,
+                VentasUltimos12Meses    = ventasUlt12,
+                ProductosMasVendidos    = prodMasVendidos,
+                CreditosPorEstado       = creditosEstado,
+                CobranzaUltimos6Meses   = cobranzaUlt6,
 
                 CuotasProximasVencer    = cuotasProximas,
-                CuotasVencidasLista     = cuotasVencListaTask.Result,
+                CuotasVencidasLista     = cuotasVencLista,
                 OrdenesCompraPendientes = ordenes,
 
                 CuotasProximasVencerCount      = cuotasProximas.Count,
@@ -179,8 +147,6 @@ namespace TheBuryProject.Services
                 OrdenesCompraPendientesCount    = ordenes.Count,
                 MontoOrdenesCompraPendientes    = ordenes.Sum(o => o.Total)
             };
-
-            return dashboard;
         }
 
         #endregion
@@ -228,31 +194,28 @@ namespace TheBuryProject.Services
 
         private async Task<decimal> CalcularEfectividadCobranzaAsync()
         {
-            var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var hoy = DateTime.Today;
+            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
 
-            // USANDO MontoTotal en lugar de Monto
-            var montoEsperado = await _context.Cuotas
-                  .Where(c => !c.IsDeleted &&
-                      c.Credito != null &&
-                      !c.Credito.IsDeleted &&
-                      c.Credito.Cliente != null &&
-                      !c.Credito.Cliente.IsDeleted &&
-                       c.FechaVencimiento >= inicioMes &&
-                       c.FechaVencimiento < DateTime.Today)
-                .SumAsync(c => (decimal?)c.MontoTotal) ?? 0;
+            var cuotasRaw = await _context.Cuotas
+                .Where(c => !c.IsDeleted &&
+                            c.Credito != null &&
+                            !c.Credito.IsDeleted &&
+                            c.Credito.Cliente != null &&
+                            !c.Credito.Cliente.IsDeleted &&
+                            c.FechaVencimiento >= inicioMes)
+                .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.Estado, c.FechaPago, c.MontoPagado })
+                .ToListAsync();
+
+            var montoEsperado = cuotasRaw
+                .Where(c => c.FechaVencimiento < hoy)
+                .Sum(c => c.MontoTotal);
 
             if (montoEsperado == 0) return 0;
 
-            var montoRecaudado = await _context.Cuotas
-                  .Where(c => !c.IsDeleted &&
-                      c.Credito != null &&
-                      !c.Credito.IsDeleted &&
-                      c.Credito.Cliente != null &&
-                      !c.Credito.Cliente.IsDeleted &&
-                       c.Estado == EstadoCuota.Pagada &&
-                       c.FechaPago.HasValue &&
-                       c.FechaPago.Value >= inicioMes)
-                .SumAsync(c => (decimal?)c.MontoPagado) ?? 0;
+            var montoRecaudado = cuotasRaw
+                .Where(c => c.Estado == EstadoCuota.Pagada && c.FechaPago.HasValue && c.FechaPago.Value >= inicioMes)
+                .Sum(c => c.MontoPagado);
 
             return (montoRecaudado / montoEsperado) * 100;
         }
@@ -263,11 +226,15 @@ namespace TheBuryProject.Services
 
         private async Task<List<VentasPorDiaDto>> GetVentasUltimos7DiasAsync()
         {
-            var hace7Dias = DateTime.Today.AddDays(-7);
+            var hoy = DateTime.Today;
+            var hace7Dias = hoy.AddDays(-7);
 
-            var ventas = await _context.Ventas
-                .AsNoTracking()
+            var raw = await _context.Ventas
                 .Where(v => !v.IsDeleted && v.FechaVenta >= hace7Dias)
+                .Select(v => new { v.FechaVenta, v.Total })
+                .ToListAsync();
+
+            var agrupado = raw
                 .GroupBy(v => v.FechaVenta.Date)
                 .Select(g => new VentasPorDiaDto
                 {
@@ -275,62 +242,58 @@ namespace TheBuryProject.Services
                     Total = g.Sum(v => v.Total),
                     Cantidad = g.Count()
                 })
-                .OrderBy(v => v.Fecha)
-                .ToListAsync();
+                .ToDictionary(v => v.Fecha);
 
             // Rellenar días faltantes
-            for (var fecha = hace7Dias.Date; fecha <= DateTime.Today; fecha = fecha.AddDays(1))
+            var resultado = new List<VentasPorDiaDto>();
+            for (var fecha = hace7Dias.Date; fecha <= hoy; fecha = fecha.AddDays(1))
             {
-                if (!ventas.Any(v => v.Fecha == fecha))
-                {
-                    ventas.Add(new VentasPorDiaDto
-                    {
-                        Fecha = fecha,
-                        Total = 0,
-                        Cantidad = 0
-                    });
-                }
+                resultado.Add(agrupado.TryGetValue(fecha, out var d) ? d : new VentasPorDiaDto { Fecha = fecha, Total = 0, Cantidad = 0 });
             }
 
-            return ventas.OrderBy(v => v.Fecha).ToList();
+            return resultado;
         }
 
         private async Task<List<VentasPorMesDto>> GetVentasUltimos12MesesAsync()
         {
             var hace12Meses = DateTime.Today.AddMonths(-12);
+            var cultura = CultureInfo.GetCultureInfo("es-AR");
 
-            var ventas = await _context.Ventas
-                .AsNoTracking()
+            var raw = await _context.Ventas
                 .Where(v => !v.IsDeleted && v.FechaVenta >= hace12Meses)
+                .Select(v => new { v.FechaVenta, v.Total })
+                .ToListAsync();
+
+            return raw
                 .GroupBy(v => new { v.FechaVenta.Year, v.FechaVenta.Month })
                 .Select(g => new VentasPorMesDto
                 {
                     Anio = g.Key.Year,
                     Mes = g.Key.Month,
-                    MesNombre = CultureInfo.GetCultureInfo("es-AR")
-                        .DateTimeFormat.GetMonthName(g.Key.Month),
+                    MesNombre = cultura.DateTimeFormat.GetMonthName(g.Key.Month),
                     Total = g.Sum(v => v.Total),
                     Cantidad = g.Count()
                 })
                 .OrderBy(v => v.Anio).ThenBy(v => v.Mes)
-                .ToListAsync();
-
-            return ventas;
+                .ToList();
         }
 
         private async Task<List<ProductoMasVendidoDto>> GetProductosMasVendidosAsync()
         {
             var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
 
-            var productos = await _context.VentaDetalles
-                .AsNoTracking()
+            var raw = await _context.VentaDetalles
                 .Where(vd => !vd.IsDeleted &&
-                    vd.Producto != null &&
-                    !vd.Producto.IsDeleted &&
-                        vd.Venta != null &&
-                        !vd.Venta.IsDeleted &&
-                        vd.Venta.FechaVenta >= inicioMes)
-                .GroupBy(vd => new { vd.ProductoId, vd.Producto!.Nombre })
+                             vd.Producto != null &&
+                             !vd.Producto.IsDeleted &&
+                             vd.Venta != null &&
+                             !vd.Venta.IsDeleted &&
+                             vd.Venta.FechaVenta >= inicioMes)
+                .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal })
+                .ToListAsync();
+
+            return raw
+                .GroupBy(vd => new { vd.ProductoId, vd.Nombre })
                 .Select(g => new ProductoMasVendidoDto
                 {
                     ProductoId = g.Key.ProductoId,
@@ -340,19 +303,17 @@ namespace TheBuryProject.Services
                 })
                 .OrderByDescending(p => p.Cantidad)
                 .Take(10)
-                .ToListAsync();
-
-            return productos;
+                .ToList();
         }
 
         private async Task<List<EstadoCreditoDto>> GetCreditosPorEstadoAsync()
         {
-            // USANDO TotalAPagar en lugar de MontoTotal
-            var creditos = await _context.Creditos
-                .AsNoTracking()
-                .Where(c => !c.IsDeleted &&
-                            c.Cliente != null &&
-                            !c.Cliente.IsDeleted)
+            var raw = await _context.Creditos
+                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted)
+                .Select(c => new { c.Estado, c.TotalAPagar })
+                .ToListAsync();
+
+            return raw
                 .GroupBy(c => c.Estado)
                 .Select(g => new EstadoCreditoDto
                 {
@@ -360,44 +321,43 @@ namespace TheBuryProject.Services
                     Cantidad = g.Count(),
                     Monto = g.Sum(c => c.TotalAPagar)
                 })
-                .ToListAsync();
-
-            return creditos;
+                .ToList();
         }
 
         private async Task<List<CobranzaPorMesDto>> GetCobranzaUltimos6MesesAsync()
         {
             var hace6Meses = DateTime.Today.AddMonths(-6);
             var inicioMes = new DateTime(hace6Meses.Year, hace6Meses.Month, 1);
+            var cultura = CultureInfo.GetCultureInfo("es-AR");
 
-            // USANDO MontoTotal en lugar de Monto
-            var cobranza = await _context.Cuotas
-                .AsNoTracking()
+            var raw = await _context.Cuotas
                 .Where(c => !c.IsDeleted &&
                             c.Credito != null &&
                             !c.Credito.IsDeleted &&
                             c.Credito.Cliente != null &&
                             !c.Credito.Cliente.IsDeleted &&
                             c.FechaVencimiento >= inicioMes)
-                .GroupBy(c => new { c.FechaVencimiento.Year, c.FechaVencimiento.Month })
-                .Select(g => new CobranzaPorMesDto
-                {
-                    Anio = g.Key.Year,
-                    Mes = g.Key.Month,
-                    MesNombre = CultureInfo.GetCultureInfo("es-AR")
-                        .DateTimeFormat.GetMonthName(g.Key.Month),
-                    MontoEsperado = g.Sum(c => c.MontoTotal),
-                    MontoRecaudado = g.Where(c => c.Estado == EstadoCuota.Pagada)
-                        .Sum(c => c.MontoPagado),
-                    PorcentajeEfectividad = g.Sum(c => c.MontoTotal) > 0
-                        ? (g.Where(c => c.Estado == EstadoCuota.Pagada)
-                              .Sum(c => c.MontoPagado) / g.Sum(c => c.MontoTotal)) * 100
-                        : 0
-                })
-                .OrderBy(c => c.Anio).ThenBy(c => c.Mes)
+                .Select(c => new { c.FechaVencimiento, c.MontoTotal, c.Estado, c.MontoPagado })
                 .ToListAsync();
 
-            return cobranza;
+            return raw
+                .GroupBy(c => new { c.FechaVencimiento.Year, c.FechaVencimiento.Month })
+                .Select(g =>
+                {
+                    var esperado = g.Sum(c => c.MontoTotal);
+                    var recaudado = g.Where(c => c.Estado == EstadoCuota.Pagada).Sum(c => c.MontoPagado);
+                    return new CobranzaPorMesDto
+                    {
+                        Anio = g.Key.Year,
+                        Mes = g.Key.Month,
+                        MesNombre = cultura.DateTimeFormat.GetMonthName(g.Key.Month),
+                        MontoEsperado = esperado,
+                        MontoRecaudado = recaudado,
+                        PorcentajeEfectividad = esperado > 0 ? (recaudado / esperado) * 100 : 0
+                    };
+                })
+                .OrderBy(c => c.Anio).ThenBy(c => c.Mes)
+                .ToList();
         }
 
         #endregion
