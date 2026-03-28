@@ -599,4 +599,342 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var count = await _context.PerfilesCredito.CountAsync();
         Assert.Equal(0, count);
     }
+
+    // =========================================================================
+    // GetAllAsync / GetByIdAsync / GetByTipoPagoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinConfigs_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConConfigs_RetornaTodasActivas()
+    {
+        await SeedConfigPago(TipoPago.Efectivo);
+        await SeedConfigPago(TipoPago.Transferencia);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.True(resultado.Count >= 2);
+    }
+
+    [Fact]
+    public async Task GetById_Existente_RetornaViewModel()
+    {
+        var config = await SeedConfigPago(TipoPago.Transferencia);
+
+        var resultado = await _service.GetByIdAsync(config.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(config.Id, resultado!.Id);
+        Assert.Equal(TipoPago.Transferencia, resultado.TipoPago);
+    }
+
+    [Fact]
+    public async Task GetById_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetByTipoPago_Existente_RetornaViewModel()
+    {
+        await SeedConfigPago(TipoPago.Cheque, permiteDescuento: true);
+
+        var resultado = await _service.GetByTipoPagoAsync(TipoPago.Cheque);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoPago.Cheque, resultado!.TipoPago);
+        Assert.True(resultado.PermiteDescuento);
+    }
+
+    [Fact]
+    public async Task GetByTipoPago_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByTipoPagoAsync(TipoPago.Cheque);
+
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // CreateAsync / UpdateAsync / DeleteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Create_Persiste_RetornaViewModel()
+    {
+        var vm = new ConfiguracionPagoViewModel
+        {
+            TipoPago = TipoPago.Transferencia,
+            Nombre = "Transferencia Bancaria",
+            Activo = true,
+            PermiteDescuento = true,
+            PorcentajeDescuentoMaximo = 5m
+        };
+
+        var resultado = await _service.CreateAsync(vm);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal(TipoPago.Transferencia, resultado.TipoPago);
+        var enDb = await _context.ConfiguracionesPago.FindAsync(resultado.Id);
+        Assert.NotNull(enDb);
+    }
+
+    [Fact]
+    public async Task Update_Existente_ActualizaCampos()
+    {
+        var config = await SeedConfigPago(TipoPago.Efectivo, tieneRecargo: false);
+
+        var vm = new ConfiguracionPagoViewModel
+        {
+            Id = config.Id,
+            TipoPago = TipoPago.Efectivo,
+            Nombre = "Efectivo Actualizado",
+            Activo = true,
+            TieneRecargo = true,
+            PorcentajeRecargo = 3m
+        };
+
+        var resultado = await _service.UpdateAsync(config.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal("Efectivo Actualizado", resultado!.Nombre);
+        Assert.True(resultado.TieneRecargo);
+        Assert.Equal(3m, resultado.PorcentajeRecargo);
+    }
+
+    [Fact]
+    public async Task Update_Inexistente_RetornaNull()
+    {
+        var vm = new ConfiguracionPagoViewModel
+        {
+            TipoPago = TipoPago.Efectivo,
+            Nombre = "X",
+            Activo = true
+        };
+
+        var resultado = await _service.UpdateAsync(99999, vm);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task Delete_Existente_RetornaTrue_YSoftDelete()
+    {
+        var config = await SeedConfigPago(TipoPago.Efectivo);
+
+        var resultado = await _service.DeleteAsync(config.Id);
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesPago
+            .IgnoreQueryFilters()
+            .FirstAsync(c => c.Id == config.Id);
+        Assert.True(enDb.IsDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_Inexistente_RetornaFalse()
+    {
+        var resultado = await _service.DeleteAsync(99999);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // GuardarConfiguracionesModalAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_ListaVacia_NoHaceNada()
+    {
+        // no debe lanzar excepción
+        await _service.GuardarConfiguracionesModalAsync(new List<ConfiguracionPagoViewModel>());
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_ActualizaExistente()
+    {
+        var config = await SeedConfigPago(TipoPago.Efectivo, permiteDescuento: false);
+
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = config.Id,
+                TipoPago = TipoPago.Efectivo,
+                Nombre = "Efectivo Modal",
+                Activo = true,
+                PermiteDescuento = true,
+                PorcentajeDescuentoMaximo = 15m
+            }
+        };
+
+        await _service.GuardarConfiguracionesModalAsync(vms);
+
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesPago.FindAsync(config.Id);
+        Assert.Equal("Efectivo Modal", enDb!.Nombre);
+        Assert.True(enDb.PermiteDescuento);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_CreaRegistroConIdCero()
+    {
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = 0,
+                TipoPago = TipoPago.Cheque,
+                Nombre = "Cheque Nuevo",
+                Activo = true
+            }
+        };
+
+        await _service.GuardarConfiguracionesModalAsync(vms);
+
+        var enDb = await _context.ConfiguracionesPago
+            .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.Cheque);
+        Assert.NotNull(enDb);
+    }
+
+    // =========================================================================
+    // GetTarjetasActivasAsync / GetTarjetaByIdAsync
+    // =========================================================================
+
+    private async Task<ConfiguracionTarjeta> SeedTarjetaAsync(
+        int configPagoId, bool activa = true)
+    {
+        var t = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = configPagoId,
+            NombreTarjeta = "Visa-" + Guid.NewGuid().ToString("N")[..4],
+            TipoTarjeta = TipoTarjeta.Credito,
+            Activa = activa
+        };
+        _context.ConfiguracionesTarjeta.Add(t);
+        await _context.SaveChangesAsync();
+        return t;
+    }
+
+    [Fact]
+    public async Task GetTarjetasActivas_SinTarjetas_RetornaVacio()
+    {
+        var resultado = await _service.GetTarjetasActivasAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetTarjetasActivas_FiltroActiva_ExcluyeInactivas()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var activa = await SeedTarjetaAsync(config.Id, activa: true);
+        var inactiva = await SeedTarjetaAsync(config.Id, activa: false);
+
+        var resultado = await _service.GetTarjetasActivasAsync();
+
+        Assert.Contains(resultado, t => t.Id == activa.Id);
+        Assert.DoesNotContain(resultado, t => t.Id == inactiva.Id);
+    }
+
+    [Fact]
+    public async Task GetTarjetaById_Existente_RetornaViewModel()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var tarjeta = await SeedTarjetaAsync(config.Id);
+
+        var resultado = await _service.GetTarjetaByIdAsync(tarjeta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(tarjeta.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task GetTarjetaById_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetTarjetaByIdAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // GetPerfilesCreditoAsync / GetPerfilesCreditoActivosAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetPerfilesCredito_SinPerfiles_RetornaVacio()
+    {
+        var resultado = await _service.GetPerfilesCreditoAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetPerfilesCredito_RetornaTodosNoEliminados()
+    {
+        var baseCount = (await _service.GetPerfilesCreditoAsync()).Count;
+        var p1 = new PerfilCredito { Nombre = "Perfil-A", TasaMensual = 5m, GastosAdministrativos = 0m, MinCuotas = 1, MaxCuotas = 12, Activo = true };
+        var p2 = new PerfilCredito { Nombre = "Perfil-B", TasaMensual = 7m, GastosAdministrativos = 0m, MinCuotas = 1, MaxCuotas = 24, Activo = true };
+        _context.PerfilesCredito.AddRange(p1, p2);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetPerfilesCreditoAsync();
+
+        Assert.Equal(baseCount + 2, resultado.Count);
+    }
+
+    [Fact]
+    public async Task GetPerfilesCreditoActivos_FiltraInactivos()
+    {
+        var activo = await SeedPerfil();
+        var inactivo = new PerfilCredito
+        {
+            Nombre = "Inactivo", TasaMensual = 5m, GastosAdministrativos = 0m,
+            MinCuotas = 1, MaxCuotas = 12, Activo = false
+        };
+        _context.PerfilesCredito.Add(inactivo);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetPerfilesCreditoActivosAsync();
+
+        Assert.Contains(resultado, p => p.Id == activo.Id);
+        Assert.DoesNotContain(resultado, p => p.Id == inactivo.Id);
+    }
+
+    // =========================================================================
+    // ResolverRangoCuotasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ResolverRangoCuotas_UsarPerfil_RetornaRangoDePerfil()
+    {
+        var perfil = await SeedPerfil(minCuotas: 3, maxCuotas: 18);
+
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.UsarPerfil, perfil.Id, null);
+
+        Assert.Equal(3, min);
+        Assert.Equal(18, max);
+        Assert.Equal("TestPerfil", nombre);
+    }
+
+    [Fact]
+    public async Task ResolverRangoCuotas_UsarCliente_RetornaRangoDeCliente()
+    {
+        var cliente = await SeedCliente(cuotasMaxPersonalizadas: 6);
+
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.UsarCliente, null, cliente.Id);
+
+        Assert.True(max <= 6);
+    }
 }
