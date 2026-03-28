@@ -54,7 +54,7 @@ namespace TheBuryProject.Services.Validators
             if (venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
             {
                 throw new InvalidOperationException(
-                    $"La venta requiere autorizaci�n antes de continuar. Estado actual: {venta.EstadoAutorizacion}");
+                    $"La venta requiere autorización antes de continuar. Estado actual: {venta.EstadoAutorizacion}");
             }
         }
 
@@ -94,7 +94,7 @@ namespace TheBuryProject.Services.Validators
             if (venta.EstadoAutorizacion != estadoEsperado)
             {
                 throw new InvalidOperationException(
-                    $"La venta debe estar en estado de autorizaci�n {estadoEsperado}. Estado actual: {venta.EstadoAutorizacion}");
+                    $"La venta debe estar en estado de autorización {estadoEsperado}. Estado actual: {venta.EstadoAutorizacion}");
             }
         }
     }

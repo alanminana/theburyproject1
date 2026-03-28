@@ -388,6 +388,6 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.ConfirmarVentaAsync(venta.Id));
 
-        Assert.Contains("autorizaci", ex.Message);  // evita encoding corrupto del validator
+        Assert.Contains("autorización", ex.Message);
     }
 }
