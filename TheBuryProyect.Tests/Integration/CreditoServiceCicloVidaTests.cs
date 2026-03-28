@@ -405,4 +405,123 @@ public class CreditoServiceCicloVidaTests : IDisposable
         var resultado = await _service.RecalcularSaldoCreditoAsync(99999);
         Assert.False(resultado);
     }
+
+    // -------------------------------------------------------------------------
+    // SaldoPendiente después de RecalcularSaldoCreditoAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RecalcularSaldo_CuotasPagadas_SaldoPendienteReduceCapitalProporcional()
+    {
+        // Cuota 1: montoTotal=1000, montoCapital=800 → capital pendiente proporcional
+        // Si MontoPagado=1000 (pagado completo), capitalPagado = 1000*(800/1000)=800 → capitalPendiente=0
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 2_000m);
+
+        // Cuota 1 pagada completa: capital 800, total 1000, pagado 1000
+        var c1 = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1,
+            MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
+            MontoPagado = 1_000m, Estado = EstadoCuota.Pagada,
+            FechaVencimiento = DateTime.UtcNow.AddDays(-30)
+        };
+        // Cuota 2 pendiente: capital 800, total 1000, pagado 0
+        var c2 = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 2,
+            MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
+            MontoPagado = 0m, Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = DateTime.UtcNow.AddDays(30)
+        };
+        _context.Set<Cuota>().AddRange(c1, c2);
+        await _context.SaveChangesAsync();
+
+        await _service.RecalcularSaldoCreditoAsync(credito.Id);
+
+        var creditoBd = await _context.Set<Credito>().FirstAsync(c => c.Id == credito.Id);
+        // Cuota1 pagada → capital pendiente = 0; Cuota2 pendiente → capital pendiente = 800
+        Assert.Equal(800m, creditoBd.SaldoPendiente);
+    }
+
+    [Fact]
+    public async Task RecalcularSaldo_CuotaParcial_SaldoPendienteReduceProporcional()
+    {
+        // Cuota parcial: montoTotal=1000, montoCapital=800, montoPagado=500
+        // proporcionCapital = 800/1000 = 0.8
+        // capitalPagado = 500 * 0.8 = 400
+        // capitalPendiente = 800 - 400 = 400
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 1_000m);
+
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1,
+            MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
+            MontoPagado = 500m, Estado = EstadoCuota.Parcial,
+            FechaVencimiento = DateTime.UtcNow.AddDays(-5)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+
+        await _service.RecalcularSaldoCreditoAsync(credito.Id);
+
+        var creditoBd = await _context.Set<Credito>().FirstAsync(c => c.Id == credito.Id);
+        Assert.Equal(400m, creditoBd.SaldoPendiente);
+    }
+
+    [Fact]
+    public async Task RecalcularSaldo_CuotaCancelada_NoContribuyeAlSaldo()
+    {
+        // Una cuota cancelada no se suma al saldo pendiente
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 2_000m);
+
+        var cancelada = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1,
+            MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
+            MontoPagado = 0m, Estado = EstadoCuota.Cancelada,
+            FechaVencimiento = DateTime.UtcNow
+        };
+        var pagada = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 2,
+            MontoCapital = 800m, MontoInteres = 200m, MontoTotal = 1_000m,
+            MontoPagado = 1_000m, Estado = EstadoCuota.Pagada,
+            FechaVencimiento = DateTime.UtcNow.AddDays(-30)
+        };
+        _context.Set<Cuota>().AddRange(cancelada, pagada);
+        await _context.SaveChangesAsync();
+
+        await _service.RecalcularSaldoCreditoAsync(credito.Id);
+
+        var creditoBd = await _context.Set<Credito>().FirstAsync(c => c.Id == credito.Id);
+        // Cancelada no cuenta; pagada completa → capital pendiente = 0
+        Assert.Equal(0m, creditoBd.SaldoPendiente);
+        Assert.Equal(EstadoCredito.Finalizado, creditoBd.Estado);
+    }
+
+    [Fact]
+    public async Task RecalcularSaldo_CuotaCapitalCero_SaldoPendienteCero()
+    {
+        // MontoCapital=0 → CalcularCapitalPendienteCuota retorna 0 siempre
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 500m);
+
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id, NumeroCuota = 1,
+            MontoCapital = 0m, MontoInteres = 100m, MontoTotal = 100m,
+            MontoPagado = 0m, Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = DateTime.UtcNow.AddDays(30)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+
+        await _service.RecalcularSaldoCreditoAsync(credito.Id);
+
+        var creditoBd = await _context.Set<Credito>().FirstAsync(c => c.Id == credito.Id);
+        Assert.Equal(0m, creditoBd.SaldoPendiente);
+    }
 }
