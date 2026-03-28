@@ -138,18 +138,22 @@ namespace TheBuryProject.Controllers
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
-                var credito = await _creditoService.GetByIdAsync(id);
+                var creditoTask = _creditoService.GetByIdAsync(id);
+                var evaluacionTask = _evaluacionService.GetEvaluacionByCreditoIdAsync(id);
+
+                await Task.WhenAll(creditoTask, evaluacionTask);
+
+                var credito = creditoTask.Result;
                 if (credito == null)
                 {
                     TempData["Error"] = "Crédito no encontrado";
                     return RedirectToAction(nameof(Index));
                 }
 
-                var evaluacion = await _evaluacionService.GetEvaluacionByCreditoIdAsync(id);
                 var detalle = new CreditoDetalleViewModel
                 {
                     Credito = credito,
-                    Evaluacion = evaluacion
+                    Evaluacion = evaluacionTask.Result
                 };
 
                 try
