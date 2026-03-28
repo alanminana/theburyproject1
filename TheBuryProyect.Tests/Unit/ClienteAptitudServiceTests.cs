@@ -874,4 +874,209 @@ public class ClienteAptitudServiceTests
             Assert.Equal(75_000m, cliente!.LimiteCredito);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // N. GetUltimaEvaluacionAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetUltimaEvaluacion_ClienteInexistente_RetornaNull()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var service = BuildService(ctx);
+            var resultado = await service.GetUltimaEvaluacionAsync(clienteId: 99_999);
+            Assert.Null(resultado);
+        }
+    }
+
+    [Fact]
+    public async Task GetUltimaEvaluacion_SinFechaEvaluacion_RetornaNull()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var cliente = BaseCliente(1);
+            cliente.FechaUltimaEvaluacion = null;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.GetUltimaEvaluacionAsync(1);
+            Assert.Null(resultado);
+        }
+    }
+
+    [Fact]
+    public async Task GetUltimaEvaluacion_ConEvaluacionPersistida_RetornaViewModel()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var fecha = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc);
+            var cliente = BaseCliente(1);
+            cliente.EstadoCrediticio = EstadoCrediticioCliente.NoApto;
+            cliente.MotivoNoApto = "Sin documentación";
+            cliente.FechaUltimaEvaluacion = fecha;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.GetUltimaEvaluacionAsync(1);
+
+            Assert.NotNull(resultado);
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado!.Estado);
+            Assert.Equal("Sin documentación", resultado.Motivo);
+            Assert.Equal(fecha, resultado.FechaEvaluacion);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // O. UpdateConfiguracionAsync — persiste los 14 campos
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateConfiguracion_PersisteCamposDocumentacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateConfiguracionAsync(new ConfiguracionCreditoViewModel
+            {
+                ValidarDocumentacion = true,
+                ValidarVencimientoDocumentos = true,
+                DiasGraciaVencimientoDocumento = 7,
+                TiposDocumentoRequeridos = [TipoDocumentoCliente.DNI, TipoDocumentoCliente.ReciboSueldo]
+            });
+
+            ctx.ChangeTracker.Clear();
+            var config = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.True(config.ValidarDocumentacion);
+            Assert.True(config.ValidarVencimientoDocumentos);
+            Assert.Equal(7, config.DiasGraciaVencimientoDocumento);
+            Assert.NotNull(config.TiposDocumentoRequeridos); // serializado como JSON
+        }
+    }
+
+    [Fact]
+    public async Task UpdateConfiguracion_PersisteCamposMora()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateConfiguracionAsync(new ConfiguracionCreditoViewModel
+            {
+                ValidarMora = true,
+                DiasParaRequerirAutorizacion = 3,
+                DiasParaNoApto = 10,
+                MontoMoraParaRequerirAutorizacion = 500m,
+                MontoMoraParaNoApto = 2_000m,
+                CuotasVencidasParaNoApto = 2
+            });
+
+            ctx.ChangeTracker.Clear();
+            var config = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.True(config.ValidarMora);
+            Assert.Equal(3, config.DiasParaRequerirAutorizacion);
+            Assert.Equal(10, config.DiasParaNoApto);
+            Assert.Equal(500m, config.MontoMoraParaRequerirAutorizacion);
+            Assert.Equal(2_000m, config.MontoMoraParaNoApto);
+            Assert.Equal(2, config.CuotasVencidasParaNoApto);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateConfiguracion_PersisteCamposGenerales()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateConfiguracionAsync(new ConfiguracionCreditoViewModel
+            {
+                RecalculoAutomatico = false,
+                DiasValidezEvaluacion = 60,
+                AuditoriaActiva = false
+            });
+
+            ctx.ChangeTracker.Clear();
+            var config = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.False(config.RecalculoAutomatico);
+            Assert.Equal(60, config.DiasValidezEvaluacion);
+            Assert.False(config.AuditoriaActiva);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateConfiguracion_TiposDocumentoVacio_GuardaNull()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateConfiguracionAsync(new ConfiguracionCreditoViewModel
+            {
+                TiposDocumentoRequeridos = [] // vacío → null en DB
+            });
+
+            ctx.ChangeTracker.Clear();
+            var config = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.Null(config.TiposDocumentoRequeridos);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // P. VerificarConfiguracionAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task VerificarConfiguracion_TodasDeshabilitadas_DevuelveAdvertencia()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones()); // todas false
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var (estaConfigurando, mensaje) = await service.VerificarConfiguracionAsync();
+
+            Assert.True(estaConfigurando);
+            Assert.False(string.IsNullOrWhiteSpace(mensaje));
+        }
+    }
+
+    [Fact]
+    public async Task VerificarConfiguracion_AlMenosUnaActiva_SinMensaje()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarMora = true; // al menos una activa
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var (estaConfigurando, mensaje) = await service.VerificarConfiguracionAsync();
+
+            Assert.True(estaConfigurando);
+            Assert.Null(mensaje);
+        }
+    }
 }
