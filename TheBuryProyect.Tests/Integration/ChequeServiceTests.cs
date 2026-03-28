@@ -448,4 +448,160 @@ public class ChequeServiceTests : IDisposable
         Assert.Equal(2, resultado.Count());
         Assert.All(resultado, c => Assert.Equal(proveedor1.Id, c.ProveedorId));
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinCheques_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConCheques_DevuelveTodos()
+    {
+        var proveedor = await SeedProveedorAsync();
+        await SeedChequeAsync(proveedor.Id);
+        await SeedChequeAsync(proveedor.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminados()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var cheque = await SeedChequeAsync(proveedor.Id);
+        await _service.DeleteAsync(cheque.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_ChequeExistente_RetornaCheque()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var cheque = await SeedChequeAsync(proveedor.Id);
+
+        var resultado = await _service.GetByIdAsync(cheque.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(cheque.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task GetById_ChequeInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetById_ChequeEliminado_RetornaNull()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var cheque = await SeedChequeAsync(proveedor.Id);
+        await _service.DeleteAsync(cheque.Id);
+
+        var resultado = await _service.GetByIdAsync(cheque.Id);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // SearchAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Search_SinFiltros_DevuelveTodos()
+    {
+        var proveedor = await SeedProveedorAsync();
+        await SeedChequeAsync(proveedor.Id);
+        await SeedChequeAsync(proveedor.Id);
+
+        var resultado = await _service.SearchAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task Search_PorEstado_FiltraCorrectamente()
+    {
+        var proveedor = await SeedProveedorAsync();
+        await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Emitido);
+        await SeedChequeAsync(proveedor.Id, estado: EstadoCheque.Cobrado);
+
+        var resultado = await _service.SearchAsync(estado: EstadoCheque.Emitido);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, c => Assert.Equal(EstadoCheque.Emitido, c.Estado));
+    }
+
+    [Fact]
+    public async Task Search_PorProveedorId_FiltraCorrectamente()
+    {
+        var p1 = await SeedProveedorAsync();
+        var p2 = await SeedProveedorAsync();
+        await SeedChequeAsync(p1.Id);
+        await SeedChequeAsync(p2.Id);
+
+        var resultado = await _service.SearchAsync(proveedorId: p1.Id);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, c => Assert.Equal(p1.Id, c.ProveedorId));
+    }
+
+    // =========================================================================
+    // GetByOrdenCompraIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByOrdenCompra_SinCheques_RetornaVacio()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var orden = await SeedOrdenCompraAsync(proveedor.Id);
+
+        var resultado = await _service.GetByOrdenCompraIdAsync(orden.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetByOrdenCompra_ConCheques_RetornaSolosLosDeEsaOrden()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var orden1 = await SeedOrdenCompraAsync(proveedor.Id);
+        var orden2 = await SeedOrdenCompraAsync(proveedor.Id);
+
+        // Cheque asociado a orden1 vía seed directo
+        var cheque = new Cheque
+        {
+            Numero = "CHQ-OC-001",
+            ProveedorId = proveedor.Id,
+            OrdenCompraId = orden1.Id,
+            Banco = "Banco Test",
+            Monto = 500m,
+            FechaEmision = DateTime.Today,
+            Estado = EstadoCheque.Emitido
+        };
+        _context.Cheques.Add(cheque);
+        await _context.SaveChangesAsync();
+
+        await SeedChequeAsync(proveedor.Id); // sin orden
+
+        var resultado = await _service.GetByOrdenCompraIdAsync(orden1.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(orden1.Id, resultado.First().OrdenCompraId);
+    }
 }

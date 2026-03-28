@@ -573,4 +573,83 @@ public class MovimientoStockServiceTests : IDisposable
         var productoBd = await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(50m, productoBd.StockActual); // sin cambio
     }
+
+    // =========================================================================
+    // GetByOrdenCompraIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByOrdenCompra_SinMovimientos_RetornaVacio()
+    {
+        var proveedor = new Proveedor
+        {
+            Cuit = Guid.NewGuid().ToString("N")[..11],
+            RazonSocial = "Prov Test",
+            Activo = true
+        };
+        _context.Set<Proveedor>().Add(proveedor);
+        var orden = new OrdenCompra
+        {
+            Numero = "OC-MOV-001",
+            ProveedorId = 0, // se asigna abajo
+            Estado = EstadoOrdenCompra.Borrador,
+            FechaEmision = DateTime.UtcNow
+        };
+        _context.Set<Proveedor>().Add(proveedor);
+        await _context.SaveChangesAsync();
+        orden.ProveedorId = proveedor.Id;
+        _context.Set<OrdenCompra>().Add(orden);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByOrdenCompraIdAsync(orden.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetByOrdenCompra_ConMovimientos_RetornaSolosLosDeEsaOrden()
+    {
+        var producto = await SeedProductoAsync();
+        var proveedor = new Proveedor
+        {
+            Cuit = Guid.NewGuid().ToString("N")[..11],
+            RazonSocial = "Prov OC",
+            Activo = true
+        };
+        _context.Set<Proveedor>().Add(proveedor);
+        await _context.SaveChangesAsync();
+
+        var orden = new OrdenCompra
+        {
+            Numero = "OC-MOV-002",
+            ProveedorId = proveedor.Id,
+            Estado = EstadoOrdenCompra.Borrador,
+            FechaEmision = DateTime.UtcNow
+        };
+        _context.Set<OrdenCompra>().Add(orden);
+        await _context.SaveChangesAsync();
+
+        _context.Set<MovimientoStock>().Add(new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            OrdenCompraId = orden.Id,
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 10m,
+            Motivo = "Recepción"
+        });
+        _context.Set<MovimientoStock>().Add(new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            OrdenCompraId = null, // sin orden
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 5m,
+            Motivo = "Ajuste"
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByOrdenCompraIdAsync(orden.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(orden.Id, resultado.First().OrdenCompraId);
+    }
 }
