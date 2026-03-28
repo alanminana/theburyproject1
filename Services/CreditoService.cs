@@ -146,13 +146,7 @@ namespace TheBuryProject.Services
                     .OrderByDescending(c => c.FechaSolicitud)
                     .ToListAsync();
 
-                var viewModels = new List<CreditoViewModel>();
-                foreach (var credito in creditos)
-                {
-                    viewModels.Add(_mapper.Map<CreditoViewModel>(credito));
-                }
-
-                return viewModels;
+                return _mapper.Map<List<CreditoViewModel>>(creditos);
             }
             catch (Exception ex)
             {
