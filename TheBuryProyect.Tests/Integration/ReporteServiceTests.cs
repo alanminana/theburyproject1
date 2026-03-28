@@ -294,4 +294,159 @@ public class ReporteServiceTests : IDisposable
         // GananciaTotalPotencial = Sum(Ganancia * StockActual) — stock=20 por defecto
         Assert.Equal(resultado.Productos.Sum(p => p.GananciaPotencial), resultado.GananciaTotalPotencial);
     }
+
+    // -------------------------------------------------------------------------
+    // ObtenerVentasAgrupadasAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorDia_AgrupaPorFecha()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2, fecha: hoy);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 50m, cantidad: 1, fecha: hoy);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            hoy.AddDays(-1), hoy.AddDays(1), "dia");
+
+        Assert.Single(resultado); // ambas ventas del mismo día → un solo grupo
+        Assert.Equal(2, resultado[0].Cantidad);
+        Assert.Equal(250m, resultado[0].Monto); // 200 + 50
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorDia_DiasDiferentesProducenGruposSeparados()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        var hoy = DateTime.UtcNow.Date;
+        var ayer = hoy.AddDays(-1);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 1, fecha: hoy);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 80m, cantidad: 1, fecha: ayer);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            ayer.AddDays(-1), hoy.AddDays(1), "dia");
+
+        Assert.Equal(2, resultado.Count);
+        Assert.Equal(180m, resultado.Sum(g => g.Monto));
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorMes_AgrupaPorMes()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        var mesActual = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 200m, cantidad: 1, fecha: mesActual);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 150m, cantidad: 1, fecha: mesActual.AddDays(5));
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            mesActual.AddDays(-1), mesActual.AddDays(40), "mes");
+
+        Assert.Single(resultado); // mismo mes → un grupo
+        Assert.Equal(350m, resultado[0].Monto);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorMes_MesesDiferentesProducenGruposSeparados()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        var enero = new DateTime(DateTime.UtcNow.Year, 1, 15);
+        var febrero = new DateTime(DateTime.UtcNow.Year, 2, 15);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 1, fecha: enero);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 200m, cantidad: 1, fecha: febrero);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            enero.AddDays(-1), febrero.AddDays(1), "mes");
+
+        Assert.Equal(2, resultado.Count);
+        Assert.Equal(300m, resultado.Sum(g => g.Monto));
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorCategoria_AgrupaPorCategoriaProducto()
+    {
+        var cliente = await SeedClienteAsync();
+        var prod1 = await SeedProductoAsync(precioCompra: 10m, precioVenta: 100m);
+        var prod2 = await SeedProductoAsync(precioCompra: 20m, precioVenta: 80m);
+
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, prod1.Id, precioUnitario: 100m, cantidad: 2, fecha: hoy);
+        await SeedVentaAsync(cliente.Id, prod2.Id, precioUnitario: 80m, cantidad: 1, fecha: hoy);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            hoy.AddDays(-1), hoy.AddDays(1), "categoria");
+
+        // Cada producto tiene su propia categoría (seeded con nombre único)
+        Assert.Equal(2, resultado.Count);
+        Assert.True(resultado.All(g => g.Monto > 0));
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_GrupoPorDia_GananciaCalculadaCorrectamente()
+    {
+        var cliente = await SeedClienteAsync();
+        // PrecioCompra=20, PrecioVenta=100, cantidad=3 → costo=60, ingreso=300, ganancia=240
+        var producto = await SeedProductoAsync(precioCompra: 20m, precioVenta: 100m);
+
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 3, fecha: hoy);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            hoy.AddDays(-1), hoy.AddDays(1), "dia");
+
+        Assert.Single(resultado);
+        Assert.Equal(300m, resultado[0].Monto);
+        Assert.Equal(240m, resultado[0].Ganancia);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_GrupoPorCategoria_GananciaCalculadaCorrectamente()
+    {
+        var cliente = await SeedClienteAsync();
+        // PrecioCompra=30, PrecioVenta=100, cantidad=2 → ganancia=(100-30)*2=140
+        var producto = await SeedProductoAsync(precioCompra: 30m, precioVenta: 100m);
+
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2, fecha: hoy);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            hoy.AddDays(-1), hoy.AddDays(1), "categoria");
+
+        Assert.Single(resultado);
+        Assert.Equal(140m, resultado[0].Ganancia);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_AgrupadoPorDesconocido_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 1, fecha: hoy);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            hoy.AddDays(-1), hoy.AddDays(1), "invalido");
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_SinVentasEnRango_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            DateTime.UtcNow.AddYears(-2),
+            DateTime.UtcNow.AddYears(-1),
+            "dia");
+
+        Assert.Empty(resultado);
+    }
 }
