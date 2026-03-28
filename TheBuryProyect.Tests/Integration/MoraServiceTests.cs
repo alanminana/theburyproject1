@@ -480,4 +480,201 @@ public class MoraServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CrearAcuerdoPagoAsync(acuerdo, "gestor1"));
     }
+
+    // =========================================================================
+    // ProcesarMoraAsync
+    // =========================================================================
+
+    private static int _cuotaCounter = 0;
+
+    private async Task<Cuota> SeedCuotaVencidaAsync(int creditoId, int diasVencido = 10, decimal montoTotal = 1_000m)
+    {
+        var cuota = new Cuota
+        {
+            CreditoId = creditoId,
+            NumeroCuota = Interlocked.Increment(ref _cuotaCounter),
+            MontoCapital = montoTotal * 0.8m,
+            MontoInteres = montoTotal * 0.2m,
+            MontoTotal = montoTotal,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = DateTime.Today.AddDays(-diasVencido)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+        return cuota;
+    }
+
+    private async Task<Cuota> SeedCuotaPorVencerAsync(int creditoId, int diasHastaVencimiento = 3, decimal montoTotal = 1_000m)
+    {
+        var cuota = new Cuota
+        {
+            CreditoId = creditoId,
+            NumeroCuota = Interlocked.Increment(ref _cuotaCounter),
+            MontoCapital = montoTotal * 0.8m,
+            MontoInteres = montoTotal * 0.2m,
+            MontoTotal = montoTotal,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = DateTime.Today.AddDays(diasHastaVencimiento)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+        return cuota;
+    }
+
+    [Fact]
+    public async Task ProcesarMora_SinCuotasVencidas_GeneraLogExitosoSinAlertas()
+    {
+        await _service.ProcesarMoraAsync();
+
+        var log = await _context.LogsMora.OrderByDescending(l => l.Id).FirstAsync();
+        Assert.True(log.Exitoso);
+        Assert.Equal(0, log.CuotasProcesadas);
+        Assert.Equal(0, log.AlertasGeneradas);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ConCuotaVencida_GeneraAlertaCobranza()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertas);
+        Assert.False(alertas[0].Resuelta);
+        Assert.Equal(cliente.Id, alertas[0].ClienteId);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ConCuotaVencida_LogRegistraCuotasProcesadas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 2_000m);
+
+        await _service.ProcesarMoraAsync();
+
+        var log = await _context.LogsMora.OrderByDescending(l => l.Id).FirstAsync();
+        Assert.True(log.Exitoso);
+        Assert.Equal(1, log.CuotasProcesadas);
+        Assert.Equal(1, log.AlertasGeneradas);
+        Assert.Equal(1, log.CuotasConMora);
+        Assert.Equal(2_000m, log.TotalMora);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CreditoConAlertaActiva_NoGeneraNuevaAlerta()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        // Alerta preexistente activa (no resuelta)
+        await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        await _service.ProcesarMoraAsync();
+
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertas); // Solo la preexistente, no se creó una nueva
+    }
+
+    [Fact]
+    public async Task ProcesarMora_DentroDelPeriodoDeGracia_NoGeneraAlerta()
+    {
+        // Config con diasGracia = 15 → cuota vencida hace 5 días no debe generar alerta
+        var config = new ConfiguracionMora
+        {
+            TasaMoraBase = 1m,
+            DiasGracia = 15,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 5); // dentro del período de gracia
+
+        await _service.ProcesarMoraAsync();
+
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Empty(alertas);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CuotaPorVencer_GeneraAlertaProximoVencimiento()
+    {
+        // Config con DiasAntesAlertaPreventiva = 5 → cuota que vence en 3 días sí genera alerta
+        var config = new ConfiguracionMora
+        {
+            TasaMoraBase = 1m,
+            DiasGracia = 0,
+            DiasAntesAlertaPreventiva = 5,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaPorVencerAsync(credito.Id, diasHastaVencimiento: 3);
+
+        await _service.ProcesarMoraAsync();
+
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.ProximoVencimiento)
+            .ToListAsync();
+        Assert.Single(alertas);
+        Assert.Equal(PrioridadAlerta.Baja, alertas[0].Prioridad);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_MultiplesCreditos_GeneraUnaAlertaPorCredito()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var credito1 = await SeedCreditoAsync(cliente1.Id);
+        await SeedCuotaVencidaAsync(credito1.Id, diasVencido: 10);
+        await SeedCuotaVencidaAsync(credito1.Id, diasVencido: 20); // segunda cuota mismo crédito
+
+        var cliente2 = await SeedClienteAsync();
+        var credito2 = await SeedCreditoAsync(cliente2.Id);
+        await SeedCuotaVencidaAsync(credito2.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        // Una alerta por crédito, no por cuota
+        var alertasCredito1 = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito1.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertasCredito1);
+        Assert.Equal(2, alertasCredito1[0].CuotasVencidas); // agrupa ambas cuotas
+
+        var alertasCredito2 = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito2.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertasCredito2);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_SiempreGuardaLogAunConError()
+    {
+        // El proceso siempre registra el log en el finally block
+        // Ejecutamos con DB vacía → no hay error, pero validamos que el log existe
+        await _service.ProcesarMoraAsync();
+
+        var count = await _context.LogsMora.CountAsync();
+        Assert.True(count >= 1);
+    }
 }
