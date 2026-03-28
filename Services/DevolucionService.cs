@@ -107,6 +107,7 @@ public class DevolucionService : IDevolucionService
 
         // Validar que la venta existe
         var venta = await _context.Ventas
+            .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == devolucion.VentaId && !v.IsDeleted);
 
         if (venta == null)
@@ -454,6 +455,7 @@ public class DevolucionService : IDevolucionService
     public async Task<string> GenerarNumeroDevolucionAsync()
     {
         var ultimaDevolucion = await _context.Devoluciones
+            .AsNoTracking()
             .OrderByDescending(d => d.Id)
             .FirstOrDefaultAsync();
 
@@ -672,6 +674,7 @@ public class DevolucionService : IDevolucionService
         var fechaLimite = hoy.AddDays(dias);
 
         return await _context.Garantias
+            .AsNoTracking()
             .Include(g => g.Cliente)
             .Include(g => g.Producto)
             .Where(g => !g.IsDeleted &&
@@ -689,6 +692,7 @@ public class DevolucionService : IDevolucionService
     public async Task<string> GenerarNumeroGarantiaAsync()
     {
         var ultimaGarantia = await _context.Garantias
+            .AsNoTracking()
             .OrderByDescending(g => g.Id)
             .FirstOrDefaultAsync();
 
