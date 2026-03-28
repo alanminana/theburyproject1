@@ -536,4 +536,101 @@ public class CajaServiceTests : IDisposable
 
         Assert.Null(resultado);
     }
+
+    // -------------------------------------------------------------------------
+    // RegistrarMovimientoAnticipoAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarAnticipo_MontoCero_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 1, creditoNumero: "CRED-ANT-001",
+            montoAnticipo: 0m, usuario: "cajero1");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarAnticipo_MontoNegativo_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 1, creditoNumero: "CRED-ANT-002",
+            montoAnticipo: -100m, usuario: "cajero1");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarAnticipo_SinCajaAbierta_RetornaNull()
+    {
+        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 1, creditoNumero: "CRED-ANT-003",
+            montoAnticipo: 500m, usuario: "cajero1");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarAnticipo_ConCajaAbierta_PersistMovimiento()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoAnticipoAsync(
+            creditoId: 7, creditoNumero: "CRED-ANT-004",
+            montoAnticipo: 2_000m, usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(apertura.Id, resultado!.AperturaCajaId);
+        Assert.Equal(2_000m, resultado.Monto);
+        Assert.Equal(7, resultado.ReferenciaId);
+        Assert.Equal(TipoMovimientoCaja.Ingreso, resultado.Tipo);
+        Assert.Contains("CRED-ANT-004", resultado.Descripcion);
+    }
+
+    // -------------------------------------------------------------------------
+    // RegistrarMovimientoDevolucionAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarDevolucion_MontoCero_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(
+                devolucionId: 1, ventaId: 1,
+                ventaNumero: "VTA-001", devolucionNumero: "DEV-001",
+                monto: 0m, usuario: "cajero1"));
+    }
+
+    [Fact]
+    public async Task RegistrarDevolucion_SinCajaAbierta_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoDevolucionAsync(
+                devolucionId: 1, ventaId: 1,
+                ventaNumero: "VTA-001", devolucionNumero: "DEV-002",
+                monto: 300m, usuario: "cajero1"));
+    }
+
+    [Fact]
+    public async Task RegistrarDevolucion_ConCajaAbierta_TipoEsEgreso()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoDevolucionAsync(
+            devolucionId: 5, ventaId: 10,
+            ventaNumero: "VTA-003", devolucionNumero: "DEV-003",
+            monto: 800m, usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoMovimientoCaja.Egreso, resultado.Tipo);
+        Assert.Equal(800m, resultado.Monto);
+        Assert.Equal(5, resultado.ReferenciaId);
+        Assert.Contains("DEV-003", resultado.Descripcion);
+    }
 }
