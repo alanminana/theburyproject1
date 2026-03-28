@@ -434,6 +434,98 @@ public class PrecioServiceBatchTests : IDisposable
 
         Assert.False(resultado);
     }
+
+    // -------------------------------------------------------------------------
+    // RevertirBatchAsync
+    // -------------------------------------------------------------------------
+
+    // Helper: crea ciclo completo simulación → aprobación → aplicación y retorna el batch aplicado
+    private async Task<PriceChangeBatch> CrearBatchAplicadoAsync(
+        int productoId, int listaId, decimal precioOriginal = 100m, decimal costo = 60m)
+    {
+        await SeedPrecioVigenteAsync(productoId, listaId, precio: precioOriginal, costo: costo);
+
+        var batch = await _service.SimularCambioMasivoAsync(
+            "Aumento 10%", TipoCambio.PorcentajeSobrePrecioActual, TipoAplicacion.Aumento,
+            10m, new List<int> { listaId }, productoIds: new List<int> { productoId });
+
+        await _context.Entry(batch).ReloadAsync();
+        batch = await _service.AprobarBatchAsync(batch.Id, "sup", batch.RowVersion!);
+
+        await _context.Entry(batch).ReloadAsync();
+        batch = await _service.AplicarBatchAsync(batch.Id, "admin", batch.RowVersion!);
+
+        await _context.Entry(batch).ReloadAsync();
+        return batch;
+    }
+
+    [Fact]
+    public async Task Revertir_HappyPath_RestauraPrecioAnterior()
+    {
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+        var batchAplicado = await CrearBatchAplicadoAsync(prod.Id, lista.Id, precioOriginal: 100m);
+
+        var batchReversion = await _service.RevertirBatchAsync(
+            batchAplicado.Id, "admin", batchAplicado.RowVersion!, "test revertir");
+
+        // Batch original queda Revertido
+        _context.ChangeTracker.Clear();
+        var original = await _context.PriceChangeBatches.FirstAsync(b => b.Id == batchAplicado.Id);
+        Assert.Equal(EstadoBatch.Revertido, original.Estado);
+        Assert.Equal("test revertir", original.MotivoReversion);
+
+        // Precio vigente restaurado al valor original
+        var precioVigente = await _context.ProductosPrecios
+            .FirstOrDefaultAsync(p => p.ProductoId == prod.Id
+                                   && p.ListaId == lista.Id
+                                   && p.EsVigente && !p.IsDeleted);
+        Assert.NotNull(precioVigente);
+        Assert.Equal(100m, precioVigente!.Precio);
+    }
+
+    [Fact]
+    public async Task Revertir_CreasBatchDeReversion()
+    {
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+        var batchAplicado = await CrearBatchAplicadoAsync(prod.Id, lista.Id);
+
+        var batchReversion = await _service.RevertirBatchAsync(
+            batchAplicado.Id, "admin", batchAplicado.RowVersion!, "motivo");
+
+        Assert.True(batchReversion.Id > 0);
+        Assert.NotEqual(batchAplicado.Id, batchReversion.Id);
+        Assert.Equal(EstadoBatch.Aplicado, batchReversion.Estado);
+        Assert.Equal(batchAplicado.Id, batchReversion.BatchPadreId);
+    }
+
+    [Fact]
+    public async Task Revertir_NoAplicado_LanzaExcepcion()
+    {
+        var batch = await SeedBatchSimuladoAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RevertirBatchAsync(batch.Id, "admin", batch.RowVersion!, "motivo"));
+    }
+
+    [Fact]
+    public async Task Revertir_RowVersionVacio_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var lista = await SeedListaAsync();
+        var batchAplicado = await CrearBatchAplicadoAsync(prod.Id, lista.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RevertirBatchAsync(batchAplicado.Id, "admin", Array.Empty<byte>(), "motivo"));
+    }
+
+    [Fact]
+    public async Task Revertir_NoExiste_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RevertirBatchAsync(99999, "admin", new byte[8], "motivo"));
+    }
 }
 
 file sealed class StubCurrentUserServiceBatch : ICurrentUserService
