@@ -395,4 +395,137 @@ public class EvaluacionCreditoServiceTests : IDisposable
 
         Assert.Null(result.RelacionCuotaIngreso);
     }
+
+    // -------------------------------------------------------------------------
+    // GetEvaluacionByCreditoIdAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetEvaluacionByCreditoId_SinEvaluaciones_RetornaNull()
+    {
+        var resultado = await _service.GetEvaluacionByCreditoIdAsync(creditoId: 99_999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetEvaluacionByCreditoId_ConEvaluacion_RetornaViewModel()
+    {
+        var cliente = await SeedClienteAprobable();
+        var credito = new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            Estado = EstadoCredito.Aprobado,
+            MontoSolicitado = 5_000m,
+            SaldoPendiente = 5_000m,
+            TasaInteres = 0.03m,
+            CantidadCuotas = 6
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+
+        _context.EvaluacionesCredito.Add(new EvaluacionCredito
+        {
+            ClienteId = cliente.Id,
+            CreditoId = credito.Id,
+            Resultado = ResultadoEvaluacion.Aprobado,
+            PuntajeFinal = 80m,
+            FechaEvaluacion = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetEvaluacionByCreditoIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado!.CreditoId);
+    }
+
+    [Fact]
+    public async Task GetEvaluacionByCreditoId_VariasEvaluaciones_RetornaLaMasReciente()
+    {
+        var cliente = await SeedClienteAprobable();
+        var credito = new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            Estado = EstadoCredito.Aprobado,
+            MontoSolicitado = 5_000m,
+            SaldoPendiente = 5_000m,
+            TasaInteres = 0.03m,
+            CantidadCuotas = 6
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+
+        var antigua = DateTime.UtcNow.AddDays(-10);
+        var reciente = DateTime.UtcNow;
+
+        _context.EvaluacionesCredito.AddRange(
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito.Id, Resultado = ResultadoEvaluacion.Rechazado, PuntajeFinal = 30m, FechaEvaluacion = antigua },
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito.Id, Resultado = ResultadoEvaluacion.Aprobado, PuntajeFinal = 80m, FechaEvaluacion = reciente }
+        );
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetEvaluacionByCreditoIdAsync(credito.Id);
+
+        Assert.Equal(ResultadoEvaluacion.Aprobado, resultado!.Resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetEvaluacionesByClienteIdAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetEvaluacionesByClienteId_SinEvaluaciones_RetornaListaVacia()
+    {
+        var cliente = await SeedClienteAprobable(agregarCreditos: false);
+
+        var resultado = await _service.GetEvaluacionesByClienteIdAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetEvaluacionesByClienteId_ConEvaluaciones_RetornaTodas()
+    {
+        var cliente = await SeedClienteAprobable(agregarCreditos: false);
+        var credito1 = new Credito { ClienteId = cliente.Id, Numero = Guid.NewGuid().ToString("N")[..10], Estado = EstadoCredito.Aprobado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 0.03m, CantidadCuotas = 3 };
+        var credito2 = new Credito { ClienteId = cliente.Id, Numero = Guid.NewGuid().ToString("N")[..10], Estado = EstadoCredito.Aprobado, MontoSolicitado = 2_000m, SaldoPendiente = 2_000m, TasaInteres = 0.03m, CantidadCuotas = 6 };
+        _context.Creditos.AddRange(credito1, credito2);
+        await _context.SaveChangesAsync();
+
+        _context.EvaluacionesCredito.AddRange(
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito1.Id, Resultado = ResultadoEvaluacion.Aprobado, PuntajeFinal = 75m, FechaEvaluacion = DateTime.UtcNow.AddDays(-5) },
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito2.Id, Resultado = ResultadoEvaluacion.Aprobado, PuntajeFinal = 80m, FechaEvaluacion = DateTime.UtcNow }
+        );
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetEvaluacionesByClienteIdAsync(cliente.Id);
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    [Fact]
+    public async Task GetEvaluacionesByClienteId_OrdenDescendente_PorFecha()
+    {
+        var cliente = await SeedClienteAprobable(agregarCreditos: false);
+        var credito1 = new Credito { ClienteId = cliente.Id, Numero = Guid.NewGuid().ToString("N")[..10], Estado = EstadoCredito.Aprobado, MontoSolicitado = 1_000m, SaldoPendiente = 1_000m, TasaInteres = 0.03m, CantidadCuotas = 3 };
+        var credito2 = new Credito { ClienteId = cliente.Id, Numero = Guid.NewGuid().ToString("N")[..10], Estado = EstadoCredito.Aprobado, MontoSolicitado = 2_000m, SaldoPendiente = 2_000m, TasaInteres = 0.03m, CantidadCuotas = 6 };
+        _context.Creditos.AddRange(credito1, credito2);
+        await _context.SaveChangesAsync();
+
+        var masAntigua = DateTime.UtcNow.AddDays(-10);
+        var masReciente = DateTime.UtcNow;
+
+        _context.EvaluacionesCredito.AddRange(
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito1.Id, Resultado = ResultadoEvaluacion.Rechazado, PuntajeFinal = 40m, FechaEvaluacion = masAntigua },
+            new EvaluacionCredito { ClienteId = cliente.Id, CreditoId = credito2.Id, Resultado = ResultadoEvaluacion.Aprobado, PuntajeFinal = 80m, FechaEvaluacion = masReciente }
+        );
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetEvaluacionesByClienteIdAsync(cliente.Id);
+
+        Assert.True(resultado[0].FechaEvaluacion >= resultado[1].FechaEvaluacion);
+    }
 }
