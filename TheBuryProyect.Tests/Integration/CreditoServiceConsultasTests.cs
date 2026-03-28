@@ -506,4 +506,305 @@ public class CreditoServiceConsultasTests : IDisposable
         Assert.Equal(2, resultado.Count);
         Assert.True(resultado[0].FechaVencimiento <= resultado[1].FechaVencimiento);
     }
+
+    // =========================================================================
+    // GetPrimeraCuotaPendienteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetPrimeraCuotaPendiente_SinCuotas_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var resultado = await _service.GetPrimeraCuotaPendienteAsync(credito.Id);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetPrimeraCuotaPendiente_TodasPagadas_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pagada);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Pagada);
+
+        var resultado = await _service.GetPrimeraCuotaPendienteAsync(credito.Id);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetPrimeraCuotaPendiente_VariasPendientes_RetornaLaMenorNumero()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetPrimeraCuotaPendienteAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(1, resultado!.NumeroCuota);
+    }
+
+    [Fact]
+    public async Task GetPrimeraCuotaPendiente_InclujeVencidaYParcial()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pagada);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Vencida);  // debe incluirse
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Parcial);  // debe incluirse
+
+        var resultado = await _service.GetPrimeraCuotaPendienteAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(2, resultado!.NumeroCuota); // Vencida es la primera no-Pagada
+    }
+
+    // =========================================================================
+    // GetUltimaCuotaPendienteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetUltimaCuotaPendiente_SinCuotas_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var resultado = await _service.GetUltimaCuotaPendienteAsync(credito.Id);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetUltimaCuotaPendiente_SoloPagadas_RetornaNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pagada);
+
+        var resultado = await _service.GetUltimaCuotaPendienteAsync(credito.Id);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetUltimaCuotaPendiente_VariasPendientes_RetornaLaMayorNumero()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetUltimaCuotaPendienteAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(3, resultado!.NumeroCuota);
+    }
+
+    [Fact]
+    public async Task GetUltimaCuotaPendiente_VencidaNoIncluida_SoloPendienteYParcial()
+    {
+        // GetUltimaCuotaPendienteAsync solo filtra Pendiente | Parcial (no Vencida)
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Parcial);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Vencida);  // Vencida no cuenta aquí
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetUltimaCuotaPendienteAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(3, resultado!.NumeroCuota);
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(id: 99_999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetById_Existente_RetornaViewModel()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado!.Id);
+        Assert.Equal(credito.Numero, resultado.Numero);
+    }
+
+    [Fact]
+    public async Task GetById_IncluyCuotasOrdenadas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(credito.Id, 3, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente);
+        await SeedCuotaAsync(credito.Id, 2, EstadoCuota.Pendiente);
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(3, resultado!.Cuotas.Count);
+        Assert.Equal(1, resultado.Cuotas[0].NumeroCuota);
+        Assert.Equal(2, resultado.Cuotas[1].NumeroCuota);
+        Assert.Equal(3, resultado.Cuotas[2].NumeroCuota);
+    }
+
+    // =========================================================================
+    // GetByClienteIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByClienteId_SinCreditos_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetByClienteIdAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetByClienteId_ConCreditos_RetornaSoloDelCliente()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var cliente2 = await SeedClienteAsync();
+        await SeedCreditoAsync(cliente1.Id);
+        await SeedCreditoAsync(cliente1.Id);
+        await SeedCreditoAsync(cliente2.Id); // no debe aparecer
+
+        var resultado = await _service.GetByClienteIdAsync(cliente1.Id);
+
+        Assert.Equal(2, resultado.Count);
+        Assert.All(resultado, c => Assert.Equal(cliente1.Id, c.ClienteId));
+    }
+
+    // =========================================================================
+    // GetAllAsync — filtros
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinFiltro_RetornaTodos()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedCreditoAsync(cliente.Id);
+        await SeedCreditoAsync(cliente.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.True(resultado.Count >= 2);
+    }
+
+    [Fact]
+    public async Task GetAll_FiltroEstado_RetornaSoloEseEstado()
+    {
+        var cliente = await SeedClienteAsync();
+        var aprobado = await SeedCreditoAsync(cliente.Id);
+
+        // Cambiar uno a Rechazado directamente en DB
+        var rechazado = await SeedCreditoAsync(cliente.Id);
+        rechazado.Estado = EstadoCredito.Rechazado;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            Estado = EstadoCredito.Aprobado
+        });
+
+        Assert.All(resultado, c => Assert.Equal(EstadoCredito.Aprobado, c.Estado));
+        Assert.Contains(resultado, c => c.Id == aprobado.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == rechazado.Id);
+    }
+
+    [Fact]
+    public async Task GetAll_FiltroNumero_RetornaSoloContieneSubstring()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // El número generado es random; buscamos por un substring exacto del número
+        var subNumero = credito.Numero![..4];
+
+        var resultado = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            Numero = subNumero
+        });
+
+        Assert.Contains(resultado, c => c.Id == credito.Id);
+    }
+
+    [Fact]
+    public async Task GetAll_FiltroMontoMinimo_ExcluyeMenores()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var chico = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = cliente.Id,
+            Estado = EstadoCredito.Aprobado,
+            MontoSolicitado = 1_000m,
+            MontoAprobado = 1_000m,
+            SaldoPendiente = 1_000m,
+            TasaInteres = 3m,
+            CantidadCuotas = 3,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        var grande = new Credito
+        {
+            Numero = Guid.NewGuid().ToString("N")[..10],
+            ClienteId = cliente.Id,
+            Estado = EstadoCredito.Aprobado,
+            MontoSolicitado = 50_000m,
+            MontoAprobado = 50_000m,
+            SaldoPendiente = 50_000m,
+            TasaInteres = 3m,
+            CantidadCuotas = 12,
+            FechaSolicitud = DateTime.UtcNow
+        };
+        _context.Creditos.AddRange(chico, grande);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            MontoMinimo = 10_000m
+        });
+
+        Assert.DoesNotContain(resultado, c => c.Id == chico.Id);
+        Assert.Contains(resultado, c => c.Id == grande.Id);
+    }
+
+    [Fact]
+    public async Task GetAll_FiltroSoloCuotasVencidas_RetornaSoloConVencidas()
+    {
+        var cliente = await SeedClienteAsync();
+        var sinVencidas = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(sinVencidas.Id, 1, EstadoCuota.Pendiente, diasAtrasado: -30); // futura
+
+        var conVencida = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(conVencida.Id, 1, EstadoCuota.Pendiente, diasAtrasado: 10); // vencida
+
+        var resultado = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            SoloCuotasVencidas = true
+        });
+
+        Assert.Contains(resultado, c => c.Id == conVencida.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == sinVencidas.Id);
+    }
 }
