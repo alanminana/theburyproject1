@@ -8,6 +8,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -534,5 +535,117 @@ public class DocumentoClienteServiceTests : IDisposable
 
         Assert.Equal(0, resultado.Exitosos);
         Assert.Equal(1, resultado.Fallidos);
+    }
+
+    // -------------------------------------------------------------------------
+    // BuscarAsync — filtros y paginación
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Buscar_SinFiltros_DevuelveTodos()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo);
+
+        var (docs, total) = await _service.BuscarAsync(new DocumentoClienteFilterViewModel());
+
+        Assert.Equal(2, total);
+        Assert.Equal(2, docs.Count);
+    }
+
+    [Fact]
+    public async Task Buscar_FiltroClienteId_DevuelveSoloDelCliente()
+    {
+        var c1 = await SeedClienteAsync();
+        var c2 = await SeedClienteAsync();
+        await SeedDocumentoAsync(c1.Id, TipoDocumentoCliente.DNI);
+        await SeedDocumentoAsync(c2.Id, TipoDocumentoCliente.DNI);
+
+        var (docs, total) = await _service.BuscarAsync(
+            new DocumentoClienteFilterViewModel { ClienteId = c1.Id });
+
+        Assert.Equal(1, total);
+        Assert.All(docs, d => Assert.Equal(c1.Id, d.ClienteId));
+    }
+
+    [Fact]
+    public async Task Buscar_FiltroEstado_DevuelveSoloEseEstado()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Pendiente);
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo, EstadoDocumento.Verificado);
+
+        var (docs, total) = await _service.BuscarAsync(
+            new DocumentoClienteFilterViewModel { Estado = EstadoDocumento.Verificado });
+
+        Assert.Equal(1, total);
+        Assert.All(docs, d => Assert.Equal(EstadoDocumento.Verificado, d.Estado));
+    }
+
+    [Fact]
+    public async Task Buscar_SoloPendientes_DevuelveSoloPendientes()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Pendiente);
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo, EstadoDocumento.Verificado);
+
+        var (docs, total) = await _service.BuscarAsync(
+            new DocumentoClienteFilterViewModel { SoloPendientes = true });
+
+        Assert.Equal(1, total);
+        Assert.All(docs, d => Assert.Equal(EstadoDocumento.Pendiente, d.Estado));
+    }
+
+    [Fact]
+    public async Task Buscar_Paginacion_DevuelvePageSizeDocumentos()
+    {
+        var cliente = await SeedClienteAsync();
+        for (int i = 0; i < 5; i++)
+            await SeedDocumentoAsync(cliente.Id);
+
+        var (docs, total) = await _service.BuscarAsync(
+            new DocumentoClienteFilterViewModel { PageNumber = 1, PageSize = 3 });
+
+        Assert.Equal(5, total);
+        Assert.Equal(3, docs.Count);
+    }
+
+    [Fact]
+    public async Task Buscar_SegundaPagina_DevuelveResto()
+    {
+        var cliente = await SeedClienteAsync();
+        for (int i = 0; i < 5; i++)
+            await SeedDocumentoAsync(cliente.Id);
+
+        var (docs, total) = await _service.BuscarAsync(
+            new DocumentoClienteFilterViewModel { PageNumber = 2, PageSize = 3 });
+
+        Assert.Equal(5, total);
+        Assert.Equal(2, docs.Count);
+    }
+
+    [Fact]
+    public async Task Buscar_EliminadosNoAparecen()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI);
+        // Documento eliminado manualmente
+        var eliminado = new DocumentoCliente
+        {
+            ClienteId = cliente.Id,
+            TipoDocumento = TipoDocumentoCliente.Servicio,
+            NombreArchivo = "elim.pdf",
+            RutaArchivo = "uploads/elim.pdf",
+            Estado = EstadoDocumento.Pendiente,
+            FechaSubida = DateTime.UtcNow,
+            IsDeleted = true
+        };
+        _context.DocumentosCliente.Add(eliminado);
+        await _context.SaveChangesAsync();
+
+        var (docs, total) = await _service.BuscarAsync(new DocumentoClienteFilterViewModel());
+
+        Assert.Equal(1, total);
     }
 }
