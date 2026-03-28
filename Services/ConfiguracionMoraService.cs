@@ -137,5 +137,29 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task AplicarAlertasMoraAsync(IList<CuotaViewModel> cuotas)
+        {
+            if (cuotas.Count == 0) return;
+
+            var configuracion = await GetConfiguracionAsync();
+            var alertas = (configuracion?.Alertas ?? new List<AlertaMoraViewModel>())
+                .Where(a => a.Activa)
+                .OrderBy(a => a.DiasRelativoVencimiento)
+                .ToList();
+
+            foreach (var cuota in cuotas)
+            {
+                var diasRelativo = (DateTime.Today - cuota.FechaVencimiento).Days;
+                var alertaAplicable = alertas
+                    .Where(a => diasRelativo >= a.DiasRelativoVencimiento)
+                    .OrderByDescending(a => a.DiasRelativoVencimiento)
+                    .FirstOrDefault();
+
+                cuota.ColorAlerta = alertaAplicable?.ColorAlerta ?? "#FF0000";
+                cuota.DescripcionAlerta = alertaAplicable?.Descripcion ?? "Cuota vencida";
+                cuota.NivelPrioridad = alertaAplicable?.NivelPrioridad ?? 5;
+            }
+        }
+
     }
 }

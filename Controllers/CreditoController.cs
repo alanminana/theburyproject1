@@ -1223,25 +1223,7 @@ namespace TheBuryProject.Controllers
 
                 var cuotasViewModel = await _creditoService.GetCuotasVencidasAsync();
 
-                // Asignar alertas de mora según días de atraso
-                var configuracionMora = await _configuracionMoraService.GetConfiguracionAsync();
-                var alertas = (configuracionMora?.Alertas ?? new List<AlertaMoraViewModel>())
-                    .Where(a => a.Activa)
-                    .OrderBy(a => a.DiasRelativoVencimiento)
-                    .ToList();
-
-                foreach (var cuota in cuotasViewModel)
-                {
-                    var diasRelativo = (DateTime.Today - cuota.FechaVencimiento).Days;
-                    var alertaAplicable = alertas
-                        .Where(a => diasRelativo >= a.DiasRelativoVencimiento)
-                        .OrderByDescending(a => a.DiasRelativoVencimiento)
-                        .FirstOrDefault();
-
-                    cuota.ColorAlerta = alertaAplicable?.ColorAlerta ?? "#FF0000";
-                    cuota.DescripcionAlerta = alertaAplicable?.Descripcion ?? "Cuota vencida";
-                    cuota.NivelPrioridad = alertaAplicable?.NivelPrioridad ?? 5;
-                }
+                await _configuracionMoraService.AplicarAlertasMoraAsync(cuotasViewModel);
 
                 return View("CuotasVencidas_tw", cuotasViewModel);
             }
