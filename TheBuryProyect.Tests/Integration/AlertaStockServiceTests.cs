@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -79,12 +80,13 @@ public class AlertaStockServiceTests : IDisposable
         int productoId,
         EstadoAlerta estado = EstadoAlerta.Pendiente,
         DateTime? fechaResolucion = null,
-        bool urgente = false)
+        bool urgente = false,
+        TipoAlertaStock tipo = TipoAlertaStock.StockBajo)
     {
         var alerta = new AlertaStock
         {
             ProductoId = productoId,
-            Tipo = TipoAlertaStock.StockBajo,
+            Tipo = tipo,
             Prioridad = PrioridadAlerta.Media,
             Estado = estado,
             Mensaje = "Alerta de test",
@@ -450,5 +452,225 @@ public class AlertaStockServiceTests : IDisposable
             .IgnoreQueryFilters()
             .FirstAsync(a => a.Id == alerta.Id);
         Assert.True(alertaBd.IsDeleted);
+    }
+
+    // =========================================================================
+    // VerificarYGenerarAlertasAsync (batch)
+    // =========================================================================
+
+    [Fact]
+    public async Task VerificarYGenerarAlertas_ListaVacia_RetornaCero()
+    {
+        var resultado = await _service.VerificarYGenerarAlertasAsync(Array.Empty<int>());
+        Assert.Equal(0, resultado);
+    }
+
+    [Fact]
+    public async Task VerificarYGenerarAlertas_ProductoConStockBajo_CreaAlerta()
+    {
+        var producto = await SeedProductoAsync(stockActual: 2m, stockMinimo: 10m);
+
+        var resultado = await _service.VerificarYGenerarAlertasAsync(new[] { producto.Id });
+
+        Assert.Equal(1, resultado);
+        var alertas = await _context.AlertasStock
+            .Where(a => a.ProductoId == producto.Id)
+            .ToListAsync();
+        Assert.Single(alertas);
+    }
+
+    [Fact]
+    public async Task VerificarYGenerarAlertas_ProductoConStockSuficiente_NoCreaAlerta()
+    {
+        var producto = await SeedProductoAsync(stockActual: 20m, stockMinimo: 10m);
+
+        var resultado = await _service.VerificarYGenerarAlertasAsync(new[] { producto.Id });
+
+        Assert.Equal(0, resultado);
+    }
+
+    [Fact]
+    public async Task VerificarYGenerarAlertas_ConAlertaActivaPreexistente_NoDuplica()
+    {
+        var producto = await SeedProductoAsync(stockActual: 2m, stockMinimo: 10m);
+        await SeedAlertaAsync(producto.Id, estado: EstadoAlerta.Pendiente);
+
+        var resultado = await _service.VerificarYGenerarAlertasAsync(new[] { producto.Id });
+
+        Assert.Equal(0, resultado);
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_AlertaExistente_RetornaViewModel()
+    {
+        var producto = await SeedProductoAsync();
+        var alerta = await SeedAlertaAsync(producto.Id);
+
+        var resultado = await _service.GetByIdAsync(alerta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(alerta.Id, resultado!.Id);
+        Assert.Equal(producto.Id, resultado.ProductoId);
+    }
+
+    [Fact]
+    public async Task GetById_AlertaInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // BuscarAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Buscar_SinFiltros_DevuelveTodasLasAlertas()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id);
+        await SeedAlertaAsync(p2.Id);
+
+        var resultado = await _service.BuscarAsync(new AlertaStockFiltroViewModel { PageNumber = 1, PageSize = 20 });
+
+        Assert.Equal(2, resultado.TotalRecords);
+        Assert.Equal(2, resultado.Items.Count);
+    }
+
+    [Fact]
+    public async Task Buscar_FiltradoPorProductoId_DevuelveSoloEse()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id);
+        await SeedAlertaAsync(p2.Id);
+
+        var resultado = await _service.BuscarAsync(new AlertaStockFiltroViewModel
+        {
+            ProductoId = p1.Id,
+            PageNumber = 1,
+            PageSize = 20
+        });
+
+        Assert.Equal(1, resultado.TotalRecords);
+        Assert.All(resultado.Items, a => Assert.Equal(p1.Id, a.ProductoId));
+    }
+
+    [Fact]
+    public async Task Buscar_FiltradoPorEstado_DevuelveSoloPendientes()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id, estado: EstadoAlerta.Pendiente);
+        // Resuelta en p2 — diferente producto para evitar unique constraint activa
+        await SeedAlertaAsync(p2.Id, estado: EstadoAlerta.Resuelta, fechaResolucion: DateTime.UtcNow.AddDays(-1));
+
+        var resultado = await _service.BuscarAsync(new AlertaStockFiltroViewModel
+        {
+            Estado = EstadoAlerta.Pendiente,
+            PageNumber = 1,
+            PageSize = 20
+        });
+
+        Assert.Equal(1, resultado.TotalRecords);
+        Assert.All(resultado.Items, a => Assert.Equal(EstadoAlerta.Pendiente, a.Estado));
+    }
+
+    [Fact]
+    public async Task Buscar_Paginacion_DevuelveSubset()
+    {
+        // Crear 5 productos distintos para evitar violación del unique index activo por producto
+        for (int i = 0; i < 5; i++)
+        {
+            var p = await SeedProductoAsync();
+            await SeedAlertaAsync(p.Id);
+        }
+
+        var resultado = await _service.BuscarAsync(new AlertaStockFiltroViewModel
+        {
+            PageNumber = 1,
+            PageSize = 2
+        });
+
+        Assert.Equal(5, resultado.TotalRecords);
+        Assert.Equal(2, resultado.Items.Count);
+    }
+
+    // =========================================================================
+    // GetEstadisticasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetEstadisticas_SinAlertas_RetornaContadoresCero()
+    {
+        var resultado = await _service.GetEstadisticasAsync();
+
+        Assert.Equal(0, resultado.TotalAlertas);
+        Assert.Equal(0, resultado.AlertasPendientes);
+        Assert.Equal(0, resultado.ProductosAfectados);
+    }
+
+    [Fact]
+    public async Task GetEstadisticas_ConAlertas_ContaCorrectamente()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        var p3 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id, estado: EstadoAlerta.Pendiente);
+        // Resuelta: diferente producto y con fechaResolucion para no violar unique activo
+        await SeedAlertaAsync(p2.Id, estado: EstadoAlerta.Resuelta, fechaResolucion: DateTime.UtcNow.AddDays(-1));
+        await SeedAlertaAsync(p3.Id, estado: EstadoAlerta.Ignorada, fechaResolucion: DateTime.UtcNow.AddDays(-1));
+
+        var resultado = await _service.GetEstadisticasAsync();
+
+        Assert.Equal(3, resultado.TotalAlertas);
+        Assert.Equal(1, resultado.AlertasPendientes);
+        Assert.Equal(1, resultado.AlertasResueltas);
+        Assert.Equal(1, resultado.AlertasIgnoradas);
+        Assert.Equal(3, resultado.ProductosAfectados);
+    }
+
+    // =========================================================================
+    // GetProductosCriticosAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetProductosCriticos_SinAlertasCriticas_RetornaVacio()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedAlertaAsync(producto.Id, tipo: TipoAlertaStock.StockBajo);
+
+        var resultado = await _service.GetProductosCriticosAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetProductosCriticos_ConAlertaStockCritico_RetornaProducto()
+    {
+        var producto = await SeedProductoAsync(stockActual: 0m, stockMinimo: 5m);
+        await SeedAlertaAsync(producto.Id, tipo: TipoAlertaStock.StockCritico, estado: EstadoAlerta.Pendiente);
+
+        var resultado = await _service.GetProductosCriticosAsync();
+
+        Assert.Single(resultado);
+        Assert.Equal(producto.Id, resultado[0].Id);
+    }
+
+    [Fact]
+    public async Task GetProductosCriticos_ConAlertaStockAgotado_RetornaProducto()
+    {
+        var producto = await SeedProductoAsync(stockActual: 0m, stockMinimo: 5m);
+        await SeedAlertaAsync(producto.Id, tipo: TipoAlertaStock.StockAgotado, estado: EstadoAlerta.Pendiente);
+
+        var resultado = await _service.GetProductosCriticosAsync();
+
+        Assert.Single(resultado);
+        Assert.Equal(producto.Id, resultado[0].Id);
     }
 }
