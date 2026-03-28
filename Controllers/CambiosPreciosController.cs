@@ -1234,23 +1234,22 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var producto = await _productoService.GetByIdAsync(productoId);
+            var productoTask = _productoService.GetByIdAsync(productoId);
+            var historialTask = listaId.HasValue
+                ? _precioService.GetHistorialPreciosAsync(productoId, listaId.Value)
+                : _precioService.GetPreciosProductoAsync(productoId);
+            var listasTask = _precioService.GetAllListasAsync();
+
+            await Task.WhenAll(productoTask, historialTask, listasTask);
+
+            var producto = productoTask.Result;
             if (producto == null)
             {
                 TempData["Error"] = "Producto no encontrado.";
                 return RedirectToAction("Index", "Productos");
             }
 
-            List<Models.Entities.ProductoPrecioLista> historial;
-
-            if (listaId.HasValue)
-            {
-                historial = await _precioService.GetHistorialPreciosAsync(productoId, listaId.Value);
-            }
-            else
-            {
-                historial = await _precioService.GetPreciosProductoAsync(productoId);
-            }
+            var historial = historialTask.Result;
 
             var viewModel = new HistorialPreciosViewModel
             {
@@ -1274,9 +1273,7 @@ public class CambiosPreciosController : Controller
                 }).OrderByDescending(p => p.VigenciaDesde).ToList()
             };
 
-            // Cargar listas para el filtro
-            var listas = await _precioService.GetAllListasAsync();
-            ViewBag.Listas = new SelectList(listas, "Id", "Nombre", listaId);
+            ViewBag.Listas = new SelectList(listasTask.Result, "Id", "Nombre", listaId);
 
             return View(viewModel);
         }
