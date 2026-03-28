@@ -474,4 +474,171 @@ public class OrdenCompraServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RecepcionarAsync(99999, new byte[8], new List<RecepcionDetalleViewModel>()));
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_SinOrdenes_RetornaVacio()
+    {
+        var resultado = await _service.GetAllAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetAll_ConOrdenes_DevuelveTodas()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        await SeedOrdenAsync(proveedor.Id, producto.Id);
+        await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
+
+    // =========================================================================
+    // GetByIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_OrdenExistente_RetornaOrden()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        var resultado = await _service.GetByIdAsync(orden.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(orden.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task GetById_OrdenInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // DeleteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Delete_OrdenEnBorrador_RetornaTrue()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Borrador);
+
+        var resultado = await _service.DeleteAsync(orden.Id);
+
+        Assert.True(resultado);
+        var ordenBd = await _context.OrdenesCompra.IgnoreQueryFilters().FirstAsync(o => o.Id == orden.Id);
+        Assert.True(ordenBd.IsDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_OrdenRecibida_LanzaExcepcion()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Recibida);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.DeleteAsync(orden.Id));
+    }
+
+    [Fact]
+    public async Task Delete_OrdenInexistente_RetornaFalse()
+    {
+        var resultado = await _service.DeleteAsync(99999);
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // UpdateAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Update_SinRowVersion_LanzaExcepcion()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        orden.RowVersion = null!;
+        orden.Detalles ??= new List<OrdenCompraDetalle>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(orden));
+    }
+
+    [Fact]
+    public async Task Update_HappyPath_ActualizaObservaciones()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        orden.Observaciones = "Actualizado";
+        orden.Detalles ??= new List<OrdenCompraDetalle>();
+
+        var resultado = await _service.UpdateAsync(orden);
+
+        Assert.Equal("Actualizado", resultado.Observaciones);
+    }
+
+    // =========================================================================
+    // GetByProveedorIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetByProveedor_FiltraPorProveedor()
+    {
+        var p1 = await SeedProveedorAsync();
+        var p2 = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        await SeedOrdenAsync(p1.Id, producto.Id);
+        await SeedOrdenAsync(p2.Id, producto.Id);
+
+        var resultado = await _service.GetByProveedorIdAsync(p1.Id);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, o => Assert.Equal(p1.Id, o.ProveedorId));
+    }
+
+    // =========================================================================
+    // SearchAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Search_PorEstado_FiltraCorrectamente()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Borrador);
+        await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Confirmada);
+
+        var resultado = await _service.SearchAsync(estado: EstadoOrdenCompra.Borrador);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, o => Assert.Equal(EstadoOrdenCompra.Borrador, o.Estado));
+    }
+
+    [Fact]
+    public async Task Search_SinFiltros_DevuelveTodasLasOrdenes()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        await SeedOrdenAsync(proveedor.Id, producto.Id);
+        await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        var resultado = await _service.SearchAsync();
+
+        Assert.Equal(2, resultado.Count());
+    }
 }
