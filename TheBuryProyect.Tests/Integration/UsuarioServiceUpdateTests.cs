@@ -372,4 +372,69 @@ public class UsuarioServiceUpdateTests : IDisposable
 
         Assert.Empty(errors);
     }
+
+    // =========================================================================
+    // GetUsuarioSelectListAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetUsuarioSelectList_SinUsuarios_RetornaVacio()
+    {
+        var lista = await _service.GetUsuarioSelectListAsync();
+        Assert.Empty(lista);
+    }
+
+    [Fact]
+    public async Task GetUsuarioSelectList_ConUsuarios_DevuelveIdYUsername()
+    {
+        var user = await SeedUser("vendedor1", "v1@test.com");
+
+        var lista = await _service.GetUsuarioSelectListAsync();
+
+        Assert.Single(lista);
+        Assert.Equal(user.Id, lista[0].Id);
+        Assert.Equal("vendedor1", lista[0].UserName);
+    }
+
+    [Fact]
+    public async Task GetUsuarioSelectList_OrdenadoPorUsername()
+    {
+        await SeedUser("zzz_user", "zzz@test.com");
+        await SeedUser("aaa_user", "aaa@test.com");
+
+        var lista = await _service.GetUsuarioSelectListAsync();
+
+        Assert.Equal("aaa_user", lista[0].UserName);
+        Assert.Equal("zzz_user", lista[1].UserName);
+    }
+
+    // =========================================================================
+    // GetUsuariosPorRolAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetUsuariosPorRol_RolVacio_DevuelveVacio()
+    {
+        await SeedRole("SinMiembros");
+
+        var lista = await _service.GetUsuariosPorRolAsync("SinMiembros");
+
+        Assert.Empty(lista);
+    }
+
+    [Fact]
+    public async Task GetUsuariosPorRol_ConUsuariosEnRol_DevuelveEsos()
+    {
+        var u1 = await SeedUser("rol_user1", "ru1@test.com");
+        var u2 = await SeedUser("rol_user2", "ru2@test.com");
+        await SeedUser("sin_rol", "sr@test.com");
+        await SeedRole("Cajero");
+        await _userManager.AddToRoleAsync(u1, "Cajero");
+        await _userManager.AddToRoleAsync(u2, "Cajero");
+
+        var lista = await _service.GetUsuariosPorRolAsync("Cajero");
+
+        Assert.Equal(2, lista.Count);
+        Assert.All(lista, u => Assert.True(u.Id == u1.Id || u.Id == u2.Id));
+    }
 }
