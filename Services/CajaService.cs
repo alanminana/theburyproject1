@@ -39,6 +39,7 @@ namespace TheBuryProject.Services
             try
             {
                 return await _context.Cajas
+                    .AsNoTracking()
                     .Where(c => !c.IsDeleted)
                     .OrderBy(c => c.Codigo)
                     .ToListAsync();
@@ -320,6 +321,7 @@ namespace TheBuryProject.Services
             try
             {
                 return await _context.AperturasCaja
+                    .AsNoTracking()
                     .Include(a => a.Caja)
                     .Where(a => !a.Cerrada && !a.IsDeleted)
                     .OrderByDescending(a => a.FechaApertura)
@@ -437,6 +439,7 @@ namespace TheBuryProject.Services
             try
             {
                 return await _context.MovimientosCaja
+                    .AsNoTracking()
                     .Where(m => m.AperturaCajaId == aperturaId && !m.IsDeleted)
                     .OrderBy(m => m.FechaMovimiento)
                     .ToListAsync();
