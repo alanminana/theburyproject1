@@ -228,4 +228,93 @@ public class FinancialCalculationServiceTests
         Assert.Throws<ArgumentException>(() =>
             _sut.ComputeFinancedAmount(1000m, 2000m));
     }
+
+    // ---------------------------------------------------------------
+    // SimularPlanCredito — integra cálculo + semáforo
+    // ---------------------------------------------------------------
+
+    private static DateTime FechaPrimera => new(2026, 1, 1);
+
+    [Fact]
+    public void SimularPlan_MontoFinanciado_EsTotalMenosAnticipo()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 3_000m, 6, 5m, 0m, FechaPrimera);
+        Assert.Equal(7_000m, resultado.MontoFinanciado);
+    }
+
+    [Fact]
+    public void SimularPlan_TasaAplicada_EsLaMismaQueSeIngresa()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 3.5m, 0m, FechaPrimera);
+        Assert.Equal(3.5m, resultado.TasaAplicada);
+    }
+
+    [Fact]
+    public void SimularPlan_TotalPlan_IncluyeGastosAdministrativos()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 5m, 500m, FechaPrimera);
+        Assert.Equal(resultado.TotalAPagar + 500m, resultado.TotalPlan);
+    }
+
+    [Fact]
+    public void SimularPlan_GastosAdministrativosCero_TotalPlanIgualTotalAPagar()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 5m, 0m, FechaPrimera);
+        Assert.Equal(resultado.TotalAPagar, resultado.TotalPlan);
+    }
+
+    [Fact]
+    public void SimularPlan_FechaPrimerPago_EsLaQueSeIngresa()
+    {
+        var fecha = new DateTime(2026, 6, 15);
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 5m, 0m, fecha);
+        Assert.Equal(fecha, resultado.FechaPrimerPago);
+    }
+
+    [Fact]
+    public void SimularPlan_ConTasa_InteresTotalPositivo()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 5m, 0m, FechaPrimera);
+        Assert.True(resultado.InteresTotal > 0m);
+    }
+
+    [Fact]
+    public void SimularPlan_TasaCero_InteresTotalCero()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 6, 0m, 0m, FechaPrimera);
+        Assert.Equal(0m, resultado.InteresTotal);
+    }
+
+    // Semáforo
+    [Fact]
+    public void SimularPlan_RatioMuyBajo_SemaforoVerde()
+    {
+        // ratio = cuota/monto ≤ 0.08 → verde
+        // tasa=0%, 120 cuotas → cuota ≈ 83.33; ratio=83.33/10000=0.008 → verde
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 120, 0m, 0m, FechaPrimera);
+        Assert.Equal("verde", resultado.SemaforoEstado);
+        Assert.False(resultado.MostrarMsgIngreso);
+    }
+
+    [Fact]
+    public void SimularPlan_RatioMedio_SemaforoAmarillo()
+    {
+        // ratio 0.08 < r ≤ 0.15 → amarillo
+        // monto=10.000, cuotas=10, tasa=0 → cuota=1.000; ratio=1000/10000=0.10 → amarillo
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 10, 0m, 0m, FechaPrimera);
+        Assert.Equal("amarillo", resultado.SemaforoEstado);
+        Assert.True(resultado.MostrarMsgIngreso);
+        Assert.False(resultado.MostrarMsgAntiguedad);
+    }
+
+    [Fact]
+    public void SimularPlan_RatioAlto_SemaforoRojo()
+    {
+        // ratio > 0.15 → rojo
+        // monto=10.000, cuotas=3, tasa=0 → cuota=3.333; ratio=3333/10000=0.33 → rojo
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 3, 0m, 0m, FechaPrimera);
+        Assert.Equal("rojo", resultado.SemaforoEstado);
+        Assert.True(resultado.MostrarMsgIngreso);
+        Assert.True(resultado.MostrarMsgAntiguedad);
+    }
 }
