@@ -566,4 +566,84 @@ public class ReporteServiceTests : IDisposable
         // Promedio = 4000 / 2 = 2000
         Assert.Equal(2_000m, resultado.PromedioDeudaPorCliente);
     }
+
+    // =========================================================================
+    // ExportarVentasExcelAsync / ExportarMargenesExcelAsync /
+    // ExportarMorosidadExcelAsync / GenerarVentasPdfAsync /
+    // GenerarMorosidadPdfAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ExportarVentasExcel_SinVentas_RetornaByteArrayNoVacio()
+    {
+        var filtro = new ReporteVentasFiltroViewModel();
+
+        var resultado = await _service.ExportarVentasExcelAsync(filtro);
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+    }
+
+    [Fact]
+    public async Task ExportarVentasExcel_ConVentas_RetornaArchivoValido()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto.Id, 50m, 2);
+
+        var filtro = new ReporteVentasFiltroViewModel();
+
+        var resultado = await _service.ExportarVentasExcelAsync(filtro);
+
+        Assert.True(resultado.Length > 0);
+        // Signature de ZIP/Office Open XML: PK magic bytes
+        Assert.Equal(0x50, resultado[0]); // 'P'
+        Assert.Equal(0x4B, resultado[1]); // 'K'
+    }
+
+    [Fact]
+    public async Task ExportarMargenesExcel_SinProductos_RetornaByteArrayNoVacio()
+    {
+        var resultado = await _service.ExportarMargenesExcelAsync();
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+    }
+
+    [Fact]
+    public async Task ExportarMorosidadExcel_SinMorosos_RetornaByteArrayNoVacio()
+    {
+        var resultado = await _service.ExportarMorosidadExcelAsync();
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+    }
+
+    [Fact]
+    public async Task GenerarVentasPdf_SinVentas_RetornaByteArrayNoVacio()
+    {
+        var filtro = new ReporteVentasFiltroViewModel();
+
+        var resultado = await _service.GenerarVentasPdfAsync(filtro);
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+        // PDF magic bytes: %PDF
+        Assert.Equal(0x25, resultado[0]); // '%'
+        Assert.Equal(0x50, resultado[1]); // 'P'
+        Assert.Equal(0x44, resultado[2]); // 'D'
+        Assert.Equal(0x46, resultado[3]); // 'F'
+    }
+
+    [Fact]
+    public async Task GenerarMorosidadPdf_SinMorosos_RetornaByteArrayNoVacio()
+    {
+        var resultado = await _service.GenerarMorosidadPdfAsync();
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+        // PDF magic bytes
+        Assert.Equal(0x25, resultado[0]);
+        Assert.Equal(0x50, resultado[1]);
+    }
 }
