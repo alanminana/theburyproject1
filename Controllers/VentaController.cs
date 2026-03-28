@@ -103,21 +103,25 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var ventas = await _ventaService.GetAllAsync(filter);
+                var userName = _currentUser.GetUsername();
 
-                // Cargar datos para filtros
-                var clientesSelect = await _clienteLookup.GetClientesSelectListAsync();
-                ViewBag.Clientes = clientesSelect;
+                var ventasTask = _ventaService.GetAllAsync(filter);
+                var clientesTask = _clienteLookup.GetClientesSelectListAsync();
+                var aperturaTask = !string.IsNullOrWhiteSpace(userName)
+                    ? _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
+                    : Task.FromResult<AperturaViewModel?>(null);
+
+                await Task.WhenAll(ventasTask, clientesTask, aperturaTask);
+
+                var ventas = ventasTask.Result;
+                ViewBag.Clientes = clientesTask.Result;
+                var aperturaActiva = aperturaTask.Result;
 
                 ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
                 ViewBag.TiposPago = EnumHelper.GetSelectList<TipoPago>();
                 ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
                 ViewBag.Filter = filter;
 
-                var userName = _currentUser.GetUsername();
-                var aperturaActiva = !string.IsNullOrWhiteSpace(userName)
-                    ? await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
-                    : null;
                 ViewBag.PuedeCrearVenta = aperturaActiva != null;
                 ViewBag.PuedeOperarVentas = aperturaActiva != null;
 

@@ -1297,14 +1297,15 @@ public class CambiosPreciosController : Controller
     /// </summary>
     private async Task CargarDatosParaSimulacion()
     {
-        var listas = await _precioService.GetAllListasAsync();
-        ViewBag.Listas = new SelectList(listas, "Id", "Nombre");
+        var listasTask = _precioService.GetAllListasAsync();
+        var categoriasTask = _categoriaService.GetAllAsync();
+        var marcasTask = _marcaService.GetAllAsync();
 
-        var categorias = await _categoriaService.GetAllAsync();
-        ViewBag.Categorias = new SelectList(categorias, "Id", "Nombre");
+        await Task.WhenAll(listasTask, categoriasTask, marcasTask);
 
-        var marcas = await _marcaService.GetAllAsync();
-        ViewBag.Marcas = new SelectList(marcas, "Id", "Nombre");
+        ViewBag.Listas = new SelectList(listasTask.Result, "Id", "Nombre");
+        ViewBag.Categorias = new SelectList(categoriasTask.Result, "Id", "Nombre");
+        ViewBag.Marcas = new SelectList(marcasTask.Result, "Id", "Nombre");
     }
 
     /// <summary>
