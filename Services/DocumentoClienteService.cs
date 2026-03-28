@@ -39,6 +39,7 @@ namespace TheBuryProject.Services
         public async Task<List<DocumentoClienteViewModel>> GetAllAsync()
         {
             var documentos = await _context.Set<DocumentoCliente>()
+                .AsNoTracking()
                 .Include(d => d.Cliente)
                 .Where(d => !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
                 .OrderByDescending(d => d.FechaSubida)
@@ -50,6 +51,7 @@ namespace TheBuryProject.Services
         public async Task<DocumentoClienteViewModel?> GetByIdAsync(int id)
         {
             var documento = await _context.Set<DocumentoCliente>()
+                .AsNoTracking()
                 .Include(d => d.Cliente)
                 .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);
 
@@ -59,6 +61,7 @@ namespace TheBuryProject.Services
         public async Task<List<DocumentoClienteViewModel>> GetByClienteIdAsync(int clienteId)
         {
             var documentos = await _context.Set<DocumentoCliente>()
+                .AsNoTracking()
                 .Include(d => d.Cliente)
                 .Where(d => d.ClienteId == clienteId && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
                 .OrderByDescending(d => d.FechaSubida)
