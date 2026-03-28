@@ -425,4 +425,114 @@ public class DocumentoClienteServiceTests : IDisposable
         var noTocado = await _context.DocumentosCliente.FindAsync(pendienteVencido.Id);
         Assert.Equal(EstadoDocumento.Pendiente, noTocado!.Estado); // Sin cambio
     }
+
+    // -------------------------------------------------------------------------
+    // VerificarBatchAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task VerificarBatch_ListaVacia_RetornaCeroExitosos()
+    {
+        var resultado = await _service.VerificarBatchAsync([], "auditor1");
+
+        Assert.Equal(0, resultado.Exitosos);
+        Assert.Equal(0, resultado.Fallidos);
+    }
+
+    [Fact]
+    public async Task VerificarBatch_TodosPendientes_VerificaTodos()
+    {
+        var cliente = await SeedClienteAsync();
+        var d1 = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Pendiente);
+        var d2 = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo, EstadoDocumento.Pendiente);
+
+        var resultado = await _service.VerificarBatchAsync([d1.Id, d2.Id], "auditor1");
+
+        Assert.Equal(2, resultado.Exitosos);
+        Assert.Equal(0, resultado.Fallidos);
+
+        _context.ChangeTracker.Clear();
+        var doc1 = await _context.DocumentosCliente.FindAsync(d1.Id);
+        var doc2 = await _context.DocumentosCliente.FindAsync(d2.Id);
+        Assert.Equal(EstadoDocumento.Verificado, doc1!.Estado);
+        Assert.Equal(EstadoDocumento.Verificado, doc2!.Estado);
+        Assert.Equal("auditor1", doc1.VerificadoPor);
+    }
+
+    [Fact]
+    public async Task VerificarBatch_DocumentoYaVerificado_CuentaComoFallido()
+    {
+        var cliente = await SeedClienteAsync();
+        var verificado = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Verificado);
+        var pendiente = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo, EstadoDocumento.Pendiente);
+
+        var resultado = await _service.VerificarBatchAsync([verificado.Id, pendiente.Id], "auditor1");
+
+        Assert.Equal(1, resultado.Exitosos);
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Single(resultado.Errores);
+        Assert.Equal(verificado.Id, resultado.Errores[0].Id);
+    }
+
+    [Fact]
+    public async Task VerificarBatch_IdInexistente_CuentaComoFallido()
+    {
+        var resultado = await _service.VerificarBatchAsync([99999], "auditor1");
+
+        Assert.Equal(0, resultado.Exitosos);
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Contains("no encontrado", resultado.Errores[0].Mensaje, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task VerificarBatch_IdsDuplicados_ProcesaSoloUnaVez()
+    {
+        var cliente = await SeedClienteAsync();
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Pendiente);
+
+        // El mismo ID dos veces — debe procesar una sola vez
+        var resultado = await _service.VerificarBatchAsync([doc.Id, doc.Id], "auditor1");
+
+        Assert.Equal(1, resultado.Exitosos);
+        Assert.Equal(0, resultado.Fallidos);
+    }
+
+    // -------------------------------------------------------------------------
+    // RechazarBatchAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RechazarBatch_ListaVacia_RetornaCeroExitosos()
+    {
+        var resultado = await _service.RechazarBatchAsync([], "Documentación inválida", "revisor1");
+
+        Assert.Equal(0, resultado.Exitosos);
+        Assert.Equal(0, resultado.Fallidos);
+    }
+
+    [Fact]
+    public async Task RechazarBatch_TodosPendientes_RechazaTodos()
+    {
+        var cliente = await SeedClienteAsync();
+        var d1 = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, EstadoDocumento.Pendiente);
+        var d2 = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.ReciboSueldo, EstadoDocumento.Pendiente);
+
+        var resultado = await _service.RechazarBatchAsync([d1.Id, d2.Id], "Foto ilegible", "revisor1");
+
+        Assert.Equal(2, resultado.Exitosos);
+        Assert.Equal(0, resultado.Fallidos);
+
+        _context.ChangeTracker.Clear();
+        var doc1 = await _context.DocumentosCliente.FindAsync(d1.Id);
+        Assert.Equal(EstadoDocumento.Rechazado, doc1!.Estado);
+    }
+
+    [Fact]
+    public async Task RechazarBatch_IdInexistente_CuentaComoFallido()
+    {
+        var resultado = await _service.RechazarBatchAsync([99999], "Motivo", "revisor1");
+
+        Assert.Equal(0, resultado.Exitosos);
+        Assert.Equal(1, resultado.Fallidos);
+    }
 }
