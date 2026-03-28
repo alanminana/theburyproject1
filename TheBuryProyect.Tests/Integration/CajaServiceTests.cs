@@ -633,4 +633,267 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(5, resultado.ReferenciaId);
         Assert.Contains("DEV-003", resultado.Descripcion);
     }
+
+    // =========================================================================
+    // ObtenerTodasCajasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerTodasCajas_SinCajas_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerTodasCajasAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerTodasCajas_ConCajas_DevuelveTodas()
+    {
+        await SeedCajaAsync();
+        await SeedCajaAsync();
+
+        var resultado = await _service.ObtenerTodasCajasAsync();
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    [Fact]
+    public async Task ObtenerTodasCajas_ExcluyeEliminadas()
+    {
+        var caja = await SeedCajaAsync();
+        caja.IsDeleted = true;
+        _context.Set<Caja>().Update(caja);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerTodasCajasAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerCajaPorIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerCajaPorId_Existente_RetornaCaja()
+    {
+        var caja = await SeedCajaAsync();
+
+        var resultado = await _service.ObtenerCajaPorIdAsync(caja.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(caja.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerCajaPorId_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerCajaPorIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // CrearCajaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task CrearCaja_CodigoNuevo_PersisteCaja()
+    {
+        var model = new CajaViewModel
+        {
+            Codigo = "CAJ-NEW",
+            Nombre = "Caja Nueva",
+            Activa = true
+        };
+
+        var resultado = await _service.CrearCajaAsync(model);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal("CAJ-NEW", resultado.Codigo);
+        Assert.Equal(EstadoCaja.Cerrada, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task CrearCaja_CodigoDuplicado_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync();
+        var model = new CajaViewModel
+        {
+            Codigo = caja.Codigo,
+            Nombre = "Duplicada",
+            Activa = true
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearCajaAsync(model));
+    }
+
+    // =========================================================================
+    // ActualizarCajaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ActualizarCaja_SinRowVersion_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync();
+        var model = new CajaViewModel
+        {
+            Codigo = caja.Codigo,
+            Nombre = "Actualizada",
+            Activa = true,
+            RowVersion = null
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ActualizarCajaAsync(caja.Id, model));
+    }
+
+    [Fact]
+    public async Task ActualizarCaja_Inexistente_LanzaExcepcion()
+    {
+        var model = new CajaViewModel
+        {
+            Codigo = "COD-X",
+            Nombre = "X",
+            Activa = true,
+            RowVersion = new byte[8]
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ActualizarCajaAsync(99999, model));
+    }
+
+    // =========================================================================
+    // EliminarCajaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task EliminarCaja_SinRowVersion_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.EliminarCajaAsync(caja.Id, null));
+    }
+
+    [Fact]
+    public async Task EliminarCaja_CajaAbierta_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync(estado: EstadoCaja.Abierta);
+        await _context.Entry(caja).ReloadAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.EliminarCajaAsync(caja.Id, caja.RowVersion));
+    }
+
+    [Fact]
+    public async Task EliminarCaja_Inexistente_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.EliminarCajaAsync(99999, new byte[8]));
+    }
+
+    // =========================================================================
+    // ExisteCodigoCajaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ExisteCodigoCaja_CodigoExistente_RetornaTrue()
+    {
+        var caja = await SeedCajaAsync();
+
+        var resultado = await _service.ExisteCodigoCajaAsync(caja.Codigo);
+
+        Assert.True(resultado);
+    }
+
+    [Fact]
+    public async Task ExisteCodigoCaja_CodigoInexistente_RetornaFalse()
+    {
+        var resultado = await _service.ExisteCodigoCajaAsync("CODIGO-INEXISTENTE");
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task ExisteCodigoCaja_MismaCajaExcluida_RetornaFalse()
+    {
+        var caja = await SeedCajaAsync();
+
+        var resultado = await _service.ExisteCodigoCajaAsync(caja.Codigo, caja.Id);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerAperturaPorIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerAperturaPorId_Existente_RetornaApertura()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+
+        var resultado = await _service.ObtenerAperturaPorIdAsync(apertura.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(apertura.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaPorId_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerAperturaPorIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerAperturasAbiertasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerAperturasAbiertas_SinAperturas_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerAperturasAbiertasAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturasAbiertas_ConAperturaAbierta_DevuelveApertura()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.ObtenerAperturasAbiertasAsync();
+
+        Assert.Single(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerAperturaActivaParaUsuarioAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaUsuario_UsuarioConApertura_RetornaApertura()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja); // abre con "testuser"
+
+        var resultado = await _service.ObtenerAperturaActivaParaUsuarioAsync("testuser");
+
+        Assert.NotNull(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaUsuario_UsuarioSinApertura_RetornaNull()
+    {
+        var resultado = await _service.ObtenerAperturaActivaParaUsuarioAsync("otro-user");
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaUsuario_UsuarioVacio_RetornaNull()
+    {
+        var resultado = await _service.ObtenerAperturaActivaParaUsuarioAsync("");
+        Assert.Null(resultado);
+    }
 }
