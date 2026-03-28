@@ -169,7 +169,8 @@ namespace TheBuryProject.Services
                                 a.Tipo == TipoAlertaCobranza.CuotaVencida &&
                                 !a.IsDeleted)
                     .Select(a => a.CreditoId)
-                    .ToHashSetAsync(ct);
+                    .ToListAsync(ct);
+                var creditosConAlertaActivaSet = creditosConAlertaActiva.ToHashSet();
 
                 foreach (var grupo in cuotasPorCredito)
                 {
@@ -188,7 +189,7 @@ namespace TheBuryProject.Services
                         }
 
                         // Verificar si ya existe alerta activa (en memoria, sin query adicional)
-                        if (creditosConAlertaActiva.Contains(creditoId))
+                        if (creditosConAlertaActivaSet.Contains(creditoId))
                             continue;
 
                         // Calcular datos de mora

@@ -109,7 +109,7 @@ namespace TheBuryProject.Controllers
                 var clientesTask = _clienteLookup.GetClientesSelectListAsync();
                 var aperturaTask = !string.IsNullOrWhiteSpace(userName)
                     ? _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
-                    : Task.FromResult<AperturaViewModel?>(null);
+                    : Task.FromResult<AperturaCaja?>(null);
 
                 await Task.WhenAll(ventasTask, clientesTask, aperturaTask);
 
