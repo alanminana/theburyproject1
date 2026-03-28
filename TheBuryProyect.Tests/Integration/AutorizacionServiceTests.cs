@@ -424,4 +424,187 @@ public class AutorizacionServiceTests : IDisposable
         Assert.Single(resultado);
         Assert.All(resultado, s => Assert.Equal("usuario_a", s.UsuarioSolicitante));
     }
+
+    // =========================================================================
+    // ObtenerTodosUmbralesAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerTodosUmbrales_SinUmbrales_RetornaVacio()
+    {
+        var lista = await _service.ObtenerTodosUmbralesAsync();
+        Assert.Empty(lista);
+    }
+
+    [Fact]
+    public async Task ObtenerTodosUmbrales_ConUmbrales_DevuelveTodos()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoVenta);
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.MontoTotalVenta);
+        await SeedUmbralAsync(Roles.Cajero, TipoUmbral.DescuentoVenta);
+
+        var lista = await _service.ObtenerTodosUmbralesAsync();
+
+        Assert.Equal(3, lista.Count);
+    }
+
+    [Fact]
+    public async Task ObtenerTodosUmbrales_ExcluyeEliminados()
+    {
+        var umbral = await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoVenta);
+        await _service.EliminarUmbralAsync(umbral.Id);
+
+        var lista = await _service.ObtenerTodosUmbralesAsync();
+
+        Assert.Empty(lista);
+    }
+
+    // =========================================================================
+    // ObtenerUmbralesPorRolAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerUmbralesPorRol_FiltraPorRol()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoVenta);
+        await SeedUmbralAsync(Roles.Cajero, TipoUmbral.DescuentoVenta);
+
+        var lista = await _service.ObtenerUmbralesPorRolAsync(Roles.Vendedor);
+
+        Assert.Single(lista);
+        Assert.All(lista, u => Assert.Equal(Roles.Vendedor, u.Rol));
+    }
+
+    [Fact]
+    public async Task ObtenerUmbralesPorRol_InactivoNoAparece()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoVenta, activo: false);
+
+        var lista = await _service.ObtenerUmbralesPorRolAsync(Roles.Vendedor);
+
+        Assert.Empty(lista);
+    }
+
+    // =========================================================================
+    // ObtenerUmbralAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerUmbral_Existente_RetornaUmbral()
+    {
+        var umbral = await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoVenta, 15m);
+
+        var resultado = await _service.ObtenerUmbralAsync(umbral.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(15m, resultado!.ValorMaximo);
+    }
+
+    [Fact]
+    public async Task ObtenerUmbral_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerUmbralAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // ValidarMontoCreditoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ValidarMontoCredito_DentroDelUmbral_Permitido()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.MontoCredito, 50_000m);
+
+        var (permitido, valorPermitido, _) = await _service.ValidarMontoCreditoAsync(Roles.Vendedor, 30_000m);
+
+        Assert.True(permitido);
+        Assert.Equal(50_000m, valorPermitido);
+    }
+
+    [Fact]
+    public async Task ValidarMontoCredito_ExcedeUmbral_Denegado()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.MontoCredito, 50_000m);
+
+        var (permitido, _, _) = await _service.ValidarMontoCreditoAsync(Roles.Vendedor, 80_000m);
+
+        Assert.False(permitido);
+    }
+
+    [Fact]
+    public async Task ValidarMontoCredito_SinUmbral_Denegado()
+    {
+        var (permitido, _, _) = await _service.ValidarMontoCreditoAsync(Roles.Vendedor, 10_000m);
+        Assert.False(permitido);
+    }
+
+    // =========================================================================
+    // ValidarDescuentoCompraAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ValidarDescuentoCompra_DentroDelUmbral_Permitido()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoCompra, 20m);
+
+        var (permitido, _, _) = await _service.ValidarDescuentoCompraAsync(Roles.Vendedor, 15m);
+
+        Assert.True(permitido);
+    }
+
+    [Fact]
+    public async Task ValidarDescuentoCompra_ExcedeUmbral_Denegado()
+    {
+        await SeedUmbralAsync(Roles.Vendedor, TipoUmbral.DescuentoCompra, 20m);
+
+        var (permitido, _, _) = await _service.ValidarDescuentoCompraAsync(Roles.Vendedor, 25m);
+
+        Assert.False(permitido);
+    }
+
+    // =========================================================================
+    // ObtenerTodasSolicitudesAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerTodasSolicitudes_DevuelveTodos_SinFiltroDeEstado()
+    {
+        await SeedSolicitudAsync(estado: EstadoSolicitud.Pendiente);
+        await SeedSolicitudAsync(estado: EstadoSolicitud.Aprobada);
+        await SeedSolicitudAsync(estado: EstadoSolicitud.Rechazada);
+
+        var lista = await _service.ObtenerTodasSolicitudesAsync();
+
+        Assert.Equal(3, lista.Count);
+    }
+
+    [Fact]
+    public async Task ObtenerTodasSolicitudes_SinRegistros_RetornaVacio()
+    {
+        var lista = await _service.ObtenerTodasSolicitudesAsync();
+        Assert.Empty(lista);
+    }
+
+    // =========================================================================
+    // ObtenerSolicitudAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerSolicitud_Existente_RetornaSolicitud()
+    {
+        var solicitud = await SeedSolicitudAsync("usuario_x");
+
+        var resultado = await _service.ObtenerSolicitudAsync(solicitud.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal("usuario_x", resultado!.UsuarioSolicitante);
+    }
+
+    [Fact]
+    public async Task ObtenerSolicitud_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerSolicitudAsync(99999);
+        Assert.Null(resultado);
+    }
 }
