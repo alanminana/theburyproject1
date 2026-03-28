@@ -385,6 +385,75 @@ public class ValidacionVentaServiceTests : IDisposable
 
         Assert.True(result.PuedeProceeder);
     }
+
+    // =========================================================================
+    // ClientePuedeRecibirCreditoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ClientePuedeRecibirCredito_ClienteApto_RetornaTrue()
+    {
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 10_000m);
+        _stubAptitud.CupoDisponible = 10_000m;
+
+        var resultado = await _service.ClientePuedeRecibirCreditoAsync(cliente.Id, 1_000m);
+
+        Assert.True(resultado);
+    }
+
+    [Fact]
+    public async Task ClientePuedeRecibirCredito_ClienteNoApto_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudNoApto("Mora");
+
+        var resultado = await _service.ClientePuedeRecibirCreditoAsync(cliente.Id, 1_000m);
+
+        Assert.False(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerResumenCrediticioAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerResumenCrediticio_ClienteApto_RetornaResumenConDatos()
+    {
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 5_000m);
+
+        var resultado = await _service.ObtenerResumenCrediticioAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(5_000m, resultado.CupoDisponible);
+    }
+
+    [Fact]
+    public async Task ObtenerResumenCrediticio_ConCreditosActivos_IncluijeCreditosEnResumen()
+    {
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 10_000m);
+        await SeedCreditoAsync(cliente.Id, EstadoCredito.Activo, 3_000m);
+
+        var resultado = await _service.ObtenerResumenCrediticioAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Single(resultado.CreditosActivos);
+        Assert.Equal(3_000m, resultado.CreditosActivos[0].SaldoDisponible);
+    }
+
+    [Fact]
+    public async Task ObtenerResumenCrediticio_ClienteNoApto_RetornaMensajeAdvertencia()
+    {
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudNoApto("Mora");
+
+        var resultado = await _service.ObtenerResumenCrediticioAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.NotNull(resultado.MensajeAdvertencia);
+    }
 }
 
 // ---------------------------------------------------------------------------

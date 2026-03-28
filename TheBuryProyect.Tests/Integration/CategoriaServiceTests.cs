@@ -410,4 +410,32 @@ public class CategoriaServiceTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(padre));
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_DevuelveTodasLasCategoriasActivas()
+    {
+        var baseCount = (await _service.GetAllAsync()).Count();
+        await SeedCategoriaAsync();
+        await SeedCategoriaAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(baseCount + 2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminadas()
+    {
+        var baseCount = (await _service.GetAllAsync()).Count();
+        var cat = await SeedCategoriaAsync();
+        await _service.DeleteAsync(cat.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(baseCount, resultado.Count());
+    }
 }

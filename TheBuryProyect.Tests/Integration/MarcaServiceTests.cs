@@ -411,4 +411,32 @@ public class MarcaServiceTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(padre));
     }
+
+    // =========================================================================
+    // GetAllAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetAll_DevuelveTodasLasMarcasActivas()
+    {
+        var baseCount = (await _service.GetAllAsync()).Count();
+        await SeedMarcaAsync();
+        await SeedMarcaAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(baseCount + 2, resultado.Count());
+    }
+
+    [Fact]
+    public async Task GetAll_ExcluyeEliminadas()
+    {
+        var baseCount = (await _service.GetAllAsync()).Count();
+        var marca = await SeedMarcaAsync();
+        await _service.DeleteAsync(marca.Id);
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Equal(baseCount, resultado.Count());
+    }
 }
