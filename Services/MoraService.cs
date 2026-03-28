@@ -160,6 +160,17 @@ namespace TheBuryProject.Services
                 var cuotasPorCredito = cuotasVencidas.GroupBy(c => c.CreditoId).ToList();
                 int alertasCreadas = 0;
 
+                // Pre-cargar en batch los créditos que ya tienen alerta activa para evitar N+1
+                var creditoIds = cuotasPorCredito.Select(g => g.Key).ToList();
+                var creditosConAlertaActiva = await _context.AlertasCobranza
+                    .AsNoTracking()
+                    .Where(a => creditoIds.Contains(a.CreditoId) &&
+                                !a.Resuelta &&
+                                a.Tipo == TipoAlertaCobranza.CuotaVencida &&
+                                !a.IsDeleted)
+                    .Select(a => a.CreditoId)
+                    .ToHashSetAsync(ct);
+
                 foreach (var grupo in cuotasPorCredito)
                 {
                     try
@@ -176,14 +187,8 @@ namespace TheBuryProject.Services
                             continue;
                         }
 
-                        // Verificar si ya existe alerta activa (evitar duplicados)
-                        var alertaExistente = await _context.AlertasCobranza
-                            .AnyAsync(a => a.CreditoId == creditoId &&
-                                      !a.Resuelta &&
-                                      a.Tipo == TipoAlertaCobranza.CuotaVencida &&
-                                      !a.IsDeleted, ct);
-
-                        if (alertaExistente)
+                        // Verificar si ya existe alerta activa (en memoria, sin query adicional)
+                        if (creditosConAlertaActiva.Contains(creditoId))
                             continue;
 
                         // Calcular datos de mora
