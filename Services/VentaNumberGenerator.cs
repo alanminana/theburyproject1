@@ -76,7 +76,7 @@ namespace TheBuryProject.Services
                 if (ultimaFactura != null)
                 {
                     var partes = ultimaFactura.Numero.Split('-');
-                    if (partes.Length >= 3 && int.TryParse(partes[2], out int ultimo))
+                    if (partes.Length >= 3 && int.TryParse(partes[^1], out int ultimo))
                     {
                         siguiente = ultimo + 1;
                     }

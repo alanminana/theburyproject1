@@ -219,6 +219,19 @@ public class VentaNumberGeneratorTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerarNumeroFactura_ConFacturasExistentes_IncrementaSecuencialmenteCorrectamente()
+    {
+        // Verifica que el parser usa el último segmento (no partes[2]) para prefijos compuestos como FA-B
+        var periodoActual = Periodo;
+        await SeedFacturaConNumeroAsync($"FA-B-{periodoActual}-000001");
+        await SeedFacturaConNumeroAsync($"FA-B-{periodoActual}-000005");
+
+        var numero = await _generator.GenerarNumeroFacturaAsync(TipoFactura.B);
+
+        Assert.Equal($"FA-B-{periodoActual}-000006", numero);
+    }
+
+    [Fact]
     public async Task GenerarNumeroFactura_TiposDistintosSeriesIndependientes()
     {
         var periodoActual = Periodo;
