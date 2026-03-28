@@ -592,11 +592,24 @@ public class RolService : IRolService
     {
         var roles = await GetAllRolesAsync();
         var modulos = await GetAllModulosAsync();
+
+        // Batch: cargar todos los permisos de todos los roles en una sola query
+        var roleIds = roles.Select(r => r.Id).ToList();
+        var todosPermisos = await _context.RolPermisos
+            .AsNoTracking()
+            .Include(rp => rp.Modulo)
+            .Include(rp => rp.Accion)
+            .Where(rp => roleIds.Contains(rp.RoleId) && !rp.IsDeleted)
+            .ToListAsync();
+
+        var permisosPorRol = todosPermisos.GroupBy(p => p.RoleId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var matrix = new Dictionary<string, Dictionary<string, List<string>>>();
 
         foreach (var role in roles)
         {
-            var permisos = await GetPermissionsForRoleAsync(role.Id);
+            var permisos = permisosPorRol.GetValueOrDefault(role.Id, new());
             var rolePermisos = new Dictionary<string, List<string>>();
 
             foreach (var modulo in modulos)
@@ -618,15 +631,18 @@ public class RolService : IRolService
     public async Task<Dictionary<string, int>> GetRoleUsageStatsAsync()
     {
         var roles = await GetAllRolesAsync();
-        var stats = new Dictionary<string, int>();
 
-        foreach (var role in roles)
-        {
-            var users = await GetUsersInRoleAsync(role.Name!);
-            stats[role.Name!] = users.Count;
-        }
+        var roleIds = roles.Select(r => r.Id).ToList();
+        var countsByRoleId = await _context.UserRoles
+            .AsNoTracking()
+            .Where(ur => roleIds.Contains(ur.RoleId))
+            .GroupBy(ur => ur.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
 
-        return stats;
+        return roles.ToDictionary(
+            r => r.Name!,
+            r => countsByRoleId.GetValueOrDefault(r.Id, 0));
     }
 
     #endregion
