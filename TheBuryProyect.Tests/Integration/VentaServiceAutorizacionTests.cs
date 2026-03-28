@@ -436,6 +436,54 @@ public class VentaServiceAutorizacionTests : IDisposable
         Assert.Contains("Primera excepción", ventaBd.MotivoAutorizacion);
         Assert.Contains("Segunda excepción", ventaBd.MotivoAutorizacion);
     }
+
+    // -------------------------------------------------------------------------
+    // CancelarVentaAsync — estados sin devolución de stock
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CancelarVenta_EstadoPresupuesto_CambiaEstadoACancelada()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, estado: EstadoVenta.Presupuesto);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Cambió de idea");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaBd.Estado);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_EstadoPendienteFinanciacion_CambiaEstadoACancelada()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, estado: EstadoVenta.PendienteFinanciacion);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Crédito rechazado");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaBd.Estado);
+        Assert.Equal("Crédito rechazado", ventaBd.MotivoCancelacion);
+        Assert.NotNull(ventaBd.FechaCancelacion);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_EstadoPendienteRequisitos_CambiaEstadoACancelada()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, estado: EstadoVenta.PendienteRequisitos);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Documentación incompleta");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaBd.Estado);
+    }
 }
 
 // ---------------------------------------------------------------------------
