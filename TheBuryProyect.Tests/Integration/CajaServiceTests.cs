@@ -129,6 +129,15 @@ public class CajaServiceTests : IDisposable
             Monto = monto
         };
 
+    private Task<CierreCaja> CerrarCajaExactaAsync(AperturaCaja apertura, decimal efectivo = 0m) =>
+        _service.CerrarCajaAsync(
+            new CerrarCajaViewModel
+            {
+                AperturaCajaId = apertura.Id,
+                EfectivoContado = efectivo
+            },
+            "admin");
+
     // -------------------------------------------------------------------------
     // AbrirCajaAsync
     // -------------------------------------------------------------------------
@@ -895,5 +904,230 @@ public class CajaServiceTests : IDisposable
     {
         var resultado = await _service.ObtenerAperturaActivaParaUsuarioAsync("");
         Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // ObtenerAperturaActivaParaVentaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaVenta_SinAperturas_RetornaNull()
+    {
+        var resultado = await _service.ObtenerAperturaActivaParaVentaAsync();
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaVenta_ConAperturaAbierta_RetornaApertura()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.ObtenerAperturaActivaParaVentaAsync();
+
+        Assert.NotNull(resultado);
+        Assert.False(resultado!.Cerrada);
+    }
+
+    // =========================================================================
+    // ObtenerMovimientosDeAperturaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerMovimientosDeApertura_SinMovimientos_RetornaVacio()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+
+        var resultado = await _service.ObtenerMovimientosDeAperturaAsync(apertura.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerMovimientosDeApertura_ConMovimientos_RetornaMovimientos()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Ingreso, 300m), "testuser");
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Egreso, 100m), "testuser");
+
+        var resultado = await _service.ObtenerMovimientosDeAperturaAsync(apertura.Id);
+
+        Assert.Equal(2, resultado.Count);
+    }
+
+    // =========================================================================
+    // ObtenerCierrePorIdAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerCierrePorId_InexistentE_RetornaNull()
+    {
+        var resultado = await _service.ObtenerCierrePorIdAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerCierrePorId_Existente_RetornaCierre()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 500m);
+        var cierre = await CerrarCajaExactaAsync(apertura, efectivo: 500m);
+
+        var resultado = await _service.ObtenerCierrePorIdAsync(cierre!.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(cierre.Id, resultado!.Id);
+    }
+
+    // =========================================================================
+    // ObtenerHistorialCierresAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerHistorialCierres_SinCierres_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerHistorialCierresAsync();
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerHistorialCierres_ConCierre_RetornaCierres()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 500m);
+        await CerrarCajaExactaAsync(apertura, efectivo: 500m);
+
+        var resultado = await _service.ObtenerHistorialCierresAsync();
+
+        Assert.Single(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerHistorialCierres_FiltroPorCajaId_RetornaSoloDeLaCaja()
+    {
+        var caja1 = await SeedCajaAsync();
+        var caja2 = await SeedCajaAsync();
+
+        var ap1 = await AbrirCajaAsync(caja1, 500m);
+        await CerrarCajaExactaAsync(ap1, efectivo: 500m);
+
+        var ap2 = await AbrirCajaAsync(caja2, 200m);
+        await CerrarCajaExactaAsync(ap2, efectivo: 200m);
+
+        var resultado = await _service.ObtenerHistorialCierresAsync(cajaId: caja1.Id);
+
+        Assert.Single(resultado);
+        Assert.All(resultado, c => Assert.Equal(ap1.Id, c.AperturaCajaId));
+    }
+
+    // =========================================================================
+    // ObtenerDetallesAperturaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerDetallesApertura_AperturaInexistente_LanzaExcepcion()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ObtenerDetallesAperturaAsync(99999));
+    }
+
+    [Fact]
+    public async Task ObtenerDetallesApertura_SinMovimientos_RetornaDetallesConCeros()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 800m);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado.TotalIngresos);
+        Assert.Equal(0, resultado.TotalEgresos);
+        Assert.Equal(800m, resultado.SaldoActual);
+        Assert.Equal(0, resultado.CantidadMovimientos);
+    }
+
+    [Fact]
+    public async Task ObtenerDetallesApertura_ConMovimientos_CalculaTotalesCorrectamente()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Ingreso, 500m), "testuser");
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Egreso, 200m), "testuser");
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Equal(500m, resultado.TotalIngresos);
+        Assert.Equal(200m, resultado.TotalEgresos);
+        Assert.Equal(1_300m, resultado.SaldoActual); // 1000 + 500 - 200
+        Assert.Equal(2, resultado.CantidadMovimientos);
+    }
+
+    // =========================================================================
+    // GenerarReporteCajaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GenerarReporteCaja_SinAperturas_RetornaReporteVacio()
+    {
+        var resultado = await _service.GenerarReporteCajaAsync(
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado.TotalAperturas);
+        Assert.Equal(0m, resultado.TotalIngresos);
+        Assert.Equal(0m, resultado.TotalEgresos);
+    }
+
+    [Fact]
+    public async Task GenerarReporteCaja_ConMovimientos_SumaTotales()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Ingreso, 400m), "testuser");
+        await _service.RegistrarMovimientoAsync(
+            BuildMovimiento(apertura.Id, TipoMovimientoCaja.Egreso, 150m), "testuser");
+
+        var resultado = await _service.GenerarReporteCajaAsync(
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1));
+
+        Assert.Equal(1, resultado.TotalAperturas);
+        Assert.Equal(400m, resultado.TotalIngresos);
+        Assert.Equal(150m, resultado.TotalEgresos);
+    }
+
+    // =========================================================================
+    // ObtenerEstadisticasCierresAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerEstadisticasCierres_SinCierres_RetornaContadoresCero()
+    {
+        var resultado = await _service.ObtenerEstadisticasCierresAsync();
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado.TotalCierres);
+        Assert.Equal(0, resultado.CierresConDiferencia);
+        Assert.Equal(0m, resultado.PorcentajeCierresExactos); // sin cierres → 0
+    }
+
+    [Fact]
+    public async Task ObtenerEstadisticasCierres_CierreExacto_CierresConDiferenciaEsCero()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 500m);
+        await CerrarCajaExactaAsync(apertura, efectivo: 500m);
+
+        var resultado = await _service.ObtenerEstadisticasCierresAsync();
+
+        Assert.Equal(1, resultado.TotalCierres);
+        Assert.Equal(0, resultado.CierresConDiferencia);
+        Assert.Equal(100m, resultado.PorcentajeCierresExactos);
     }
 }
