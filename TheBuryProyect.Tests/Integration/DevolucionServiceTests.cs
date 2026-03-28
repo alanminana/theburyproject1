@@ -504,6 +504,527 @@ public class DevolucionServiceTests : IDisposable
         Assert.StartsWith("DEV-", numero);
         Assert.Contains(DateTime.UtcNow.ToString("yyyyMM"), numero);
     }
+
+    // -------------------------------------------------------------------------
+    // ObtenerTodasDevolucionesAsync / ObtenerDevolucionesPorClienteAsync /
+    // ObtenerDevolucionesPorEstadoAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerTodas_SinDevoluciones_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerTodasDevolucionesAsync();
+
+        Assert.NotNull(resultado);
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerTodas_ConDevoluciones_RetornaLista()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        await SeedDevolucionAsync(venta.Id, cliente.Id);
+        await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var resultado = await _service.ObtenerTodasDevolucionesAsync();
+
+        Assert.True(resultado.Count >= 2);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCliente_SinDevoluciones_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerDevolucionesPorClienteAsync(99999);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerPorCliente_ConDevoluciones_RetornaSoloLasDelCliente()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var cliente2 = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta1 = await SeedVentaConDetalleAsync(cliente1.Id, producto.Id, 5);
+        var venta2 = await SeedVentaConDetalleAsync(cliente2.Id, producto.Id, 5);
+        await SeedDevolucionAsync(venta1.Id, cliente1.Id);
+        await SeedDevolucionAsync(venta2.Id, cliente2.Id);
+
+        var resultado = await _service.ObtenerDevolucionesPorClienteAsync(cliente1.Id);
+
+        Assert.All(resultado, d => Assert.Equal(cliente1.Id, d.ClienteId));
+    }
+
+    [Fact]
+    public async Task ObtenerPorEstado_Pendiente_RetornaSoloPendientes()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 10);
+        await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Pendiente);
+        await SeedDevolucionAsync(venta.Id, cliente.Id, EstadoDevolucion.Aprobada);
+
+        var resultado = await _service.ObtenerDevolucionesPorEstadoAsync(EstadoDevolucion.Pendiente);
+
+        Assert.All(resultado, d => Assert.Equal(EstadoDevolucion.Pendiente, d.Estado));
+    }
+
+    // -------------------------------------------------------------------------
+    // ObtenerDevolucionAsync / ObtenerDevolucionPorNumeroAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerDevolucion_Existente_RetornaDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var resultado = await _service.ObtenerDevolucionAsync(dev.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(dev.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerDevolucion_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerDevolucionAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerDevolucionPorNumero_Existente_RetornaDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var resultado = await _service.ObtenerDevolucionPorNumeroAsync(dev.NumeroDevolucion);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(dev.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerDevolucionPorNumero_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerDevolucionPorNumeroAsync("DEV-INEXISTENTE");
+
+        Assert.Null(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // ActualizarDevolucionAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ActualizarDevolucion_Existente_ActualizaDescripcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        dev.Descripcion = "Descripción actualizada";
+        dev.ObservacionesInternas = "Nueva observación";
+
+        var resultado = await _service.ActualizarDevolucionAsync(dev);
+
+        Assert.Equal("Descripción actualizada", resultado.Descripcion);
+        Assert.Equal("Nueva observación", resultado.ObservacionesInternas);
+    }
+
+    [Fact]
+    public async Task ActualizarDevolucion_Inexistente_LanzaKeyNotFoundException()
+    {
+        var dev = new Devolucion { Id = 99999, NumeroDevolucion = "DEV-X", VentaId = 1, ClienteId = 1 };
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.ActualizarDevolucionAsync(dev));
+    }
+
+    // -------------------------------------------------------------------------
+    // ObtenerDetallesDevolucionAsync / AgregarDetalleAsync /
+    // ActualizarEstadoProductoAsync / VerificarAccesoriosAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerDetalles_SinDetalles_RetornaVacio()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var resultado = await _service.ObtenerDetallesDevolucionAsync(dev.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ActualizarEstadoProducto_Existente_ActualizaEstadoYAccion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id, ProductoId = producto.Id,
+            Cantidad = 1, PrecioUnitario = 50m, Subtotal = 50m
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ActualizarEstadoProductoAsync(
+            detalle.Id, EstadoProductoDevuelto.Defectuoso, AccionProducto.ReintegrarStock);
+
+        Assert.Equal(EstadoProductoDevuelto.Defectuoso, resultado.EstadoProducto);
+        Assert.Equal(AccionProducto.ReintegrarStock, resultado.AccionRecomendada);
+    }
+
+    [Fact]
+    public async Task VerificarAccesorios_Existente_ActualizaAccesorios()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id, ProductoId = producto.Id,
+            Cantidad = 1, PrecioUnitario = 50m, Subtotal = 50m
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+
+        var ok = await _service.VerificarAccesoriosAsync(detalle.Id, false, "Cable faltante");
+
+        Assert.True(ok);
+        _context.ChangeTracker.Clear();
+        var dt = await _context.DevolucionDetalles.FindAsync(detalle.Id);
+        Assert.False(dt!.AccesoriosCompletos);
+        Assert.Equal("Cable faltante", dt.AccesoriosFaltantes);
+    }
+
+    [Fact]
+    public async Task VerificarAccesorios_Inexistente_RetornaFalse()
+    {
+        var resultado = await _service.VerificarAccesoriosAsync(99999, true, null);
+
+        Assert.False(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // Garantías: ObtenerTodasGarantiasAsync / ObtenerGarantiasVigentesAsync /
+    // ObtenerGarantiasPorClienteAsync / ObtenerGarantiaAsync /
+    // CrearGarantiaAsync / ValidarGarantiaVigenteAsync /
+    // ObtenerGarantiasProximasVencerAsync
+    // -------------------------------------------------------------------------
+
+    private async Task<Garantia> SeedGarantiaAsync(int clienteId, int productoId, int ventaDetalleId,
+        EstadoGarantia estado = EstadoGarantia.Vigente, int meses = 12)
+    {
+        var g = new Garantia
+        {
+            NumeroGarantia = "GAR-" + Guid.NewGuid().ToString("N")[..6],
+            ClienteId = clienteId,
+            ProductoId = productoId,
+            VentaDetalleId = ventaDetalleId,
+            FechaInicio = DateTime.UtcNow.AddMonths(-1),
+            FechaVencimiento = DateTime.UtcNow.AddMonths(meses - 1),
+            MesesGarantia = meses,
+            Estado = estado
+        };
+        _context.Garantias.Add(g);
+        await _context.SaveChangesAsync();
+        return g;
+    }
+
+    [Fact]
+    public async Task ObtenerTodasGarantias_SinGarantias_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerTodasGarantiasAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerTodasGarantias_ConGarantias_RetornaLista()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        var ventaDetalle = venta.Detalles.First();
+        await SeedGarantiaAsync(cliente.Id, producto.Id, ventaDetalle.Id);
+
+        var resultado = await _service.ObtenerTodasGarantiasAsync();
+
+        Assert.True(resultado.Count >= 1);
+    }
+
+    [Fact]
+    public async Task ObtenerGarantiasVigentes_FiltraVencidas()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        var ventaDetalle = venta.Detalles.First();
+        var vigente = await SeedGarantiaAsync(cliente.Id, producto.Id, ventaDetalle.Id, EstadoGarantia.Vigente);
+        var vencida = await SeedGarantiaAsync(cliente.Id, producto.Id, ventaDetalle.Id, EstadoGarantia.Vencida);
+
+        var resultado = await _service.ObtenerGarantiasVigentesAsync();
+
+        Assert.DoesNotContain(resultado, g => g.Id == vencida.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerGarantiasPorCliente_FiltraPorCliente()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var cliente2 = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta1 = await SeedVentaConDetalleAsync(cliente1.Id, producto.Id, 2);
+        var venta2 = await SeedVentaConDetalleAsync(cliente2.Id, producto.Id, 2);
+        await SeedGarantiaAsync(cliente1.Id, producto.Id, venta1.Detalles.First().Id);
+        await SeedGarantiaAsync(cliente2.Id, producto.Id, venta2.Detalles.First().Id);
+
+        var resultado = await _service.ObtenerGarantiasPorClienteAsync(cliente1.Id);
+
+        Assert.All(resultado, g => Assert.Equal(cliente1.Id, g.ClienteId));
+    }
+
+    [Fact]
+    public async Task ObtenerGarantia_Existente_RetornaGarantia()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+        var garantia = await SeedGarantiaAsync(cliente.Id, producto.Id, venta.Detalles.First().Id);
+
+        var resultado = await _service.ObtenerGarantiaAsync(garantia.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(garantia.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerGarantia_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerGarantiaAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task CrearGarantia_Persiste_AsignaNumeroYFechaVencimiento()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 1);
+        var ventaDetalle = venta.Detalles.First();
+
+        var garantia = new Garantia
+        {
+            ClienteId = cliente.Id,
+            ProductoId = producto.Id,
+            VentaDetalleId = ventaDetalle.Id,
+            FechaInicio = DateTime.UtcNow,
+            MesesGarantia = 6
+        };
+
+        var resultado = await _service.CrearGarantiaAsync(garantia);
+
+        Assert.True(resultado.Id > 0);
+        Assert.StartsWith("GAR-", resultado.NumeroGarantia);
+        Assert.Equal(EstadoGarantia.Vigente, resultado.Estado);
+        Assert.True(resultado.FechaVencimiento > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task ValidarGarantiaVigente_Vigente_RetornaTrue()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 1);
+        var garantia = await SeedGarantiaAsync(cliente.Id, producto.Id, venta.Detalles.First().Id);
+
+        var resultado = await _service.ValidarGarantiaVigenteAsync(garantia.Id);
+
+        Assert.True(resultado);
+    }
+
+    [Fact]
+    public async Task ValidarGarantiaVigente_Expirada_RetornaFalse()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 1);
+        var garantia = await SeedGarantiaAsync(cliente.Id, producto.Id, venta.Detalles.First().Id,
+            EstadoGarantia.Vencida);
+
+        var resultado = await _service.ValidarGarantiaVigenteAsync(garantia.Id);
+
+        Assert.False(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // Notas de Crédito: ObtenerTodasNotasCreditoAsync /
+    // ObtenerNotasCreditoPorClienteAsync / ObtenerNotasCreditoVigentesAsync /
+    // ObtenerNotaCreditoAsync / ObtenerNotaCreditoPorNumeroAsync /
+    // CrearNotaCreditoAsync
+    // -------------------------------------------------------------------------
+
+    private async Task<NotaCredito> SeedNotaCreditoAsync(int clienteId, int? devolucionId = null,
+        EstadoNotaCredito estado = EstadoNotaCredito.Vigente, decimal monto = 100m)
+    {
+        var nc = new NotaCredito
+        {
+            NumeroNotaCredito = "NC-" + Guid.NewGuid().ToString("N")[..6],
+            ClienteId = clienteId,
+            DevolucionId = devolucionId ?? 0,
+            FechaEmision = DateTime.UtcNow,
+            MontoTotal = monto,
+            Estado = estado,
+            FechaVencimiento = DateTime.UtcNow.AddYears(1)
+        };
+        _context.NotasCredito.Add(nc);
+        await _context.SaveChangesAsync();
+        return nc;
+    }
+
+    [Fact]
+    public async Task ObtenerTodasNotasCredito_SinNotas_RetornaVacio()
+    {
+        var resultado = await _service.ObtenerTodasNotasCreditoAsync();
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerTodasNotasCredito_ConNotas_RetornaLista()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        await SeedNotaCreditoAsync(cliente.Id, dev.Id);
+
+        var resultado = await _service.ObtenerTodasNotasCreditoAsync();
+
+        Assert.True(resultado.Count >= 1);
+    }
+
+    [Fact]
+    public async Task ObtenerNotasCreditoPorCliente_FiltraPorCliente()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var cliente2 = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta1 = await SeedVentaConDetalleAsync(cliente1.Id, producto.Id, 5);
+        var venta2 = await SeedVentaConDetalleAsync(cliente2.Id, producto.Id, 5);
+        var dev1 = await SeedDevolucionAsync(venta1.Id, cliente1.Id);
+        var dev2 = await SeedDevolucionAsync(venta2.Id, cliente2.Id);
+        await SeedNotaCreditoAsync(cliente1.Id, dev1.Id);
+        await SeedNotaCreditoAsync(cliente2.Id, dev2.Id);
+
+        var resultado = await _service.ObtenerNotasCreditoPorClienteAsync(cliente1.Id);
+
+        Assert.All(resultado, nc => Assert.Equal(cliente1.Id, nc.ClienteId));
+    }
+
+    [Fact]
+    public async Task ObtenerNotaCredito_Existente_RetornaNotaCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id);
+
+        var resultado = await _service.ObtenerNotaCreditoAsync(nc.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(nc.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerNotaCredito_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.ObtenerNotaCreditoAsync(99999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerNotaCreditoPorNumero_Existente_RetornaNotaCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id);
+
+        var resultado = await _service.ObtenerNotaCreditoPorNumeroAsync(nc.NumeroNotaCredito);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(nc.Id, resultado!.Id);
+    }
+
+    [Fact]
+    public async Task CrearNotaCredito_Persiste_AsignaNumero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var nc = new NotaCredito
+        {
+            ClienteId = cliente.Id,
+            DevolucionId = dev.Id,
+            FechaEmision = DateTime.UtcNow,
+            MontoTotal = 250m,
+            FechaVencimiento = DateTime.UtcNow.AddYears(1)
+        };
+
+        var resultado = await _service.CrearNotaCreditoAsync(nc);
+
+        Assert.True(resultado.Id > 0);
+        Assert.StartsWith("NC-", resultado.NumeroNotaCredito);
+        Assert.Equal(EstadoNotaCredito.Vigente, resultado.Estado);
+        Assert.Equal(0m, resultado.MontoUtilizado);
+    }
+
+    // -------------------------------------------------------------------------
+    // ObtenerDiasDesdeVentaAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerDiasDesdeVenta_VentaExistente_RetornaDias()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 1,
+            fechaVenta: DateTime.UtcNow.AddDays(-10));
+
+        var dias = await _service.ObtenerDiasDesdeVentaAsync(venta.Id);
+
+        Assert.True(dias >= 10);
+    }
+
+    [Fact]
+    public async Task ObtenerDiasDesdeVenta_VentaInexistente_RetornaMaxValue()
+    {
+        var dias = await _service.ObtenerDiasDesdeVentaAsync(99999);
+
+        Assert.Equal(int.MaxValue, dias);
+    }
 }
 
 // ---------------------------------------------------------------------------
