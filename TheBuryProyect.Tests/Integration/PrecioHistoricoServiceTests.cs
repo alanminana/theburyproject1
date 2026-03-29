@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -381,5 +382,186 @@ public class PrecioHistoricoServiceTests : IDisposable
 
         Assert.Contains(simulacion.Alertas, a => a.Contains("costo") || a.Contains("ERROR") || a.Contains("mayor"));
         Assert.False(simulacion.EsRecomendable);
+    }
+
+    // =========================================================================
+    // GetEstadisticasAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetEstadisticas_SinCambios_RetornaTotalesEnCero()
+    {
+        var estadisticas = await _service.GetEstadisticasAsync(null, null);
+
+        Assert.Equal(0, estadisticas.TotalCambios);
+        Assert.Equal(0, estadisticas.CambiosConAumento);
+        Assert.Equal(0, estadisticas.CambiosConDisminucion);
+    }
+
+    [Fact]
+    public async Task GetEstadisticas_ConAumentosYDisminuciones_ContaCorrectamente()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        // Aumento
+        await SeedHistorialAsync(producto.Id,
+            precioVentaAnterior: 40m, precioVentaNuevo: 50m);
+        // Disminución
+        await SeedHistorialAsync(producto.Id,
+            precioVentaAnterior: 50m, precioVentaNuevo: 45m);
+        // Sin cambio en venta
+        await SeedHistorialAsync(producto.Id,
+            precioVentaAnterior: 45m, precioVentaNuevo: 45m);
+
+        var estadisticas = await _service.GetEstadisticasAsync(null, null);
+
+        Assert.Equal(3, estadisticas.TotalCambios);
+        Assert.Equal(1, estadisticas.CambiosConAumento);
+        Assert.Equal(1, estadisticas.CambiosConDisminucion);
+    }
+
+    [Fact]
+    public async Task GetEstadisticas_FiltroFechas_RetornaSoloDentroDelRango()
+    {
+        var producto = await SeedProductoAsync();
+        var antiguo = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var reciente = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        await SeedHistorialAsync(producto.Id, fecha: antiguo);
+        await SeedHistorialAsync(producto.Id, fecha: reciente);
+
+        var estadisticas = await _service.GetEstadisticasAsync(
+            new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(1, estadisticas.TotalCambios);
+    }
+
+    [Fact]
+    public async Task GetEstadisticas_ConAumento_CalculaMayorAumentoVenta()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 100m);
+        await SeedHistorialAsync(producto.Id,
+            precioVentaAnterior: 50m, precioVentaNuevo: 100m); // 100% aumento
+
+        var estadisticas = await _service.GetEstadisticasAsync(null, null);
+
+        Assert.True(estadisticas.MayorAumentoVenta > 0);
+        Assert.NotNull(estadisticas.ProductoMayorAumentoVenta);
+    }
+
+    // =========================================================================
+    // BuscarAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task Buscar_SinFiltros_RetornaTodos()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedHistorialAsync(producto.Id);
+        await SeedHistorialAsync(producto.Id);
+
+        var resultado = await _service.BuscarAsync(
+            new PrecioHistoricoFiltroViewModel { PageNumber = 1, PageSize = 10 });
+
+        Assert.True(resultado.TotalRecords >= 2);
+    }
+
+    [Fact]
+    public async Task Buscar_FiltroPorProductoId_RetornaSoloEseProducto()
+    {
+        var prod1 = await SeedProductoAsync();
+        var prod2 = await SeedProductoAsync();
+        await SeedHistorialAsync(prod1.Id);
+        await SeedHistorialAsync(prod2.Id);
+
+        var resultado = await _service.BuscarAsync(
+            new PrecioHistoricoFiltroViewModel
+            {
+                ProductoId = prod1.Id,
+                PageNumber = 1,
+                PageSize = 10
+            });
+
+        Assert.Equal(1, resultado.TotalRecords);
+        Assert.All(resultado.Items, i => Assert.Equal(prod1.Id, i.ProductoId));
+    }
+
+    [Fact]
+    public async Task Buscar_FiltroPorFechaDesde_ExcluyeAnteriores()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedHistorialAsync(producto.Id,
+            fecha: new DateTime(2022, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        await SeedHistorialAsync(producto.Id,
+            fecha: new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var resultado = await _service.BuscarAsync(
+            new PrecioHistoricoFiltroViewModel
+            {
+                FechaDesde = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                PageNumber = 1,
+                PageSize = 10
+            });
+
+        Assert.Equal(1, resultado.TotalRecords);
+    }
+
+    [Fact]
+    public async Task Buscar_FiltroPorSoloPuedeRevertirse_RetornaSoloReversibles()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedHistorialAsync(producto.Id, puedeRevertirse: true);
+        await SeedHistorialAsync(producto.Id, puedeRevertirse: false);
+
+        var resultado = await _service.BuscarAsync(
+            new PrecioHistoricoFiltroViewModel
+            {
+                SoloPuedeRevertirse = true,
+                PageNumber = 1,
+                PageSize = 10
+            });
+
+        Assert.Equal(1, resultado.TotalRecords);
+        Assert.All(resultado.Items, i => Assert.True(i.PuedeRevertirse));
+    }
+
+    [Fact]
+    public async Task Buscar_Paginacion_RetornaPageSize()
+    {
+        var producto = await SeedProductoAsync();
+        for (int i = 0; i < 5; i++)
+            await SeedHistorialAsync(producto.Id);
+
+        var resultado = await _service.BuscarAsync(
+            new PrecioHistoricoFiltroViewModel { PageNumber = 1, PageSize = 3 });
+
+        Assert.True(resultado.TotalRecords >= 5);
+        Assert.Equal(3, resultado.Items.Count);
+    }
+
+    // =========================================================================
+    // MarcarComoNoReversibleAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task MarcarComoNoReversible_HistorialExistente_CambiaPuedeRevertirseFalse()
+    {
+        var producto = await SeedProductoAsync();
+        var historial = await SeedHistorialAsync(producto.Id, puedeRevertirse: true);
+
+        await _service.MarcarComoNoReversibleAsync(historial.Id);
+
+        _context.ChangeTracker.Clear();
+        var actualizado = await _context.PreciosHistoricos.FindAsync(historial.Id);
+        Assert.False(actualizado!.PuedeRevertirse);
+    }
+
+    [Fact]
+    public async Task MarcarComoNoReversible_HistorialInexistente_NoLanzaExcepcion()
+    {
+        // Should silently do nothing when historial not found
+        var ex = await Record.ExceptionAsync(
+            () => _service.MarcarComoNoReversibleAsync(99999));
+
+        Assert.Null(ex);
     }
 }
