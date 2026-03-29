@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -99,14 +100,15 @@ public class DocumentoClienteServiceTests : IDisposable
         int clienteId,
         TipoDocumentoCliente tipo = TipoDocumentoCliente.DNI,
         EstadoDocumento estado = EstadoDocumento.Pendiente,
-        DateTime? fechaVencimiento = null)
+        DateTime? fechaVencimiento = null,
+        string? rutaArchivo = null)
     {
         var doc = new DocumentoCliente
         {
             ClienteId = clienteId,
             TipoDocumento = tipo,
             NombreArchivo = $"archivo_{tipo}.pdf",
-            RutaArchivo = $"uploads/documentos-clientes/archivo_{tipo}.pdf",
+            RutaArchivo = rutaArchivo ?? $"uploads/documentos-clientes/archivo_{tipo}.pdf",
             Estado = estado,
             FechaSubida = DateTime.UtcNow,
             FechaVencimiento = fechaVencimiento,
@@ -763,4 +765,168 @@ public class DocumentoClienteServiceTests : IDisposable
 
         Assert.Single(resultado);
     }
+
+    // -------------------------------------------------------------------------
+    // UploadAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Upload_ArchivoNulo_LanzaArgumentException()
+    {
+        var vm = new DocumentoClienteViewModel
+        {
+            ClienteId = 1,
+            TipoDocumento = TipoDocumentoCliente.DNI,
+            Archivo = null
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.UploadAsync(vm));
+    }
+
+    [Fact]
+    public async Task Upload_ExtensionInvalida_LanzaArgumentException()
+    {
+        var cliente = await SeedClienteAsync();
+        var archivo = new FakeFormFile("document.exe", "application/octet-stream",
+            new byte[] { 0x4D, 0x5A, 0x00, 0x00 }); // EXE magic bytes
+
+        var vm = new DocumentoClienteViewModel
+        {
+            ClienteId = cliente.Id,
+            TipoDocumento = TipoDocumentoCliente.DNI,
+            Archivo = archivo
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.UploadAsync(vm));
+    }
+
+    [Fact]
+    public async Task Upload_ArchivoPdfValido_GuardaDocumentoEnBD()
+    {
+        var cliente = await SeedClienteAsync();
+        // PDF magic bytes: %PDF
+        var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
+        var archivo = new FakeFormFile("documento.pdf", "application/pdf", pdfBytes);
+
+        var vm = new DocumentoClienteViewModel
+        {
+            ClienteId = cliente.Id,
+            TipoDocumento = TipoDocumentoCliente.DNI,
+            Archivo = archivo
+        };
+
+        var resultado = await _service.UploadAsync(vm);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal(EstadoDocumento.Pendiente, resultado.Estado);
+        Assert.Equal("documento.pdf", resultado.NombreArchivo);
+
+        // Verify persisted in DB
+        var doc = await _context.DocumentosCliente.FindAsync(resultado.Id);
+        Assert.NotNull(doc);
+        Assert.Equal(cliente.Id, doc!.ClienteId);
+    }
+
+    [Fact]
+    public async Task Upload_ArchivoPdfValido_CreaArchivoFisico()
+    {
+        var cliente = await SeedClienteAsync();
+        var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
+        var archivo = new FakeFormFile("test.pdf", "application/pdf", pdfBytes);
+
+        var vm = new DocumentoClienteViewModel
+        {
+            ClienteId = cliente.Id,
+            TipoDocumento = TipoDocumentoCliente.DNI,
+            Archivo = archivo
+        };
+
+        var resultado = await _service.UploadAsync(vm);
+
+        // The file should exist on disk (WebRootPath = TempPath)
+        var fullPath = Path.Combine(Path.GetTempPath(), resultado.RutaArchivo!);
+        Assert.True(File.Exists(fullPath));
+
+        // Cleanup
+        if (File.Exists(fullPath)) File.Delete(fullPath);
+    }
+
+    // -------------------------------------------------------------------------
+    // DescargarArchivoAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task DescargarArchivo_DocumentoInexistente_LanzaInvalidOperation()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.DescargarArchivoAsync(99999));
+    }
+
+    [Fact]
+    public async Task DescargarArchivo_ArchivoFisicoAusente_LanzaInvalidOperation()
+    {
+        var cliente = await SeedClienteAsync();
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI,
+            rutaArchivo: "uploads/documentos-clientes/nonexistent.pdf");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.DescargarArchivoAsync(doc.Id));
+    }
+
+    [Fact]
+    public async Task DescargarArchivo_ArchivoExistente_RetornaBytesCorrectos()
+    {
+        var cliente = await SeedClienteAsync();
+        var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
+
+        // Write the file to temp path first
+        var uploadFolder = Path.Combine(Path.GetTempPath(), "uploads", "documentos-clientes");
+        Directory.CreateDirectory(uploadFolder);
+        var fileName = $"test_{Guid.NewGuid():N}.pdf";
+        var fullPath = Path.Combine(uploadFolder, fileName);
+        await File.WriteAllBytesAsync(fullPath, pdfBytes);
+
+        var relPath = Path.Combine("uploads", "documentos-clientes", fileName);
+        var doc = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, rutaArchivo: relPath);
+
+        try
+        {
+            var resultado = await _service.DescargarArchivoAsync(doc.Id);
+
+            Assert.Equal(pdfBytes, resultado);
+        }
+        finally
+        {
+            if (File.Exists(fullPath)) File.Delete(fullPath);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fake IFormFile para tests de upload
+// ---------------------------------------------------------------------------
+file sealed class FakeFormFile : IFormFile
+{
+    private readonly byte[] _content;
+    private readonly string _fileName;
+    private readonly string _contentType;
+
+    public FakeFormFile(string fileName, string contentType, byte[] content)
+    {
+        _fileName = fileName;
+        _contentType = contentType;
+        _content = content;
+    }
+
+    public string ContentType => _contentType;
+    public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_fileName}\"";
+    public IHeaderDictionary Headers => new HeaderDictionary();
+    public long Length => _content.Length;
+    public string Name => "file";
+    public string FileName => _fileName;
+
+    public void CopyTo(Stream target) => target.Write(_content, 0, _content.Length);
+    public async Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
+        => await target.WriteAsync(_content, 0, _content.Length, cancellationToken);
+    public Stream OpenReadStream() => new MemoryStream(_content);
 }
