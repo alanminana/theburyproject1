@@ -86,12 +86,19 @@
         }
         @if (!puedeOperarVentas)
         {
-            <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-sm font-bold flex items-start gap-3">
-                <span class="material-symbols-outlined text-sm mt-0.5">warning</span>
-                <div>
-                    <p>No tiene una caja abierta para operar sobre ventas.</p>
-                    <p class="mt-1 font-medium text-amber-700/80 dark:text-amber-200/80">Abra una caja desde el módulo de cajas para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+            <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-sm font-bold flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-sm mt-0.5">warning</span>
+                    <div>
+                        <p>Sin caja abierta a su nombre.</p>
+                        <p class="mt-1 font-medium text-amber-700/80 dark:text-amber-200/80">Abra una caja para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+                    </div>
                 </div>
+                <a asp-controller="Caja" asp-action="Abrir"
+                   class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-700 no-underline shrink-0 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400">
+                    <span class="material-symbols-outlined text-[16px]">lock_open</span>
+                    Abrir caja
+                </a>
             </div>
         }
 

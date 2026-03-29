@@ -79,17 +79,24 @@
             <div class="flex items-start gap-3">
                 <span class="material-symbols-outlined mt-0.5 text-xl text-amber-600 dark:text-amber-300">point_of_sale</span>
                 <div>
-                    <p class="text-sm font-black uppercase tracking-wider">Caja cerrada</p>
+                    <p class="text-sm font-black uppercase tracking-wider">Sin caja abierta</p>
                     <p class="mt-1 text-sm font-medium">
-                        No tiene una caja abierta para operar en ventas. Hasta abrir una caja, las acciones operativas del módulo quedan deshabilitadas.
+                        No tiene una caja abierta a su nombre. Abra una caja para habilitar las operaciones de venta.
                     </p>
                 </div>
             </div>
-            <a asp-controller="Caja" asp-action="Index"
-               class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-700 no-underline dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400">
-                <span class="material-symbols-outlined text-[18px]">open_in_new</span>
-                Ir a Cajas
-            </a>
+            <div class="flex items-center gap-2">
+                <a asp-controller="Caja" asp-action="Abrir"
+                   class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-700 no-underline dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400">
+                    <span class="material-symbols-outlined text-[18px]">lock_open</span>
+                    Abrir caja
+                </a>
+                <a asp-controller="Caja" asp-action="Index"
+                   class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-400 px-4 py-2.5 text-sm font-bold text-amber-800 transition-colors hover:bg-amber-100 no-underline dark:border-amber-500/40 dark:text-amber-200 dark:hover:bg-amber-500/20">
+                    <span class="material-symbols-outlined text-[18px]">point_of_sale</span>
+                    Ver cajas
+                </a>
+            </div>
         </div>
     </div>
 }
