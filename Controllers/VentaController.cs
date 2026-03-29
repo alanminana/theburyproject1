@@ -1381,66 +1381,6 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        /// <summary>
-        /// Maneja el resultado de una venta con crédito personal según el nuevo sistema unificado
-        /// </summary>
-        private IActionResult ManejarResultadoVentaCreditoPersonal(VentaViewModel venta, string? returnUrl)
-        {
-            var validacion = venta.ValidacionCredito;
-
-            // Caso 1: Venta pendiente de requisitos (documentación, cupo, etc.)
-            if (venta.Estado == EstadoVenta.PendienteRequisitos)
-            {
-                var requisitos = validacion?.RequisitosPendientes ?? new List<RequisitoPendiente>();
-                var primerRequisito = requisitos.FirstOrDefault();
-
-                TempData["Warning"] = $"Venta {venta.Numero} creada con requisitos pendientes.";
-                TempData["Info"] = validacion?.MensajeResumen ?? "Hay requisitos pendientes para completar la venta.";
-
-                // Redirigir según el tipo de requisito principal
-                if (primerRequisito?.Tipo == TipoRequisitoPendiente.DocumentacionFaltante)
-                {
-                    return RedirectToAction(
-                        "Index",
-                        "DocumentoCliente",
-                        new { clienteId = venta.ClienteId, returnToVentaId = venta.Id, returnUrl });
-                }
-
-                if (primerRequisito?.Tipo == TipoRequisitoPendiente.SinLimiteCredito)
-                {
-                    return RedirectToAction(
-                        "Details",
-                        "Cliente",
-                        new { id = venta.ClienteId, returnUrl });
-                }
-
-                // Para otros casos, ir al detalle de la venta
-                return RedirectToAction(nameof(Details), new { id = venta.Id });
-            }
-
-            // Caso 2: Venta requiere autorización
-            if (venta.RequiereAutorizacion)
-            {
-                TempData["Warning"] = $"Venta {venta.Numero} creada. Requiere autorización.";
-                TempData["Info"] = validacion?.MensajeResumen ?? "La venta requiere autorización de un supervisor.";
-                return RedirectToAction(nameof(Details), new { id = venta.Id });
-            }
-
-            // Caso 3: Venta puede proceder - ir a configurar crédito
-            TempData["Success"] = $"Venta {venta.Numero} creada exitosamente.";
-            TempData["Info"] = "Cliente apto para crédito. Configure los detalles del financiamiento.";
-
-            // Si ya tiene crédito asociado, ir a configurar
-            if (venta.CreditoId.HasValue)
-            {
-                return RedirectToAction(
-                    "ConfigurarVenta",
-                    "Credito",
-                    new { id = venta.CreditoId, ventaId = venta.Id, returnUrl });
-            }
-
-            return RedirectToAction(nameof(Details), new { id = venta.Id });
-        }
 
         private VentaViewModel CrearVentaInicial(EstadoVenta estadoInicial)
         {

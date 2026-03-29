@@ -1056,25 +1056,6 @@ namespace TheBuryProject.Services
             }
         }
 
-        public async Task<bool> ValidarStockAsync(int ventaId)
-        {
-            var venta = await _context.Ventas
-                .Include(v => v.Detalles.Where(d => !d.IsDeleted)).ThenInclude(d => d.Producto)
-                .FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
-
-            if (venta == null)
-                return false;
-
-            try
-            {
-                _validator.ValidarStock(venta);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
 
         #endregion
 
@@ -2110,6 +2091,31 @@ namespace TheBuryProject.Services
             var subtotalConDescuento = subtotal - venta.Descuento;
             var iva = venta.IVA > 0 ? venta.IVA : subtotalConDescuento * VentaConstants.IVA_RATE;
             return subtotalConDescuento + iva;
+        }
+
+        #endregion
+
+        #region Stock
+
+        public async Task<bool> ValidarStockAsync(int ventaId)
+        {
+            var venta = await _context.Ventas
+                .Include(v => v.Detalles.Where(d => !d.IsDeleted))
+                    .ThenInclude(d => d.Producto)
+                .FirstOrDefaultAsync(v => v.Id == ventaId);
+
+            if (venta == null)
+                return false;
+
+            try
+            {
+                _validator.ValidarStock(venta);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         #endregion
