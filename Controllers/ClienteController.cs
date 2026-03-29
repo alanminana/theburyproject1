@@ -480,34 +480,14 @@ namespace TheBuryProject.Controllers
             ViewBag.PerfilesCredito = new SelectList(perfiles, "Id", "Nombre", perfilSeleccionadoId);
         }
 
-        private async Task<ClienteCreditoLimitesViewModel> ConstruirModeloLimitesPorPuntajeAsync(
-            IEnumerable<ClienteCreditoLimiteItemViewModel>? cambiosUsuario = null)
+        private async Task<ClienteCreditoLimitesViewModel> ConstruirModeloLimitesPorPuntajeAsync()
         {
             var dbItems = await _creditoDisponibleService.GetAllLimitesPorPuntajeAsync();
-
-            var cambiosMap = (cambiosUsuario ?? Enumerable.Empty<ClienteCreditoLimiteItemViewModel>())
-                .GroupBy(x => x.Puntaje)
-                .ToDictionary(g => g.Key, g => g.First());
 
             var items = new List<ClienteCreditoLimiteItemViewModel>();
 
             foreach (var puntaje in Enum.GetValues<NivelRiesgoCredito>().OrderBy(x => (int)x))
             {
-                if (cambiosMap.TryGetValue(puntaje, out var cambio))
-                {
-                    var baseDb = dbItems.FirstOrDefault(x => x.Puntaje == puntaje);
-                    items.Add(new ClienteCreditoLimiteItemViewModel
-                    {
-                        Id = baseDb?.Id ?? cambio.Id,
-                        Puntaje = puntaje,
-                        LimiteMonto = cambio.LimiteMonto,
-                        Activo = cambio.Activo,
-                        FechaActualizacion = baseDb?.FechaActualizacion,
-                        UsuarioActualizacion = baseDb?.UsuarioActualizacion
-                    });
-                    continue;
-                }
-
                 var existente = dbItems.FirstOrDefault(x => x.Puntaje == puntaje);
                 if (existente != null)
                 {
