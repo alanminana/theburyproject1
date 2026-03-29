@@ -148,122 +148,84 @@ namespace TheBuryProject.Controllers
 
         // GET: Reporte/ExportarVentasExcel
         public async Task<IActionResult> ExportarVentasExcel([FromQuery] ReporteVentasFiltroViewModel filtro)
-        {
-            try
-            {
-                var excelData = await _reporteService.ExportarVentasExcelAsync(filtro);
-                var fileName = $"ReporteVentas_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
-
-                return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Warning"] = "La exportación a Excel aún no está implementada. Requiere instalar el paquete ClosedXML.";
-                return RedirectToAction(nameof(Ventas));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al exportar ventas a Excel");
-                TempData["Error"] = "Error al exportar el reporte";
-                return RedirectToAction(nameof(Ventas));
-            }
-        }
+            => await ExportarExcel(
+                () => _reporteService.ExportarVentasExcelAsync(filtro),
+                "ReporteVentas",
+                nameof(Ventas));
 
         // GET: Reporte/ExportarMargenesExcel
         public async Task<IActionResult> ExportarMargenesExcel(int? categoriaId, int? marcaId)
-        {
-            try
-            {
-                var excelData = await _reporteService.ExportarMargenesExcelAsync(categoriaId, marcaId);
-                var fileName = $"ReporteMargenes_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
-
-                return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Warning"] = "La exportación a Excel aún no está implementada. Requiere instalar el paquete ClosedXML.";
-                return RedirectToAction(nameof(Margenes));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al exportar márgenes a Excel");
-                TempData["Error"] = "Error al exportar el reporte";
-                return RedirectToAction(nameof(Margenes));
-            }
-        }
+            => await ExportarExcel(
+                () => _reporteService.ExportarMargenesExcelAsync(categoriaId, marcaId),
+                "ReporteMargenes",
+                nameof(Margenes));
 
         // GET: Reporte/ExportarMorosidadExcel
         public async Task<IActionResult> ExportarMorosidadExcel()
-        {
-            try
-            {
-                var excelData = await _reporteService.ExportarMorosidadExcelAsync();
-                var fileName = $"ReporteMorosidad_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
-
-                return File(excelData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Warning"] = "La exportación a Excel aún no está implementada. Requiere instalar el paquete ClosedXML.";
-                return RedirectToAction(nameof(Morosidad));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al exportar morosidad a Excel");
-                TempData["Error"] = "Error al exportar el reporte";
-                return RedirectToAction(nameof(Morosidad));
-            }
-        }
+            => await ExportarExcel(
+                () => _reporteService.ExportarMorosidadExcelAsync(),
+                "ReporteMorosidad",
+                nameof(Morosidad));
 
         // GET: Reporte/ExportarVentasPdf
         public async Task<IActionResult> ExportarVentasPdf([FromQuery] ReporteVentasFiltroViewModel filtro)
-        {
-            try
-            {
-                var pdfData = await _reporteService.GenerarVentasPdfAsync(filtro);
-                var fileName = $"ReporteVentas_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
-
-                return File(pdfData, "application/pdf", fileName);
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Warning"] = "La exportación a PDF aún no está implementada. Requiere instalar el paquete QuestPDF o iTextSharp.";
-                return RedirectToAction(nameof(Ventas));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al exportar ventas a PDF");
-                TempData["Error"] = "Error al exportar el reporte";
-                return RedirectToAction(nameof(Ventas));
-            }
-        }
+            => await ExportarPdf(
+                () => _reporteService.GenerarVentasPdfAsync(filtro),
+                "ReporteVentas",
+                nameof(Ventas));
 
         // GET: Reporte/ExportarMorosidadPdf
         public async Task<IActionResult> ExportarMorosidadPdf()
-        {
-            try
-            {
-                var pdfData = await _reporteService.GenerarMorosidadPdfAsync();
-                var fileName = $"ReporteMorosidad_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
-
-                return File(pdfData, "application/pdf", fileName);
-            }
-            catch (NotImplementedException)
-            {
-                TempData["Warning"] = "La exportación a PDF aún no está implementada. Requiere instalar el paquete QuestPDF o iTextSharp.";
-                return RedirectToAction(nameof(Morosidad));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al exportar morosidad a PDF");
-                TempData["Error"] = "Error al exportar el reporte";
-                return RedirectToAction(nameof(Morosidad));
-            }
-        }
+            => await ExportarPdf(
+                () => _reporteService.GenerarMorosidadPdfAsync(),
+                "ReporteMorosidad",
+                nameof(Morosidad));
 
         #endregion
 
         #region Métodos auxiliares
+
+        private async Task<IActionResult> ExportarExcel(Func<Task<byte[]>> generarDatos, string nombreReporte, string accionFallback)
+        {
+            try
+            {
+                var data = await generarDatos();
+                var fileName = $"{nombreReporte}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+                return File(data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (NotImplementedException)
+            {
+                TempData["Warning"] = "La exportación a Excel aún no está implementada. Requiere instalar el paquete ClosedXML.";
+                return RedirectToAction(accionFallback);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al exportar {Reporte} a Excel", nombreReporte);
+                TempData["Error"] = "Error al exportar el reporte";
+                return RedirectToAction(accionFallback);
+            }
+        }
+
+        private async Task<IActionResult> ExportarPdf(Func<Task<byte[]>> generarDatos, string nombreReporte, string accionFallback)
+        {
+            try
+            {
+                var data = await generarDatos();
+                var fileName = $"{nombreReporte}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+                return File(data, "application/pdf", fileName);
+            }
+            catch (NotImplementedException)
+            {
+                TempData["Warning"] = "La exportación a PDF aún no está implementada. Requiere instalar el paquete QuestPDF o iTextSharp.";
+                return RedirectToAction(accionFallback);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al exportar {Reporte} a PDF", nombreReporte);
+                TempData["Error"] = "Error al exportar el reporte";
+                return RedirectToAction(accionFallback);
+            }
+        }
 
         private async Task CargarFiltrosViewBagAsync()
         {
