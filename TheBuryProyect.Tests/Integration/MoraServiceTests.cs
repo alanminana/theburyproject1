@@ -1063,4 +1063,78 @@ public class MoraServiceTests : IDisposable
         Assert.Single(resultado.Clientes);
         Assert.Equal(cliente.Id, resultado.Clientes[0].ClienteId);
     }
+
+    // =========================================================================
+    // UpdateConfiguracionExpandidaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task UpdateConfiguracionExpandida_HappyPath_ActualizaCampos()
+    {
+        var config = await _service.GetConfiguracionAsync();
+
+        var vm = new ConfiguracionMoraExpandidaViewModel
+        {
+            Id = config.Id,
+            TasaMoraBase = 2.5m,
+            DiasGracia = 5,
+            DiasMaximosSinGestion = 10,
+            MaximoCuotasAcuerdo = 6,
+            PorcentajeMinimoEntrega = 20m
+        };
+
+        var resultado = await _service.UpdateConfiguracionExpandidaAsync(vm);
+
+        Assert.Equal(2.5m, resultado.TasaMoraBase);
+        Assert.Equal(5, resultado.DiasGracia);
+        Assert.Equal(10, resultado.DiasMaximosSinGestion);
+    }
+
+    [Fact]
+    public async Task UpdateConfiguracionExpandida_IdInexistente_LanzaExcepcion()
+    {
+        var vm = new ConfiguracionMoraExpandidaViewModel { Id = 99999 };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateConfiguracionExpandidaAsync(vm));
+    }
+
+    // =========================================================================
+    // GetFichaClienteAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GetFichaCliente_ClienteInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetFichaClienteAsync(99999);
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetFichaCliente_ClienteExistenteSinAlertas_RetornaFichaVacia()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var resultado = await _service.GetFichaClienteAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(cliente.Id, resultado!.ClienteId);
+        Assert.Equal(0, resultado.Resumen.TotalCreditosConMora);
+    }
+
+    [Fact]
+    public async Task GetFichaCliente_ClienteConAlerta_RetornaPrioridadCorrecta()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedAlertaAsync(cliente.Id, credito.Id, prioridad: PrioridadAlerta.Alta);
+
+        var resultado = await _service.GetFichaClienteAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(PrioridadAlerta.Alta, resultado!.Resumen.PrioridadMaxima);
+    }
+
+    // GetDashboardKPIsAsync — excluded: uses SumAsync on decimal? columns,
+    // which SQLite cannot translate (same limitation as other SumAsync-based methods).
 }
