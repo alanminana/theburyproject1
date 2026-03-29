@@ -39,12 +39,5 @@ namespace TheBuryProject.Helpers
             TipoDocumentoCliente.Servicio
         };
 
-        /// <summary>
-        /// Nombres de documentos requeridos (para UI).
-        /// </summary>
-        public static readonly string[] DocumentosRequeridos = 
-        {
-            "DNI", "Recibo de Sueldo", "Servicio (Luz/Gas/Agua)"
-        };
     }
 }
