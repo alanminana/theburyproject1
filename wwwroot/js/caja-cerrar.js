@@ -10,10 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const montoEsperado = parseFloat(montoEsperadoEl?.dataset.value) || 0;
 
-    function formatCurrency(value) {
-        return '$' + value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
     function recalcular() {
         let totalReal = 0;
         inputs.forEach(input => {
@@ -23,8 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const diferencia = totalReal - montoEsperado;
         const tieneDiferencia = Math.abs(diferencia) > TOLERANCIA;
 
-        totalRealEl.textContent = formatCurrency(totalReal);
-        diferenciaValorEl.textContent = formatCurrency(diferencia);
+        totalRealEl.textContent = TheBury.formatCurrency(totalReal);
+        diferenciaValorEl.textContent = TheBury.formatCurrency(diferencia);
 
         // Color + icon
         diferenciaValorEl.classList.remove('text-emerald-500', 'text-rose-500', 'text-amber-500');
@@ -56,13 +52,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial calculation (e.g. on validation roundtrip)
     recalcular();
 
-    // Toast auto-dismiss
-    const toast = document.getElementById('toast-error');
-    if (toast) {
-        setTimeout(() => {
-            toast.style.transition = 'opacity 0.5s';
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 500);
-        }, 5000);
-    }
+    TheBury.autoDismissToasts();
 });

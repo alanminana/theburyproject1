@@ -5,6 +5,8 @@
     var abiertas = Model.AperturasAbiertas?.ToList() ?? new List<TheBuryProject.Models.Entities.AperturaCaja>();
     var activas = Model.CajasActivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
     var inactivas = Model.CajasInactivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
+    var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
+    var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
 }
 
 <div class="flex min-h-full">
@@ -29,11 +31,14 @@
                 <span class="material-symbols-outlined text-lg">history</span>
                 Historial de cierres
             </a>
-            <button type="button" onclick="abrirModalCrearCaja()"
-                    class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 cursor-pointer">
-                <span class="material-symbols-outlined text-lg">add_circle</span>
-                Nueva caja
-            </button>
+            @if (esAdmin)
+            {
+                <button type="button" onclick="abrirModalCrearCaja()"
+                        class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 cursor-pointer">
+                    <span class="material-symbols-outlined text-lg">add_circle</span>
+                    Nueva caja
+                </button>
+            }
         </div>
     </div>
 
@@ -78,14 +83,22 @@
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- Cajas Abiertas (Aperturas activas) -->
     <!-- ═══════════════════════════════════════════════════ -->
+    @{
+        // No-admin solo ve sus propias aperturas
+        var aperturasMostradas = esAdmin
+            ? abiertas
+            : abiertas.Where(a => a.UsuarioApertura == currentUser).ToList();
+    }
     <section class="space-y-4">
         <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-primary">sensors</span>
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Cajas actualmente abiertas</h3>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">
+                @(esAdmin ? "Cajas actualmente abiertas" : "Mi caja abierta")
+            </h3>
             <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">En vivo</span>
         </div>
 
-        @if (abiertas.Any())
+        @if (aperturasMostradas.Any())
         {
             <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                 <div class="overflow-x-auto">
@@ -95,15 +108,25 @@
                                 <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Caja / Código</th>
                                 <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuario Apertura</th>
                                 <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fecha / Hora</th>
-                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monto Inicial</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fondo inicial</th>
                                 <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Movimientos</th>
+                                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    <span class="flex items-center gap-1">
+                                        Saldo en caja
+                                        <span class="material-symbols-outlined text-[13px] text-slate-400" title="Efectivo físico esperado: fondo inicial + ingresos (efectivo, tarjeta, cheque, cobros de cuota) − egresos. No incluye ventas a crédito personal ni cuenta corriente.">info</span>
+                                    </span>
+                                </th>
                                 <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            @foreach (var apertura in abiertas)
+                            @foreach (var apertura in aperturasMostradas)
                             {
-                                var cantMov = apertura.Movimientos?.Count ?? 0;
+                                var movs = apertura.Movimientos ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
+                                var cantMov = movs.Count(m => !m.IsDeleted);
+                                var totalIngresos = movs.Where(m => !m.IsDeleted && m.Tipo == TheBuryProject.Models.Enums.TipoMovimientoCaja.Ingreso).Sum(m => m.Monto);
+                                var totalEgresos  = movs.Where(m => !m.IsDeleted && m.Tipo == TheBuryProject.Models.Enums.TipoMovimientoCaja.Egreso).Sum(m => m.Monto);
+                                var saldoActual   = apertura.MontoInicial + totalIngresos - totalEgresos;
                                 <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                     <td class="px-6 py-4">
                                         <div class="flex flex-col">
@@ -125,27 +148,61 @@
                                             <span class="text-xs text-slate-500">@apertura.FechaApertura.ToString("HH:mm") hs</span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 font-mono text-sm text-emerald-500 font-bold">@apertura.MontoInicial.ToString("C2")</td>
                                     <td class="px-6 py-4">
-                                        <span class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">
-                                            @cantMov @(cantMov == 1 ? "transacción" : "transacciones")
-                                        </span>
+                                        <span class="font-mono text-sm text-slate-500 dark:text-slate-400">@apertura.MontoInicial.ToString("C2")</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col gap-1">
+                                            <span class="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 w-fit">
+                                                @cantMov @(cantMov == 1 ? "movimiento" : "movimientos")
+                                            </span>
+                                            @if (totalIngresos > 0 || totalEgresos > 0)
+                                            {
+                                                <div class="flex items-center gap-2 text-[11px]">
+                                                    @if (totalIngresos > 0)
+                                                    {
+                                                        <span class="text-emerald-500 font-semibold">+@totalIngresos.ToString("C2")</span>
+                                                    }
+                                                    @if (totalEgresos > 0)
+                                                    {
+                                                        <span class="text-rose-400 font-semibold">−@totalEgresos.ToString("C2")</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col gap-0.5">
+                                            <span class="font-mono text-base font-black @(saldoActual >= apertura.MontoInicial ? "text-emerald-500" : "text-amber-400")">
+                                                @saldoActual.ToString("C2")
+                                            </span>
+                                            <span class="text-[10px] text-slate-500 uppercase tracking-wide">Solo efectivo físico</span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 text-right space-x-2">
-                                        <a asp-action="DetallesApertura" asp-route-id="@apertura.Id"
-                                           class="p-1.5 rounded-lg hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors inline-flex"
-                                           title="Ver detalles">
-                                            <span class="material-symbols-outlined text-lg">visibility</span>
-                                        </a>
-                                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                                           class="p-1.5 rounded-lg hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors inline-flex"
-                                           title="Registrar movimiento">
-                                            <span class="material-symbols-outlined text-lg">add_card</span>
-                                        </a>
-                                        <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                                           class="px-3 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all no-underline inline-flex items-center gap-1">
-                                            Cerrar caja
-                                        </a>
+                                        @{ var esPropietario = apertura.UsuarioApertura == currentUser; }
+                                        @if (esAdmin || esPropietario)
+                                        {
+                                            <a asp-action="DetallesApertura" asp-route-id="@apertura.Id"
+                                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 text-slate-600 dark:text-slate-300 hover:text-primary text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors no-underline"
+                                               title="Ver movimientos y operaciones">
+                                                <span class="material-symbols-outlined text-base">list_alt</span>
+                                                Ver movimientos
+                                            </a>
+                                            <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                                               class="p-1.5 rounded-lg hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors inline-flex"
+                                               title="Registrar movimiento">
+                                                <span class="material-symbols-outlined text-lg">add_card</span>
+                                            </a>
+                                            <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                                               class="px-3 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all no-underline inline-flex items-center gap-1">
+                                                Cerrar caja
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-400 italic">Sin acceso</span>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -158,11 +215,19 @@
         {
             <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
                 <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">point_of_sale</span>
-                <p class="text-sm text-slate-500 mt-2">No hay cajas abiertas en este momento.</p>
-                <a asp-action="Abrir"
-                   class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all no-underline">
-                    <span class="material-symbols-outlined text-sm">lock_open</span> Abrir una caja
-                </a>
+                @if (esAdmin)
+                {
+                    <p class="text-sm text-slate-500 mt-2">No hay cajas abiertas en este momento.</p>
+                    <a asp-action="Abrir"
+                       class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all no-underline">
+                        <span class="material-symbols-outlined text-sm">lock_open</span> Abrir una caja
+                    </a>
+                }
+                else
+                {
+                    <p class="text-sm text-slate-500 mt-2">No tiene ninguna caja abierta a su nombre.</p>
+                    <p class="text-xs text-slate-400 mt-1">Seleccione una caja disponible en el maestro y ábrala para operar.</p>
+                }
             </div>
         }
     </section>
@@ -227,13 +292,18 @@
                                             @if (estaAbierta)
                                             {
                                                 var aperturaActiva = abiertas.FirstOrDefault(a => a.CajaId == caja.Id);
-                                                if (aperturaActiva != null)
+                                                var esMiApertura = aperturaActiva?.UsuarioApertura == currentUser;
+                                                if (aperturaActiva != null && (esAdmin || esMiApertura))
                                                 {
                                                     <a asp-action="DetallesApertura" asp-route-id="@aperturaActiva.Id"
                                                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
                                                        title="Ver apertura activa">
                                                         <span class="material-symbols-outlined text-xl">open_in_new</span>
                                                     </a>
+                                                }
+                                                else if (!esAdmin)
+                                                {
+                                                    <span class="text-xs text-amber-500 font-medium px-2">En uso</span>
                                                 }
                                             }
                                             else
@@ -243,23 +313,26 @@
                                                     Abrir caja
                                                 </a>
                                             }
-                                            <button type="button" onclick="abrirModalEditarCaja(@caja.Id)"
-                                                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                                                    title="Editar">
-                                                <span class="material-symbols-outlined text-xl">edit</span>
-                                            </button>
-                                            @if (!estaAbierta)
+                                            @if (esAdmin)
                                             {
-                                                <form asp-action="Delete" method="post" class="inline-flex"
-                                                      onsubmit="return confirm('¿Está seguro de eliminar esta caja?');">
-                                                    <input type="hidden" name="id" value="@caja.Id" />
-                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
-                                                    <button type="submit"
-                                                            class="p-2 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-colors"
-                                                            title="Eliminar">
-                                                        <span class="material-symbols-outlined text-xl">delete</span>
-                                                    </button>
-                                                </form>
+                                                <button type="button" onclick="abrirModalEditarCaja(@caja.Id)"
+                                                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                                                        title="Editar">
+                                                    <span class="material-symbols-outlined text-xl">edit</span>
+                                                </button>
+                                                @if (!estaAbierta)
+                                                {
+                                                    <form asp-action="Delete" method="post" class="inline-flex"
+                                                          onsubmit="return confirm('¿Está seguro de eliminar esta caja?');">
+                                                        <input type="hidden" name="id" value="@caja.Id" />
+                                                        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
+                                                        <button type="submit"
+                                                                class="p-2 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-colors"
+                                                                title="Eliminar">
+                                                            <span class="material-symbols-outlined text-xl">delete</span>
+                                                        </button>
+                                                    </form>
+                                                }
                                             }
                                         </div>
                                     </td>

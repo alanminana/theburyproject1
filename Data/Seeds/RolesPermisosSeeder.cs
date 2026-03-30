@@ -413,7 +413,8 @@ public static class RolesPermisosSeeder
         {
             await AsignarPermisosEspecificosAsync(context, vendedorRole.Id, modulos, new Dictionary<string, string[]>
             {
-                { "ventas", new[] { "view", "create" } },
+                { "ventas", new[] { "view", "create", "authorize" } },
+                { "creditos", new[] { "view", "viewinstallments" } },
                 { "cotizaciones", new[] { "view", "create", "update", "convert" } },
                 { "clientes", new[] { "view", "create", "update" } },
                 { "productos", new[] { "view" } },

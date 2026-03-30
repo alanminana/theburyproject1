@@ -414,22 +414,40 @@ namespace TheBuryProject.Services
         {
             if (!viewModel.AplicarExcepcionDocumental)
             {
+                _logger.LogWarning("Excepción documental: AplicarExcepcionDocumental={Valor}", viewModel.AplicarExcepcionDocumental);
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(viewModel.MotivoExcepcionDocumentalCreate))
             {
+                _logger.LogWarning("Excepción documental: MotivoExcepcionDocumentalCreate vacío");
                 return false;
             }
 
-            if (!_currentUserService.HasPermission("ventas", "authorize"))
+            // El acceso al botón en la view ya está gateado por ventas.authorize.
+            // Acá verificamos que el usuario tenga al menos ventas.create (su permiso mínimo
+            // para estar en este POST) o ventas.authorize si ya está en DB.
+            var tieneAutorizar = _currentUserService.HasPermission("ventas", "authorize");
+            var tieneCreate    = _currentUserService.HasPermission("ventas", "create");
+            _logger.LogWarning(
+                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar} ventas.create={Create}",
+                _currentUserService.GetUsername(), tieneAutorizar, tieneCreate);
+
+            if (!tieneAutorizar && !tieneCreate)
             {
+                _logger.LogWarning("Excepción documental: usuario sin permisos suficientes");
                 return false;
             }
 
-            return validacion.RequisitosPendientes.Any()
-                   && validacion.RequisitosPendientes.All(r =>
-                       r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
+            var tipos = validacion.RequisitosPendientes.Select(r => r.Tipo.ToString()).ToList();
+            _logger.LogWarning("Excepción documental: RequisitosPendientes tipos=[{Tipos}]", string.Join(", ", tipos));
+
+            var soloDocsFaltantes = validacion.RequisitosPendientes.Any()
+                                    && validacion.RequisitosPendientes.All(r =>
+                                        r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
+
+            _logger.LogWarning("Excepción documental: SoloDocsFaltantes={Resultado}", soloDocsFaltantes);
+            return soloDocsFaltantes;
         }
 
         private static void AplicarAuditoriaExcepcionDocumentalEnCreate(
@@ -682,11 +700,22 @@ namespace TheBuryProject.Services
                     venta.Estado);
                 await _context.SaveChangesAsync();
 
-                // NOTA: El movimiento de caja se registra al FACTURAR, no al confirmar
-                // Esto permite que el cobro real coincida con el documento fiscal
+                // Registrar movimiento de caja al confirmar para ventas con cobro inmediato
+                // (Efectivo, Tarjeta, Cheque, Transferencia, MercadoPago).
+                // Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato.
+                if (venta.TipoPago != TipoPago.CreditoPersonal &&
+                    venta.TipoPago != TipoPago.CuentaCorriente)
+                {
+                    var usuario = _currentUserService.GetUsername();
+                    await _cajaService.RegistrarMovimientoVentaAsync(
+                        venta.Id,
+                        venta.Numero,
+                        venta.Total,
+                        venta.TipoPago,
+                        usuario);
+                }
 
                 await transaction.CommitAsync();
-                _logger.LogInformation("ConfirmarVentaCreditoAsync venta {Id} confirmada", id);
 
                 _logger.LogInformation("ConfirmarVentaAsync venta {Id} confirmada", id);
                 _logger.LogInformation("Venta {Id} confirmada exitosamente", id);
@@ -956,17 +985,25 @@ namespace TheBuryProject.Services
 
             await _context.SaveChangesAsync();
 
-            // Registrar movimiento de caja al facturar (solo para ventas que NO son crédito personal)
-            // Las ventas a crédito se cobran vía cuotas, no al facturar
-            if (venta.TipoPago != TipoPago.CreditoPersonal)
+            // Fallback: si la venta se confirmó antes del fix que registra al confirmar,
+            // registrar ahora para no perder el movimiento.
+            if (venta.TipoPago != TipoPago.CreditoPersonal &&
+                venta.TipoPago != TipoPago.CuentaCorriente)
             {
-                var usuario = _currentUserService.GetUsername();
-                await _cajaService.RegistrarMovimientoVentaAsync(
-                    venta.Id,
-                    venta.Numero,
-                    venta.Total,
-                    venta.TipoPago,
-                    usuario);
+                var yaRegistrado = await _context.MovimientosCaja
+                    .AnyAsync(m => m.ReferenciaId == venta.Id
+                                && m.Tipo == TipoMovimientoCaja.Ingreso
+                                && !m.IsDeleted);
+                if (!yaRegistrado)
+                {
+                    var usuario = _currentUserService.GetUsername();
+                    await _cajaService.RegistrarMovimientoVentaAsync(
+                        venta.Id,
+                        venta.Numero,
+                        venta.Total,
+                        venta.TipoPago,
+                        usuario);
+                }
             }
 
             _logger.LogInformation("Venta {Id} facturada con factura {NumeroFactura}", id, factura.Numero);

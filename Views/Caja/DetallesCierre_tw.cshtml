@@ -1,0 +1,204 @@
+@model TheBuryProject.Models.Entities.CierreCaja
+@{
+    ViewData["Title"] = "Detalles de Cierre";
+    var returnUrl = ViewBag.ReturnUrl as string;
+    var volverUrl = !string.IsNullOrEmpty(returnUrl) ? returnUrl : Url.Action("Historial");
+    var diferencia = Model.Diferencia;
+    var tieneSobrante = diferencia > 0;
+    var tieneFaltante = diferencia < 0;
+}
+
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+    <div class="layout-container flex h-full grow flex-col">
+
+        <main class="max-w-[1400px] mx-auto w-full p-4 lg:p-10 flex flex-col gap-6">
+
+            <!-- Breadcrumbs & Header -->
+            <div class="flex flex-col gap-4">
+                <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <a asp-action="Historial" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Historial de cierres</a>
+                    <span class="material-symbols-outlined text-xs">chevron_right</span>
+                    <span class="text-slate-900 dark:text-white">Detalles de cierre</span>
+                </div>
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex flex-col gap-1">
+                        <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight flex items-center gap-3">
+                            Cierre de caja
+                            <span class="bg-slate-500/10 text-slate-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-slate-500/20">Cerrada</span>
+                        </h1>
+                        <p class="text-slate-500 dark:text-slate-400 text-base">Resumen del arqueo y cierre de turno</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <a href="@volverUrl"
+                           class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-sm no-underline">
+                            <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
+                            Volver
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            @if (TempData["Success"] != null)
+            {
+                <div class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium">
+                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                    @TempData["Success"]
+                </div>
+            }
+
+            <!-- Info Panel -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="size-32 rounded-xl bg-slate-500/10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-slate-500 text-5xl">lock</span>
+                    </div>
+                    <div class="flex flex-col justify-between grow gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6">
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Caja</p>
+                                <p class="text-slate-900 dark:text-white font-bold">
+                                    @(Model.AperturaCaja?.Caja?.Nombre ?? "—")
+                                    @if (Model.AperturaCaja?.Caja?.Codigo != null)
+                                    {
+                                        <span class="text-slate-500 font-normal"> – COD: @Model.AperturaCaja.Caja.Codigo</span>
+                                    }
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Usuario de cierre</p>
+                                <p class="text-slate-900 dark:text-white font-medium">@Model.UsuarioCierre</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Fecha y hora de cierre</p>
+                                <p class="text-slate-900 dark:text-white font-medium">@Model.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy hh:mm tt")</p>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Usuario apertura</p>
+                                <p class="text-slate-900 dark:text-white font-medium">@(Model.AperturaCaja?.UsuarioApertura ?? "—")</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diferencia / Observaciones -->
+                <div class="p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col gap-4">
+                    @if (Model.TieneDiferencia)
+                    {
+                        <div class="@(tieneSobrante ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400") rounded-lg px-4 py-3">
+                            <p class="text-xs font-bold uppercase tracking-wider mb-1">@(tieneSobrante ? "Sobrante" : "Faltante")</p>
+                            <p class="text-2xl font-black">$@Math.Abs(diferencia).ToString("N2")</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
+                            <p class="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-1">Arqueo exacto</p>
+                            <p class="text-emerald-500 text-sm font-bold">Sin diferencia detectada</p>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.JustificacionDiferencia))
+                    {
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Justificación de diferencia</p>
+                            <p class="text-slate-700 dark:text-slate-300 text-sm italic">"@Model.JustificacionDiferencia"</p>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.ObservacionesCierre))
+                    {
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Observaciones</p>
+                            <p class="text-slate-700 dark:text-slate-300 text-sm italic">"@Model.ObservacionesCierre"</p>
+                        </div>
+                    }
+                    @if (string.IsNullOrWhiteSpace(Model.JustificacionDiferencia) && string.IsNullOrWhiteSpace(Model.ObservacionesCierre))
+                    {
+                        <p class="text-slate-500 dark:text-slate-400 text-sm italic">Sin observaciones registradas.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- KPIs del arqueo -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Monto inicial</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">$@Model.MontoInicialSistema.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total ingresos</p>
+                    <p class="text-emerald-500 text-xl font-black leading-tight">+$@Model.TotalIngresosSistema.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total egresos</p>
+                    <p class="text-rose-500 text-xl font-black leading-tight">-$@Model.TotalEgresosSistema.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Esperado sistema</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">$@Model.MontoEsperadoSistema.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total real contado</p>
+                    <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">$@Model.MontoTotalReal.ToString("N2")</p>
+                </div>
+                <div class="flex flex-col gap-1 rounded-xl p-4 @(Model.TieneDiferencia ? (tieneSobrante ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-rose-500/10 border border-rose-500/30") : "bg-primary/10 border border-primary/30")">
+                    <p class="@(Model.TieneDiferencia ? (tieneSobrante ? "text-emerald-500" : "text-rose-500") : "text-primary") text-xs font-bold uppercase tracking-tight">Diferencia</p>
+                    <p class="@(Model.TieneDiferencia ? (tieneSobrante ? "text-emerald-500" : "text-rose-500") : "text-primary") text-xl font-black leading-tight">
+                        @(tieneSobrante ? "+" : "")$@diferencia.ToString("N2")
+                    </p>
+                </div>
+            </div>
+
+            <!-- Desglose del arqueo físico -->
+            @if (Model.EfectivoContado > 0 || Model.ChequesContados > 0 || Model.ValesContados > 0)
+            {
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined">payments</span> Desglose del arqueo físico
+                        </h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
+                        <div class="p-6 flex flex-col gap-1">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Efectivo contado</p>
+                            <p class="text-slate-900 dark:text-white text-2xl font-black">$@Model.EfectivoContado.ToString("N2")</p>
+                        </div>
+                        <div class="p-6 flex flex-col gap-1">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Cheques contados</p>
+                            <p class="text-slate-900 dark:text-white text-2xl font-black">$@Model.ChequesContados.ToString("N2")</p>
+                        </div>
+                        <div class="p-6 flex flex-col gap-1">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Vales contados</p>
+                            <p class="text-slate-900 dark:text-white text-2xl font-black">$@Model.ValesContados.ToString("N2")</p>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Detalle arqueo libre (JSON/texto) -->
+            @if (!string.IsNullOrWhiteSpace(Model.DetalleArqueo))
+            {
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined">receipt_long</span> Detalle del arqueo
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <pre class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-mono bg-slate-50 dark:bg-slate-800 p-4 rounded-lg">@Model.DetalleArqueo</pre>
+                    </div>
+                </div>
+            }
+
+            <!-- Ver apertura original -->
+            <div class="flex justify-end">
+                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
+                   class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                    <span class="material-symbols-outlined text-lg">open_in_new</span>
+                    Ver apertura original
+                </a>
+            </div>
+
+        </main>
+    </div>
+</div>

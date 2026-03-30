@@ -193,6 +193,11 @@ public class DetallesAperturaViewModel
     public decimal TotalIngresos { get; set; }
     public decimal TotalEgresos { get; set; }
     public int CantidadMovimientos { get; set; }
+    /// <summary>
+    /// Ventas realizadas durante esta apertura, incluyendo las de crédito personal
+    /// que no generan movimiento de caja inmediato pero deben quedar registradas como operaciones del turno.
+    /// </summary>
+    public List<TheBuryProject.Models.Entities.Venta> VentasDelTurno { get; set; } = new();
 }
 
 /// <summary>

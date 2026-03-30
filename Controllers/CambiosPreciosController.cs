@@ -1241,22 +1241,16 @@ public class CambiosPreciosController : Controller
     {
         try
         {
-            var productoTask = _productoService.GetByIdAsync(productoId);
-            var historialTask = listaId.HasValue
-                ? _precioService.GetHistorialPreciosAsync(productoId, listaId.Value)
-                : _precioService.GetPreciosProductoAsync(productoId);
-            var listasTask = _precioService.GetAllListasAsync();
-
-            await Task.WhenAll(productoTask, historialTask, listasTask);
-
-            var producto = productoTask.Result;
+            var producto = await _productoService.GetByIdAsync(productoId);
             if (producto == null)
             {
                 TempData["Error"] = "Producto no encontrado.";
                 return RedirectToAction("Index", "Productos");
             }
 
-            var historial = historialTask.Result;
+            var historial = listaId.HasValue
+                ? await _precioService.GetHistorialPreciosAsync(productoId, listaId.Value)
+                : await _precioService.GetPreciosProductoAsync(productoId);
 
             var viewModel = new HistorialPreciosViewModel
             {
@@ -1280,7 +1274,7 @@ public class CambiosPreciosController : Controller
                 }).OrderByDescending(p => p.VigenciaDesde).ToList()
             };
 
-            ViewBag.Listas = new SelectList(listasTask.Result, "Id", "Nombre", listaId);
+            ViewBag.Listas = new SelectList(await _precioService.GetAllListasAsync(), "Id", "Nombre", listaId);
 
             return View(viewModel);
         }
@@ -1301,15 +1295,9 @@ public class CambiosPreciosController : Controller
     /// </summary>
     private async Task CargarDatosParaSimulacion()
     {
-        var listasTask = _precioService.GetAllListasAsync();
-        var categoriasTask = _categoriaService.GetAllAsync();
-        var marcasTask = _marcaService.GetAllAsync();
-
-        await Task.WhenAll(listasTask, categoriasTask, marcasTask);
-
-        ViewBag.Listas = new SelectList(listasTask.Result, "Id", "Nombre");
-        ViewBag.Categorias = new SelectList(categoriasTask.Result, "Id", "Nombre");
-        ViewBag.Marcas = new SelectList(marcasTask.Result, "Id", "Nombre");
+        ViewBag.Listas = new SelectList(await _precioService.GetAllListasAsync(), "Id", "Nombre");
+        ViewBag.Categorias = new SelectList(await _categoriaService.GetAllAsync(), "Id", "Nombre");
+        ViewBag.Marcas = new SelectList(await _marcaService.GetAllAsync(), "Id", "Nombre");
     }
 
     /// <summary>

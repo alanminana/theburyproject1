@@ -90,9 +90,7 @@
     const hdnTotal = $('#hdn-total');
 
     // ── Helpers ────────────────────────────────────────────────────────
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-    }
+    const formatCurrency = TheBury.formatCurrency;
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
@@ -165,7 +163,10 @@
         inputBuscarCliente.value = '';
         hide(inputBuscarCliente.parentElement);
 
-        // Reload credits if CreditoPersonal selected
+        // Reset cupo verificado al cambiar cliente
+        window._creditoCupoDisponible = null;
+        hide($('#panel-credito-cupo'));
+        hide($('#panel-resultado-verificacion'));
         onTipoPagoChange();
     });
 
@@ -177,6 +178,9 @@
         hide(infoCliente);
         show(inputBuscarCliente.parentElement);
         inputBuscarCliente.value = '';
+        window._creditoCupoDisponible = null;
+        hide($('#panel-credito-cupo'));
+        hide($('#panel-resultado-verificacion'));
         inputBuscarCliente.focus();
 
         // Reset credit panel
@@ -406,6 +410,11 @@
         if (hdnDescuento) hdnDescuento.value = descuento.toFixed(2);
         if (hdnIva) hdnIva.value = iva.toFixed(2);
         if (hdnTotal) hdnTotal.value = total.toFixed(2);
+
+        // Actualizar aviso de crédito si corresponde
+        if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {
+            actualizarAvisoCredito(window._creditoCupoDisponible);
+        }
     }
 
     // ── 6. Payment Type Switch ────────────────────────────────────────
@@ -423,9 +432,9 @@
         isCheque ? show(panelCheque) : hide(panelCheque);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
 
-        // Credit-specific: load credits and show credit notice
+        // Credit-specific: show aviso with cached cupo if already verified
         if (isCredito) {
-            cargarCreditosCliente();
+            actualizarAvisoCredito(window._creditoCupoDisponible);
         } else {
             hide(panelAvisoCredito);
         }
@@ -489,57 +498,18 @@
     }
 
     // ── 8. Credit Personal ────────────────────────────────────────────
-    async function cargarCreditosCliente() {
-        const clienteId = parseInt(hdnClienteId?.value);
-        if (!clienteId) return;
+    // El crédito se genera automáticamente por el sistema según el cupo del cliente.
+    // No hay selección de crédito existente. El aviso muestra cupo vs. total de la venta.
 
-        try {
-            const data = await fetchJson(`/api/ventas/GetCreditosCliente?clienteId=${clienteId}`);
-            selectCredito.innerHTML = '<option value="">Seleccione un crédito...</option>';
-            data.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = c.detalle;
-                selectCredito.appendChild(opt);
-                creditoInfoCache[c.id] = c;
-            });
-        } catch { /* no credits */ }
-    }
-
-    selectCredito?.addEventListener('change', async function () {
-        const creditoId = parseInt(this.value);
-        if (!creditoId) { hide(panelCreditoInfo); return; }
-
-        let info = creditoInfoCache[creditoId];
-        if (!info) {
-            try {
-                info = await fetchJson(`/api/ventas/GetInfoCredito?creditoId=${creditoId}`);
-                creditoInfoCache[creditoId] = info;
-            } catch { hide(panelCreditoInfo); return; }
-        }
-
-        $('#credito-info-numero').textContent = info.numero;
-        $('#credito-info-aprobado').textContent = formatCurrency(info.montoAprobado);
-        $('#credito-info-saldo').textContent = formatCurrency(info.saldoPendiente);
-        $('#credito-info-tasa').textContent = `${info.tasaInteres}%`;
-        show(panelCreditoInfo);
-
-        actualizarAvisoCredito();
-    });
-
-    function actualizarAvisoCredito() {
+    function actualizarAvisoCredito(cupoDisponible) {
         const tipoPago = selectTipoPago?.value;
         if (tipoPago !== TIPO_PAGO.CreditoPersonal) { hide(panelAvisoCredito); return; }
-
-        const creditoId = parseInt(selectCredito?.value);
-        const info = creditoInfoCache[creditoId];
-        if (!info) { hide(panelAvisoCredito); return; }
+        if (cupoDisponible === undefined || cupoDisponible === null) { hide(panelAvisoCredito); return; }
 
         const total = parseFloat(hdnTotal?.value) || 0;
-        const disponible = info.saldoPendiente;
-        const margen = disponible - total;
+        const margen = cupoDisponible - total;
 
-        $('#credito-disponible').textContent = formatCurrency(disponible);
+        $('#credito-disponible').textContent = formatCurrency(cupoDisponible);
         $('#credito-solicitado').textContent = formatCurrency(total);
 
         const margenEl = $('#credito-margen');
@@ -557,6 +527,9 @@
         }
         show(panelAvisoCredito);
     }
+
+    // Exponer para que el resultado de verificación pueda actualizar el aviso
+    window._creditoCupoDisponible = null;
 
     // ── 9. Credit Verification (Crédito Personal Workflow) ───────────
     // State for credit verification
@@ -638,6 +611,17 @@
         }
 
         show(panelResultado);
+
+        // Actualizar aviso de crédito y panel de cupo en el panel "Crédito Personal"
+        window._creditoCupoDisponible = data.cupoDisponible ?? null;
+        actualizarAvisoCredito(window._creditoCupoDisponible);
+
+        const panelCupo = $('#panel-credito-cupo');
+        if (panelCupo && data.cupoDisponible !== undefined) {
+            $('#credito-cupo-valor').textContent = formatCurrency(data.cupoDisponible);
+            $('#credito-cupo-estado').textContent = data.textoEstado || '—';
+            show(panelCupo);
+        }
     }
 
     function mostrarMotivos(data) {
@@ -759,39 +743,137 @@
     });
 
     // ── 10. Exception Workflow ────────────────────────────────────────
-    function activarExcepcion() {
-        excepcionActiva = true;
-        const hdnExcepcion = $('#hdn-aplicar-excepcion');
-        if (hdnExcepcion) hdnExcepcion.value = 'true';
+    // excepcionActiva = true means the panel is open AND the user confirmed with motivo.
+    // The hidden field is only set to 'true' at submit time, never at panel-open time.
 
+    function mostrarPanelExcepcion() {
         hide($('#panel-excepcion-inactiva'));
         show($('#panel-excepcion-activa'));
-
-        // Hide blocking panels
         hide($('#panel-cupo-insuficiente'));
         hide($('#panel-documentacion-faltante'));
+        const txt = $('#txt-excepcion-documental');
+        if (txt) txt.focus();
     }
 
-    function desactivarExcepcion() {
+    function ocultarPanelExcepcion() {
         excepcionActiva = false;
         const hdnExcepcion = $('#hdn-aplicar-excepcion');
         if (hdnExcepcion) hdnExcepcion.value = 'false';
 
         const txtMotivo = $('#txt-excepcion-documental');
-        if (txtMotivo) txtMotivo.value = '';
+        if (txtMotivo) {
+            txtMotivo.value = '';
+            txtMotivo.readOnly = false;
+            txtMotivo.classList.remove('border-red-500', 'opacity-60', 'cursor-not-allowed');
+        }
+        // Clear any inline error
+        const errEl = document.getElementById('excepcion-motivo-error');
+        if (errEl) errEl.remove();
+
+        // Restore buttons and remove confirmed badge
+        const btnConfirmar = $('#btn-confirmar-excepcion');
+        if (btnConfirmar) btnConfirmar.classList.remove('hidden');
+        const btnCancelar = $('#btn-cancelar-excepcion');
+        if (btnCancelar) btnCancelar.classList.remove('hidden');
+        const badge = document.getElementById('excepcion-aplicada-badge');
+        if (badge) badge.remove();
 
         show($('#panel-excepcion-inactiva'));
         hide($('#panel-excepcion-activa'));
 
-        // Re-show previous verification results if any
         if (ultimaPrevalidacion) {
             mostrarResultadoVerificacion(ultimaPrevalidacion);
             mostrarDocumentacionFaltante(ultimaPrevalidacion);
         }
     }
 
-    $('#btn-aplicar-excepcion')?.addEventListener('click', activarExcepcion);
-    $('#btn-cancelar-excepcion')?.addEventListener('click', desactivarExcepcion);
+    $('#btn-aplicar-excepcion')?.addEventListener('click', mostrarPanelExcepcion);
+    $('#btn-cancelar-excepcion')?.addEventListener('click', ocultarPanelExcepcion);
+
+    // "Aplicar y continuar" dentro del panel: valida motivo, activa la excepción y bloquea el panel para edición
+    $('#btn-confirmar-excepcion')?.addEventListener('click', function () {
+        const txtMotivo = $('#txt-excepcion-documental');
+        const motivo = txtMotivo ? txtMotivo.value.trim() : '';
+
+        if (!motivo) {
+            let errEl = document.getElementById('excepcion-motivo-error');
+            if (!errEl) {
+                errEl = document.createElement('p');
+                errEl.id = 'excepcion-motivo-error';
+                errEl.className = 'text-[11px] text-red-500 font-bold mt-1';
+                errEl.textContent = 'El motivo es obligatorio para aplicar la excepción.';
+                txtMotivo?.insertAdjacentElement('afterend', errEl);
+            }
+            txtMotivo?.classList.add('border-red-500');
+            txtMotivo?.focus();
+            return;
+        }
+
+        // Motivo válido — activar excepción sin submitear; el usuario continúa con "Confirmar Transacción"
+        excepcionActiva = true;
+        const hdnExcepcion = $('#hdn-aplicar-excepcion');
+        if (hdnExcepcion) hdnExcepcion.value = 'true';
+
+        // Bloquear edición del panel y mostrar estado confirmado
+        if (txtMotivo) {
+            txtMotivo.readOnly = true;
+            txtMotivo.classList.add('opacity-60', 'cursor-not-allowed');
+        }
+        const btnConfirmar = $('#btn-confirmar-excepcion');
+        if (btnConfirmar) btnConfirmar.classList.add('hidden');
+        const btnCancelar = $('#btn-cancelar-excepcion');
+        if (btnCancelar) btnCancelar.classList.add('hidden');
+
+        // Mostrar badge de excepción aplicada
+        const panelActivo = $('#panel-excepcion-activa');
+        if (panelActivo) {
+            let badge = document.getElementById('excepcion-aplicada-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.id = 'excepcion-aplicada-badge';
+                badge.className = 'flex items-center gap-2 mt-3 text-green-400 text-sm font-semibold';
+                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Podés continuar con "Confirmar Transacción".';
+                panelActivo.appendChild(badge);
+            }
+        }
+    });
+
+    // Clear inline error when typing in motivo
+    $('#txt-excepcion-documental')?.addEventListener('input', function () {
+        this.classList.remove('border-red-500');
+        const errEl = document.getElementById('excepcion-motivo-error');
+        if (errEl) errEl.remove();
+    });
+
+    // Guard on native form submit: if panel open but user bypasses via top submit button
+    const ventaForm = document.getElementById('venta-form');
+    if (ventaForm) {
+        ventaForm.addEventListener('submit', function (e) {
+            const panelActivo = $('#panel-excepcion-activa');
+            const panelVisible = panelActivo && !panelActivo.classList.contains('hidden');
+            if (!panelVisible) return;
+
+            // Panel open but hdn not yet set (user didn't click "Aplicar y continuar")
+            const hdnExcepcion = $('#hdn-aplicar-excepcion');
+            if (!hdnExcepcion || hdnExcepcion.value !== 'true') {
+                e.preventDefault();
+                const txtMotivo = $('#txt-excepcion-documental');
+                const motivo = txtMotivo ? txtMotivo.value.trim() : '';
+                if (!motivo) {
+                    txtMotivo?.classList.add('border-red-500');
+                    let errEl = document.getElementById('excepcion-motivo-error');
+                    if (!errEl) {
+                        errEl = document.createElement('p');
+                        errEl.id = 'excepcion-motivo-error';
+                        errEl.className = 'text-[11px] text-red-500 font-bold mt-1';
+                        errEl.textContent = 'Usá el botón "Aplicar y continuar" para confirmar la excepción.';
+                        txtMotivo?.insertAdjacentElement('afterend', errEl);
+                    }
+                    txtMotivo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+    }
 
     // ── 11. Documentation Upload Modal ────────────────────────────────
     const modalDoc = $('#modal-documentacion');
@@ -933,13 +1015,7 @@
     });
 
     // ── 11. Toast auto-dismiss ────────────────────────────────────────
-    document.querySelectorAll('.toast-msg').forEach(el => {
-        setTimeout(() => {
-            el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 500);
-        }, 4000);
-    });
+    TheBury.autoDismissToasts();
 
     // ── Init ──────────────────────────────────────────────────────────
     onTipoPagoChange();

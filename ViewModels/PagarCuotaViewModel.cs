@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
+using TheBuryProject.Helpers;
 
 namespace TheBuryProject.ViewModels
 {
@@ -27,6 +29,7 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Monto Pagado")]
         [Required(ErrorMessage = "El monto pagado es requerido")]
         [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a 0")]
+        [ModelBinder(typeof(DecimalModelBinder))]
         public decimal MontoPagado { get; set; }
 
         [Display(Name = "Fecha de Pago")]

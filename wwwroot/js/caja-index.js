@@ -8,15 +8,7 @@
     const container = document.getElementById('modalCajaContainer');
     const lgMedia = window.matchMedia('(min-width: 1024px)');
 
-    // ── Toast auto-dismiss ──
-    document.querySelectorAll('.toast-msg').forEach(el => {
-        setTimeout(() => {
-            el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(-8px)';
-            setTimeout(() => el.remove(), 500);
-        }, 5000);
-    });
+    TheBury.autoDismissToasts();
 
     // ── Helpers ──
     function showLoading() {

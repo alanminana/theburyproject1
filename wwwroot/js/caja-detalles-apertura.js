@@ -1,14 +1,7 @@
 (function () {
     'use strict';
 
-    // Toast auto-dismiss
-    document.querySelectorAll('[id^="toast-"]').forEach(function (toast) {
-        setTimeout(function () {
-            toast.style.transition = 'opacity 0.5s ease';
-            toast.style.opacity = '0';
-            setTimeout(function () { toast.remove(); }, 500);
-        }, 5000);
-    });
+    TheBury.autoDismissToasts();
 
     // Table search by concepto
     var inputBuscar = document.getElementById('buscar-concepto');

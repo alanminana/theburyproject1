@@ -415,17 +415,11 @@ namespace TheBuryProject.Controllers
                 Cliente = _mapper.Map<ClienteViewModel>(cliente)
             };
 
-            var documentosTask = _documentoService.GetByClienteIdAsync(cliente.Id);
-            var creditosTask = _creditoService.GetByClienteIdAsync(cliente.Id);
-            var aptitudTask = _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
-
-            await Task.WhenAll(documentosTask, creditosTask, aptitudTask);
-
-            detalleViewModel.Documentos = documentosTask.Result;
-            detalleViewModel.CreditosActivos = creditosTask.Result;
+            detalleViewModel.Documentos = await _documentoService.GetByClienteIdAsync(cliente.Id);
+            detalleViewModel.CreditosActivos = await _creditoService.GetByClienteIdAsync(cliente.Id);
 
             // Evaluar aptitud crediticia (semáforo)
-            detalleViewModel.AptitudCrediticia = aptitudTask.Result;
+            detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
 
             // Panel de visibilidad del crédito disponible
             detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;

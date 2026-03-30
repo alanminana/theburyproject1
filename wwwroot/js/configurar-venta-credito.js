@@ -62,9 +62,7 @@
     const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
 
     // ── Helpers ────────────────────────────────────────────────────────
-    function formatCurrency(value) {
-        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value || 0);
-    }
+    const formatCurrency = TheBury.formatCurrency;
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
@@ -287,8 +285,7 @@
 
             const resp = await fetch(`/Credito/SimularPlanVenta?${params}`);
             if (!resp.ok) {
-                const err = await resp.json().catch(() => null);
-                console.warn('Simulación error:', err?.error);
+                await resp.json().catch(() => null);
                 return;
             }
 
@@ -296,8 +293,8 @@
             actualizarPlanResumen(data, cuotas);
             actualizarSemaforo(data);
 
-        } catch (err) {
-            console.warn('Error simulando plan:', err);
+        } catch {
+            // simulación falló silenciosamente
         }
     }
 
@@ -411,14 +408,7 @@
         }
     });
 
-    // Toast auto-dismiss
-    document.querySelectorAll('.toast-msg').forEach(el => {
-        setTimeout(() => {
-            el.style.transition = 'opacity 0.5s';
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 500);
-        }, 4000);
-    });
+    TheBury.autoDismissToasts();
 
     // ── Init ──────────────────────────────────────────────────────────
     // Set default date if empty
@@ -426,6 +416,11 @@
         const d = new Date();
         d.setMonth(d.getMonth() + 1);
         txtFecha.value = d.toISOString().split('T')[0];
+    }
+
+    // Si no hay cuotas definidas aún, usar 12 como valor inicial para mostrar la simulación
+    if (txtCuotas && (parseInt(txtCuotas.value) || 0) <= 0) {
+        txtCuotas.value = 12;
     }
 
     // Initial state

@@ -4,8 +4,12 @@
     ViewData["Title"] = "Detalles de Apertura";
     var apertura = Model.Apertura;
     var movimientos = Model.Movimientos ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
+    var ventas = Model.VentasDelTurno ?? new List<TheBuryProject.Models.Entities.Venta>();
     var ingresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).ToList();
     var egresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).ToList();
+    var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
+    var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
+    var puedeOperar = esAdmin || apertura.UsuarioApertura == currentUser;
 }
 
 @functions {
@@ -58,7 +62,7 @@
                         <p class="text-slate-500 dark:text-slate-400 text-base">Gestión y control de flujo de caja en tiempo real</p>
                     </div>
                     <div class="flex items-center gap-3">
-                        @if (!apertura.Cerrada)
+                        @if (!apertura.Cerrada && puedeOperar)
                         {
                             <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
                                class="flex items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold hover:bg-blue-700 transition-all no-underline">
@@ -194,6 +198,99 @@
                 </div>
             </div>
 
+            <!-- Operaciones del turno (ventas asociadas a esta apertura) -->
+            @if (ventas.Any())
+            {
+                <div class="flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
+                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined">shopping_bag</span>
+                            Operaciones del turno
+                            <span class="ml-1 px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">@ventas.Count</span>
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800">
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">N° Venta</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cliente</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tipo pago</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach (var v in ventas)
+                                {
+                                    var tipoPagoLabel = v.TipoPago switch {
+                                        TipoPago.Efectivo => "Efectivo",
+                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                        TipoPago.Cheque => "Cheque",
+                                        TipoPago.Transferencia => "Transferencia",
+                                        TipoPago.MercadoPago => "MercadoPago",
+                                        TipoPago.CreditoPersonal => "Crédito Personal",
+                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                        _ => v.TipoPago.ToString()
+                                    };
+                                    var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
+                                    var estadoLabel = v.Estado switch {
+                                        EstadoVenta.Cotizacion => "Cotización",
+                                        EstadoVenta.Presupuesto => "Presupuesto",
+                                        EstadoVenta.Confirmada => "Confirmada",
+                                        EstadoVenta.Facturada => "Facturada",
+                                        EstadoVenta.Entregada => "Entregada",
+                                        EstadoVenta.Cancelada => "Cancelada",
+                                        EstadoVenta.PendienteRequisitos => "Pend. Requisitos",
+                                        EstadoVenta.PendienteFinanciacion => "Pend. Financiación",
+                                        _ => v.Estado.ToString()
+                                    };
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td class="px-6 py-4 text-sm font-mono font-bold text-slate-900 dark:text-white">
+                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            @if (esCreditoSinIngreso)
+                                            {
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/20">
+                                                    <span class="material-symbols-outlined text-[12px]">schedule</span>@tipoPagoLabel
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/20">@tipoPagoLabel</span>
+                                            }
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-0.5 rounded text-xs font-bold
+                                                @(v.Estado == EstadoVenta.Facturada || v.Estado == EstadoVenta.Entregada ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" :
+                                                  v.Estado == EstadoVenta.Cancelada ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400" :
+                                                  "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300")">
+                                                @estadoLabel
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">
+                                            $@v.Total.ToString("N2")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (ventas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
+                    {
+                        <div class="px-6 py-3 bg-amber-50 dark:bg-amber-500/5 border-t border-amber-200 dark:border-amber-500/20 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+                            <span class="material-symbols-outlined text-[14px]">info</span>
+                            Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.
+                        </div>
+                    }
+                </div>
+            }
+
             <!-- Transaction Table -->
             @if (movimientos.Any())
             {
@@ -275,7 +372,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">No se han registrado movimientos</h3>
                     <p class="text-slate-500 dark:text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora. Comienza registrando un ingreso o egreso para ver el historial aquí.</p>
-                    @if (!apertura.Cerrada)
+                    @if (!apertura.Cerrada && puedeOperar)
                     {
                         <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
                            class="flex items-center justify-center rounded-lg h-12 px-8 bg-primary text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-primary/20 no-underline">
@@ -288,7 +385,7 @@
         </main>
 
         <!-- Bottom Action Footer -->
-        @if (!apertura.Cerrada)
+        @if (!apertura.Cerrada && puedeOperar)
         {
             <footer class="max-w-[1400px] mx-auto w-full px-4 lg:px-10 pb-10">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-blue-700 text-white shadow-xl shadow-primary/20">

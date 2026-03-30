@@ -105,17 +105,12 @@ namespace TheBuryProject.Controllers
             {
                 var userName = _currentUser.GetUsername();
 
-                var ventasTask = _ventaService.GetAllAsync(filter);
-                var clientesTask = _clienteLookup.GetClientesSelectListAsync();
-                var aperturaTask = !string.IsNullOrWhiteSpace(userName)
-                    ? _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
-                    : Task.FromResult<AperturaCaja?>(null);
-
-                await Task.WhenAll(ventasTask, clientesTask, aperturaTask);
-
-                var ventas = ventasTask.Result;
-                ViewBag.Clientes = clientesTask.Result;
-                var aperturaActiva = aperturaTask.Result;
+                // Ejecutar secuencialmente: el DbContext compartido no soporta operaciones concurrentes.
+                var ventas = await _ventaService.GetAllAsync(filter);
+                ViewBag.Clientes = await _clienteLookup.GetClientesSelectListAsync();
+                var aperturaActiva = !string.IsNullOrWhiteSpace(userName)
+                    ? await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
+                    : null;
 
                 ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
                 ViewBag.TiposPago = EnumHelper.GetSelectList<TipoPago>();
@@ -124,6 +119,7 @@ namespace TheBuryProject.Controllers
 
                 ViewBag.PuedeCrearVenta = aperturaActiva != null;
                 ViewBag.PuedeOperarVentas = aperturaActiva != null;
+                ViewBag.UserNameCaja = userName;
 
                 return View("Index_tw", ventas);
             }
@@ -187,6 +183,14 @@ namespace TheBuryProject.Controllers
                 {
                     return cajaGuard;
                 }
+
+                LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+
+                _logger.LogInformation(
+                    "Create POST: TipoPago={TipoPago} AplicarExcepcion={Excepcion} Motivo={Motivo}",
+                    viewModel.TipoPago,
+                    viewModel.AplicarExcepcionDocumental,
+                    viewModel.MotivoExcepcionDocumentalCreate ?? "(vacío)");
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -375,6 +379,8 @@ namespace TheBuryProject.Controllers
                     viewModel.Detalles?.Count ?? 0,
                     viewModel.TipoPago,
                     viewModel.RowVersion?.Length ?? 0);
+
+                LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -1390,6 +1396,43 @@ namespace TheBuryProject.Controllers
                 Estado = estadoInicial,
                 TipoPago = TipoPago.Efectivo
             };
+        }
+
+        /// <summary>
+        /// Elimina del ModelState los errores de validación de los sub-modelos
+        /// que no corresponden al tipo de pago seleccionado.
+        /// DatosTarjeta, DatosCheque y CreditoId tienen [Required] internamente,
+        /// pero solo deben validarse cuando su tipo de pago está activo.
+        /// </summary>
+        private void LimpiarModelStateSegunTipoPago(TipoPago tipoPago, VentaViewModel? viewModel = null)
+        {
+            bool esTarjeta = tipoPago == TipoPago.TarjetaCredito
+                          || tipoPago == TipoPago.TarjetaDebito
+                          || tipoPago == TipoPago.Tarjeta;
+            bool esCheque = tipoPago == TipoPago.Cheque;
+
+            if (!esTarjeta)
+            {
+                foreach (var key in ModelState.Keys
+                    .Where(k => k.StartsWith("DatosTarjeta.", StringComparison.OrdinalIgnoreCase))
+                    .ToList())
+                    ModelState.Remove(key);
+
+                if (viewModel != null) viewModel.DatosTarjeta = null;
+            }
+
+            if (!esCheque)
+            {
+                foreach (var key in ModelState.Keys
+                    .Where(k => k.StartsWith("DatosCheque.", StringComparison.OrdinalIgnoreCase))
+                    .ToList())
+                    ModelState.Remove(key);
+
+                if (viewModel != null) viewModel.DatosCheque = null;
+            }
+
+            // CreditoId nunca es obligatorio: el sistema crea el crédito automáticamente
+            ModelState.Remove("CreditoId");
         }
 
         private bool ValidarDetalles(VentaViewModel viewModel)

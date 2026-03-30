@@ -323,6 +323,7 @@ namespace TheBuryProject.Services
                 return await _context.AperturasCaja
                     .AsNoTracking()
                     .Include(a => a.Caja)
+                    .Include(a => a.Movimientos)
                     .Where(a => !a.Cerrada && !a.IsDeleted)
                     .OrderByDescending(a => a.FechaApertura)
                     .ToListAsync();
@@ -923,6 +924,13 @@ namespace TheBuryProject.Services
 
                 var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
 
+                var ventasDelTurno = await _context.Ventas
+                    .AsNoTracking()
+                    .Include(v => v.Cliente)
+                    .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)
+                    .OrderByDescending(v => v.FechaVenta)
+                    .ToListAsync();
+
                 var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
 
                 var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
@@ -931,6 +939,7 @@ namespace TheBuryProject.Services
                 {
                     Apertura = apertura,
                     Movimientos = movimientos,
+                    VentasDelTurno = ventasDelTurno,
                     SaldoActual = saldoActual,
                     TotalIngresos = totalIngresos,
                     TotalEgresos = totalEgresos,

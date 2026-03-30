@@ -52,6 +52,24 @@ namespace TheBuryProject.Controllers
                 })
                 .ToList();
 
+        private static string BuildCuotasJson(IEnumerable<CuotaViewModel>? cuotas)
+        {
+            var data = ObtenerCuotasPendientes(cuotas)
+                .ToDictionary(
+                    c => c.Id.ToString(),
+                    c => new
+                    {
+                        saldo        = c.SaldoPendiente,
+                        montoCuota   = c.MontoTotal,
+                        punitorio    = c.MontoPunitorio,
+                        numeroCuota  = c.NumeroCuota,
+                        vencimiento  = c.FechaVencimiento.ToString("dd/MM/yyyy"),
+                        estaVencida  = c.EstaVencida,
+                        diasAtraso   = c.DiasAtraso
+                    });
+            return System.Text.Json.JsonSerializer.Serialize(data);
+        }
+
         public CreditoController(
             ICreditoService creditoService,
             IEvaluacionCreditoService evaluacionService,
@@ -139,22 +157,19 @@ namespace TheBuryProject.Controllers
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
-                var creditoTask = _creditoService.GetByIdAsync(id);
-                var evaluacionTask = _evaluacionService.GetEvaluacionByCreditoIdAsync(id);
-
-                await Task.WhenAll(creditoTask, evaluacionTask);
-
-                var credito = creditoTask.Result;
+                var credito = await _creditoService.GetByIdAsync(id);
                 if (credito == null)
                 {
                     TempData["Error"] = "Crédito no encontrado";
                     return RedirectToAction(nameof(Index));
                 }
 
+                var evaluacion = await _evaluacionService.GetEvaluacionByCreditoIdAsync(id);
+
                 var detalle = new CreditoDetalleViewModel
                 {
                     Credito = credito,
-                    Evaluacion = evaluacionTask.Result
+                    Evaluacion = evaluacion
                 };
 
                 try
@@ -300,18 +315,16 @@ namespace TheBuryProject.Controllers
 
             decimal montoVenta = credito.MontoAprobado > 0 ? credito.MontoAprobado : credito.MontoSolicitado;
 
-            var tasaTask = _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-            var ventaTotalTask = ventaId.HasValue
-                ? _ventaService.GetTotalVentaAsync(ventaId.Value)
-                : Task.FromResult<decimal?>(null);
-            var perfilesTask = _configuracionPagoService.GetPerfilesCreditoActivosAsync();
+            var tasaMensualConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
 
-            await Task.WhenAll(tasaTask, ventaTotalTask, perfilesTask);
+            if (ventaId.HasValue)
+            {
+                var ventaTotal = await _ventaService.GetTotalVentaAsync(ventaId.Value);
+                if (ventaTotal.HasValue)
+                    montoVenta = ventaTotal.Value;
+            }
 
-            var tasaMensualConfig = tasaTask.Result;
-            if (ventaTotalTask.Result.HasValue)
-                montoVenta = ventaTotalTask.Result.Value;
-            var perfilesActivos = perfilesTask.Result;
+            var perfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
 
             // Resolver parámetros de crédito del cliente (Personalizado > Perfil > Global)
             var parametrosCliente = await _configuracionPagoService
@@ -775,6 +788,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasDisponibles);
+                ViewBag.CuotasJson = BuildCuotasJson(cuotasDisponibles);
 
                 var cuotaSeleccionada = cuotaId.HasValue
                     ? cuotasDisponibles.FirstOrDefault(c => c.Id == cuotaId.Value)
@@ -796,8 +810,8 @@ namespace TheBuryProject.Controllers
                     NumeroCuota = cuotaSeleccionada.NumeroCuota,
                     MontoCuota = cuotaSeleccionada.MontoTotal,
                     MontoPunitorio = cuotaSeleccionada.MontoPunitorio,
-                    TotalAPagar = cuotaSeleccionada.MontoTotal + cuotaSeleccionada.MontoPunitorio,
-                    MontoPagado = cuotaSeleccionada.MontoTotal + cuotaSeleccionada.MontoPunitorio,
+                    TotalAPagar = cuotaSeleccionada.SaldoPendiente,
+                    MontoPagado = cuotaSeleccionada.SaldoPendiente,
                     ClienteNombre = credito.ClienteNombre,
                     NumeroCreditoTexto = credito.Numero,
                     FechaVencimiento = cuotaSeleccionada.FechaVencimiento,
@@ -834,7 +848,9 @@ namespace TheBuryProject.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    ViewBag.Cuotas = ProyectarCuotasPendientes(credito.Cuotas);
+                    var cuotasPendientes = ObtenerCuotasPendientes(credito.Cuotas);
+                    ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasPendientes);
+                    ViewBag.CuotasJson = BuildCuotasJson(cuotasPendientes);
 
                     return View("PagarCuota_tw", modelo);
                 }
@@ -860,7 +876,9 @@ namespace TheBuryProject.Controllers
             try
             {
                 var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
-                ViewBag.Cuotas = ProyectarCuotasPendientes(credito?.Cuotas);
+                var cuotasPendientes = ObtenerCuotasPendientes(credito?.Cuotas);
+                ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasPendientes);
+                ViewBag.CuotasJson = BuildCuotasJson(cuotasPendientes);
             }
             catch
             {

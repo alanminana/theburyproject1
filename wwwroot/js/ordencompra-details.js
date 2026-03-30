@@ -6,11 +6,7 @@
  * - Sync select with current value
  */
 (() => {
-    /* ── Alert auto-dismiss ── */
-    ['toast-error', 'toast-success'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) setTimeout(() => el.remove(), 5000);
-    });
+    TheBury.autoDismissToasts();
 
     /* ── Confirm estado change ── */
     const form = document.getElementById('form-cambiar-estado');

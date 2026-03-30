@@ -2,6 +2,10 @@
 @{
     ViewData["Title"] = "Registrar Pago de Cuota";
     var returnUrl = ViewData["ReturnUrl"] as string;
+    var cuotasJson = ViewBag.CuotasJson as string ?? "{}";
+    // Formato invariante para el valor inicial del input
+    var montoPagadoInvariant = Model.MontoPagado.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+    var totalAPagarInvariant = Model.TotalAPagar.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 <div class="max-w-2xl mx-auto">
@@ -17,19 +21,22 @@
         </div>
     </div>
 
-    <!-- Cuota Info Card -->
-    <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6 shadow-sm">
+    <!-- Cuota Info Card (actualizable dinámicamente) -->
+    <div id="cuota-info-card"
+         class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold">Cuota #@Model.NumeroCuota</h2>
+            <h2 class="text-lg font-bold">Cuota #<span id="info-numero">@Model.NumeroCuota</span></h2>
             @if (Model.EstaVencida)
             {
-                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
-                    Vencida &mdash; @Model.DiasAtraso días
+                <span id="info-estado-badge"
+                      class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                    Vencida &mdash; <span id="info-dias">@Model.DiasAtraso</span> días
                 </span>
             }
             else
             {
-                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+                <span id="info-estado-badge"
+                      class="text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
                     Vigente
                 </span>
             }
@@ -37,40 +44,42 @@
         <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
                 <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Vencimiento</p>
-                <p class="font-bold">@Model.FechaVencimiento.ToString("dd/MM/yyyy")</p>
+                <p class="font-bold" id="info-vencimiento">@Model.FechaVencimiento.ToString("dd/MM/yyyy")</p>
             </div>
             <div>
                 <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Monto Cuota</p>
-                <p class="font-bold">@Model.MontoCuota.ToString("C")</p>
+                <p class="font-bold" id="info-monto-cuota">@Model.MontoCuota.ToString("C")</p>
             </div>
             <div>
                 <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Punitorio</p>
-                <p class="font-bold text-orange-500">@Model.MontoPunitorio.ToString("C")</p>
+                <p class="font-bold text-orange-500" id="info-punitorio">@Model.MontoPunitorio.ToString("C")</p>
             </div>
             <div>
                 <p class="text-slate-500 text-xs font-medium uppercase tracking-wider mb-1">Total a Pagar</p>
-                <p class="font-bold text-primary text-lg">@Model.TotalAPagar.ToString("C")</p>
+                <p class="font-bold text-primary text-lg" id="info-total">@Model.TotalAPagar.ToString("C")</p>
             </div>
         </div>
     </div>
 
     <!-- Payment Form -->
-    <form asp-action="PagarCuota" method="post" class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+    <form id="pago-form" asp-action="PagarCuota" method="post"
+          class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
         <h2 class="text-lg font-bold mb-5">Datos del Pago</h2>
 
-        <div asp-validation-summary="ModelOnly" class="mb-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg p-3 empty:hidden"></div>
+        <div asp-validation-summary="ModelOnly"
+             class="mb-4 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg p-3 empty:hidden"></div>
 
         <input type="hidden" asp-for="CreditoId" />
-        <input type="hidden" asp-for="CuotaId" />
-        <input type="hidden" asp-for="NumeroCuota" />
-        <input type="hidden" asp-for="MontoCuota" />
-        <input type="hidden" asp-for="MontoPunitorio" />
-        <input type="hidden" asp-for="TotalAPagar" />
+        <input type="hidden" asp-for="CuotaId" id="hdn-cuota-id" />
+        <input type="hidden" asp-for="NumeroCuota" id="hdn-numero-cuota" />
+        <input type="hidden" asp-for="MontoCuota" id="hdn-monto-cuota" />
+        <input type="hidden" asp-for="MontoPunitorio" id="hdn-punitorio" />
+        <input type="hidden" asp-for="TotalAPagar" id="hdn-total" />
         <input type="hidden" asp-for="ClienteNombre" />
         <input type="hidden" asp-for="NumeroCreditoTexto" />
-        <input type="hidden" asp-for="FechaVencimiento" />
-        <input type="hidden" asp-for="EstaVencida" />
-        <input type="hidden" asp-for="DiasAtraso" />
+        <input type="hidden" asp-for="FechaVencimiento" id="hdn-fecha-vto" />
+        <input type="hidden" asp-for="EstaVencida" id="hdn-esta-vencida" />
+        <input type="hidden" asp-for="DiasAtraso" id="hdn-dias-atraso" />
         @if (returnUrl != null)
         {
             <input type="hidden" name="returnUrl" value="@returnUrl" />
@@ -80,10 +89,13 @@
             <!-- Cuota Selector -->
             <div>
                 <label asp-for="CuotaId" class="block text-sm font-semibold mb-1.5">Cuota a Pagar</label>
-                <select asp-for="CuotaId" asp-items="@(ViewBag.Cuotas as List<SelectListItem>)"
+                <select id="select-cuota"
                         class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                    @foreach (var item in (ViewBag.Cuotas as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new()))
+                    {
+                        <option value="@item.Value" selected="@(item.Value == Model.CuotaId.ToString() ? "selected" : null)">@item.Text</option>
+                    }
                 </select>
-                <span asp-validation-for="CuotaId" class="text-xs text-red-500 mt-1"></span>
             </div>
 
             <!-- Monto Pagado -->
@@ -91,10 +103,17 @@
                 <label asp-for="MontoPagado" class="block text-sm font-semibold mb-1.5">Monto a Pagar</label>
                 <div class="relative">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
-                    <input asp-for="MontoPagado"
+                    <input id="input-monto"
+                           name="MontoPagado"
+                           type="text"
+                           inputmode="decimal"
+                           autocomplete="off"
+                           value="@montoPagadoInvariant"
+                           data-max="@totalAPagarInvariant"
                            class="w-full pl-7 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
-                           step="0.01" />
+                           placeholder="0.00" />
                 </div>
+                <p id="monto-error" class="text-xs text-red-500 mt-1 hidden"></p>
                 <span asp-validation-for="MontoPagado" class="text-xs text-red-500 mt-1"></span>
             </div>
 
@@ -122,7 +141,9 @@
 
             <!-- Comprobante -->
             <div>
-                <label asp-for="ComprobantePago" class="block text-sm font-semibold mb-1.5">Nº Comprobante <span class="text-slate-400 font-normal">(opcional)</span></label>
+                <label asp-for="ComprobantePago" class="block text-sm font-semibold mb-1.5">
+                    Nº Comprobante <span class="text-slate-400 font-normal">(opcional)</span>
+                </label>
                 <input asp-for="ComprobantePago"
                        class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
                        placeholder="Ej: TRF-00123" />
@@ -131,7 +152,9 @@
 
             <!-- Observaciones -->
             <div>
-                <label asp-for="Observaciones" class="block text-sm font-semibold mb-1.5">Observaciones <span class="text-slate-400 font-normal">(opcional)</span></label>
+                <label asp-for="Observaciones" class="block text-sm font-semibold mb-1.5">
+                    Observaciones <span class="text-slate-400 font-normal">(opcional)</span>
+                </label>
                 <textarea asp-for="Observaciones" rows="3"
                           class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
                           placeholder="Notas adicionales sobre el pago..."></textarea>
@@ -156,4 +179,159 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+    (function () {
+        const CUOTAS = @Html.Raw(cuotasJson);
+
+        const selectCuota    = document.getElementById('select-cuota');
+        const inputMonto     = document.getElementById('input-monto');
+        const montoError     = document.getElementById('monto-error');
+
+        // hidden fields
+        const hdnCuotaId     = document.getElementById('hdn-cuota-id');
+        const hdnNumero      = document.getElementById('hdn-numero-cuota');
+        const hdnMontoCuota  = document.getElementById('hdn-monto-cuota');
+        const hdnPunitorio   = document.getElementById('hdn-punitorio');
+        const hdnTotal       = document.getElementById('hdn-total');
+        const hdnFechaVto    = document.getElementById('hdn-fecha-vto');
+        const hdnEstaVencida = document.getElementById('hdn-esta-vencida');
+        const hdnDias        = document.getElementById('hdn-dias-atraso');
+
+        // info card elements
+        const infoNumero     = document.getElementById('info-numero');
+        const infoVencimiento = document.getElementById('info-vencimiento');
+        const infoMontoCuota = document.getElementById('info-monto-cuota');
+        const infoPunitorio  = document.getElementById('info-punitorio');
+        const infoTotal      = document.getElementById('info-total');
+        const infoEstadoBadge = document.getElementById('info-estado-badge');
+
+        // --- Helpers ---
+        function formatCurrency(n) {
+            return '$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        function parseDecimal(str) {
+            // Acepta tanto "1,37" como "1.37"
+            if (!str) return NaN;
+            // Si hay coma como separador decimal (ej "1,37" o "1.234,56")
+            // detectar si la coma es decimal: si hay una sola coma y ningún punto, es decimal
+            const cleaned = str.trim();
+            // Reemplazar punto de miles + coma decimal → "1234.56"
+            let normalized = cleaned.replace(/\./g, '').replace(',', '.');
+            // Si tiene múltiples puntos después del reemplazo, era coma decimal directa
+            // Caso simple: solo reemplazar coma por punto
+            if ((cleaned.match(/,/g) || []).length === 1 && (cleaned.match(/\./g) || []).length === 0) {
+                normalized = cleaned.replace(',', '.');
+            } else if ((cleaned.match(/,/g) || []).length === 0) {
+                // Solo punto — ya es decimal anglosajón, usar tal cual
+                normalized = cleaned;
+            }
+            return parseFloat(normalized);
+        }
+
+        function getMax() {
+            return parseFloat(inputMonto.getAttribute('data-max') || '0');
+        }
+
+        // --- Validar monto ---
+        function validateMonto(silent) {
+            const val = parseDecimal(inputMonto.value);
+            const max = getMax();
+
+            if (isNaN(val) || val <= 0) {
+                if (!silent) showError('Ingresá un monto válido mayor a 0.');
+                return false;
+            }
+            if (val > max + 0.001) {
+                if (!silent) showError(`El monto no puede superar el saldo de la cuota ($ ${max.toFixed(2).replace('.', ',')}).`);
+                return false;
+            }
+            hideError();
+            return true;
+        }
+
+        function showError(msg) {
+            montoError.textContent = msg;
+            montoError.classList.remove('hidden');
+            inputMonto.classList.add('border-red-500', 'focus:ring-red-500/50');
+        }
+
+        function hideError() {
+            montoError.classList.add('hidden');
+            inputMonto.classList.remove('border-red-500', 'focus:ring-red-500/50');
+        }
+
+        // --- Actualizar UI cuando cambia la cuota ---
+        function onCuotaChange() {
+            const id = selectCuota.value;
+            const c  = CUOTAS[id];
+            if (!c) return;
+
+            // Actualizar card de info
+            infoNumero.textContent      = c.numeroCuota;
+            infoVencimiento.textContent = c.vencimiento;
+            infoMontoCuota.textContent  = formatCurrency(c.montoCuota);
+            infoPunitorio.textContent   = formatCurrency(c.punitorio);
+            infoTotal.textContent       = formatCurrency(c.saldo);
+
+            // Badge estado
+            if (c.estaVencida) {
+                infoEstadoBadge.className = 'text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20';
+                infoEstadoBadge.innerHTML = `Vencida &mdash; <span id="info-dias">${c.diasAtraso}</span> días`;
+            } else {
+                infoEstadoBadge.className = 'text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20';
+                infoEstadoBadge.textContent = 'Vigente';
+            }
+
+            // Actualizar input monto y su máximo
+            inputMonto.setAttribute('data-max', c.saldo.toFixed(4));
+            inputMonto.value = c.saldo.toFixed(2).replace('.', ',');
+
+            // Actualizar hidden fields
+            hdnCuotaId.value     = id;
+            hdnNumero.value      = c.numeroCuota;
+            hdnMontoCuota.value  = c.montoCuota;
+            hdnPunitorio.value   = c.punitorio;
+            hdnTotal.value       = c.saldo;
+            hdnEstaVencida.value = c.estaVencida;
+            hdnDias.value        = c.diasAtraso;
+
+            hideError();
+        }
+
+        // --- Normalizar coma → punto antes de submit ---
+        document.getElementById('pago-form').addEventListener('submit', function (e) {
+            // Normalizar separador decimal
+            const raw = inputMonto.value.trim();
+            const val = parseDecimal(raw);
+
+            if (isNaN(val)) {
+                e.preventDefault();
+                showError('Ingresá un monto válido (ej: 1,37 o 1.37).');
+                return;
+            }
+
+            if (!validateMonto(false)) {
+                e.preventDefault();
+                return;
+            }
+
+            // Enviar con coma decimal (es-AR) para que el model binder lo parsee correctamente
+            inputMonto.value = val.toFixed(2).replace('.', ',');
+        });
+
+        // Validar al perder foco
+        inputMonto.addEventListener('blur', () => validateMonto(false));
+        inputMonto.addEventListener('input', () => { if (!montoError.classList.contains('hidden')) validateMonto(true); });
+
+        // Selector de cuota
+        selectCuota.addEventListener('change', onCuotaChange);
+
+        // Restablecer display del monto inicial con coma
+        if (inputMonto.value && !inputMonto.value.includes(',')) {
+            const v = parseFloat(inputMonto.value);
+            if (!isNaN(v)) inputMonto.value = v.toFixed(2).replace('.', ',');
+        }
+    })();
+    </script>
 }

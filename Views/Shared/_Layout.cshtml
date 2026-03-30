@@ -38,8 +38,22 @@
 
     string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
 
-    var canViewDashboard = User.TienePermiso("dashboard", "view");
-    var canViewNotifications = User.TienePermiso("notificaciones", "view");
+    // Permisos de navegación — solo módulos con entrada propia en el nav
+    var canViewDashboard     = User.TienePermiso("dashboard",     "view");
+    var canViewNotifications = User.TienePermiso("notificaciones","view");
+    var canViewVentas        = User.TienePermiso("ventas",        "view");
+    var canViewClientes      = User.TienePermiso("clientes",      "view");
+    var canViewInventario    = User.TienePermiso("cotizaciones",  "view");
+    var canViewProveedores   = User.TienePermiso("proveedores",   "view");
+    var canViewCaja          = User.TienePermiso("caja",          "view");
+    var canViewSeguridad     = User.TieneCualquierPermiso(
+                                   ("usuarios", "view"), ("roles", "view"),
+                                   ("usuarios", "update"), ("roles", "create"));
+
+    // Visibilidad de secciones
+    var showOperaciones = canViewVentas || canViewClientes;
+    var showLogistica   = canViewInventario || canViewProveedores || canViewCaja;
+    var showSistemas    = canViewSeguridad;
 }
 
 <div class="flex h-screen overflow-hidden">
@@ -61,7 +75,7 @@
 
         <!-- Nav -->
         <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
-            <!-- Dashboard (standalone) -->
+
             @if (canViewDashboard)
             {
                 <div>
@@ -72,65 +86,102 @@
                 </div>
             }
 
-            <!-- OPERACIONES -->
-            <div>
-                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
-                <div class="space-y-1">
-                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
-                        <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
-                    </a>
-                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">group</span>
-                        <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
-                    </a>
-                    
+            @if (showOperaciones)
+            {
+                <div>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
+                    <div class="space-y-1">
+                        @if (canViewVentas)
+                        {
+                            <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
+                                <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
+                            </a>
+                        }
+                        @if (canViewClientes)
+                        {
+                            <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">group</span>
+                                <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
+                            </a>
+                        }
+                    </div>
                 </div>
-            </div>
+            }
 
-            <!-- LOGÍSTICA -->
-            <div>
-                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
-                <div class="space-y-1">
-                    <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
-                        <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
-                    </a>
-                    <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
-                        <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
-                    </a>
-                    <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">package_2</span>
-                        <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
-                    </a>
+            @if (showLogistica)
+            {
+                <div>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
+                    <div class="space-y-1">
+                        @if (canViewInventario)
+                        {
+                            <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
+                                <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
+                            </a>
+                        }
+                        @if (canViewProveedores)
+                        {
+                            <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
+                                <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
+                            </a>
+                        }
+                        @if (canViewCaja)
+                        {
+                            <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">point_of_sale</span>
+                                <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
+                            </a>
+                        }
+                    </div>
                 </div>
-            </div>
+            }
 
-            <!-- SISTEMAS -->
-            <div>
-                <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
-                <div class="space-y-1">
-                    <a class="@NavClass(IsActive("Usuarios") || IsActive("Roles") || IsActive("Seguridad"))" asp-controller="Seguridad" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">security</span>
-                        <p class="@NavFont(IsActive("Usuarios") || IsActive("Roles") || IsActive("Seguridad")) sidebar-label">Seguridad</p>
-                    </a>
-                    
+            @if (showSistemas)
+            {
+                <div>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
+                    <div class="space-y-1">
+                        <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
+                           asp-controller="Seguridad" asp-action="Index">
+                            <span class="material-symbols-outlined text-lg shrink-0">security</span>
+                            <p class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">Seguridad</p>
+                        </a>
+                    </div>
                 </div>
-            </div>
+            }
+
         </nav>
 
         <!-- User info (bottom) -->
         <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+            @{
+                var userRoles = User.Claims
+                    .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+                    .Select(c => c.Value)
+                    .ToList();
+                var roleDisplay = userRoles.Any() ? string.Join(", ", userRoles) : "Usuario";
+            }
             <div class="flex items-center gap-3 p-2 overflow-hidden">
                 <div class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-slate-500 text-lg">account_circle</span>
                 </div>
-                <div class="flex flex-col sidebar-label">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white leading-none whitespace-nowrap">@(User.Identity?.Name ?? "Admin User")</p>
-                    <p class="text-[10px] text-slate-500 mt-1 whitespace-nowrap">Super Administrador</p>
+                <div class="flex flex-col sidebar-label min-w-0">
+                    <p class="text-xs font-bold text-slate-900 dark:text-white leading-none whitespace-nowrap truncate">@(User.Identity?.Name ?? "—")</p>
+                    <p class="text-[10px] text-slate-500 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
                 </div>
             </div>
+            <form method="post" asp-area="Identity" asp-page="/Account/Logout"
+                  asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
+                  class="sidebar-label mt-1">
+                <button type="submit"
+                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
+                    <span class="material-symbols-outlined text-base">logout</span>
+                    Cerrar sesión
+                </button>
+            </form>
         </div>
 
         <!-- Collapse toggle (desktop) -->

@@ -81,7 +81,7 @@
                 <div>
                     <p class="text-sm font-black uppercase tracking-wider">Sin caja abierta</p>
                     <p class="mt-1 text-sm font-medium">
-                        No tiene una caja abierta a su nombre. Abra una caja para habilitar las operaciones de venta.
+                        No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.
                     </p>
                 </div>
             </div>

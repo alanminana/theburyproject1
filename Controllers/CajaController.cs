@@ -52,6 +52,9 @@ namespace TheBuryProject.Controllers
                 AperturasAbiertas = aperturasAbiertas
             };
 
+            ViewBag.CurrentUser = _currentUser.GetUsername();
+            ViewBag.EsAdmin = _currentUser.IsInRole("SuperAdmin");
+
             return View("Index_tw", viewModel);
         }
 
@@ -386,6 +389,10 @@ namespace TheBuryProject.Controllers
             try
             {
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(id);
+
+                ViewBag.CurrentUser = _currentUser.GetUsername();
+                ViewBag.EsAdmin = _currentUser.IsInRole("SuperAdmin");
+
                 return View("DetallesApertura_tw", detalles);
             }
             catch (Exception ex)
