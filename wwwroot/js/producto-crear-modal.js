@@ -7,8 +7,27 @@
 const ProductoModal = (() => {
     // DOM refs (lazy)
     const el = (id) => document.getElementById(id);
+    const catalogoModule = typeof CatalogoModule !== 'undefined' ? CatalogoModule : null;
 
     let caracteristicaIndex = 0;
+
+    function dispatchScrollRefresh() {
+        if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
+            catalogoModule.requestScrollRefresh();
+            return;
+        }
+
+        document.dispatchEvent(new CustomEvent('catalogo:refresh-scroll'));
+    }
+
+    function updateCaracteristicasUi() {
+        const count = el('modal-caracteristicas-count');
+        const total = el('modal-caracteristicas-body')?.querySelectorAll('tr').length || 0;
+        if (count) {
+            count.textContent = `${total} cargadas`;
+        }
+        dispatchScrollRefresh();
+    }
 
     // ── Abrir / Cerrar ──────────────────────────────────────
     function open() {
@@ -16,6 +35,7 @@ const ProductoModal = (() => {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        updateCaracteristicasUi();
     }
 
     function close() {
@@ -38,6 +58,7 @@ const ProductoModal = (() => {
         const tbody = el('modal-caracteristicas-body');
         if (tbody) tbody.innerHTML = '';
         caracteristicaIndex = 0;
+        updateCaracteristicasUi();
 
         // Restablecer precio final
         const precioFinal = el('modal-precioFinal');
@@ -140,7 +161,7 @@ const ProductoModal = (() => {
                 <input type="hidden" name="Caracteristicas[${idx}].Valor" value="${escapeAttr(valor)}" />
             </td>
             <td class="px-4 py-3 text-center">
-                <button type="button" onclick="ProductoModal.removeCaracteristica(this)"
+                <button type="button" data-catalogo-action="product-remove-caracteristica"
                         class="text-red-500 hover:text-red-600 transition-colors">
                     <span class="material-symbols-outlined">delete</span>
                 </button>
@@ -150,6 +171,7 @@ const ProductoModal = (() => {
         nombreInput.value = '';
         valorInput.value = '';
         nombreInput.focus();
+        updateCaracteristicasUi();
     }
 
     function removeCaracteristica(btn) {
@@ -169,6 +191,7 @@ const ProductoModal = (() => {
             });
         });
         caracteristicaIndex = rows.length;
+        updateCaracteristicasUi();
     }
 
     // ── Envío AJAX ──────────────────────────────────────────
@@ -205,7 +228,7 @@ const ProductoModal = (() => {
 
                 if (result.success) {
                     close();
-                    window.location.reload();
+                    location.reload();
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }
@@ -315,9 +338,23 @@ const ProductoModal = (() => {
         initPrecioCalc();
         initSubmit();
         initEscKey();
+        updateCaracteristicasUi();
+        const tbody = el('modal-caracteristicas-body');
+        if (tbody) {
+            tbody.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('[data-catalogo-action="product-remove-caracteristica"]');
+                if (!removeBtn) return;
+                e.preventDefault();
+                removeCaracteristica(removeBtn);
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', init);
 
     return { open, close, addCaracteristica, removeCaracteristica };
 })();
+
+if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerModalApi === 'function') {
+    CatalogoModule.registerModalApi('producto', ProductoModal);
+}

@@ -1,40 +1,80 @@
-/* credito-index.js — Tabs y filtros para Créditos Index */
+/* credito-index.js — Tabs, filtros y affordance para Credito/Index */
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Tab switching
-    var tabs = document.querySelectorAll('#credito-tabs button[data-tab]');
-    tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            var target = this.getAttribute('data-tab');
+    var creditoModule = window.TheBury && window.TheBury.CreditoModule;
+    var tabButtons = Array.from(document.querySelectorAll('[data-credito-tab]'));
+    var tabTriggers = Array.from(document.querySelectorAll('[data-credito-tab-trigger]'));
+    var filterForm = document.querySelector('[data-credito-filter-form]');
+    var clearFiltersButton = document.querySelector('[data-credito-clear-filters]');
+    var creditosPanel = document.getElementById('tab-creditos');
+    var morasPanel = document.getElementById('tab-moras');
 
-            // Update tab buttons
-            tabs.forEach(function (t) {
-                var isActive = t.getAttribute('data-tab') === target;
-                t.classList.toggle('border-primary', isActive);
-                t.classList.toggle('text-primary', isActive);
-                t.classList.toggle('font-bold', isActive);
-                t.classList.toggle('border-transparent', !isActive);
-                t.classList.toggle('text-slate-500', !isActive);
-                t.classList.toggle('font-medium', !isActive);
-            });
+    function setTabButtonState(button, isActive) {
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('text-slate-900', isActive);
+        button.classList.toggle('font-semibold', isActive);
+        button.classList.toggle('shadow-sm', isActive);
+        button.classList.toggle('dark:bg-slate-900', isActive);
+        button.classList.toggle('dark:text-white', isActive);
 
-            // Show/hide tab panels
-            document.getElementById('tab-creditos').classList.toggle('hidden', target !== 'creditos');
-            document.getElementById('tab-moras').classList.toggle('hidden', target !== 'moras');
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('font-medium', !isActive);
+        button.classList.toggle('dark:text-slate-400', !isActive);
+    }
+
+    function activateTab(target) {
+        tabButtons.forEach(function (button) {
+            setTabButtonState(button, button.getAttribute('data-credito-tab') === target);
+        });
+
+        if (creditosPanel) {
+            creditosPanel.classList.toggle('hidden', target !== 'creditos');
+        }
+
+        if (morasPanel) {
+            morasPanel.classList.toggle('hidden', target !== 'moras');
+        }
+
+        if (creditoModule && typeof creditoModule.refreshScrollAffordance === 'function') {
+            creditoModule.refreshScrollAffordance(document);
+            window.setTimeout(function () {
+                creditoModule.refreshScrollAffordance(document);
+            }, 120);
+        }
+    }
+
+    tabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activateTab(button.getAttribute('data-credito-tab'));
         });
     });
 
-    // Clear filters
-    var btnLimpiar = document.getElementById('btnLimpiar');
-    if (btnLimpiar) {
-        btnLimpiar.addEventListener('click', function () {
-            var form = document.getElementById('filterForm');
-            if (!form) return;
-            form.querySelectorAll('input, select').forEach(function (el) {
-                if (el.type === 'checkbox') el.checked = false;
-                else el.value = '';
+    tabTriggers.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activateTab(button.getAttribute('data-credito-tab-trigger'));
+        });
+    });
+
+    if (clearFiltersButton && filterForm) {
+        clearFiltersButton.addEventListener('click', function () {
+            filterForm.querySelectorAll('input, select').forEach(function (element) {
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                    element.checked = false;
+                    return;
+                }
+
+                if (element.type !== 'hidden') {
+                    element.value = '';
+                }
             });
-            form.submit();
+
+            filterForm.submit();
         });
     }
+
+    if (creditoModule && typeof creditoModule.initSharedUi === 'function') {
+        creditoModule.initSharedUi();
+    }
+    activateTab('creditos');
 });

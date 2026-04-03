@@ -11,30 +11,79 @@
     var esRequiereAut = apt?.Estado == EstadoCrediticioCliente.RequiereAutorizacion;
     var esApto = apt?.Estado == EstadoCrediticioCliente.Apto;
 
+    string ProgressWidthClass(double percentage)
+    {
+        var clamped = Math.Clamp((int)Math.Round(percentage, MidpointRounding.AwayFromZero), 0, 100);
+        return $"progress-w-{clamped}";
+    }
+
+    var documentosVerificados = Model.Documentos?.Count(d => d.Estado == EstadoDocumento.Verificado) ?? 0;
+    var documentosPendientes = Model.Documentos?.Count(d => d.Estado == EstadoDocumento.Pendiente) ?? 0;
+    var documentosFaltantes = apt?.Documentacion?.DocumentosFaltantes?.Count ?? 0;
+    var limiteDisponible = panel?.Valores?.Disponible ?? 0m;
+    var aptitudLabel = esNoApto ? "No apto" : esRequiereAut ? "Requiere autorización" : esApto ? "Apto" : "No evaluado";
+    var bcraEstadoResumen = string.IsNullOrWhiteSpace(c.CuilCuit)
+        ? "CUIL/CUIT no cargado"
+        : (c.SituacionCrediticiaDescripcion ?? "Sin consultar");
+
 }
 
-<div class="space-y-6">
-    <!-- Header -->
-    <div>
-        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
-            <a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a>
-            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a>
-            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <span class="text-slate-900 dark:text-slate-100">@c.Apellido @c.Nombre</span>
-        </nav>
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 class="text-3xl font-bold tracking-tight">Detalle de Cliente: @c.Apellido @c.Nombre</h2>
-            <div class="flex gap-3">
-                <a asp-action="Edit" asp-route-id="@c.Id"
-                   class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 no-underline transition-colors">
-                    <span class="material-symbols-outlined text-[18px]">edit</span> Editar Perfil
-                </a>
-                <a asp-controller="Credito" asp-action="Create" asp-route-clienteId="@c.Id"
-                   class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-primary/20 no-underline transition-colors">
-                    Nuevo Crédito
-                </a>
+@section Styles {
+    <partial name="_ClienteModuleStyles" />
+}
+
+<div class="cliente-page-shell space-y-6">
+    <div class="cliente-page-header-layout">
+        <div class="space-y-4">
+            <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a>
+                <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+                <a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a>
+                <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+                <span class="text-slate-900 dark:text-slate-100">@c.Apellido @c.Nombre</span>
+            </nav>
+            <div class="space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                    <span class="material-symbols-outlined text-sm">badge</span>
+                    Legajo del cliente
+                </div>
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Detalle de Cliente: @c.Apellido @c.Nombre</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Consultá perfil, documentación, scoring y acciones operativas desde una única vista.</p>
             </div>
+        </div>
+        <div class="cliente-page-header-actions">
+            <a asp-action="Edit" asp-route-id="@c.Id"
+               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 no-underline">
+                <span class="material-symbols-outlined text-[18px]">edit</span> Editar Perfil
+            </a>
+            <a asp-controller="Credito" asp-action="Create" asp-route-clienteId="@c.Id"
+               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-blue-700 no-underline">
+                <span class="material-symbols-outlined text-[18px]">payments</span>
+                Nuevo Crédito
+            </a>
+        </div>
+    </div>
+
+    <div class="cliente-page-metrics cliente-page-metrics--4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Crédito Disponible</p>
+            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@limiteDisponible.ToString("C")</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Disponible para nuevas operaciones</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Aptitud</p>
+            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@aptitudLabel</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Estado crediticio evaluado</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Documentos</p>
+            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@documentosVerificados</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@documentosPendientes pendientes · @documentosFaltantes faltantes</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">BCRA</p>
+            <p class="mt-3 text-lg font-bold text-slate-900 dark:text-white">@bcraEstadoResumen</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Consulta crediticia más reciente</p>
         </div>
     </div>
 
@@ -115,7 +164,7 @@
         }
     }
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="cliente-page-main-grid cliente-page-main-grid--aside-right">
         <!-- ═══════ LEFT COLUMN (2/3) ═══════ -->
         <div class="lg:col-span-2 space-y-6">
 
@@ -139,7 +188,7 @@
                                     </span>
                                 </div>
                                 <div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary rounded-full" style="width: @(panel.PorcentajeLibre)%"></div>
+                                    <div class="h-full bg-primary rounded-full @ProgressWidthClass(Convert.ToDouble(panel.PorcentajeLibre))"></div>
                                 </div>
                                 <div class="flex justify-between mt-2">
                                     <p class="text-xs text-slate-400">@panel.PorcentajeLibre% libre</p>
@@ -271,7 +320,7 @@
                                 </div>
                                 @if (tieneCuil)
                                 {
-                                    <button type="button" onclick="actualizarBcra(@c.Id)"
+                                    <button type="button" data-cliente-bcra-refresh data-cliente-id="@c.Id"
                                             class="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
                                             id="bcra-btn">
                                         <span class="material-symbols-outlined text-[14px]" id="bcra-icon">refresh</span>
@@ -287,7 +336,7 @@
 
             <!-- Información General -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden section-card" data-section="info">
-                <button type="button" onclick="toggleDetailsSection('info')"
+                <button type="button" data-cliente-details-toggle="info" aria-controls="content-info" aria-expanded="true"
                         class="w-full p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-left">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-primary">person</span>
@@ -504,7 +553,7 @@
                                         <!-- Rechazar -->
                                         <form asp-controller="DocumentoCliente" asp-action="Rechazar" asp-route-id="@doc.Id"
                                               asp-route-returnUrl="@returnUrlDoc" method="post" class="inline"
-                                              onsubmit="return solicitarMotivoRechazo(this);">
+                                              data-cliente-reject-form>
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="motivo" class="motivo-hidden" />
                                             <button type="submit"
@@ -519,7 +568,11 @@
                                     <!-- Reemplazar (abre modal) -->
                                     @if (!esVerificado)
                                     {
-                                        <button type="button" onclick="abrirUploadModal('@((int)doc.TipoDocumento)', '@doc.TipoDocumentoNombre', @doc.Id)"
+                                        <button type="button"
+                                                data-cliente-upload-open
+                                                data-tipo-documento-value="@((int)doc.TipoDocumento)"
+                                                data-tipo-documento-label="@doc.TipoDocumentoNombre"
+                                                data-replace-id="@doc.Id"
                                                 class="h-7 px-2 flex items-center gap-1 rounded-md bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors cursor-pointer"
                                                 title="Reemplazar archivo">
                                             <span class="material-symbols-outlined text-[16px]">upload</span>
@@ -548,7 +601,10 @@
                                             <p class="text-[10px] text-red-500 font-medium">Pendiente de subida</p>
                                         </div>
                                     </div>
-                                    <button type="button" onclick="abrirUploadModal('', '@faltante')"
+                                    <button type="button"
+                                            data-cliente-upload-open
+                                            data-tipo-documento-value=""
+                                            data-tipo-documento-label="@faltante"
                                        class="h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors cursor-pointer">
                                         <span class="material-symbols-outlined text-[20px]">upload</span>
                                     </button>
@@ -577,7 +633,7 @@
                 <h2 class="text-xl font-bold">Subir Documento</h2>
                 <p id="uploadModalSubtitle" class="text-sm text-slate-500 mt-1">Adjuntar documentación para @c.Apellido @c.Nombre</p>
             </div>
-            <button type="button" onclick="cerrarUploadModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <button type="button" data-cliente-upload-close class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -641,7 +697,7 @@
             </div>
             <!-- Footer -->
             <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
-                <button type="button" onclick="cerrarUploadModal()"
+                <button type="button" data-cliente-upload-close
                         class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>

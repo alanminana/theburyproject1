@@ -3,6 +3,18 @@
 
     TheBury.autoDismissToasts();
 
+    if (typeof TheBury.initHorizontalScrollAffordance === 'function') {
+        document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
+            TheBury.initHorizontalScrollAffordance(root);
+        });
+    }
+
+    document.querySelectorAll('[data-caja-print]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            window.print();
+        });
+    });
+
     // Table search by concepto
     var inputBuscar = document.getElementById('buscar-concepto');
     var filtroTipo = document.getElementById('filtro-tipo');

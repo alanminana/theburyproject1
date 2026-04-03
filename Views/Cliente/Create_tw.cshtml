@@ -4,16 +4,34 @@
     var returnUrl = ViewData["ReturnUrl"] as string;
 }
 
-<div class="max-w-4xl mx-auto pb-24">
-    <!-- Header -->
-    <div class="flex items-center gap-3 mb-6">
-        <a asp-action="Index"
-           class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline text-inherit">
-            <span class="material-symbols-outlined">arrow_back</span>
-        </a>
-        <div>
-            <h1 class="text-2xl font-bold">Nuevo Cliente</h1>
-            <p class="text-sm text-slate-500">Registrar un nuevo cliente en el sistema</p>
+@section Styles {
+    <partial name="_ClienteModuleStyles" />
+}
+
+<div class="cliente-page-shell space-y-6 pb-24">
+    <div class="cliente-page-header-layout">
+        <div class="flex items-start gap-3">
+            <a asp-action="Index"
+               class="rounded-lg p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 no-underline text-inherit">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </a>
+            <div class="space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                    <span class="material-symbols-outlined text-sm">person_add</span>
+                    Alta manual
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Nuevo Cliente</h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Completá el legajo base y la configuración crediticia inicial sin salir del flujo principal.</p>
+                </div>
+            </div>
+        </div>
+        <div class="cliente-page-header-actions">
+            <a asp-action="Index"
+               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 no-underline">
+                <span class="material-symbols-outlined text-lg">list</span>
+                <span>Volver al listado</span>
+            </a>
         </div>
     </div>
 
@@ -30,7 +48,7 @@
 
             <!-- ═══════════════ Datos Personales ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="personal">
-                <button type="button" onclick="toggleSection('personal')"
+                <button type="button" data-cliente-section-toggle="personal" aria-controls="content-personal" aria-expanded="true"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -96,7 +114,7 @@
 
             <!-- ═══════════════ Datos del Cónyuge ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="conyuge">
-                <button type="button" onclick="toggleSection('conyuge')"
+                <button type="button" data-cliente-section-toggle="conyuge" aria-controls="content-conyuge" aria-expanded="false"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-pink-500/10 flex items-center justify-center">
@@ -152,7 +170,7 @@
 
             <!-- ═══════════════ Datos de Contacto ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="contacto">
-                <button type="button" onclick="toggleSection('contacto')"
+                <button type="button" data-cliente-section-toggle="contacto" aria-controls="content-contacto" aria-expanded="true"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -217,7 +235,7 @@
 
             <!-- ═══════════════ Datos Laborales ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="laboral">
-                <button type="button" onclick="toggleSection('laboral')"
+                <button type="button" data-cliente-section-toggle="laboral" aria-controls="content-laboral" aria-expanded="false"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -280,7 +298,7 @@
 
             <!-- ═══════════════ Configuración de Crédito Personalizada ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="credito">
-                <button type="button" onclick="toggleSection('credito')"
+                <button type="button" data-cliente-section-toggle="credito" aria-controls="content-credito" aria-expanded="false"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -352,7 +370,7 @@
 
             <!-- ═══════════════ Observaciones y Estado ═══════════════ -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm section-card" data-section="observaciones">
-                <button type="button" onclick="toggleSection('observaciones')"
+                <button type="button" data-cliente-section-toggle="observaciones" aria-controls="content-observaciones" aria-expanded="true"
                         class="w-full flex items-center justify-between p-5 text-left">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-slate-500/10 flex items-center justify-center">
@@ -390,14 +408,14 @@
         </div>
 
         <!-- Sticky Footer -->
-        <div class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 z-40">
-            <div class="max-w-4xl mx-auto flex items-center justify-between px-6 py-4">
+        <div class="cliente-form-footer fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/80">
+            <div class="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 px-4 py-4 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <a asp-action="Index"
-                   class="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors no-underline">
+                   class="cliente-page-footer-action flex w-full items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto no-underline">
                     Cancelar
                 </a>
                 <button type="submit" id="btnGuardar"
-                        class="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-md">
+                        class="cliente-page-footer-action flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-primary/90 sm:w-auto">
                     <span class="material-symbols-outlined text-lg">person_add</span>
                     Crear Cliente
                 </button>

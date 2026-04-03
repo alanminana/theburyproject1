@@ -27,10 +27,13 @@
         if (!btn) return;
         e.preventDefault();
         var nombre = btn.getAttribute('data-nombre') || 'este registro';
-        if (typeof openConfirmModal === 'function') {
-            openConfirmModal(
-                '¿Estás seguro de eliminar <strong>' + nombre + '</strong>? Esta acción no se puede deshacer.',
-                function () { window.location.href = btn.getAttribute('data-delete-url'); }
+        var deleteUrl = btn.getAttribute('data-delete-url');
+        if (!deleteUrl) return;
+
+        if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
+            window.TheBury.confirmAction(
+                '¿Estás seguro de eliminar "' + nombre + '"? Esta acción no se puede deshacer.',
+                function () { window.location.href = deleteUrl; }
             );
         }
     });

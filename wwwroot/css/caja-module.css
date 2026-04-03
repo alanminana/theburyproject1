@@ -1,0 +1,108 @@
+.caja-page-shell {
+    margin-inline: auto;
+    max-width: 80rem;
+    padding-block: 2rem;
+    width: 100%;
+}
+
+.caja-page-header-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.caja-page-header-actions,
+.caja-page-footer-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.caja-page-header-action,
+.caja-page-footer-action {
+    width: 100%;
+}
+
+.caja-page-metrics {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.caja-page-section-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.caja-page-main-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.caja-form-fields-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.caja-form-panel-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .caja-page-header-layout,
+    .caja-page-section-header {
+        align-items: flex-end;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+
+    .caja-page-header-actions,
+    .caja-page-footer-actions {
+        align-items: center;
+        flex-direction: row;
+        justify-content: flex-end;
+        width: auto;
+    }
+
+    .caja-page-header-action,
+    .caja-page-footer-action {
+        width: auto;
+    }
+
+    .caja-page-main-grid--aside-left {
+        grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    }
+
+    .caja-page-main-grid--aside-right {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    }
+
+    .caja-page-scroll-hint {
+        display: none !important;
+    }
+}
+
+@media (min-width: 768px) {
+    .caja-form-fields-grid--2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .caja-page-metrics--4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .caja-page-metrics--5 {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .caja-page-metrics--7 {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+}

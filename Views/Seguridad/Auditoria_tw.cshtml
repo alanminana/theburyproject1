@@ -36,6 +36,14 @@
     var rangoMostrado = totalResultados == 0 ? "0-0" : $"1-{totalResultados}";
 }
 
+<link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+
 <partial name="_SeguridadTabs" />
 
 <partial name="_SeguridadAuditoriaTab" model="Model" />
+
+@section Scripts {
+    <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/seguridad-auditoria.js" asp-append-version="true"></script>
+}

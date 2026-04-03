@@ -54,10 +54,30 @@
     var puedeRechazarVentas = User.TienePermiso("ventas", "reject");
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
+    var cantidadUnidades = detalles.Sum(d => d.Cantidad);
+    var heroDescripcion = Model.Estado switch
+    {
+        EstadoVenta.Presupuesto => "Revisá el detalle, completá la configuración pendiente y prepará la aprobación o confirmación final.",
+        EstadoVenta.Confirmada => "Supervisá el estado de la operación, la facturación y los movimientos asociados desde una sola vista.",
+        EstadoVenta.Facturada => "Controlá productos, factura emitida y devoluciones disponibles sin salir del detalle.",
+        EstadoVenta.Entregada => "Consultá el historial completo de la venta y los documentos vinculados a la entrega.",
+        EstadoVenta.PendienteFinanciacion => "Verificá el detalle, configurá la financiación y resolvé pendientes operativos antes de cerrar la venta.",
+        EstadoVenta.PendienteRequisitos => "Comprobá documentos y acciones necesarias para dejar la operación lista para confirmar.",
+        EstadoVenta.Cancelada => "Auditá el detalle, el motivo y el historial de la operación cancelada.",
+        _ => "Consultá el detalle, la cobranza y las acciones disponibles sobre la operación actual."
+    };
+    var facturacionResumen = tieneFactura
+        ? facturaActiva?.Numero ?? "Factura emitida"
+        : "Sin factura emitida";
+    var facturacionDetalle = tieneFactura
+        ? (Model.FechaFacturacion.HasValue
+            ? $"Emitida el {Model.FechaFacturacion.Value:dd/MM/yyyy HH:mm}"
+            : "Documento activo asociado")
+        : "Se habilita cuando la venta está lista para facturar.";
 }
 
-<div class="flex-1 flex flex-col items-center py-10 px-4 md:px-0">
-    <div class="max-w-[1200px] w-full space-y-8">
+<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="space-y-8">
 
         <!-- TempData Messages -->
         @if (TempData["Success"] != null)
@@ -102,38 +122,99 @@
             </div>
         }
 
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-3">
-                    <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight">@Model.Numero</h1>
-                    <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border @estadoBg">@Model.EstadoDisplay</span>
+        <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-8">
+            <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                        <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Ventas</span>
+                        <span class="text-slate-300 dark:text-slate-600">/</span>
+                        <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">@Model.Numero</span>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">@Model.Numero</h1>
+                            <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
+                        </div>
+                        <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400 sm:text-base">@heroDescripcion</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs font-medium">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+                            <span class="material-symbols-outlined text-sm">payments</span>
+                            @tipoPagoDisplay
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">schedule</span>
+                            @Model.FechaVenta.ToString("dd/MM/yyyy HH:mm")
+                        </span>
+                        @if (tieneFactura)
+                        {
+                            <span class="inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-green-600 dark:text-green-400">
+                                <span class="material-symbols-outlined text-sm">receipt</span>
+                                @facturacionResumen
+                            </span>
+                        }
+                    </div>
                 </div>
-                <p class="text-slate-500 dark:text-slate-400 text-sm">
-                    Creada el @Model.FechaVenta.ToString("dd/MM/yyyy HH:mm") · @tipoPagoDisplay
-                </p>
+
+                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-[15rem] xl:flex-col">
+                    <a asp-action="Index"
+                       class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 xl:w-full">
+                        Volver a Ventas
+                    </a>
+                    <button type="button"
+                            data-venta-action="print"
+                            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 xl:w-full">
+                        <span class="material-symbols-outlined text-sm">print</span>
+                        Imprimir
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <a asp-action="Index" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-sm">arrow_back</span> Volver a Ventas
-                </a>
-                <button type="button" onclick="window.print()" class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-sm">print</span> Imprimir
-                </button>
+
+            <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cliente</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@Model.ClienteNombre</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@(string.IsNullOrWhiteSpace(Model.ClienteDocumento) ? "Sin documento registrado." : Model.ClienteDocumento)</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Detalle</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@detalles.Count @(detalles.Count == 1 ? "ítem" : "ítems")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@cantidadUnidades @(cantidadUnidades == 1 ? "unidad registrada" : "unidades registradas")</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@Model.Total.ToString("C2")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Incluye IVA y descuentos aplicados a la venta.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Facturación</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@facturacionResumen</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@facturacionDetalle</p>
+                </article>
             </div>
-        </div>
+        </section>
 
         <!-- Main Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
 
             <!-- Left Column: Details -->
             <div class="lg:col-span-2 space-y-8">
 
                 <!-- Sale Info Card -->
                 <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
-                        <span class="material-symbols-outlined text-primary">receipt_long</span>
-                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Información de la Venta</h2>
+                    <div class="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-4 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex items-start gap-2">
+                            <span class="material-symbols-outlined mt-0.5 text-primary">receipt_long</span>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Resumen</p>
+                                <h2 class="mt-1 text-xl font-bold text-slate-900 dark:text-white">Información de la venta</h2>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Datos principales de la operación, del cliente y de la forma de cobro elegida.</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">@tipoPagoIcon</span>
+                            @tipoPagoDisplay
+                        </span>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
@@ -173,47 +254,64 @@
 
                 <!-- Line Items Table -->
                 <section class="bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <div class="flex items-center gap-2 p-6 border-b border-slate-100 dark:border-slate-800">
-                        <span class="material-symbols-outlined text-primary">inventory_2</span>
-                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Detalle de Productos</h2>
-                        <span class="ml-auto text-[10px] font-black text-slate-400 uppercase">@detalles.Count @(detalles.Count == 1 ? "ítem" : "ítems")</span>
+                    <div class="flex flex-col gap-3 border-b border-slate-100 p-6 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex items-start gap-2">
+                            <span class="material-symbols-outlined mt-0.5 text-primary">inventory_2</span>
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Detalle de productos</h2>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Revisá cantidades, descuentos y subtotales completos antes de imprimir o facturar.</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">shopping_bag</span>
+                            @detalles.Count @(detalles.Count == 1 ? "ítem" : "ítems")
+                        </span>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                                    <th class="px-6 py-3 text-left">Producto</th>
-                                    <th class="px-4 py-3 text-center">Cant.</th>
-                                    <th class="px-4 py-3 text-right">Precio Unit.</th>
-                                    <th class="px-4 py-3 text-right">Descuento</th>
-                                    <th class="px-6 py-3 text-right">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                                @foreach (var item in detalles)
-                                {
-                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td class="px-6 py-4">
-                                            <p class="font-bold text-slate-900 dark:text-white">@item.ProductoNombre</p>
-                                            <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
-                                        </td>
-                                        <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
-                                        <td class="px-4 py-4 text-right text-slate-600 dark:text-slate-300">@item.PrecioUnitario.ToString("C2")</td>
-                                        <td class="px-4 py-4 text-right">
-                                            @if (item.Descuento > 0)
-                                            {
-                                                <span class="text-red-500">-@item.Descuento.ToString("C2")</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-slate-400">—</span>
-                                            }
-                                        </td>
-                                        <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">@item.Subtotal.ToString("C2")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div id="venta-details-scroll" data-oc-scroll style="--oc-scroll-min-width: 42rem;">
+                        <p data-oc-scroll-hint hidden class="px-6 pt-4 text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                            Deslizá la tabla para revisar importes, descuentos y subtotales completos.
+                        </p>
+                        <div data-oc-scroll-shell class="px-0 pb-0">
+                            <div data-oc-scroll-fade="left" hidden></div>
+                            <div data-oc-scroll-fade="right" hidden></div>
+                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Detalle de productos de la venta">
+                                <table data-oc-scroll-table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-slate-800/50">
+                                            <th class="px-6 py-3 text-left">Producto</th>
+                                            <th class="px-4 py-3 text-center">Cant.</th>
+                                            <th class="px-4 py-3 text-right">Precio Unit.</th>
+                                            <th class="px-4 py-3 text-right">Descuento</th>
+                                            <th class="px-6 py-3 text-right">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                        @foreach (var item in detalles)
+                                        {
+                                            <tr class="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                                <td class="px-6 py-4">
+                                                    <p class="font-bold text-slate-900 dark:text-white">@item.ProductoNombre</p>
+                                                    <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
+                                                </td>
+                                                <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
+                                                <td class="px-4 py-4 text-right text-slate-600 dark:text-slate-300">@item.PrecioUnitario.ToString("C2")</td>
+                                                <td class="px-4 py-4 text-right">
+                                                    @if (item.Descuento > 0)
+                                                    {
+                                                        <span class="text-red-500">-@item.Descuento.ToString("C2")</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-slate-400">—</span>
+                                                    }
+                                                </td>
+                                                <td class="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">@item.Subtotal.ToString("C2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Totals row -->
@@ -407,7 +505,7 @@
                         @* Imprimir Factura *@
                         @if (tieneFactura)
                         {
-                            <button type="button" onclick="window.print()"
+                            <button type="button" data-venta-action="print"
                                     class="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-slate-800 dark:hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
                                 <span class="material-symbols-outlined text-sm">print</span> Imprimir Factura
                             </button>
@@ -416,7 +514,7 @@
                         @* Autorizar *@
                         @if (puedeOperarVentas && Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas))
                         {
-                            <div class="flex gap-2">
+                            <div class="flex flex-col gap-2 sm:flex-row">
                                 @if (puedeAutorizarVentas)
                                 {
                                     <form asp-action="Autorizar" method="post" class="flex-1">
@@ -473,8 +571,12 @@
                             @* Anular Factura *@
                             @if (puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas)
                             {
-                                <div class="hidden" id="anular-factura-token">@Html.AntiForgeryToken()</div>
-                                <button type="button" id="btn-anular-factura" data-factura-id="@facturaActiva.Id"
+                                <button type="button"
+                                        id="btn-anular-factura"
+                                        data-factura-id="@facturaActiva.Id"
+                                        data-factura-numero="@facturaActiva.Numero"
+                                        data-venta-modal-action="open"
+                                        data-venta-modal-target="anular-factura"
                                         class="w-full py-2.5 text-red-500 text-xs font-bold hover:bg-red-500/10 rounded-lg transition-all flex items-center justify-center gap-1.5">
                                     <span class="material-symbols-outlined text-sm">block</span> Anular Factura
                                 </button>
@@ -620,12 +722,94 @@
     </div>
 </div>
 
+@if (puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas)
+{
+    <div id="modal-anular-factura"
+         data-venta-modal="anular-factura"
+         data-venta-modal-backdrop
+         aria-hidden="true"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Anular factura</h3>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        Indicá el motivo de la anulación para la factura <span id="modal-anular-factura-numero" class="font-bold text-slate-900 dark:text-white">@facturaActiva.Numero</span>.
+                    </p>
+                </div>
+                <button type="button"
+                        data-venta-modal-action="close"
+                        class="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <form asp-action="AnularFactura" method="post" id="form-anular-factura" class="mt-6 space-y-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="facturaId" id="anular-factura-id" value="@facturaActiva.Id" />
+
+                <div class="rounded-2xl border border-red-500/15 bg-red-500/5 p-4 text-sm text-slate-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-slate-300">
+                    Esta acción revierte la factura activa de la venta y queda registrada en el historial operativo.
+                </div>
+
+                <div>
+                    <label for="anular-factura-motivo" class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo de anulación</label>
+                    <textarea id="anular-factura-motivo"
+                              name="motivo"
+                              rows="4"
+                              required
+                              placeholder="Describa el motivo de la anulación..."
+                              class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-primary"></textarea>
+                </div>
+
+                <div class="venta-details-modal-footer flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button type="button"
+                            data-venta-modal-action="close"
+                            class="venta-details-modal-action w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="venta-details-modal-action w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
+                        Confirmar anulación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
 @if (puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones)
 {
     <partial name="_VentaDevolucionModal" />
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <style>
+        .venta-details-modal-footer {
+            flex-direction: column-reverse;
+        }
+
+        .venta-details-modal-action {
+            width: 100%;
+        }
+
+        @@media (min-width: 640px) {
+            .venta-details-modal-footer {
+                flex-direction: row;
+                justify-content: flex-end;
+            }
+
+            .venta-details-modal-action {
+                width: auto;
+            }
+        }
+    </style>
+}
+
 @section Scripts {
-    <script src="~/js/venta-devolucion-modal.js"></script>
-    <script src="~/js/details-venta.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/venta-module.js" asp-append-version="true"></script>
+    <script src="~/js/venta-devolucion-modal.js" asp-append-version="true"></script>
+    <script src="~/js/details-venta.js" asp-append-version="true"></script>
 }

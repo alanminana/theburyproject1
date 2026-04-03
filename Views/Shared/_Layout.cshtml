@@ -203,14 +203,14 @@
     <main class="flex-1 flex flex-col overflow-hidden">
 
         <!-- Header / Top Bar -->
-        <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex items-center justify-between px-8">
+        <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex items-center justify-between px-4 sm:px-6 lg:px-8">
 
             <div class="flex items-center gap-6">
                 <!-- Mobile toggle -->
                 <button id="toggleSidebar" type="button"
                         class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
                         aria-label="Abrir/cerrar menú">
-                    <span class="material-symbols-outlined" style="font-size:22px">menu</span>
+                    <span class="material-symbols-outlined icon-size-22">menu</span>
                 </button>
 
                 <!-- Page Title -->
@@ -256,7 +256,7 @@
         </header>
 
         <!-- Page Content -->
-        <div class="flex-1 overflow-y-auto p-8 bg-slate-50 dark:bg-background-dark/50">
+        <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8 bg-slate-50 dark:bg-background-dark/50">
             @RenderBody()
         </div>
     </main>

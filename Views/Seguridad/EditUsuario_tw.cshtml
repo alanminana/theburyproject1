@@ -2,36 +2,123 @@
 @{
     ViewData["Title"] = "Editar Usuario";
     var returnUrl = ViewData["ReturnUrl"] as string;
+    var backUrl = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "Seguridad", new { tab = "usuarios" });
+    var fullName = string.Join(" ", new[] { Model.Nombre, Model.Apellido }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    var displayName = !string.IsNullOrWhiteSpace(fullName) ? fullName : Model.UserName;
+    var selectedRolesCount = Model.RolesSeleccionados.Count;
+    var sucursalAsignada = Model.AllSucursales.FirstOrDefault(s => s.Id == Model.SucursalId)?.Nombre ?? "Sin asignar";
+    var hasTelefono = !string.IsNullOrWhiteSpace(Model.Telefono);
 }
 
+<style>
+    #edit-user-footer-actions {
+        display: flex;
+    }
+
+    @@media (max-width: 639px) {
+        #edit-user-footer-actions {
+            flex-direction: column-reverse;
+        }
+
+        #edit-user-footer-actions .edit-user-footer-action {
+            width: 100%;
+        }
+    }
+
+    @@media (min-width: 640px) {
+        #edit-user-footer-actions {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #edit-user-footer-actions .edit-user-footer-action {
+            width: auto;
+        }
+    }
+</style>
+
 <div class="max-w-5xl mx-auto space-y-8">
-    <div class="flex items-start gap-3">
-        @if (!string.IsNullOrWhiteSpace(returnUrl))
-        {
-            <a href="@returnUrl"
-               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
-                <span class="material-symbols-outlined">arrow_back</span>
-            </a>
-        }
-        else
-        {
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
-               class="mt-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline text-inherit">
-                <span class="material-symbols-outlined">arrow_back</span>
-            </a>
-        }
-        <div class="space-y-2">
-            <div class="flex items-center gap-3 flex-wrap">
-                <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Editar usuario</h1>
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold @(Model.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-300")">
-                    @(Model.Activo ? "Activo" : "Inactivo")
-                </span>
+    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-6 md:px-8 py-8 border-b border-slate-200 dark:border-slate-800">
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-4">
+                    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <a href="@backUrl" class="hover:text-primary transition-colors no-underline">Seguridad</a>
+                        <span>/</span>
+                        <span>Usuarios</span>
+                        <span>/</span>
+                        <span>Editar</span>
+                    </nav>
+
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                                <span class="material-symbols-outlined text-sm">manage_accounts</span>
+                                Editar Usuario
+                            </span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold @(Model.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-300")">
+                                @(Model.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </div>
+
+                        <div>
+                            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@displayName</h1>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-3xl">
+                                Edición centralizada desde Seguridad. Acá se modifican datos de acceso, datos personales, roles, sucursal y estado de la cuenta sin tocar el flujo de credenciales.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                                <span class="material-symbols-outlined text-sm">alternate_email</span>
+                                @Model.Email
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                                <span class="material-symbols-outlined text-sm">badge</span>
+                                @Model.UserName
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+                    <a href="@backUrl"
+                       class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline sm:w-auto">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span>
+                        Volver a usuarios
+                    </a>
+                </div>
             </div>
-            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-3xl">
-                Edición centralizada desde Seguridad. Acá se modifican datos de acceso, datos personales, roles, sucursal y estado de la cuenta.
-            </p>
         </div>
-    </div>
+
+        <div class="px-6 md:px-8 py-6">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</p>
+                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(Model.Activo ? "Activo" : "Inactivo")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Control de habilitación de la cuenta.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles asignados</p>
+                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@selectedRolesCount</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Permisos heredados desde RBAC.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sucursal</p>
+                    <p class="mt-2 text-lg font-black text-slate-900 dark:text-white">@sucursalAsignada</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Contexto operativo principal del usuario.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contacto</p>
+                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(hasTelefono ? "OK" : "--")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@(hasTelefono ? Model.Telefono : "Sin teléfono cargado")</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
         <span class="material-symbols-outlined text-amber-500 mt-0.5">info</span>
@@ -177,24 +264,13 @@
             </div>
         </section>
 
-        <div class="flex items-center justify-between">
-            @if (!string.IsNullOrWhiteSpace(returnUrl))
-            {
-                <a href="@returnUrl"
-                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
-                    Cancelar
-                </a>
-            }
-            else
-            {
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios"
-                   class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
-                    Cancelar
-                </a>
-            }
-
+        <div id="edit-user-footer-actions" class="gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 sm:px-6 sm:py-5">
+            <a href="@backUrl"
+               class="edit-user-footer-action inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline sm:w-auto">
+                Cancelar
+            </a>
             <button type="submit"
-                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    class="edit-user-footer-action inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition-colors sm:w-auto">
                 <span class="material-symbols-outlined text-sm">save</span>
                 Guardar cambios
             </button>

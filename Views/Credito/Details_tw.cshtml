@@ -10,7 +10,11 @@
     var cuotasPagadas = cuotas.Count(c => c.Estado == EstadoCuota.Pagada);
     var cuotasVencidas = cuotas.Where(c => c.EstaVencida).ToList();
     var totalCuotas = cuotas.Count;
+    var cuotasPendientes = cuotas.Count(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial);
     var progresoPago = totalCuotas > 0 ? Math.Round((decimal)cuotasPagadas / totalCuotas * 100, 0) : 0;
+    var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "Credito") ?? "/Credito";
 
     // Estado badge
     string estadoBg;
@@ -72,81 +76,170 @@
     }
 }
 
-<div class="space-y-6">
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <style>
+        [data-credito-header-actions] {
+            width: 100%;
+        }
 
-    <!-- Header -->
-    <div>
-        <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
-            <a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a>
-            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <a asp-controller="Credito" asp-action="Index" class="hover:text-primary no-underline">Créditos</a>
-            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <span class="text-slate-900 dark:text-slate-100">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>
-        </nav>
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h2 class="text-3xl font-bold tracking-tight">Crédito @(cr.Numero ?? $"CR-{cr.Id:D3}")</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Cliente: <span class="font-semibold text-slate-700 dark:text-slate-200">@cr.ClienteNombre</span>
-                    &mdash; Solicitado el @cr.FechaSolicitud.ToString("dd/MM/yyyy")
-                </p>
+        [data-credito-header-actions] > * {
+            width: 100%;
+        }
+
+        @@media (min-width: 1280px) {
+            [data-credito-header-actions] {
+                width: auto;
+                flex-direction: row;
+                justify-content: flex-end;
+                align-self: flex-start;
+            }
+
+            [data-credito-header-actions] > * {
+                width: auto;
+                flex: 0 0 auto;
+            }
+        }
+    </style>
+}
+
+<div data-credito-details class="space-y-8">
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Credito" asp-action="Index" class="hover:text-primary no-underline">Créditos</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-900 dark:text-slate-100">Detalle</li>
+                    </ol>
+                </nav>
+
+                <div class="space-y-3">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                        <span class="material-symbols-outlined text-sm">credit_score</span>
+                        Credito
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Crédito @(cr.Numero ?? $"CR-{cr.Id:D3}")</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                            Seguimiento integral del crédito de <span class="font-semibold text-slate-700 dark:text-slate-200">@cr.ClienteNombre</span>, con contexto de mora, evaluación y plan de cuotas operativo.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">person</span>
+                            @cr.ClienteNombre
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">calendar_month</span>
+                            Solicitado el @cr.FechaSolicitud.ToString("dd/MM/yyyy")
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide @estadoBg">
+                            <span class="material-symbols-outlined text-sm">flag</span>
+                            @cr.Estado
+                        </span>
+                    </div>
+                </div>
             </div>
-            <div class="flex flex-wrap gap-2">
+
+            <div data-credito-header-actions class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                 @if (cr.Estado == EstadoCredito.Solicitado)
                 {
-                    <button type="button" id="btn-aprobar"
-                            class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-colors flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">check_circle</span> Aprobar
+                    <button type="button"
+                            id="btn-aprobar"
+                            data-credito-modal-action="open"
+                            data-credito-modal-target="aprobar"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-700 sm:w-auto sm:py-2.5">
+                        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+                        Aprobar
                     </button>
-                    <button type="button" id="btn-rechazar"
-                            class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-600/20 transition-colors flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">cancel</span> Rechazar
+                    <button type="button"
+                            id="btn-rechazar"
+                            data-credito-modal-action="open"
+                            data-credito-modal-target="rechazar"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition-colors hover:bg-red-700 sm:w-auto sm:py-2.5">
+                        <span class="material-symbols-outlined text-[20px]">cancel</span>
+                        Rechazar
                     </button>
                 }
                 @if (cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado)
                 {
                     <a asp-action="PagarCuota" asp-route-id="@cr.Id"
-                       class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-primary/20 no-underline transition-colors flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">payments</span> Pagar Cuota
+                       class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5 no-underline">
+                        <span class="material-symbols-outlined text-[20px]">payments</span>
+                        Pagar Cuota
                     </a>
                     <a asp-action="AdelantarCuota" asp-route-id="@cr.Id"
-                       class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 no-underline transition-colors flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">fast_forward</span> Adelantar
+                       class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                        <span class="material-symbols-outlined text-[20px]">fast_forward</span>
+                        Adelantar
                     </a>
                 }
                 @if (cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado)
                 {
-                    <button type="button" id="btn-cancelar"
-                            class="px-4 py-2 rounded-lg border border-red-200 dark:border-red-500/30 bg-white dark:bg-slate-800 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[18px]">block</span> Cancelar
+                    <button type="button"
+                            id="btn-cancelar"
+                            data-credito-modal-action="open"
+                            data-credito-modal-target="cancelar"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-500/30 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-500/10 sm:w-auto sm:py-2.5">
+                        <span class="material-symbols-outlined text-[20px]">block</span>
+                        Cancelar
                     </button>
                 }
-                <a asp-action="Index"
-                   class="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 no-underline transition-colors flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Volver
+                <a href="@volverHref"
+                   class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver
                 </a>
             </div>
+        </header>
+
+        <div class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Estado</p>
+                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@cr.Estado</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">estado operativo actual</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Saldo pendiente</p>
+                <p class="mt-2 text-2xl font-black @(cr.SaldoPendiente > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")">$ @cr.SaldoPendiente.ToString("N0")</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">capital a regularizar</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Progreso</p>
+                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@progresoPago%</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@cuotasPagadas / @totalCuotas cuota@(totalCuotas == 1 ? "" : "s") pagada@(cuotasPagadas == 1 ? "" : "s")</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pendientes</p>
+                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@cuotasPendientes</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@cuotasVencidas.Count mora@(cuotasVencidas.Count == 1 ? "" : "s") activa@(cuotasVencidas.Count == 1 ? "" : "s")</p>
+            </div>
         </div>
-    </div>
+    </section>
 
     <!-- TempData Alerts -->
     @if (TempData["Success"] != null)
     {
-        <div class="rounded-xl border border-emerald-500/50 bg-emerald-50 dark:bg-emerald-500/10 p-4 flex items-center gap-3 text-emerald-700 dark:text-emerald-400">
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/50 bg-emerald-50 p-4 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" role="status">
             <span class="material-symbols-outlined">check_circle</span>
             <span class="text-sm font-medium">@TempData["Success"]</span>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-500/10 p-4 flex items-center gap-3 text-red-700 dark:text-red-400">
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/50 bg-red-50 p-4 text-red-700 dark:bg-red-500/10 dark:text-red-400" role="alert">
             <span class="material-symbols-outlined">error</span>
             <span class="text-sm font-medium">@TempData["Error"]</span>
         </div>
     }
     @if (TempData["Warning"] != null)
     {
-        <div class="rounded-xl border border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 p-4 flex items-center gap-3 text-amber-700 dark:text-amber-400">
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/50 bg-amber-50 p-4 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" role="status">
             <span class="material-symbols-outlined">warning</span>
             <span class="text-sm font-medium">@TempData["Warning"]</span>
         </div>
@@ -177,49 +270,6 @@
             </a>
         </div>
     }
-
-    <!-- Top Stats Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Estado -->
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-            <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Estado</p>
-            <span class="inline-block px-3 py-1 rounded-full text-xs font-bold @estadoBg">
-                @cr.Estado.ToString()
-            </span>
-            @if (cr.FechaAprobacion.HasValue)
-            {
-                <p class="text-[10px] text-slate-400 mt-2">Aprobado: @cr.FechaAprobacion.Value.ToString("dd/MM/yyyy")</p>
-            }
-        </div>
-
-        <!-- Monto -->
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-            <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Monto Total</p>
-            <p class="text-2xl font-black text-slate-900 dark:text-white leading-none">$ @cr.TotalAPagar.ToString("N2")</p>
-            <p class="text-[10px] text-slate-400 mt-2">Solicitado: $ @cr.MontoSolicitado.ToString("N2")</p>
-        </div>
-
-        <!-- Saldo -->
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-            <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Saldo Pendiente</p>
-            <p class="text-2xl font-black @(cr.SaldoPendiente > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400") leading-none">
-                $ @cr.SaldoPendiente.ToString("N2")
-            </p>
-            @if (totalCuotas > 0)
-            {
-                <p class="text-[10px] text-slate-400 mt-2">@cuotasPagadas / @totalCuotas cuotas pagadas</p>
-            }
-        </div>
-
-        <!-- Progreso -->
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-            <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Progreso</p>
-            <p class="text-2xl font-black text-slate-900 dark:text-white leading-none">@progresoPago%</p>
-            <div class="mt-2 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full bg-primary rounded-full transition-all" style="width: @(progresoPago)%"></div>
-            </div>
-        </div>
-    </div>
 
     <!-- Main Grid: Info + Client -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -575,16 +625,27 @@
     <!-- Cuotas Table -->
     @if (cuotas.Any())
     {
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div class="p-6 pb-4 flex items-center justify-between">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">receipt_long</span>
-                    Plan de Cuotas
-                    <span class="text-xs font-medium text-slate-400 ml-1">(@totalCuotas)</span>
-                </h3>
+        <div data-oc-scroll style="--oc-scroll-min-width: 74rem;" class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between p-6 pb-4">
+                <div>
+                    <h3 class="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
+                        <span class="material-symbols-outlined text-primary">receipt_long</span>
+                        Plan de Cuotas
+                        <span class="ml-1 text-xs font-medium text-slate-400">(@totalCuotas)</span>
+                    </h3>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Revisá vencimientos, composición de la cuota y acciones disponibles sin salir del detalle.</p>
+                </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="px-6 pb-4">
+                <p data-oc-scroll-hint hidden class="text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                    Deslizá la tabla para ver capital, punitorio y acciones de pago.
+                </p>
+            </div>
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Plan de cuotas del crédito">
+                    <table data-oc-scroll-table class="w-full text-sm">
                     <thead>
                         <tr class="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                             <th class="text-left px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">#</th>
@@ -677,6 +738,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     }
@@ -692,10 +754,10 @@
 <!-- Modals: Aprobar / Rechazar / Cancelar -->
 
 <!-- Modal Aprobar -->
-<div id="modal-aprobar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Aprobar Crédito</h3>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">
+<div id="modal-aprobar" data-credito-modal="aprobar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+        <h3 class="mb-2 text-lg font-bold text-slate-900 dark:text-white">Aprobar Crédito</h3>
+        <p class="mb-5 text-sm text-slate-500 dark:text-slate-400">
             ¿Confirma la aprobación del crédito <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>
             por <span class="font-bold">$ @cr.MontoSolicitado.ToString("N2")</span>?
         </p>
@@ -706,11 +768,13 @@
             {
                 <input type="hidden" name="returnUrl" value="@returnUrl" />
             }
-            <div class="flex justify-end gap-3">
-                <button type="button" class="modal-close px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button"
+                        data-credito-modal-action="close"
+                        class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                     Cancelar
                 </button>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors">
+                <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 sm:w-auto">
                     Confirmar Aprobación
                 </button>
             </div>
@@ -719,10 +783,10 @@
 </div>
 
 <!-- Modal Rechazar -->
-<div id="modal-rechazar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Rechazar Crédito</h3>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+<div id="modal-rechazar" data-credito-modal="rechazar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+        <h3 class="mb-2 text-lg font-bold text-slate-900 dark:text-white">Rechazar Crédito</h3>
+        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
             Indique el motivo del rechazo para <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>.
         </p>
         <form asp-action="Rechazar" method="post">
@@ -735,11 +799,13 @@
             <textarea name="motivo" rows="3" required
                       class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white p-3 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-none mb-4"
                       placeholder="Motivo del rechazo..."></textarea>
-            <div class="flex justify-end gap-3">
-                <button type="button" class="modal-close px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button"
+                        data-credito-modal-action="close"
+                        class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                     Volver
                 </button>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors">
+                <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
                     Confirmar Rechazo
                 </button>
             </div>
@@ -748,10 +814,10 @@
 </div>
 
 <!-- Modal Cancelar -->
-<div id="modal-cancelar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Cancelar Crédito</h3>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+<div id="modal-cancelar" data-credito-modal="cancelar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+        <h3 class="mb-2 text-lg font-bold text-slate-900 dark:text-white">Cancelar Crédito</h3>
+        <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
             Indique el motivo de cancelación para <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>.
         </p>
         <form asp-action="Cancelar" method="post">
@@ -764,11 +830,13 @@
             <textarea name="motivo" rows="3" required
                       class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white p-3 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-none mb-4"
                       placeholder="Motivo de la cancelación..."></textarea>
-            <div class="flex justify-end gap-3">
-                <button type="button" class="modal-close px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button"
+                        data-credito-modal-action="close"
+                        class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                     Volver
                 </button>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors">
+                <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
                     Confirmar Cancelación
                 </button>
             </div>
@@ -777,5 +845,7 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/credito-details.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/credito-module.js" asp-append-version="true"></script>
+    <script src="~/js/credito-details.js" asp-append-version="true"></script>
 }

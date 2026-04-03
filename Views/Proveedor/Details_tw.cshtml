@@ -6,71 +6,121 @@
         : Model.Cuit;
     var direccionCompleta = string.Join(", ",
         new[] { Model.Direccion, Model.Ciudad }.Where(s => !string.IsNullOrWhiteSpace(s)));
+    var tieneContacto = !string.IsNullOrWhiteSpace(Model.Email) ||
+                        !string.IsNullOrWhiteSpace(Model.Telefono) ||
+                        !string.IsNullOrWhiteSpace(Model.Contacto);
 }
 
-<!-- Header Actions -->
-<div class="flex items-center justify-between mb-6">
-    <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-            <li><a asp-controller="Catalogo" asp-action="Index" class="hover:text-primary no-underline">Inventario</a></li>
-            <li><span class="mx-2 text-slate-400">/</span></li>
-            <li><a asp-controller="Proveedor" asp-action="Index" class="hover:text-primary no-underline">Proveedores</a></li>
-            <li><span class="mx-2 text-slate-400">/</span></li>
-            <li class="text-slate-900 dark:text-slate-100">Detalle</li>
-        </ol>
-    </nav>
-    <div class="flex gap-3">
-        <a asp-action="Index"
-           class="flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-sm font-semibold transition-colors no-underline text-slate-900 dark:text-slate-100">
-            <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-            Volver
-        </a>
-        <button type="button" onclick="ProveedorEditarModal.open(@Model.Id)"
-                class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-primary/20">
-            <span class="material-symbols-outlined text-[20px]">edit</span>
-            Editar
-        </button>
-    </div>
-</div>
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <style>
+        .proveedor-details-hero-actions {
+            width: 100%;
+        }
 
-<!-- Page Title -->
-<div class="mb-8">
-    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Detalle de Proveedor</h1>
-    <p class="mt-2 text-slate-600 dark:text-slate-400">Visualización completa de la información del proveedor y métricas financieras.</p>
-</div>
+        .proveedor-details-hero-action {
+            width: 100%;
+        }
 
-<!-- Stats Row -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-        <div class="p-3 bg-primary/10 rounded-lg text-primary">
-            <span class="material-symbols-outlined text-3xl">shopping_cart</span>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Órdenes de Compra</p>
-            <p class="text-2xl font-bold">@Model.TotalOrdenesCompra</p>
-        </div>
-    </div>
-    <div class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-        <div class="p-3 bg-emerald-500/10 rounded-lg text-emerald-500">
-            <span class="material-symbols-outlined text-3xl">payments</span>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cheques Vigentes</p>
-            <p class="text-2xl font-bold">@Model.ChequesVigentes</p>
-        </div>
-    </div>
-    <div class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-        <div class="p-3 bg-rose-500/10 rounded-lg text-rose-500">
-            <span class="material-symbols-outlined text-3xl">account_balance_wallet</span>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Deuda Estimada</p>
-            <p class="text-2xl font-bold">$@Model.TotalDeuda.ToString("N0")</p>
-        </div>
-    </div>
-</div>
+        @@media (min-width: 640px) {
+            .proveedor-details-hero-actions {
+                width: auto;
+            }
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            .proveedor-details-hero-action {
+                width: auto;
+            }
+        }
+    </style>
+}
+
+<div data-proveedor-details data-proveedor-id="@Model.Id" class="space-y-8">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Catalogo" asp-action="Index" class="hover:text-primary no-underline">Inventario</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Proveedor" asp-action="Index" class="hover:text-primary no-underline">Proveedores</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-900 dark:text-slate-100">Detalle</li>
+                    </ol>
+                </nav>
+
+                <div class="space-y-3">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                        <span class="material-symbols-outlined text-sm">storefront</span>
+                        Proveedor
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">@Model.RazonSocial</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                            Revisá cobertura comercial, información de contacto, categorías activas y productos vinculados desde una sola vista operativa.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">badge</span>
+                            CUIT @cuitFormatted
+                        </span>
+                        @if (tieneContacto)
+                        {
+                            <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">
+                                <span class="material-symbols-outlined text-sm">call</span>
+                                Contacto disponible
+                            </span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(direccionCompleta))
+                        {
+                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                                <span class="material-symbols-outlined text-sm">location_on</span>
+                                @direccionCompleta
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="proveedor-details-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                <a asp-action="Index"
+                   class="proveedor-details-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver
+                </a>
+                <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="edit" data-proveedor-id="@Model.Id"
+                        class="proveedor-details-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
+                    <span class="material-symbols-outlined text-[20px]">edit</span>
+                    Editar proveedor
+                </button>
+            </div>
+        </header>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Órdenes</p>
+                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.TotalOrdenesCompra</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">órdenes de compra registradas</p>
+            </article>
+            <article class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">Cheques</p>
+                <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">@Model.ChequesVigentes</p>
+                <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">vigentes actualmente</p>
+            </article>
+            <article class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 dark:border-rose-900/50 dark:bg-rose-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 dark:text-rose-400">Deuda</p>
+                <p class="mt-2 text-2xl font-black text-rose-700 dark:text-rose-300">$@Model.TotalDeuda.ToString("N0")</p>
+                <p class="mt-1 text-xs text-rose-700/80 dark:text-rose-400/80">estimación comprometida</p>
+            </article>
+            <article class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Cobertura</p>
+                <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">@Model.CategoriasAsociadas.Count</p>
+                <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">categoría@(Model.CategoriasAsociadas.Count == 1 ? "" : "s") asociada@(Model.CategoriasAsociadas.Count == 1 ? "" : "s")</p>
+            </article>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
     <!-- Left Column: General Info -->
     <div class="lg:col-span-2 space-y-8">
         <section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -168,33 +218,49 @@
         </section>
 
         <!-- Associated Products Section -->
-        <section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                <h3 class="text-lg font-bold">Productos Asociados</h3>
+        <section data-oc-scroll style="--oc-scroll-min-width: 40rem;" class="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50">
+            <div class="border-b border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/50">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Productos Asociados</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Stock, código interno y precio de compra del catálogo vinculado a este proveedor.</p>
+                    </div>
+                    <span id="productos-badge" class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                        Cargando
+                    </span>
+                </div>
+                <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Deslizá la tabla para ver stock y precio completos.
+                </p>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 uppercase text-[10px] font-bold tracking-widest">
-                        <tr>
-                            <th class="px-6 py-3">Producto</th>
-                            <th class="px-6 py-3 text-center">Código</th>
-                            <th class="px-6 py-3 text-center">Stock</th>
-                            <th class="px-6 py-3 text-right">Precio Compra</th>
-                        </tr>
-                    </thead>
-                    <tbody id="productos-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
-                        <tr>
-                            <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-400">
-                                <div class="flex items-center justify-center gap-2">
-                                    <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                    Cargando productos...
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Productos asociados del proveedor">
+                    <table data-oc-scroll-table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold tracking-widest dark:bg-slate-800/30">
+                            <tr>
+                                <th class="px-6 py-3">Producto</th>
+                                <th class="px-6 py-3 text-center">Código</th>
+                                <th class="px-6 py-3 text-center">Stock</th>
+                                <th class="px-6 py-3 text-right">Precio Compra</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productos-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-400">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                        Cargando productos...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div id="productos-footer" class="hidden p-4 text-center border-t border-slate-100 dark:border-slate-800">
+            <div id="productos-footer" class="hidden border-t border-slate-100 p-4 text-center dark:border-slate-800">
                 <span id="productos-count" class="text-primary text-sm font-semibold"></span>
             </div>
         </section>
@@ -250,6 +316,7 @@
         </section>
     </div>
 </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Editar Proveedor (reutilizado del Index)
@@ -259,7 +326,7 @@
     var (categorias, marcas, productos) = (Model.CategoriasDisponibles, Model.MarcasDisponibles, Model.ProductosDisponibles);
 }
 <div id="modal-editar-proveedor" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="ProveedorEditarModal.close()"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="edit"></div>
     <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
         <header class="flex items-center justify-between px-8 py-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#161d2c]/50 backdrop-blur-sm">
             <div>
@@ -271,11 +338,11 @@
                 <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Editar Proveedor</h2>
             </div>
             <div class="flex gap-3">
-                <button type="button" onclick="ProveedorEditarModal.close()"
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="edit"
                         class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
-                <button type="button" onclick="ProveedorEditarModal.submit()"
+                <button type="button" data-proveedor-modal-action="submit" data-proveedor-modal="edit"
                         class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                     Guardar Cambios
                 </button>
@@ -516,9 +583,8 @@
 </div>
 
 @section Scripts {
-    <script>
-        const proveedorId = @Model.Id;
-    </script>
-    <script src="~/js/proveedor-detalles.js"></script>
-    <script src="~/js/proveedor-editar-modal.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-module.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-detalles.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-editar-modal.js" asp-append-version="true"></script>
 }

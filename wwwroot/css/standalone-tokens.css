@@ -1,0 +1,17 @@
+/*
+ * Design tokens for standalone pages (Login, AccessDenied).
+ * Pages that use Layout = null or don't load layout.css reference this file directly.
+ */
+:root {
+    --c-surface:            #0d131f;
+    --c-surface-low:        #161c28;
+    --c-surface-lowest:     #080e1a;
+    --c-surface-container:  #1a202c;
+    --c-surface-high:       #242a37;
+    --c-on-surface:         #dde2f4;
+    --c-on-surface-var:     #c3c5d8;
+    --c-primary-container:  #135bec;
+    --c-on-primary:         #e2e6ff;
+    --c-primary-light:      #b4c5ff;
+    --c-outline-var:        #434655;
+}

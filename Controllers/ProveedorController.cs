@@ -300,26 +300,10 @@ namespace TheBuryProject.Controllers
         }
 
         // GET: Proveedor/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public IActionResult Delete(int? id)
         {
-            if (id == null) return NotFound();
-
-            try
-            {
-                var proveedor = await _proveedorService.GetByIdAsync(id.Value);
-                if (proveedor == null) return NotFound();
-
-                var viewModel = _mapper.Map<ProveedorViewModel>(proveedor);
-                await CargarAsociacionesAsync(viewModel);
-
-                return View("Delete_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar proveedor para eliminar {Id}", id);
-                TempData["Error"] = "Error al cargar el proveedor. Intentá nuevamente.";
-                return RedirectToAction(nameof(Index));
-            }
+            TempData["Warning"] = "La eliminación de proveedores se confirma desde el listado.";
+            return RedirectToAction(nameof(Index));
         }
 
         // POST: Proveedor/Delete/5

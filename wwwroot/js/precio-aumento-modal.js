@@ -2,11 +2,21 @@
 const PrecioModal = (() => {
     'use strict';
 
+    const catalogoModule = typeof CatalogoModule !== 'undefined' ? CatalogoModule : null;
     let currentStep = 1;
     let tipoCambio = 'porcentaje'; // 'porcentaje' | 'monto'
     let simulationResult = null;
     let selectedProductIds = []; // IDs pre-selected from table checkboxes
     let selectedScopeSnapshot = [];
+
+    function dispatchScrollRefresh() {
+        if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
+            catalogoModule.requestScrollRefresh();
+            return;
+        }
+
+        document.dispatchEvent(new CustomEvent('catalogo:refresh-scroll'));
+    }
 
     // ─── DOM refs ──────────────────────────────────────────────
     const modal = () => document.getElementById('modal-aumento-precios');
@@ -44,6 +54,7 @@ const PrecioModal = (() => {
         syncSelectionState(readCurrentSelection(), true);
         modal().classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        dispatchScrollRefresh();
     }
 
     function openWithSelection(ids) {
@@ -51,6 +62,7 @@ const PrecioModal = (() => {
         syncSelectionState(ids, true);
         modal().classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        dispatchScrollRefresh();
     }
 
     function close() {
@@ -153,6 +165,8 @@ const PrecioModal = (() => {
             apply.classList.remove('hidden');
             apply.classList.add('flex');
         }
+
+        dispatchScrollRefresh();
     }
 
     function nextStep() {
@@ -203,9 +217,16 @@ const PrecioModal = (() => {
         return checked ? checked.value : 'todos';
     }
 
+    function getProductSelectionApi() {
+        return catalogoModule && typeof catalogoModule.getProductSelectionApi === 'function'
+            ? catalogoModule.getProductSelectionApi()
+            : null;
+    }
+
     function readCurrentSelection() {
-        if (window.ProductSelection && typeof window.ProductSelection.getIds === 'function') {
-            return window.ProductSelection.getIds();
+        var selectionApi = getProductSelectionApi();
+        if (selectionApi && typeof selectionApi.getIds === 'function') {
+            return selectionApi.getIds();
         }
 
         return [];
@@ -450,6 +471,8 @@ const PrecioModal = (() => {
             moreEl.classList.remove('hidden');
             moreEl.querySelector('span').textContent = '...y ' + (filas.length - maxRows) + ' productos más';
         }
+
+        dispatchScrollRefresh();
     }
 
     function applyRounding(price, mode) {
@@ -580,3 +603,7 @@ const PrecioModal = (() => {
 
     return { open: open, openWithSelection: openWithSelection, close: close, nextStep: nextStep, prevStep: prevStep, apply: apply };
 })();
+
+if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerModalApi === 'function') {
+    CatalogoModule.registerModalApi('precio', PrecioModal);
+}

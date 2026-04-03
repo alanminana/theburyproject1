@@ -1,224 +1,356 @@
 ﻿@model TheBuryProject.ViewModels.DashboardViewModel
+@using TheBuryProject.ViewModels
 @{
     ViewData["Title"] = "Dashboard";
+    var cuotasVencidas = Model.CuotasVencidasLista ?? new List<CuotaVencidaDto>();
+    var cuotasProximas = Model.CuotasProximasVencer ?? new List<CuotaProximaVencerDto>();
+    var cuotasVencidasCount = cuotasVencidas.Count;
+    var cuotasProximasCount = cuotasProximas.Count;
 }
 
-<!-- Stats Grid -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <div class="flex justify-between items-start mb-4">
-            <div class="p-2 bg-primary/10 rounded-lg text-primary">
-                <span class="material-symbols-outlined">payments</span>
-            </div>
-            <span class="text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded-full">+12.5%</span>
-        </div>
-        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Ventas Totales</p>
-        <h3 class="text-2xl font-bold mt-1">@Model.VentasTotalesMes.ToString("C")</h3>
-    </div>
-    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <div class="flex justify-between items-start mb-4">
-            <div class="p-2 bg-orange-500/10 rounded-lg text-orange-500">
-                <span class="material-symbols-outlined">pending_actions</span>
-            </div>
-            <span class="text-orange-500 text-xs font-bold bg-orange-500/10 px-2 py-1 rounded-full">@Model.CuotasVencidasTotal Pendientes</span>
-        </div>
-        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Pedidos Activos</p>
-        <h3 class="text-2xl font-bold mt-1">@Model.CantidadVentasMes</h3>
-    </div>
-    <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-        <div class="flex justify-between items-start mb-4">
-            <div class="p-2 bg-blue-500/10 rounded-lg text-blue-500">
-                <span class="material-symbols-outlined">account_balance_wallet</span>
-            </div>
-            <span class="text-slate-500 text-xs font-bold bg-slate-500/10 px-2 py-1 rounded-full">Corte: 30 días</span>
-        </div>
-        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Créditos Activos</p>
-        <h3 class="text-2xl font-bold mt-1">@Model.CreditosActivos</h3>
-    </div>
-</div>
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
 
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-    <!-- Left Main Section -->
-    <div class="lg:col-span-3 space-y-8">
+<div class="space-y-6">
+    <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.02),_rgba(15,23,42,0))] bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_28%),linear-gradient(135deg,_rgba(15,23,42,0.4),_rgba(15,23,42,0.1))] sm:p-8">
+        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="material-symbols-outlined text-sm">space_dashboard</span>
+                    Dashboard
+                </span>
+                <div class="space-y-3">
+                    <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Centro operativo del día</h1>
+                    <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                        Supervisá ventas, cobranza, stock crítico y actividad reciente desde una sola pantalla. El objetivo es detectar desvíos rápido y bajar a la acción correcta sin perder contexto.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        @cuotasVencidasCount cuota@(cuotasVencidasCount == 1 ? "" : "s") vencida@(cuotasVencidasCount == 1 ? "" : "s")
+                    </span>
+                    <span class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                        <span class="material-symbols-outlined text-sm">event_upcoming</span>
+                        @cuotasProximasCount próxima@(cuotasProximasCount == 1 ? "" : "s") a vencer
+                    </span>
+                    <span class="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        <span class="material-symbols-outlined text-sm">point_of_sale</span>
+                        @Model.CantidadVentasMes operación@(Model.CantidadVentasMes == 1 ? "" : "es") del mes
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid w-full gap-3 sm:grid-cols-2 xl:w-[24rem]">
+                <a asp-controller="Venta" asp-action="Create"
+                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+                    <span>Nueva venta</span>
+                </a>
+                <a asp-controller="Cliente" asp-action="Create"
+                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">person_add</span>
+                    <span>Nuevo cliente</span>
+                </a>
+                <a asp-controller="Reporte" asp-action="Index"
+                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+                    <span>Reporte diario</span>
+                </a>
+                <a asp-controller="Catalogo" asp-action="Index"
+                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">box_edit</span>
+                    <span>Carga stock</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <article class="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-4 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">Ventas totales</p>
+                        <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">@Model.VentasTotalesMes.ToString("C")</p>
+                    </div>
+                    <span class="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">+12.5%</span>
+                </div>
+                <p class="mt-2 text-xs text-emerald-700/80 dark:text-emerald-300/80">rendimiento consolidado del mes</p>
+            </article>
+            <article class="rounded-2xl border border-orange-200 bg-orange-50/80 px-4 py-4 shadow-sm dark:border-orange-900/40 dark:bg-orange-950/20">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-orange-700 dark:text-orange-400">Pedidos activos</p>
+                        <p class="mt-2 text-2xl font-black text-orange-700 dark:text-orange-300">@Model.CantidadVentasMes</p>
+                    </div>
+                    <span class="rounded-full bg-orange-500/10 px-2.5 py-1 text-[11px] font-bold text-orange-700 dark:text-orange-300">@Model.CuotasVencidasTotal pendientes</span>
+                </div>
+                <p class="mt-2 text-xs text-orange-700/80 dark:text-orange-300/80">operaciones que siguen requiriendo seguimiento</p>
+            </article>
+            <article class="rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-4 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/20">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-400">Créditos activos</p>
+                        <p class="mt-2 text-2xl font-black text-sky-700 dark:text-sky-300">@Model.CreditosActivos</p>
+                    </div>
+                    <span class="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-700 dark:text-sky-300">corte 30 días</span>
+                </div>
+                <p class="mt-2 text-xs text-sky-700/80 dark:text-sky-300/80">cartera con seguimiento operativo continuo</p>
+            </article>
+            <article class="rounded-2xl border border-violet-200 bg-violet-50/80 px-4 py-4 shadow-sm dark:border-violet-900/40 dark:bg-violet-950/20">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-400">Visibilidad</p>
+                        <p class="mt-2 text-2xl font-black text-violet-700 dark:text-violet-300">@((cuotasVencidasCount + cuotasProximasCount).ToString("N0"))</p>
+                    </div>
+                    <span class="rounded-full bg-violet-500/10 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">cuotas monitoreadas</span>
+                </div>
+                <p class="mt-2 text-xs text-violet-700/80 dark:text-violet-300/80">vencidas y próximas dentro del tablero</p>
+            </article>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(19rem,0.9fr)]">
+        <div class="space-y-6">
 
         <!-- Inventory Alerts -->
-        <section>
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-red-500">warning</span>
-                    Alertas de Inventario (Stock Bajo)
-                </h2>
-                <a asp-controller="Catalogo" asp-action="Index" class="text-primary text-sm font-semibold hover:underline no-underline">Ver todo</a>
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="space-y-2">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-red-500">
+                        <span class="material-symbols-outlined text-sm">warning</span>
+                        Inventario
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Alertas de inventario</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Detectá stock crítico y productos que necesitan reposición antes de impactar la venta.</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                        3 alertas visibles
+                    </span>
+                    <a asp-controller="Catalogo" asp-action="Index" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
+                        <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                        <span>Ver todo</span>
+                    </a>
+                </div>
             </div>
-            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                            <th class="px-6 py-3">SKU</th>
-                            <th class="px-6 py-3">Producto</th>
-                            <th class="px-6 py-3">Stock</th>
-                            <th class="px-6 py-3">Estado</th>
-                            <th class="px-6 py-3 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-1022</td>
-                            <td class="px-6 py-4 text-sm font-bold">Cubierta 205/55 R16</td>
-                            <td class="px-6 py-4 text-sm font-bold text-red-500">2</td>
-                            <td class="px-6 py-4">
-                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">Stock crítico</span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
-                            </td>
-                        </tr>
-                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-5044</td>
-                            <td class="px-6 py-4 text-sm font-bold">Amortiguador Trasero</td>
-                            <td class="px-6 py-4 text-sm font-bold text-orange-500">5</td>
-                            <td class="px-6 py-4">
-                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
-                            </td>
-                        </tr>
-                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-9012</td>
-                            <td class="px-6 py-4 text-sm font-bold">Batería Moura 12V 75Ah</td>
-                            <td class="px-6 py-4 text-sm font-bold text-orange-500">3</td>
-                            <td class="px-6 py-4">
-                                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <button class="text-primary hover:underline text-xs font-semibold">Reponer</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div data-oc-scroll style="--oc-scroll-min-width: 33.5rem;" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                    <p data-oc-scroll-hint hidden class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                        Deslizá horizontalmente para ver el detalle completo.
+                    </p>
+                </div>
+                <div class="relative">
+                    <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                    <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                    <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
+                        <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                                    <th class="px-6 py-3">SKU</th>
+                                    <th class="px-6 py-3">Producto</th>
+                                    <th class="px-6 py-3">Stock</th>
+                                    <th class="px-6 py-3">Estado</th>
+                                    <th class="px-6 py-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-1022</td>
+                                    <td class="px-6 py-4 text-sm font-bold">Cubierta 205/55 R16</td>
+                                    <td class="px-6 py-4 text-sm font-bold text-red-500">2</td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">Stock crítico</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">Reponer</button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-5044</td>
+                                    <td class="px-6 py-4 text-sm font-bold">Amortiguador Trasero</td>
+                                    <td class="px-6 py-4 text-sm font-bold text-orange-500">5</td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">Reponer</button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-9012</td>
+                                    <td class="px-6 py-4 text-sm font-bold">Batería Moura 12V 75Ah</td>
+                                    <td class="px-6 py-4 text-sm font-bold text-orange-500">3</td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button class="inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10">Reponer</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
         <!-- Payments Table -->
-        <section>
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">schedule</span>
-                    Seguimiento de Cuotas y Pagos
-                </h2>
-                <div class="flex gap-2">
-                    <button id="tabVencidas" onclick="showTab('vencidas')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20">Vencidas</button>
-                    <button id="tabProximas" onclick="showTab('proximas')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Próximas</button>
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+            <div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-2">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        Cobranzas
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Seguimiento de cuotas y pagos</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Alterná entre cuotas vencidas y próximas para bajar rápido al cobro o al seguimiento preventivo.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                        @cuotasVencidasCount vencida@(cuotasVencidasCount == 1 ? "" : "s") / @cuotasProximasCount próxima@(cuotasProximasCount == 1 ? "" : "s")
+                    </span>
+                    <div class="grid grid-cols-2 gap-2" data-dashboard-tabs>
+                        <button id="tabVencidas" type="button" data-dashboard-tab="vencidas" data-dashboard-tab-tone="danger" aria-pressed="true" class="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl bg-red-500/10 text-red-500 border border-red-500/20">Vencidas</button>
+                        <button id="tabProximas" type="button" data-dashboard-tab="proximas" data-dashboard-tab-tone="info" aria-pressed="false" class="min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Próximas</button>
+                    </div>
                 </div>
             </div>
-            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                            <th class="px-6 py-4">Cliente</th>
-                            <th class="px-6 py-4">Concepto</th>
-                            <th class="px-6 py-4">Vencimiento</th>
-                            <th class="px-6 py-4">Monto</th>
-                            <th class="px-6 py-4">Estado</th>
-                            <th class="px-6 py-4 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyVencidas" class="divide-y divide-slate-100 dark:divide-slate-800">
-                        @foreach (var cuota in Model.CuotasVencidasLista.Take(5))
-                        {
-                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                <td class="px-6 py-4">
-                                    <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                    <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
-                                </td>
-                                <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota</td>
-                                <td class="px-6 py-4">
-                                    <span class="text-xs font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">Hace @cuota.DiasVencidos d</span>
-                                </td>
-                                <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-1.5 text-red-500">
-                                        <span class="size-1.5 bg-red-500 rounded-full"></span>
-                                        <span class="text-xs font-bold">Vencido</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <a asp-controller="Credito" asp-action="PagarCuota"
-                                       asp-route-id="@cuota.CreditoId" asp-route-cuotaId="@cuota.CuotaId"
-                                       class="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors inline-flex">
-                                        <span class="material-symbols-outlined text-xl">send_money</span>
-                                    </a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                    <tbody id="tbodyProximas" class="divide-y divide-slate-100 dark:divide-slate-800 hidden">
-                        @foreach (var cuota in Model.CuotasProximasVencer.Take(5))
-                        {
-                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                                <td class="px-6 py-4">
-                                    <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                    <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
-                                </td>
-                                <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota - @cuota.CreditoNumero</td>
-                                <td class="px-6 py-4">
-                                    <span class="text-xs font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">@cuota.FechaVencimiento.ToString("dd MMM")</span>
-                                </td>
-                                <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
-                                <td class="px-6 py-4">
-                                    @if (cuota.DiasParaVencer <= 1)
-                                    {
-                                        <div class="flex items-center gap-1.5 text-orange-500">
-                                            <span class="size-1.5 bg-orange-500 rounded-full"></span>
-                                            <span class="text-xs font-bold">Por Vencer</span>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="flex items-center gap-1.5 text-blue-500">
-                                            <span class="size-1.5 bg-blue-500 rounded-full"></span>
-                                            <span class="text-xs font-bold">Programado</span>
-                                        </div>
-                                    }
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <button class="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors">
-                                        <span class="material-symbols-outlined text-xl">visibility</span>
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            <div data-oc-scroll style="--oc-scroll-min-width: 47.25rem;" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                    <p data-oc-scroll-hint hidden class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                        Deslizá horizontalmente para ver cliente, monto y estado completo.
+                    </p>
+                </div>
+                <div class="relative">
+                    <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                    <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                    <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
+                        <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                                    <th class="px-6 py-4">Cliente</th>
+                                    <th class="px-6 py-4">Concepto</th>
+                                    <th class="px-6 py-4">Vencimiento</th>
+                                    <th class="px-6 py-4">Monto</th>
+                                    <th class="px-6 py-4">Estado</th>
+                                    <th class="px-6 py-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyVencidas" data-dashboard-tab-panel="vencidas" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach (var cuota in cuotasVencidas.Take(5))
+                                {
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <p class="font-bold text-sm">@cuota.ClienteNombre</p>
+                                            <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota</td>
+                                        <td class="px-6 py-4">
+                                            <span class="text-xs font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">Hace @cuota.DiasVencidos d</span>
+                                        </td>
+                                        <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-1.5 text-red-500">
+                                                <span class="size-1.5 bg-red-500 rounded-full"></span>
+                                                <span class="text-xs font-bold">Vencido</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <a asp-controller="Credito" asp-action="PagarCuota"
+                                               asp-route-id="@cuota.CreditoId" asp-route-cuotaId="@cuota.CuotaId"
+                                               class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 sm:justify-end no-underline">
+                                                <span class="material-symbols-outlined text-xl">send_money</span>
+                                                <span class="sm:hidden">Pagar</span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tbody id="tbodyProximas" data-dashboard-tab-panel="proximas" class="divide-y divide-slate-100 dark:divide-slate-800 hidden">
+                                @foreach (var cuota in cuotasProximas.Take(5))
+                                {
+                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <p class="font-bold text-sm">@cuota.ClienteNombre</p>
+                                            <p class="text-[10px] text-slate-500">ID: @cuota.ClienteId</p>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">Cuota @cuota.NumeroCuota - @cuota.CreditoNumero</td>
+                                        <td class="px-6 py-4">
+                                            <span class="text-xs font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">@cuota.FechaVencimiento.ToString("dd MMM")</span>
+                                        </td>
+                                        <td class="px-6 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
+                                        <td class="px-6 py-4">
+                                            @if (cuota.DiasParaVencer <= 1)
+                                            {
+                                                <div class="flex items-center gap-1.5 text-orange-500">
+                                                    <span class="size-1.5 bg-orange-500 rounded-full"></span>
+                                                    <span class="text-xs font-bold">Por Vencer</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex items-center gap-1.5 text-blue-500">
+                                                    <span class="size-1.5 bg-blue-500 rounded-full"></span>
+                                                    <span class="text-xs font-bold">Programado</span>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <button type="button" class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 sm:justify-end">
+                                                <span class="material-symbols-outlined text-xl">visibility</span>
+                                                <span class="sm:hidden">Ver</span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
     </div>
 
     <!-- Right Sidebar / Widgets -->
-    <div class="space-y-8">
+    <aside class="space-y-6">
 
         <!-- Quick Access -->
-        <section>
-            <h2 class="text-lg font-bold mb-4">Accesos Rápidos</h2>
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+            <div class="mb-4 space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">bolt</span>
+                    Accesos rápidos
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Acciones frecuentes</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Entrá a los flujos que más se usan durante la jornada sin salir del tablero principal.</p>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-3">
                 <a asp-controller="Venta" asp-action="Create"
-                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                   class="flex min-h-[5.5rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-center transition-colors group hover:border-primary dark:border-slate-800 dark:bg-slate-950/30 no-underline text-inherit">
                     <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">add_shopping_cart</span>
                     <span class="text-xs font-bold uppercase">Nueva Venta</span>
                 </a>
                 <a asp-controller="Cliente" asp-action="Create"
-                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                   class="flex min-h-[5.5rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-center transition-colors group hover:border-primary dark:border-slate-800 dark:bg-slate-950/30 no-underline text-inherit">
                     <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">person_add</span>
                     <span class="text-xs font-bold uppercase">Nuevo Cliente</span>
                 </a>
                 <a asp-controller="Reporte" asp-action="Index"
-                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                   class="flex min-h-[5.5rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-center transition-colors group hover:border-primary dark:border-slate-800 dark:bg-slate-950/30 no-underline text-inherit">
                     <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">receipt_long</span>
                     <span class="text-xs font-bold uppercase">Reporte Diario</span>
                 </a>
                 <a asp-controller="Catalogo" asp-action="Index"
-                   class="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-primary transition-colors group no-underline text-inherit">
+                   class="flex min-h-[5.5rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-center transition-colors group hover:border-primary dark:border-slate-800 dark:bg-slate-950/30 no-underline text-inherit">
                     <span class="material-symbols-outlined text-primary mb-2 text-3xl group-hover:scale-110 transition-transform">box_edit</span>
                     <span class="text-xs font-bold uppercase">Carga Stock</span>
                 </a>
@@ -226,28 +358,49 @@
         </section>
 
         <!-- Quick Notes -->
-        <section>
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold">Notas Rápidas</h2>
-                <button id="notaAddBtn" onclick="agregarNota()" class="size-6 bg-primary text-white rounded flex items-center justify-center hover:bg-primary/90 transition-colors" title="Guardar nota">
-                    <span class="material-symbols-outlined text-sm">add</span>
+        <section data-dashboard-notes class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="space-y-2">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                        <span class="material-symbols-outlined text-sm">note_stack</span>
+                        Notas rápidas
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Recordatorios operativos</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Guardá pendientes rápidos del día sin salir del tablero. Las notas persisten en este navegador.</p>
+                    </div>
+                </div>
+                <button id="notaAddBtn" type="button" data-dashboard-action="save-note" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90" title="Guardar nota">
+                    <span class="material-symbols-outlined text-[18px]">add</span>
+                    <span>Guardar</span>
                 </button>
             </div>
-            <div class="bg-primary/5 border border-primary/20 p-4 rounded-xl shadow-inner">
-                <textarea id="notaTextarea" class="w-full h-24 bg-transparent border-none resize-none focus:ring-0 text-sm italic text-slate-700 dark:text-slate-300 placeholder:text-slate-400" placeholder="Escribe un recordatorio..."></textarea>
-                <div class="flex justify-between items-center mt-2 border-t border-primary/10 pt-2">
-                    <span id="notaStatus" class="text-[10px] text-slate-500"></span>
-                    <button onclick="agregarNota()" class="size-6 bg-primary text-white rounded flex items-center justify-center hover:bg-primary/90 transition-colors" title="Guardar nota">
-                        <span class="material-symbols-outlined text-sm">save</span>
+            <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-inner">
+                <label for="notaTextarea" class="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Nueva nota</label>
+                <textarea id="notaTextarea" data-dashboard-note-input class="w-full h-24 bg-transparent border-none resize-none focus:ring-0 text-sm italic text-slate-700 dark:text-slate-300 placeholder:text-slate-400" placeholder="Escribe un recordatorio..."></textarea>
+                <div class="mt-3 flex flex-col gap-2 border-t border-primary/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span id="notaStatus" data-dashboard-note-status class="text-[10px] text-slate-500"></span>
+                    <button type="button" data-dashboard-action="save-note" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 sm:w-auto" title="Guardar nota">
+                        <span class="material-symbols-outlined text-[18px]">save</span>
+                        <span>Guardar nota</span>
                     </button>
                 </div>
             </div>
-            <div id="notasLista" class="mt-3 space-y-2 max-h-48 overflow-y-auto"></div>
+            <div id="notasLista" data-dashboard-note-list class="mt-3 space-y-2 max-h-48 overflow-y-auto"></div>
         </section>
 
         <!-- Activity Widget -->
-        <section>
-            <h2 class="text-lg font-bold mb-4">Actividad Reciente</h2>
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+            <div class="mb-4 space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">monitoring</span>
+                    Actividad reciente
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Pulso operativo</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Eventos recientes para contextualizar ventas, clientes y alertas sin navegar a otros módulos.</p>
+                </div>
+            </div>
             <div class="space-y-4">
                 <div class="flex gap-3">
                     <div class="size-2 mt-1.5 rounded-full bg-green-500 shrink-0"></div>
@@ -272,93 +425,10 @@
                 </div>
             </div>
         </section>
-    </div>
+    </aside>
 </div>
 
 @section Scripts {
-<script>
-    // ── Tabs Vencidas / Próximas ──
-    function showTab(tab) {
-        const vencidas = document.getElementById('tbodyVencidas');
-        const proximas = document.getElementById('tbodyProximas');
-        const btnV = document.getElementById('tabVencidas');
-        const btnP = document.getElementById('tabProximas');
-
-        const activeClass = 'px-3 py-1.5 text-xs font-semibold rounded-lg';
-        const inactiveStyle = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
-        const vencidasActive = 'bg-red-500/10 text-red-500 border border-red-500/20';
-        const proximasActive = 'bg-blue-500/10 text-blue-500 border border-blue-500/20';
-
-        if (tab === 'vencidas') {
-            vencidas.classList.remove('hidden');
-            proximas.classList.add('hidden');
-            btnV.className = activeClass + ' ' + vencidasActive;
-            btnP.className = activeClass + ' ' + inactiveStyle;
-        } else {
-            proximas.classList.remove('hidden');
-            vencidas.classList.add('hidden');
-            btnP.className = activeClass + ' ' + proximasActive;
-            btnV.className = activeClass + ' ' + inactiveStyle;
-        }
-    }
-
-    // ── Notas Rápidas con localStorage ──
-    const NOTAS_KEY = 'dashboard_notas';
-
-    function getNotas() {
-        try { return JSON.parse(localStorage.getItem(NOTAS_KEY)) || []; }
-        catch { return []; }
-    }
-
-    function guardarNotas(notas) {
-        localStorage.setItem(NOTAS_KEY, JSON.stringify(notas));
-    }
-
-    function renderNotas() {
-        const lista = document.getElementById('notasLista');
-        const notas = getNotas();
-        if (!notas.length) { lista.innerHTML = ''; return; }
-
-        lista.innerHTML = notas.map(function(n, i) {
-            const fecha = new Date(n.fecha);
-            const fechaStr = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-            const textoEscapado = n.texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return '<div class="flex gap-2 items-start bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5">' +
-                '<div class="flex-1 min-w-0"><p class="text-xs break-words">' + textoEscapado + '</p>' +
-                '<p class="text-[10px] text-slate-500 mt-1">' + fechaStr + '</p></div>' +
-                '<button onclick="eliminarNota(' + i + ')" class="shrink-0 p-0.5 rounded hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors" title="Eliminar">' +
-                '<span class="material-symbols-outlined text-sm">close</span></button></div>';
-        }).join('');
-    }
-
-    function agregarNota() {
-        const textarea = document.getElementById('notaTextarea');
-        const texto = textarea.value.trim();
-        if (!texto) return;
-
-        const notas = getNotas();
-        notas.unshift({ texto: texto, fecha: new Date().toISOString() });
-        if (notas.length > 20) notas.pop();
-        guardarNotas(notas);
-
-        textarea.value = '';
-        document.getElementById('notaStatus').textContent = 'Guardada';
-        setTimeout(function() { document.getElementById('notaStatus').textContent = ''; }, 2000);
-        renderNotas();
-    }
-
-    function eliminarNota(index) {
-        const notas = getNotas();
-        notas.splice(index, 1);
-        guardarNotas(notas);
-        renderNotas();
-    }
-
-    // Init
-    renderNotas();
-    var notaCount = getNotas().length;
-    if (notaCount > 0) {
-        document.getElementById('notaStatus').textContent = notaCount + ' nota' + (notaCount > 1 ? 's' : '') + ' guardada' + (notaCount > 1 ? 's' : '');
-    }
-</script>
+<script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+<script src="~/js/dashboard-index.js" asp-append-version="true"></script>
 }

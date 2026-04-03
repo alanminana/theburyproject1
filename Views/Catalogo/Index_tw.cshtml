@@ -4,20 +4,59 @@
     var productos = Model.Productos.ToList();
     var total = Model.TotalResultados;
     var stockBajoCount = Model.ProductosStockBajo;
+    var productosActivos = productos.Count(p => p.Activo);
+    var productosInactivos = productos.Count - productosActivos;
+    var categoriasActivas = Model.CategoriasListado.Count(c => c.Activo);
+    var marcasActivas = Model.MarcasListado.Count(m => m.Activo);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 }
 
 <!-- Header -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-    <div>
-        <h2 class="text-3xl font-black tracking-tight">Gestión de Inventario</h2>
-        <p class="text-slate-500 dark:text-slate-400 mt-1">Administra tu inventario de forma eficiente.</p>
+<section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+        <div class="space-y-4">
+            <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                <span class="material-symbols-outlined text-sm">inventory_2</span>
+                Catálogo
+            </div>
+            <div class="space-y-2">
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Gestión de Inventario</h1>
+                <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+                    Centralizá productos, categorías, marcas y ajustes de precio desde una sola superficie operativa, con filtros rápidos y acciones masivas seguras.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">package_2</span>
+                    @productos.Count visibles
+                </span>
+                <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">category</span>
+                    @Model.CategoriasListado.Count() categorías
+                </span>
+                <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">branding_watermark</span>
+                    @Model.MarcasListado.Count() marcas
+                </span>
+            </div>
+        </div>
+        <div class="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap xl:w-auto xl:justify-end">
+            <button type="button" id="btn-movimientos-inventario"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:w-auto">
+                <span class="material-symbols-outlined text-[18px]">swap_vert</span>
+                Movimientos de Inventario
+            </button>
+            <button type="button" id="btn-ajuste-masivo-top" data-catalogo-modal-open="precio"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 sm:w-auto">
+                <span class="material-symbols-outlined text-[18px]">edit_calendar</span>
+                Ajuste Masivo
+            </button>
+        </div>
     </div>
-    <button type="button" id="btn-movimientos-inventario"
-            class="flex items-center justify-center gap-2 rounded-lg h-10 px-5 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-bold transition-colors hover:bg-slate-300 dark:hover:bg-slate-700">
-        <span class="material-symbols-outlined text-[18px]">swap_vert</span>
-        Movimientos de Inventario
-    </button>
-</div>
+</section>
 
 <!-- TempData Alerts -->
 @if (TempData["Success"] != null)
@@ -35,47 +74,65 @@
     </div>
 }
 
-<!-- Stock Bajo Metric -->
-@if (stockBajoCount > 0)
-{
-    <div class="flex justify-start mb-6">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex items-center justify-between overflow-hidden w-full max-w-sm shadow-sm">
-            <div>
-                <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Stock Bajo</p>
-                <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@stockBajoCount</p>
-                <p class="text-orange-500 text-xs mt-1 font-semibold">Requiere atención</p>
-            </div>
-            <div class="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-lg flex items-center justify-center">
-                <span class="material-symbols-outlined">warning</span>
-            </div>
+<section class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Productos</p>
+        <div class="mt-3 flex items-end justify-between gap-3">
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">@total</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">@productosActivos activos</p>
         </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@productosInactivos inactivos en la página actual</p>
     </div>
-}
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Stock Bajo</p>
+        <div class="mt-3 flex items-end justify-between gap-3">
+            <p class="text-2xl font-bold @(stockBajoCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-white")">@stockBajoCount</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Requiere atención</p>
+        </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Alertas visibles del inventario filtrado</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Categorías</p>
+        <div class="mt-3 flex items-end justify-between gap-3">
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">@Model.CategoriasListado.Count()</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">@categoriasActivas activas</p>
+        </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Estructura visible del catálogo</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Marcas</p>
+        <div class="mt-3 flex items-end justify-between gap-3">
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">@Model.MarcasListado.Count()</p>
+            <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">@marcasActivas activas</p>
+        </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Cobertura de marcas y submarcas</p>
+    </div>
+</section>
 
 <!-- Main Card with Tabs -->
-<div class="bg-white dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="bg-white dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
 
     <!-- Tab Bar + Actions -->
-    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/20">
-        <div class="flex" id="catalogo-tabs">
-            <button type="button" data-tab="productos"
-                    class="px-8 py-4 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors">
+    <div class="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-800/20 xl:flex-row xl:items-center xl:justify-between">
+        <div class="flex overflow-x-auto" id="catalogo-tabs">
+            <button type="button" data-catalogo-tab="productos"
+                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors">
                 Productos
             </button>
-            <button type="button" data-tab="categorias"
-                    class="px-8 py-4 text-sm font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+            <button type="button" data-catalogo-tab="categorias"
+                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
                 Categorías
                 <span class="ml-1 text-xs text-slate-400">(@Model.TotalCategorias)</span>
             </button>
-            <button type="button" data-tab="marcas"
-                    class="px-8 py-4 text-sm font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+            <button type="button" data-catalogo-tab="marcas"
+                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
                 Marcas
                 <span class="ml-1 text-xs text-slate-400">(@Model.TotalMarcas)</span>
             </button>
         </div>
-        <div class="flex flex-wrap items-center justify-end gap-3 px-6 py-3">
-            <button type="button" id="btn-ajuste-masivo" onclick="PrecioModal.open()"
-                    class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg transition-all border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer">
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+            <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 sm:w-auto">
                 <span class="material-symbols-outlined text-sm">edit_calendar</span>
                 <span id="btn-ajuste-masivo-label">Ajuste Masivo</span>
                 <span id="btn-ajuste-masivo-badge" class="hidden items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
@@ -87,18 +144,18 @@
                 <span><span id="catalogo-selection-chip-count">0</span> seleccionados</span>
             </div>
             <!-- Dynamic Create buttons (JS toggles visibility based on active tab) -->
-            <button type="button" id="btn-crear-producto" onclick="ProductoModal.open()"
-                    class="flex items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition-all text-xs font-bold cursor-pointer">
+            <button type="button" id="btn-crear-producto" data-catalogo-modal-open="producto"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 sm:w-auto">
                 <span class="material-symbols-outlined text-sm">add</span>
                 Nuevo Producto
             </button>
-            <button type="button" id="btn-crear-categoria" onclick="CategoriaModal.open()"
-                    class="hidden items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition-all text-xs font-bold cursor-pointer">
+            <button type="button" id="btn-crear-categoria" data-catalogo-modal-open="categoria"
+                    class="hidden w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 sm:w-auto">
                 <span class="material-symbols-outlined text-sm">add</span>
                 Nueva Categoría
             </button>
-            <button type="button" id="btn-crear-marca" onclick="MarcaModal.open()"
-                    class="hidden items-center gap-2 bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition-all text-xs font-bold cursor-pointer">
+            <button type="button" id="btn-crear-marca" data-catalogo-modal-open="marca"
+                    class="hidden w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-700 sm:w-auto">
                 <span class="material-symbols-outlined text-sm">add</span>
                 Nueva Marca
             </button>
@@ -107,9 +164,23 @@
 
     <!-- Tab: Productos -->
     <div id="tab-productos">
+        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Productos del catálogo</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Filtrá, seleccioná productos y lanzá ajustes masivos desde la misma grilla.
+                    </p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    @productos.Count visibles
+                </span>
+            </div>
+        </div>
+
         <!-- Filters -->
         <form id="filterForm" method="get" asp-controller="Catalogo" asp-action="Index"
-              class="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              class="border-b border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
             <div class="flex flex-wrap items-end gap-4">
                 <div class="flex-1 min-w-[200px]">
                     <label class="text-slate-500 dark:text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Buscar Producto</label>
@@ -189,8 +260,15 @@
         </form>
 
         <!-- Products Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1120px;">
+            <div data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                Deslizá la tabla para ver stock, precios y acciones.
+            </div>
+            <div data-oc-scroll-shell class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de productos del catálogo">
+            <table class="w-full text-left border-collapse" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800">
                         <th class="w-10 px-3 py-4">
@@ -230,7 +308,7 @@
                             }
 
                             <tr class="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors @(!p.Activo ? "opacity-50" : "")"
-                                data-producto-id="@p.ProductoId"
+                                data-catalogo-producto-id="@p.ProductoId"
                                 data-producto-codigo="@p.Codigo"
                                 data-producto-nombre="@p.Nombre">
                                 <td class="w-10 px-3 py-4">
@@ -275,18 +353,21 @@
                                     }
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button type="button" onclick="HistorialPrecioModal.open(@p.ProductoId)"
-                                                class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="Historial de precio">
-                                            <span class="material-symbols-outlined text-lg">history</span>
+                                    <div class="flex flex-wrap justify-end gap-2">
+                                        <button type="button" data-catalogo-modal-open="historial-precio" data-catalogo-producto-id="@p.ProductoId"
+                                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary dark:border-slate-700 dark:text-slate-300 dark:hover:border-primary/30 dark:hover:bg-primary/10" title="Historial de precio">
+                                            <span class="material-symbols-outlined text-base">history</span>
+                                            <span>Historial</span>
                                         </button>
                                         <a asp-controller="Producto" asp-action="Edit" asp-route-id="@p.ProductoId"
-                                           class="p-1.5 text-slate-400 hover:text-white transition-colors no-underline" title="Editar">
-                                            <span class="material-symbols-outlined text-lg">edit</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-white no-underline" title="Editar">
+                                            <span class="material-symbols-outlined text-base">edit</span>
+                                            <span>Editar</span>
                                         </a>
                                         <a asp-controller="Producto" asp-action="Delete" asp-route-id="@p.ProductoId"
-                                           class="p-1.5 text-slate-400 hover:text-red-400 transition-colors no-underline" title="Eliminar">
-                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10 no-underline" title="Eliminar">
+                                            <span class="material-symbols-outlined text-base">delete</span>
+                                            <span>Eliminar</span>
                                         </a>
                                     </div>
                                 </td>
@@ -308,10 +389,12 @@
                     }
                 </tbody>
             </table>
+                </div>
+            </div>
         </div>
 
         <!-- Selection Bar (hidden by default, shown when products selected) -->
-        <div id="selection-bar" class="hidden fixed bottom-6 left-1/2 z-40 w-[min(760px,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-primary/30 bg-white/95 dark:bg-slate-950/95 shadow-2xl shadow-slate-900/10 dark:shadow-black/30 backdrop-blur-xl px-5 py-4 items-center justify-between gap-4">
+        <div id="selection-bar" class="hidden fixed bottom-6 left-1/2 z-40 w-[min(760px,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-primary/30 bg-white/95 px-5 py-4 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:bg-slate-950/95 dark:shadow-black/30 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-center gap-4">
                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                     <span class="material-symbols-outlined text-lg">checklist</span>
@@ -321,12 +404,12 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400">El ajuste puede usar solo esta selección o podés cambiar el alcance dentro del modal.</p>
                 </div>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
-                <button type="button" onclick="ProductSelection.clearAll()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
+            <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <button type="button" data-catalogo-action="clear-selection" class="w-full px-4 py-2 text-xs font-bold text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 sm:w-auto">
                     Deseleccionar
                 </button>
-                <button type="button" onclick="PrecioModal.openWithSelection(ProductSelection.getIds())"
-                        class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl shadow-sm transition-all text-xs font-bold cursor-pointer">
+                <button type="button" data-catalogo-modal-open="precio-selection"
+                        class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-amber-600 sm:w-auto">
                     <span class="material-symbols-outlined text-sm">trending_up</span>
                     Ajustar selección (<span id="selection-count-btn">0</span>)
                 </button>
@@ -334,7 +417,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex flex-col gap-2 border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-xs text-slate-500 dark:text-slate-400">
                 Mostrando @productos.Count de @total productos
                 @if (Model.TieneFiltrosActivos)
@@ -342,14 +425,36 @@
                     <text>(filtrado)</text>
                 }
             </span>
+            <span>La última columna concentra historial, edición y eliminación.</span>
         </div>
     </div>
 
     <!-- Tab: Categorías -->
     <div id="tab-categorias" class="hidden">
+        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Categorías registradas</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Mantené la estructura del catálogo y revisá jerarquías activas e inactivas.
+                    </p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    @Model.CategoriasListado.Count() visibles
+                </span>
+            </div>
+        </div>
+
         <!-- Categories Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 980px;">
+            <div data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                Deslizá la tabla para ver la jerarquía y las acciones.
+            </div>
+            <div data-oc-scroll-shell class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de categorías del catálogo">
+            <table class="w-full text-left border-collapse" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800">
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Código</th>
@@ -400,14 +505,16 @@
                                     }
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
+                                    <div class="flex flex-wrap justify-end gap-2">
                                         <a asp-controller="Categoria" asp-action="Edit" asp-route-id="@cat.Id"
-                                           class="p-1.5 text-slate-400 hover:text-white transition-colors no-underline" title="Editar">
-                                            <span class="material-symbols-outlined text-lg">edit</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-white no-underline" title="Editar">
+                                            <span class="material-symbols-outlined text-base">edit</span>
+                                            <span>Editar</span>
                                         </a>
                                         <a asp-controller="Categoria" asp-action="Delete" asp-route-id="@cat.Id"
-                                           class="p-1.5 text-slate-400 hover:text-red-400 transition-colors no-underline" title="Eliminar">
-                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10 no-underline" title="Eliminar">
+                                            <span class="material-symbols-outlined text-base">delete</span>
+                                            <span>Eliminar</span>
                                         </a>
                                     </div>
                                 </td>
@@ -425,20 +532,44 @@
                     }
                 </tbody>
             </table>
+                </div>
+            </div>
         </div>
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex flex-col gap-2 border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-xs text-slate-500 dark:text-slate-400">
                 Mostrando @Model.CategoriasListado.Count() categorías
             </span>
+            <span>Acciones rápidas disponibles al final de cada fila.</span>
         </div>
     </div>
 
     <!-- Tab: Marcas -->
     <div id="tab-marcas" class="hidden">
+        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Marcas registradas</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Revisá cobertura de marcas, submarcas y país de origen sin salir del índice.
+                    </p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    @Model.MarcasListado.Count() visibles
+                </span>
+            </div>
+        </div>
+
         <!-- Brands Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1020px;">
+            <div data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                Deslizá la tabla para revisar origen, estado y acciones.
+            </div>
+            <div data-oc-scroll-shell class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de marcas del catálogo">
+            <table class="w-full text-left border-collapse" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800">
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Código</th>
@@ -491,14 +622,16 @@
                                     }
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
+                                    <div class="flex flex-wrap justify-end gap-2">
                                         <a asp-controller="Marca" asp-action="Edit" asp-route-id="@marca.Id"
-                                           class="p-1.5 text-slate-400 hover:text-white transition-colors no-underline" title="Editar">
-                                            <span class="material-symbols-outlined text-lg">edit</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-white no-underline" title="Editar">
+                                            <span class="material-symbols-outlined text-base">edit</span>
+                                            <span>Editar</span>
                                         </a>
                                         <a asp-controller="Marca" asp-action="Delete" asp-route-id="@marca.Id"
-                                           class="p-1.5 text-slate-400 hover:text-red-400 transition-colors no-underline" title="Eliminar">
-                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                           class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10 no-underline" title="Eliminar">
+                                            <span class="material-symbols-outlined text-base">delete</span>
+                                            <span>Eliminar</span>
                                         </a>
                                     </div>
                                 </td>
@@ -516,12 +649,15 @@
                     }
                 </tbody>
             </table>
+                </div>
+            </div>
         </div>
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex flex-col gap-2 border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-xs text-slate-500 dark:text-slate-400">
                 Mostrando @Model.MarcasListado.Count() marcas
             </span>
+            <span>Revisá origen, estado y acciones desde la misma grilla.</span>
         </div>
     </div>
 </div>
@@ -529,25 +665,39 @@
 <!-- Modal: Nuevo Producto -->
 <div id="modal-nuevo-producto" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="ProductoModal.close()"></div>
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="producto"></div>
 
     <!-- Modal Container -->
-    <div class="relative w-full max-w-4xl max-h-[90vh] overflow-hidden bg-white dark:bg-[#111827] rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#111827]">
 
         <!-- Header -->
-        <header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-            <div class="flex flex-col">
-                <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+        <header class="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                     <span>Inventario</span>
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                     <span class="text-primary">Productos</span>
                 </div>
-                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Nuevo Producto</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Completa los datos para dar de alta un nuevo producto en el catálogo</p>
+                <div class="space-y-1">
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Nuevo Producto</h2>
+                    <p class="max-w-2xl text-sm text-slate-500 dark:text-slate-400">Completá la ficha principal, validá precios y dejá listo el stock inicial sin salir del índice.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">sell</span>
+                        Alta directa en catálogo
+                    </span>
+                    <span class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                        <span class="material-symbols-outlined text-sm">percent</span>
+                        IVA calculado automáticamente
+                    </span>
+                </div>
             </div>
-            <button type="button" onclick="ProductoModal.close()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-catalogo-modal-close="producto" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                 <span class="material-symbols-outlined">close</span>
             </button>
+            </div>
         </header>
 
         <!-- Form -->
@@ -555,7 +705,7 @@
             @Html.AntiForgeryToken()
 
             <!-- Scrollable Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-8" style="max-height: calc(90vh - 140px);">
+            <div class="modal-scroll-90-140 flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
                 <div id="modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
@@ -563,6 +713,24 @@
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
                         <p id="modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Ficha</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Datos básicos y clasificación</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Código, nombre, categoría, subcategoría, marca y submarca.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Precios</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Venta sin IVA y precio final</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">El sistema recalcula el precio final con IVA en tiempo real.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Operación</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Stock inicial y estado</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Dejá definido el stock de arranque y si el producto queda activo.</p>
                     </div>
                 </div>
 
@@ -693,39 +861,55 @@
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
                         <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Características</h3>
                     </div>
-                    <div class="overflow-hidden border border-slate-200 dark:border-slate-800 rounded-lg mb-2">
-                        <table class="w-full text-left text-sm border-collapse">
-                            <thead class="bg-slate-50 dark:bg-slate-800/50">
-                                <tr>
-                                    <th class="px-4 py-3 font-semibold">Nombre de la característica</th>
-                                    <th class="px-4 py-3 font-semibold">Valor</th>
-                                    <th class="px-4 py-3 font-semibold w-20 text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modal-caracteristicas-body" class="divide-y divide-slate-200 dark:divide-slate-800">
-                                <!-- Dynamic rows inserted by JS -->
-                            </tbody>
-                            <tfoot>
-                                <tr class="bg-slate-50/30 dark:bg-slate-900/30">
-                                    <td class="px-2 py-2">
-                                        <input id="modal-caract-nombre" type="text"
-                                               class="w-full text-xs bg-transparent border-none focus:ring-0 placeholder-slate-500"
-                                               placeholder="Ej: Material" />
-                                    </td>
-                                    <td class="px-2 py-2">
-                                        <input id="modal-caract-valor" type="text"
-                                               class="w-full text-xs bg-transparent border-none focus:ring-0 placeholder-slate-500"
-                                               placeholder="Ej: Acero" />
-                                    </td>
-                                    <td class="px-2 py-2 text-center">
-                                        <button type="button" onclick="ProductoModal.addCaracteristica()"
-                                                class="bg-primary hover:bg-primary/90 text-white p-1.5 rounded-lg transition-colors">
-                                            <span class="material-symbols-outlined text-sm">add</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Deslizá la tabla para revisar y completar las características del producto.</p>
+                            <span id="modal-caracteristicas-count" class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">0 cargadas</span>
+                        </div>
+                        <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 760px;">
+                            <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                <span class="material-symbols-outlined text-sm">swipe</span>
+                                Deslizá para ver y editar las columnas.
+                            </div>
+                            <div data-oc-scroll-shell class="relative overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-[#111827] dark:via-[#111827]/95"></div>
+                                <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-[#111827] dark:via-[#111827]/95"></div>
+                                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Tabla de características del producto" class="overflow-x-auto">
+                                    <table data-oc-scroll-table class="w-full border-collapse text-left text-sm" style="min-width: var(--oc-scroll-min-width);">
+                                        <thead class="bg-slate-50 dark:bg-slate-800/50">
+                                            <tr>
+                                                <th class="px-4 py-3 font-semibold">Nombre de la característica</th>
+                                                <th class="px-4 py-3 font-semibold">Valor</th>
+                                                <th class="px-4 py-3 w-20 text-center font-semibold">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="modal-caracteristicas-body" class="divide-y divide-slate-200 dark:divide-slate-800">
+                                            <!-- Dynamic rows inserted by JS -->
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="bg-slate-50/30 dark:bg-slate-900/30">
+                                                <td class="px-2 py-2">
+                                                    <input id="modal-caract-nombre" type="text"
+                                                           class="w-full border-none bg-transparent text-xs placeholder-slate-500 focus:ring-0"
+                                                           placeholder="Ej: Material" />
+                                                </td>
+                                                <td class="px-2 py-2">
+                                                    <input id="modal-caract-valor" type="text"
+                                                           class="w-full border-none bg-transparent text-xs placeholder-slate-500 focus:ring-0"
+                                                           placeholder="Ej: Acero" />
+                                                </td>
+                                                <td class="px-2 py-2 text-center">
+                                                    <button type="button" data-catalogo-action="product-add-caracteristica"
+                                                            class="rounded-lg bg-primary p-1.5 text-white transition-colors hover:bg-primary/90">
+                                                        <span class="material-symbols-outlined text-sm">add</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 pl-1 italic">
                         Ejemplo: Color: Negro, Material: Acero, Memoria: 16GB
@@ -765,13 +949,13 @@
             </div>
 
             <!-- Footer -->
-            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                <button type="button" onclick="ProductoModal.close()"
-                        class="px-6 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <footer class="grid gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50 sm:flex sm:items-center sm:justify-end">
+                <button type="button" data-catalogo-modal-close="producto"
+                        class="inline-flex w-full items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white sm:w-auto">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-producto"
-                        class="px-8 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-lg shadow-primary/20 transition-all">
+                        class="inline-flex w-full items-center justify-center rounded-lg bg-primary px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:w-auto">
                     Guardar Producto
                 </button>
             </footer>
@@ -782,7 +966,7 @@
 <!-- Modal: Nueva Categoría -->
 <div id="modal-nueva-categoria" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="CategoriaModal.close()"></div>
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="categoria"></div>
 
     <!-- Modal Container -->
     <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-white dark:bg-[#111827] rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
@@ -798,7 +982,7 @@
                 <h2 class="text-xl font-bold text-slate-900 dark:text-white">Nueva Categoría</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400">Administra las categorías de tus productos para organizar mejor tu inventario.</p>
             </div>
-            <button type="button" onclick="CategoriaModal.close()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-catalogo-modal-close="categoria" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </header>
@@ -808,7 +992,7 @@
             @Html.AntiForgeryToken()
 
             <!-- Scrollable Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6" style="max-height: calc(90vh - 140px);">
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
                 <div id="cat-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
@@ -897,7 +1081,7 @@
 
             <!-- Footer -->
             <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                <button type="button" onclick="CategoriaModal.close()"
+                <button type="button" data-catalogo-modal-close="categoria"
                         class="px-6 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
@@ -914,7 +1098,7 @@
 <!-- Modal: Nueva Marca -->
 <div id="modal-nueva-marca" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="MarcaModal.close()"></div>
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="marca"></div>
 
     <!-- Modal Container -->
     <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-[#111827] rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
@@ -930,7 +1114,7 @@
                 <h2 class="text-xl font-bold text-slate-900 dark:text-white">Nueva Marca</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400">Registra una nueva marca o submarca en el sistema.</p>
             </div>
-            <button type="button" onclick="MarcaModal.close()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-catalogo-modal-close="marca" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </header>
@@ -940,7 +1124,7 @@
             @Html.AntiForgeryToken()
 
             <!-- Scrollable Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6" style="max-height: calc(90vh - 140px);">
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
                 <div id="marca-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
@@ -993,7 +1177,7 @@
 
             <!-- Footer -->
             <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                <button type="button" onclick="MarcaModal.close()"
+                <button type="button" data-catalogo-modal-close="marca"
                         class="px-6 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
@@ -1012,47 +1196,69 @@
      ═══════════════════════════════════════════════════════════════ -->
 <div id="modal-historial-precio" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="HistorialPrecioModal.close()"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="historial-precio"></div>
 
     <!-- Panel -->
-    <div class="absolute right-0 top-0 h-full w-full max-w-5xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
+    <div class="absolute right-0 top-0 flex h-full w-full max-w-5xl flex-col bg-white shadow-2xl animate-slide-in-right dark:bg-[#161d2c]">
         <!-- Header -->
-        <header class="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800">
-            <div class="flex items-center gap-4">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <header class="border-b border-slate-200 px-6 py-5 dark:border-slate-800 sm:px-8">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start gap-4">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <span class="material-symbols-outlined text-2xl">history</span>
                 </div>
                 <div>
-                    <h2 class="text-xl font-bold tracking-tight dark:text-white">Historial de Cambios de Precio</h2>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span id="historial-producto-nombre" class="text-sm font-medium text-slate-500 dark:text-slate-400"></span>
-                        <span id="historial-producto-codigo" class="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500 font-mono"></span>
+                    <div class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Historial de precios
+                    </div>
+                    <h2 class="mt-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">Cambios aplicados al producto</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Revisá fecha, usuario, variación y, si corresponde, revertí el ajuste desde el mismo panel.</p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span id="historial-producto-nombre" class="text-sm font-medium text-slate-600 dark:text-slate-300"></span>
+                        <span id="historial-producto-codigo" class="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono text-slate-500 dark:bg-slate-800 dark:text-slate-400"></span>
+                        <span id="historial-precio-count" class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">0 eventos</span>
                     </div>
                 </div>
             </div>
-            <button type="button" onclick="HistorialPrecioModal.close()" class="group flex items-center justify-center h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <button type="button" data-catalogo-modal-close="historial-precio" class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                 <span class="material-symbols-outlined text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white">close</span>
             </button>
+            </div>
         </header>
 
+        <div id="historial-precio-feedback" class="hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8"></div>
+
         <!-- Table Content -->
-        <div class="flex-1 overflow-x-auto overflow-y-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 dark:bg-[#1c2536] text-slate-600 dark:text-slate-400 uppercase text-[11px] font-bold tracking-wider">
-                        <th class="px-8 py-4">Fecha y Hora</th>
-                        <th class="px-6 py-4">Usuario</th>
-                        <th class="px-6 py-4">Motivo</th>
-                        <th class="px-6 py-4 text-right">Precio Ant.</th>
-                        <th class="px-6 py-4 text-right">Precio Nuevo</th>
-                        <th class="px-6 py-4 text-center">Variación</th>
-                        <th class="px-8 py-4 text-right">Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="historial-precio-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
-                    <!-- Rows populated by JS -->
-                </tbody>
-            </table>
+        <div class="flex-1 overflow-y-auto px-6 pb-6 pt-4 sm:px-8">
+            <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Deslizá la tabla para comparar valores anteriores, nuevos y la variación aplicada.</p>
+            <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 860px;">
+                <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span class="material-symbols-outlined text-sm">swipe</span>
+                    Deslizá para ver todas las columnas del historial.
+                </div>
+                <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-[#161d2c] dark:via-[#161d2c]/95"></div>
+                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-[#161d2c] dark:via-[#161d2c]/95"></div>
+                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Historial de cambios de precio" class="overflow-x-auto">
+                        <table data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
+                            <thead>
+                                <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:bg-[#1c2536] dark:text-slate-400">
+                                    <th class="px-8 py-4">Fecha y Hora</th>
+                                    <th class="px-6 py-4">Usuario</th>
+                                    <th class="px-6 py-4">Motivo</th>
+                                    <th class="px-6 py-4 text-right">Precio Ant.</th>
+                                    <th class="px-6 py-4 text-right">Precio Nuevo</th>
+                                    <th class="px-6 py-4 text-center">Variación</th>
+                                    <th class="px-8 py-4 text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historial-precio-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <!-- Rows populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
             <!-- Loading -->
             <div id="historial-precio-loading" class="hidden py-16 text-center">
@@ -1068,11 +1274,14 @@
         </div>
 
         <!-- Footer -->
-        <footer class="flex items-center justify-end gap-3 px-8 py-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#131a27]">
-            <button type="button" onclick="HistorialPrecioModal.close()"
-                    class="px-8 h-11 rounded-lg bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all">
+        <footer class="border-t border-slate-200 bg-slate-50/50 px-6 py-5 dark:border-slate-800 dark:bg-[#131a27] sm:px-8">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs text-slate-500 dark:text-slate-400">Revisá el contexto antes de revertir para evitar inconsistencias en el catálogo.</p>
+            <button type="button" data-catalogo-modal-close="historial-precio"
+                    class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-8 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:brightness-110 active:scale-95 sm:w-auto">
                 Cerrar
             </button>
+            </div>
         </footer>
     </div>
 </div>
@@ -1082,46 +1291,49 @@
      ═══════════════════════════════════════════════════════════════ -->
 <div id="modal-aumento-precios" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="PrecioModal.close()"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="precio"></div>
 
     <!-- Panel -->
-    <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-slate-950 shadow-2xl flex flex-col animate-slide-in-right">
+    <div class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col bg-white shadow-2xl animate-slide-in-right dark:bg-slate-950">
         <!-- Header -->
-        <header class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
+        <header class="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
                         <span class="material-symbols-outlined text-amber-500">trending_up</span>
                     </div>
                     <div>
-                        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Aumento de Precios</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Ajuste masivo por selección, categoría, marca o todo el catálogo</p>
+                        <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+                            Ajuste masivo
+                        </div>
+                        <h2 class="mt-3 text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Actualizar precios por alcance</h2>
+                        <p class="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">Definí el universo afectado, configurá el ajuste y revisá la vista previa antes de aplicar el cambio.</p>
                     </div>
                 </div>
-            <button type="button" onclick="PrecioModal.close()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+            <button type="button" data-catalogo-modal-close="precio" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                 <span class="material-symbols-outlined">close</span>
             </button>
+            </div>
         </header>
 
         <!-- Step Indicator -->
-        <div class="flex items-center gap-0 px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-            <div id="step-ind-1" class="flex items-center gap-2">
+        <div class="grid grid-cols-3 items-center gap-3 border-b border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+            <div id="step-ind-1" class="flex min-w-0 items-center gap-2">
                 <span class="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">1</span>
                 <span class="text-xs font-bold text-primary">Alcance</span>
             </div>
-            <div class="flex-1 h-px bg-slate-200 dark:bg-slate-700 mx-3"></div>
-            <div id="step-ind-2" class="flex items-center gap-2">
+            <div id="step-ind-2" class="flex min-w-0 items-center justify-center gap-2">
                 <span class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
                 <span class="text-xs font-medium text-slate-400 dark:text-slate-500">Configuración</span>
             </div>
-            <div class="flex-1 h-px bg-slate-200 dark:bg-slate-700 mx-3"></div>
-            <div id="step-ind-3" class="flex items-center gap-2">
+            <div id="step-ind-3" class="flex min-w-0 items-center justify-end gap-2">
                 <span class="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
                 <span class="text-xs font-medium text-slate-400 dark:text-slate-500">Vista previa</span>
             </div>
         </div>
 
         <!-- Scrollable Content -->
-        <div class="flex-1 overflow-y-auto p-6" style="max-height: calc(90vh - 200px);">
+        <div class="flex-1 overflow-y-auto p-6 modal-scroll-90-200">
 
             <!-- Validation Summary -->
             <div id="precio-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3 mb-6">
@@ -1134,6 +1346,23 @@
 
             <!-- ════ PASO 1: Alcance ════ -->
             <div id="precio-step-1" class="space-y-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 1</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Elegí el alcance</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Todos, categoría, marca o la selección que ya hiciste en la grilla.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 2</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Configurá el ajuste</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Definí motivo, tipo de cambio, valor y redondeo final.</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Paso 3</p>
+                        <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Revisá la vista previa</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Validá el impacto antes de aplicar el aumento al catálogo.</p>
+                    </div>
+                </div>
                 <h3 class="text-slate-900 dark:text-white text-base font-bold">¿A qué productos aplicar el ajuste?</h3>
                 <div id="precio-selection-summary" class="hidden items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
                     <span class="material-symbols-outlined text-amber-500">playlist_add_check</span>
@@ -1258,7 +1487,7 @@
                     </div>
 
                     <!-- Tipo de ajuste + Valor -->
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="flex flex-col gap-2">
                             <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de ajuste</label>
                             <div class="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
@@ -1286,7 +1515,7 @@
                     <!-- Redondeo -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Redondeo</label>
-                        <div class="flex gap-3">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="radio" name="precio-redondeo" value="none" checked
                                        class="text-primary focus:ring-primary" />
@@ -1321,21 +1550,30 @@
                 </div>
 
                 <!-- Preview table -->
-                <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                                    <th class="text-left px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Producto</th>
-                                    <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Precio Actual</th>
-                                    <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ajuste</th>
-                                    <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Precio Nuevo</th>
-                                </tr>
-                            </thead>
-                            <tbody id="precio-preview-tbody">
-                                <!-- Rows populated by JS -->
-                            </tbody>
-                        </table>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Deslizá la tabla para revisar los valores actuales, el ajuste aplicado y el precio final calculado.</p>
+                <div class="relative" data-oc-scroll style="--oc-scroll-min-width: 760px;">
+                    <div data-oc-scroll-hint class="mb-2 hidden items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <span class="material-symbols-outlined text-sm">swipe</span>
+                        Deslizá para ver toda la vista previa.
+                    </div>
+                    <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50">
+                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Vista previa del ajuste de precios" class="overflow-x-auto">
+                            <table data-oc-scroll-table class="w-full text-sm" style="min-width: var(--oc-scroll-min-width);">
+                                <thead>
+                                    <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+                                        <th class="text-left px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Producto</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Precio Actual</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ajuste</th>
+                                        <th class="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Precio Nuevo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="precio-preview-tbody">
+                                    <!-- Rows populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div id="precio-preview-more" class="hidden px-4 py-3 text-center border-t border-slate-200 dark:border-slate-800">
                         <span class="text-xs text-slate-500 dark:text-slate-400"></span>
@@ -1353,27 +1591,28 @@
         </div>
 
         <!-- Footer -->
-        <footer class="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-            <button type="button" id="precio-btn-back" onclick="PrecioModal.prevStep()" class="hidden px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-2">
+        <footer class="border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+            <div class="grid gap-3 sm:flex sm:items-center sm:justify-between">
+            <button type="button" id="precio-btn-back" data-catalogo-action="price-prev" class="hidden w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                 <span class="material-symbols-outlined text-[16px]">arrow_back</span>
                 Anterior
             </button>
-            <div class="flex-1"></div>
-            <div class="flex items-center gap-3">
-                <button type="button" onclick="PrecioModal.close()"
-                        class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <div class="grid gap-3 sm:flex sm:items-center">
+                <button type="button" data-catalogo-modal-close="precio"
+                        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                     Cancelar
                 </button>
-                <button type="button" id="precio-btn-next" onclick="PrecioModal.nextStep()"
-                        class="px-5 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
+                <button type="button" id="precio-btn-next" data-catalogo-action="price-next"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:w-auto">
                     Siguiente
                     <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </button>
-                <button type="button" id="precio-btn-apply" onclick="PrecioModal.apply()"
-                        class="hidden px-5 py-2.5 rounded-lg bg-amber-500 text-white font-bold text-sm hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2">
+                <button type="button" id="precio-btn-apply" data-catalogo-action="price-apply"
+                        class="hidden w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-600 sm:w-auto">
                     <span class="material-symbols-outlined text-[16px]">check</span>
                     Aplicar Aumento
                 </button>
+            </div>
             </div>
         </footer>
     </div>
@@ -1539,11 +1778,13 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/catalogo-index.js"></script>
-    <script src="~/js/producto-crear-modal.js"></script>
-    <script src="~/js/categoria-crear-modal.js"></script>
-    <script src="~/js/marca-crear-modal.js"></script>
-    <script src="~/js/precio-aumento-modal.js"></script>
-    <script src="~/js/historial-precio-modal.js"></script>
-    <script src="~/js/movimientos-inventario-modal.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/catalogo-module.js" asp-append-version="true"></script>
+    <script src="~/js/catalogo-index.js" asp-append-version="true"></script>
+    <script src="~/js/producto-crear-modal.js" asp-append-version="true"></script>
+    <script src="~/js/categoria-crear-modal.js" asp-append-version="true"></script>
+    <script src="~/js/marca-crear-modal.js" asp-append-version="true"></script>
+    <script src="~/js/precio-aumento-modal.js" asp-append-version="true"></script>
+    <script src="~/js/historial-precio-modal.js" asp-append-version="true"></script>
+    <script src="~/js/movimientos-inventario-modal.js" asp-append-version="true"></script>
 }

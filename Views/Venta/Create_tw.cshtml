@@ -14,7 +14,13 @@
     var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
     var ivaRate = (decimal)(ViewBag.IvaRate ?? 0.21m);
     var esCotizacion = Model.Estado == EstadoVenta.Cotizacion;
+    var heroDescripcion = esCotizacion
+        ? "Prepará el presupuesto, validá crédito si hace falta y dejá la operación lista para seguimiento."
+        : "Armá la venta, verificá elegibilidad crediticia y cerrá la operación sin salir de la pantalla.";
+    var estadoOperacionLabel = esCotizacion ? "Cotización" : "Venta";
 }
+
+<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
 <!-- Validation Errors -->
 @if (!ViewData.ModelState.IsValid)
@@ -32,7 +38,7 @@
                 </div>
             </div>
         </div>
-        <button type="button" onclick="this.closest('[id=banner-errores]').remove()"
+        <button type="button" id="btn-cerrar-banner-errores"
                 class="text-sm font-bold leading-normal flex items-center gap-2 text-slate-900 dark:text-white opacity-70 hover:opacity-100">
             Cerrar
         </button>
@@ -62,50 +68,96 @@
     </div>
 }
 
-<form id="venta-form" asp-action="Create" method="post">
+<form id="venta-form" asp-action="Create" method="post" class="space-y-8">
     @Html.AntiForgeryToken()
     <input type="hidden" asp-for="Estado" />
     <input type="hidden" asp-for="RowVersion" />
     <input type="hidden" id="hdn-iva-rate" value="@ivaRate" />
 
     <!-- Header Section -->
-    <div class="mb-8">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-                <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                    @(esCotizacion ? "Nueva Cotización" : "Nueva Venta")
-                </h1>
-                <p class="text-slate-500 dark:text-slate-400 mt-1">Gestión profesional de transacciones y presupuestos corporativos.</p>
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-8">
+        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="space-y-4">
+                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Ventas</span>
+                    <span class="text-slate-300 dark:text-slate-600">/</span>
+                    <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">@estadoOperacionLabel en curso</span>
+                </div>
+                <div class="space-y-2">
+                    <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+                        @(esCotizacion ? "Nueva Cotización" : "Nueva Venta")
+                    </h1>
+                    <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400 sm:text-base">@heroDescripcion</p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs font-medium">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+                        <span class="material-symbols-outlined text-sm">verified_user</span>
+                        Sistema operativo
+                    </span>
+                    <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">credit_score</span>
+                        Validación crediticia en línea
+                    </span>
+                    <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                        Stock y precios al momento
+                    </span>
+                </div>
             </div>
-            <div class="flex gap-3">
-                <a asp-action="Index" class="px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancelar</a>
-                <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+
+            <div class="venta-create-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-[15rem] xl:flex-col">
+                <a asp-action="Index"
+                   class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 xl:w-full">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 xl:w-full">
                     Guardar Operación
                 </button>
             </div>
         </div>
 
-        <!-- System Status Banner -->
-        <div id="banner-status" class="flex items-center justify-between p-4 rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary">verified_user</span>
-                <div>
-                    <p class="text-slate-900 dark:text-white text-sm font-bold">Estado del Sistema: Operativo</p>
-                    <p class="text-slate-500 dark:text-slate-400 text-xs">Todos los servicios de validación de crédito y AFIP están en línea.</p>
-                </div>
-            </div>
+        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cliente</p>
+                <p id="hero-cliente" class="mt-3 text-sm font-bold text-slate-900 dark:text-white">Sin seleccionar</p>
+                <p id="hero-cliente-detalle" class="mt-1 text-xs text-slate-500 dark:text-slate-400">Buscá un cliente para iniciar la operación.</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Detalle</p>
+                <p id="hero-detalles-count" class="mt-3 text-sm font-bold text-slate-900 dark:text-white">0 productos</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Sumá artículos y ajustá cantidades o descuentos antes de confirmar.</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total estimado</p>
+                <p id="hero-total" class="mt-3 text-sm font-bold text-slate-900 dark:text-white">$0,00</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Incluye IVA y descuentos recalculados en tiempo real.</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cobro</p>
+                <p id="hero-tipo-pago" class="mt-3 text-sm font-bold text-slate-900 dark:text-white">Sin definir</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">El detalle cambia automáticamente según la forma de pago elegida.</p>
+            </article>
         </div>
-    </div>
+    </section>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
         <!-- Left Column: Main Form -->
         <div class="lg:col-span-2 flex flex-col gap-8">
 
             <!-- 1. General Data Section -->
             <section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">person</span> 1. Datos Generales
-                </h3>
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 1</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Datos generales</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Seleccioná el cliente, la fecha y el medio de cobro antes de armar el detalle.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">person</span>
+                        Cliente + contexto
+                    </span>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Client Search -->
                     <div class="md:col-span-2">
@@ -121,7 +173,7 @@
                     </div>
 
                     <!-- Selected Client Info -->
-                    <div id="info-cliente" class="md:col-span-2 hidden p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <div id="info-cliente" class="md:col-span-2 hidden rounded-2xl border border-primary/15 bg-primary/5 p-4 dark:border-primary/20 dark:bg-primary/10">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="size-10 bg-primary/20 rounded-full flex items-center justify-center">
@@ -184,12 +236,20 @@
 
             <!-- 2. Products Section -->
             <section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">inventory_2</span> 2. Selección de Productos
-                </h3>
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 2</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Selección de productos</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Buscá artículos, afiná por filtros y revisá el detalle antes de pasar al cobro.</p>
+                    </div>
+                    <span id="detalle-items-badge" class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">shopping_bag</span>
+                        0 productos
+                    </span>
+                </div>
 
                 <!-- Advanced Filters -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                <div class="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50 md:grid-cols-4">
                     <select id="filtro-categoria" class="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md">
                         <option value="">Categoría: Todas</option>
                         @if (categorias != null)
@@ -228,7 +288,7 @@
                                placeholder="Escriba código o nombre del producto..." />
                         <div id="dropdown-productos" class="absolute top-full left-0 w-full bg-white dark:bg-slate-800 mt-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl z-20 hidden max-h-72 overflow-y-auto"></div>
                     </div>
-                    <div id="panel-agregar-producto" class="grid grid-cols-2 md:grid-cols-5 gap-3 hidden">
+                    <div id="panel-agregar-producto" class="hidden grid-cols-2 gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 dark:border-primary/20 dark:bg-primary/10 md:grid-cols-5">
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Producto Seleccionado</label>
                             <input id="txt-producto-seleccionado" type="text" readonly
@@ -259,22 +319,31 @@
                 </div>
 
                 <!-- Product Table -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-slate-200 dark:border-slate-800">
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Cód.</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Producto</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-center">Cant.</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Unitario</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Desc.</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Subtotal</th>
-                                <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-detalles" class="divide-y divide-slate-100 dark:divide-slate-800/50">
-                        </tbody>
-                    </table>
+                <div id="venta-detalles-scroll" data-oc-scroll style="--oc-scroll-min-width: 46rem;">
+                    <p data-oc-scroll-hint hidden class="mb-3 text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                        Deslizá la tabla para revisar cantidades, descuentos y subtotales completos.
+                    </p>
+                    <div data-oc-scroll-shell>
+                        <div data-oc-scroll-fade="left" hidden></div>
+                        <div data-oc-scroll-fade="right" hidden></div>
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Detalle de productos de la venta">
+                            <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-200 dark:border-slate-800">
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Cód.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Producto</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-center">Cant.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Unitario</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Desc.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Subtotal</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-detalles" class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                     <div id="detalles-vacio" class="text-center py-12 text-slate-400">
                         <span class="material-symbols-outlined text-4xl mb-2">shopping_cart</span>
                         <p class="text-sm">No hay productos agregados. Busque y añada productos arriba.</p>
@@ -284,9 +353,17 @@
 
             <!-- 3. Payment Details Section (Cards/Checks/Credit) -->
             <section id="seccion-detalle-cobro" class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">credit_card</span> 3. Detalle de Cobro
-                </h3>
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 3</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Detalle de cobro</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">La pantalla adapta los campos requeridos según la forma de pago elegida.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                        Dinámico por medio
+                    </span>
+                </div>
                 <div class="flex flex-col gap-8">
 
                     <!-- Card View -->
@@ -422,15 +499,25 @@
 
             <!-- 4. Credit Eligibility Verification -->
             <section id="seccion-verificacion-crediticia" class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">verified</span> Verificación Crediticia
-                </h3>
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Control operativo</p>
+                        <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Verificación crediticia</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Chequeá cupo, mora y documentación antes de confirmar una venta financiada.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">analytics</span>
+                        Antes de confirmar
+                    </span>
+                </div>
                 <div class="flex flex-col gap-5">
                     <!-- Verify Button -->
                     <button type="button" id="btn-verificar-elegibilidad"
                             class="w-full py-4 bg-primary/10 text-primary rounded-xl font-bold hover:bg-primary/20 transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined">analytics</span> Verificar Elegibilidad
                     </button>
+
+                    <div id="venta-create-feedback-slot" class="hidden" aria-live="polite"></div>
 
                     <!-- Result Panel -->
                     <div id="panel-resultado-verificacion" class="hidden space-y-4">
@@ -498,6 +585,8 @@
                             </p>
                             <div id="lista-docs-faltantes" class="space-y-1 mb-3"></div>
                             <button type="button" id="btn-cargar-documentacion"
+                                    data-venta-modal-action="open"
+                                    data-venta-modal-target="documentacion"
                                     class="w-full py-2.5 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 rounded-lg hover:bg-amber-500/30 transition-all flex items-center justify-center gap-2">
                                 <span class="material-symbols-outlined text-sm">upload_file</span>
                                 Cargar documentación crediticia
@@ -554,6 +643,11 @@
 
             <!-- 5. Seller & Observations -->
             <section class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div class="mb-5">
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Contexto</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Vendedor y observaciones</h2>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Dejá trazabilidad interna de la operación y del responsable asignado.</p>
+                </div>
                 @if (puedeDelegarVendedor && vendedores != null)
                 {
                     <div class="mb-4">
@@ -588,8 +682,18 @@
             </section>
 
             <!-- 6. Totals Panel -->
-            <section class="bg-primary text-white p-6 rounded-xl shadow-xl shadow-primary/20">
-                <h3 class="text-sm font-bold uppercase tracking-widest mb-6 opacity-80">Resumen de Totales</h3>
+            <section class="overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.2em] opacity-80">Cierre</p>
+                        <h2 class="mt-1 text-xl font-black tracking-tight">Resumen de totales</h2>
+                        <p class="mt-1 text-sm text-white/75">Control final de subtotal, descuentos, IVA y confirmación de la operación.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                        <span class="material-symbols-outlined text-sm">receipt_long</span>
+                        Totales en tiempo real
+                    </span>
+                </div>
                 <div class="space-y-3 mb-6">
                     <div class="flex justify-between text-sm">
                         <span class="opacity-70">Subtotal Neto</span>
@@ -630,15 +734,15 @@
                 </p>
             </section>
 
-            <div class="flex gap-4">
+            <div class="venta-create-secondary-actions flex flex-col gap-3 sm:flex-row">
                 @if (!esCotizacion)
                 {
-                    <a asp-action="Cotizar" class="flex-1 py-3 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-tighter hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-1 text-center">
+                    <a asp-action="Cotizar" class="inline-flex w-full flex-1 items-center justify-center gap-1 rounded-xl border border-slate-300 py-3 text-center text-xs font-bold uppercase tracking-tighter transition-all hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 sm:w-auto">
                         <span class="material-symbols-outlined text-sm">description</span> Guardar como Cotización
                     </a>
                 }
-                <button type="button" onclick="window.print()"
-                        class="flex-1 py-3 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-tighter hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-1">
+                <button type="button" id="btn-imprimir-borrador"
+                        class="inline-flex w-full flex-1 items-center justify-center gap-1 rounded-xl border border-slate-300 py-3 text-xs font-bold uppercase tracking-tighter transition-all hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 sm:w-auto">
                     <span class="material-symbols-outlined text-sm">print</span> Imprimir Borrador
                 </button>
             </div>
@@ -650,19 +754,22 @@
 </form>
 
 <!-- Modal: Cargar Documentación Crediticia -->
-<div id="modal-documentacion" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-documentacion-overlay"></div>
+<div id="modal-documentacion" data-venta-modal="documentacion" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-documentacion-overlay" data-venta-modal-action="close"></div>
     <div class="relative flex items-center justify-center min-h-screen p-4">
         <div class="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl">
             <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
                 <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">upload_file</span> Documentación Crediticia
                 </h3>
-                <button type="button" id="btn-cerrar-modal-doc" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                <button type="button" id="btn-cerrar-modal-doc" data-venta-modal-action="close" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                     <span class="material-symbols-outlined text-slate-400">close</span>
                 </button>
             </div>
             <div class="p-6 space-y-5">
+                <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm text-slate-600 dark:border-primary/20 dark:bg-primary/10 dark:text-slate-300">
+                    Completá o renová la documentación faltante sin abandonar la operación. Cuando cierres el modal, podés volver a verificar elegibilidad.
+                </div>
                 <!-- Missing / Expired Documents List -->
                 <div id="modal-docs-pendientes" class="space-y-3">
                     <p class="text-xs font-bold text-slate-500 uppercase">Documentos pendientes</p>
@@ -693,14 +800,14 @@
                 <!-- Upload feedback -->
                 <div id="doc-upload-feedback" class="hidden p-3 rounded-lg text-xs font-bold"></div>
             </div>
-            <div class="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
+            <div class="venta-create-doc-footer flex flex-col-reverse gap-3 border-t border-slate-200 p-6 dark:border-slate-800 sm:flex-row">
                 <button type="button" id="btn-subir-documento"
-                        class="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-tighter hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                        class="venta-create-doc-action inline-flex w-full flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold uppercase tracking-tighter text-white transition-all hover:bg-primary/90"
                         disabled>
                     <span class="material-symbols-outlined text-sm">upload</span> Subir Documento
                 </button>
                 <button type="button" id="btn-ir-documentacion"
-                        class="flex-1 py-3 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-tighter hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                        class="venta-create-doc-action inline-flex w-full flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 py-3 text-xs font-bold uppercase tracking-tighter transition-all hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
                     <span class="material-symbols-outlined text-sm">open_in_new</span> Ir a Documentación
                 </button>
             </div>
@@ -708,6 +815,33 @@
     </div>
 </div>
 
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <style>
+        .venta-create-doc-footer {
+            flex-direction: column-reverse;
+        }
+
+        .venta-create-doc-action {
+            width: 100%;
+        }
+
+        @@media (min-width: 640px) {
+            .venta-create-doc-footer {
+                flex-direction: row;
+            }
+
+            .venta-create-doc-action {
+                width: auto;
+            }
+        }
+    </style>
+}
+
 @section Scripts {
-    <script src="~/js/venta-create.js?v=2"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/venta-module.js" asp-append-version="true"></script>
+    <script src="~/js/venta-create.js" asp-append-version="true"></script>
 }

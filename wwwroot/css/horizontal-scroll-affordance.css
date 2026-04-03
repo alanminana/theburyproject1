@@ -1,0 +1,46 @@
+/* Shared horizontal scroll affordance */
+[data-oc-scroll-hint][hidden],
+[data-oc-scroll-fade][hidden] {
+    display: none !important;
+}
+
+[data-oc-scroll-shell] {
+    position: relative;
+}
+
+[data-oc-scroll-region] {
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-gutter: var(--oc-scrollbar-gutter, stable);
+}
+
+[data-oc-scroll-table] {
+    min-width: var(--oc-scroll-min-width, auto);
+}
+
+[data-oc-scroll-fade] {
+    position: absolute;
+    top: 0;
+    bottom: var(--oc-scroll-fade-bottom, 0);
+    width: var(--oc-scroll-fade-width, 2rem);
+    pointer-events: none;
+    z-index: 1;
+}
+
+[data-oc-scroll-fade="left"] {
+    left: 0;
+    background: linear-gradient(to right, var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)), transparent);
+}
+
+[data-oc-scroll-fade="right"] {
+    right: 0;
+    background: linear-gradient(to left, var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)), transparent);
+}
+
+html.dark [data-oc-scroll-fade="left"] {
+    background: linear-gradient(to right, var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)), transparent);
+}
+
+html.dark [data-oc-scroll-fade="right"] {
+    background: linear-gradient(to left, var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)), transparent);
+}

@@ -12,12 +12,16 @@
 (function () {
     'use strict';
 
+    const theBury = window.TheBury || {};
+    const ventaModule = window.VentaModule || {};
+
     // ── State ──────────────────────────────────────────────────────────
     const detalles = [];         // { productoId, codigo, nombre, cantidad, precioUnitario, descuento, subtotal, stock }
     let clienteSeleccionado = null;  // { id, nombre, apellido, tipoDocumento, numeroDocumento }
-    let creditoInfoCache = {};   // creditoId -> { numero, montoAprobado, saldoPendiente, tasaInteres }
     let tarjetaInfoCache = [];   // from /Venta/GetTarjetasActivas
+    let creditoCupoDisponible = null;
     let debounceTimer = null;
+    let detalleScrollAffordance = null;
 
     const IVA_RATE = parseFloat(document.getElementById('hdn-iva-rate')?.value || '0.21');
 
@@ -69,8 +73,6 @@
     const selectCuotasTarjeta = $('#select-cuotas-tarjeta');
     const panelTarjetaResumen = $('#panel-tarjeta-resumen');
 
-    const selectCredito = $('#select-credito');
-    const panelCreditoInfo = $('#panel-credito-info');
     const panelAvisoCredito = $('#panel-aviso-credito');
 
     const filtroCategoria = $('#filtro-categoria');
@@ -78,6 +80,16 @@
     const filtroPrecioMin = $('#filtro-precio-min');
     const filtroPrecioMax = $('#filtro-precio-max');
     const filtroSoloStock = $('#filtro-solo-stock');
+    const feedbackSlot = $('#venta-create-feedback-slot');
+    const btnCerrarBannerErrores = $('#btn-cerrar-banner-errores');
+    const btnImprimirBorrador = $('#btn-imprimir-borrador');
+    const btnIrDocumentacion = $('#btn-ir-documentacion');
+    const heroCliente = $('#hero-cliente');
+    const heroClienteDetalle = $('#hero-cliente-detalle');
+    const heroDetallesCount = $('#hero-detalles-count');
+    const heroTotal = $('#hero-total');
+    const heroTipoPago = $('#hero-tipo-pago');
+    const detalleItemsBadge = $('#detalle-items-badge');
 
     // Totals
     const totalSubtotal = $('#total-subtotal');
@@ -90,10 +102,99 @@
     const hdnTotal = $('#hdn-total');
 
     // ── Helpers ────────────────────────────────────────────────────────
-    const formatCurrency = TheBury.formatCurrency;
+    const formatCurrency = theBury.formatCurrency;
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
+
+    function clearFeedback() {
+        if (!feedbackSlot) return;
+        feedbackSlot.hidden = true;
+        feedbackSlot.className = 'hidden';
+        feedbackSlot.replaceChildren();
+    }
+
+    function showFeedback(message, tone) {
+        if (!feedbackSlot || !message) return;
+
+        const palette = {
+            info: {
+                wrapper: 'border-primary/20 bg-primary/10 text-primary',
+                icon: 'info'
+            },
+            warning: {
+                wrapper: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                icon: 'warning'
+            },
+            error: {
+                wrapper: 'border-red-500/20 bg-red-500/10 text-red-500',
+                icon: 'error'
+            }
+        };
+
+        const variant = palette[tone] || palette.info;
+        const toast = document.createElement('div');
+        toast.className = `toast-msg flex items-center gap-3 rounded-xl border p-4 text-sm font-semibold ${variant.wrapper}`;
+        toast.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined text-lg';
+        icon.textContent = variant.icon;
+
+        const text = document.createElement('p');
+        text.textContent = message;
+
+        toast.append(icon, text);
+
+        feedbackSlot.hidden = false;
+        feedbackSlot.className = '';
+        feedbackSlot.replaceChildren(toast);
+        if (typeof ventaModule.initSharedUi === 'function') {
+            ventaModule.initSharedUi(4500);
+        } else if (typeof theBury.autoDismissToasts === 'function') {
+            theBury.autoDismissToasts(4500);
+        }
+    }
+
+    function updateDetallesScrollAffordance() {
+        if (!detalleScrollAffordance || typeof detalleScrollAffordance.update !== 'function') return;
+        if (typeof ventaModule.refreshScrollAffordance === 'function') {
+            ventaModule.refreshScrollAffordance(detalleScrollAffordance);
+            return;
+        }
+        requestAnimationFrame(() => detalleScrollAffordance.update());
+    }
+
+    function actualizarResumenOperacion(total) {
+        const cantidadItems = detalles.reduce((acc, d) => acc + d.cantidad, 0);
+        const detalleTexto = cantidadItems === 1 ? '1 producto' : `${cantidadItems} productos`;
+        const tipoPagoTexto = selectTipoPago?.selectedOptions?.[0]?.textContent?.trim() || 'Sin definir';
+
+        if (heroDetallesCount) {
+            heroDetallesCount.textContent = detalleTexto;
+        }
+
+        if (detalleItemsBadge) {
+            detalleItemsBadge.innerHTML = `<span class="material-symbols-outlined text-sm">shopping_bag</span>${detalleTexto}`;
+        }
+
+        if (heroTipoPago) {
+            heroTipoPago.textContent = tipoPagoTexto;
+        }
+
+        if (heroTotal) {
+            heroTotal.textContent = formatCurrency(total || 0);
+        }
+
+        if (heroCliente && heroClienteDetalle) {
+            if (clienteSeleccionado) {
+                heroCliente.textContent = `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`;
+                heroClienteDetalle.textContent = `${clienteSeleccionado.tipoDocumento}: ${clienteSeleccionado.numeroDocumento}`;
+            } else {
+                heroCliente.textContent = 'Sin seleccionar';
+                heroClienteDetalle.textContent = 'Buscá un cliente para iniciar la operación.';
+            }
+        }
+    }
 
     function debounce(fn, ms) {
         return function (...args) {
@@ -121,6 +222,28 @@
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         return resp.json();
     }
+
+    btnCerrarBannerErrores?.addEventListener('click', function () {
+        $('#banner-errores')?.remove();
+    });
+
+    btnImprimirBorrador?.addEventListener('click', function () {
+        if (typeof globalThis.print === 'function') {
+            globalThis.print();
+        }
+    });
+
+    btnIrDocumentacion?.addEventListener('click', function () {
+        const href = this.dataset.href;
+        if (!href) return;
+
+        if (typeof globalThis.open === 'function') {
+            globalThis.open(href, '_blank', 'noopener');
+            return;
+        }
+
+        globalThis.location.href = href;
+    });
 
     // ── 1. Client Search ──────────────────────────────────────────────
     inputBuscarCliente?.addEventListener('input', debounce(async function () {
@@ -162,9 +285,10 @@
         hide(dropdownClientes);
         inputBuscarCliente.value = '';
         hide(inputBuscarCliente.parentElement);
+        actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
 
         // Reset cupo verificado al cambiar cliente
-        window._creditoCupoDisponible = null;
+        creditoCupoDisponible = null;
         hide($('#panel-credito-cupo'));
         hide($('#panel-resultado-verificacion'));
         onTipoPagoChange();
@@ -178,13 +302,13 @@
         hide(infoCliente);
         show(inputBuscarCliente.parentElement);
         inputBuscarCliente.value = '';
-        window._creditoCupoDisponible = null;
+        creditoCupoDisponible = null;
         hide($('#panel-credito-cupo'));
         hide($('#panel-resultado-verificacion'));
         inputBuscarCliente.focus();
+        actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
 
         // Reset credit panel
-        hide(panelCreditoInfo);
         hide(panelAvisoCredito);
     });
 
@@ -355,6 +479,9 @@
             <input type="hidden" name="Detalles[${i}].Descuento" value="${d.descuento}" />
             <input type="hidden" name="Detalles[${i}].Subtotal" value="${d.subtotal}" />
         `).join('');
+
+        actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
+        updateDetallesScrollAffordance();
     }
 
     // Delete detail row
@@ -410,10 +537,11 @@
         if (hdnDescuento) hdnDescuento.value = descuento.toFixed(2);
         if (hdnIva) hdnIva.value = iva.toFixed(2);
         if (hdnTotal) hdnTotal.value = total.toFixed(2);
+        actualizarResumenOperacion(total);
 
         // Actualizar aviso de crédito si corresponde
         if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {
-            actualizarAvisoCredito(window._creditoCupoDisponible);
+            actualizarAvisoCredito(creditoCupoDisponible);
         }
     }
 
@@ -434,7 +562,7 @@
 
         // Credit-specific: show aviso with cached cupo if already verified
         if (isCredito) {
-            actualizarAvisoCredito(window._creditoCupoDisponible);
+            actualizarAvisoCredito(creditoCupoDisponible);
         } else {
             hide(panelAvisoCredito);
         }
@@ -443,6 +571,8 @@
         if (isTarjeta && tarjetaInfoCache.length === 0) {
             cargarTarjetasActivas();
         }
+
+        actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
     }
 
     // ── 7. Card Payment ───────────────────────────────────────────────
@@ -528,9 +658,6 @@
         show(panelAvisoCredito);
     }
 
-    // Exponer para que el resultado de verificación pueda actualizar el aviso
-    window._creditoCupoDisponible = null;
-
     // ── 9. Credit Verification (Crédito Personal Workflow) ───────────
     // State for credit verification
     let ultimaPrevalidacion = null;
@@ -613,8 +740,8 @@
         show(panelResultado);
 
         // Actualizar aviso de crédito y panel de cupo en el panel "Crédito Personal"
-        window._creditoCupoDisponible = data.cupoDisponible ?? null;
-        actualizarAvisoCredito(window._creditoCupoDisponible);
+        creditoCupoDisponible = data.cupoDisponible ?? null;
+        actualizarAvisoCredito(creditoCupoDisponible);
 
         const panelCupo = $('#panel-credito-cupo');
         if (panelCupo && data.cupoDisponible !== undefined) {
@@ -711,13 +838,14 @@
     $('#btn-verificar-elegibilidad')?.addEventListener('click', async function () {
         const clienteId = parseInt(hdnClienteId?.value);
         const total = parseFloat(hdnTotal?.value) || 0;
+        clearFeedback();
 
         if (!clienteId) {
-            alert('Seleccione un cliente primero.');
+            showFeedback('Seleccione un cliente primero.', 'warning');
             return;
         }
         if (total <= 0) {
-            alert('Agregue productos para verificar elegibilidad.');
+            showFeedback('Agregue productos para verificar elegibilidad.', 'warning');
             return;
         }
 
@@ -735,7 +863,7 @@
             mostrarDocumentacionFaltante(data);
 
         } catch (err) {
-            alert('Error al verificar elegibilidad: ' + err.message);
+            showFeedback('Error al verificar elegibilidad: ' + err.message, 'error');
         } finally {
             this.disabled = false;
             this.innerHTML = '<span class="material-symbols-outlined">analytics</span> Verificar Elegibilidad';
@@ -876,9 +1004,9 @@
     }
 
     // ── 11. Documentation Upload Modal ────────────────────────────────
-    const modalDoc = $('#modal-documentacion');
+    const modalDoc = document.querySelector('[data-venta-modal="documentacion"]');
 
-    function abrirModalDocumentacion() {
+    function prepararModalDocumentacion() {
         if (!modalDoc) return;
         const clienteId = parseInt(hdnClienteId?.value);
         if (!clienteId) return;
@@ -923,11 +1051,8 @@
         });
 
         // Set link to full documentation page
-        const btnIr = $('#btn-ir-documentacion');
-        if (btnIr) {
-            btnIr.onclick = () => {
-                window.open(`/DocumentoCliente/Upload?clienteId=${clienteId}`, '_blank');
-            };
+        if (btnIrDocumentacion) {
+            btnIrDocumentacion.dataset.href = `/DocumentoCliente/Upload?clienteId=${clienteId}`;
         }
 
         // Reset upload state
@@ -937,16 +1062,13 @@
         hide($('#doc-upload-feedback'));
         $('#btn-subir-documento').disabled = true;
 
-        show(modalDoc);
     }
 
-    function cerrarModalDocumentacion() {
-        hide(modalDoc);
+    if (typeof ventaModule.bindModal === 'function') {
+        ventaModule.bindModal('documentacion', {
+            beforeOpen: prepararModalDocumentacion
+        });
     }
-
-    $('#btn-cargar-documentacion')?.addEventListener('click', abrirModalDocumentacion);
-    $('#btn-cerrar-modal-doc')?.addEventListener('click', cerrarModalDocumentacion);
-    $('#modal-documentacion-overlay')?.addEventListener('click', cerrarModalDocumentacion);
 
     // File selection
     $('#input-doc-archivo')?.addEventListener('change', function () {
@@ -1015,11 +1137,24 @@
     });
 
     // ── 11. Toast auto-dismiss ────────────────────────────────────────
-    TheBury.autoDismissToasts();
+    if (typeof ventaModule.initSharedUi === 'function') {
+        ventaModule.initSharedUi();
+    } else if (typeof theBury.autoDismissToasts === 'function') {
+        theBury.autoDismissToasts();
+    }
+
+    if (typeof ventaModule.initScrollAffordance === 'function') {
+        detalleScrollAffordance = ventaModule.initScrollAffordance('#venta-detalles-scroll');
+        updateDetallesScrollAffordance();
+    } else if (typeof theBury.initHorizontalScrollAffordance === 'function') {
+        detalleScrollAffordance = theBury.initHorizontalScrollAffordance('#venta-detalles-scroll');
+        updateDetallesScrollAffordance();
+    }
 
     // ── Init ──────────────────────────────────────────────────────────
     onTipoPagoChange();
     renderDetalles();
     recalcularTotales();
+    actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
 
 })();

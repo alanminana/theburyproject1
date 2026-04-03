@@ -12,11 +12,6 @@ const ProveedorCrearModal = (() => {
     const summary = () => document.getElementById('proveedor-validation-summary');
     const errorList = () => document.getElementById('proveedor-error-list');
 
-    function getToken() {
-        const el = form().querySelector('input[name="__RequestVerificationToken"]');
-        return el ? el.value : '';
-    }
-
     function showErrors(errors) {
         const ul = errorList();
         ul.innerHTML = '';
@@ -85,7 +80,7 @@ const ProveedorCrearModal = (() => {
 
             if (data.success) {
                 close();
-                window.location.reload();
+                location.reload();
             } else if (data.errors) {
                 showErrors(data.errors);
             }

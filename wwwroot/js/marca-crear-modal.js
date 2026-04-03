@@ -60,7 +60,7 @@ const MarcaModal = (() => {
 
                 if (result.success) {
                     close();
-                    window.location.reload();
+                    location.reload();
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }
@@ -133,3 +133,7 @@ const MarcaModal = (() => {
 
     return { open, close };
 })();
+
+if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerModalApi === 'function') {
+    CatalogoModule.registerModalApi('marca', MarcaModal);
+}

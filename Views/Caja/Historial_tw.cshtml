@@ -12,89 +12,122 @@
 
     var topSobrantes = cierres.Where(c => c.Diferencia > 0).OrderByDescending(c => c.Diferencia).Take(5).ToList();
     var topFaltantes = cierres.Where(c => c.Diferencia < 0).OrderBy(c => c.Diferencia).Take(5).ToList();
+
+    string ProgressWidthClass(double percentage)
+    {
+        var clamped = Math.Clamp((int)Math.Round(percentage, MidpointRounding.AwayFromZero), 0, 100);
+        return $"progress-w-{clamped}";
+    }
 }
 
-<div class="flex-1 px-6 py-8 lg:px-10 max-w-[1400px] mx-auto w-full">
+<div class="caja-page-shell space-y-8">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-slate-100">Historial de cierres</h1>
-            <p class="text-slate-500 dark:text-slate-400 mt-1">Consulta y analiza los registros de auditoría y cierres de caja históricos.</p>
+    <header class="space-y-6">
+        <div class="flex text-xs font-medium text-slate-500 dark:text-slate-400 gap-2">
+            <a asp-controller="Home" asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">ERP</a>
+            <span>/</span>
+            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+            <span>/</span>
+            <span>Historial de cierres</span>
         </div>
-        <a asp-action="Index"
-           class="flex items-center gap-2 rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-all no-underline text-slate-700 dark:text-slate-200">
-            <span class="material-symbols-outlined text-lg">arrow_back</span>
-            Volver a cajas
-        </a>
-    </div>
+
+        <div class="caja-page-header-layout caja-historial-header-layout">
+            <div class="space-y-2">
+                <h1 class="text-slate-900 dark:text-white text-4xl font-black tracking-tight">Historial de cierres</h1>
+                <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+                    Consultá la auditoría de cierres, detectá diferencias y seguí los desvíos más relevantes por caja, fecha y responsables.
+                </p>
+            </div>
+            <div class="caja-page-header-actions caja-historial-header-actions">
+                <a asp-action="Index"
+                   class="caja-page-header-action caja-historial-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all no-underline text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                    <span class="material-symbols-outlined text-lg">arrow_back</span>
+                    Volver a cajas
+                </a>
+            </div>
+        </div>
+    </header>
 
     <!-- TempData -->
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl mb-4">
+        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl" role="status">
             <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg"><span class="material-symbols-outlined">check_circle</span></div>
             <p class="text-emerald-500 text-sm font-bold">@TempData["Success"]</p>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl mb-4">
+        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl" role="alert">
             <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg"><span class="material-symbols-outlined">error</span></div>
             <p class="text-rose-500 text-sm font-bold">@TempData["Error"]</p>
         </div>
     }
 
     <!-- KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Cierres</p>
+    <div class="caja-page-metrics caja-page-metrics--5 caja-historial-metrics">
+        <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total Cierres</p>
             <div class="flex items-baseline gap-2 mt-2">
-                <span class="text-2xl font-bold">@Model.TotalCierres</span>
+                <span class="text-2xl font-black text-slate-900 dark:text-white">@Model.TotalCierres</span>
             </div>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Registros analizados en la consulta actual.</p>
         </div>
-        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cierres Exactos</p>
+        <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cierres Exactos</p>
             <div class="flex items-baseline gap-2 mt-2">
-                <span class="text-2xl font-bold">@cierresExactos</span>
+                <span class="text-2xl font-black text-slate-900 dark:text-white">@cierresExactos</span>
                 <span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
             </div>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Cierres sin diferencia entre sistema y caja real.</p>
         </div>
-        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">% Exactitud</p>
+        <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">% Exactitud</p>
             <div class="flex items-baseline gap-2 mt-2">
-                <span class="text-2xl font-bold">@Model.PorcentajeCierresExactos.ToString("F0")%</span>
+                <span class="text-2xl font-black text-slate-900 dark:text-white">@Model.PorcentajeCierresExactos.ToString("F0")%</span>
                 <div class="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div class="bg-primary h-full" style="width: @Model.PorcentajeCierresExactos.ToString("F0")%"></div>
+                    <div class="bg-primary h-full @ProgressWidthClass(Convert.ToDouble(Model.PorcentajeCierresExactos))"></div>
                 </div>
             </div>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Nivel de precisión del efectivo registrado.</p>
         </div>
-        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sobrantes</p>
+        <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 shadow-sm">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400">Sobrantes</p>
             <div class="flex items-baseline gap-2 mt-2">
-                <span class="text-2xl font-bold text-amber-500">@cierresSobrante</span>
+                <span class="text-2xl font-black text-amber-500">@cierresSobrante</span>
                 @if (cierresSobrante > 0)
                 {
                     <span class="text-xs text-amber-500">Alertas</span>
                 }
             </div>
+            <p class="mt-1 text-xs text-amber-600/80 dark:text-amber-400/80">Cierres con efectivo real por encima de lo esperado.</p>
         </div>
-        <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Faltantes</p>
+        <div class="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 shadow-sm">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">Faltantes</p>
             <div class="flex items-baseline gap-2 mt-2">
-                <span class="text-2xl font-bold text-red-500">@cierresFaltante</span>
+                <span class="text-2xl font-black text-rose-500">@cierresFaltante</span>
                 @if (cierresFaltante > 0)
                 {
-                    <span class="text-xs text-red-500">Crítico</span>
+                    <span class="text-xs text-rose-500">Crítico</span>
                 }
             </div>
+            <p class="mt-1 text-xs text-rose-600/80 dark:text-rose-400/80">Cierres con efectivo faltante respecto del sistema.</p>
         </div>
     </div>
 
     <!-- Filters -->
-    <section class="bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 p-6 mb-8">
-        <form asp-action="Historial" method="get" class="flex flex-wrap items-end gap-4">
-            <div class="flex-1 min-w-[200px]">
+    <section class="rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+        <div class="flex flex-col gap-2 pb-5">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="material-symbols-outlined text-primary">filter_alt</span>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Filtros de auditoría</h2>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Acotá la consulta por caja y rango de fechas para revisar cierres específicos.</p>
+        </div>
+
+        <form asp-action="Historial" method="get" class="caja-historial-filter-form">
+            <div class="caja-historial-filter-field min-w-0">
                 <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Seleccionar Caja</label>
                 <select name="cajaId"
                         class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary">
@@ -108,45 +141,86 @@
                     }
                 </select>
             </div>
-            <div class="flex-1 min-w-[150px]">
+            <div class="caja-historial-filter-field min-w-0">
                 <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Fecha Desde</label>
                 <input type="date" name="fechaDesde"
                        value="@(fechaDesde?.ToString("yyyy-MM-dd"))"
                        class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary" />
             </div>
-            <div class="flex-1 min-w-[150px]">
+            <div class="caja-historial-filter-field min-w-0">
                 <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Fecha Hasta</label>
                 <input type="date" name="fechaHasta"
                        value="@(fechaHasta?.ToString("yyyy-MM-dd"))"
                        class="w-full h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-primary focus:border-primary" />
             </div>
             <button type="submit"
-                    class="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-white hover:bg-primary/90 transition-all">
+                    class="caja-historial-filter-action inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-white hover:bg-primary/90 transition-all">
                 <span class="material-symbols-outlined text-lg">filter_alt</span>
                 Filtrar
             </button>
             <a asp-action="Historial"
-               class="h-10 px-4 flex items-center text-slate-500 dark:text-slate-400 text-sm hover:text-primary transition-colors no-underline">
+               class="caja-historial-filter-action inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400 hover:text-primary hover:border-primary/30 transition-colors no-underline">
                 Limpiar
             </a>
         </form>
     </section>
 
     <!-- Table -->
-    <div class="overflow-x-auto bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 mb-8">
+    <section class="space-y-4">
+        <div class="caja-page-section-header caja-historial-section-header">
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">receipt_long</span>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Detalle de cierres</h2>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400">
+                    Revisá responsables, montos esperados y diferencias por cierre sin perder contexto en mobile.
+                </p>
+            </div>
+            <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
+                @cierres.Count @(cierres.Count == 1 ? "cierre visible" : "cierres visibles")
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+             data-oc-scroll
+             style="--oc-scroll-min-width: 66rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+            <div data-oc-scroll-hint
+                 class="caja-page-scroll-hint caja-historial-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                 hidden>
+                <div class="flex items-center gap-2 font-semibold">
+                    <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                    <span id="caja-historial-scroll-hint">Deslizá la tabla para revisar montos, diferencias y acciones</span>
+                </div>
+                <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                    Scroll horizontal
+                </span>
+            </div>
+
+            <div class="relative" data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+
+                <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                     data-oc-scroll-region
+                     role="region"
+                     aria-label="Tabla del historial de cierres"
+                     aria-describedby="caja-historial-scroll-hint"
+                     tabindex="0">
         @if (cierres.Any())
         {
-            <table class="w-full text-left border-collapse">
+                    <table data-oc-scroll-table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Fecha Cierre</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Caja</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Apertura/Cierre</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Esperado</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Real</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Diferencia</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500"></th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Fecha Cierre</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Caja</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Apertura/Cierre</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Esperado</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Real</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Diferencia</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Estado</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Acción</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -210,7 +284,8 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <a asp-action="DetallesCierre" asp-route-id="@cierre.Id"
-                                   class="text-primary text-xs font-bold hover:underline no-underline">
+                                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-primary/20 hover:bg-primary/10 hover:text-primary no-underline dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="material-symbols-outlined text-base">open_in_new</span>
                                     Ver detalle
                                 </a>
                             </td>
@@ -226,7 +301,10 @@
                 <p class="mt-4 text-slate-500 dark:text-slate-400 font-medium">No se encontraron cierres en este periodo.</p>
             </div>
         }
-    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Top Sobrantes / Faltantes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -275,6 +353,32 @@
     </div>
 </div>
 
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+    <style>
+        .caja-historial-filter-form {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .caja-historial-filter-action {
+            width: 100%;
+        }
+
+        @@media (min-width: 1024px) {
+            .caja-historial-filter-action {
+                width: auto;
+            }
+
+            .caja-historial-filter-form {
+                align-items: end;
+                grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto auto;
+            }
+        }
+    </style>
+}
+
 @section Scripts {
-    <script src="~/js/caja-historial.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/caja-historial.js" asp-append-version="true"></script>
 }

@@ -33,28 +33,94 @@
     var rangoMostrado = totalResultados == 0 ? "0-0" : $"1-{totalResultados}";
     var formAction = ViewData["SeguridadAuditoriaFormAction"]?.ToString() ?? "Auditoria";
     var includeTab = ViewData["SeguridadAuditoriaIncludeTab"] as bool? ?? false;
+    var totalUsuarios = Model.Usuarios.Count;
+    var totalModulos = Model.Modulos.Count;
+    var totalAcciones = Model.Acciones.Count;
+    var ultimaActividad = Model.Registros.OrderByDescending(r => r.FechaHora).FirstOrDefault()?.FechaHora;
 }
 
 <div class="max-w-7xl mx-auto space-y-6">
-    <div>
-        <h3 class="text-2xl font-bold text-slate-900 dark:text-white">Registro de Auditoría</h3>
-        <p class="text-slate-500 dark:text-slate-400 mt-1">
-            Seguimiento histórico de actividades y cambios relevantes realizados en el sistema.
-        </p>
-    </div>
+    <section class="bg-white dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-3">
+                <span class="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                    <span class="material-symbols-outlined text-sm">history</span>
+                    Auditoría
+                </span>
+                <div class="space-y-2">
+                    <h3 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Registro histórico de actividad operativa</h3>
+                    <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        Consultá movimientos relevantes del sistema por usuario, módulo, acción o rango de fechas. La tabla conserva el contexto del evento y permite revisar actividad reciente sin salir del módulo.
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                        <span class="material-symbols-outlined text-sm">manage_search</span>
+                        Filtrado por usuario, módulo y acción
+                    </span>
+                    @if (ultimaActividad.HasValue)
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-400">
+                            <span class="material-symbols-outlined text-sm">schedule</span>
+                            Última actividad: @ultimaActividad.Value.ToString("dd/MM/yyyy HH:mm")
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="grid w-full gap-3 sm:grid-cols-2 xl:w-[420px]">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Resultados visibles</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalResultados</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Se actualiza con cada combinación de filtros.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Usuarios</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalUsuarios</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Base disponible para segmentar la trazabilidad.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Módulos</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalModulos</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Cobertura funcional auditada por el sistema.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Acciones</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalAcciones</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Tipos de eventos listos para filtrar.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <form asp-controller="Seguridad" asp-action="@formAction" method="get"
-          class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
         @if (includeTab)
         {
             <input type="hidden" name="tab" value="auditoria" />
         }
 
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="space-y-1">
+                <p class="text-sm font-semibold text-slate-900 dark:text-white">Filtros de consulta</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Acotá el histórico por actor, módulo, acción o rango de fechas antes de revisar la tabla completa.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                    <span class="material-symbols-outlined text-sm">table_rows</span>
+                    Mostrando @rangoMostrado
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                    <span class="material-symbols-outlined text-sm">rule_settings</span>
+                    @totalResultados resultados
+                </span>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div class="space-y-2">
-                <label for="usuario" class="text-sm font-medium text-slate-700 dark:text-slate-300">Usuario</label>
+                <label for="usuario" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Usuario</label>
                 <select id="usuario" name="usuario"
-                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary text-slate-900 dark:text-white">
+                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
                     <option value="">Todos los usuarios</option>
                     @foreach (var usuario in Model.Usuarios)
                     {
@@ -71,9 +137,9 @@
             </div>
 
             <div class="space-y-2">
-                <label for="modulo" class="text-sm font-medium text-slate-700 dark:text-slate-300">Módulo</label>
+                <label for="modulo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Módulo</label>
                 <select id="modulo" name="modulo"
-                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary text-slate-900 dark:text-white">
+                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
                     <option value="">Todos los módulos</option>
                     @foreach (var modulo in Model.Modulos)
                     {
@@ -90,9 +156,9 @@
             </div>
 
             <div class="space-y-2">
-                <label for="accion" class="text-sm font-medium text-slate-700 dark:text-slate-300">Acción</label>
+                <label for="accion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Acción</label>
                 <select id="accion" name="accion"
-                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary text-slate-900 dark:text-white">
+                        class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
                     <option value="">Todas las acciones</option>
                     @foreach (var accion in Model.Acciones)
                     {
@@ -109,32 +175,32 @@
             </div>
 
             <div class="space-y-2">
-                <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Rango de fechas</label>
-                <div class="flex gap-2">
+                <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Rango de fechas</label>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <input id="desde" name="desde" type="date" value="@(Model.Desde?.ToString("yyyy-MM-dd"))"
-                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary text-slate-900 dark:text-white" />
+                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white" />
                     <input id="hasta" name="hasta" type="date" value="@(Model.Hasta?.ToString("yyyy-MM-dd"))"
-                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary text-slate-900 dark:text-white" />
+                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white" />
                 </div>
             </div>
 
-            <div class="flex gap-2">
+            <div class="flex flex-col gap-2 sm:flex-row">
                 <button type="submit"
-                        class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined text-sm">filter_alt</span>
                     Buscar
                 </button>
                 @if (includeTab)
                 {
                     <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria"
-                       class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                       class="inline-flex items-center justify-center px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
                         Limpiar
                     </a>
                 }
                 else
                 {
                     <a asp-controller="Seguridad" asp-action="Auditoria"
-                       class="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                       class="inline-flex items-center justify-center px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
                         Limpiar
                     </a>
                 }
@@ -143,8 +209,33 @@
     </form>
 
     <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[980px]">
+        <div class="border-b border-slate-200 dark:border-slate-800 px-6 py-5 bg-slate-50/80 dark:bg-slate-900/40">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="space-y-1">
+                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Timeline de eventos auditados</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Cada fila combina fecha, actor, acción y entidad afectada para acelerar revisión operativa.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-sm">summarize</span>
+                        @totalResultados registros
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                        <span class="material-symbols-outlined text-sm">calendar_month</span>
+                        Rango @rangoMostrado
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 980px;">
+            <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                Deslizá para ver toda la auditoría
+            </div>
+            <div data-oc-scroll-shell class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Registro de auditoría">
+            <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha / Hora</th>
@@ -202,9 +293,11 @@
                     }
                 </tbody>
             </table>
+                </div>
+            </div>
         </div>
 
-        <div class="px-6 py-4 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+        <div class="px-6 py-4 flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
             <span class="text-xs text-slate-500 font-medium">Mostrando @rangoMostrado de @totalResultados resultados</span>
             <div class="flex gap-1">
                 <button type="button"

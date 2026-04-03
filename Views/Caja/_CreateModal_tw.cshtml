@@ -1,4 +1,5 @@
 @model TheBuryProject.ViewModels.CajaViewModel
+@* Compatibilidad operativa: este modal se mantiene para el flujo del índice; la referencia principal es la vista full-page. *@
 
 <div id="modal-caja" class="lg:h-full">
     <!-- Backdrop (solo mobile) -->
@@ -13,7 +14,9 @@
                 <h3 class="text-xl font-extrabold text-slate-900 dark:text-white">Nueva caja</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Registre una nueva terminal de caja en el sistema.</p>
             </div>
-            <button type="button" onclick="cerrarModalCaja()"
+            <button type="button"
+                    data-caja-close-modal
+                    aria-label="Cerrar modal"
                     class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
@@ -23,7 +26,7 @@
         <form id="formCaja" asp-action="Create" method="post" class="flex flex-col flex-1 overflow-hidden">
             @Html.AntiForgeryToken()
 
-            <div id="modal-caja-errors" class="hidden mx-6 mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm"></div>
+            <div id="modal-caja-errors" class="hidden mx-6 mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm" role="alert"></div>
 
             <div class="p-6 overflow-y-auto flex-1 space-y-5">
 
@@ -96,7 +99,8 @@
 
             <!-- Footer -->
             <div class="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 shrink-0 justify-end">
-                <button type="button" onclick="cerrarModalCaja()"
+                <button type="button"
+                        data-caja-close-modal
                         class="px-5 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm">
                     Cancelar
                 </button>

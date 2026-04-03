@@ -20,31 +20,92 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputTipo = document.getElementById('input-tipo');
     const selectConcepto = document.getElementById('select-concepto');
     const tipoBtns = document.querySelectorAll('.tipo-btn');
+    const tipoHelpEl = document.getElementById('tipo-help');
+    const tipoCardLabelEl = document.getElementById('tipo-card-label');
+    const tipoCardCopyEl = document.getElementById('tipo-card-copy');
+    const tipoPanelBadgeEl = document.getElementById('tipo-panel-badge');
+    const tipoPanelTitleEl = document.getElementById('tipo-panel-title');
+    const tipoPanelCopyEl = document.getElementById('tipo-panel-copy');
+    const conceptosIngresoSet = new Set(CONCEPTOS_INGRESO.map(concepto => concepto.value));
+    const conceptosEgresoSet = new Set(CONCEPTOS_EGRESO.map(concepto => concepto.value));
+    let initialConcepto = selectConcepto?.dataset.initialValue || selectConcepto?.value || '';
 
-    function setTipo(tipoValue) {
-        inputTipo.value = tipoValue;
+    function normalizeTipo(rawTipo) {
+        const tipo = String(rawTipo || '').trim().toLowerCase();
+
+        if (tipo === '1' || tipo === 'egreso') {
+            return '1';
+        }
+
+        if (tipo === '0' || tipo === 'ingreso') {
+            return '0';
+        }
+
+        if (conceptosEgresoSet.has(tipo)) {
+            return '1';
+        }
+
+        if (conceptosIngresoSet.has(tipo)) {
+            return '0';
+        }
+
+        return '0';
+    }
+
+    function updateTipoUI(tipoValue) {
+        const esEgreso = tipoValue === '1';
 
         tipoBtns.forEach(btn => {
             const isActive = btn.dataset.tipo === tipoValue;
-            btn.classList.toggle('bg-white', isActive && tipoValue === '0');
-            btn.classList.toggle('dark:bg-primary', isActive);
-            btn.classList.toggle('text-primary', isActive && tipoValue === '0');
-            btn.classList.toggle('bg-rose-500', isActive && tipoValue === '1');
-            btn.classList.toggle('dark:text-white', isActive);
-            btn.classList.toggle('text-white', isActive && tipoValue === '1');
-            btn.classList.toggle('shadow-sm', isActive);
-            btn.classList.toggle('font-bold', isActive);
-            btn.classList.toggle('text-slate-500', !isActive);
-            btn.classList.toggle('dark:text-slate-400', !isActive);
-            btn.classList.toggle('font-medium', !isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
 
-        populateConceptos(tipoValue);
+        if (tipoHelpEl) {
+            tipoHelpEl.textContent = esEgreso
+                ? 'Los egresos descuentan saldo de la caja y requieren mayor claridad en la justificacion.'
+                : 'Los ingresos suman saldo a la caja y deben quedar correctamente documentados.';
+        }
+
+        if (tipoCardLabelEl) {
+            tipoCardLabelEl.textContent = esEgreso ? 'Egreso' : 'Ingreso';
+            tipoCardLabelEl.className = `mt-2 text-2xl font-black ${esEgreso ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`;
+        }
+
+        if (tipoCardCopyEl) {
+            tipoCardCopyEl.textContent = esEgreso
+                ? 'La operacion reducira el saldo disponible de la caja.'
+                : 'La operacion incrementara el saldo disponible de la caja.';
+            tipoCardCopyEl.className = `mt-1 text-xs ${esEgreso ? 'text-rose-600/80 dark:text-rose-400/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`;
+        }
+
+        if (tipoPanelBadgeEl) {
+            tipoPanelBadgeEl.textContent = esEgreso ? 'Egreso' : 'Ingreso';
+            tipoPanelBadgeEl.className = `inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${esEgreso ? 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`;
+        }
+
+        if (tipoPanelTitleEl) {
+            tipoPanelTitleEl.textContent = esEgreso ? 'Salida de fondos' : 'Entrada de fondos';
+        }
+
+        if (tipoPanelCopyEl) {
+            tipoPanelCopyEl.textContent = esEgreso
+                ? 'Usalo para gastos, extracciones, depositos o ajustes que reduzcan la disponibilidad.'
+                : 'Usalo para ventas cobradas, recuperos o movimientos que incrementen la disponibilidad.';
+        }
+    }
+
+    function setTipo(tipoValue) {
+        const normalizedTipo = normalizeTipo(tipoValue);
+
+        inputTipo.value = normalizedTipo === '1' ? 'Egreso' : 'Ingreso';
+        updateTipoUI(normalizedTipo);
+        populateConceptos(normalizedTipo);
     }
 
     function populateConceptos(tipoValue) {
         const conceptos = tipoValue === '0' ? CONCEPTOS_INGRESO : CONCEPTOS_EGRESO;
         const currentVal = selectConcepto.value;
+        const preferredValue = initialConcepto || currentVal;
 
         selectConcepto.innerHTML = '';
 
@@ -57,26 +118,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const opt = document.createElement('option');
             opt.value = c.value;
             opt.textContent = c.text;
-            if (c.value === currentVal) opt.selected = true;
+            if (c.value === preferredValue) {
+                opt.selected = true;
+            }
             optgroup.appendChild(opt);
         });
 
         selectConcepto.appendChild(optgroup);
+
+        if (!selectConcepto.value && conceptos.length > 0) {
+            selectConcepto.value = conceptos[0].value;
+        }
+
+        initialConcepto = '';
     }
 
     tipoBtns.forEach(btn => {
         btn.addEventListener('click', () => setTipo(btn.dataset.tipo));
     });
 
-    // Initialize with current model value or default to Ingreso
-    const initialTipo = inputTipo.value || '0';
+    const initialTipo = normalizeTipo(inputTipo.value || initialConcepto || '0');
     setTipo(initialTipo);
-
-    // If model already has a concepto value, restore it after populating
-    const modelConcepto = selectConcepto.dataset.initialValue;
-    if (modelConcepto) {
-        selectConcepto.value = modelConcepto;
-    }
 
     TheBury.autoDismissToasts();
 });

@@ -2,160 +2,338 @@
 @using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Registrar Movimiento";
+    var esEgreso = Model.Tipo == TipoMovimientoCaja.Egreso;
+    var saldoActual = Model.SaldoActual.HasValue ? $"$ {Model.SaldoActual.Value:N2}" : "No disponible";
 }
 
-<div class="flex flex-1 justify-center py-8 px-4 md:px-10 lg:px-40">
-    <div class="flex flex-col max-w-[960px] flex-1 gap-6">
+<div class="caja-page-shell space-y-8">
 
-        <!-- Header -->
-        <header class="flex flex-wrap justify-between items-start gap-4">
-            <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="text-primary font-bold tracking-wider text-xs uppercase">TheBuryProject ERP</span>
-                </div>
-                <h1 class="text-slate-900 dark:text-white tracking-tight text-3xl font-bold leading-tight">Registrar movimiento</h1>
-                <p class="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal max-w-2xl">
-                    Cargue ingresos o egresos de efectivo y otros valores a la caja abierta actualmente.
+    <header class="space-y-6">
+        <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Detalles de apertura</a>
+            <span class="material-symbols-outlined text-xs">chevron_right</span>
+            <span class="text-slate-900 dark:text-white">Registrar movimiento</span>
+        </div>
+
+        <div class="caja-page-header-layout caja-movimiento-header-layout">
+            <div class="space-y-2">
+                <h1 class="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Registrar movimiento</h1>
+                <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+                    Cargá ingresos o egresos de la caja abierta, dejando una trazabilidad clara del concepto, el importe y la documentación asociada.
                 </p>
             </div>
-            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-               class="flex items-center gap-2 px-4 h-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-lg transition-colors font-medium text-sm no-underline border border-slate-200 dark:border-slate-700">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Volver
-            </a>
-        </header>
-
-        <!-- Caja Info Card -->
-        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 flex flex-wrap items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
-                </div>
-                <div class="flex flex-col">
-                    <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Caja Actual</p>
-                    <p class="text-slate-900 dark:text-white text-lg font-bold">@Model.CajaNombre</p>
-                </div>
+            <div class="caja-page-header-actions caja-movimiento-header-actions">
+                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
+                   class="caja-page-header-action caja-movimiento-header-action inline-flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                    <span class="material-symbols-outlined mr-2 text-xl">arrow_back</span>
+                    Volver
+                </a>
             </div>
-            @if (Model.SaldoActual.HasValue)
-            {
-                <div class="flex flex-col items-end">
-                    <p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Saldo Disponible</p>
-                    <p class="text-emerald-600 dark:text-emerald-400 text-2xl font-bold">$ @Model.SaldoActual.Value.ToString("N2")</p>
-                </div>
-            }
-        </section>
+        </div>
+    </header>
 
-        <!-- Validation Summary -->
-        <div asp-validation-summary="ModelOnly" class="text-rose-500 text-sm"></div>
+    @if (TempData["Error"] != null)
+    {
+        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
+            <span class="material-symbols-outlined text-lg">error</span>
+            @TempData["Error"]
+        </div>
+    }
 
-        @if (TempData["Error"] != null)
-        {
-            <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium">
-                <span class="material-symbols-outlined text-lg">error</span>
-                @TempData["Error"]
-            </div>
-        }
+    <div asp-validation-summary="ModelOnly"
+         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 empty:hidden"
+         role="alert"></div>
 
-        <!-- Form -->
-        <form asp-action="RegistrarMovimiento" method="post"
-              class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-            @Html.AntiForgeryToken()
-            <input type="hidden" asp-for="AperturaCajaId" />
-            <input type="hidden" asp-for="Tipo" id="input-tipo" />
+    <div class="caja-page-metrics caja-page-metrics--4 caja-movimiento-metrics">
+        <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Caja actual</p>
+            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.CajaNombre</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">La operación impactará sobre la apertura en curso.</p>
+        </article>
+        <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Saldo disponible</p>
+            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@saldoActual</p>
+            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Referencia previa al registro del movimiento.</p>
+        </article>
+        <article class="rounded-2xl border @(esEgreso ? "border-rose-500/20 bg-rose-500/10" : "border-emerald-500/20 bg-emerald-500/10") p-4 shadow-sm">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(esEgreso ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400")">Tipo activo</p>
+            <p id="tipo-card-label" class="mt-2 text-2xl font-black @(esEgreso ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400")">@(esEgreso ? "Egreso" : "Ingreso")</p>
+            <p id="tipo-card-copy" class="mt-1 text-xs @(esEgreso ? "text-rose-600/80 dark:text-rose-400/80" : "text-emerald-600/80 dark:text-emerald-400/80")">
+                @(esEgreso ? "La operación reducirá el saldo disponible de la caja." : "La operación incrementará el saldo disponible de la caja.")
+            </p>
+        </article>
+        <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Trazabilidad</p>
+            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">Auditado</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">El concepto, importe y referencia quedan registrados en el historial de caja.</p>
+        </article>
+    </div>
 
-            <div class="p-6 space-y-6">
+    <form asp-action="RegistrarMovimiento" method="post" class="space-y-8">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="AperturaCajaId" />
+        <input type="hidden" asp-for="Tipo" id="input-tipo" />
 
-                <!-- Tipo + Concepto Row -->
-                <div class="flex flex-col gap-4 border-b border-slate-100 dark:border-slate-700 pb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Tipo Toggle -->
-                        <div class="flex flex-col gap-2">
-                            <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Tipo de Movimiento</label>
-                            <div class="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg" id="tipo-toggle">
-                                <button type="button" data-tipo="0"
-                                        class="tipo-btn flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all bg-white dark:bg-primary text-primary dark:text-white shadow-sm">
+        <div class="caja-page-main-grid caja-page-main-grid--aside-right caja-movimiento-main-grid">
+            <section class="rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <div class="p-6 space-y-8">
+                    <div class="space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">receipt_long</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Definición del movimiento</h2>
+                        </div>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Seleccioná el tipo correcto y verificá que el concepto coincida con la operación que estás registrando.
+                        </p>
+                    </div>
+
+                    <div class="caja-movimiento-type-grid">
+                        <div class="flex flex-col gap-3">
+                            <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de movimiento</label>
+                            <div id="tipo-toggle" class="caja-movimiento-toggle" role="group" aria-label="Tipo de movimiento">
+                                <button type="button"
+                                        data-tipo="0"
+                                        aria-pressed="@((!esEgreso).ToString().ToLowerInvariant())"
+                                        class="tipo-btn">
+                                    <span class="material-symbols-outlined text-base">trending_up</span>
                                     Ingreso
                                 </button>
-                                <button type="button" data-tipo="1"
-                                        class="tipo-btn flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                                <button type="button"
+                                        data-tipo="1"
+                                        aria-pressed="@(esEgreso.ToString().ToLowerInvariant())"
+                                        class="tipo-btn">
+                                    <span class="material-symbols-outlined text-base">trending_down</span>
                                     Egreso
                                 </button>
                             </div>
+                            <p id="tipo-help" class="text-sm text-slate-500 dark:text-slate-400">
+                                @(esEgreso ? "Los egresos descuentan saldo de la caja y requieren mayor claridad en la justificación." : "Los ingresos suman saldo a la caja y deben quedar correctamente documentados.")
+                            </p>
                             <span asp-validation-for="Tipo" class="text-rose-500 text-xs"></span>
                         </div>
 
-                        <!-- Concepto -->
                         <div class="flex flex-col gap-2">
-                            <label asp-for="Concepto" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Concepto</label>
-                            <select asp-for="Concepto" id="select-concepto"
-                                    class="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary">
+                            <label asp-for="Concepto" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Concepto</label>
+                            <select asp-for="Concepto"
+                                    id="select-concepto"
+                                    data-initial-value="@((int)Model.Concepto)"
+                                    class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                             </select>
                             <span asp-validation-for="Concepto" class="text-rose-500 text-xs"></span>
                         </div>
                     </div>
-                </div>
 
-                <!-- Monto + Referencia Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="flex flex-col gap-2">
-                        <label asp-for="Monto" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Monto</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                            <input asp-for="Monto" type="number" step="0.01" placeholder="0.00" required
-                                   class="w-full h-11 pl-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary" />
+                    <div class="space-y-2 border-t border-slate-100 pt-8 dark:border-slate-800">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">payments</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Importe y referencia</h2>
                         </div>
-                        <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Indicá el monto exacto y agregá un comprobante o referencia cuando exista para facilitar la auditoría posterior.
+                        </p>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <label asp-for="Referencia" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Referencia / Comprobante</label>
-                        <input asp-for="Referencia" type="text" placeholder="Ej: Factura A-0001-0023"
-                               class="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary" />
+
+                    <div class="caja-movimiento-money-grid">
+                        <div class="flex flex-col gap-2">
+                            <label asp-for="Monto" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Monto</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                                <input asp-for="Monto"
+                                       type="number"
+                                       step="0.01"
+                                       placeholder="0.00"
+                                       required
+                                       class="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-8 pr-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                            </div>
+                            <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label asp-for="Referencia" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Referencia o comprobante</label>
+                            <input asp-for="Referencia"
+                                   type="text"
+                                   placeholder="Ej: Factura A-0001-0023"
+                                   class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 border-t border-slate-100 pt-8 dark:border-slate-800">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">notes</span>
+                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Detalle de la operación</h2>
+                        </div>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Dejá un motivo claro y, si hace falta, agregá observaciones internas para contexto operativo.
+                        </p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="flex flex-col gap-2">
+                            <label asp-for="Descripcion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                Descripción <span class="text-rose-500 font-bold">*</span>
+                            </label>
+                            <textarea asp-for="Descripcion"
+                                      rows="4"
+                                      required
+                                      placeholder="Detalle brevemente el motivo del movimiento..."
+                                      class="w-full rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"></textarea>
+                            <span asp-validation-for="Descripcion" class="text-rose-500 text-xs"></span>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <label asp-for="Observaciones" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Observaciones adicionales</label>
+                            <textarea asp-for="Observaciones"
+                                      rows="3"
+                                      placeholder="Notas internas opcionales..."
+                                      class="w-full rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"></textarea>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Descripcion -->
-                <div class="flex flex-col gap-2">
-                    <label asp-for="Descripcion" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">
-                        Descripción <span class="text-rose-500 font-bold">*</span>
-                    </label>
-                    <textarea asp-for="Descripcion" rows="3" required
-                              placeholder="Detalle brevemente el motivo del movimiento..."
-                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary"></textarea>
-                    <span asp-validation-for="Descripcion" class="text-rose-500 text-xs"></span>
+                <div class="border-t border-slate-200 px-6 py-5 dark:border-slate-800">
+                    <div class="caja-page-footer-actions caja-movimiento-footer-actions">
+                        <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
+                           class="caja-page-footer-action caja-movimiento-footer-action inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-8 py-3 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                            Cancelar
+                        </a>
+                        <button type="submit"
+                                class="caja-page-footer-action caja-movimiento-footer-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-10 py-3 text-white font-black shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all active:scale-95">
+                            <span class="material-symbols-outlined">save</span>
+                            Registrar movimiento
+                        </button>
+                    </div>
                 </div>
+            </section>
 
-                <!-- Observaciones -->
-                <div class="flex flex-col gap-2">
-                    <label asp-for="Observaciones" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Observaciones adicionales</label>
-                    <textarea asp-for="Observaciones" rows="2"
-                              placeholder="Notas internas (opcional)..."
-                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-primary focus:border-primary"></textarea>
-                </div>
-            </div>
+            <aside class="space-y-6">
+                <section class="rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="material-symbols-outlined text-primary">monitoring</span>
+                        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Impacto del movimiento</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <span id="tipo-panel-badge"
+                              class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide @(esEgreso ? "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")">
+                            @(esEgreso ? "Egreso" : "Ingreso")
+                        </span>
+                        <div class="space-y-2">
+                            <p id="tipo-panel-title" class="text-lg font-bold text-slate-900 dark:text-white">@(esEgreso ? "Salida de fondos" : "Entrada de fondos")</p>
+                            <p id="tipo-panel-copy" class="text-sm text-slate-500 dark:text-slate-400">
+                                @(esEgreso ? "Usalo para gastos, extracciones, depósitos o ajustes que reduzcan la disponibilidad." : "Usalo para ventas cobradas, recuperos o movimientos que incrementen la disponibilidad.")
+                            </p>
+                        </div>
+                    </div>
+                </section>
 
-            <!-- Footer Actions -->
-            <div class="bg-slate-50 dark:bg-slate-800 px-6 py-4 flex flex-wrap justify-end gap-3 border-t border-slate-100 dark:border-slate-700">
-                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="px-6 h-11 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors font-semibold text-sm no-underline inline-flex items-center">
-                    Cancelar
-                </a>
-                <button type="submit"
-                        class="px-8 h-11 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-bold text-sm shadow-md flex items-center gap-2">
-                    <span class="material-symbols-outlined text-lg">save</span>
-                    Registrar movimiento
-                </button>
-            </div>
-        </form>
-
-        <!-- Footer Note -->
-        <div class="mt-4 flex items-center justify-center gap-2 text-slate-500 text-xs">
-            <span class="material-symbols-outlined text-sm">lock</span>
-            Transacción segura auditada por el sistema
+                <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-amber-500">rule</span>
+                        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Buenas prácticas</h2>
+                    </div>
+                    <ul class="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                        <li class="flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
+                            Elegí el tipo correcto antes de definir el concepto.
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
+                            Registrá referencias o comprobantes siempre que exista documentación.
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
+                            La descripción debe permitir reconstruir el motivo sin contexto adicional.
+                        </li>
+                    </ul>
+                </section>
+            </aside>
         </div>
+    </form>
+
+    <div class="flex items-center justify-center gap-2 text-slate-500 text-xs" role="status">
+        <span class="material-symbols-outlined text-sm">lock</span>
+        Transacción segura auditada por el sistema
     </div>
 </div>
 
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+    <style>
+        .caja-movimiento-type-grid,
+        .caja-movimiento-money-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .caja-movimiento-toggle {
+            display: grid;
+            gap: 0.5rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            border: 1px solid rgb(226 232 240);
+            border-radius: 0.75rem;
+            background: rgb(248 250 252);
+            padding: 0.25rem;
+        }
+
+        .dark .caja-movimiento-toggle {
+            background: rgb(30 41 59);
+            border-color: rgb(51 65 85);
+        }
+
+        .tipo-btn {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            border-radius: 0.6rem;
+            color: rgb(100 116 139);
+            cursor: pointer;
+            display: inline-flex;
+            font-size: 0.95rem;
+            font-weight: 700;
+            gap: 0.5rem;
+            justify-content: center;
+            min-height: 2.75rem;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .dark .tipo-btn {
+            color: rgb(148 163 184);
+        }
+
+        .tipo-btn[aria-pressed='true'][data-tipo='0'] {
+            background: white;
+            box-shadow: 0 10px 25px -18px rgba(15, 118, 110, 0.6);
+            color: rgb(5 150 105);
+        }
+
+        .dark .tipo-btn[aria-pressed='true'][data-tipo='0'] {
+            background: rgb(15 23 42);
+            color: rgb(52 211 153);
+        }
+
+        .tipo-btn[aria-pressed='true'][data-tipo='1'] {
+            background: rgb(244 63 94);
+            box-shadow: 0 10px 25px -18px rgba(244, 63, 94, 0.85);
+            color: white;
+        }
+
+        .tipo-btn:focus-visible {
+            outline: 2px solid rgb(8 145 178);
+            outline-offset: 2px;
+        }
+
+        @@media (min-width: 1024px) {
+            .caja-movimiento-type-grid,
+            .caja-movimiento-money-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+}
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <script src="~/js/caja-registrar-movimiento.js"></script>
+    <script src="~/js/caja-registrar-movimiento.js" asp-append-version="true"></script>
 }

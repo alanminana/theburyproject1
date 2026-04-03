@@ -4,35 +4,135 @@
     ViewData["Title"] = "Gestión de Proveedores";
     var proveedores = Model.Proveedores.ToList();
     var total = Model.TotalResultados;
+    var activos = proveedores.Count(p => p.Activo);
+    var inactivos = proveedores.Count(p => !p.Activo);
+    var conCobertura = proveedores.Count(p => p.CategoriasAsociadas.Any());
+    var conContacto = proveedores.Count(p =>
+        !string.IsNullOrWhiteSpace(p.Email) ||
+        !string.IsNullOrWhiteSpace(p.Telefono) ||
+        !string.IsNullOrWhiteSpace(p.Contacto));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <style>
+        .proveedor-index-hero-actions {
+            width: 100%;
+        }
+
+        .proveedor-index-hero-action {
+            width: 100%;
+        }
+
+        .proveedor-index-filter-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .proveedor-index-row-action-label {
+            display: inline;
+        }
+
+        @@media (min-width: 640px) {
+            .proveedor-index-hero-actions {
+                width: auto;
+            }
+
+            .proveedor-index-hero-action {
+                width: auto;
+            }
+
+            .proveedor-index-row-action {
+                width: 2.25rem;
+                height: 2.25rem;
+                padding: 0;
+            }
+
+            .proveedor-index-row-action-label {
+                display: none;
+            }
+        }
+
+        @@media (min-width: 1280px) {
+            .proveedor-index-filter-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+        }
+    </style>
 }
 
 <!-- Header Section -->
-<header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-    <div class="flex flex-col gap-2 max-w-2xl">
-        <h1 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Gestión de Proveedores</h1>
-        <p class="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
-            Administra la relación con tus proveedores, productos asociados y condiciones comerciales de forma centralizada.
-        </p>
+<section class="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+    <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+        <div class="max-w-3xl space-y-3">
+            <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                <span class="material-symbols-outlined text-sm">local_shipping</span>
+                Proveedores
+            </span>
+            <div class="space-y-2">
+                <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Gestión de Proveedores</h1>
+                <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                    Administra la relación con tus proveedores, revisá la cobertura de catálogo y resolvé altas, ediciones y bajas desde un único punto operativo.
+                </p>
+            </div>
+        </div>
+
+        <div class="proveedor-index-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+            <a asp-controller="OrdenCompra" asp-action="Index"
+               class="proveedor-index-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                <span class="material-symbols-outlined text-[20px]">visibility</span>
+                Ver Órdenes
+            </a>
+            <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="create"
+                    class="proveedor-index-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
+                <span class="material-symbols-outlined text-[20px]">add</span>
+                Nuevo Proveedor
+            </button>
+        </div>
+    </header>
+
+    <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total</p>
+            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@total</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">proveedores listados</p>
+        </article>
+        <article class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">Activos</p>
+            <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">@activos</p>
+            <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">operativos hoy</p>
+        </article>
+        <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cobertura</p>
+            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@conCobertura</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">con categorías asociadas</p>
+        </article>
+        <article class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Contacto</p>
+            <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">@conContacto</p>
+            <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">con canal disponible</p>
+        </article>
     </div>
-    <div class="flex items-center gap-3">
-        <a asp-controller="OrdenCompra" asp-action="Index"
-           class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-colors no-underline">
-            <span class="material-symbols-outlined text-[20px]">visibility</span>
-            Ver Órdenes
-        </a>
-        <button type="button" onclick="ProveedorCrearModal.open()"
-                class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors shadow-lg shadow-primary/20">
-            <span class="material-symbols-outlined text-[20px]">add</span>
-            Nuevo Proveedor
-        </button>
-    </div>
-</header>
+</section>
 
 <!-- Filters Section -->
 <form asp-action="Index" method="get" id="form-filtros">
-    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mb-6">
-        <div class="flex flex-wrap items-end gap-4">
-            <div class="flex-1 min-w-[300px]">
+    <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-6">
+        <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">Filtros y orden</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Buscá por razón social, CUIT o contacto y ajustá el criterio de visualización.</p>
+            </div>
+            <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span class="material-symbols-outlined text-sm">tune</span>
+                @total resultado@(total == 1 ? "" : "s")
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
+            <div class="xl:col-span-5">
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Búsqueda rápida</label>
                 <div class="relative">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
@@ -41,7 +141,7 @@
                            placeholder="Nombre, CUIT o Razón Social" />
                 </div>
             </div>
-            <div class="w-48">
+            <div class="sm:max-w-60 xl:col-span-2">
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Ordenar por</label>
                 <select name="orderBy" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
                     <option value="razonsocial" selected="@(Model.OrderBy == "razonsocial" || string.IsNullOrEmpty(Model.OrderBy))">Razón Social</option>
@@ -50,24 +150,24 @@
                     <option value="telefono" selected="@(Model.OrderBy == "telefono")">Teléfono</option>
                 </select>
             </div>
-            <div class="w-40">
+            <div class="sm:max-w-48 xl:col-span-2">
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Dirección</label>
                 <select name="orderDirection" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
                     <option value="asc" selected="@(Model.OrderDirection == "asc" || string.IsNullOrEmpty(Model.OrderDirection))">Ascendente</option>
                     <option value="desc" selected="@(Model.OrderDirection == "desc")">Descendente</option>
                 </select>
             </div>
-            <div class="flex items-center h-10 mb-0.5 px-2">
+            <div class="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/40 xl:col-span-1">
                 <label class="inline-flex items-center cursor-pointer">
                     <input type="checkbox" name="soloActivos" value="true" @(Model.SoloActivos ? "checked" : "")
                            class="form-checkbox rounded text-primary border-slate-300 dark:border-slate-700 bg-transparent focus:ring-primary" />
                     <span class="ml-2 text-sm font-medium text-slate-600 dark:text-slate-300">Solo activos</span>
                 </label>
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors">Buscar</button>
+            <div class="proveedor-index-filter-actions grid grid-cols-2 gap-2 xl:col-span-2">
+                <button type="submit" class="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">Buscar</button>
                 <a asp-action="Index"
-                   class="w-10 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors no-underline"
+                   class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-300 text-slate-500 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 no-underline"
                    title="Limpiar filtros">
                     <span class="material-symbols-outlined">filter_alt_off</span>
                 </a>
@@ -77,9 +177,28 @@
 </form>
 
 <!-- Table Container -->
-<div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+<div data-oc-scroll style="--oc-scroll-min-width: 64rem;" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+    <div class="border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">Listado de proveedores</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Revisá cobertura, contacto y estado desde una sola grilla operativa.</p>
+            </div>
+            <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span class="material-symbols-outlined text-sm">list_alt</span>
+                @proveedores.Count proveedor@(proveedores.Count == 1 ? "" : "es")
+            </span>
+        </div>
+        <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+            Deslizá la tabla para ver contacto y acciones completas.
+        </p>
+    </div>
+
+    <div data-oc-scroll-shell>
+        <div data-oc-scroll-fade="left" hidden></div>
+        <div data-oc-scroll-fade="right" hidden></div>
+        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de proveedores">
+            <table data-oc-scroll-table class="w-full text-left border-collapse">
             <thead>
                 <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">CUIT</th>
@@ -168,24 +287,37 @@
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end gap-2">
                                     <a asp-action="Details" asp-route-id="@p.Id"
-                                       class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline" title="Ver detalle">
+                                       class="proveedor-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 no-underline sm:h-9 sm:w-9 sm:px-0 sm:py-0"
+                                       title="Ver detalle"
+                                       aria-label="Ver detalle de @p.RazonSocial">
                                         <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                        <span class="proveedor-index-row-action-label text-xs font-semibold sm:hidden">Ver</span>
                                     </a>
-                                    <button type="button" onclick="ProveedorEditarModal.open(@p.Id)"
-                                            class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="Editar">
+                                    <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="edit" data-proveedor-id="@p.Id"
+                                            class="proveedor-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:h-9 sm:w-9 sm:px-0 sm:py-0"
+                                            title="Editar"
+                                            aria-label="Editar @p.RazonSocial">
                                         <span class="material-symbols-outlined text-[20px]">edit</span>
+                                        <span class="proveedor-index-row-action-label text-xs font-semibold sm:hidden">Editar</span>
                                     </button>
-                                    <a asp-action="Delete" asp-route-id="@p.Id"
-                                       class="p-1.5 text-slate-400 hover:text-red-500 transition-colors no-underline" title="Eliminar">
-                                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                                    </a>
+                                    <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="inline" data-proveedor-delete-form data-proveedor-name="@p.RazonSocial">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit"
+                                                class="proveedor-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-slate-400 dark:hover:bg-red-500/10 sm:h-9 sm:w-9 sm:px-0 sm:py-0"
+                                                title="Eliminar"
+                                                aria-label="Eliminar @p.RazonSocial">
+                                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                                            <span class="proveedor-index-row-action-label text-xs font-semibold sm:hidden">Eliminar</span>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
                     }
                 }
             </tbody>
-        </table>
+            </table>
+        </div>
     </div>
 
     <!-- Empty State -->
@@ -207,11 +339,14 @@
     <!-- Pagination Info -->
     @if (proveedores.Any())
     {
-        <div class="px-6 py-4 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/20">
+        <div class="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/30 px-4 py-4 dark:border-slate-700 dark:bg-slate-800/20 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div class="text-sm text-slate-500 dark:text-slate-400">
                 Mostrando <span class="font-semibold text-slate-900 dark:text-white">@proveedores.Count</span> de
                 <span class="font-semibold text-slate-900 dark:text-white">@total</span> proveedores
             </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Las acciones de detalle, edición y eliminación están en la última columna.
+            </p>
         </div>
     }
 </div>
@@ -221,7 +356,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <div id="modal-crear-proveedor" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="ProveedorCrearModal.close()"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="create"></div>
 
     <!-- Panel -->
     <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
@@ -236,11 +371,11 @@
                 <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Nuevo Proveedor</h2>
             </div>
             <div class="flex gap-3">
-                <button type="button" onclick="ProveedorCrearModal.close()"
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="create"
                         class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
-                <button type="button" onclick="ProveedorCrearModal.submit()"
+                <button type="button" data-proveedor-modal-action="submit" data-proveedor-modal="create"
                         class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                     Guardar Proveedor
                 </button>
@@ -489,7 +624,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <div id="modal-editar-proveedor" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="ProveedorEditarModal.close()"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="edit"></div>
 
     <!-- Panel -->
     <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
@@ -504,11 +639,11 @@
                 <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Editar Proveedor</h2>
             </div>
             <div class="flex gap-3">
-                <button type="button" onclick="ProveedorEditarModal.close()"
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="edit"
                         class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
-                <button type="button" onclick="ProveedorEditarModal.submit()"
+                <button type="button" data-proveedor-modal-action="submit" data-proveedor-modal="edit"
                         class="px-6 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
                     Guardar Cambios
                 </button>
@@ -769,6 +904,13 @@
         @TempData["Error"]
     </div>
 }
+@if (TempData["Warning"] != null)
+{
+    <div id="toast-warning" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-amber-500 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">warning</span>
+        @TempData["Warning"]
+    </div>
+}
 @if (TempData["Success"] != null)
 {
     <div id="toast-success" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-emerald-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
@@ -778,8 +920,9 @@
 }
 
 @section Scripts {
-    <script src="~/js/proveedor-index.js"></script>
-    <script src="~/js/proveedor-crear-modal.js"></script>
-    <script src="~/js/proveedor-editar-modal.js"></script>
-}
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-module.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-index.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-crear-modal.js" asp-append-version="true"></script>
+    <script src="~/js/proveedor-editar-modal.js" asp-append-version="true"></script>
 }

@@ -1,85 +1,109 @@
-/**
- * seguridad-index.js — Filtrado, ordenamiento y acciones masivas para tabla de Usuarios
- */
 (() => {
     'use strict';
 
-    TheBury.autoDismissToasts();
+    const seguridad = TheBury.SeguridadModule;
+    seguridad.initSharedUi();
 
-    // ── Elements ──
-    const searchInput = document.getElementById('searchUsuarios');
-    const filterRol = document.getElementById('filterRol');
-    const filterSucursal = document.getElementById('filterSucursal');
-    const filterEstado = document.getElementById('filterEstado');
-    const orderBy = document.getElementById('orderBy');
-    const toggleOrderDir = document.getElementById('toggleOrderDir');
-    const orderDirIcon = document.getElementById('orderDirIcon');
-    const clearBtn = document.getElementById('clearFilters');
-    const clearFiltersEmpty = document.getElementById('clearFiltersEmpty');
+    const $ = id => document.getElementById(id);
+    const normalizeText = seguridad.normalizeText;
+    const currentUrl = seguridad.getCurrentUrl();
+    const state = seguridad.createState();
+
+    const searchInput = $('searchUsuarios');
+    const filterRol = $('filterRol');
+    const filterSucursal = $('filterSucursal');
+    const filterEstado = $('filterEstado');
+    const orderBy = $('orderBy');
+    const toggleOrderDir = $('toggleOrderDir');
+    const orderDirIcon = $('orderDirIcon');
+    const clearBtn = $('clearFilters');
+    const clearFiltersEmpty = $('clearFiltersEmpty');
     const rows = Array.from(document.querySelectorAll('.usuario-row'));
-    const visibleCount = document.getElementById('visibleCount');
-    const emptyFilterState = document.getElementById('emptyFilterState');
-    const tableBody = document.getElementById('usuariosTableBody');
+    const visibleCount = $('visibleCount');
+    const emptyFilterState = $('emptyFilterState');
+    const tableBody = $('usuariosTableBody');
 
-    // Bulk
-    const selectAll = document.getElementById('selectAll');
-    const bulkBar = document.getElementById('bulkBar');
-    const selectedCountEl = document.getElementById('selectedCount');
-    const bulkIds = document.getElementById('bulkIds');
-    const bulkForm = document.getElementById('bulkForm');
-    const bulkAccion = document.getElementById('bulkAccion');
-    const bulkRol = document.getElementById('bulkRol');
-    const bulkSucursalId = document.getElementById('bulkSucursalId');
-    const clearSelection = document.getElementById('clearSelection');
-    const bulkActionButtons = document.querySelectorAll('[data-bulk-action]');
-    const bulkModalButtons = document.querySelectorAll('[data-bulk-modal]');
-    const bulkConfigContainer = document.getElementById('bulkConfigContainer');
-    const bulkConfigBackdrop = document.getElementById('bulkConfigBackdrop');
-    const bulkConfigCard = document.getElementById('bulkConfigCard');
-    const bulkConfigTitle = document.getElementById('bulkConfigTitle');
-    const bulkConfigDescription = document.getElementById('bulkConfigDescription');
-    const bulkConfigError = document.getElementById('bulkConfigError');
-    const bulkRoleField = document.getElementById('bulkRoleField');
-    const bulkRoleSelect = document.getElementById('bulkRoleSelect');
-    const bulkSucursalField = document.getElementById('bulkSucursalField');
-    const bulkSucursalSelect = document.getElementById('bulkSucursalSelect');
-    const closeBulkConfig = document.getElementById('closeBulkConfig');
-    const cancelBulkConfig = document.getElementById('cancelBulkConfig');
-    const submitBulkConfig = document.getElementById('submitBulkConfig');
-
-    if (!searchInput || rows.length === 0) return;
+    const selectAll = $('selectAll');
+    const bulkBar = $('bulkBar');
+    const selectedCountEl = $('selectedCount');
+    const bulkIds = $('bulkIds');
+    const bulkForm = $('bulkForm');
+    const bulkAccion = $('bulkAccion');
+    const bulkRol = $('bulkRol');
+    const bulkSucursalId = $('bulkSucursalId');
+    const clearSelection = $('clearSelection');
+    const bulkActionButtons = document.querySelectorAll('[data-seguridad-bulk-action]');
+    const bulkModalButtons = document.querySelectorAll('[data-seguridad-bulk-modal]');
+    const bulkConfigContainer = $('bulkConfigContainer');
+    const bulkConfigBackdrop = $('bulkConfigBackdrop');
+    const bulkConfigCard = $('bulkConfigCard');
+    const bulkConfigTitle = $('bulkConfigTitle');
+    const bulkConfigDescription = $('bulkConfigDescription');
+    const bulkConfigError = $('bulkConfigError');
+    const bulkRoleField = $('bulkRoleField');
+    const bulkRoleSelect = $('bulkRoleSelect');
+    const bulkSucursalField = $('bulkSucursalField');
+    const bulkSucursalSelect = $('bulkSucursalSelect');
+    const closeBulkConfig = $('closeBulkConfig');
+    const cancelBulkConfig = $('cancelBulkConfig');
+    const submitBulkConfig = $('submitBulkConfig');
 
     let orderDirection = 'asc';
     let currentBulkModalAction = null;
 
-    const normalizeText = TheBury.normalizeText;
+    function resolveReturnUrl(form, result) {
+        return seguridad.resolveReturnUrl(form, result, currentUrl);
+    }
 
-    // ── Filtering ──
-    function getVisibleRows() {
-        const term = normalizeText(searchInput.value);
-        const rol = filterRol ? normalizeText(filterRol.value) : '';
-        const sucursal = filterSucursal ? normalizeText(filterSucursal.value) : '';
-        const estado = filterEstado ? normalizeText(filterEstado.value) : '';
+    function navigateTo(url) {
+        seguridad.navigateTo(url, currentUrl);
+    }
 
-        return rows.filter(row => {
-            const rowSearch = normalizeText(row.dataset.search);
-            const rowRoles = (row.dataset.roleValues || '')
-                .split('||')
-                .map(normalizeText)
-                .filter(Boolean);
-            const rowSucursal = normalizeText(row.dataset.sucursalId || '');
-            const rowEstado = normalizeText(row.dataset.estado);
+    function initUsersScrollAffordance() {
+        seguridad.initScrollAffordance(state, { boundAttr: 'seguridadScrollBound' });
+    }
 
-            const matchTerm = !term || rowSearch.includes(term);
-            const matchRol = !rol || rowRoles.includes(rol);
-            const matchSucursal = !sucursal || rowSucursal === sucursal;
-            const matchEstado = !estado || rowEstado === estado;
+    function refreshUsersScrollAffordance() {
+        seguridad.refreshScrollAffordance(state);
+    }
 
-            return matchTerm && matchRol && matchSucursal && matchEstado;
+    function applyModalFooterLayout(footer, buttons = []) {
+        seguridad.applyResponsiveFooterLayout(footer, buttons);
+    }
+
+    function bindModalFrame({ container, backdrop, card, closeButtons = [], onClosed }) {
+        return seguridad.bindModalFrame(state, { container, backdrop, card, closeButtons, onClosed });
+    }
+
+    seguridad.bindEscapeToState(state);
+
+    function openInjectedModal({ url, container, backdropId, cardId, closeButtonId, cancelButtonId, onOpen }) {
+        seguridad.openInjectedModal(state, {
+            url,
+            container,
+            backdropId,
+            cardId,
+            closeButtonId,
+            cancelButtonId,
+            onOpen,
+            onClosed: refreshUsersScrollAffordance
         });
     }
 
-    // ── Sorting ──
+    function getVisibleRows() {
+        const term = normalizeText(searchInput?.value || '');
+        const rol = normalizeText(filterRol?.value || '');
+        const sucursal = normalizeText(filterSucursal?.value || '');
+        const estado = normalizeText(filterEstado?.value || '');
+        return rows.filter(row => {
+            const rowRoles = (row.dataset.roleValues || '').split('||').map(normalizeText).filter(Boolean);
+            return (!term || normalizeText(row.dataset.search).includes(term))
+                && (!rol || rowRoles.includes(rol))
+                && (!sucursal || normalizeText(row.dataset.sucursalId || '') === sucursal)
+                && (!estado || normalizeText(row.dataset.estado) === estado);
+        });
+    }
+
     function getSortValue(row, field) {
         switch (field) {
             case 'username': return row.dataset.name || '';
@@ -93,14 +117,12 @@
         }
     }
 
-    function sortRows(visible) {
-        const field = orderBy ? orderBy.value : 'username';
+    function sortRows(visibleRows) {
+        const field = orderBy?.value || 'username';
         const dir = orderDirection === 'asc' ? 1 : -1;
-
-        return visible.sort((a, b) => {
+        return visibleRows.sort((a, b) => {
             const va = getSortValue(a, field);
             const vb = getSortValue(b, field);
-
             if (field === 'ultimoAcceso') {
                 const da = va ? new Date(va).getTime() : 0;
                 const db = vb ? new Date(vb).getTime() : 0;
@@ -110,45 +132,49 @@
         });
     }
 
-    function applyFilters() {
-        const visible = getVisibleRows();
-        const sorted = sortRows([...visible]);
-
-        // Hide all, then append sorted visible ones
-        rows.forEach(r => r.style.display = 'none');
-        sorted.forEach(r => {
-            r.style.display = '';
-            tableBody.appendChild(r);
-        });
-
-        // Update count
-        if (visibleCount) visibleCount.textContent = visible.length;
-
-        // Toggle empty filter state
-        if (emptyFilterState) {
-            emptyFilterState.classList.toggle('hidden', visible.length > 0);
-        }
-
-        updateBulkBar();
+    function getCheckedIds() {
+        return rows.filter(row => row.style.display !== 'none')
+            .map(row => row.querySelector('.row-check'))
+            .filter(Boolean)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.value);
     }
 
-    // ── Event listeners for filters ──
-    searchInput.addEventListener('input', applyFilters);
-    filterRol?.addEventListener('change', applyFilters);
-    filterSucursal?.addEventListener('change', applyFilters);
-    filterEstado?.addEventListener('change', applyFilters);
-    orderBy?.addEventListener('change', applyFilters);
+    function updateBulkBar() {
+        if (!bulkBar) return;
+        const ids = getCheckedIds();
+        bulkBar.classList.toggle('hidden', ids.length === 0);
+        if (selectedCountEl) selectedCountEl.textContent = ids.length.toString();
+        if (bulkIds) bulkIds.value = ids.join(',');
 
-    toggleOrderDir?.addEventListener('click', () => {
-        orderDirection = orderDirection === 'asc' ? 'desc' : 'asc';
-        if (orderDirIcon) {
-            orderDirIcon.textContent = orderDirection === 'asc' ? 'arrow_upward' : 'arrow_downward';
+        const visibleChecks = rows.filter(row => row.style.display !== 'none')
+            .map(row => row.querySelector('.row-check'))
+            .filter(Boolean);
+        if (!selectAll) return;
+        if (!visibleChecks.length) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            return;
         }
-        applyFilters();
-    });
+        selectAll.checked = visibleChecks.every(checkbox => checkbox.checked);
+        selectAll.indeterminate = !selectAll.checked && visibleChecks.some(checkbox => checkbox.checked);
+    }
+
+    function applyFilters() {
+        const visibleRows = sortRows([...getVisibleRows()]);
+        rows.forEach(row => { row.style.display = 'none'; });
+        visibleRows.forEach(row => {
+            row.style.display = '';
+            tableBody?.appendChild(row);
+        });
+        if (visibleCount) visibleCount.textContent = visibleRows.length.toString();
+        emptyFilterState?.classList.toggle('hidden', visibleRows.length > 0);
+        updateBulkBar();
+        refreshUsersScrollAffordance();
+    }
 
     function clearAllFilters() {
-        searchInput.value = '';
+        if (searchInput) searchInput.value = '';
         if (filterRol) filterRol.value = '';
         if (filterSucursal) filterSucursal.value = '';
         if (filterEstado) filterEstado.value = '';
@@ -158,88 +184,13 @@
         applyFilters();
     }
 
-    clearBtn?.addEventListener('click', clearAllFilters);
-    clearFiltersEmpty?.addEventListener('click', clearAllFilters);
-
-    // ── Mass Selection ──
-    function getCheckedIds() {
-        return rows
-            .filter(r => r.style.display !== 'none')
-            .map(r => r.querySelector('.row-check'))
-            .filter(cb => cb && cb.checked)
-            .map(cb => cb.value);
-    }
-
-    function updateBulkBar() {
-        const ids = getCheckedIds();
-        if (!bulkBar) return;
-
-        if (ids.length > 0) {
-            bulkBar.classList.remove('hidden');
-            if (selectedCountEl) selectedCountEl.textContent = ids.length;
-            if (bulkIds) bulkIds.value = ids.join(',');
-        } else {
-            bulkBar.classList.add('hidden');
-        }
-
-        // Sync selectAll checkbox
-        const visibleChecks = rows
-            .filter(r => r.style.display !== 'none')
-            .map(r => r.querySelector('.row-check'))
-            .filter(Boolean);
-        if (selectAll && visibleChecks.length > 0) {
-            selectAll.checked = visibleChecks.every(cb => cb.checked);
-            selectAll.indeterminate = !selectAll.checked && visibleChecks.some(cb => cb.checked);
-        } else if (selectAll) {
-            selectAll.checked = false;
-            selectAll.indeterminate = false;
-        }
-    }
-
-    selectAll?.addEventListener('change', () => {
-        const checked = selectAll.checked;
-        rows.forEach(r => {
-            if (r.style.display !== 'none') {
-                const cb = r.querySelector('.row-check');
-                if (cb) cb.checked = checked;
-            }
-        });
-        updateBulkBar();
-    });
-
-    document.querySelectorAll('.row-check').forEach(cb => {
-        cb.addEventListener('change', updateBulkBar);
-    });
-
-    clearSelection?.addEventListener('click', () => {
-        document.querySelectorAll('.row-check').forEach(cb => cb.checked = false);
-        if (selectAll) selectAll.checked = false;
-        updateBulkBar();
-    });
-
-    function resetBulkHiddenFields() {
-        if (bulkAccion) bulkAccion.value = '';
-        if (bulkRol) bulkRol.value = '';
-        if (bulkSucursalId) bulkSucursalId.value = '';
-    }
-
     function submitBulkAction(action, extra = {}) {
-        if (!bulkForm || !bulkAccion || !bulkIds || !bulkIds.value) return;
-
-        resetBulkHiddenFields();
+        if (!bulkForm || !bulkAccion || !bulkIds?.value) return;
         bulkAccion.value = action;
-        if (bulkRol && extra.rol) bulkRol.value = extra.rol;
-        if (bulkSucursalId && extra.sucursalId) bulkSucursalId.value = extra.sucursalId;
+        if (bulkRol) bulkRol.value = extra.rol || '';
+        if (bulkSucursalId) bulkSucursalId.value = extra.sucursalId || '';
         bulkForm.requestSubmit();
     }
-
-    bulkActionButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const action = btn.dataset.bulkAction;
-            if (!action) return;
-            submitBulkAction(action);
-        });
-    });
 
     function clearBulkConfigError() {
         if (!bulkConfigError) return;
@@ -253,24 +204,20 @@
         bulkConfigError.classList.remove('hidden');
     }
 
+    let bulkConfigModal = null;
+
     function closeBulkConfigModal() {
         currentBulkModalAction = null;
         clearBulkConfigError();
         if (bulkRoleSelect) bulkRoleSelect.value = '';
         if (bulkSucursalSelect) bulkSucursalSelect.value = '';
-        bulkConfigBackdrop?.classList.replace('opacity-100', 'opacity-0');
-        if (bulkConfigCard) {
-            bulkConfigCard.classList.replace('scale-100', 'scale-95');
-            bulkConfigCard.classList.replace('opacity-100', 'opacity-0');
-        }
-        setTimeout(() => bulkConfigContainer?.classList.add('hidden'), 300);
+        bulkConfigModal?.close();
     }
 
     function openBulkConfigModal(action) {
         currentBulkModalAction = action;
         clearBulkConfigError();
         bulkConfigContainer?.classList.remove('hidden');
-
         if (action === 'asignarRol') {
             if (bulkConfigTitle) bulkConfigTitle.textContent = 'Asignar rol en lote';
             if (bulkConfigDescription) bulkConfigDescription.textContent = 'El rol seleccionado se agregará a todos los usuarios marcados.';
@@ -284,150 +231,61 @@
             bulkSucursalField?.classList.remove('hidden');
             if (submitBulkConfig) submitBulkConfig.textContent = 'Cambiar sucursal';
         }
-
-        requestAnimationFrame(() => {
-            bulkConfigBackdrop?.classList.replace('opacity-0', 'opacity-100');
-            if (bulkConfigCard) {
-                bulkConfigCard.classList.replace('scale-95', 'scale-100');
-                bulkConfigCard.classList.replace('opacity-0', 'opacity-100');
+        applyModalFooterLayout(submitBulkConfig?.closest('div'), [cancelBulkConfig, submitBulkConfig]);
+        bulkConfigModal = bindModalFrame({
+            container: bulkConfigContainer,
+            backdrop: bulkConfigBackdrop,
+            card: bulkConfigCard,
+            closeButtons: [closeBulkConfig, cancelBulkConfig],
+            onClosed: () => {
+                bulkConfigContainer?.classList.add('hidden');
+                bulkConfigModal = null;
             }
         });
     }
 
-    bulkModalButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const action = btn.dataset.bulkModal;
-            if (!action) return;
-            openBulkConfigModal(action);
-        });
-    });
-
-    closeBulkConfig?.addEventListener('click', closeBulkConfigModal);
-    cancelBulkConfig?.addEventListener('click', closeBulkConfigModal);
-    bulkConfigBackdrop?.addEventListener('click', closeBulkConfigModal);
-    bulkConfigCard?.addEventListener('click', e => e.stopPropagation());
-
-    submitBulkConfig?.addEventListener('click', () => {
-        if (!currentBulkModalAction) return;
-
-        if (currentBulkModalAction === 'asignarRol') {
-            const selectedRole = (bulkRoleSelect?.value || '').trim();
-            if (!selectedRole) {
-                showBulkConfigError('Seleccioná un rol para continuar.');
-                return;
+    function bindCreateModal(modal) {
+        const form = $('formCreateUser');
+        const errBox = $('createUserErrors');
+        const errList = $('createUserErrorList');
+        const submitButton = $('submitCreateUser');
+        const defaultButtonHtml = submitButton?.innerHTML || '';
+        form?.addEventListener('submit', event => {
+            event.preventDefault();
+            errBox?.classList.add('hidden');
+            if (errList) errList.innerHTML = '';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Guardando...';
             }
-            closeBulkConfigModal();
-            submitBulkAction(currentBulkModalAction, { rol: selectedRole });
-            return;
-        }
-
-        const selectedSucursalId = (bulkSucursalSelect?.value || '').trim();
-        if (!selectedSucursalId) {
-            showBulkConfigError('Seleccioná una sucursal para continuar.');
-            return;
-        }
-        closeBulkConfigModal();
-        submitBulkAction(currentBulkModalAction, { sucursalId: selectedSucursalId });
-    });
-
-    // ── Create User Modal ──
-    const createContainer = document.getElementById('createUserContainer');
-    const CREATE_URL = '/Usuarios/Create';
-
-    function openCreateModal() {
-        fetch(CREATE_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-            .then(html => {
-                createContainer.innerHTML = html;
-                requestAnimationFrame(() => {
-                    const backdrop = document.getElementById('createUserBackdrop');
-                    const card = document.getElementById('createUserCard');
-                    if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
-                    if (card) { card.classList.replace('scale-95', 'scale-100'); card.classList.replace('opacity-0', 'opacity-100'); }
-                });
-                bindCreateModal();
-            })
-            .catch(() => { /* silently fail if permission denied */ });
-    }
-
-    function closeCreateModal() {
-        const backdrop = document.getElementById('createUserBackdrop');
-        const card = document.getElementById('createUserCard');
-        if (backdrop) backdrop.classList.replace('opacity-100', 'opacity-0');
-        if (card) { card.classList.replace('scale-100', 'scale-95'); card.classList.replace('opacity-100', 'opacity-0'); }
-        setTimeout(() => { createContainer.innerHTML = ''; }, 300);
-    }
-
-    function bindCreateModal() {
-        const form = document.getElementById('formCreateUser');
-        const errBox = document.getElementById('createUserErrors');
-        const errList = document.getElementById('createUserErrorList');
-
-        document.getElementById('closeCreateUser')?.addEventListener('click', closeCreateModal);
-        document.getElementById('cancelCreateUser')?.addEventListener('click', closeCreateModal);
-        document.getElementById('createUserBackdrop')?.addEventListener('click', closeCreateModal);
-
-        // Prevent card clicks from closing
-        document.getElementById('createUserCard')?.addEventListener('click', e => e.stopPropagation());
-
-        form?.addEventListener('submit', e => {
-            e.preventDefault();
-            const btn = document.getElementById('submitCreateUser');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'; }
-
-            const data = new FormData(form);
-
-            fetch(form.action, { method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        closeCreateModal();
-                        window.location.reload();
-                    } else {
-                        if (errBox && errList && res.errors) {
-                            errList.innerHTML = res.errors.map(e => `<p>${e}</p>`).join('');
-                            errBox.classList.remove('hidden');
-                        }
-                        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span> Guardar Usuario'; }
+            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        modal.close();
+                        navigateTo(resolveReturnUrl(form, result));
+                        return;
+                    }
+                    if (errBox && errList) {
+                        errList.innerHTML = (result.errors || ['No se pudo crear el usuario.']).map(message => `<p>${message}</p>`).join('');
+                        errBox.classList.remove('hidden');
+                    }
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
                     }
                 })
                 .catch(() => {
-                    if (errBox && errList) { errList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>'; errBox.classList.remove('hidden'); }
-                    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span> Guardar Usuario'; }
+                    if (errBox && errList) {
+                        errList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>';
+                        errBox.classList.remove('hidden');
+                    }
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
+                    }
                 });
         });
-    }
-
-    // Bind all triggers (header button + empty state button)
-    document.getElementById('btnNuevoUsuario')?.addEventListener('click', openCreateModal);
-    document.querySelectorAll('.btn-open-create-user').forEach(btn => btn.addEventListener('click', openCreateModal));
-
-    // ── Change Password Modal ──
-    const changePassContainer = document.getElementById('changePassContainer');
-    const blockUserContainer = document.getElementById('blockUserContainer');
-
-    function openChangePassModal(userId) {
-        fetch(`/Usuarios/CambiarPassword?id=${encodeURIComponent(userId)}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-            .then(html => {
-                changePassContainer.innerHTML = html;
-                requestAnimationFrame(() => {
-                    const backdrop = document.getElementById('changePassBackdrop');
-                    const card = document.getElementById('changePassCard');
-                    if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
-                    if (card) { card.classList.replace('scale-95', 'scale-100'); card.classList.replace('opacity-0', 'opacity-100'); }
-                });
-                bindChangePassModal();
-            })
-            .catch(() => { });
-    }
-
-    function closeChangePassModal() {
-        const backdrop = document.getElementById('changePassBackdrop');
-        const card = document.getElementById('changePassCard');
-        if (backdrop) backdrop.classList.replace('opacity-100', 'opacity-0');
-        if (card) { card.classList.replace('scale-100', 'scale-95'); card.classList.replace('opacity-100', 'opacity-0'); }
-        setTimeout(() => { changePassContainer.innerHTML = ''; }, 300);
     }
 
     function updateRequirementState(element, met) {
@@ -438,15 +296,11 @@
     }
 
     function evaluatePasswordPolicy(password, policy) {
-        const checks = {
-            length: password.length >= policy.requiredLength
-        };
-
+        const checks = { length: password.length >= policy.requiredLength };
         if (policy.requireUppercase) checks.uppercase = /[A-Z]/.test(password);
         if (policy.requireLowercase) checks.lowercase = /[a-z]/.test(password);
-        if (policy.requireDigit) checks.digit = /\d/.test(password);
+        if (policy.requireDigit) checks.digit = /\\d/.test(password);
         if (policy.requireSymbol) checks.symbol = /[^A-Za-z0-9]/.test(password);
-
         return checks;
     }
 
@@ -454,23 +308,23 @@
         const values = Object.values(checks);
         const met = values.filter(Boolean).length;
         const total = values.length || 1;
-
         if (!password) return { level: 0, label: '—', color: 'bg-slate-200 dark:bg-slate-700', textColor: 'text-slate-400' };
         if (met < total) return { level: Math.max(1, Math.round((met / total) * 4)), label: 'Incompleta', color: 'bg-amber-500', textColor: 'text-amber-500' };
         if (password.length >= 10) return { level: 4, label: 'Fuerte', color: 'bg-green-500', textColor: 'text-green-500' };
         return { level: 4, label: 'Válida', color: 'bg-primary', textColor: 'text-primary' };
     }
 
-    function bindChangePassModal() {
-        const form = document.getElementById('formChangePass');
-        const errBox = document.getElementById('changePassErrors');
-        const errList = document.getElementById('changePassErrorList');
-        const newPw = document.getElementById('newPasswordInput');
-        const confirmPw = document.getElementById('confirmPasswordInput');
-        const bars = document.getElementById('strengthBars');
-        const strengthLabel = document.getElementById('strengthLabel');
-        const matchIndicator = document.getElementById('matchIndicator');
-        const submitButtonText = 'Resetear contraseña';
+    function bindChangePassModal(modal) {
+        const form = $('formChangePass');
+        const errBox = $('changePassErrors');
+        const errList = $('changePassErrorList');
+        const newPw = $('newPasswordInput');
+        const confirmPw = $('confirmPasswordInput');
+        const bars = $('strengthBars');
+        const strengthLabel = $('strengthLabel');
+        const matchIndicator = $('matchIndicator');
+        const submitButton = $('submitChangePass');
+        const defaultButtonHtml = submitButton?.innerHTML || '';
         const policy = {
             requiredLength: Number(form?.dataset.requiredLength || 6),
             requireUppercase: form?.dataset.requireUppercase === 'true',
@@ -479,272 +333,292 @@
             requireSymbol: form?.dataset.requireSymbol === 'true'
         };
         const requirementElements = {
-            length: document.getElementById('passwordRequirementLength'),
-            uppercase: document.getElementById('passwordRequirementUppercase'),
-            lowercase: document.getElementById('passwordRequirementLowercase'),
-            digit: document.getElementById('passwordRequirementDigit'),
-            symbol: document.getElementById('passwordRequirementSymbol')
+            length: $('passwordRequirementLength'),
+            uppercase: $('passwordRequirementUppercase'),
+            lowercase: $('passwordRequirementLowercase'),
+            digit: $('passwordRequirementDigit'),
+            symbol: $('passwordRequirementSymbol')
         };
 
-        document.getElementById('closeChangePass')?.addEventListener('click', closeChangePassModal);
-        document.getElementById('cancelChangePass')?.addEventListener('click', closeChangePassModal);
-        document.getElementById('changePassBackdrop')?.addEventListener('click', closeChangePassModal);
-        document.getElementById('changePassCard')?.addEventListener('click', e => e.stopPropagation());
-
-        // Toggle password visibility
-        changePassContainer.querySelectorAll('.toggle-pass-visibility').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const target = document.getElementById(btn.dataset.target);
+        changePassContainer?.querySelectorAll('.toggle-pass-visibility').forEach(button => {
+            button.addEventListener('click', () => {
+                const target = $(button.dataset.target);
                 if (!target) return;
-                const isPass = target.type === 'password';
-                target.type = isPass ? 'text' : 'password';
-                btn.querySelector('.material-symbols-outlined').textContent = isPass ? 'visibility_off' : 'visibility';
+                const isPassword = target.type === 'password';
+                target.type = isPassword ? 'text' : 'password';
+                const icon = button.querySelector('.material-symbols-outlined');
+                if (icon) icon.textContent = isPassword ? 'visibility_off' : 'visibility';
             });
         });
 
-        function showClientErrors(messages) {
-            if (!errBox || !errList) return;
-            errList.innerHTML = messages.map(e => `<p>${e}</p>`).join('');
-            errBox.classList.remove('hidden');
-        }
+        const hideErrors = () => {
+            if (errBox) errBox.classList.add('hidden');
+            if (errList) errList.innerHTML = '';
+        };
 
-        function hideClientErrors() {
+        const showErrors = messages => {
             if (!errBox || !errList) return;
-            errBox.classList.add('hidden');
-            errList.innerHTML = '';
-        }
+            errList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
+            errBox.classList.remove('hidden');
+        };
 
         function renderPasswordPolicy() {
-            const password = newPw?.value || '';
-            const checks = evaluatePasswordPolicy(password, policy);
-
+            const checks = evaluatePasswordPolicy(newPw?.value || '', policy);
             Object.entries(requirementElements).forEach(([key, element]) => {
-                if (!(key in checks)) return;
-                updateRequirementState(element, Boolean(checks[key]));
+                if (key in checks) updateRequirementState(element, Boolean(checks[key]));
             });
-
             if (bars && strengthLabel) {
                 const barEls = bars.children;
                 const inactive = 'bg-slate-200 dark:bg-slate-700';
-                const strength = getStrengthFromChecks(checks, password);
-                for (let i = 0; i < 4; i++) {
-                    barEls[i].className = `flex-1 ${i < strength.level ? strength.color : inactive} rounded-full transition-colors`;
+                const strength = getStrengthFromChecks(checks, newPw?.value || '');
+                for (let index = 0; index < 4; index++) {
+                    barEls[index].className = `flex-1 ${index < strength.level ? strength.color : inactive} rounded-full transition-colors`;
                 }
                 strengthLabel.textContent = `Fortaleza: ${strength.label}`;
                 strengthLabel.className = `text-[11px] font-medium ${strength.textColor}`;
             }
-
             return checks;
         }
 
         function updateMatch() {
-            if (!matchIndicator || !confirmPw || !newPw) return;
+            if (!matchIndicator || !confirmPw || !newPw) return false;
             if (confirmPw.value && newPw.value && confirmPw.value === newPw.value) {
                 matchIndicator.classList.remove('hidden');
                 matchIndicator.className = 'text-[11px] flex items-center gap-1 text-green-500';
-                matchIndicator.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span> Las contraseñas coinciden';
+                matchIndicator.innerHTML = '<span class=\"material-symbols-outlined text-[14px]\">check_circle</span> Las contraseñas coinciden';
                 return true;
-            } else if (confirmPw.value && newPw.value) {
+            }
+            if (confirmPw.value && newPw.value) {
                 matchIndicator.classList.remove('hidden');
                 matchIndicator.className = 'text-[11px] flex items-center gap-1 text-red-500';
-                matchIndicator.innerHTML = '<span class="material-symbols-outlined text-[14px]">cancel</span> Las contraseñas no coinciden';
-                return false;
-            } else {
-                matchIndicator.classList.add('hidden');
+                matchIndicator.innerHTML = '<span class=\"material-symbols-outlined text-[14px]\">cancel</span> Las contraseñas no coinciden';
                 return false;
             }
+            matchIndicator.classList.add('hidden');
+            return false;
         }
 
-        newPw?.addEventListener('input', () => {
-            renderPasswordPolicy();
-            updateMatch();
-            hideClientErrors();
-        });
-        confirmPw?.addEventListener('input', updateMatch);
-        confirmPw?.addEventListener('input', hideClientErrors);
-
+        newPw?.addEventListener('input', () => { renderPasswordPolicy(); updateMatch(); hideErrors(); });
+        confirmPw?.addEventListener('input', () => { updateMatch(); hideErrors(); });
         renderPasswordPolicy();
         updateMatch();
 
-        // Form submit
-        form?.addEventListener('submit', e => {
-            e.preventDefault();
-            hideClientErrors();
-
+        form?.addEventListener('submit', event => {
+            event.preventDefault();
+            hideErrors();
             const checks = renderPasswordPolicy();
-            const unmetMessages = [];
-            if (!checks.length) unmetMessages.push(`La contraseña debe tener al menos ${policy.requiredLength} caracteres.`);
-            if (policy.requireUppercase && !checks.uppercase) unmetMessages.push('La contraseña debe incluir al menos una letra mayúscula.');
-            if (policy.requireLowercase && !checks.lowercase) unmetMessages.push('La contraseña debe incluir al menos una letra minúscula.');
-            if (policy.requireDigit && !checks.digit) unmetMessages.push('La contraseña debe incluir al menos un número.');
-            if (policy.requireSymbol && !checks.symbol) unmetMessages.push('La contraseña debe incluir al menos un símbolo.');
-            if (!updateMatch()) unmetMessages.push('La contraseña y la confirmación no coinciden.');
-
-            if (unmetMessages.length > 0) {
-                showClientErrors(unmetMessages);
+            const errors = [];
+            if (!checks.length) errors.push(`La contraseña debe tener al menos ${policy.requiredLength} caracteres.`);
+            if (policy.requireUppercase && !checks.uppercase) errors.push('La contraseña debe incluir al menos una letra mayúscula.');
+            if (policy.requireLowercase && !checks.lowercase) errors.push('La contraseña debe incluir al menos una letra minúscula.');
+            if (policy.requireDigit && !checks.digit) errors.push('La contraseña debe incluir al menos un número.');
+            if (policy.requireSymbol && !checks.symbol) errors.push('La contraseña debe incluir al menos un símbolo.');
+            if (!updateMatch()) errors.push('La contraseña y la confirmación no coinciden.');
+            if (errors.length) {
+                showErrors(errors);
                 return;
             }
-
-            const btn = document.getElementById('submitChangePass');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'; }
-
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Guardando...';
+            }
             fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        closeChangePassModal();
-                        window.location.reload();
-                    } else {
-                        if (errBox && errList && res.errors) {
-                            errList.innerHTML = res.errors.map(e => `<p>${e}</p>`).join('');
-                            errBox.classList.remove('hidden');
-                        }
-                        if (btn) { btn.disabled = false; btn.textContent = submitButtonText; }
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        modal.close();
+                        navigateTo(resolveReturnUrl(form, result));
+                        return;
+                    }
+                    showErrors(result.errors || ['No se pudo resetear la contraseña.']);
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
                     }
                 })
                 .catch(() => {
-                    if (errBox && errList) { errList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>'; errBox.classList.remove('hidden'); }
-                    if (btn) { btn.disabled = false; btn.textContent = submitButtonText; }
+                    showErrors(['Error de conexión. Intentá de nuevo.']);
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
+                    }
                 });
         });
     }
 
-    // Delegate click on change-password buttons
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.btn-change-pass');
-        if (btn) openChangePassModal(btn.dataset.userId);
-    });
+    function bindBlockUserModal(modal) {
+        const form = $('formBlockUser');
+        const errBox = $('blockUserErrors');
+        const errList = $('blockUserErrorList');
+        const motivoInput = form?.querySelector('[name=\"MotivoBloqueo\"]');
+        const bloqueadoHastaInput = form?.querySelector('[name=\"BloqueadoHasta\"]');
+        const submitButton = $('submitBlockUser');
+        const defaultButtonHtml = submitButton?.innerHTML || '';
+        const footer = submitButton?.closest('div');
+        const cancelButton = $('cancelBlockUser');
 
-    // ── Block User Modal ──
-    function openBlockUserModal(userId, returnUrl) {
-        const params = new URLSearchParams({ id: userId });
-        if (returnUrl) params.set('returnUrl', returnUrl);
+        applyModalFooterLayout(footer, [cancelButton, submitButton]);
 
-        fetch(`/Usuarios/Bloquear?${params.toString()}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
-            .then(html => {
-                if (!blockUserContainer) return;
-                blockUserContainer.innerHTML = html;
-                requestAnimationFrame(() => {
-                    const backdrop = document.getElementById('blockUserBackdrop');
-                    const card = document.getElementById('blockUserCard');
-                    if (backdrop) backdrop.classList.replace('opacity-0', 'opacity-100');
-                    if (card) {
-                        card.classList.replace('scale-95', 'scale-100');
-                        card.classList.replace('opacity-0', 'opacity-100');
-                    }
-                });
-                bindBlockUserModal();
-            })
-            .catch(() => { });
-    }
+        const hideErrors = () => {
+            if (errBox) errBox.classList.add('hidden');
+            if (errList) errList.innerHTML = '';
+        };
 
-    function closeBlockUserModal() {
-        const backdrop = document.getElementById('blockUserBackdrop');
-        const card = document.getElementById('blockUserCard');
-        if (backdrop) backdrop.classList.replace('opacity-100', 'opacity-0');
-        if (card) {
-            card.classList.replace('scale-100', 'scale-95');
-            card.classList.replace('opacity-100', 'opacity-0');
-        }
-        setTimeout(() => {
-            if (blockUserContainer) blockUserContainer.innerHTML = '';
-        }, 300);
-    }
-
-    function bindBlockUserModal() {
-        const form = document.getElementById('formBlockUser');
-        const errBox = document.getElementById('blockUserErrors');
-        const errList = document.getElementById('blockUserErrorList');
-        const motivoInput = form?.querySelector('[name="MotivoBloqueo"]');
-        const bloqueadoHastaInput = form?.querySelector('[name="BloqueadoHasta"]');
-        const submitButtonText = 'Confirmar bloqueo';
-
-        function showErrors(messages) {
+        const showErrors = messages => {
             if (!errBox || !errList) return;
             errList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
             errBox.classList.remove('hidden');
-        }
+        };
 
-        function hideErrors() {
-            if (!errBox || !errList) return;
-            errBox.classList.add('hidden');
-            errList.innerHTML = '';
-        }
-
-        document.getElementById('closeBlockUser')?.addEventListener('click', closeBlockUserModal);
-        document.getElementById('cancelBlockUser')?.addEventListener('click', closeBlockUserModal);
-        document.getElementById('blockUserBackdrop')?.addEventListener('click', closeBlockUserModal);
-        document.getElementById('blockUserCard')?.addEventListener('click', e => e.stopPropagation());
         motivoInput?.addEventListener('input', hideErrors);
         bloqueadoHastaInput?.addEventListener('input', hideErrors);
 
-        form?.addEventListener('submit', e => {
-            e.preventDefault();
+        form?.addEventListener('submit', event => {
+            event.preventDefault();
             hideErrors();
-
+            const errors = [];
             const motivo = (motivoInput?.value || '').trim();
             const bloqueadoHasta = bloqueadoHastaInput?.value || '';
-            const errors = [];
-
-            if (!motivo) {
-                errors.push('El motivo de bloqueo es requerido.');
-            }
-
+            if (!motivo) errors.push('El motivo de bloqueo es requerido.');
             if (bloqueadoHasta) {
                 const bloqueoDate = new Date(bloqueadoHasta);
                 if (Number.isNaN(bloqueoDate.getTime()) || bloqueoDate.getTime() <= Date.now()) {
                     errors.push('La fecha de bloqueo debe ser posterior a la fecha actual.');
                 }
             }
-
-            if (errors.length > 0) {
+            if (errors.length) {
                 showErrors(errors);
                 return;
             }
-
-            const btn = document.getElementById('submitBlockUser');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Bloqueando...';
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Bloqueando...';
             }
-
             fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        closeBlockUserModal();
-                        window.location.reload();
-                    } else {
-                        showErrors(res.errors || ['Error al bloquear el usuario.']);
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = `<span class="material-symbols-outlined text-sm">lock</span> ${submitButtonText}`;
-                        }
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        modal.close();
+                        navigateTo(resolveReturnUrl(form, result));
+                        return;
+                    }
+                    showErrors(result.errors || ['Error al bloquear el usuario.']);
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
                     }
                 })
                 .catch(() => {
                     showErrors(['Error de conexión. Intentá de nuevo.']);
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = `<span class="material-symbols-outlined text-sm">lock</span> ${submitButtonText}`;
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = defaultButtonHtml;
                     }
                 });
         });
     }
 
-    document.addEventListener('click', e => {
-        const btn = e.target.closest('.btn-block-user');
-        if (btn) openBlockUserModal(btn.dataset.userId, btn.dataset.returnUrl);
+    function openCreateModal() {
+        openInjectedModal({ url: '/Usuarios/Create', container: $('createUserContainer'), backdropId: 'createUserBackdrop', cardId: 'createUserCard', closeButtonId: 'closeCreateUser', cancelButtonId: 'cancelCreateUser', onOpen: bindCreateModal });
+    }
+
+    function openChangePassModal(userId) {
+        openInjectedModal({ url: `/Usuarios/CambiarPassword?id=${encodeURIComponent(userId)}`, container: $('changePassContainer'), backdropId: 'changePassBackdrop', cardId: 'changePassCard', closeButtonId: 'closeChangePass', cancelButtonId: 'cancelChangePass', onOpen: bindChangePassModal });
+    }
+
+    function openBlockUserModal(userId, returnUrl) {
+        const params = new URLSearchParams({ id: userId });
+        if (returnUrl) params.set('returnUrl', returnUrl);
+        openInjectedModal({ url: `/Usuarios/Bloquear?${params.toString()}`, container: $('blockUserContainer'), backdropId: 'blockUserBackdrop', cardId: 'blockUserCard', closeButtonId: 'closeBlockUser', cancelButtonId: 'cancelBlockUser', onOpen: bindBlockUserModal });
+    }
+
+    searchInput?.addEventListener('input', applyFilters);
+    filterRol?.addEventListener('change', applyFilters);
+    filterSucursal?.addEventListener('change', applyFilters);
+    filterEstado?.addEventListener('change', applyFilters);
+    orderBy?.addEventListener('change', applyFilters);
+    toggleOrderDir?.addEventListener('click', () => {
+        orderDirection = orderDirection === 'asc' ? 'desc' : 'asc';
+        if (orderDirIcon) orderDirIcon.textContent = orderDirection === 'asc' ? 'arrow_upward' : 'arrow_downward';
+        applyFilters();
+    });
+    clearBtn?.addEventListener('click', clearAllFilters);
+    clearFiltersEmpty?.addEventListener('click', clearAllFilters);
+
+    selectAll?.addEventListener('change', () => {
+        const checked = selectAll.checked;
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const checkbox = row.querySelector('.row-check');
+                if (checkbox) checkbox.checked = checked;
+            }
+        });
+        updateBulkBar();
+    });
+    document.querySelectorAll('.row-check').forEach(checkbox => checkbox.addEventListener('change', updateBulkBar));
+    clearSelection?.addEventListener('click', () => {
+        document.querySelectorAll('.row-check').forEach(checkbox => { checkbox.checked = false; });
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+        updateBulkBar();
+    });
+    bulkActionButtons.forEach(button => button.addEventListener('click', () => {
+        const action = seguridad.getBulkAction(button);
+        if (action) submitBulkAction(action);
+    }));
+    bulkModalButtons.forEach(button => button.addEventListener('click', () => {
+        const action = seguridad.getBulkModal(button);
+        if (action) openBulkConfigModal(action);
+    }));
+    submitBulkConfig?.addEventListener('click', () => {
+        if (!currentBulkModalAction) return;
+        if (currentBulkModalAction === 'asignarRol') {
+            const selectedRole = (bulkRoleSelect?.value || '').trim();
+            if (!selectedRole) {
+                showBulkConfigError('Seleccioná un rol para continuar.');
+                return;
+            }
+            closeBulkConfigModal();
+            submitBulkAction(currentBulkModalAction, { rol: selectedRole });
+            return;
+        }
+        const selectedSucursalId = (bulkSucursalSelect?.value || '').trim();
+        if (!selectedSucursalId) {
+            showBulkConfigError('Seleccioná una sucursal para continuar.');
+            return;
+        }
+        closeBulkConfigModal();
+        submitBulkAction(currentBulkModalAction, { sucursalId: selectedSucursalId });
     });
 
-    document.addEventListener('submit', e => {
-        const form = e.target.closest('.js-unlock-user-form');
-        if (!form) return;
-
-        const userName = form.dataset.userName || 'este usuario';
-        if (!window.confirm(`¿Desbloquear a ${userName}?`)) {
-            e.preventDefault();
+    document.addEventListener('click', event => {
+        const createButton = event.target.closest('.btn-open-create-user, #btnNuevoUsuario');
+        if (createButton) {
+            openCreateModal();
+            return;
+        }
+        const changePasswordButton = event.target.closest('.btn-change-pass');
+        if (changePasswordButton) {
+            openChangePassModal(seguridad.getUserId(changePasswordButton));
+            return;
+        }
+        const blockUserButton = event.target.closest('.btn-block-user');
+        if (blockUserButton) {
+            openBlockUserModal(seguridad.getUserId(blockUserButton), seguridad.getReturnUrl(blockUserButton));
         }
     });
+
+    document.addEventListener('submit', event => {
+        const unlockForm = event.target.closest('.js-unlock-user-form');
+        if (!unlockForm) return;
+        event.preventDefault();
+        const userName = seguridad.getUserName(unlockForm) || 'este usuario';
+        seguridad.confirmAction(`¿Desbloquear a ${userName}?`, () => unlockForm.submit());
+    });
+
+    applyFilters();
+    initUsersScrollAffordance();
+    refreshUsersScrollAffordance();
 })();

@@ -1,7 +1,24 @@
 @model SeguridadPermisosRolViewModel
 @{
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var totalRoles = Model.Roles.Count;
+    var totalModules = Model.Filas.Count;
+    var totalGroups = Model.Grupos.Count;
+    var totalSelectedPermissions = Model.Filas.SelectMany(f => f.Celdas).Count(c => c.Seleccionado);
 }
+
+<style>
+    @@media (min-width: 640px) {
+        #permissionsRoleActions {
+            width: auto;
+            flex-direction: row;
+        }
+
+        #permissionsRoleActions .permissions-role-action {
+            width: auto;
+        }
+    }
+</style>
 
 <div class="max-w-7xl mx-auto space-y-6">
     @if (TempData["Success"] != null)
@@ -28,6 +45,58 @@
             </div>
         </div>
     }
+
+    <section class="bg-white dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-3">
+                <span class="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+                    <span class="material-symbols-outlined text-sm">shield_lock</span>
+                    Permisos de Rol
+                </span>
+                <div class="space-y-2">
+                    <h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Gobernanza fina de accesos por rol</h2>
+                    <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        Administrá la matriz completa de permisos sin salir del módulo. Filtrá por grupo o módulo, copiá configuraciones existentes y guardá cambios sobre el rol seleccionado.
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                        <span class="material-symbols-outlined text-sm">account_tree</span>
+                        Matriz por módulo y acción
+                    </span>
+                    @if (Model.TieneRolSeleccionado)
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-400">
+                            <span class="material-symbols-outlined text-sm">verified_user</span>
+                            Rol activo: @Model.RolSeleccionadoNombre
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="grid w-full gap-3 sm:grid-cols-2 xl:w-[420px]">
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Roles disponibles</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalRoles</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Base habilitada para copiar o ajustar permisos.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Módulos cubiertos</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalModules</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Cada fila controla un bloque funcional completo.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Grupos</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalGroups</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Filtrá la matriz pesada por dominio operativo.</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 px-4 py-4">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Permisos marcados</p>
+                    <p class="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">@totalSelectedPermissions</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Se recalcula al filtrar o tocar la matriz.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <div class="bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
         <div class="grid grid-cols-1 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_220px_auto] gap-4 items-end">
@@ -82,21 +151,33 @@
 
         @if (Model.TieneRolSeleccionado)
         {
-            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3">
-                <div>
-                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Rol actual: @Model.RolSeleccionadoNombre</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Los permisos se guardan a nivel rol. Los usuarios los heredan automáticamente.</p>
+            <div class="flex flex-col gap-4 rounded-xl border border-primary/15 bg-primary/5 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="space-y-3">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white">Rol actual: @Model.RolSeleccionadoNombre</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Los permisos se guardan a nivel rol. Los usuarios los heredan automáticamente.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-900/70 px-3 py-1">
+                            <span class="material-symbols-outlined text-sm">view_module</span>
+                            @totalModules módulos
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-900/70 px-3 py-1">
+                            <span class="material-symbols-outlined text-sm">checklist</span>
+                            <span id="permissionsSelectedPill">@totalSelectedPermissions</span> permisos activos
+                        </span>
+                    </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
+                <div id="permissionsRoleActions" class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
                     <button type="button" id="btnCopyPermissions"
-                            data-role-id="@Model.RolSeleccionadoId"
-                            data-return-url="@currentUrl"
-                            class="px-4 py-2.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors inline-flex items-center gap-2">
+                            data-seguridad-role-id="@Model.RolSeleccionadoId"
+                            data-seguridad-return-url="@currentUrl"
+                            class="permissions-role-action w-full sm:w-auto justify-center px-4 py-2.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors inline-flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">content_copy</span>
                         Copiar permisos desde otro rol
                     </button>
                     <button type="submit" form="permissionsMatrixForm"
-                            class="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors inline-flex items-center gap-2">
+                            class="permissions-role-action w-full sm:w-auto justify-center px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors inline-flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">save</span>
                         Guardar permisos
                     </button>
@@ -123,8 +204,33 @@
             <input type="hidden" name="returnUrl" value="@currentUrl" />
 
             <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[1200px]">
+                <div class="border-b border-slate-200 dark:border-slate-800 px-6 py-5 bg-slate-50/80 dark:bg-slate-900/40">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="space-y-1">
+                            <p class="text-sm font-semibold text-slate-900 dark:text-white">Matriz editable de permisos</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Ajustá accesos por módulo y acción. Usá los atajos de fila o columna para acelerar cambios masivos.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                                <span class="material-symbols-outlined text-sm">table_rows</span>
+                                <span id="permissionsVisiblePill">@Model.Filas.Count</span> módulos visibles
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                                <span class="material-symbols-outlined text-sm">verified</span>
+                                <span id="permissionsSelectedHeader">@totalSelectedPermissions</span> permisos seleccionados
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1200px;">
+                    <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                        Deslizá para ver toda la matriz
+                    </div>
+                    <div data-oc-scroll-shell class="relative">
+                        <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                        <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                        <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Matriz de permisos del rol seleccionado">
+                    <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
                         <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Módulo / Submódulo</th>
@@ -208,6 +314,8 @@
                             }
                         </tbody>
                     </table>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="permissionsEmptyFilterState" class="hidden px-6 py-16 text-center border-t border-slate-200 dark:border-slate-800">
@@ -215,7 +323,7 @@
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Probá limpiando la búsqueda o el filtro de grupo.</p>
                 </div>
 
-                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
                     <p class="text-xs text-slate-500">
                         <span id="permissionsVisibleCount">@Model.Filas.Count</span> de @Model.Filas.Count módulos visibles
                     </p>

@@ -1,12 +1,14 @@
 (function () {
     'use strict';
 
+    const devolucion = window.TheBury?.DevolucionModule;
     const modal = document.getElementById('modal-devolucion-venta');
-    if (!modal) return;
+    if (!modal || !devolucion) return;
 
     const form = document.getElementById('form-devolucion-venta');
     const loading = document.getElementById('devolucion-modal-loading');
     const body = document.getElementById('devolucion-modal-body');
+    const content = modal.querySelector('[data-devolucion-modal-content]');
     const errorBox = document.getElementById('devolucion-modal-error');
     const itemsBody = document.getElementById('devolucion-items-body');
     const submitBtn = document.getElementById('btn-submit-devolucion');
@@ -17,20 +19,23 @@
     const totalSeleccionado = document.getElementById('devolucion-total-seleccionado');
     const inputVentaId = document.getElementById('devolucion-venta-id');
     const inputClienteId = document.getElementById('devolucion-cliente-id');
-
     const summaryNumero = document.getElementById('devolucion-numero-venta');
     const summaryTipoPago = document.getElementById('devolucion-tipo-pago');
     const summaryDias = document.getElementById('devolucion-dias-venta');
     const summaryCliente = document.getElementById('devolucion-cliente-nombre');
     const summaryFecha = document.getElementById('devolucion-fecha-venta');
     const summaryTotal = document.getElementById('devolucion-total-venta');
+    const state = devolucion.createState();
 
     const contextUrl = modal.dataset.contextUrl;
     const submitUrl = modal.dataset.submitUrl;
     const estadosProducto = JSON.parse(modal.dataset.estadosProducto || '[]');
     const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+    const initialHelperText = helperBox?.textContent?.trim() || 'Elegí la resolución para definir si corresponde nota de crédito, cambio o reembolso.';
 
     let context = null;
+    let isOpen = false;
+    let activeLoadToken = 0;
 
     function showError(message) {
         errorBox.textContent = message;
@@ -42,20 +47,9 @@
         errorBox.classList.add('hidden');
     }
 
-    function openModal() {
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeModal() {
-        modal.classList.add('hidden');
-        document.body.style.overflow = '';
-        clearError();
-        form.reset();
-        itemsBody.innerHTML = '';
-        body.classList.add('hidden');
-        loading.classList.remove('hidden');
-        context = null;
+    function refreshScrollAffordances() {
+        devolucion.initScrollAffordances(state, modal);
+        devolucion.refreshScrollAffordances(state);
     }
 
     function setLoadingState(isLoading) {
@@ -64,12 +58,32 @@
         submitBtn.disabled = isLoading;
         submitBtn.classList.toggle('opacity-60', isLoading);
         submitBtn.classList.toggle('cursor-not-allowed', isLoading);
+
+        if (!isLoading) {
+            refreshScrollAffordances();
+        }
     }
 
     function buildEstadoOptions(selectedValue) {
         return estadosProducto
-            .map(option => `<option value="${option.value}" ${String(option.value) === String(selectedValue) ? 'selected' : ''}>${option.label}</option>`)
+            .map((option) => `<option value="${option.value}" ${String(option.value) === String(selectedValue) ? 'selected' : ''}>${option.label}</option>`)
             .join('');
+    }
+
+    function updateSelectedTotal() {
+        let total = 0;
+
+        itemsBody.querySelectorAll('tr').forEach((row) => {
+            const checked = row.querySelector('.devolucion-item-check')?.checked;
+            const cantidad = Number(row.querySelector('.devolucion-item-cantidad')?.value || 0);
+            const precio = Number(row.dataset.precio || 0);
+
+            if (checked && cantidad > 0) {
+                total += cantidad * precio;
+            }
+        });
+
+        totalSeleccionado.textContent = `Total seleccionado: ${currency.format(total)}`;
     }
 
     function renderItems(items) {
@@ -115,27 +129,21 @@
             </tr>
         `).join('');
 
-        itemsBody.querySelectorAll('.devolucion-item-check').forEach(check => {
-            check.addEventListener('change', onItemToggle);
-        });
-
-        itemsBody.querySelectorAll('.devolucion-item-cantidad').forEach(input => {
-            input.addEventListener('input', updateSelectedTotal);
-        });
+        refreshScrollAffordances();
     }
 
-    function onItemToggle(event) {
-        const row = event.target.closest('tr');
+    function onItemToggle(target) {
+        const row = target.closest('tr');
         if (!row) return;
 
         const cantidadInput = row.querySelector('.devolucion-item-cantidad');
         const estadoSelect = row.querySelector('.devolucion-item-estado');
         const max = Number(cantidadInput.max || 0);
 
-        cantidadInput.disabled = !event.target.checked;
-        estadoSelect.disabled = !event.target.checked;
+        cantidadInput.disabled = !target.checked;
+        estadoSelect.disabled = !target.checked;
 
-        if (event.target.checked) {
+        if (target.checked) {
             cantidadInput.value = max > 0 ? '1' : '0';
             estadoSelect.value = '0';
         } else {
@@ -143,22 +151,6 @@
         }
 
         updateSelectedTotal();
-    }
-
-    function updateSelectedTotal() {
-        let total = 0;
-
-        itemsBody.querySelectorAll('tr').forEach(row => {
-            const checked = row.querySelector('.devolucion-item-check')?.checked;
-            const cantidad = Number(row.querySelector('.devolucion-item-cantidad')?.value || 0);
-            const precio = Number(row.dataset.precio || 0);
-
-            if (checked && cantidad > 0) {
-                total += cantidad * precio;
-            }
-        });
-
-        totalSeleccionado.textContent = `Total seleccionado: ${currency.format(total)}`;
     }
 
     function updateResolucionHelper() {
@@ -199,7 +191,54 @@
         summaryTotal.textContent = venta.totalDisplay;
     }
 
+    function setModalVisibility(open) {
+        modal.classList.toggle('hidden', !open);
+        modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+        isOpen = open;
+
+        if (open) {
+            devolucion.setBodyScrollLock(state, true);
+            refreshScrollAffordances();
+        } else {
+            devolucion.setBodyScrollLock(state, false);
+        }
+    }
+
+    function resetModalState() {
+        activeLoadToken += 1;
+        clearError();
+        form.reset();
+        itemsBody.innerHTML = '';
+        body.classList.add('hidden');
+        loading.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        totalSeleccionado.textContent = `Total seleccionado: ${currency.format(0)}`;
+        helperBox.textContent = initialHelperText;
+        cajaCheckbox.checked = false;
+        cajaCheckbox.disabled = true;
+        context = null;
+
+        if (content) {
+            content.scrollTop = 0;
+        }
+    }
+
+    function openModal() {
+        setModalVisibility(true);
+    }
+
+    function closeModal() {
+        if (!isOpen) {
+            return;
+        }
+
+        setModalVisibility(false);
+        resetModalState();
+    }
+
     async function loadContext(ventaId) {
+        const loadToken = ++activeLoadToken;
         clearError();
         openModal();
         setLoadingState(true);
@@ -212,6 +251,10 @@
             });
 
             const json = await resp.json();
+            if (loadToken !== activeLoadToken || !isOpen) {
+                return;
+            }
+
             if (!resp.ok || !json.success) {
                 throw new Error(json.message || 'No se pudo cargar la venta.');
             }
@@ -233,6 +276,10 @@
                 submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
             }
         } catch (error) {
+            if (loadToken !== activeLoadToken || !isOpen) {
+                return;
+            }
+
             showError(error.message || 'No se pudo cargar la devolución.');
             setLoadingState(false);
         }
@@ -289,11 +336,11 @@
         toast.querySelector('span:last-child').textContent = message;
         document.body.appendChild(toast);
 
-        setTimeout(() => {
+        window.setTimeout(() => {
             toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
             toast.style.opacity = '0';
             toast.style.transform = 'translateY(10px)';
-            setTimeout(() => toast.remove(), 450);
+            window.setTimeout(() => toast.remove(), 450);
         }, 3500);
     }
 
@@ -306,16 +353,63 @@
             .replace(/'/g, '&#39;');
     }
 
-    document.querySelectorAll('[data-open-devolucion-modal]').forEach(button => {
-        button.addEventListener('click', () => {
-            const ventaId = button.dataset.ventaId;
-            if (!ventaId) return;
-            loadContext(ventaId);
-        });
+    function handleDocumentClick(event) {
+        const openTrigger = event.target.closest('[data-open-devolucion-modal]');
+        if (!openTrigger) {
+            return;
+        }
+
+        event.preventDefault();
+        const ventaId = devolucion.getVentaId(openTrigger);
+        if (!ventaId) {
+            return;
+        }
+
+        loadContext(ventaId);
+    }
+
+    function handleModalClick(event) {
+        if (!isOpen) {
+            return;
+        }
+
+        const actionTarget = event.target.closest('[data-devolucion-modal-action="close"]');
+        if (actionTarget && modal.contains(actionTarget)) {
+            event.preventDefault();
+            closeModal();
+            return;
+        }
+
+        if (!event.target.closest('[data-devolucion-modal-panel]')) {
+            closeModal();
+        }
+    }
+
+    function handleKeydown(event) {
+        if (event.key !== 'Escape' || !isOpen) {
+            return;
+        }
+
+        event.preventDefault();
+        closeModal();
+    }
+
+    devolucion.initSharedUi();
+
+    document.addEventListener('click', handleDocumentClick);
+    document.addEventListener('keydown', handleKeydown);
+    modal.addEventListener('click', handleModalClick);
+
+    itemsBody?.addEventListener('change', (event) => {
+        if (event.target.matches('.devolucion-item-check')) {
+            onItemToggle(event.target);
+        }
     });
 
-    document.querySelectorAll('[data-close-devolucion-modal]').forEach(button => {
-        button.addEventListener('click', closeModal);
+    itemsBody?.addEventListener('input', (event) => {
+        if (event.target.matches('.devolucion-item-cantidad')) {
+            updateSelectedTotal();
+        }
     });
 
     resolucionSelect?.addEventListener('change', updateResolucionHelper);

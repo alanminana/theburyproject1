@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const module = window.TheBury && window.TheBury.DocumentoClienteModule;
+    if (module && typeof module.initUpload === 'function') {
+        module.initUpload(document);
+    }
+
+    const form = document.querySelector('[data-documento-upload-form]') || document.getElementById('uploadForm');
     const archivoInput = document.getElementById('archivoInput');
     const dropZone = document.getElementById('dropZone');
     const dropZoneContent = document.getElementById('dropZoneContent');
@@ -44,9 +50,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Pre-select TipoDocumento from query string
-    var params = new URLSearchParams(window.location.search);
-    var tipoParam = params.get('tipoDocumento');
+    // Pre-select TipoDocumento when the page receives an initial type from the server.
+    var tipoParam = form ? form.getAttribute('data-documento-initial-tipo') : null;
     if (tipoParam) {
         var tipoSelect = document.getElementById('TipoDocumento');
         if (tipoSelect) {

@@ -37,18 +37,18 @@
 <div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
     <div class="layout-container flex h-full grow flex-col">
 
-        <main class="max-w-[1400px] mx-auto w-full p-4 lg:p-10 flex flex-col gap-6">
+        <main class="caja-page-shell flex flex-col gap-8">
 
             <!-- Breadcrumbs & Header -->
-            <div class="flex flex-col gap-4">
+            <header class="flex flex-col gap-6">
                 <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                     <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
                     <span class="material-symbols-outlined text-xs">chevron_right</span>
                     <span class="text-slate-900 dark:text-white">Detalles de apertura</span>
                 </div>
-                <div class="flex flex-wrap justify-between items-center gap-4">
-                    <div class="flex flex-col gap-1">
-                        <h1 class="text-slate-900 dark:text-white text-3xl font-black tracking-tight flex items-center gap-3">
+                <div class="caja-page-header-layout caja-detalles-header-layout">
+                    <div class="flex flex-col gap-2">
+                        <h1 class="text-slate-900 dark:text-white text-4xl font-black tracking-tight flex flex-wrap items-center gap-3">
                             Detalles de apertura
                             @if (!apertura.Cerrada)
                             {
@@ -59,42 +59,44 @@
                                 <span class="bg-slate-500/10 text-slate-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-slate-500/20">Cerrada</span>
                             }
                         </h1>
-                        <p class="text-slate-500 dark:text-slate-400 text-base">Gestión y control de flujo de caja en tiempo real</p>
+                        <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+                            Seguí el turno activo, revisá ventas y movimientos, y operá la caja sin perder contexto en mobile.
+                        </p>
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="caja-page-header-actions caja-detalles-header-actions">
                         @if (!apertura.Cerrada && puedeOperar)
                         {
                             <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                               class="flex items-center justify-center rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold hover:bg-blue-700 transition-all no-underline">
+                               class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-primary text-white text-sm font-bold hover:bg-blue-700 transition-all no-underline">
                                 <span class="material-symbols-outlined text-sm mr-2">lock</span>
                                 Cerrar caja
                             </a>
                             <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                               class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                               class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
                                 <span class="material-symbols-outlined text-sm mr-2">add</span>
                                 Nuevo movimiento
                             </a>
                         }
                         <a asp-action="Index"
-                           class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-sm no-underline">
+                           class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-sm no-underline">
                             <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
                             Volver
                         </a>
                     </div>
                 </div>
-            </div>
+            </header>
 
             <!-- Toasts -->
             @if (TempData["Error"] != null)
             {
-                <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium">
+                <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
                     <span class="material-symbols-outlined text-lg">error</span>
                     @TempData["Error"]
                 </div>
             }
             @if (TempData["Success"] != null)
             {
-                <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium">
+                <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium" role="status">
                     <span class="material-symbols-outlined text-lg">check_circle</span>
                     @TempData["Success"]
                 </div>
@@ -102,8 +104,8 @@
 
             <!-- Box Information Panel -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-                    <div class="size-32 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div class="mx-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 md:mx-0 md:h-20 md:w-20">
                         <span class="material-symbols-outlined text-primary text-5xl">point_of_sale</span>
                     </div>
                     <div class="flex flex-col justify-between grow gap-4">
@@ -149,7 +151,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="p-6 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                <div class="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center">
                             <span class="material-symbols-outlined text-sm mr-1">sticky_note_2</span> Observaciones
@@ -167,32 +169,32 @@
             </div>
 
             <!-- Financial Summary KPIs -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div class="caja-page-metrics caja-page-metrics--7 caja-detalles-metrics">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Monto inicial</p>
                     <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">$@apertura.MontoInicial.ToString("N2")</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total ingresos</p>
                     <p class="text-emerald-500 text-xl font-black leading-tight">+$@Model.TotalIngresos.ToString("N2")</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. ingresos</p>
                     <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@ingresos.Count</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Total egresos</p>
                     <p class="text-rose-500 text-xl font-black leading-tight">-$@Model.TotalEgresos.ToString("N2")</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. egresos</p>
                     <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@egresos.Count</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col gap-1 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <p class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. total mov.</p>
                     <p class="text-slate-900 dark:text-white text-xl font-black leading-tight">@Model.CantidadMovimientos</p>
                 </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 bg-primary/10 border border-primary/30">
+                <div class="col-span-2 flex flex-col gap-1 rounded-2xl p-4 bg-primary/10 border border-primary/30 shadow-sm xl:col-span-1">
                     <p class="text-primary text-xs font-bold uppercase tracking-tight">Saldo actual</p>
                     <p class="text-primary text-xl font-black leading-tight">$@Model.SaldoActual.ToString("N2")</p>
                 </div>
@@ -201,24 +203,57 @@
             <!-- Operaciones del turno (ventas asociadas a esta apertura) -->
             @if (ventas.Any())
             {
-                <div class="flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center gap-2">
-                            <span class="material-symbols-outlined">shopping_bag</span>
-                            Operaciones del turno
-                            <span class="ml-1 px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">@ventas.Count</span>
-                        </h3>
+                <section class="space-y-4">
+                    <div class="caja-page-section-header caja-detalles-section-header">
+                        <div class="space-y-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">shopping_bag</span>
+                                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Operaciones del turno</h3>
+                            </div>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">
+                                Ventas registradas durante esta apertura, con foco en el tipo de pago y su impacto real en caja.
+                            </p>
+                        </div>
+                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm text-primary">receipt_long</span>
+                            @ventas.Count @(ventas.Count == 1 ? "venta vinculada" : "ventas vinculadas")
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+
+                    <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+                         data-oc-scroll
+                         style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                        <div data-oc-scroll-hint
+                             class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                             hidden>
+                            <div class="flex items-center gap-2 font-semibold">
+                                <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                                <span id="caja-detalles-ventas-scroll-hint">Deslizá la tabla para revisar fecha, pago y total de cada venta</span>
+                            </div>
+                            <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                                Scroll horizontal
+                            </span>
+                        </div>
+
+                        <div class="relative" data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                            <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+
+                            <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                                 data-oc-scroll-region
+                                 role="region"
+                                 aria-label="Tabla de operaciones del turno"
+                                 aria-describedby="caja-detalles-ventas-scroll-hint"
+                                 tabindex="0">
+                                <table data-oc-scroll-table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 dark:bg-slate-800">
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">N° Venta</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cliente</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tipo pago</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Total</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Fecha</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">N° Venta</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Cliente</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Tipo pago</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Estado</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Total</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -280,50 +315,98 @@
                                 }
                             </tbody>
                         </table>
-                    </div>
+                            </div>
+                        </div>
                     @if (ventas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
                     {
-                        <div class="px-6 py-3 bg-amber-50 dark:bg-amber-500/5 border-t border-amber-200 dark:border-amber-500/20 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
-                            <span class="material-symbols-outlined text-[14px]">info</span>
-                            Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.
+                        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400">
+                            <div class="flex items-start gap-2">
+                                <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
+                                <span>Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.</span>
+                            </div>
                         </div>
                     }
-                </div>
+                    </div>
+                </section>
             }
 
             <!-- Transaction Table -->
             @if (movimientos.Any())
             {
-                <div class="flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-                        <h3 class="text-slate-900 dark:text-white font-bold flex items-center">
-                            <span class="material-symbols-outlined mr-2">list_alt</span> Historial de Movimientos
-                        </h3>
-                        <div class="flex gap-2">
-                            <div class="relative">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-                                <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
-                                       class="pl-9 pr-4 py-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg w-48 focus:ring-primary focus:border-primary text-slate-900 dark:text-white" />
+                <section class="space-y-4">
+                    <div class="caja-page-section-header caja-detalles-section-header">
+                        <div class="space-y-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="material-symbols-outlined text-primary">list_alt</span>
+                                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Historial de movimientos</h3>
                             </div>
-                            <select id="filtro-tipo"
-                                    class="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:ring-primary focus:border-primary">
-                                <option value="">Todos</option>
-                                <option value="Ingreso">Ingresos</option>
-                                <option value="Egreso">Egresos</option>
-                            </select>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">
+                                Filtrá ingresos y egresos del turno sin perder visibilidad sobre el saldo calculado.
+                            </p>
+                        </div>
+                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
+                            @movimientos.Count @(movimientos.Count == 1 ? "movimiento" : "movimientos")
                         </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse" id="tabla-movimientos">
+
+                    <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+                         data-oc-scroll
+                         style="--oc-scroll-min-width: 66rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                        <div class="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-800 lg:flex-row lg:items-end lg:justify-between">
+                            <div class="space-y-2">
+                                <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Filtros del turno</h4>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Buscá por concepto y limitá el listado por tipo de movimiento.</p>
+                            </div>
+                            <div class="caja-detalles-filter-tools flex w-full flex-col gap-2">
+                                <div class="caja-detalles-filter-search relative w-full">
+                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                                    <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
+                                           class="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-900 focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 dark:text-white" />
+                                </div>
+                                <div class="caja-detalles-filter-select w-full">
+                                    <select id="filtro-tipo"
+                                            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                        <option value="">Todos</option>
+                                        <option value="Ingreso">Ingresos</option>
+                                        <option value="Egreso">Egresos</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div data-oc-scroll-hint
+                             class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                             hidden>
+                            <div class="flex items-center gap-2 font-semibold">
+                                <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                                <span id="caja-detalles-movimientos-scroll-hint">Deslizá la tabla para revisar referencia, monto y responsable</span>
+                            </div>
+                            <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                                Scroll horizontal
+                            </span>
+                        </div>
+
+                        <div class="relative" data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                            <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+
+                            <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                                 data-oc-scroll-region
+                                 role="region"
+                                 aria-label="Tabla del historial de movimientos"
+                                 aria-describedby="caja-detalles-movimientos-scroll-hint"
+                                 tabindex="0">
+                                <table data-oc-scroll-table class="w-full text-left border-collapse" id="tabla-movimientos">
                             <thead>
                                 <tr class="bg-slate-50 dark:bg-slate-800">
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha/Hora</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tipo</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Concepto</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Descripción</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Referencia</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Monto</th>
-                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuario</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Fecha/Hora</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Tipo</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Concepto</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Descripción</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Referencia</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Monto</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Usuario</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -360,13 +443,15 @@
                                 </tr>
                             </tfoot>
                         </table>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </section>
             }
             else
             {
                 <!-- Empty State -->
-                <div class="flex flex-col items-center justify-center p-20 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800">
+                <div class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <div class="size-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6">
                         <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
                     </div>
@@ -387,20 +472,23 @@
         <!-- Bottom Action Footer -->
         @if (!apertura.Cerrada && puedeOperar)
         {
-            <footer class="max-w-[1400px] mx-auto w-full px-4 lg:px-10 pb-10">
+            <footer class="max-w-7xl mx-auto w-full pb-10">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-blue-700 text-white shadow-xl shadow-primary/20">
                     <div class="flex flex-col gap-1">
                         <p class="text-white/80 text-sm font-medium">¿Todo listo para terminar el turno?</p>
                         <p class="text-2xl font-black">Cierre de Caja Sugerido: $@Model.SaldoActual.ToString("N2")</p>
                     </div>
-                    <div class="flex gap-4 w-full md:w-auto">
+                    <div class="caja-page-footer-actions caja-detalles-footer-actions">
                         <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
                            class="flex-1 md:flex-none h-12 px-8 rounded-xl bg-white text-primary font-bold hover:bg-slate-100 transition-all no-underline inline-flex items-center justify-center">
                             Cerrar Turno Ahora
                         </a>
-                        <button type="button" onclick="window.print()"
-                                class="flex items-center justify-center h-12 w-12 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all">
+                        <button type="button"
+                                data-caja-print
+                                aria-label="Imprimir detalles de apertura"
+                                class="caja-detalles-print inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/20 px-5 text-white hover:bg-white/30 transition-all">
                             <span class="material-symbols-outlined">print</span>
+                            <span class="caja-detalles-print-label text-sm font-semibold">Imprimir</span>
                         </button>
                     </div>
                 </div>
@@ -409,6 +497,53 @@
     </div>
 </div>
 
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+    <style>
+        .caja-detalles-filter-tools,
+        .caja-detalles-footer-actions {
+            width: 100%;
+        }
+
+        .caja-detalles-print {
+            width: 100%;
+        }
+
+        @@media (min-width: 768px) {
+            .caja-detalles-filter-tools {
+                align-items: center;
+                flex-direction: row;
+                width: auto;
+            }
+
+            .caja-detalles-filter-search {
+                width: 16rem;
+            }
+
+            .caja-detalles-filter-select {
+                width: 10rem;
+            }
+
+            .caja-detalles-footer-actions {
+                align-items: center;
+                flex-direction: row;
+                width: auto;
+            }
+
+            .caja-detalles-print {
+                padding-left: 0;
+                padding-right: 0;
+                width: 3rem;
+            }
+
+            .caja-detalles-print-label {
+                display: none;
+            }
+        }
+    </style>
+}
+
 @section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
 }

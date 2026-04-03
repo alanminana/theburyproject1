@@ -10,67 +10,122 @@
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeConfigurarPagos = User.TienePermiso("configuraciones", "update");
+    var totalVisible = ventas.Where(v => v.Estado != EstadoVenta.Cancelada).Sum(v => v.Total);
+    var pendientesAutorizacion = ventas.Count(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion);
+    var pendientesOperacion = ventas.Count(v => v.Estado == EstadoVenta.PendienteFinanciacion || v.Estado == EstadoVenta.PendienteRequisitos);
+    var completadas = ventas.Count(v => v.Estado == EstadoVenta.Confirmada || v.Estado == EstadoVenta.Facturada || v.Estado == EstadoVenta.Entregada);
 }
 
-<!-- Actions & Filters -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-    <div class="flex flex-col gap-1">
-        <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Módulo de Ventas</h1>
-        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Gestión de ventas, cotizaciones y presupuestos</p>
-    </div>
-    <div class="flex flex-wrap gap-3">
-        @if (puedeVerDevoluciones)
-        {
-            <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
-               class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all no-underline">
-                <span class="material-symbols-outlined text-[18px]">assignment_return</span>
-                Devoluciones
-            </a>
-        }
-        else
-        {
-            <span class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed"
-                  title="No tiene permiso para ver devoluciones">
-                <span class="material-symbols-outlined text-[18px]">assignment_return</span>
-                Devoluciones
-            </span>
-        }
+<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="space-y-6">
 
-        @if (puedeConfigurarPagos)
-        {
-            <button type="button" id="btn-configurar-recargo"
-                    class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all">
-                <span class="material-symbols-outlined text-[18px]">percent</span>
-                Configurar Recargo/Descuento
-            </button>
-        }
-        else
-        {
-            <span class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed"
-                  title="No tiene permiso para configurar recargos y descuentos">
-                <span class="material-symbols-outlined text-[18px]">percent</span>
-                Configurar Recargo/Descuento
-            </span>
-        }
+        <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 sm:p-8">
+            <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+                <div class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                        <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Ventas</span>
+                        <span class="text-slate-300 dark:text-slate-600">/</span>
+                        <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">Panel operativo</span>
+                    </div>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black leading-tight tracking-tight text-slate-900 dark:text-white sm:text-4xl">Módulo de Ventas</h1>
+                        <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400 sm:text-base">Gestión operativa de ventas, cotizaciones y presupuestos con foco en seguimiento, autorización y devoluciones.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs font-medium">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-primary">
+                            <span class="material-symbols-outlined text-sm">point_of_sale</span>
+                            @(puedeOperarVentas ? "Caja operativa" : "Caja requerida")
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">receipt_long</span>
+                            @ventas.Count @(ventas.Count == 1 ? "operación visible" : "operaciones visibles")
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">assignment_return</span>
+                            @(puedeVerDevoluciones ? "Devoluciones habilitadas" : "Devoluciones restringidas")
+                        </span>
+                    </div>
+                </div>
 
-        @if (puedeCrear)
-        {
-            <a asp-action="Create"
-               class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all no-underline">
-                <span class="material-symbols-outlined text-[20px]">add</span>
-                Nueva Venta
-            </a>
-        }
-        else
-        {
-            <span class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed"
-                  title="Debe abrir una caja para crear ventas">
-                <span class="material-symbols-outlined text-[20px]">add</span>
-                Nueva Venta
-            </span>
-        }
-    </div>
-</div>
+                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-[18rem] xl:flex-col">
+                    @if (puedeVerDevoluciones)
+                    {
+                        <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
+                           class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 no-underline xl:w-full">
+                            <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                            Devoluciones
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-400 dark:border-slate-700 dark:text-slate-500 cursor-not-allowed xl:w-full"
+                              title="No tiene permiso para ver devoluciones">
+                            <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                            Devoluciones
+                        </span>
+                    }
+
+                    @if (puedeConfigurarPagos)
+                    {
+                        <button type="button" id="btn-configurar-recargo"
+                                data-venta-modal-action="open"
+                                data-venta-modal-target="configuracion-pagos"
+                                class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 xl:w-full">
+                            <span class="material-symbols-outlined text-[18px]">percent</span>
+                            Configurar Recargo/Descuento
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-400 dark:border-slate-700 dark:text-slate-500 cursor-not-allowed xl:w-full"
+                              title="No tiene permiso para configurar recargos y descuentos">
+                            <span class="material-symbols-outlined text-[18px]">percent</span>
+                            Configurar Recargo/Descuento
+                        </span>
+                    }
+
+                    @if (puedeCrear)
+                    {
+                        <a asp-action="Create"
+                           class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary/90 no-underline xl:w-full">
+                            <span class="material-symbols-outlined text-[20px]">add</span>
+                            Nueva Venta
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-300 px-5 text-sm font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-400 cursor-not-allowed xl:w-full"
+                              title="Debe abrir una caja para crear ventas">
+                            <span class="material-symbols-outlined text-[20px]">add</span>
+                            Nueva Venta
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Operaciones</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@ventas.Count @(ventas.Count == 1 ? "venta visible" : "ventas visibles")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Resultado actual del filtro operativo del módulo.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Pendientes</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@pendientesOperacion @(pendientesOperacion == 1 ? "operación" : "operaciones")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Casos con financiación o requisitos todavía por resolver.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Autorización</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@pendientesAutorizacion pendientes</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@completadas @(completadas == 1 ? "operación activa" : "operaciones activas") en seguimiento.</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total visible</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">@totalVisible.ToString("C2")</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Suma de operaciones no canceladas dentro del listado actual.</p>
+                </article>
+            </div>
+        </section>
 
 @if (!puedeOperarVentas)
 {
@@ -126,7 +181,19 @@
 
 <!-- Compact Advanced Filter -->
 <form asp-action="Index" method="get" id="form-filtros">
-    <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-wrap gap-4 items-end mb-6">
+    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+        <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Filtro operativo</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Buscador de ventas</h2>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Combiná número, fecha, estado, forma de pago y autorización para encontrar operaciones sin perder contexto.</p>
+            </div>
+            <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                @ventas.Count resultados
+            </span>
+        </div>
+        <div class="flex flex-wrap gap-4 items-end">
         <!-- Número -->
         <div class="flex flex-col gap-1.5 min-w-[160px]">
             <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Número</span>
@@ -199,25 +266,45 @@
                 <span class="material-symbols-outlined">filter_alt_off</span>
             </a>
         </div>
-    </div>
+        </div>
+    </section>
 </form>
 
 <!-- Table Section -->
-<div class="bg-white dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-    <table class="w-full text-left border-collapse">
-        <thead>
-            <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Número</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fecha</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cliente</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Autorización</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tipo de Pago</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Total</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Acciones</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+    <div class="flex flex-col gap-3 border-b border-slate-100 p-6 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Seguimiento</p>
+            <h2 class="mt-1 text-xl font-bold text-slate-900 dark:text-white">Listado principal</h2>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Consultá estado, autorización, forma de pago y acciones disponibles sobre cada operación.</p>
+        </div>
+        <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <span class="material-symbols-outlined text-sm">table_rows</span>
+            @ventas.Count registros
+        </span>
+    </div>
+    <div id="ventas-index-scroll" data-oc-scroll style="--oc-scroll-min-width: 72rem;">
+        <p data-oc-scroll-hint hidden class="px-6 pt-4 text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+            Deslizá la tabla para revisar estados, autorización, totales y acciones completas.
+        </p>
+        <div data-oc-scroll-shell>
+            <div data-oc-scroll-fade="left" hidden></div>
+            <div data-oc-scroll-fade="right" hidden></div>
+            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado principal de ventas">
+                <table data-oc-scroll-table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Número</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fecha</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Autorización</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tipo de Pago</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Total</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
             @if (ventas.Any())
             {
                 @foreach (var v in ventas)
@@ -278,41 +365,46 @@
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap items-center justify-center gap-2">
                                 <a asp-action="Details" asp-route-id="@v.Id"
-                                   class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors no-underline"
+                                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors no-underline"
                                    title="Ver Venta">
                                     <span class="material-symbols-outlined text-[20px]">visibility</span>
+                                    <span>Ver</span>
                                 </a>
                                 @if (puedeDevolver)
                                 {
                                     <button type="button"
                                             data-open-devolucion-modal
                                             data-venta-id="@v.Id"
-                                            class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 px-2.5 py-1.5 text-xs font-semibold text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors"
                                             title="Devolver producto"
                                             aria-label="Devolver producto">
                                         <span class="material-symbols-outlined text-[20px]">assignment_return</span>
+                                        <span>Devolver</span>
                                     </button>
                                 }
                                 else if (puedeCrearDevoluciones)
                                 {
-                                    <span class="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-300 dark:border-slate-700 dark:text-slate-600 cursor-not-allowed"
                                           title="@(puedeOperarVentas ? "Disponible solo para ventas confirmadas, facturadas o entregadas" : "Debe abrir una caja para operar en ventas")">
                                         <span class="material-symbols-outlined text-[20px]">assignment_return</span>
+                                        <span>Devolver</span>
                                     </span>
                                 }
                                 @if (puedeCancelarVenta)
                                 {
                                     <a asp-action="Cancelar" asp-route-id="@v.Id"
-                                       class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors no-underline"
+                                       class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors no-underline"
                                        title="Anular">
                                         <span class="material-symbols-outlined text-[20px]">block</span>
+                                        <span>Anular</span>
                                     </a>
                                 }
                                 else
                                 {
-                                    <span class="p-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                                    <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-300 dark:border-slate-700 dark:text-slate-600 cursor-not-allowed"
                                           title="@(puedeOperarVentas ? "La venta no puede anularse en este estado" : "Debe abrir una caja para operar en ventas")">
                                         <span class="material-symbols-outlined text-[20px]">block</span>
+                                        <span>Anular</span>
                                     </span>
                                 }
                             </div>
@@ -320,8 +412,11 @@
                     </tr>
                 }
             }
-        </tbody>
-    </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <!-- Empty State -->
     @if (!ventas.Any())
@@ -338,20 +433,26 @@
             </a>
         </div>
     }
-</div>
+</section>
 
 <!-- Pagination -->
-<div class="flex items-center justify-between pt-4">
+<div class="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-sm text-slate-500 dark:text-slate-400">
         Mostrando <span class="font-bold text-slate-900 dark:text-white">@ventas.Count</span> resultados
     </p>
+    <p class="text-xs text-slate-400 dark:text-slate-500">
+        La última columna concentra seguimiento y acciones disponibles por operación.
+    </p>
+</div>
+
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- Modal: Configurar Recargos / Descuentos por Tipo de Pago -->
 <!-- ═══════════════════════════════════════════════════ -->
-<div id="modal-recargo" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-recargo-overlay"></div>
+<div id="modal-recargo" data-venta-modal="configuracion-pagos" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-recargo-overlay" data-venta-modal-action="close"></div>
     <div class="relative flex items-center justify-center min-h-screen p-4">
         <div class="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col">
 
@@ -360,7 +461,7 @@
                 <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">tune</span> Recargos y Descuentos por Tipo de Pago
                 </h3>
-                <button type="button" id="btn-cerrar-modal-recargo" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                <button type="button" id="btn-cerrar-modal-recargo" data-venta-modal-action="close" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                     <span class="material-symbols-outlined text-slate-400">close</span>
                 </button>
             </div>
@@ -381,14 +482,14 @@
             </div>
 
             <!-- Footer -->
-            <div class="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 shrink-0">
-                <button type="button" id="btn-guardar-recargos"
-                        class="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-sm">save</span> Guardar Cambios
-                </button>
-                <button type="button" id="btn-cancelar-recargos"
-                        class="px-6 py-3 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-300">
+            <div class="grid gap-3 p-6 border-t border-slate-200 dark:border-slate-800 shrink-0 sm:flex sm:justify-end">
+                <button type="button" id="btn-cancelar-recargos" data-venta-modal-action="close"
+                        class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-6 text-xs font-bold uppercase tracking-wider text-slate-600 transition-all hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 sm:w-auto">
                     Cancelar
+                </button>
+                <button type="button" id="btn-guardar-recargos"
+                        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 sm:w-auto sm:min-w-[14rem]">
+                    <span class="material-symbols-outlined text-sm">save</span> Guardar Cambios
                 </button>
             </div>
         </div>
@@ -400,7 +501,13 @@
     <partial name="_VentaDevolucionModal" />
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
+
 @section Scripts {
-    <script src="~/js/venta-devolucion-modal.js"></script>
-    <script src="~/js/venta-index.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/venta-module.js" asp-append-version="true"></script>
+    <script src="~/js/venta-devolucion-modal.js" asp-append-version="true"></script>
+    <script src="~/js/venta-index.js" asp-append-version="true"></script>
 }

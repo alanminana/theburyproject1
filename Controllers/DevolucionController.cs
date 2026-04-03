@@ -150,68 +150,10 @@ public class DevolucionController : Controller
     /// Formulario para crear nueva devolución
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> Create(int? ventaId)
+    public IActionResult Create(int? ventaId)
     {
-        var viewModel = new CrearDevolucionViewModel();
-
-        if (ventaId.HasValue)
-        {
-            var venta = await _ventaService.GetByIdAsync(ventaId.Value);
-            if (venta != null)
-            {
-                viewModel.VentaId = venta.Id;
-                viewModel.ClienteId = venta.ClienteId;
-                viewModel.NumeroVenta = venta.Numero;
-                viewModel.ClienteNombre = venta.ClienteNombre;
-                viewModel.FechaVenta = venta.FechaVenta;
-                viewModel.TotalVenta = venta.Total;
-                viewModel.DiasDesdeVenta = await _devolucionService.ObtenerDiasDesdeVentaAsync(venta.Id);
-                viewModel.PuedeDevolver = await _devolucionService.PuedeDevolverVentaAsync(venta.Id);
-
-                // Cargar productos de la venta
-                foreach (var detalle in venta.Detalles)
-                {
-                    viewModel.Productos.Add(new ProductoDevolucionViewModel
-                    {
-                        ProductoId = detalle.ProductoId,
-                        ProductoNombre = detalle.ProductoNombre ?? "Producto",
-                        CantidadComprada = detalle.Cantidad,
-                        PrecioUnitario = detalle.PrecioUnitario,
-                        CantidadDevolver = 0
-                    });
-                }
-            }
-        }
-        else
-        {
-            // Si no hay ventaId, cargar lista de ventas disponibles para devolución
-            var ventasDisponibles = await _ventaService.GetAllAsync(new VentaFilterViewModel
-            {
-                Estado = Models.Enums.EstadoVenta.Confirmada
-            });
-
-            // También incluir facturadas y entregadas
-            var ventasFacturadas = await _ventaService.GetAllAsync(new VentaFilterViewModel
-            {
-                Estado = Models.Enums.EstadoVenta.Facturada
-            });
-
-            var ventasEntregadas = await _ventaService.GetAllAsync(new VentaFilterViewModel
-            {
-                Estado = Models.Enums.EstadoVenta.Entregada
-            });
-
-            var todasVentas = ventasDisponibles
-                .Concat(ventasFacturadas)
-                .Concat(ventasEntregadas)
-                .OrderByDescending(v => v.FechaVenta)
-                .ToList();
-
-            ViewBag.Ventas = todasVentas;
-        }
-
-        await CargarListasAsync();
-        return View(viewModel);
+        TempData["Info"] = "La creación de devoluciones se inicia desde una venta mientras esta superficie se estabiliza.";
+        return RedirectToAction(nameof(Index));
     }
 
     /// <summary>
@@ -454,27 +396,10 @@ public class DevolucionController : Controller
     /// <summary>
     /// Ver detalles de una devolución
     /// </summary>
-    public async Task<IActionResult> Detalles(int id)
+    public IActionResult Detalles(int id)
     {
-        var devolucion = await _devolucionService.ObtenerDevolucionAsync(id);
-        if (devolucion == null)
-        {
-            TempData["Error"] = "Devolución no encontrada";
-            return RedirectToAction(nameof(Index));
-        }
-
-        var detalles = await _devolucionService.ObtenerDetallesDevolucionAsync(id);
-
-        var viewModel = new DevolucionDetallesViewModel
-        {
-            Devolucion = devolucion,
-            Detalles = detalles,
-            NotaCredito = devolucion.NotaCredito,
-            RMA = devolucion.RMA
-        };
-
-        await CargarListasAsync();
-        return View(viewModel);
+        TempData["Info"] = "El detalle individual de devoluciones todavía no está disponible en esta superficie.";
+        return RedirectToAction(nameof(Index));
     }
 
     /// <summary>
@@ -595,24 +520,10 @@ public class DevolucionController : Controller
     /// <summary>
     /// Estadísticas de RMAs y devoluciones
     /// </summary>
-    public async Task<IActionResult> RMAs(DateTime? desde, DateTime? hasta)
+    public IActionResult RMAs(DateTime? desde, DateTime? hasta)
     {
-        var fechaDesde = desde ?? DateTime.UtcNow.AddMonths(-1);
-        var fechaHasta = hasta ?? DateTime.UtcNow;
-
-        var viewModel = new EstadisticasDevolucionViewModel
-        {
-            FechaDesde = fechaDesde,
-            FechaHasta = fechaHasta,
-            DevolucionesPorMotivo = await _devolucionService.ObtenerEstadisticasMotivoDevolucionAsync(fechaDesde, fechaHasta),
-            ProductosMasDevueltos = await _devolucionService.ObtenerProductosMasDevueltosAsync(10),
-            MontoTotalDevuelto = await _devolucionService.ObtenerTotalDevolucionesPeriodoAsync(fechaDesde, fechaHasta),
-            RMAsPendientes = await _devolucionService.ObtenerCantidadRMAsPendientesAsync()
-        };
-
-        viewModel.TotalDevoluciones = viewModel.DevolucionesPorMotivo.Values.Sum();
-
-        return View(viewModel);
+        TempData["Info"] = "La vista de RMA todavía no está disponible en esta superficie.";
+        return RedirectToAction(nameof(Index));
     }
 
     /// <summary>
@@ -686,24 +597,10 @@ public class DevolucionController : Controller
     /// <summary>
     /// Estadísticas de devoluciones
     /// </summary>
-    public async Task<IActionResult> Estadisticas(DateTime? desde, DateTime? hasta)
+    public IActionResult Estadisticas(DateTime? desde, DateTime? hasta)
     {
-        var fechaDesde = desde ?? DateTime.UtcNow.AddMonths(-1);
-        var fechaHasta = hasta ?? DateTime.UtcNow;
-
-        var viewModel = new EstadisticasDevolucionViewModel
-        {
-            FechaDesde = fechaDesde,
-            FechaHasta = fechaHasta,
-            DevolucionesPorMotivo = await _devolucionService.ObtenerEstadisticasMotivoDevolucionAsync(fechaDesde, fechaHasta),
-            ProductosMasDevueltos = await _devolucionService.ObtenerProductosMasDevueltosAsync(10),
-            MontoTotalDevuelto = await _devolucionService.ObtenerTotalDevolucionesPeriodoAsync(fechaDesde, fechaHasta),
-            RMAsPendientes = await _devolucionService.ObtenerCantidadRMAsPendientesAsync()
-        };
-
-        viewModel.TotalDevoluciones = viewModel.DevolucionesPorMotivo.Values.Sum();
-
-        return View(viewModel);
+        TempData["Info"] = "La vista de estadísticas de devoluciones todavía no está disponible en esta superficie.";
+        return RedirectToAction(nameof(Index));
     }
 
     #endregion

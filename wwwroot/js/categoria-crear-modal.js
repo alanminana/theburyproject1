@@ -62,7 +62,7 @@ const CategoriaModal = (() => {
 
                 if (result.success) {
                     close();
-                    window.location.reload();
+                    location.reload();
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }
@@ -155,3 +155,7 @@ const CategoriaModal = (() => {
 
     return { open, close };
 })();
+
+if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerModalApi === 'function') {
+    CatalogoModule.registerModalApi('categoria', CategoriaModal);
+}

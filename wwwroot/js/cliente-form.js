@@ -1,57 +1,90 @@
-/* cliente-form.js — Lógica para Edit_tw / Create_tw de Cliente */
+/* cliente-form.js — Lógica para Create_tw / Edit_tw de Cliente */
+(function () {
+    'use strict';
 
-/** Expande o colapsa una sección del formulario */
-function toggleSection(name) {
-    var content = document.getElementById('content-' + name);
-    var chevron = document.getElementById('chevron-' + name);
-    if (!content || !chevron) return;
+    function setSectionState(button, expanded) {
+        if (!button) return;
 
-    var isHidden = content.classList.contains('hidden');
-    content.classList.toggle('hidden', !isHidden);
-    chevron.classList.toggle('rotate-180', isHidden);
-}
+        var sectionName = button.getAttribute('data-cliente-section-toggle');
+        var content = document.getElementById('content-' + sectionName);
+        var chevron = document.getElementById('chevron-' + sectionName);
 
-/** Validación cruzada: monto mínimo < monto máximo */
-function validarMontos() {
-    var minInput = document.getElementById('montoMinimo');
-    var maxInput = document.getElementById('montoMaximo');
-    var errorEl = document.getElementById('montoError');
-    if (!minInput || !maxInput || !errorEl) return true;
+        if (!content || !chevron) return;
 
-    var min = parseFloat(minInput.value);
-    var max = parseFloat(maxInput.value);
-
-    if (!isNaN(min) && !isNaN(max) && min > max) {
-        errorEl.classList.remove('hidden');
-        maxInput.classList.add('border-red-500');
-        return false;
+        content.classList.toggle('hidden', !expanded);
+        chevron.classList.toggle('rotate-180', !expanded);
+        button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
 
-    errorEl.classList.add('hidden');
-    maxInput.classList.remove('border-red-500');
-    return true;
-}
+    function validarMontos() {
+        var minInput = document.getElementById('montoMinimo');
+        var maxInput = document.getElementById('montoMaximo');
+        var errorEl = document.getElementById('montoError');
 
-document.addEventListener('DOMContentLoaded', function () {
-    var minInput = document.getElementById('montoMinimo');
-    var maxInput = document.getElementById('montoMaximo');
+        if (!minInput || !maxInput || !errorEl) return true;
 
-    if (minInput) minInput.addEventListener('input', validarMontos);
-    if (maxInput) maxInput.addEventListener('input', validarMontos);
+        var min = parseFloat(minInput.value);
+        var max = parseFloat(maxInput.value);
 
-    var form = document.getElementById('clienteForm');
-    if (form) {
+        if (!isNaN(min) && !isNaN(max) && min > max) {
+            errorEl.classList.remove('hidden');
+            maxInput.classList.add('border-red-500');
+            return false;
+        }
+
+        errorEl.classList.add('hidden');
+        maxInput.classList.remove('border-red-500');
+        return true;
+    }
+
+    function initClienteForm() {
+        document.querySelectorAll('[data-cliente-section-toggle]').forEach(function (button) {
+            var sectionName = button.getAttribute('data-cliente-section-toggle');
+            var content = document.getElementById('content-' + sectionName);
+            setSectionState(button, !(content && content.classList.contains('hidden')));
+        });
+
+        if (document.body.dataset.clienteFormHandlersBound !== 'true') {
+            document.body.dataset.clienteFormHandlersBound = 'true';
+
+            document.addEventListener('click', function (event) {
+                var toggleButton = event.target.closest('[data-cliente-section-toggle]');
+                if (!toggleButton) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                var sectionName = toggleButton.getAttribute('data-cliente-section-toggle');
+                var content = document.getElementById('content-' + sectionName);
+                var expanded = !!(content && !content.classList.contains('hidden'));
+                setSectionState(toggleButton, !expanded);
+            }, true);
+        }
+
+        var minInput = document.getElementById('montoMinimo');
+        var maxInput = document.getElementById('montoMaximo');
+
+        if (minInput) minInput.addEventListener('input', validarMontos);
+        if (maxInput) maxInput.addEventListener('input', validarMontos);
+
+        var form = document.getElementById('clienteForm');
+        if (!form) return;
+
         form.addEventListener('submit', function (e) {
-            if (!validarMontos()) {
-                e.preventDefault();
-                // Abrir la sección de crédito para mostrar el error
-                var content = document.getElementById('content-credito');
-                var chevron = document.getElementById('chevron-credito');
-                if (content && content.classList.contains('hidden')) {
-                    content.classList.remove('hidden');
-                    if (chevron) chevron.classList.remove('rotate-180');
-                }
+            if (validarMontos()) return;
+
+            e.preventDefault();
+
+            var creditoToggle = document.querySelector('[data-cliente-section-toggle="credito"]');
+            if (creditoToggle) {
+                setSectionState(creditoToggle, true);
             }
         });
     }
-});
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initClienteForm);
+    } else {
+        initClienteForm();
+    }
+})();

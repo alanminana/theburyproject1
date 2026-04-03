@@ -1,118 +1,81 @@
 (() => {
     'use strict';
 
-    TheBury.autoDismissToasts();
+    const seguridad = TheBury.SeguridadModule;
+    seguridad.initSharedUi();
 
-    const searchInput = document.getElementById('searchRoles');
-    const estadoSelect = document.getElementById('filterEstadoRol');
-    const clearFiltersButton = document.getElementById('clearRolesFilters');
-    const clearFiltersEmptyButton = document.getElementById('clearRolesFiltersEmpty');
-    const tableBody = document.getElementById('rolesTableBody');
+    const $ = id => document.getElementById(id);
+    const normalize = seguridad.normalizeText;
+    const currentUrl = seguridad.getCurrentUrl();
+    const state = seguridad.createState();
+
+    const searchInput = $('searchRoles');
+    const estadoSelect = $('filterEstadoRol');
+    const clearFiltersButton = $('clearRolesFilters');
+    const clearFiltersEmptyButton = $('clearRolesFiltersEmpty');
+    const tableBody = $('rolesTableBody');
     const rows = Array.from(document.querySelectorAll('.rol-row'));
-    const visibleCount = document.getElementById('rolesVisibleCount');
-    const emptyFilterState = document.getElementById('rolesEmptyFilterState');
+    const visibleCount = $('rolesVisibleCount');
+    const emptyFilterState = $('rolesEmptyFilterState');
+    const actionFeedback = $('rolesActionFeedback');
 
-    const createContainer = document.getElementById('createRoleContainer');
-    const editContainer = document.getElementById('editRoleContainer');
-    const duplicateContainer = document.getElementById('duplicateRoleContainer');
+    const createContainer = $('createRoleContainer');
+    const editContainer = $('editRoleContainer');
+    const duplicateContainer = $('duplicateRoleContainer');
 
-    const normalize = TheBury.normalizeText;
-
-    function applyFilters() {
-        if (!rows.length) return;
-
-        const search = normalize(searchInput?.value);
-        const estado = normalize(estadoSelect?.value);
-        let visible = 0;
-
-        rows.forEach(row => {
-            const matchSearch = !search ||
-                normalize(row.dataset.name).includes(search) ||
-                normalize(row.dataset.description).includes(search);
-            const matchEstado = !estado || normalize(row.dataset.estado) === estado;
-            const show = matchSearch && matchEstado;
-
-            row.style.display = show ? '' : 'none';
-            if (show) {
-                visible++;
-                tableBody?.appendChild(row);
-            }
-        });
-
-        if (visibleCount) {
-            visibleCount.textContent = visible.toString();
-        }
-
-        emptyFilterState?.classList.toggle('hidden', visible > 0 || rows.length === 0);
+    function resolveReturnUrl(form, result) {
+        return seguridad.resolveReturnUrl(form, result, currentUrl);
     }
 
-    function clearFilters() {
-        if (searchInput) searchInput.value = '';
-        if (estadoSelect) estadoSelect.value = '';
-        applyFilters();
+    function navigateTo(url) {
+        seguridad.navigateTo(url, currentUrl);
     }
 
-    searchInput?.addEventListener('input', applyFilters);
-    estadoSelect?.addEventListener('change', applyFilters);
-    clearFiltersButton?.addEventListener('click', clearFilters);
-    clearFiltersEmptyButton?.addEventListener('click', clearFilters);
-
-    function openInjectedModal(url, container, bindModal) {
-        if (!container) return;
-
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(response => {
-                if (!response.ok) throw new Error(response.status);
-                return response.text();
-            })
-            .then(html => {
-                container.innerHTML = html;
-                bindModal(container);
-            })
-            .catch(() => { });
+    function showActionFeedback(message, kind = 'error') {
+        if (!actionFeedback) return;
+        const isError = kind === 'error';
+        actionFeedback.textContent = message;
+        actionFeedback.className = `rounded-xl border px-4 py-3 text-sm shadow-sm ${isError
+            ? 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`;
+        actionFeedback.classList.remove('hidden');
+        actionFeedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    function animateOpen(backdrop, card) {
-        requestAnimationFrame(() => {
-            backdrop?.classList.replace('opacity-0', 'opacity-100');
-            if (card) {
-                card.classList.replace('scale-95', 'scale-100');
-                card.classList.replace('opacity-0', 'opacity-100');
-            }
-        });
+    function clearActionFeedback() {
+        if (!actionFeedback) return;
+        actionFeedback.textContent = '';
+        actionFeedback.className = 'hidden rounded-xl border px-4 py-3 text-sm shadow-sm';
     }
 
-    function animateClose(container, backdrop, card) {
-        backdrop?.classList.replace('opacity-100', 'opacity-0');
-        if (card) {
-            card.classList.replace('scale-100', 'scale-95');
-            card.classList.replace('opacity-100', 'opacity-0');
-        }
-        setTimeout(() => { container.innerHTML = ''; }, 300);
+    function initRolesScrollAffordance() {
+        seguridad.initScrollAffordance(state, { boundAttr: 'seguridadRolesScrollBound' });
     }
 
-    function bindAjaxModal(container, config) {
-        const backdrop = document.getElementById(config.backdropId);
-        const card = document.getElementById(config.cardId);
-        const closeButton = document.getElementById(config.closeButtonId);
-        const cancelButton = document.getElementById(config.cancelButtonId);
-        const form = document.getElementById(config.formId);
-        const errorBox = document.getElementById(config.errorBoxId);
-        const errorList = document.getElementById(config.errorListId);
-        const submitButton = document.getElementById(config.submitButtonId);
+    function refreshRolesScrollAffordance() {
+        seguridad.refreshScrollAffordance(state);
+    }
+
+    function applyModalFooterLayout(footer, buttons = []) {
+        seguridad.applyResponsiveFooterLayout(footer, buttons);
+    }
+
+    seguridad.bindEscapeToState(state);
+
+    function bindAjaxModal(modal, config) {
+        const form = $(config.formId);
+        const errorBox = $(config.errorBoxId);
+        const errorList = $(config.errorListId);
+        const submitButton = $(config.submitButtonId);
+        const cancelButton = $(config.cancelButtonId);
         const defaultSubmitHtml = submitButton?.innerHTML || '';
+        const footer = submitButton?.closest('div');
 
-        const closeModal = () => animateClose(container, backdrop, card);
-
-        closeButton?.addEventListener('click', closeModal);
-        cancelButton?.addEventListener('click', closeModal);
-        backdrop?.addEventListener('click', closeModal);
-        card?.addEventListener('click', event => event.stopPropagation());
-
-        animateOpen(backdrop, card);
+        applyModalFooterLayout(footer, [cancelButton, submitButton]);
 
         form?.addEventListener('submit', event => {
             event.preventDefault();
+            clearActionFeedback();
 
             if (errorBox && errorList) {
                 errorBox.classList.add('hidden');
@@ -132,7 +95,8 @@
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
-                        window.location.href = result.redirectUrl || window.location.href;
+                        modal.close();
+                        navigateTo(resolveReturnUrl(form, result));
                         return;
                     }
 
@@ -162,73 +126,143 @@
         });
     }
 
+    function openInjectedModal({ url, container, backdropId, cardId, closeButtonId, cancelButtonId, bindForm }) {
+        if (!container) return;
+        clearActionFeedback();
+
+        seguridad.openInjectedModal(state, {
+            url,
+            container,
+            backdropId,
+            cardId,
+            closeButtonId,
+            cancelButtonId,
+            onClosed: refreshRolesScrollAffordance,
+            onOpen: bindForm,
+            onError: () => {
+                showActionFeedback('No se pudo abrir el modal solicitado. Intentá nuevamente.');
+            }
+        });
+    }
+
+    function applyFilters() {
+        const search = normalize(searchInput?.value);
+        const estado = normalize(estadoSelect?.value);
+        let visible = 0;
+
+        rows.forEach(row => {
+            const matchSearch = !search ||
+                normalize(row.dataset.name).includes(search) ||
+                normalize(row.dataset.description).includes(search);
+            const matchEstado = !estado || normalize(row.dataset.estado) === estado;
+            const show = matchSearch && matchEstado;
+
+            row.style.display = show ? '' : 'none';
+            if (show) {
+                visible++;
+                tableBody?.appendChild(row);
+            }
+        });
+
+        if (visibleCount) visibleCount.textContent = visible.toString();
+        emptyFilterState?.classList.toggle('hidden', visible > 0 || rows.length === 0);
+        refreshRolesScrollAffordance();
+    }
+
+    function clearFilters() {
+        if (searchInput) searchInput.value = '';
+        if (estadoSelect) estadoSelect.value = '';
+        clearActionFeedback();
+        applyFilters();
+    }
+
+    function openCreateRoleModal(button) {
+        const params = new URLSearchParams();
+        const returnUrl = seguridad.getReturnUrl(button);
+        if (returnUrl) params.set('returnUrl', returnUrl);
+        openInjectedModal({
+            url: `/Seguridad/CreateRol?${params.toString()}`,
+            container: createContainer,
+            backdropId: 'createRoleBackdrop',
+            cardId: 'createRoleCard',
+            closeButtonId: 'closeCreateRole',
+            cancelButtonId: 'cancelCreateRole',
+            bindForm: modal => bindAjaxModal(modal, {
+                formId: 'formCreateRole',
+                errorBoxId: 'createRoleErrors',
+                errorListId: 'createRoleErrorList',
+                submitButtonId: 'submitCreateRole',
+                cancelButtonId: 'cancelCreateRole',
+                loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'
+            })
+        });
+    }
+
+    function openEditRoleModal(button) {
+        const params = new URLSearchParams({ id: seguridad.getRoleId(button) || '' });
+        const returnUrl = seguridad.getReturnUrl(button);
+        if (returnUrl) params.set('returnUrl', returnUrl);
+        openInjectedModal({
+            url: `/Seguridad/EditRol?${params.toString()}`,
+            container: editContainer,
+            backdropId: 'editRoleBackdrop',
+            cardId: 'editRoleCard',
+            closeButtonId: 'closeEditRole',
+            cancelButtonId: 'cancelEditRole',
+            bindForm: modal => bindAjaxModal(modal, {
+                formId: 'formEditRole',
+                errorBoxId: 'editRoleErrors',
+                errorListId: 'editRoleErrorList',
+                submitButtonId: 'submitEditRole',
+                cancelButtonId: 'cancelEditRole',
+                loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'
+            })
+        });
+    }
+
+    function openDuplicateRoleModal(button) {
+        const params = new URLSearchParams({ id: seguridad.getRoleId(button) || '' });
+        const returnUrl = seguridad.getReturnUrl(button);
+        if (returnUrl) params.set('returnUrl', returnUrl);
+        openInjectedModal({
+            url: `/Seguridad/DuplicateRol?${params.toString()}`,
+            container: duplicateContainer,
+            backdropId: 'duplicateRoleBackdrop',
+            cardId: 'duplicateRoleCard',
+            closeButtonId: 'closeDuplicateRole',
+            cancelButtonId: 'cancelDuplicateRole',
+            bindForm: modal => bindAjaxModal(modal, {
+                formId: 'formDuplicateRole',
+                errorBoxId: 'duplicateRoleErrors',
+                errorListId: 'duplicateRoleErrorList',
+                submitButtonId: 'submitDuplicateRole',
+                cancelButtonId: 'cancelDuplicateRole',
+                loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Duplicando...'
+            })
+        });
+    }
+
+    searchInput?.addEventListener('input', applyFilters);
+    estadoSelect?.addEventListener('change', applyFilters);
+    clearFiltersButton?.addEventListener('click', clearFilters);
+    clearFiltersEmptyButton?.addEventListener('click', clearFilters);
+
     document.addEventListener('click', event => {
         const createButton = event.target.closest('.btn-open-create-role');
         if (createButton) {
-            const params = new URLSearchParams();
-            if (createButton.dataset.returnUrl) {
-                params.set('returnUrl', createButton.dataset.returnUrl);
-            }
-
-            openInjectedModal(`/Seguridad/CreateRol?${params.toString()}`, createContainer, container => {
-                bindAjaxModal(container, {
-                    backdropId: 'createRoleBackdrop',
-                    cardId: 'createRoleCard',
-                    closeButtonId: 'closeCreateRole',
-                    cancelButtonId: 'cancelCreateRole',
-                    formId: 'formCreateRole',
-                    errorBoxId: 'createRoleErrors',
-                    errorListId: 'createRoleErrorList',
-                    submitButtonId: 'submitCreateRole',
-                    loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'
-                });
-            });
+            openCreateRoleModal(createButton);
             return;
         }
 
         const editButton = event.target.closest('.btn-edit-role');
         if (editButton) {
-            const params = new URLSearchParams({ id: editButton.dataset.roleId || '' });
-            if (editButton.dataset.returnUrl) {
-                params.set('returnUrl', editButton.dataset.returnUrl);
-            }
-
-            openInjectedModal(`/Seguridad/EditRol?${params.toString()}`, editContainer, container => {
-                bindAjaxModal(container, {
-                    backdropId: 'editRoleBackdrop',
-                    cardId: 'editRoleCard',
-                    closeButtonId: 'closeEditRole',
-                    cancelButtonId: 'cancelEditRole',
-                    formId: 'formEditRole',
-                    errorBoxId: 'editRoleErrors',
-                    errorListId: 'editRoleErrorList',
-                    submitButtonId: 'submitEditRole',
-                    loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...'
-                });
-            });
+            openEditRoleModal(editButton);
             return;
         }
 
         const duplicateButton = event.target.closest('.btn-duplicate-role');
         if (duplicateButton) {
-            const params = new URLSearchParams({ id: duplicateButton.dataset.roleId || '' });
-            if (duplicateButton.dataset.returnUrl) {
-                params.set('returnUrl', duplicateButton.dataset.returnUrl);
-            }
-
-            openInjectedModal(`/Seguridad/DuplicateRol?${params.toString()}`, duplicateContainer, container => {
-                bindAjaxModal(container, {
-                    backdropId: 'duplicateRoleBackdrop',
-                    cardId: 'duplicateRoleCard',
-                    closeButtonId: 'closeDuplicateRole',
-                    cancelButtonId: 'cancelDuplicateRole',
-                    formId: 'formDuplicateRole',
-                    errorBoxId: 'duplicateRoleErrors',
-                    errorListId: 'duplicateRoleErrorList',
-                    submitButtonId: 'submitDuplicateRole',
-                    loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Duplicando...'
-                });
-            });
+            openDuplicateRoleModal(duplicateButton);
         }
     });
 
@@ -236,19 +270,21 @@
         const deleteForm = event.target.closest('.js-delete-role-form');
         if (!deleteForm) return;
 
-        const hasUsers = deleteForm.dataset.hasUsers === 'true';
-        const roleName = deleteForm.dataset.roleName || 'este rol';
+        event.preventDefault();
+        clearActionFeedback();
+
+        const hasUsers = seguridad.getHasUsers(deleteForm);
+        const roleName = seguridad.getRoleName(deleteForm) || 'este rol';
 
         if (hasUsers) {
-            event.preventDefault();
-            window.alert(`No se puede eliminar ${roleName} porque todavía tiene usuarios asignados.`);
+            showActionFeedback(`No se puede eliminar ${roleName} porque todavía tiene usuarios asignados.`);
             return;
         }
 
-        if (!window.confirm(`¿Eliminar el rol ${roleName}? Esta acción no se puede deshacer.`)) {
-            event.preventDefault();
-        }
+        seguridad.confirmAction(`¿Eliminar el rol ${roleName}? Esta acción no se puede deshacer.`, () => deleteForm.submit());
     });
 
+    initRolesScrollAffordance();
     applyFilters();
+    refreshRolesScrollAffordance();
 })();

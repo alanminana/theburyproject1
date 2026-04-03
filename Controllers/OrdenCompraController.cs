@@ -195,10 +195,8 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                var viewModel = _mapper.Map<OrdenCompraViewModel>(orden);
-                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
-
-                return View(viewModel);
+                TempData["Error"] = "La edición de órdenes de compra todavía no está disponible.";
+                return RedirectToAction(nameof(Details), new { id });
             }
             catch (Exception ex)
             {
@@ -212,48 +210,10 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionActualizar)]
-        public async Task<IActionResult> Edit(int id, OrdenCompraViewModel viewModel)
+        public IActionResult Edit(int id, OrdenCompraViewModel viewModel)
         {
-            if (id != viewModel.Id)
-            {
-                return NotFound();
-            }
-
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    await CargarDatosSelectListsAsync(viewModel.ProveedorId);
-                    return View(viewModel);
-                }
-
-                // Validar que tenga al menos un detalle
-                if (viewModel.Detalles == null || !viewModel.Detalles.Any())
-                {
-                    ModelState.AddModelError("", "Debe agregar al menos un producto a la orden");
-                    await CargarDatosSelectListsAsync(viewModel.ProveedorId);
-                    return View(viewModel);
-                }
-
-                var orden = _mapper.Map<OrdenCompra>(viewModel);
-                await _ordenCompraService.UpdateAsync(orden);
-
-                TempData["Success"] = "Orden de compra actualizada exitosamente";
-                return RedirectToAction(nameof(Details), new { id = orden.Id });
-            }
-            catch (InvalidOperationException ex)
-            {
-                ModelState.AddModelError("", ex.Message);
-                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
-                return View(viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar la orden de compra {Id}", id);
-                ModelState.AddModelError("", "Error al actualizar la orden de compra");
-                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
-                return View(viewModel);
-            }
+            TempData["Error"] = "La edición de órdenes de compra todavía no está disponible.";
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         // GET: OrdenCompra/Delete/5
@@ -269,8 +229,14 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
+                if (orden.Estado == EstadoOrdenCompra.Recibida || orden.Estado == EstadoOrdenCompra.EnTransito)
+                {
+                    TempData["Error"] = "No se puede eliminar una orden en tránsito o recibida";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
                 var viewModel = _mapper.Map<OrdenCompraViewModel>(orden);
-                return View(viewModel);
+                return View("Delete_tw", viewModel);
             }
             catch (Exception ex)
             {

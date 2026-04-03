@@ -34,6 +34,23 @@ TheBury.autoDismissToasts = function (delay) {
 };
 
 /**
+ * Shared confirmation wrapper. Prefer this over calling the modal function directly.
+ * Falls back to native confirm only if the shared modal is unavailable.
+ */
+TheBury.confirmAction = function (message, onConfirm) {
+    if (typeof window.openConfirmModal === 'function') {
+        window.openConfirmModal(message, onConfirm);
+        return;
+    }
+
+    if (window.confirm(message || '¿Estás seguro de que deseas continuar?')) {
+        if (typeof onConfirm === 'function') {
+            onConfirm();
+        }
+    }
+};
+
+/**
  * Normalize a string for accent-insensitive search (NFD + lowercase).
  */
 TheBury.normalizeText = function (value) {

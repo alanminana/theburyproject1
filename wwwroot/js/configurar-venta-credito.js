@@ -10,6 +10,8 @@
 (function () {
     'use strict';
 
+    const creditoModule = window.TheBury && window.TheBury.CreditoModule;
+
     // ── DOM ────────────────────────────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
 
@@ -31,6 +33,10 @@
     const metodoInfoTexto  = $('#metodo-info-texto');
     const cuotasRangoInfo  = $('#cuotas-rango-info');
     const badgeTasaFuente  = $('#badge-tasa-fuente');
+    const heroMontoFin     = $('#hero-monto-financiado');
+    const heroCuotas       = $('#hero-cuotas');
+    const heroMetodo       = $('#hero-metodo');
+    const btnCancelar      = $('#btn-cancelar-credito');
 
     // Plan summary
     const planCuotasLabel  = $('#plan-cuotas-label');
@@ -54,10 +60,9 @@
     const semaforoAlertas  = $('#semaforo-alertas');
 
     // ── Config from server ─────────────────────────────────────────────
-    let clienteConfig = {};
-    try {
-        clienteConfig = JSON.parse($('#cliente-config-data')?.textContent || '{}');
-    } catch { /* fallback empty */ }
+    let clienteConfig = creditoModule && typeof creditoModule.parseJsonScript === 'function'
+        ? creditoModule.parseJsonScript('[data-credito-json="cliente-config"]', {})
+        : {};
 
     const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
 
@@ -86,6 +91,7 @@
 
         if (hdnMontoFin) hdnMontoFin.value = financiado.toFixed(2);
         if (txtMontoFin) txtMontoFin.textContent = formatCurrency(financiado);
+        if (heroMontoFin) heroMontoFin.textContent = formatCurrency(financiado);
 
         programarSimulacion();
     }
@@ -151,6 +157,7 @@
 
         // Badge
         actualizarBadgeTasa(val);
+        actualizarHeroMetodo(val);
 
         programarSimulacion();
     }
@@ -216,6 +223,20 @@
         show(badgeTasaFuente);
     }
 
+    function actualizarHeroMetodo(metodo) {
+        if (!heroMetodo) return;
+
+        const labels = {
+            [METODO.AutomaticoPorCliente]: 'Automático',
+            [METODO.UsarPerfil]: 'Perfil',
+            [METODO.UsarCliente]: 'Cliente',
+            [METODO.Global]: 'Global',
+            [METODO.Manual]: 'Manual'
+        };
+
+        heroMetodo.textContent = labels[metodo] || '—';
+    }
+
     function actualizarRangoCuotas(min, max) {
         txtCuotas.min = min;
         txtCuotas.max = max;
@@ -225,6 +246,7 @@
         const current = parseInt(txtCuotas.value) || 0;
         if (current < min) txtCuotas.value = min;
         if (current > max) txtCuotas.value = max;
+        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
     }
 
     selectMetodo?.addEventListener('change', onMetodoChange);
@@ -397,18 +419,31 @@
 
     // ── 6. Event Listeners ────────────────────────────────────────────
     txtCuotas?.addEventListener('input', programarSimulacion);
+    txtCuotas?.addEventListener('input', function () {
+        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
+    });
     txtTasa?.addEventListener('input', programarSimulacion);
     txtGastos?.addEventListener('input', programarSimulacion);
     txtFecha?.addEventListener('change', programarSimulacion);
 
-    // Cancel button → go back
-    $('#btn-cancelar-credito')?.addEventListener('click', function () {
-        if (confirm('¿Desea cancelar la configuración del crédito?')) {
-            window.history.back();
-        }
-    });
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', function () {
+            const cancelUrl = btnCancelar.getAttribute('data-credito-cancel-url') || '/Credito';
+            const message = '¿Desea cancelar la configuración del crédito? Se perderán los cambios no guardados.';
 
-    TheBury.autoDismissToasts();
+            if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
+                window.TheBury.confirmAction(message, function () {
+                    window.location.href = cancelUrl;
+                });
+            } else {
+                window.location.href = cancelUrl;
+            }
+        });
+    }
+
+    if (creditoModule && typeof creditoModule.initSharedUi === 'function') {
+        creditoModule.initSharedUi();
+    }
 
     // ── Init ──────────────────────────────────────────────────────────
     // Set default date if empty
@@ -421,6 +456,9 @@
     // Si no hay cuotas definidas aún, usar 12 como valor inicial para mostrar la simulación
     if (txtCuotas && (parseInt(txtCuotas.value) || 0) <= 0) {
         txtCuotas.value = 12;
+    }
+    if (heroCuotas) {
+        heroCuotas.textContent = txtCuotas?.value || '0';
     }
 
     // Initial state

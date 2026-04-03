@@ -13,11 +13,6 @@ const ProveedorEditarModal = (() => {
     const errList = () => document.getElementById('edit-error-list');
     const loading = () => document.getElementById('edit-loading-overlay');
 
-    function getToken() {
-        const el = form().querySelector('input[name="__RequestVerificationToken"]');
-        return el ? el.value : '';
-    }
-
     function showErrors(errors) {
         const ul = errList();
         ul.innerHTML = '';
@@ -136,7 +131,7 @@ const ProveedorEditarModal = (() => {
 
             if (data.success) {
                 close();
-                window.location.reload();
+                location.reload();
             } else if (data.errors) {
                 showErrors(data.errors);
             }
@@ -144,19 +139,6 @@ const ProveedorEditarModal = (() => {
             showErrors({ '': ['Error de conexión. Intente nuevamente.'] });
         }
     }
-
-    /* Product search filter inside edit modal */
-    document.addEventListener('DOMContentLoaded', () => {
-        const searchInput = document.getElementById('edit-producto-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                const q = searchInput.value.toLowerCase().trim();
-                document.querySelectorAll('.edit-producto-item').forEach(label => {
-                    label.style.display = !q || label.dataset.nombre.includes(q) ? '' : 'none';
-                });
-            });
-        }
-    });
 
     /* ESC to close */
     document.addEventListener('keydown', e => {

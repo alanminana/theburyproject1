@@ -4,8 +4,14 @@
     ViewData["Title"] = "Gestión de Créditos";
     var filter = ViewBag.Filter as CreditoFilterViewModel ?? new CreditoFilterViewModel();
     var total = Model?.Count ?? 0;
+    var saldoPendienteTotal = Model?.Sum(c => c.SaldoPendiente) ?? 0m;
+    var creditosOperativos = Model?.Count(c => c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Generado) ?? 0;
+    var creditosPendientesGestion = Model?.Count(c =>
+        c.Estado == EstadoCredito.Solicitado ||
+        c.Estado == EstadoCredito.Aprobado ||
+        c.Estado == EstadoCredito.PendienteConfiguracion ||
+        c.Estado == EstadoCredito.Configurado) ?? 0;
 
-    // Calcular estadísticas rápidas de mora
     var creditosConMora = Model?.Where(c =>
         c.Cuotas != null && c.Cuotas.Any(cu => cu.EstaVencida)).ToList() ?? new List<CreditoViewModel>();
     var totalMoras = creditosConMora.Sum(c => c.Cuotas?.Count(cu => cu.EstaVencida) ?? 0);
@@ -41,339 +47,476 @@
     var creditosCriticos = resumenMoras.Count(item => item.EsCritica);
 }
 
-<!-- Header -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-    <div>
-        <h2 class="text-3xl font-black tracking-tight">Gestión de Créditos</h2>
-        <p class="text-slate-500 dark:text-slate-400 mt-1">Administración central de préstamos y cobranzas del sistema.</p>
-    </div>
-</div>
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
 
-<!-- Tabs -->
-<div class="mb-6 border-b border-slate-200 dark:border-slate-800">
-    <nav class="flex gap-8" id="credito-tabs">
-        <button type="button" data-tab="creditos"
-                class="pb-4 px-1 border-b-2 border-primary text-primary font-bold text-sm transition-colors">
-            Créditos
-        </button>
-        <button type="button" data-tab="moras"
-                class="pb-4 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium text-sm transition-colors">
-            Moras
-            @if (totalMoras > 0)
-            {
-                <span class="ml-2 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs">@totalMoras</span>
-            }
-        </button>
-    </nav>
-</div>
+<div class="space-y-6">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-3">
+                <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="material-symbols-outlined text-sm">credit_score</span>
+                    Credito
+                </span>
+                <div class="space-y-2">
+                    <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Gestión de Créditos</h1>
+                    <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                        Centralizá cartera, cobranzas y seguimiento de mora desde una sola pantalla operativa, manteniendo contexto de cuotas y saldo pendiente.
+                    </p>
+                </div>
+            </div>
 
-<!-- Tab: Créditos -->
-<div id="tab-creditos">
-    <!-- Filters -->
-    <form id="filterForm" method="get" asp-action="Index"
-          class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 mb-6 shadow-sm">
-        <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div class="md:col-span-2 relative">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-                <input name="Cliente" value="@filter.Cliente" type="text"
-                       class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white placeholder:text-slate-500"
-                       placeholder="Buscar por cliente, DNI o número de crédito..." />
-            </div>
-            <div>
-                <select name="Estado"
-                        class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white">
-                    <option value="">Todos los estados</option>
-                    @foreach (var estado in Enum.GetValues<EstadoCredito>())
-                    {
-                        <option value="@((int)estado)" selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">@estado</option>
-                    }
-                </select>
-            </div>
-            <div>
-                <input name="FechaDesde" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")" type="date"
-                       class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white"
-                       placeholder="Desde" />
-            </div>
-            <div>
-                <input name="FechaHasta" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")" type="date"
-                       class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-all text-slate-900 dark:text-white"
-                       placeholder="Hasta" />
-            </div>
-            <div class="flex gap-2">
-                <button type="button" id="btnLimpiar"
-                        class="flex-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
-                    Limpiar
+            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+                <button type="button"
+                        data-credito-tab-trigger="creditos"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5">
+                    <span class="material-symbols-outlined text-[20px]">credit_card</span>
+                    <span>Ver cartera</span>
                 </button>
-                <button type="submit"
-                        class="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
-                    <span class="material-symbols-outlined">filter_list</span>
+                <button type="button"
+                        data-credito-tab-trigger="moras"
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
+                    <span class="material-symbols-outlined text-[20px]">warning</span>
+                    <span>Gestionar moras</span>
                 </button>
             </div>
+        </header>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Créditos</p>
+                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@total</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">registros en cartera</p>
+            </article>
+            <article class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 dark:border-sky-900/50 dark:bg-sky-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-400">Operativos</p>
+                <p class="mt-2 text-2xl font-black text-sky-700 dark:text-sky-300">@creditosOperativos</p>
+                <p class="mt-1 text-xs text-sky-700/80 dark:text-sky-400/80">activos o generados</p>
+            </article>
+            <article class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Saldo pendiente</p>
+                <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">$ @saldoPendienteTotal.ToString("N0")</p>
+                <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">capital por cobrar</p>
+            </article>
+            <article class="rounded-xl border border-red-200 bg-red-50 px-4 py-4 dark:border-red-900/50 dark:bg-red-950/20">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-red-700 dark:text-red-400">Mora activa</p>
+                <p class="mt-2 text-2xl font-black text-red-700 dark:text-red-300">@totalMoras</p>
+                <p class="mt-1 text-xs text-red-700/80 dark:text-red-400/80">@creditosCriticos crítico(s)</p>
+            </article>
         </div>
-    </form>
+    </section>
 
     @if (TempData["Success"] != null)
     {
-        <div class="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-semibold flex items-center gap-2">
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400" role="status">
             <span class="material-symbols-outlined text-lg">check_circle</span>
             @TempData["Success"]
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold flex items-center gap-2">
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-500" role="alert">
             <span class="material-symbols-outlined text-lg">error</span>
             @TempData["Error"]
         </div>
     }
 
-    <!-- Data Table -->
-    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[900px]">
-                <thead>
-                    <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cliente</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monto Total</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Saldo Pendiente</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cuotas</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">Estado</th>
-                        <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                    @if (Model != null && Model.Any())
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-white">Seguimiento operativo</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Alterná entre la cartera completa y la cola de mora sin salir del índice.</p>
+            </div>
+            <nav class="grid w-full grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70 lg:w-auto" id="credito-tabs" aria-label="Secciones de créditos">
+                <button type="button"
+                        data-credito-tab="creditos"
+                        aria-pressed="true"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors dark:bg-slate-900 dark:text-white">
+                    <span class="material-symbols-outlined text-lg">credit_card</span>
+                    <span>Cartera</span>
+                </button>
+                <button type="button"
+                        data-credito-tab="moras"
+                        aria-pressed="false"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                    <span class="material-symbols-outlined text-lg">warning</span>
+                    <span>Moras</span>
+                    @if (totalMoras > 0)
                     {
-                        @foreach (var cr in Model)
+                        <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">@totalMoras</span>
+                    }
+                </button>
+            </nav>
+        </div>
+    </section>
+
+    <div id="tab-creditos" class="space-y-6">
+        <form id="filterForm" data-credito-filter-form method="get" asp-action="Index"
+              class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-6">
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Filtros y contexto</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Buscá por cliente, estado o ventana temporal para ubicar el crédito correcto más rápido.</p>
+                </div>
+                <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <span class="material-symbols-outlined text-sm">manage_search</span>
+                    @creditosPendientesGestion pendiente(s) de gestión
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
+                <div class="relative xl:col-span-4">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
+                    <input name="Cliente" value="@filter.Cliente" type="text"
+                           class="w-full rounded-lg border-none bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white placeholder:text-slate-500"
+                           placeholder="Buscar por cliente, DNI o número de crédito..." />
+                </div>
+                <div class="xl:col-span-2">
+                    <select name="Estado"
+                            class="w-full rounded-lg border-none bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white">
+                        <option value="">Todos los estados</option>
+                        @foreach (var estado in Enum.GetValues<EstadoCredito>())
                         {
-                            var clienteNombre = cr.ClienteNombre ?? "—";
-                            var initials = "??";
-                            var parts = clienteNombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                            if (parts.Length >= 2)
-                                initials = $"{parts[0][0]}{parts[1][0]}".ToUpper();
-                            else if (parts.Length == 1)
-                                initials = parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
-
-                            var cuotasPagadas = cr.Cuotas?.Count(c => c.Estado == EstadoCuota.Pagada) ?? 0;
-                            var cuotasTotal = cr.CantidadCuotas;
-
-                            // Estado badge
-                            string badgeColor, badgeText;
-                            switch (cr.Estado)
-                            {
-                                case EstadoCredito.Activo:
-                                case EstadoCredito.Generado:
-                                    badgeColor = "green"; badgeText = "Al día";
-                                    // Si tiene cuotas vencidas, mostrar en mora
-                                    if (cr.Cuotas?.Any(c => c.EstaVencida) == true)
-                                    {
-                                        badgeColor = "red"; badgeText = "En mora";
-                                    }
-                                    break;
-                                case EstadoCredito.Solicitado:
-                                case EstadoCredito.PendienteConfiguracion:
-                                    badgeColor = "orange"; badgeText = "Pendiente"; break;
-                                case EstadoCredito.Aprobado:
-                                case EstadoCredito.Configurado:
-                                    badgeColor = "blue"; badgeText = "Aprobado"; break;
-                                case EstadoCredito.Finalizado:
-                                    badgeColor = "slate"; badgeText = "Finalizado"; break;
-                                case EstadoCredito.Rechazado:
-                                    badgeColor = "red"; badgeText = "Rechazado"; break;
-                                case EstadoCredito.Cancelado:
-                                    badgeColor = "slate"; badgeText = "Cancelado"; break;
-                                default:
-                                    badgeColor = "slate"; badgeText = cr.Estado.ToString(); break;
-                            }
-                        <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td class="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">@(cr.Numero ?? $"CR-{cr.Id:D3}")</td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-primary">@initials</div>
-                                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cr.Cliente.Id"
-                                       class="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-primary no-underline transition-colors">@clienteNombre</a>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">$ @cr.TotalAPagar.ToString("N0")</td>
-                            <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">$ @cr.SaldoPendiente.ToString("N0")</td>
-                            <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">@cuotasPagadas / @cuotasTotal</td>
-                            <td class="px-6 py-4">
-                                <div class="flex justify-center">
-                                    <span class="px-3 py-1 rounded-full bg-@(badgeColor)-500/10 text-@(badgeColor)-600 dark:text-@(badgeColor)-400 text-[10px] font-bold uppercase tracking-wide">@badgeText</span>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex justify-end gap-2">
-                                    @if (cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado)
-                                    {
-                                        <a asp-action="PagarCuota" asp-route-id="@cr.Id"
-                                           class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline" title="Registrar Pago">
-                                            <span class="material-symbols-outlined text-lg">payments</span>
-                                        </a>
-                                    }
-                                    <a asp-action="Details" asp-route-id="@cr.Id"
-                                       class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline" title="Ver Detalle">
-                                        <span class="material-symbols-outlined text-lg">visibility</span>
-                                    </a>
-                                    <a asp-action="Edit" asp-route-id="@cr.Id"
-                                       class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline" title="Editar">
-                                        <span class="material-symbols-outlined text-lg">edit</span>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
+                            <option value="@((int)estado)" selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">@estado</option>
                         }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-slate-400">
-                                <span class="material-symbols-outlined text-4xl mb-2 block">credit_card_off</span>
-                                <p class="text-sm font-medium">No se encontraron créditos</p>
-                                <p class="text-xs mt-1">Ajustá los filtros o creá un nuevo crédito desde un cliente.</p>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                    </select>
+                </div>
+                <div class="xl:col-span-2">
+                    <input name="FechaDesde" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")" type="date"
+                           class="w-full rounded-lg border-none bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white"
+                           placeholder="Desde" />
+                </div>
+                <div class="xl:col-span-2">
+                    <input name="FechaHasta" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")" type="date"
+                           class="w-full rounded-lg border-none bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white"
+                           placeholder="Hasta" />
+                </div>
+                <div class="grid grid-cols-2 gap-2 xl:col-span-2 xl:flex xl:justify-end">
+                    <button type="button"
+                            id="btnLimpiar"
+                            data-credito-clear-filters
+                            class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-300 text-slate-500 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                        Limpiar
+                    </button>
+                    <button type="submit"
+                            class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition-colors hover:bg-primary/90">
+                        <span class="material-symbols-outlined text-lg">filter_list</span>
+                        <span>Filtrar</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div data-oc-scroll style="--oc-scroll-min-width: 67rem;" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <div class="border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 dark:text-white">Cartera de créditos</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Seguimiento operativo de saldos, cuotas y estados del crédito.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="material-symbols-outlined text-sm">account_balance_wallet</span>
+                        @total crédito@(total == 1 ? "" : "s")
+                    </span>
+                </div>
+                <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                    Deslizá la tabla para ver saldos, estado y acciones completas.
+                </p>
+            </div>
+
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de créditos">
+                    <table data-oc-scroll-table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50">
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">ID</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cliente</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monto Total</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo Pendiente</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cuotas</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            @if (Model != null && Model.Any())
+                            {
+                                @foreach (var cr in Model)
+                                {
+                                    var clienteNombre = cr.ClienteNombre ?? "—";
+                                    var initials = "??";
+                                    var parts = clienteNombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                    if (parts.Length >= 2)
+                                    {
+                                        initials = $"{parts[0][0]}{parts[1][0]}".ToUpper();
+                                    }
+                                    else if (parts.Length == 1)
+                                    {
+                                        initials = parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
+                                    }
+
+                                    var cuotasPagadas = cr.Cuotas?.Count(c => c.Estado == EstadoCuota.Pagada) ?? 0;
+                                    var cuotasTotal = cr.CantidadCuotas;
+
+                                    string badgeColor;
+                                    string badgeText;
+                                    switch (cr.Estado)
+                                    {
+                                        case EstadoCredito.Activo:
+                                        case EstadoCredito.Generado:
+                                            badgeColor = "green";
+                                            badgeText = "Al día";
+                                            if (cr.Cuotas?.Any(c => c.EstaVencida) == true)
+                                            {
+                                                badgeColor = "red";
+                                                badgeText = "En mora";
+                                            }
+                                            break;
+                                        case EstadoCredito.Solicitado:
+                                        case EstadoCredito.PendienteConfiguracion:
+                                            badgeColor = "orange";
+                                            badgeText = "Pendiente";
+                                            break;
+                                        case EstadoCredito.Aprobado:
+                                        case EstadoCredito.Configurado:
+                                            badgeColor = "blue";
+                                            badgeText = "Aprobado";
+                                            break;
+                                        case EstadoCredito.Finalizado:
+                                            badgeColor = "slate";
+                                            badgeText = "Finalizado";
+                                            break;
+                                        case EstadoCredito.Rechazado:
+                                            badgeColor = "red";
+                                            badgeText = "Rechazado";
+                                            break;
+                                        case EstadoCredito.Cancelado:
+                                            badgeColor = "slate";
+                                            badgeText = "Cancelado";
+                                            break;
+                                        default:
+                                            badgeColor = "slate";
+                                            badgeText = cr.Estado.ToString();
+                                            break;
+                                    }
+
+                                    <tr class="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">@(cr.Numero ?? $"CR-{cr.Id:D3}")</td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="flex size-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-primary dark:bg-slate-800">@initials</div>
+                                                <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cr.Cliente.Id"
+                                                   class="text-sm font-semibold text-slate-900 transition-colors hover:text-primary no-underline dark:text-slate-100">
+                                                    @clienteNombre
+                                                </a>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">$ @cr.TotalAPagar.ToString("N0")</td>
+                                        <td class="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">$ @cr.SaldoPendiente.ToString("N0")</td>
+                                        <td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">@cuotasPagadas / @cuotasTotal</td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex justify-center">
+                                                <span class="rounded-full bg-@(badgeColor)-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-@(badgeColor)-600 dark:text-@(badgeColor)-400">@badgeText</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex justify-end gap-2">
+                                                @if (cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado)
+                                                {
+                                                    <a asp-action="PagarCuota" asp-route-id="@cr.Id"
+                                                       class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:size-9 sm:justify-center sm:px-0 sm:py-0 no-underline"
+                                                       title="Registrar Pago">
+                                                        <span class="material-symbols-outlined text-lg">payments</span>
+                                                        <span class="text-xs font-semibold sm:hidden">Pagar</span>
+                                                    </a>
+                                                }
+                                                <a asp-action="Details" asp-route-id="@cr.Id"
+                                                   class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:size-9 sm:justify-center sm:px-0 sm:py-0 no-underline"
+                                                   title="Ver Detalle">
+                                                    <span class="material-symbols-outlined text-lg">visibility</span>
+                                                    <span class="text-xs font-semibold sm:hidden">Ver</span>
+                                                </a>
+                                                <a asp-action="Edit" asp-route-id="@cr.Id"
+                                                   class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:size-9 sm:justify-center sm:px-0 sm:py-0 no-underline"
+                                                   title="Editar">
+                                                    <span class="material-symbols-outlined text-lg">edit</span>
+                                                    <span class="text-xs font-semibold sm:hidden">Editar</span>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                                        <span class="material-symbols-outlined mb-2 block text-4xl">credit_card_off</span>
+                                        <p class="text-sm font-medium">No se encontraron créditos</p>
+                                        <p class="mt-1 text-xs">Ajustá los filtros o creá un nuevo crédito desde un cliente.</p>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2 border-t border-slate-100 p-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <p>Mostrando @total crédito@(total == 1 ? "" : "s") en la cartera filtrada.</p>
+                <p>La columna de acciones mantiene acceso directo a pago, detalle y edición.</p>
+            </div>
         </div>
-        <!-- Footer -->
-        <div class="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <p class="text-xs text-slate-500 dark:text-slate-400">Mostrando @total créditos</p>
-        </div>
+    </div>
+
+    <div id="tab-moras" class="hidden space-y-6">
+        @if (resumenMoras.Any())
+        {
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Créditos en Mora</p>
+                    <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">@resumenMoras.Count</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Lista completa visible en esta pestaña.</p>
+                </div>
+                <div class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm dark:border-red-500/20 dark:bg-red-500/5">
+                    <p class="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Casos Críticos</p>
+                    <p class="mt-2 text-3xl font-black text-red-600 dark:text-red-400">@creditosCriticos</p>
+                    <p class="mt-1 text-xs text-red-600/80 dark:text-red-400/80">Créditos con 10 o más días de atraso.</p>
+                </div>
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/5">
+                    <p class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Deuda Total en Mora</p>
+                    <p class="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">$ @moraTotalAcumulada.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-amber-600/80 dark:text-amber-400/80">@totalMoras cuota(s) vencida(s) acumuladas.</p>
+                </div>
+            </div>
+
+            <div data-oc-scroll style="--oc-scroll-min-width: 72rem;" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <div class="border-b border-slate-200 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/30">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-black text-slate-900 dark:text-white">Listado completo de moras</h3>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Se muestran todos los créditos con cuotas vencidas, sin recortes ni navegación adicional.</p>
+                        </div>
+                        <span class="inline-flex items-center gap-2 self-start rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                            <span class="material-symbols-outlined text-sm">schedule</span>
+                            @totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s")
+                        </span>
+                    </div>
+                    <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                        Deslizá la tabla para revisar atrasos, deuda y acciones.
+                    </p>
+                </div>
+
+                <div data-oc-scroll-shell>
+                    <div data-oc-scroll-fade="left" hidden></div>
+                    <div data-oc-scroll-fade="right" hidden></div>
+                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de créditos en mora">
+                        <table data-oc-scroll-table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50">
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cliente</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Crédito</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cuotas Vencidas</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Primera Mora</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Máx. Atraso</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monto Adeudado</th>
+                                    <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Prioridad</th>
+                                    <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach (var mora in resumenMoras)
+                                {
+                                    var credito = mora.Credito;
+                                    var primeraCuota = mora.PrimeraCuotaVencida!;
+                                    var cuotasVencidasTexto = mora.CuotasVencidas.Count == 1 ? "1 cuota" : $"{mora.CuotasVencidas.Count} cuotas";
+
+                                    <tr class="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <span class="text-sm font-semibold text-slate-900 dark:text-white">@credito.ClienteNombre</span>
+                                                <span class="text-xs text-slate-500 dark:text-slate-400">Saldo pendiente crédito: $ @credito.SaldoPendiente.ToString("N0")</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <span class="text-sm font-semibold text-slate-900 dark:text-white">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
+                                                <span class="text-xs text-slate-500 dark:text-slate-400">ID interno #@credito.Id</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <span class="text-sm font-semibold text-slate-900 dark:text-white">@cuotasVencidasTexto</span>
+                                                <span class="text-xs text-slate-500 dark:text-slate-400">Primera pendiente: cuota #@primeraCuota.NumeroCuota</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <span class="text-sm font-semibold text-slate-900 dark:text-white">@primeraCuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                                <span class="text-xs text-slate-500 dark:text-slate-400">@primeraCuota.DiasAtraso día(s) de atraso en esa cuota</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="text-sm font-black @(mora.EsCritica ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white")">
+                                                @mora.DiasMaximosAtraso días
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col">
+                                                <span class="text-sm font-black @(mora.EsCritica ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white")">
+                                                    $ @mora.MontoTotalMora.ToString("N2")
+                                                </span>
+                                                <span class="text-xs text-slate-500 dark:text-slate-400">Incluye capital, interés y punitorio vencido</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex justify-center">
+                                                <span class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide @(mora.EsCritica
+                                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400")">
+                                                    @(mora.EsCritica ? "Crítica" : "Seguimiento")
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex justify-end gap-2">
+                                                <a asp-action="PagarCuota" asp-route-id="@credito.Id"
+                                                   class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:size-9 sm:justify-center sm:px-0 sm:py-0 no-underline"
+                                                   title="Registrar pago">
+                                                    <span class="material-symbols-outlined text-lg">payments</span>
+                                                    <span class="text-xs font-semibold sm:hidden">Pagar</span>
+                                                </a>
+                                                <a asp-action="Details" asp-route-id="@credito.Id"
+                                                   class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-400 dark:hover:bg-slate-800 sm:size-9 sm:justify-center sm:px-0 sm:py-0 no-underline"
+                                                   title="Ver detalle del crédito">
+                                                    <span class="material-symbols-outlined text-lg">visibility</span>
+                                                    <span class="text-xs font-semibold sm:hidden">Ver</span>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
+                <span class="material-symbols-outlined mb-2 block text-4xl text-emerald-500">verified</span>
+                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">Sin moras detectadas</p>
+                <p class="mt-1 text-xs text-slate-400">Todos los créditos están al día.</p>
+            </div>
+        }
     </div>
 </div>
 
-<!-- Tab: Moras -->
-<div id="tab-moras" class="hidden">
-    @if (resumenMoras.Any())
-    {
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Créditos en Mora</p>
-                <p class="mt-2 text-3xl font-black text-slate-900 dark:text-white">@resumenMoras.Count</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Lista completa visible en esta pestaña.</p>
-            </div>
-            <div class="rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/5 p-5 shadow-sm">
-                <p class="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Casos Críticos</p>
-                <p class="mt-2 text-3xl font-black text-red-600 dark:text-red-400">@creditosCriticos</p>
-                <p class="mt-1 text-xs text-red-600/80 dark:text-red-400/80">Créditos con 10 o más días de atraso.</p>
-            </div>
-            <div class="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-5 shadow-sm">
-                <p class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Deuda Total en Mora</p>
-                <p class="mt-2 text-3xl font-black text-amber-600 dark:text-amber-400">$ @moraTotalAcumulada.ToString("N0")</p>
-                <p class="mt-1 text-xs text-amber-600/80 dark:text-amber-400/80">@totalMoras cuota(s) vencida(s) acumuladas.</p>
-            </div>
-        </div>
-
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/30">
-                <h3 class="text-sm font-black text-slate-900 dark:text-white">Listado completo de moras</h3>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Se muestran todos los créditos con cuotas vencidas, sin recortes ni navegación adicional.</p>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[980px] text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cliente</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Crédito</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cuotas Vencidas</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Primera Mora</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Máx. Atraso</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monto Adeudado</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Prioridad</th>
-                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                        @foreach (var mora in resumenMoras)
-                        {
-                            var credito = mora.Credito;
-                            var primeraCuota = mora.PrimeraCuotaVencida!;
-                            var cuotasVencidasTexto = mora.CuotasVencidas.Count == 1
-                                ? "1 cuota"
-                                : $"{mora.CuotasVencidas.Count} cuotas";
-
-                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@credito.ClienteNombre</span>
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">Saldo pendiente crédito: $ @credito.SaldoPendiente.ToString("N0")</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">ID interno #@credito.Id</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@cuotasVencidasTexto</span>
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">Primera pendiente: cuota #@primeraCuota.NumeroCuota</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@primeraCuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">@primeraCuota.DiasAtraso día(s) de atraso en esa cuota</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-sm font-black @(mora.EsCritica ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white")">
-                                        @mora.DiasMaximosAtraso días
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-black @(mora.EsCritica ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white")">
-                                            $ @mora.MontoTotalMora.ToString("N2")
-                                        </span>
-                                        <span class="text-xs text-slate-500 dark:text-slate-400">Incluye capital, interés y punitorio vencido</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex justify-center">
-                                        <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide @(mora.EsCritica
-                                            ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400")">
-                                            @(mora.EsCritica ? "Crítica" : "Seguimiento")
-                                        </span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <a asp-action="PagarCuota" asp-route-id="@credito.Id"
-                                           class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline"
-                                           title="Registrar pago">
-                                            <span class="material-symbols-outlined text-lg">payments</span>
-                                        </a>
-                                        <a asp-action="Details" asp-route-id="@credito.Id"
-                                           class="p-1.5 text-slate-400 hover:text-primary transition-colors no-underline"
-                                           title="Ver detalle del crédito">
-                                            <span class="material-symbols-outlined text-lg">visibility</span>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center">
-            <span class="material-symbols-outlined text-4xl text-emerald-500 mb-2 block">verified</span>
-            <p class="text-sm font-bold text-slate-700 dark:text-slate-300">Sin moras detectadas</p>
-            <p class="text-xs text-slate-400 mt-1">Todos los créditos están al día.</p>
-        </div>
-    }
-</div>
-
 @section Scripts {
-    <script src="~/js/credito-index.js"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/credito-module.js" asp-append-version="true"></script>
+    <script src="~/js/credito-index.js" asp-append-version="true"></script>
 }

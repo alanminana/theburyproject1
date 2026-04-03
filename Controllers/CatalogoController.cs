@@ -85,26 +85,10 @@ namespace TheBuryProject.Controllers
         /// Vista legacy de resumen (categorías y marcas)
         /// </summary>
         [Route("Catalogo/Resumen")]
-        public async Task<IActionResult> Resumen()
+        public IActionResult Resumen()
         {
-            try
-            {
-                var (categorias, marcas) = await _catalogLookupService.GetCategoriasYMarcasAsync();
-
-                var viewModel = new CatalogoViewModel
-                {
-                    Categorias = _mapper.Map<IEnumerable<CategoriaViewModel>>(categorias),
-                    Marcas = _mapper.Map<IEnumerable<MarcaViewModel>>(marcas)
-                };
-
-                return View("Resumen_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener resumen del catálogo");
-                TempData["Error"] = "Error al cargar el catálogo";
-                return View("Resumen_tw", new CatalogoViewModel());
-            }
+            TempData["Info"] = "El resumen legacy del catálogo ya no está disponible como pantalla separada.";
+            return RedirectToAction(nameof(Index));
         }
 
         #endregion
@@ -246,40 +230,16 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        [HttpGet]        public async Task<IActionResult> HistorialCambiosPrecio()
+        [HttpGet]        public IActionResult HistorialCambiosPrecio()
         {
-            try
-            {
-                var viewModel = await _catalogoService.GetHistorialCambiosPrecioAsync();
-                return View("HistorialCambiosPrecio_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar historial de cambios de precio");
-                TempData["Error"] = "Error al cargar el historial.";
-                return RedirectToAction(nameof(Index));
-            }
+            TempData["Info"] = "El historial legacy de cambios de precio ya no está disponible como pantalla separada.";
+            return RedirectToAction(nameof(Index));
         }
 
-        [HttpGet]        public async Task<IActionResult> DetalleCambioPrecio(int id)
+        [HttpGet]        public IActionResult DetalleCambioPrecio(int id)
         {
-            try
-            {
-                var viewModel = await _catalogoService.GetCambioPrecioDetalleAsync(id);
-                if (viewModel == null)
-                {
-                    TempData["Error"] = "Evento no encontrado.";
-                    return RedirectToAction(nameof(HistorialCambiosPrecio));
-                }
-
-                return View("DetalleCambioPrecio_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar detalle de cambio de precio {EventoId}", id);
-                TempData["Error"] = "Error al cargar el detalle.";
-                return RedirectToAction(nameof(HistorialCambiosPrecio));
-            }
+            TempData["Info"] = "El detalle legacy de cambios de precio ya no está disponible como pantalla separada.";
+            return RedirectToAction(nameof(Index));
         }
 
         [HttpPost("Catalogo/RevertirCambioPrecio/{eventoId:int}")]

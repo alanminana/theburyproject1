@@ -6,11 +6,59 @@
     'use strict';
 
     const container = document.getElementById('modalCajaContainer');
+    const feedbackSlot = document.getElementById('caja-index-feedback-slot');
     const lgMedia = window.matchMedia('(min-width: 1024px)');
+    const nativeSubmit = HTMLFormElement.prototype.submit;
 
     TheBury.autoDismissToasts();
+    initScrollAffordances();
 
     // ── Helpers ──
+    function initScrollAffordances() {
+        if (typeof TheBury.initHorizontalScrollAffordance !== 'function') {
+            return;
+        }
+
+        document.querySelectorAll('[data-oc-scroll]').forEach((root) => {
+            TheBury.initHorizontalScrollAffordance(root);
+        });
+    }
+
+    function showPageFeedback(message, type) {
+        if (!feedbackSlot || !message) return;
+
+        const variants = {
+            error: {
+                wrapper: 'bg-rose-500/10 border-rose-500/20 text-rose-500',
+                iconBg: 'bg-rose-500/20 text-rose-500',
+                title: 'Error',
+                icon: 'error'
+            },
+            warning: {
+                wrapper: 'bg-amber-500/10 border-amber-500/20 text-amber-500',
+                iconBg: 'bg-amber-500/20 text-amber-500',
+                title: 'Atención',
+                icon: 'warning'
+            }
+        };
+
+        const variant = variants[type] || variants.error;
+        const toast = document.createElement('div');
+        toast.className = `toast-msg flex items-center gap-4 border p-4 rounded-xl ${variant.wrapper}`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML =
+            `<div class="${variant.iconBg} p-2 rounded-lg">` +
+            `  <span class="material-symbols-outlined">${variant.icon}</span>` +
+            '</div>' +
+            '<div>' +
+            `  <p class="text-sm font-bold leading-tight">${variant.title}</p>` +
+            `  <p class="text-xs font-medium opacity-80">${escapeHtml(message)}</p>` +
+            '</div>';
+
+        feedbackSlot.replaceChildren(toast);
+        TheBury.autoDismissToasts();
+    }
+
     function showLoading() {
         if (!container) return;
         if (lgMedia.matches) {
@@ -28,6 +76,28 @@
                 '    <p class="text-sm text-slate-500">Cargando...</p>' +
                 '  </div></div>';
         }
+    }
+
+    function clearModalErrors() {
+        const errBox = container?.querySelector('#modal-caja-errors');
+        if (!errBox) return;
+        errBox.classList.add('hidden');
+        errBox.textContent = '';
+    }
+
+    function setModalErrors(messages) {
+        const errBox = container?.querySelector('#modal-caja-errors');
+        if (!errBox) return;
+
+        const safeMessages = (messages || []).filter(Boolean);
+        if (!safeMessages.length) {
+            errBox.classList.add('hidden');
+            errBox.textContent = '';
+            return;
+        }
+
+        errBox.innerHTML = safeMessages.map((message) => `<p>${escapeHtml(message)}</p>`).join('');
+        errBox.classList.remove('hidden');
     }
 
     function animateDrawerIn() {
@@ -58,6 +128,47 @@
         panel.addEventListener('transitionend', () => callback?.(), { once: true });
     }
 
+    function closeModal() {
+        if (!container) return;
+        animateDrawerOut(() => { container.innerHTML = ''; });
+    }
+
+    function handleModalFetchError(message, err) {
+        if (container) {
+            container.innerHTML = '';
+        }
+        if (err) {
+            console.error(message, err);
+        }
+        showPageFeedback('No se pudo cargar el formulario. Intente nuevamente.', 'error');
+    }
+
+    function loadModal(url) {
+        if (!container) return;
+
+        showLoading();
+        fetch(url, { credentials: 'same-origin' })
+            .then((res) => {
+                if (!res.ok) {
+                    throw new Error('HTTP ' + res.status);
+                }
+                return res.text();
+            })
+            .then((html) => {
+                container.innerHTML = html;
+                bindFormAndBackdrop();
+                container.querySelector('input[name="Codigo"]')?.focus();
+            })
+            .catch((err) => handleModalFetchError(`Modal load error: ${url}`, err));
+    }
+
+    function confirmDelete(form) {
+        const message = form.dataset.confirmMessage || '¿Estás seguro de que deseas continuar?';
+        TheBury.confirmAction(message, () => {
+            nativeSubmit.call(form);
+        });
+    }
+
     function bindFormAndBackdrop() {
         const form = container.querySelector('#formCaja');
         const backdrop = container.querySelector('#modal-caja-backdrop');
@@ -67,15 +178,14 @@
 
         // Cerrar al click en backdrop (mobile)
         if (backdrop) {
-            backdrop.addEventListener('click', () => cerrarModalCaja());
+            backdrop.addEventListener('click', () => closeModal());
         }
 
         // Interceptar submit
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errBox = container.querySelector('#modal-caja-errors');
             const btn = container.querySelector('#btnGuardarCaja');
-            if (errBox) { errBox.classList.add('hidden'); errBox.textContent = ''; }
+            clearModalErrors();
             if (btn) { btn.disabled = true; btn.classList.add('opacity-60'); }
 
             try {
@@ -94,19 +204,15 @@
                 const data = await res.json();
 
                 if (data.ok) {
-                    cerrarModalCaja();
+                    closeModal();
                     window.location.reload();
                 } else if (data.errors && data.errors.length) {
-                    if (errBox) {
-                        errBox.innerHTML = data.errors.map(e => '<p>' + escapeHtml(e) + '</p>').join('');
-                        errBox.classList.remove('hidden');
-                    }
+                    setModalErrors(data.errors);
+                } else {
+                    setModalErrors(['No se pudo completar la operación.']);
                 }
             } catch (err) {
-                if (errBox) {
-                    errBox.textContent = 'Error de conexión. Intente nuevamente.';
-                    errBox.classList.remove('hidden');
-                }
+                setModalErrors(['Error de conexión. Intente nuevamente.']);
             } finally {
                 if (btn) { btn.disabled = false; btn.classList.remove('opacity-60'); }
             }
@@ -119,55 +225,45 @@
         return div.innerHTML;
     }
 
-    // ── API pública ──
-    window.abrirModalCrearCaja = function () {
-        if (!container) return;
-        showLoading();
-        fetch('/Caja/CreatePartial', { credentials: 'same-origin' })
-            .then(res => {
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.text();
-            })
-            .then(html => {
-                container.innerHTML = html;
-                bindFormAndBackdrop();
-                container.querySelector('input[name="Codigo"]')?.focus();
-            })
-            .catch((err) => {
-                container.innerHTML = '';
-                console.error('CreatePartial error:', err);
-                alert('Error al cargar el formulario.');
-            });
-    };
+    document.addEventListener('click', (e) => {
+        const createTrigger = e.target.closest('[data-caja-open-create]');
+        if (createTrigger) {
+            e.preventDefault();
+            loadModal('/Caja/CreatePartial');
+            return;
+        }
 
-    window.abrirModalEditarCaja = function (id) {
-        if (!container) return;
-        showLoading();
-        fetch('/Caja/EditPartial/' + encodeURIComponent(id), { credentials: 'same-origin' })
-            .then(res => {
-                if (!res.ok) throw new Error('Not found');
-                return res.text();
-            })
-            .then(html => {
-                container.innerHTML = html;
-                bindFormAndBackdrop();
-                container.querySelector('input[name="Codigo"]')?.focus();
-            })
-            .catch(() => {
-                container.innerHTML = '';
-                alert('Error al cargar la caja.');
-            });
-    };
+        const editTrigger = e.target.closest('[data-caja-open-edit]');
+        if (editTrigger) {
+            e.preventDefault();
+            const id = editTrigger.dataset.cajaId;
+            if (!id) {
+                showPageFeedback('No se pudo identificar la caja seleccionada.', 'error');
+                return;
+            }
+            loadModal('/Caja/EditPartial/' + encodeURIComponent(id));
+            return;
+        }
 
-    window.cerrarModalCaja = function () {
-        if (!container) return;
-        animateDrawerOut(() => { container.innerHTML = ''; });
-    };
+        const closeTrigger = e.target.closest('[data-caja-close-modal]');
+        if (closeTrigger && container?.contains(closeTrigger)) {
+            e.preventDefault();
+            closeModal();
+        }
+    });
+
+    document.addEventListener('submit', (e) => {
+        const deleteForm = e.target.closest('form[data-caja-delete-form]');
+        if (!deleteForm) return;
+
+        e.preventDefault();
+        confirmDelete(deleteForm);
+    });
 
     // Cerrar con Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && container?.querySelector('#modal-caja')) {
-            cerrarModalCaja();
+            closeModal();
         }
     });
 })();

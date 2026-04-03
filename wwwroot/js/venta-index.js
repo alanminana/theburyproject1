@@ -5,11 +5,15 @@
 (() => {
     'use strict';
 
-    TheBury.autoDismissToasts();
+    const theBury = window.TheBury || {};
+    const ventaModule = window.VentaModule || {};
+    let scrollAffordances = [];
 
-    // ═══════════════════════════════════════
-    //  Modal: Recargos y Descuentos
-    // ═══════════════════════════════════════
+    if (typeof ventaModule.initSharedUi === 'function') {
+        ventaModule.initSharedUi();
+    } else if (typeof theBury.autoDismissToasts === 'function') {
+        theBury.autoDismissToasts();
+    }
 
     const TIPO_PAGO = {
         0: 'Efectivo',
@@ -35,35 +39,73 @@
         8: 'credit_card'
     };
 
-    const modal = document.getElementById('modal-recargo');
-    const overlay = document.getElementById('modal-recargo-overlay');
-    const btnOpen = document.getElementById('btn-configurar-recargo');
-    const btnClose = document.getElementById('btn-cerrar-modal-recargo');
-    const btnCancel = document.getElementById('btn-cancelar-recargos');
     const btnSave = document.getElementById('btn-guardar-recargos');
     const loadingEl = document.getElementById('recargo-loading');
     const errorEl = document.getElementById('recargo-error');
     const listaEl = document.getElementById('recargo-lista');
 
-    if (!modal || !btnOpen) return;
-
     let configuraciones = [];
 
-    function openModal() {
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        cargarConfiguraciones();
+    function initScrollAffordances(scope) {
+        const roots = (scope || document).querySelectorAll('[data-oc-scroll]');
+
+        roots.forEach(function (root) {
+            if (root.dataset.ventaScrollBound === 'true') {
+                return;
+            }
+
+            const instance = typeof ventaModule.initScrollAffordance === 'function'
+                ? ventaModule.initScrollAffordance(root)
+                : null;
+
+            root.dataset.ventaScrollBound = 'true';
+
+            if (instance) {
+                scrollAffordances.push({ root, instance });
+            }
+        });
+
+        refreshScrollAffordances();
     }
 
-    function closeModal() {
-        modal.classList.add('hidden');
-        document.body.style.overflow = '';
+    function refreshScrollAffordances() {
+        scrollAffordances = scrollAffordances.filter(function (entry) {
+            if (!entry.root || !entry.root.isConnected) {
+                return false;
+            }
+
+            if (typeof ventaModule.refreshScrollAffordance === 'function') {
+                ventaModule.refreshScrollAffordance(entry.instance);
+            } else if (entry.instance && typeof entry.instance.update === 'function') {
+                entry.instance.update();
+            }
+
+            return true;
+        });
     }
 
-    btnOpen.addEventListener('click', openModal);
-    btnClose.addEventListener('click', closeModal);
-    btnCancel.addEventListener('click', closeModal);
-    overlay.addEventListener('click', closeModal);
+    function queueScrollRefresh() {
+        window.requestAnimationFrame(function () {
+            refreshScrollAffordances();
+        });
+    }
+
+    initScrollAffordances(document);
+
+    if (!loadingEl || !errorEl || !listaEl || !btnSave) {
+        return;
+    }
+
+    const modalController = typeof ventaModule.bindModal === 'function'
+        ? ventaModule.bindModal('configuracion-pagos', {
+            beforeOpen: function () {
+                cargarConfiguraciones();
+            },
+            afterOpen: function () {
+                queueScrollRefresh();
+            }
+        })
+        : null;
 
     async function cargarConfiguraciones() {
         loadingEl.classList.remove('hidden');
@@ -155,7 +197,7 @@
                                                 class="rounded border-slate-300 text-primary focus:ring-primary input-tarjeta" />
                                          <input type="number" step="0.01" min="0" max="100" value="${t.porcentajeRecargoDebito || 0}"
                                                 data-cfg="${idx}" data-tarjeta="${ti}" data-field="porcentajeRecargoDebito"
-                                                class="w-14 text-center text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5 input-tarjeta ${t.tieneRecargoDebito ? '' : 'opacity-50'}" 
+                                                class="w-14 text-center text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5 input-tarjeta ${t.tieneRecargoDebito ? '' : 'opacity-50'}"
                                                 ${t.tieneRecargoDebito ? '' : 'disabled'} />
                                          <span class="text-slate-400">%</span>
                                        </div>`
@@ -169,31 +211,38 @@
                         <div class="px-4 py-2 bg-slate-100 dark:bg-slate-800">
                             <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Tarjetas configuradas</p>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-xs">
-                                <thead>
-                                    <tr class="bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500 uppercase">
-                                        <th class="px-3 py-2 text-left">Tarjeta</th>
-                                        <th class="px-3 py-2 text-center">Tipo</th>
-                                        <th class="px-3 py-2 text-center">Cuotas</th>
-                                        <th class="px-3 py-2 text-center">Interés</th>
-                                        <th class="px-3 py-2 text-center">Recargo / Tasa</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${rows}</tbody>
-                            </table>
+                        <div data-oc-scroll style="--oc-scroll-min-width: 42rem;">
+                            <p data-oc-scroll-hint hidden class="px-4 pt-3 text-[11px] font-medium text-slate-500 dark:text-slate-400 lg:hidden">
+                                Deslizá para revisar cuotas, intereses y recargos por tarjeta.
+                            </p>
+                            <div data-oc-scroll-shell>
+                                <div data-oc-scroll-fade="left" hidden></div>
+                                <div data-oc-scroll-fade="right" hidden></div>
+                                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Configuración de tarjetas por tipo de pago">
+                                    <table data-oc-scroll-table class="w-full text-xs">
+                                        <thead>
+                                            <tr class="bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500 uppercase">
+                                                <th class="px-3 py-2 text-left">Tarjeta</th>
+                                                <th class="px-3 py-2 text-center">Tipo</th>
+                                                <th class="px-3 py-2 text-center">Cuotas</th>
+                                                <th class="px-3 py-2 text-center">Interés</th>
+                                                <th class="px-3 py-2 text-center">Recargo / Tasa</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${rows}</tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>`;
             }
 
             card.innerHTML = `
                 <div class="flex items-center gap-4 p-4">
-                    <!-- Icon -->
                     <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                         <span class="material-symbols-outlined text-primary text-lg">${icon}</span>
                     </div>
 
-                    <!-- Name + Status -->
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
                             <p class="text-sm font-bold text-slate-900 dark:text-white truncate">${esc(nombre)}</p>
@@ -204,7 +253,6 @@
                         ${cfg.descripcion ? `<p class="text-[11px] text-slate-400 truncate">${esc(cfg.descripcion)}</p>` : ''}
                     </div>
 
-                    <!-- Recargo -->
                     <div class="flex flex-col items-center gap-1 px-3">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" data-idx="${idx}" data-field="tieneRecargo" ${cfg.tieneRecargo ? 'checked' : ''}
@@ -221,7 +269,6 @@
                         </div>
                     </div>
 
-                    <!-- Descuento -->
                     <div class="flex flex-col items-center gap-1 px-3">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" data-idx="${idx}" data-field="permiteDescuento" ${cfg.permiteDescuento ? 'checked' : ''}
@@ -246,53 +293,58 @@
 
         listaEl.classList.remove('hidden');
         bindInputEvents();
+        initScrollAffordances(listaEl);
+        queueScrollRefresh();
     }
 
     function bindInputEvents() {
-        // Recargo checkbox toggle
-        listaEl.querySelectorAll('.chk-recargo').forEach(chk => {
+        listaEl.querySelectorAll('.chk-recargo').forEach(function (chk) {
             chk.addEventListener('change', function () {
                 const idx = +this.dataset.idx;
                 configuraciones[idx].tieneRecargo = this.checked;
-                const input = listaEl.querySelector(`input[data-idx="${idx}"][data-field="porcentajeRecargo"]`);
+                const input = listaEl.querySelector('input[data-idx="' + idx + '"][data-field="porcentajeRecargo"]');
                 if (input) {
                     input.disabled = !this.checked;
                     input.classList.toggle('opacity-50', !this.checked);
-                    if (!this.checked) { input.value = '0'; configuraciones[idx].porcentajeRecargo = 0; }
+                    if (!this.checked) {
+                        input.value = '0';
+                        configuraciones[idx].porcentajeRecargo = 0;
+                    }
                 }
             });
         });
 
-        // Descuento checkbox toggle
-        listaEl.querySelectorAll('.chk-descuento').forEach(chk => {
+        listaEl.querySelectorAll('.chk-descuento').forEach(function (chk) {
             chk.addEventListener('change', function () {
                 const idx = +this.dataset.idx;
                 configuraciones[idx].permiteDescuento = this.checked;
-                const input = listaEl.querySelector(`input[data-idx="${idx}"][data-field="porcentajeDescuentoMaximo"]`);
+                const input = listaEl.querySelector('input[data-idx="' + idx + '"][data-field="porcentajeDescuentoMaximo"]');
                 if (input) {
                     input.disabled = !this.checked;
                     input.classList.toggle('opacity-50', !this.checked);
-                    if (!this.checked) { input.value = '0'; configuraciones[idx].porcentajeDescuentoMaximo = 0; }
+                    if (!this.checked) {
+                        input.value = '0';
+                        configuraciones[idx].porcentajeDescuentoMaximo = 0;
+                    }
                 }
             });
         });
 
-        // Numeric inputs for recargo/descuento
-        listaEl.querySelectorAll('.input-recargo').forEach(inp => {
+        listaEl.querySelectorAll('.input-recargo').forEach(function (inp) {
             inp.addEventListener('change', function () {
                 const idx = +this.dataset.idx;
                 configuraciones[idx].porcentajeRecargo = parseFloat(this.value) || 0;
             });
         });
-        listaEl.querySelectorAll('.input-descuento').forEach(inp => {
+
+        listaEl.querySelectorAll('.input-descuento').forEach(function (inp) {
             inp.addEventListener('change', function () {
                 const idx = +this.dataset.idx;
                 configuraciones[idx].porcentajeDescuentoMaximo = parseFloat(this.value) || 0;
             });
         });
 
-        // Tarjeta inputs
-        listaEl.querySelectorAll('.input-tarjeta').forEach(inp => {
+        listaEl.querySelectorAll('.input-tarjeta').forEach(function (inp) {
             inp.addEventListener('change', function () {
                 const ci = +this.dataset.cfg;
                 const ti = +this.dataset.tarjeta;
@@ -302,17 +354,16 @@
 
                 if (field === 'tieneRecargoDebito') {
                     tarjeta.tieneRecargoDebito = this.checked;
-                    const pctInput = listaEl.querySelector(`input[data-cfg="${ci}"][data-tarjeta="${ti}"][data-field="porcentajeRecargoDebito"]`);
+                    const pctInput = listaEl.querySelector('input[data-cfg="' + ci + '"][data-tarjeta="' + ti + '"][data-field="porcentajeRecargoDebito"]');
                     if (pctInput) {
                         pctInput.disabled = !this.checked;
                         pctInput.classList.toggle('opacity-50', !this.checked);
                     }
                 } else if (field === 'tipoCuota') {
-                    tarjeta.tipoCuota = parseInt(this.value);
-                    // Re-render to show/hide tasa input
+                    tarjeta.tipoCuota = parseInt(this.value, 10);
                     renderConfiguraciones();
                 } else if (field === 'cantidadMaximaCuotas') {
-                    tarjeta.cantidadMaximaCuotas = parseInt(this.value) || 1;
+                    tarjeta.cantidadMaximaCuotas = parseInt(this.value, 10) || 1;
                 } else if (field === 'tasaInteresesMensual') {
                     tarjeta.tasaInteresesMensual = parseFloat(this.value) || 0;
                 } else if (field === 'porcentajeRecargoDebito') {
@@ -322,8 +373,7 @@
         });
     }
 
-    // ── Save ──
-    btnSave.addEventListener('click', async () => {
+    btnSave.addEventListener('click', async function () {
         btnSave.disabled = true;
         btnSave.innerHTML = '<div class="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Guardando…';
 
@@ -336,7 +386,7 @@
             const json = await resp.json();
             if (!json.success) throw new Error(json.message || 'Error al guardar');
 
-            closeModal();
+            modalController?.close();
             showToast('success', json.message || 'Configuraciones guardadas');
         } catch (err) {
             showToast('error', err.message);
@@ -346,7 +396,6 @@
         }
     });
 
-    // ── Helpers ──
     function esc(str) {
         const d = document.createElement('div');
         d.textContent = str || '';
@@ -357,14 +406,15 @@
         const colors = { success: 'bg-emerald-600', error: 'bg-red-600', warning: 'bg-amber-500' };
         const icons = { success: 'check_circle', error: 'error', warning: 'warning' };
         const toast = document.createElement('div');
-        toast.className = `fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-5 py-3 rounded-lg ${colors[type] || colors.success} text-white shadow-xl text-sm font-semibold`;
-        toast.innerHTML = `<span class="material-symbols-outlined text-lg">${icons[type] || 'info'}</span> ${esc(msg)}`;
+        toast.className = 'fixed bottom-6 right-6 z-[100] flex items-center gap-3 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-xl ' + (colors[type] || colors.success);
+        toast.innerHTML = '<span class="material-symbols-outlined text-lg">' + (icons[type] || 'info') + '</span> ' + esc(msg);
         document.body.appendChild(toast);
-        setTimeout(() => {
+        setTimeout(function () {
             toast.style.transition = 'opacity 0.5s';
             toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 500);
+            setTimeout(function () { toast.remove(); }, 500);
         }, 4000);
     }
 
+    queueScrollRefresh();
 })();
