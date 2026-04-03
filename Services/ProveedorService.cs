@@ -4,6 +4,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
 {
@@ -380,6 +381,28 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(pp => pp.Producto)
                 .Where(pp => pp.ProveedorId == proveedorId && !pp.IsDeleted)
+                .ToListAsync();
+        }
+
+        public async Task<List<ProductoProveedorDto>> GetProductosActivosProveedorAsync(int proveedorId)
+        {
+            return await _context.ProveedorProductos
+                .AsNoTracking()
+                .Include(pp => pp.Producto)
+                .Where(pp => pp.ProveedorId == proveedorId
+                          && !pp.IsDeleted
+                          && pp.Producto != null
+                          && !pp.Producto.IsDeleted)
+                .OrderBy(pp => pp.Producto!.Nombre)
+                .Select(pp => new ProductoProveedorDto
+                {
+                    Id     = pp.ProductoId,
+                    Codigo = pp.Producto!.Codigo,
+                    Nombre = pp.Producto.Nombre,
+                    Precio = pp.Producto.PrecioCompra,
+                    Stock  = pp.Producto.StockActual,
+                    Activo = pp.Producto.Activo
+                })
                 .ToListAsync();
         }
 

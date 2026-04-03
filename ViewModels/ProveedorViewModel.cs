@@ -91,4 +91,17 @@ namespace TheBuryProject.ViewModels
         public List<string> ProductosAsociados { get; set; } = new List<string>();
 
     }
+
+    /// <summary>
+    /// DTO para la API de productos de un proveedor (endpoint GetProductos).
+    /// </summary>
+    public class ProductoProveedorDto
+    {
+        public int Id { get; set; }
+        public string? Codigo { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal Precio { get; set; }
+        public decimal Stock { get; set; }
+        public bool Activo { get; set; }
+    }
 }

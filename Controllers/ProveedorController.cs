@@ -347,27 +347,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var productosProveedor = await _proveedorService.GetProductosProveedorAsync(id);
-
-                if (!productosProveedor.Any())
-                {
-                    return Json(new List<object>());
-                }
-
-                var productos = productosProveedor
-                    .Where(pp => pp.Producto != null && pp.Producto.IsDeleted == false)
-                    .Select(pp => new
-                    {
-                        id = pp.ProductoId,
-                        codigo = pp.Producto!.Codigo,
-                        nombre = pp.Producto.Nombre,
-                        precio = pp.Producto.PrecioCompra,
-                        stock = pp.Producto.StockActual,
-                        activo = pp.Producto.Activo
-                    })
-                    .OrderBy(p => p.nombre)
-                    .ToList();
-
+                var productos = await _proveedorService.GetProductosActivosProveedorAsync(id);
                 return Json(productos);
             }
             catch (Exception ex)
