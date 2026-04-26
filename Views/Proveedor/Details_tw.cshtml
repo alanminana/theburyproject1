@@ -12,68 +12,49 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-    <style>
-        .proveedor-details-hero-actions {
-            width: 100%;
-        }
-
-        .proveedor-details-hero-action {
-            width: 100%;
-        }
-
-        @@media (min-width: 640px) {
-            .proveedor-details-hero-actions {
-                width: auto;
-            }
-
-            .proveedor-details-hero-action {
-                width: auto;
-            }
-        }
-    </style>
+    <partial name="_ProveedorModuleStyles" />
 }
 
 <div data-proveedor-details data-proveedor-id="@Model.Id" class="space-y-8">
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+    <section class="hero-erp sm:p-8">
         <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
                     <ol class="inline-flex flex-wrap items-center gap-y-1">
                         <li><a asp-controller="Catalogo" asp-action="Index" class="hover:text-primary no-underline">Inventario</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
                         <li><a asp-controller="Proveedor" asp-action="Index" class="hover:text-primary no-underline">Proveedores</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-900 dark:text-slate-100">Detalle</li>
+                        <li class="text-slate-100">Detalle</li>
                     </ol>
                 </nav>
 
                 <div class="space-y-3">
-                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="badge-erp badge-erp-primary">
                         <span class="material-symbols-outlined text-sm">storefront</span>
                         Proveedor
                     </span>
                     <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">@Model.RazonSocial</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">@Model.RazonSocial</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
                             Revisá cobertura comercial, información de contacto, categorías activas y productos vinculados desde una sola vista operativa.
                         </p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">badge</span>
                             CUIT @cuitFormatted
                         </span>
                         @if (tieneContacto)
                         {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">
+                            <span class="inline-flex items-center gap-2 rounded-full border border-emerald-900/50 bg-emerald-950/20 px-3 py-1.5 font-semibold text-emerald-300">
                                 <span class="material-symbols-outlined text-sm">call</span>
                                 Contacto disponible
                             </span>
                         }
                         @if (!string.IsNullOrWhiteSpace(direccionCompleta))
                         {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                                 <span class="material-symbols-outlined text-sm">location_on</span>
                                 @direccionCompleta
                             </span>
@@ -84,12 +65,12 @@
 
             <div class="proveedor-details-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                 <a asp-action="Index"
-                   class="proveedor-details-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                   class="proveedor-details-hero-action btn-erp-ghost no-underline">
                     <span class="material-symbols-outlined text-[20px]">arrow_back</span>
                     Volver
                 </a>
                 <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="edit" data-proveedor-id="@Model.Id"
-                        class="proveedor-details-hero-action inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
+                        class="proveedor-details-hero-action btn-erp-primary">
                     <span class="material-symbols-outlined text-[20px]">edit</span>
                     Editar proveedor
                 </button>
@@ -97,25 +78,25 @@
         </header>
 
         <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Órdenes</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.TotalOrdenesCompra</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">órdenes de compra registradas</p>
+            <article class="card-erp-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Órdenes</p>
+                <p class="mt-2 text-2xl font-black text-white">@Model.TotalOrdenesCompra</p>
+                <p class="mt-1 text-xs text-slate-400">órdenes de compra registradas</p>
             </article>
-            <article class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">Cheques</p>
-                <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">@Model.ChequesVigentes</p>
-                <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-400/80">vigentes actualmente</p>
+            <article class="card-erp-metric-success">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">Cheques</p>
+                <p class="mt-2 text-2xl font-black text-emerald-300">@Model.ChequesVigentes</p>
+                <p class="mt-1 text-xs text-emerald-400/80">vigentes actualmente</p>
             </article>
-            <article class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 dark:border-rose-900/50 dark:bg-rose-950/20">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 dark:text-rose-400">Deuda</p>
-                <p class="mt-2 text-2xl font-black text-rose-700 dark:text-rose-300">$@Model.TotalDeuda.ToString("N0")</p>
-                <p class="mt-1 text-xs text-rose-700/80 dark:text-rose-400/80">estimación comprometida</p>
+            <article class="card-erp-metric-danger">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-red-400">Deuda</p>
+                <p class="mt-2 text-2xl font-black text-red-300">$@Model.TotalDeuda.ToString("N0")</p>
+                <p class="mt-1 text-xs text-red-400/80">estimación comprometida</p>
             </article>
-            <article class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-900/50 dark:bg-amber-950/20">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Cobertura</p>
-                <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">@Model.CategoriasAsociadas.Count</p>
-                <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">categoría@(Model.CategoriasAsociadas.Count == 1 ? "" : "s") asociada@(Model.CategoriasAsociadas.Count == 1 ? "" : "s")</p>
+            <article class="card-erp-metric-warning">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400">Cobertura</p>
+                <p class="mt-2 text-2xl font-black text-amber-300">@Model.CategoriasAsociadas.Count</p>
+                <p class="mt-1 text-xs text-amber-400/80">categoría@(Model.CategoriasAsociadas.Count == 1 ? "" : "s") asociada@(Model.CategoriasAsociadas.Count == 1 ? "" : "s")</p>
             </article>
         </div>
     </section>
@@ -123,19 +104,19 @@
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
     <!-- Left Column: General Info -->
     <div class="lg:col-span-2 space-y-8">
-        <section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+        <section class="card-erp-panel">
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                 <h3 class="text-lg font-bold">Información General</h3>
                 @if (Model.Activo)
                 {
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/30 text-emerald-400 border border-emerald-800">
                         <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500"></span>
                         Activo
                     </span>
                 }
                 else
                 {
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 bg-slate-800 text-slate-400 border border-slate-700">
                         <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-slate-400"></span>
                         Inactivo
                     </span>
@@ -144,23 +125,23 @@
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Razón Social</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Razón Social</label>
                         <p class="text-base font-medium">@Model.RazonSocial</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Nombre Fantasía</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Nombre Fantasía</label>
                         <p class="text-base font-medium">@(Model.NombreFantasia ?? "—")</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">CUIT</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">CUIT</label>
                         <p class="text-base font-medium">@cuitFormatted</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Contacto Principal</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Contacto Principal</label>
                         <p class="text-base font-medium">@(Model.Contacto ?? "—")</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Email</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Email</label>
                         @if (!string.IsNullOrEmpty(Model.Email))
                         {
                             <p class="text-base font-medium text-primary">@Model.Email</p>
@@ -171,15 +152,15 @@
                         }
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Teléfono</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Teléfono</label>
                         <p class="text-base font-medium">@(Model.Telefono ?? "—")</p>
                     </div>
 
                     <!-- Dirección row -->
-                    <div class="md:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-6 mt-2">
+                    <div class="md:col-span-2 border-t border-slate-100 border-slate-800 pt-6 mt-2">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Ciudad / Provincia</label>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Ciudad / Provincia</label>
                                 <p class="text-base font-medium">
                                     @{
                                         var ciudadProv = string.Join(", ",
@@ -189,11 +170,11 @@
                                 </p>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Código Postal</label>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Código Postal</label>
                                 <p class="text-base font-medium">@(Model.CodigoPostal ?? "—")</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Dirección</label>
+                                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Dirección</label>
                                 <p class="text-base font-medium">@(Model.Direccion ?? "—")</p>
                             </div>
                         </div>
@@ -201,10 +182,10 @@
 
                     <!-- Aclaraciones -->
                     <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Aclaraciones</label>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Aclaraciones</label>
                         @if (!string.IsNullOrWhiteSpace(Model.Aclaraciones))
                         {
-                            <div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm text-slate-600 dark:text-slate-300">
+                            <div class="p-4 bg-slate-800 rounded-lg text-sm text-slate-300">
                                 @Model.Aclaraciones
                             </div>
                         }
@@ -218,19 +199,19 @@
         </section>
 
         <!-- Associated Products Section -->
-        <section data-oc-scroll style="--oc-scroll-min-width: 40rem;" class="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50">
-            <div class="border-b border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/50">
+        <section data-oc-scroll style="--oc-scroll-min-width: 40rem;" class="card-erp-panel">
+            <div class="border-b border-slate-800 bg-slate-800/30 px-6 py-4">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Productos Asociados</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Stock, código interno y precio de compra del catálogo vinculado a este proveedor.</p>
+                        <h3 class="text-lg font-bold text-white">Productos Asociados</h3>
+                        <p class="text-sm text-slate-400">Stock, código interno y precio de compra del catálogo vinculado a este proveedor.</p>
                     </div>
-                    <span id="productos-badge" class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                    <span id="productos-badge" class="inline-flex items-center gap-2 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 bg-slate-900 text-slate-300">
                         <span class="material-symbols-outlined text-sm">inventory_2</span>
                         Cargando
                     </span>
                 </div>
-                <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-400">
                     Deslizá la tabla para ver stock y precio completos.
                 </p>
             </div>
@@ -239,7 +220,7 @@
                 <div data-oc-scroll-fade="right" hidden></div>
                 <div data-oc-scroll-region tabindex="0" role="region" aria-label="Productos asociados del proveedor">
                     <table data-oc-scroll-table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold tracking-widest dark:bg-slate-800/30">
+                        <thead class="/50 text-slate-500 uppercase text-[10px] font-bold tracking-widest bg-slate-800/30">
                             <tr>
                                 <th class="px-6 py-3">Producto</th>
                                 <th class="px-6 py-3 text-center">Código</th>
@@ -247,7 +228,7 @@
                                 <th class="px-6 py-3 text-right">Precio Compra</th>
                             </tr>
                         </thead>
-                        <tbody id="productos-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tbody id="productos-tbody" class="divide-y divide-slate-800">
                             <tr>
                                 <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-400">
                                     <div class="flex items-center justify-center gap-2">
@@ -260,7 +241,7 @@
                     </table>
                 </div>
             </div>
-            <div id="productos-footer" class="hidden border-t border-slate-100 p-4 text-center dark:border-slate-800">
+            <div id="productos-footer" class="hidden border-t border-slate-100 p-4 text-center border-slate-800">
                 <span id="productos-count" class="text-primary text-sm font-semibold"></span>
             </div>
         </section>
@@ -269,8 +250,8 @@
     <!-- Right Column: Taxonomy/Tags -->
     <div class="space-y-6">
         <!-- Location Card -->
-        <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div class="h-48 w-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+        <div class="card-erp-panel">
+            <div class="h-48 w-full bg-slate-200 bg-slate-800 flex items-center justify-center">
                 <span class="material-symbols-outlined text-5xl text-primary">location_on</span>
             </div>
             <div class="p-4 flex items-start gap-3">
@@ -280,8 +261,8 @@
         </div>
 
         <!-- Categories -->
-        <section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-            <h3 class="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4">Categorías Asociadas</h3>
+        <section class="card-erp-panel-padded">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Categorías Asociadas</h3>
             @if (Model.CategoriasAsociadas.Any())
             {
                 <div class="flex flex-wrap gap-2">
@@ -298,14 +279,14 @@
         </section>
 
         <!-- Brands -->
-        <section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-            <h3 class="text-sm font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4">Marcas Asociadas</h3>
+        <section class="card-erp-panel-padded">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">Marcas Asociadas</h3>
             @if (Model.MarcasAsociadas.Any())
             {
                 <div class="flex flex-wrap gap-2">
                     @foreach (var marca in Model.MarcasAsociadas)
                     {
-                        <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full text-xs font-semibold border border-slate-200 dark:border-slate-700">@marca</span>
+                        <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-full text-xs font-semibold border border-slate-700">@marca</span>
                     }
                 </div>
             }
@@ -327,19 +308,19 @@
 }
 <div id="modal-editar-proveedor" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="edit"></div>
-    <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white dark:bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
-        <header class="flex items-center justify-between px-8 py-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#161d2c]/50 backdrop-blur-sm">
+    <div class="absolute right-0 top-0 h-full w-full max-w-7xl bg-white bg-[#161d2c] shadow-2xl flex flex-col animate-slide-in-right">
+        <header class="flex items-center justify-between px-8 py-5 border-b border-slate-800 bg-white/50 bg-[#161d2c]/50 backdrop-blur-sm">
             <div>
-                <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                <nav class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
                     <span>Proveedores</span>
                     <span class="material-symbols-outlined text-xs">chevron_right</span>
-                    <span class="text-slate-900 dark:text-slate-100">Editar</span>
+                    <span class="text-slate-100">Editar</span>
                 </nav>
-                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-50">Editar Proveedor</h2>
+                <h2 class="text-3xl font-black tracking-tight text-slate-50">Editar Proveedor</h2>
             </div>
             <div class="flex gap-3">
                 <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="edit"
-                        class="px-5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        class="px-5 py-2 rounded-lg border border-slate-700 text-sm font-bold hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
                 <button type="button" data-proveedor-modal-action="submit" data-proveedor-modal="edit"
@@ -348,10 +329,10 @@
                 </button>
             </div>
         </header>
-        <div id="edit-loading-overlay" class="hidden absolute inset-0 z-10 bg-white/60 dark:bg-slate-900/60 flex items-center justify-center">
+        <div id="edit-loading-overlay" class="hidden absolute inset-0 z-10 bg-slate-900/60 flex items-center justify-center">
             <div class="flex flex-col items-center gap-3">
                 <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">Cargando datos...</span>
+                <span class="text-sm font-semibold text-slate-300">Cargando datos...</span>
             </div>
         </div>
         <div class="flex-1 overflow-y-auto px-8 py-8">
@@ -361,41 +342,41 @@
                 <input type="hidden" name="RowVersion" />
                 <div class="max-w-7xl mx-auto grid grid-cols-12 gap-8">
                     <div class="col-span-12 lg:col-span-8 space-y-8">
-                        <section id="edit-validation-summary" class="hidden p-6 rounded-xl border-2 border-dashed border-red-400/30 bg-red-50 dark:bg-red-900/10">
+                        <section id="edit-validation-summary" class="hidden p-6 rounded-xl border-2 border-dashed border-red-400/30 bg-red-50 bg-red-900/10">
                             <div class="flex items-start gap-4">
-                                <div class="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500">
+                                <div class="p-2 rounded-full bg-red-900/30 text-red-500">
                                     <span class="material-symbols-outlined">error</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Errores de Validación</h3>
-                                    <ul id="edit-error-list" class="text-sm text-red-600 dark:text-red-400 list-disc pl-4 space-y-1"></ul>
+                                    <h3 class="text-sm font-bold text-red-400 uppercase tracking-wider mb-1">Errores de Validación</h3>
+                                    <ul id="edit-error-list" class="text-sm text-red-400 list-disc pl-4 space-y-1"></ul>
                                 </div>
                             </div>
                         </section>
                         <!-- 1. Datos Fiscales -->
                         <section class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">1</span>
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-900 text-xs font-bold">1</span>
                                 <h3 class="text-xl font-bold">Datos Fiscales</h3>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">CUIT <span class="text-red-500">*</span></label>
+                                    <label class="text-sm font-semibold text-slate-300">CUIT <span class="text-red-500">*</span></label>
                                     <input type="text" name="Cuit" maxlength="11"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="Ej: 30714421092" />
                                     <p class="text-[11px] text-slate-500 italic">11 dígitos sin guiones</p>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Razón Social <span class="text-red-500">*</span></label>
+                                    <label class="text-sm font-semibold text-slate-300">Razón Social <span class="text-red-500">*</span></label>
                                     <input type="text" name="RazonSocial" maxlength="200"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="Ej: Empresa S.A." />
                                 </div>
                                 <div class="md:col-span-2 space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Nombre Fantasía</label>
+                                    <label class="text-sm font-semibold text-slate-300">Nombre Fantasía</label>
                                     <input type="text" name="NombreFantasia" maxlength="200"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="Nombre comercial" />
                                 </div>
                             </div>
@@ -403,26 +384,26 @@
                         <!-- 2. Datos de Contacto -->
                         <section class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">2</span>
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-900 text-xs font-bold">2</span>
                                 <h3 class="text-xl font-bold">Datos de Contacto</h3>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Email Corporativo</label>
+                                    <label class="text-sm font-semibold text-slate-300">Email Corporativo</label>
                                     <input type="email" name="Email" maxlength="100"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="contacto@empresa.com" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Teléfono</label>
+                                    <label class="text-sm font-semibold text-slate-300">Teléfono</label>
                                     <input type="tel" name="Telefono" maxlength="50"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="+54 11 0000-0000" />
                                 </div>
                                 <div class="md:col-span-2 space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Contacto Principal (Nombre Completo)</label>
+                                    <label class="text-sm font-semibold text-slate-300">Contacto Principal (Nombre Completo)</label>
                                     <input type="text" name="Contacto" maxlength="200"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                                            placeholder="Ej: Juan Pérez" />
                                 </div>
                             </div>
@@ -430,15 +411,15 @@
                         <!-- 3. Cobertura de Catálogo -->
                         <section class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">3</span>
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-900 text-xs font-bold">3</span>
                                 <h3 class="text-xl font-bold">Cobertura de Catálogo</h3>
                             </div>
-                            <div class="space-y-6 p-6 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                            <div class="space-y-6 p-6 rounded-xl bg-slate-900/40 border border-slate-800">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div class="space-y-2">
-                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Categorías</label>
+                                        <label class="text-sm font-semibold text-slate-300">Categorías</label>
                                         <select name="CategoriasSeleccionadas" multiple
-                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                                class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary h-32">
                                             @foreach (var cat in categorias)
                                             {
                                                 <option value="@cat.Value">@cat.Text</option>
@@ -446,9 +427,9 @@
                                         </select>
                                     </div>
                                     <div class="space-y-2">
-                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Marcas Representadas</label>
+                                        <label class="text-sm font-semibold text-slate-300">Marcas Representadas</label>
                                         <select name="MarcasSeleccionadas" multiple
-                                                class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary h-32">
+                                                class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary h-32">
                                             @foreach (var m in marcas)
                                             {
                                                 <option value="@m.Value">@m.Text</option>
@@ -456,22 +437,22 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                <div class="space-y-4 pt-4 border-t border-slate-800">
                                     <div class="flex items-center justify-between">
-                                        <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Selección de Productos Específicos</label>
+                                        <label class="text-sm font-semibold text-slate-300">Selección de Productos Específicos</label>
                                         <div class="relative w-64">
                                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                                             <input type="text" id="edit-producto-search"
-                                                   class="w-full pl-9 pr-4 py-1.5 text-sm rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-primary"
+                                                   class="w-full pl-9 pr-4 py-1.5 text-sm rounded-full bg-slate-900 border border-slate-800 outline-none focus:ring-2 focus:ring-primary"
                                                    placeholder="Filtrar productos..." />
                                         </div>
                                     </div>
                                     <div id="edit-productos-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
                                         @foreach (var prod in productos)
                                         {
-                                            <label class="edit-producto-item flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-primary/50 transition-colors" data-nombre="@prod.Text.ToLower()">
+                                            <label class="edit-producto-item flex items-center gap-3 p-3 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer hover:border-primary/50 transition-colors" data-nombre="@prod.Text.ToLower()">
                                                 <input type="checkbox" name="ProductosSeleccionados" value="@prod.Value"
-                                                       class="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700" />
+                                                       class="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-800 border-slate-700" />
                                                 <span class="text-xs font-medium">@prod.Text</span>
                                             </label>
                                         }
@@ -482,25 +463,25 @@
                         <!-- 4. Dirección -->
                         <section class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">4</span>
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-900 text-xs font-bold">4</span>
                                 <h3 class="text-xl font-bold">Dirección</h3>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <div class="md:col-span-2 space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Calle y Número</label>
+                                    <label class="text-sm font-semibold text-slate-300">Calle y Número</label>
                                     <input type="text" name="Direccion" maxlength="300"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary outline-none"
                                            placeholder="Av. Siempre Viva 123" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ciudad</label>
+                                    <label class="text-sm font-semibold text-slate-300">Ciudad</label>
                                     <input type="text" name="Ciudad" maxlength="100"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary outline-none"
                                            placeholder="CABA" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Provincia</label>
-                                    <select name="Provincia" class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none">
+                                    <label class="text-sm font-semibold text-slate-300">Provincia</label>
+                                    <select name="Provincia" class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary outline-none">
                                         <option value="">— Seleccionar —</option>
                                         @foreach (var prov in DropdownConstants.Provincias)
                                         {
@@ -509,9 +490,9 @@
                                     </select>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Código Postal</label>
+                                    <label class="text-sm font-semibold text-slate-300">Código Postal</label>
                                     <input type="text" name="CodigoPostal" maxlength="10"
-                                           class="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none"
+                                           class="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary outline-none"
                                            placeholder="1425" />
                                 </div>
                             </div>
@@ -519,21 +500,21 @@
                         <!-- 5. Información Adicional -->
                         <section class="space-y-6">
                             <div class="flex items-center gap-3">
-                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold">5</span>
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-900 text-xs font-bold">5</span>
                                 <h3 class="text-xl font-bold">Información Adicional</h3>
                             </div>
                             <div class="space-y-4">
                                 <div class="space-y-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">Aclaraciones / Observaciones</label>
+                                    <label class="text-sm font-semibold text-slate-300">Aclaraciones / Observaciones</label>
                                     <textarea name="Aclaraciones" maxlength="2000" rows="4"
-                                              class="w-full px-4 py-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary outline-none resize-none"
+                                              class="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-800 focus:ring-2 focus:ring-primary outline-none resize-none"
                                               placeholder="Notas adicionales sobre el proveedor..."></textarea>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" name="Activo" value="true" class="sr-only peer" />
-                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                        <span class="ms-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Proveedor Activo</span>
+                                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        <span class="ms-3 text-sm font-semibold text-slate-300">Proveedor Activo</span>
                                     </label>
                                 </div>
                             </div>

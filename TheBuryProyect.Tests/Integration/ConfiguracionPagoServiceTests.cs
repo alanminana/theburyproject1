@@ -806,6 +806,48 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.NotNull(enDb);
     }
 
+    [Fact]
+    public async Task GuardarConfiguracionesModal_ActualizaConfiguracionTarjeta()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var tarjeta = await SeedTarjetaAsync(config.Id);
+
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = config.Id,
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true,
+                ConfiguracionesTarjeta = new List<ConfiguracionTarjetaViewModel>
+                {
+                    new()
+                    {
+                        Id = tarjeta.Id,
+                        ConfiguracionPagoId = config.Id,
+                        NombreTarjeta = tarjeta.NombreTarjeta,
+                        TipoTarjeta = TipoTarjeta.Credito,
+                        Activa = true,
+                        PermiteCuotas = true,
+                        CantidadMaximaCuotas = 12,
+                        TipoCuota = TipoCuotaTarjeta.ConInteres,
+                        TasaInteresesMensual = 8.5m
+                    }
+                }
+            }
+        };
+
+        await _service.GuardarConfiguracionesModalAsync(vms);
+
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesTarjeta.FindAsync(tarjeta.Id);
+        Assert.True(enDb!.PermiteCuotas);
+        Assert.Equal(12, enDb.CantidadMaximaCuotas);
+        Assert.Equal(TipoCuotaTarjeta.ConInteres, enDb.TipoCuota);
+        Assert.Equal(8.5m, enDb.TasaInteresesMensual);
+    }
+
     // =========================================================================
     // GetTarjetasActivasAsync / GetTarjetaByIdAsync
     // =========================================================================

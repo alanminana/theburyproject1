@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html class="dark" lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TheBuryProject</title>
+    <meta name="description" content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,7 +24,7 @@
     @RenderSection("Styles", required: false)
 </head>
 
-<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<body class="text-slate-100 font-display" style="background-color:#101622;">
 @{
     string? currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     string? currentAction = ViewContext.RouteData.Values["action"]?.ToString();
@@ -33,8 +34,8 @@
         (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
 
     string NavClass(bool active) => active
-        ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary"
-        : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer";
+        ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary-on-dark"
+        : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer";
 
     string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
 
@@ -50,17 +51,21 @@
                                    ("usuarios", "view"), ("roles", "view"),
                                    ("usuarios", "update"), ("roles", "create"));
 
+    var canCreateTicket = User.TienePermiso("tickets", "create");
+    var canViewTickets  = User.TienePermiso("tickets", "view");
+
     // Visibilidad de secciones
     var showOperaciones = canViewVentas || canViewClientes;
     var showLogistica   = canViewInventario || canViewProveedores || canViewCaja;
-    var showSistemas    = canViewSeguridad;
+    var showSistemas    = canViewSeguridad || canViewTickets;
 }
 
 <div class="flex h-screen overflow-hidden">
 
     <!-- Sidebar -->
     <aside id="sidebar"
-           class="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col transition-[width] duration-300 ease-in-out">
+           class="w-64 shrink-0 border-r border-slate-800 flex flex-col transition-[width] duration-300 ease-in-out"
+           style="background-color:#101622;">
 
         <!-- Brand -->
         <a asp-controller="Home" asp-action="Index" class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
@@ -68,28 +73,18 @@
                 <span class="material-symbols-outlined">rocket_launch</span>
             </div>
             <div class="flex flex-col sidebar-label">
-                <h1 class="text-slate-900 dark:text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
-                <p class="text-slate-500 dark:text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
+                <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
+                <p class="text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
             </div>
         </a>
 
         <!-- Nav -->
         <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
 
-            @if (canViewDashboard)
-            {
-                <div>
-                    <a class="@NavClass(IsActive("Dashboard"))" asp-controller="Dashboard" asp-action="Index">
-                        <span class="material-symbols-outlined text-lg shrink-0">grid_view</span>
-                        <p class="@NavFont(IsActive("Dashboard")) sidebar-label">Dashboard</p>
-                    </a>
-                </div>
-            }
-
             @if (showOperaciones)
             {
                 <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
                     <div class="space-y-1">
                         @if (canViewVentas)
                         {
@@ -112,7 +107,7 @@
             @if (showLogistica)
             {
                 <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
                     <div class="space-y-1">
                         @if (canViewInventario)
                         {
@@ -142,13 +137,23 @@
             @if (showSistemas)
             {
                 <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
                     <div class="space-y-1">
-                        <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
-                           asp-controller="Seguridad" asp-action="Index">
-                            <span class="material-symbols-outlined text-lg shrink-0">security</span>
-                            <p class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">Seguridad</p>
-                        </a>
+                        @if (canViewSeguridad)
+                        {
+                            <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
+                               asp-controller="Seguridad" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">security</span>
+                                <p class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">Seguridad</p>
+                            </a>
+                        }
+                        @if (canViewTickets)
+                        {
+                            <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
+                                <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
+                            </a>
+                        }
                     </div>
                 </div>
             }
@@ -156,7 +161,7 @@
         </nav>
 
         <!-- User info (bottom) -->
-        <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+        <div class="p-4 border-t border-slate-800">
             @{
                 var userRoles = User.Claims
                     .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
@@ -165,19 +170,19 @@
                 var roleDisplay = userRoles.Any() ? string.Join(", ", userRoles) : "Usuario";
             }
             <div class="flex items-center gap-3 p-2 overflow-hidden">
-                <div class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-slate-500 text-lg">account_circle</span>
+                <div class="size-8 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-slate-400 text-lg">account_circle</span>
                 </div>
                 <div class="flex flex-col sidebar-label min-w-0">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white leading-none whitespace-nowrap truncate">@(User.Identity?.Name ?? "—")</p>
-                    <p class="text-[10px] text-slate-500 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
+                    <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">@(User.Identity?.Name ?? "?")</p>
+                    <p class="text-[10px] text-slate-400 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
                 </div>
             </div>
             <form method="post" asp-area="Identity" asp-page="/Account/Logout"
                   asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
                   class="sidebar-label mt-1">
                 <button type="submit"
-                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-500 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
+                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
                     <span class="material-symbols-outlined text-base">logout</span>
                     Cerrar sesión
                 </button>
@@ -185,9 +190,9 @@
         </div>
 
         <!-- Collapse toggle (desktop) -->
-        <div class="hidden lg:flex p-3 border-t border-slate-200 dark:border-slate-800 justify-center">
+        <div class="hidden lg:flex p-3 border-t border-slate-800 justify-center">
             <button id="collapseSidebar" type="button"
-                    class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
                     aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
                 <span class="material-symbols-outlined text-lg transition-transform duration-300" id="collapseIcon">chevron_left</span>
             </button>
@@ -203,33 +208,33 @@
     <main class="flex-1 flex flex-col overflow-hidden">
 
         <!-- Header / Top Bar -->
-        <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex items-center justify-between px-4 sm:px-6 lg:px-8">
+        <header class="h-16 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8" style="background-color:#101622;">
 
             <div class="flex items-center gap-6">
                 <!-- Mobile toggle -->
                 <button id="toggleSidebar" type="button"
-                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+                        class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
                         aria-label="Abrir/cerrar menú">
                     <span class="material-symbols-outlined icon-size-22">menu</span>
                 </button>
 
                 <!-- Page Title -->
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white hidden lg:block">@ViewData["Title"]</h2>
-                <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block"></div>
+                <h2 class="text-lg font-bold text-white hidden lg:block">@ViewData["Title"]</h2>
+                <div class="h-6 w-px bg-slate-700 hidden lg:block"></div>
 
                 <!-- Cotizaciones -->
                 <div class="flex gap-3 hidden lg:flex">
-                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Dolar Blue</span>
-                        <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">$1.245,00</span>
+                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Dolar Blue</span>
+                        <span class="text-xs font-bold text-emerald-400">$1.245,00</span>
                     </div>
-                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Tarjeta</span>
-                        <span class="text-xs font-bold text-primary">$1.482,50</span>
+                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Tarjeta</span>
+                        <span class="text-xs font-bold text-primary-on-dark">$1.482,50</span>
                     </div>
-                    <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Oficial</span>
-                        <span class="text-xs font-bold text-slate-600 dark:text-slate-300">$942,00</span>
+                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Oficial</span>
+                        <span class="text-xs font-bold text-slate-300">$942,00</span>
                     </div>
                 </div>
             </div>
@@ -238,45 +243,85 @@
                 <!-- Notifications -->
                 @if (canViewNotifications)
                 {
-                    <button class="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors relative">
+                    <button class="p-2 text-slate-400 hover:text-white transition-colors relative">
                         <span class="material-symbols-outlined">notifications</span>
-                        <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-background-dark"></span>
+                        <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"></span>
                     </button>
                 }
                 <!-- Search -->
-                <button class="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <button class="p-2 text-slate-400 hover:text-white transition-colors">
                     <span class="material-symbols-outlined">search</span>
                 </button>
-                <div class="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
+                @if (canViewTickets)
+                {
+                    <button id="btn-open-ticket-panel"
+                            type="button"
+                            class="p-2 text-slate-400 hover:text-white transition-colors"
+                            title="Incidentes"
+                            aria-label="Panel de incidentes">
+                        <span class="material-symbols-outlined">assignment</span>
+                    </button>
+                }
+                <div class="h-8 w-px bg-slate-700"></div>
                 <!-- Help -->
-                <button class="bg-primary/10 hover:bg-primary/20 text-primary p-2 rounded-lg transition-colors">
+                <button class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
                     <span class="material-symbols-outlined">help</span>
                 </button>
             </div>
         </header>
 
         <!-- Page Content -->
-        <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8 bg-slate-50 dark:bg-background-dark/50">
+        <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8" style="background-color:#101622;">
             @RenderBody()
         </div>
     </main>
 </div>
 
+<!-- Botón flotante para reportar incidencias -->
+@if (canCreateTicket)
+{
+    <button type="button"
+            data-open-ticket-modal
+            class="fixed bottom-6 right-6 z-40 flex items-center gap-2
+                   bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
+                   text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
+            title="Reportar una incidencia o mejora">
+        <span class="material-symbols-outlined text-base text-amber-400">bug_report</span>
+        <span class="hidden sm:inline">Reportar incidencia</span>
+    </button>
+}
+
 <!-- ========= MODALS ========= -->
 @await RenderSectionAsync("Modals", required: false)
 <partial name="_ConfirmModal" />
+@if (canCreateTicket)
+{
+    <partial name="_TicketModal" />
+}
+@if (canViewTickets)
+{
+    <partial name="_TicketPanel" />
+}
 
 <!-- Vendor JS -->
 <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
 
 <!-- App JS -->
 <script src="~/js/shared-ui.js" asp-append-version="true"></script>
 @if (canViewNotifications)
 {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
     <script src="~/js/notificaciones.js" asp-append-version="true"></script>
 }
 <script src="~/js/layout.js" asp-append-version="true"></script>
+@if (canCreateTicket)
+{
+    <script src="~/js/ticket-modal.js" asp-append-version="true"></script>
+}
+@if (canViewTickets)
+{
+    <script src="~/js/ticket-panel.js" asp-append-version="true"></script>
+}
 
 @await RenderSectionAsync("Scripts", required: false)
 </body>

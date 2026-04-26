@@ -18,7 +18,7 @@
     // ── State ──────────────────────────────────────────────────────────
     const detalles = [];         // { productoId, codigo, nombre, cantidad, precioUnitario, descuento, subtotal, stock }
     let clienteSeleccionado = null;  // { id, nombre, apellido, tipoDocumento, numeroDocumento }
-    let tarjetaInfoCache = [];   // from /Venta/GetTarjetasActivas
+    let tarjetaInfoCache = [];   // from /api/ventas/GetTarjetasActivas
     let creditoCupoDisponible = null;
     let debounceTimer = null;
     let detalleScrollAffordance = null;
@@ -578,7 +578,7 @@
     // ── 7. Card Payment ───────────────────────────────────────────────
     async function cargarTarjetasActivas() {
         try {
-            tarjetaInfoCache = await fetchJson('/Venta/GetTarjetasActivas');
+            tarjetaInfoCache = await fetchJson('/api/ventas/GetTarjetasActivas');
         } catch { /* tarjetas already loaded from ViewBag */ }
     }
 
@@ -854,7 +854,7 @@
         resetVerificacion();
 
         try {
-            const data = await fetchJson(`/Venta/PrevalidarCredito?clienteId=${clienteId}&monto=${total}`);
+            const data = await fetchJson(`/api/ventas/PrevalidarCredito?clienteId=${clienteId}&monto=${total}`);
             ultimaPrevalidacion = data;
 
             mostrarResultadoVerificacion(data);

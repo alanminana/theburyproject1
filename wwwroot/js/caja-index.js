@@ -39,6 +39,12 @@
                 iconBg: 'bg-amber-500/20 text-amber-500',
                 title: 'Atención',
                 icon: 'warning'
+            },
+            success: {
+                wrapper: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+                iconBg: 'bg-emerald-500/20 text-emerald-600',
+                title: 'Listo',
+                icon: 'check_circle'
             }
         };
 
@@ -169,6 +175,44 @@
         });
     }
 
+    function onCajaGuardada(entity, form) {
+        if (!entity) return;
+
+        var isEdit = form && form.querySelector('[name="Id"]') && form.querySelector('[name="Id"]').value !== '0';
+        var sucursalUbicacionHtml = entity.sucursal
+            ? '<span class="text-sm text-slate-700 dark:text-slate-300">' + escapeHtml(entity.sucursal) + '</span>'
+            : '<span class="text-sm text-slate-400">—</span>';
+
+        var tbody = document.getElementById('cajas-activas-tbody');
+
+        if (isEdit && tbody) {
+            var row = tbody.querySelector('[data-caja-row-id="' + entity.id + '"]');
+            if (row) {
+                var cells = row.querySelectorAll('td');
+                if (cells.length >= 3) {
+                    cells[0].textContent = entity.codigo;
+                    cells[1].textContent = entity.nombre;
+                    cells[2].innerHTML = sucursalUbicacionHtml;
+                }
+            }
+            showPageFeedback('Caja actualizada: ' + entity.nombre, 'success');
+        } else if (tbody) {
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-caja-row-id', entity.id);
+            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors';
+            tr.innerHTML =
+                '<td class="px-6 py-4 text-sm font-mono text-slate-500">' + escapeHtml(entity.codigo) + '</td>' +
+                '<td class="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">' + escapeHtml(entity.nombre) + '</td>' +
+                '<td class="px-6 py-4">' + sucursalUbicacionHtml + '</td>' +
+                '<td class="px-6 py-4"><div class="flex items-center gap-2 text-slate-400"><span class="size-2 rounded-full bg-slate-400"></span><span class="text-xs font-bold uppercase">Cerrada</span></div></td>' +
+                '<td class="px-6 py-4 text-right"><div class="flex min-w-max flex-wrap items-center justify-end gap-2">' +
+                  '<a href="/Caja/Abrir?cajaId=' + entity.id + '" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-all no-underline"><span class="material-symbols-outlined text-base">lock_open</span><span class="caja-index-action-label">Abrir caja</span></a>' +
+                '</div></td>';
+            tbody.appendChild(tr);
+            showPageFeedback('Caja creada: ' + entity.nombre, 'success');
+        }
+    }
+
     function bindFormAndBackdrop() {
         const form = container.querySelector('#formCaja');
         const backdrop = container.querySelector('#modal-caja-backdrop');
@@ -205,7 +249,7 @@
 
                 if (data.ok) {
                     closeModal();
-                    window.location.reload();
+                    onCajaGuardada(data.entity, form);
                 } else if (data.errors && data.errors.length) {
                     setModalErrors(data.errors);
                 } else {

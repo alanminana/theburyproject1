@@ -1,0 +1,222 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTI�N
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Log�stica
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesi�n":
+          - generic: logout
+          - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Devoluciones y Garantías" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - generic [ref=e66]: assignment_return
+              - text: Postventa
+            - generic [ref=e67]:
+              - heading "Devoluciones y garantías" [level=1] [ref=e68]
+              - paragraph [ref=e69]: Seguimiento operativo de reclamos, vencimientos y resoluciones pendientes. La generación nueva sigue iniciándose desde ventas, pero este tablero concentra alertas, volumen y contexto de postventa.
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - generic [ref=e72]: warning
+                - text: 0 alertas activas
+              - generic [ref=e73]:
+                - generic [ref=e74]: sync_alt
+                - text: 0 RMA pendientes
+              - generic [ref=e75]:
+                - generic [ref=e76]: verified_user
+                - text: 0 garantías vigentes
+          - generic [ref=e77]:
+            - link "open_in_new Iniciar desde ventas" [ref=e78] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e79]: open_in_new
+              - generic [ref=e80]: Iniciar desde ventas
+            - link "download Exportar CSV" [ref=e81] [cursor=pointer]:
+              - /url: /Devolucion?tab=devoluciones&exportCsv=True
+              - generic [ref=e82]: download
+              - generic [ref=e83]: Exportar CSV
+            - link "swap_horiz Ver garantías" [ref=e84] [cursor=pointer]:
+              - /url: /Devolucion?tab=garantias
+              - generic [ref=e85]: swap_horiz
+              - generic [ref=e86]: Ver garantías
+        - generic [ref=e87]:
+          - article [ref=e88]:
+            - generic [ref=e89]:
+              - generic [ref=e90]:
+                - paragraph [ref=e91]: Pendientes
+                - paragraph [ref=e92]: "0"
+              - generic [ref=e93]: postventa
+            - paragraph [ref=e94]: casos todavía abiertos o a resolver
+          - article [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]:
+                - paragraph [ref=e98]: Aprobadas
+                - paragraph [ref=e99]: "0"
+              - generic [ref=e100]: este ciclo
+            - paragraph [ref=e101]: listas para completar circuito operativo
+          - article [ref=e102]:
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: Garantías activas
+                - paragraph [ref=e106]: "0"
+              - generic [ref=e107]: cobertura
+            - paragraph [ref=e108]: productos todavía cubiertos por garantía
+          - article [ref=e109]:
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - paragraph [ref=e112]: Alertas críticas
+                - paragraph [ref=e113]: "0"
+              - generic [ref=e114]: por vencer
+            - paragraph [ref=e115]: coberturas que necesitan seguimiento rápido
+      - generic [ref=e116]:
+        - generic [ref=e118]:
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - generic [ref=e122]:
+                - link "Devoluciones 0" [ref=e123] [cursor=pointer]:
+                  - /url: /Devolucion?tab=devoluciones
+                  - generic [ref=e124]: Devoluciones
+                  - generic [ref=e125]: "0"
+                - link "Garantías 0" [ref=e126] [cursor=pointer]:
+                  - /url: /Devolucion?tab=garantias
+                  - generic [ref=e127]: Garantías
+                  - generic [ref=e128]: "0"
+              - generic [ref=e129]:
+                - heading "Devoluciones activas" [level=2] [ref=e130]
+                - paragraph [ref=e131]: Seguimiento de reclamos, RMA y reembolsos listos para decisión.
+            - generic [ref=e132]:
+              - generic [ref=e133]: Pendientes 0
+              - generic [ref=e134]: En revisión 0
+              - generic [ref=e135]: Aprobadas 0
+              - generic [ref=e136]: Completadas 0
+          - generic [ref=e139]:
+            - generic [ref=e140]:
+              - generic [ref=e141]: search
+              - textbox "Buscar ID, cliente o ticket..." [ref=e142]
+            - generic [ref=e143]:
+              - group [ref=e144]:
+                - generic "filter_list Filtros" [ref=e145]:
+                  - generic [ref=e146] [cursor=pointer]:
+                    - generic [ref=e147]: filter_list
+                    - text: Filtros
+                - option "Todos" [selected]
+                - option "Pendiente"
+                - option "En Revisión"
+                - option "Aprobada"
+                - option "Rechazada"
+                - option "Completada"
+                - option "Cancelada"
+                - option "Todas" [selected]
+                - option "Nota de Crédito"
+                - option "Reembolso de Dinero"
+                - option "Cambio por el Mismo Producto"
+                - option "Cambio por Otro Producto"
+              - link "download CSV" [ref=e148] [cursor=pointer]:
+                - /url: /Devolucion?tab=devoluciones&exportCsv=True
+                - generic [ref=e149]: download
+                - text: CSV
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - heading "Devoluciones activas" [level=3] [ref=e153]
+              - paragraph [ref=e154]: Mostrando 0-0 de 0 resultados.
+            - generic [ref=e155]:
+              - generic [ref=e156]: monitoring
+              - text: 0 registros
+          - generic [ref=e161]:
+            - generic [ref=e162]: assignment_return
+            - heading "No hay devoluciones para esos filtros" [level=3] [ref=e163]
+            - paragraph [ref=e164]: Ajustá la búsqueda o limpiá los filtros para revisar más casos.
+          - generic [ref=e166]: "Resultados: 0-0 de 0"
+        - complementary [ref=e167]:
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]:
+                - paragraph [ref=e171]: Radar operativo
+                - heading "Prioridades del día" [level=2] [ref=e172]
+              - generic [ref=e173]: radar
+            - generic [ref=e174]:
+              - generic [ref=e175]:
+                - paragraph [ref=e176]: Reembolsos por caja
+                - paragraph [ref=e177]: "0"
+                - paragraph [ref=e178]: $ 0,00 pendiente de tesorería.
+              - generic [ref=e179]:
+                - paragraph [ref=e180]: Volumen monitoreado
+                - paragraph [ref=e181]: "0"
+                - paragraph [ref=e182]: casos visibles con los filtros actuales.
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - paragraph [ref=e186]: Motivos frecuentes
+                - heading "Tendencias rápidas" [level=2] [ref=e187]
+              - generic [ref=e188]: insights
+            - paragraph [ref=e190]: Todavía no hay suficientes devoluciones para consolidar tendencias.

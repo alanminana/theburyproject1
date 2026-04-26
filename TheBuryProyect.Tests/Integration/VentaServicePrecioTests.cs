@@ -263,7 +263,8 @@ public class VentaServicePrecioTests
             CreateCurrentUserService(),
             null!,                  // IValidacionVentaService — solo para CreditoPersonal
             cajaService,
-            null!);                 // ICreditoDisponibleService — solo para CreditoPersonal
+            null!,                  // ICreditoDisponibleService — solo para CreditoPersonal
+            new StubContratoVentaCreditoService());
     }
 
     private static VentaViewModel BuildViewModel(int clienteId, int productoId) => new()

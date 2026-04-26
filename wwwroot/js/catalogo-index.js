@@ -1,4 +1,56 @@
 // catalogo-index.js — tabs, selección de productos y delegación de acciones del índice
+
+// ── Búsqueda client-side integrada con la tabla de productos ──
+(function () {
+    'use strict';
+
+    var input       = document.getElementById('catalogo-search-input');
+    var rows        = Array.from(document.querySelectorAll('#productos-tbody tr[data-search]'));
+    var emptyRow    = document.getElementById('productos-search-empty');
+    var termSpan    = document.getElementById('productos-search-term');
+    var countBadge  = document.getElementById('productos-visible-count');
+    var footerCount = document.getElementById('productos-footer-count');
+    var selCat      = document.getElementById('catalogo-select-categoria');
+    var selMarca    = document.getElementById('catalogo-select-marca');
+    var selStock      = document.getElementById('catalogo-select-stock');
+    var selListaPrec  = document.getElementById('catalogo-select-listaprecio');
+
+    if (!input || !rows.length) return;
+
+    var timer;
+
+    function applySearch() {
+        var term = input.value.trim().toLowerCase();
+        var visible = 0;
+
+        rows.forEach(function (row) {
+            var haystack = row.dataset.search || '';
+            var match = !term || haystack.indexOf(term) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+
+        if (emptyRow)    emptyRow.style.display    = (visible === 0 && term) ? '' : 'none';
+        if (termSpan)    termSpan.textContent       = input.value.trim();
+        if (countBadge)  countBadge.textContent     = visible;
+        if (footerCount) footerCount.textContent    = visible;
+    }
+
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(applySearch, 180);
+    });
+
+    // Selects: auto-submit en change para filtrar server-side sin necesitar el botón
+    [selCat, selMarca, selStock, selListaPrec].forEach(function (sel) {
+        if (sel) sel.addEventListener('change', function () { sel.form.submit(); });
+    });
+
+    // Aplicar al cargar si ya hay término en la URL (recarga con searchTerm activo)
+    if (input.value.trim()) applySearch();
+})();
+
+// ── Tabs, selección y acciones del índice ──
 (function () {
     'use strict';
 
@@ -135,11 +187,6 @@
             marcas: document.getElementById('tab-marcas')
         };
 
-        var actionButtons = {
-            productos: document.getElementById('btn-crear-producto'),
-            categorias: document.getElementById('btn-crear-categoria'),
-            marcas: document.getElementById('btn-crear-marca')
-        };
         var btnAjusteMasivo = document.getElementById('btn-ajuste-masivo');
 
         function switchTab(target) {
@@ -157,17 +204,6 @@
             Object.keys(panels).forEach(function (key) {
                 if (panels[key]) {
                     panels[key].classList.toggle('hidden', key !== target);
-                }
-            });
-
-            Object.keys(actionButtons).forEach(function (key) {
-                if (!actionButtons[key]) return;
-                if (key === target) {
-                    actionButtons[key].classList.remove('hidden');
-                    actionButtons[key].classList.add('flex');
-                } else {
-                    actionButtons[key].classList.add('hidden');
-                    actionButtons[key].classList.remove('flex');
                 }
             });
 
@@ -224,6 +260,26 @@
         window.requestAnimationFrame(function () {
             refreshScrollAffordances();
         });
+    });
+
+    document.addEventListener('catalogo:toast', function (e) {
+        var detail  = e.detail || {};
+        var message = detail.message || '';
+        var type    = detail.type || 'success';
+        var isError = type === 'error';
+
+        var div = document.createElement('div');
+        div.className = 'toast-msg fixed bottom-4 right-4 z-[60] flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg text-sm font-semibold ' +
+            (isError
+                ? 'border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400'
+                : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300');
+        div.innerHTML = '<span class="material-symbols-outlined text-base">' + (isError ? 'error' : 'check_circle') + '</span>' +
+            '<span>' + message.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+        document.body.appendChild(div);
+
+        if (window.TheBury && typeof window.TheBury.autoDismissToasts === 'function') {
+            window.TheBury.autoDismissToasts(4000);
+        }
     });
 
     initDelegatedActions();

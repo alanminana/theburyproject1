@@ -1,0 +1,79 @@
+@model TheBuryProject.ViewModels.AplicarBatchViewModel
+@{
+    ViewData["Title"] = "Aplicar Batch";
+}
+
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Preview" asp-route-id="@Model.BatchId" class="text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Aplicar Batch</h1>
+            <p class="text-sm text-slate-400">Esta acción actualizará los precios en la base de datos.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3 text-sm text-amber-400 flex items-start gap-2">
+        <span class="material-symbols-outlined text-base mt-0.5 shrink-0">warning</span>
+        <span>Esta operación actualizará los precios de <strong>@Model.CantidadProductos productos</strong>. Esta acción puede revertirse posteriormente desde el detalle del batch.</span>
+    </div>
+
+    <section class="card-erp-panel-padded space-y-4">
+        <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-xl">info</span>
+            Detalle del batch
+        </h2>
+        <div class="grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Nombre</p>
+                <p class="text-slate-100 font-medium">@Model.Nombre</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Productos a actualizar</p>
+                <p class="text-slate-100 font-semibold text-lg">@Model.CantidadProductos</p>
+            </div>
+            @if (Model.AprobadoPor != null)
+            {
+                <div>
+                    <p class="text-xs text-slate-400 mb-0.5">Aprobado por</p>
+                    <p class="text-slate-100">@Model.AprobadoPor</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 mb-0.5">Fecha aprobación</p>
+                    <p class="text-slate-100">@Model.FechaAprobacion?.ToString("dd/MM/yyyy HH:mm")</p>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="card-erp-panel-padded">
+        <form asp-action="AplicarConfirmed" method="post" class="space-y-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.BatchId" />
+            <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
+            <div class="space-y-1">
+                <label asp-for="FechaVigencia" class="text-xs font-medium text-slate-400">Fecha de vigencia (opcional — usar fecha actual si se deja vacío)</label>
+                <input asp-for="FechaVigencia" type="datetime-local"
+                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <a asp-action="Preview" asp-route-id="@Model.BatchId" class="btn-erp-ghost">Cancelar</a>
+                <button type="submit" class="btn-erp-primary"
+                        onclick="return confirm('¿Confirmar la aplicación de este batch? Los precios serán actualizados inmediatamente.')">
+                    <span class="material-symbols-outlined text-base">bolt</span>
+                    Aplicar batch
+                </button>
+            </div>
+        </form>
+    </section>
+
+</div>

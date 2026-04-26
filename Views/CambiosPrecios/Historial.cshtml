@@ -1,0 +1,109 @@
+@model TheBuryProject.ViewModels.HistorialPreciosViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Historial de Precios — " + Model.ProductoNombre;
+    var listas = ViewBag.Listas as SelectList ?? new SelectList(Enumerable.Empty<object>());
+}
+
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-controller="Catalogo" asp-action="Index" class="text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-400 mb-0.5">Historial de precios</p>
+            <h1 class="text-2xl font-bold text-slate-100 truncate">@Model.ProductoNombre</h1>
+            <p class="text-sm text-slate-400">Código: @Model.ProductoCodigo</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap items-center gap-3">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2 flex-1">
+                <span class="material-symbols-outlined text-primary text-xl">history</span>
+                Historial de precios
+                <span class="ml-auto text-xs font-normal text-slate-400">@Model.Precios.Count registros</span>
+            </h2>
+            <form asp-action="Historial" method="get" class="flex items-center gap-2">
+                <input type="hidden" name="productoId" value="@Model.ProductoId" />
+                <select name="listaId"
+                        class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <option value="">Todas las listas</option>
+                    @foreach (var item in listas)
+                    {
+                        <option value="@item.Value" selected="@(Model.ListaId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                    }
+                </select>
+                <button type="submit" class="btn-erp-ghost btn-erp-sm">
+                    <span class="material-symbols-outlined text-base">filter_list</span>
+                </button>
+            </form>
+        </div>
+
+        @if (Model.Precios.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Lista</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Precio</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Costo</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Margen</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Vigente desde</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Vigente hasta</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Estado</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Creado por</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var p in Model.Precios)
+                        {
+                            <tr class="hover:bg-slate-800/50 transition-colors @(p.EsVigente ? "bg-emerald-900/10" : "")">
+                                <td class="px-4 py-3 text-slate-300">@p.ListaNombre</td>
+                                <td class="px-4 py-3 text-right font-semibold text-slate-100">$@p.Precio.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">$@p.Costo.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right @(p.MargenPorcentaje < 10 ? "text-red-400" : p.MargenPorcentaje < 20 ? "text-amber-400" : "text-emerald-400")">
+                                    @p.MargenPorcentaje.ToString("N1")%
+                                </td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@p.VigenciaDesde.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@(p.VigenciaHasta.HasValue ? p.VigenciaHasta.Value.ToString("dd/MM/yyyy HH:mm") : "—")</td>
+                                <td class="px-4 py-3 text-center">
+                                    @if (p.EsVigente)
+                                    {
+                                        <span class="badge-erp badge-erp-success">vigente</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-erp">histórico</span>
+                                    }
+                                    @if (p.EsManual)
+                                    {
+                                        <span class="badge-erp badge-erp-info ml-1">manual</span>
+                                    }
+                                </td>
+                                <td class="px-4 py-3 text-slate-400">@(p.CreadoPor ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="px-6 py-10 text-center text-sm text-slate-400">
+                <span class="material-symbols-outlined text-3xl block mb-2">history</span>
+                No hay registros de precios para este producto.
+            </div>
+        }
+    </section>
+
+</div>

@@ -1,0 +1,480 @@
+@model TheBuryProject.ViewModels.TicketMvcIndexViewModel
+@using TheBuryProject.Helpers
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Gestión de Tickets";
+    var tickets = Model.Resultado.Items.ToList();
+    var filtroActivo = Model.FiltroActivo;
+    var abiertos = Model.Abiertos;
+    var puedeGestionarEstado = Model.PuedeCambiarEstado || Model.PuedeResolver;
+    var puedeSeleccionar = puedeGestionarEstado || Model.PuedeEliminar;
+}
+
+@section Styles {
+    <partial name="_TicketModuleStyles" />
+}
+
+<div class="space-y-8">
+
+    @if (TempData["TicketSuccess"] is string successMessage)
+    {
+        <div class="toast-msg rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">
+            @successMessage
+        </div>
+    }
+    @if (TempData["TicketError"] is string errorMessage)
+    {
+        <div class="toast-msg rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
+            @errorMessage
+        </div>
+    }
+
+    <section class="hero-erp sm:p-8">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><span class="text-slate-500">Sistemas</span></li>
+                        <li><span class="mx-2 text-slate-600">/</span></li>
+                        <li class="text-slate-100">Tickets</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">bug_report</span>
+                        Gestión interna
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Tickets / Solicitudes</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Revisión y seguimiento de reportes generados desde el ERP. Gestioná estados reales del flujo actual sin salir del listado.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <article class="card-erp-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Total</p>
+                <p class="mt-2 text-2xl font-black text-white">@Model.TotalTickets</p>
+                <p class="mt-1 text-xs text-slate-400">tickets registrados</p>
+            </article>
+            <article class="card-erp-metric-warning">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-400">Pendientes</p>
+                <p class="mt-2 text-2xl font-black text-amber-300">@Model.Pendientes</p>
+                <p class="mt-1 text-xs text-amber-400/80">sin tratamiento</p>
+            </article>
+            <article class="card-erp-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-400">En curso</p>
+                <p class="mt-2 text-2xl font-black text-blue-300">@Model.EnCurso</p>
+                <p class="mt-1 text-xs text-slate-400">@abiertos abiertos</p>
+            </article>
+            <article class="card-erp-metric-success">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-green-400">Resueltos</p>
+                <p class="mt-2 text-2xl font-black text-green-300">@Model.Resueltos</p>
+                <p class="mt-1 text-xs text-green-400/80">con resolución</p>
+            </article>
+            <article class="card-erp-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cancelados</p>
+                <p class="mt-2 text-2xl font-black text-slate-200">@Model.Cancelados</p>
+                <p class="mt-1 text-xs text-slate-500">fuera de flujo</p>
+            </article>
+            <article class="card-erp-metric" style="--metric-accent: var(--color-primary);">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary-on-dark">Recientes</p>
+                <p class="mt-2 text-2xl font-black text-primary-on-dark">@Model.Recientes</p>
+                <p class="mt-1 text-xs text-slate-400">creados en 7 días</p>
+            </article>
+        </div>
+    </section>
+
+    <div data-oc-scroll style="--oc-scroll-min-width: 86rem;" class="table-erp-wrapper">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <h2 class="text-base font-bold text-white">Listado de tickets</h2>
+                    <p class="text-sm text-slate-400">Estados disponibles: Pendiente, En Curso, Resuelto y Cancelado.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge-erp badge-erp-neutral">
+                        <span class="material-symbols-outlined text-sm">table_rows</span>
+                        @tickets.Count visibles / @Model.Resultado.Total total
+                    </span>
+                    @if (filtroActivo)
+                    {
+                        <span class="badge-erp badge-erp-primary">
+                            <span class="material-symbols-outlined text-sm">filter_alt</span>
+                            Filtros activos
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <form asp-action="Index" method="get" id="form-filtros-tickets"
+              class="border-b border-slate-800 bg-slate-900/30 p-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="min-w-[220px] flex-1">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="busqueda-tickets">Buscar</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
+                        <input type="text" id="busqueda-tickets" name="busqueda" value="@Model.Filtro.Busqueda"
+                               aria-label="Buscar tickets por título o descripción"
+                               class="w-full rounded-lg border-none bg-slate-800 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                               placeholder="Título o descripción..." />
+                    </div>
+                </div>
+
+                <div class="w-40">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="estado-tickets">Estado</label>
+                    <select id="estado-tickets" name="estado" aria-label="Filtrar por estado" class="filter-select-erp">
+                        <option value="">Todos</option>
+                        @foreach (var estadoOption in Html.GetEnumSelectList<EstadoTicket>())
+                        {
+                            var selected = Model.Filtro.Estado.HasValue &&
+                                estadoOption.Value == ((int)Model.Filtro.Estado.Value).ToString();
+                            <option value="@estadoOption.Value" selected="@selected">@estadoOption.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="tipo-tickets">Tipo</label>
+                    <select id="tipo-tickets" name="tipo" aria-label="Filtrar por tipo" class="filter-select-erp">
+                        <option value="">Todos</option>
+                        @foreach (var tipoOption in Html.GetEnumSelectList<TipoTicket>())
+                        {
+                            var selected = Model.Filtro.Tipo.HasValue &&
+                                tipoOption.Value == ((int)Model.Filtro.Tipo.Value).ToString();
+                            <option value="@tipoOption.Value" selected="@selected">@tipoOption.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="modulo-tickets">Módulo</label>
+                    <input type="text" id="modulo-tickets" name="moduloOrigen" value="@Model.Filtro.ModuloOrigen"
+                           aria-label="Filtrar por módulo de origen"
+                           class="w-full rounded-lg border-none bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                           placeholder="ej. ventas, caja..." />
+                </div>
+
+                <div class="w-40">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="fecha-desde-tickets">Desde</label>
+                    <input type="date" id="fecha-desde-tickets" name="fechaDesde"
+                           value="@(Model.Filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                           aria-label="Filtrar desde fecha de creación"
+                           class="w-full rounded-lg border-none bg-slate-800 px-3 py-2 text-sm text-white transition-colors focus:ring-2 focus:ring-primary/50" />
+                </div>
+
+                <div class="w-40">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
+                           for="fecha-hasta-tickets">Hasta</label>
+                    <input type="date" id="fecha-hasta-tickets" name="fechaHasta"
+                           value="@(Model.Filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                           aria-label="Filtrar hasta fecha de creación"
+                           class="w-full rounded-lg border-none bg-slate-800 px-3 py-2 text-sm text-white transition-colors focus:ring-2 focus:ring-primary/50" />
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="submit"
+                            class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
+                            title="Filtrar tickets">
+                        <span class="material-symbols-outlined text-lg">filter_list</span>
+                        <span>Filtrar</span>
+                    </button>
+                    @if (filtroActivo)
+                    {
+                        <a asp-action="Index"
+                           class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                           title="Limpiar filtros">
+                            <span class="material-symbols-outlined text-lg">clear_all</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        @if (puedeSeleccionar)
+        {
+            <div id="ticketBulkBar"
+                 class="hidden border-b border-slate-800 bg-slate-950/80 px-5 py-3"
+                 data-ticket-bulk-bar>
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div class="flex items-center gap-3 text-sm font-semibold text-slate-200">
+                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary-on-dark">
+                            <span class="material-symbols-outlined text-lg">checklist</span>
+                        </span>
+                        <span><span id="ticketSelectedCount">0</span> seleccionados</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (puedeGestionarEstado)
+                        {
+                            <button type="button"
+                                    class="inline-flex h-9 items-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
+                                    data-ticket-bulk-status>
+                                <span class="material-symbols-outlined text-base">published_with_changes</span>
+                                Cambiar estado
+                            </button>
+                        }
+                        @if (Model.PuedeEliminar)
+                        {
+                            <button type="button"
+                                    class="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-500/10 px-3 text-sm font-bold text-rose-300 transition-colors hover:bg-rose-500 hover:text-white"
+                                    data-ticket-bulk-delete>
+                                <span class="material-symbols-outlined text-base">delete</span>
+                                Eliminar
+                            </button>
+                        }
+                        <button type="button"
+                                class="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-800 px-3 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                                data-ticket-selection-clear>
+                            <span class="material-symbols-outlined text-base">close</span>
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <p data-oc-scroll-hint hidden
+           class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
+            Deslizá la tabla para ver todas las columnas.
+        </p>
+
+        <div data-oc-scroll-shell>
+            <div data-oc-scroll-fade="left" hidden></div>
+            <div data-oc-scroll-fade="right" hidden></div>
+            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de tickets">
+                <table data-oc-scroll-table class="w-full border-collapse text-left">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/30">
+                            @if (puedeSeleccionar)
+                            {
+                                <th class="w-12 px-5 py-3">
+                                    <label class="sr-only" for="ticketSelectAll">Seleccionar todos los tickets visibles</label>
+                                    <input id="ticketSelectAll"
+                                           type="checkbox"
+                                           class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary/50"
+                                           data-ticket-select-all />
+                                </th>
+                            }
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Reportado por</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                    @if (tickets.Any())
+                    {
+                        @foreach (var t in tickets)
+                        {
+                            var resumen = string.IsNullOrWhiteSpace(t.Descripcion) ? "Sin descripción registrada." : t.Descripcion;
+                            var tipoBadge = t.Tipo switch
+                            {
+                                TipoTicket.ErrorFuncional => "badge-erp badge-erp-danger",
+                                TipoTicket.ErrorTexto => "badge-erp badge-erp-warning",
+                                TipoTicket.Mejora => "badge-erp badge-erp-primary",
+                                TipoTicket.NuevaFuncionalidad => "badge-erp badge-erp-success",
+                                _ => "badge-erp badge-erp-neutral",
+                            };
+                            var transicionesPermitidas = TicketUiHelper.GetTransicionesDisponibles(t.Estado)
+                                .Where(estado => estado == EstadoTicket.Resuelto ? Model.PuedeResolver : Model.PuedeCambiarEstado)
+                                .ToList();
+
+                            <tr class="transition-colors hover:bg-white/5"
+                                data-ticket-row
+                                data-ticket-id="@t.Id"
+                                data-ticket-title="@t.Titulo"
+                                data-ticket-status="@((int)t.Estado)"
+                                data-ticket-status-label="@t.EstadoNombre">
+                                @if (puedeSeleccionar)
+                                {
+                                    <td class="px-5 py-3">
+                                        <label class="sr-only" for="ticket-check-@t.Id">Seleccionar ticket #@t.Id</label>
+                                        <input id="ticket-check-@t.Id"
+                                               type="checkbox"
+                                               value="@t.Id"
+                                               class="h-4 w-4 rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary/50"
+                                               data-ticket-checkbox
+                                               aria-label="Seleccionar ticket #@t.Id" />
+                                    </td>
+                                }
+                                <td class="px-5 py-3">
+                                    <span class="font-mono text-xs text-slate-400">#@t.Id</span>
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-3">
+                                    <span class="text-xs text-slate-400">@t.CreatedAt.ToString("dd/MM/yy HH:mm")</span>
+                                </td>
+                                <td class="max-w-md px-5 py-3">
+                                    <p class="truncate text-sm font-semibold text-white">@t.Titulo</p>
+                                    <p class="mt-1 truncate text-xs text-slate-500">@resumen</p>
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-3">
+                                    <span class="@tipoBadge">@t.TipoNombre</span>
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-3">
+                                    <span class="@TicketUiHelper.EstadoBadgeClass(t.Estado)">
+                                        <span class="material-symbols-outlined text-sm">@TicketUiHelper.EstadoIcon(t.Estado)</span>
+                                        @t.EstadoNombre
+                                    </span>
+                                </td>
+                                <td class="px-5 py-3">
+                                    <span class="text-sm text-slate-300">@(t.CreatedBy ?? "—")</span>
+                                </td>
+                                <td class="min-w-44 px-5 py-3">
+                                    <div class="space-y-1">
+                                        @if (!string.IsNullOrEmpty(t.ModuloOrigen))
+                                        {
+                                            <span class="inline-flex items-center rounded-md border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[11px] font-semibold text-slate-300">@t.ModuloOrigen</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-500">Sin módulo</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(t.VistaOrigen))
+                                        {
+                                            <p class="max-w-44 truncate text-[11px] text-slate-500">@t.VistaOrigen</p>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="px-5 py-3 text-right">
+                                    <div class="flex flex-wrap justify-end gap-2">
+                                        <a asp-action="Details" asp-route-id="@t.Id"
+                                           class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                                           title="Ver detalle del ticket #@t.Id">
+                                            <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                                            Ver
+                                        </a>
+                                        <button type="button"
+                                                data-ticket-panel-open="@t.Id"
+                                                class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
+                                                title="Gestionar ticket #@t.Id en el panel">
+                                            <span class="material-symbols-outlined text-[14px]">manage_search</span>
+                                            Panel
+                                        </button>
+                                        @foreach (var nuevoEstado in transicionesPermitidas)
+                                        {
+                                            <button type="button"
+                                                    class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                                                    data-ticket-status-action
+                                                    data-ticket-id="@t.Id"
+                                                    data-ticket-title="@t.Titulo"
+                                                    data-ticket-current-label="@t.EstadoNombre"
+                                                    data-ticket-new-status="@((int)nuevoEstado)"
+                                                    data-ticket-new-label="@nuevoEstado.GetDisplayName()"
+                                                    data-ticket-requires-description="@TicketUiHelper.RequiereDescripcion(nuevoEstado).ToString().ToLowerInvariant()">
+                                                <span class="material-symbols-outlined text-[14px]">@TicketUiHelper.EstadoIcon(nuevoEstado)</span>
+                                                @TicketUiHelper.AccionEstadoLabel(nuevoEstado)
+                                            </button>
+                                        }
+                                        @if (Model.PuedeEliminar)
+                                        {
+                                            <button type="button"
+                                                    class="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500 hover:text-white"
+                                                    data-ticket-delete-action
+                                                    data-ticket-id="@t.Id"
+                                                    data-ticket-title="@t.Titulo">
+                                                <span class="material-symbols-outlined text-[14px]">delete</span>
+                                                Eliminar
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="@(puedeSeleccionar ? 9 : 8)" class="px-5 py-16 text-center">
+                                <div class="flex flex-col items-center gap-4">
+                                    <span class="material-symbols-outlined text-5xl text-slate-600">bug_report</span>
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-semibold text-slate-300">
+                                            @(filtroActivo ? "No se encontraron tickets con esos filtros." : "No hay tickets registrados aún.")
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            @(filtroActivo ? "Probá ajustando o limpiando los filtros para ver más resultados." : "Los reportes generados desde el botón \"Reportar incidencia\" aparecerán aquí.")
+                                        </p>
+                                    </div>
+                                    @if (filtroActivo)
+                                    {
+                                        <a asp-action="Index"
+                                           class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-700 no-underline">
+                                            <span class="material-symbols-outlined text-base">clear_all</span>
+                                            Limpiar filtros
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (Model.Resultado.TotalPages > 1)
+        {
+            <div class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 px-5 py-4">
+                <p class="text-xs text-slate-400">
+                    Página @Model.Resultado.Page de @Model.Resultado.TotalPages
+                    &mdash; @Model.Resultado.Total ticket@(Model.Resultado.Total == 1 ? "" : "s") en total
+                </p>
+                <div class="flex gap-2">
+                    @if (Model.Resultado.HasPreviousPage)
+                    {
+                        <a asp-action="Index"
+                           asp-route-busqueda="@Model.Filtro.Busqueda"
+                           asp-route-estado="@((int?)Model.Filtro.Estado)"
+                           asp-route-tipo="@((int?)Model.Filtro.Tipo)"
+                           asp-route-moduloOrigen="@Model.Filtro.ModuloOrigen"
+                           asp-route-fechaDesde="@(Model.Filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                           asp-route-fechaHasta="@(Model.Filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                           asp-route-page="@(Model.Resultado.Page - 1)"
+                           class="inline-flex h-8 items-center gap-1 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline">
+                            <span class="material-symbols-outlined text-sm">chevron_left</span>
+                            Anterior
+                        </a>
+                    }
+                    @if (Model.Resultado.HasNextPage)
+                    {
+                        <a asp-action="Index"
+                           asp-route-busqueda="@Model.Filtro.Busqueda"
+                           asp-route-estado="@((int?)Model.Filtro.Estado)"
+                           asp-route-tipo="@((int?)Model.Filtro.Tipo)"
+                           asp-route-moduloOrigen="@Model.Filtro.ModuloOrigen"
+                           asp-route-fechaDesde="@(Model.Filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                           asp-route-fechaHasta="@(Model.Filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                           asp-route-page="@(Model.Resultado.Page + 1)"
+                           class="inline-flex h-8 items-center gap-1 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline">
+                            Siguiente
+                            <span class="material-symbols-outlined text-sm">chevron_right</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (puedeGestionarEstado || Model.PuedeEliminar)
+    {
+        <partial name="_TicketActionModals" />
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/ticket-module.js" asp-append-version="true"></script>
+}

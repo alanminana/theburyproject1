@@ -1,0 +1,130 @@
+export default {
+  site: 'http://localhost:5187',
+  debug: true,
+
+  urls: [
+    '/Dashboard',
+    '/OrdenCompra',
+    '/OrdenCompra/Create',
+    '/Proveedor',
+    '/Cliente',
+    '/Caja',
+    '/Catalogo',
+    '/Credito',
+    '/DocumentoCliente',
+    '/Seguridad',
+    '/Usuarios',
+    '/Venta',
+    '/Devolucion'
+  ],
+
+  scanner: {
+    device: 'desktop',
+    throttle: false
+  },
+
+  puppeteerOptions: {
+    headless: false,
+    slowMo: 75,
+    userDataDir: './.unlighthouse-session'
+  },
+
+  puppeteerClusterOptions: {
+    maxConcurrency: 1
+  },
+
+  lighthouseOptions: {
+    disableStorageReset: true,
+    skipAboutBlank: true
+  },
+
+  hooks: {
+    async authenticate({ page }) {
+      const loginUrl = 'http://localhost:5187/Identity/Account/Login?ReturnUrl=%2FDashboard'
+      const username = 'admin@buryproyect.com'
+      const password = 'Admin123!'
+
+      await page.goto(loginUrl, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      })
+
+      const typeFirst = async (selectors, value) => {
+        for (const selector of selectors) {
+          const el = await page.$(selector)
+          if (el) {
+            await page.click(selector, { clickCount: 3 }).catch(() => {})
+            await page.keyboard.press('Backspace').catch(() => {})
+            await page.type(selector, value)
+            return
+          }
+        }
+
+        throw new Error(`No encontré selector para: ${selectors.join(', ')}`)
+      }
+
+      await typeFirst([
+        'input[name="Input.Email"]',
+        '#Input_Email',
+        'input[name="Email"]',
+        '#Email',
+        'input[type="email"]',
+        'input[type="text"]'
+      ], username)
+
+      await typeFirst([
+        'input[name="Input.Password"]',
+        '#Input_Password',
+        'input[name="Password"]',
+        '#Password',
+        'input[type="password"]'
+      ], password)
+
+      for (const selector of [
+        'input[name="Input.RememberMe"]',
+        '#Input_RememberMe',
+        'input[name="RememberMe"]',
+        '#RememberMe'
+      ]) {
+        const el = await page.$(selector)
+        if (el) {
+          const checked = await page.$eval(selector, node => node.checked).catch(() => false)
+          if (!checked) {
+            await page.click(selector).catch(() => {})
+          }
+          break
+        }
+      }
+
+      const submitSelectors = [
+        'button[type="submit"]',
+        'input[type="submit"]',
+        'button.btn-primary',
+        'button'
+      ]
+
+      let submitted = false
+
+      for (const selector of submitSelectors) {
+        const el = await page.$(selector)
+        if (el) {
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 }).catch(() => null),
+            page.click(selector)
+          ])
+          submitted = true
+          break
+        }
+      }
+
+      if (!submitted) {
+        throw new Error('No encontré botón submit.')
+      }
+
+      await page.goto('http://localhost:5187/Dashboard', {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      })
+    }
+  }
+}

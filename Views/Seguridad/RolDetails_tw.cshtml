@@ -11,39 +11,16 @@
     var usuariosInactivos = Math.Max(0, Model.CantidadUsuarios - Model.CantidadUsuariosActivos);
 }
 
-<link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-
-<style>
-    .seguridad-role-detail-actions {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .seguridad-role-detail-actions > a {
-        width: 100%;
-    }
-
-    @@media (min-width: 640px) {
-        .seguridad-role-detail-actions {
-            width: auto;
-            flex-direction: row;
-            align-items: center;
-        }
-
-        .seguridad-role-detail-actions > a {
-            width: auto;
-        }
-    }
-</style>
+@section Styles {
+    <partial name="_SeguridadModuleStyles" />
+}
 
 <div class="max-w-7xl mx-auto space-y-8">
-    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-6 md:px-8 py-8 border-b border-slate-200 dark:border-slate-800">
+    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-6 md:px-8 py-8 border-b border-slate-800">
             <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div class="space-y-4">
-                    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
                         <a href="@backUrl" class="hover:text-primary transition-colors no-underline">Seguridad</a>
                         <span>/</span>
                         <span>Roles</span>
@@ -57,23 +34,23 @@
                                 <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
                                 Rol Detalle
                             </span>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold @(Model.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold @(Model.Activo ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400")">
                                 <span class="size-1.5 rounded-full @(Model.Activo ? "bg-emerald-500" : "bg-slate-400")"></span>
                                 @(Model.Activo ? "Activo" : "Inactivo")
                             </span>
                         </div>
 
                         <div>
-                            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@Model.Nombre</h1>
-                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-3xl">@(string.IsNullOrWhiteSpace(Model.Descripcion) ? "Sin descripción cargada para este rol." : Model.Descripcion)</p>
+                            <h1 class="text-3xl font-black tracking-tight text-white">@Model.Nombre</h1>
+                            <p class="text-sm text-slate-400 mt-2 max-w-3xl">@(string.IsNullOrWhiteSpace(Model.Descripcion) ? "Sin descripción cargada para este rol." : Model.Descripcion)</p>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1">
                                 <span class="material-symbols-outlined text-sm">shield_person</span>
                                 Permisos heredados por RBAC
                             </span>
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1">
                                 <span class="material-symbols-outlined text-sm">group</span>
                                 @Model.CantidadUsuarios usuarios asociados
                             </span>
@@ -83,7 +60,7 @@
 
                 <div class="seguridad-role-detail-actions">
                     <a href="@backUrl"
-                       class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline">
+                       class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors no-underline">
                         <span class="material-symbols-outlined text-sm">arrow_back</span>
                         Volver
                     </a>
@@ -98,34 +75,34 @@
 
         <div class="px-6 md:px-8 py-6">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-5">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</p>
-                    <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@(Model.Activo ? "Activo" : "Inactivo")</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Disponibilidad del rol en la cuenta.</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</p>
+                    <p class="text-xl font-black text-white mt-2">@(Model.Activo ? "Activo" : "Inactivo")</p>
+                    <p class="text-xs text-slate-400 mt-1">Disponibilidad del rol en la cuenta.</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-5">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuarios</p>
-                    <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@Model.CantidadUsuarios</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@Model.CantidadUsuariosActivos activos, @usuariosInactivos inactivos</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Usuarios</p>
+                    <p class="text-xl font-black text-white mt-2">@Model.CantidadUsuarios</p>
+                    <p class="text-xs text-slate-400 mt-1">@Model.CantidadUsuariosActivos activos, @usuariosInactivos inactivos</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-5">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Permisos activos</p>
-                    <p class="text-xl font-black text-slate-900 dark:text-white mt-2">@Model.Permisos.Count</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@modulosAgrupados.Count módulos cubiertos</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Permisos activos</p>
+                    <p class="text-xl font-black text-white mt-2">@Model.Permisos.Count</p>
+                    <p class="text-xs text-slate-400 mt-1">@modulosAgrupados.Count módulos cubiertos</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-5">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cobertura</p>
-                    <p class="text-xl font-black text-slate-900 dark:text-white mt-2">RBAC</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Permisos heredados solo por rol.</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Cobertura</p>
+                    <p class="text-xl font-black text-white mt-2">RBAC</p>
+                    <p class="text-xs text-slate-400 mt-1">Permisos heredados solo por rol.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+    <section class="bg-slate-900/50 border border-slate-800 rounded-xl p-6 space-y-4">
         <div>
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Resumen de permisos activos</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Vista agrupada por módulo para revisar rápidamente el alcance del rol.</p>
+            <h3 class="text-lg font-bold text-white">Resumen de permisos activos</h3>
+            <p class="text-sm text-slate-400 mt-1">Vista agrupada por módulo para revisar rápidamente el alcance del rol.</p>
         </div>
 
         @if (modulosAgrupados.Any())
@@ -133,8 +110,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach (var modulo in modulosAgrupados)
                 {
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 p-5">
-                        <p class="text-sm font-bold text-slate-900 dark:text-white">@modulo.Key</p>
+                    <div class="rounded-xl border border-slate-800 bg-slate-800/30 p-5">
+                        <p class="text-sm font-bold text-white">@modulo.Key</p>
                         <div class="flex flex-wrap gap-2 mt-4">
                             @foreach (var permiso in modulo.OrderBy(p => p.AccionNombre))
                             {
@@ -150,26 +127,26 @@
         }
         else
         {
-            <div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
-                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sin permisos asignados</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Este rol todavía no tiene permisos activos.</p>
+            <div class="rounded-xl border border-dashed border-slate-700 p-8 text-center">
+                <p class="text-sm font-semibold text-slate-300">Sin permisos asignados</p>
+                <p class="text-xs text-slate-400 mt-2">Este rol todavía no tiene permisos activos.</p>
             </div>
         }
     </section>
 
-    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+    <section class="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-800 bg-slate-800/30">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Usuarios asociados</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Listado de cuentas que tienen asignado este rol.</p>
+                    <h3 class="text-lg font-bold text-white">Usuarios asociados</h3>
+                    <p class="text-sm text-slate-400 mt-1">Listado de cuentas que tienen asignado este rol.</p>
                 </div>
-                <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-400">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
                         <span class="material-symbols-outlined text-sm">group</span>
                         @Model.CantidadUsuarios usuarios
                     </span>
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-slate-200 dark:border-slate-700">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
                         <span class="material-symbols-outlined text-sm">verified_user</span>
                         @Model.CantidadUsuariosActivos activos
                     </span>
@@ -180,44 +157,44 @@
         @if (Model.Usuarios.Any())
         {
             <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 960px;">
-                <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+                <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
                     Deslizá para ver toda la tabla
                 </div>
                 <div data-oc-scroll-shell class="relative">
-                    <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-                    <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                    <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                     <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Usuarios asociados al rol">
                 <table data-oc-scroll-table class="w-full text-left" style="min-width: var(--oc-scroll-min-width);">
-                    <thead class="bg-slate-50/60 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800">
+                    <thead class="/60 bg-slate-800/40 border-b border-slate-800">
                         <tr>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuario</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Último acceso</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Usuario</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Email</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Último acceso</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tbody class="divide-y divide-slate-800">
                         @foreach (var usuario in Model.Usuarios.OrderByDescending(u => u.Activo).ThenBy(u => u.UserName))
                         {
-                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <tr class="hover:/50 hover:bg-slate-800/30 transition-colors">
                                 <td class="px-6 py-4">
                                     <div class="space-y-1">
-                                        <p class="text-sm font-semibold text-slate-900 dark:text-white">@usuario.UserName</p>
+                                        <p class="text-sm font-semibold text-white">@usuario.UserName</p>
                                         @if (!string.IsNullOrWhiteSpace(usuario.NombreCompleto))
                                         {
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">@usuario.NombreCompleto</p>
+                                            <p class="text-xs text-slate-400">@usuario.NombreCompleto</p>
                                         }
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">@usuario.Email</td>
+                                <td class="px-6 py-4 text-sm text-slate-400">@usuario.Email</td>
                                 <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold @(usuario.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold @(usuario.Activo ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-400")">
                                         <span class="size-1.5 rounded-full @(usuario.Activo ? "bg-emerald-500" : "bg-slate-400")"></span>
                                         @(usuario.Activo ? "Activo" : "Inactivo")
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                                <td class="px-6 py-4 text-sm text-slate-400">
                                     @(usuario.UltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "Nunca")
                                 </td>
                                 <td class="px-6 py-4 text-right">
@@ -236,7 +213,7 @@
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-800/30 flex flex-col gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
                 <p class="text-xs font-medium text-slate-500">Mostrando @Model.CantidadUsuarios cuentas asociadas a este rol.</p>
                 <p class="text-xs font-medium text-slate-500">@Model.CantidadUsuariosActivos activas, @usuariosInactivos inactivas.</p>
             </div>
@@ -244,8 +221,8 @@
         else
         {
             <div class="p-12 text-center">
-                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">No hay usuarios asociados</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Este rol todavía no está asignado a ninguna cuenta.</p>
+                <p class="text-sm font-semibold text-slate-300">No hay usuarios asociados</p>
+                <p class="text-xs text-slate-400 mt-2">Este rol todavía no está asignado a ninguna cuenta.</p>
             </div>
         }
     </section>

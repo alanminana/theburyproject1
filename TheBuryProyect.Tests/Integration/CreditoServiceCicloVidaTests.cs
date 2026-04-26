@@ -10,6 +10,7 @@ using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -17,12 +18,21 @@ namespace TheBuryProject.Tests.Integration;
 // Stubs mínimos para CreditoService — ciclo de vida
 // ---------------------------------------------------------------------------
 
-file sealed class StubCajaServiceCiclo : ICajaService
+sealed class StubCajaServiceCiclo : ICajaService
 {
+    public List<(int CuotaId, string CreditoNumero, int NumeroCuota, decimal Monto, string MedioPago, string Usuario)> MovimientosCuota { get; } = new();
+    public AperturaCaja? AperturaActivaParaVenta { get; set; } = new() { Id = 1 };
+
     public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
         int cuotaId, string creditoNumero, int numeroCuota,
         decimal monto, string medioPago, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    {
+        if (AperturaActivaParaVenta == null)
+            return Task.FromResult<MovimientoCaja?>(null);
+
+        MovimientosCuota.Add((cuotaId, creditoNumero, numeroCuota, monto, medioPago, usuario));
+        return Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    }
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
@@ -41,7 +51,7 @@ file sealed class StubCajaServiceCiclo : ICajaService
     public Task<List<MovimientoCaja>> ObtenerMovimientosDeAperturaAsync(int aperturaId) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoActualAsync(int aperturaId) => throw new NotImplementedException();
     public Task<MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario) => throw new NotImplementedException();
-    public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => throw new NotImplementedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => Task.FromResult(AperturaActivaParaVenta);
     public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario) => throw new NotImplementedException();
     public Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(int devolucionId, int ventaId, string ventaNumero, string devolucionNumero, decimal monto, string usuario) => throw new NotImplementedException();
     public Task<CierreCaja> CerrarCajaAsync(CerrarCajaViewModel model, string usuario) => throw new NotImplementedException();
@@ -83,6 +93,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly CreditoService _service;
+    private readonly StubCajaServiceCiclo _cajaService;
 
     public CreditoServiceCicloVidaTests()
     {
@@ -101,12 +112,14 @@ public class CreditoServiceCicloVidaTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
+        _cajaService = new StubCajaServiceCiclo();
+
         _service = new CreditoService(
             _context,
             mapper,
             NullLogger<CreditoService>.Instance,
             new FinancialCalculationService(),
-            new StubCajaServiceCiclo(),
+            _cajaService,
             new StubCreditoDisponibleServiceCiclo(),
             new StubCurrentUserServiceCiclo());
     }
@@ -166,7 +179,9 @@ public class CreditoServiceCicloVidaTests : IDisposable
         decimal montoCapital = 800m,
         decimal montoInteres = 200m,
         EstadoCuota estado = EstadoCuota.Pendiente,
-        int diasAtraso = 0)
+        int diasAtraso = 0,
+        decimal montoPagado = 0m,
+        decimal montoPunitorio = 0m)
     {
         var cuota = new Cuota
         {
@@ -175,6 +190,8 @@ public class CreditoServiceCicloVidaTests : IDisposable
             MontoCapital = montoCapital,
             MontoInteres = montoInteres,
             MontoTotal = montoTotal,
+            MontoPagado = montoPagado,
+            MontoPunitorio = montoPunitorio,
             Estado = estado,
             FechaVencimiento = DateTime.UtcNow.AddDays(-diasAtraso)
         };
@@ -303,6 +320,8 @@ public class CreditoServiceCicloVidaTests : IDisposable
         var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
         Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
         Assert.Equal(1_000m, cuotaBd.MontoPagado);
+        Assert.Single(_cajaService.MovimientosCuota);
+        Assert.Equal("Efectivo", _cajaService.MovimientosCuota[0].MedioPago);
     }
 
     [Fact]
@@ -359,6 +378,328 @@ public class CreditoServiceCicloVidaTests : IDisposable
 
         var resultado = await _service.PagarCuotaAsync(pago);
         Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task PagarCuota_CajaCerrada_LanzaYNoRegistraPago()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, montoTotal: 1_000m, montoCapital: 800m);
+        _cajaService.AperturaActivaParaVenta = null;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotaAsync(new PagarCuotaViewModel
+            {
+                CuotaId = cuota.Id,
+                MontoPagado = 1_000m,
+                FechaPago = DateTime.UtcNow,
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
+    [Fact]
+    public async Task PagarCuota_MedioPagoInvalido_LanzaYNoRegistraPago()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, montoTotal: 1_000m, montoCapital: 800m);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotaAsync(new PagarCuotaViewModel
+            {
+                CuotaId = cuota.Id,
+                MontoPagado = 1_000m,
+                FechaPago = DateTime.UtcNow,
+                MedioPago = "Bitcoin"
+            }));
+
+        Assert.Contains("Medio de pago inválido", ex.Message);
+        Assert.Empty(_cajaService.MovimientosCuota);
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
+    // -------------------------------------------------------------------------
+    // PagarCuotasAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task PagarCuotas_DosCuotasDeDistintosCreditosDelMismoCliente_MarcaPagadasYRegistraCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito1 = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 2_500m);
+        var credito2 = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, montoSolicitado: 3_000m);
+        var cuota1 = await SeedCuotaAsync(credito1.Id, numero: 1, montoTotal: 1_000m, montoCapital: 800m, diasAtraso: -10);
+        var cuota2 = await SeedCuotaAsync(credito2.Id, numero: 1, montoTotal: 1_500m, montoCapital: 1_200m, diasAtraso: -10);
+
+        var resultado = await _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+        {
+            ClienteId = cliente.Id,
+            CuotaIds = new List<int> { cuota1.Id, cuota2.Id },
+            MedioPago = "Efectivo",
+            Observaciones = "Pago múltiple test"
+        });
+
+        _context.ChangeTracker.Clear();
+        var cuotas = await _context.Set<Cuota>()
+            .Where(c => c.Id == cuota1.Id || c.Id == cuota2.Id)
+            .OrderBy(c => c.Id)
+            .ToListAsync();
+
+        Assert.Equal(2, resultado.CantidadCuotas);
+        Assert.Equal(2, resultado.CantidadCreditos);
+        Assert.Equal(2_500m, resultado.TotalPagado);
+        Assert.Equal(2_500m, resultado.Subtotal);
+        Assert.Equal(0m, resultado.MoraTotal);
+        Assert.All(cuotas, c => Assert.Equal(EstadoCuota.Pagada, c.Estado));
+        Assert.Contains(cuotas, c => c.Id == cuota1.Id && c.MontoPagado == 1_000m);
+        Assert.Contains(cuotas, c => c.Id == cuota2.Id && c.MontoPagado == 1_500m);
+        Assert.Equal(2, _cajaService.MovimientosCuota.Count);
+        Assert.All(_cajaService.MovimientosCuota, m => Assert.Equal("Efectivo", m.MedioPago));
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotasDeClientesDistintos_LanzaYNoRegistraPagos()
+    {
+        var cliente1 = await SeedClienteAsync();
+        var cliente2 = await SeedClienteAsync();
+        var credito1 = await SeedCreditoAsync(cliente1.Id, EstadoCredito.Aprobado);
+        var credito2 = await SeedCreditoAsync(cliente2.Id, EstadoCredito.Aprobado);
+        var cuota1 = await SeedCuotaAsync(credito1.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+        var cuota2 = await SeedCuotaAsync(credito2.Id, numero: 1, montoTotal: 1_500m, diasAtraso: -10);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente1.Id,
+                CuotaIds = new List<int> { cuota1.Id, cuota2.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        _context.ChangeTracker.Clear();
+        var cuotas = await _context.Set<Cuota>()
+            .Where(c => c.Id == cuota1.Id || c.Id == cuota2.Id)
+            .ToListAsync();
+
+        Assert.All(cuotas, c => Assert.Equal(EstadoCuota.Pendiente, c.Estado));
+        Assert.All(cuotas, c => Assert.Equal(0m, c.MontoPagado));
+        Assert.Empty(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaYaPagada_LanzaYNoRegistraNingunaCuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuotaPendiente = await SeedCuotaAsync(credito.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+        var cuotaPagada = await SeedCuotaAsync(credito.Id, numero: 2, montoTotal: 1_500m, estado: EstadoCuota.Pagada, diasAtraso: -10);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuotaPendiente.Id, cuotaPagada.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        _context.ChangeTracker.Clear();
+        var pendiente = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuotaPendiente.Id);
+        var pagada = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuotaPagada.Id);
+
+        Assert.Equal(EstadoCuota.Pendiente, pendiente.Estado);
+        Assert.Equal(0m, pendiente.MontoPagado);
+        Assert.Equal(EstadoCuota.Pagada, pagada.Estado);
+        Assert.Empty(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaInexistente_LanzaYNoRegistraCaja()
+    {
+        var cliente = await SeedClienteAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { 99999 },
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaDuplicada_LanzaYNoRegistraCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuota.Id, cuota.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_MedioPagoInvalido_LanzaYNoRegistraPago()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuota.Id },
+                MedioPago = "Crypto"
+            }));
+
+        Assert.Contains("Medio de pago inválido", ex.Message);
+        Assert.Empty(_cajaService.MovimientosCuota);
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaCancelada_LanzaYNoRegistraCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, numero: 1, estado: EstadoCuota.Cancelada, diasAtraso: -10);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuota.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaSinSaldo_LanzaYNoRegistraCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(
+            credito.Id,
+            numero: 1,
+            montoTotal: 1_000m,
+            estado: EstadoCuota.Parcial,
+            diasAtraso: -10,
+            montoPagado: 1_000m);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuota.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CajaCerrada_LanzaYNoRegistraPago()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+        _cajaService.AperturaActivaParaVenta = null;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+            {
+                ClienteId = cliente.Id,
+                CuotaIds = new List<int> { cuota.Id },
+                MedioPago = "Efectivo"
+            }));
+
+        Assert.Empty(_cajaService.MovimientosCuota);
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_SegundoIntentoMismaCuota_LanzaYNoDuplicaMovimientoCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado);
+        var cuota = await SeedCuotaAsync(credito.Id, numero: 1, montoTotal: 1_000m, diasAtraso: -10);
+        var request = new PagoMultipleCuotasRequest
+        {
+            ClienteId = cliente.Id,
+            CuotaIds = new List<int> { cuota.Id },
+            MedioPago = "Efectivo"
+        };
+
+        await _service.PagarCuotasAsync(request);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.PagarCuotasAsync(request));
+
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
+        Assert.Equal(1_000m, cuotaBd.MontoPagado);
+        Assert.Single(_cajaService.MovimientosCuota);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaVencida_RecalculaPunitorioEnServidor()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, tasaInteres: 12m);
+        var cuota = await SeedCuotaAsync(
+            credito.Id,
+            numero: 1,
+            montoTotal: 1_000m,
+            montoCapital: 800m,
+            montoInteres: 200m,
+            diasAtraso: 60,
+            montoPunitorio: 0m);
+
+        var resultado = await _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+        {
+            ClienteId = cliente.Id,
+            CuotaIds = new List<int> { cuota.Id },
+            MedioPago = "Efectivo"
+        });
+
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+
+        Assert.True(cuotaBd.MontoPunitorio > 0m);
+        Assert.True(resultado.MoraTotal > 0m);
+        Assert.Equal(resultado.TotalPagado, resultado.Subtotal + resultado.MoraTotal);
+        Assert.Equal(cuotaBd.MontoTotal + cuotaBd.MontoPunitorio, cuotaBd.MontoPagado);
     }
 
     // -------------------------------------------------------------------------

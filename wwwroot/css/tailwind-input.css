@@ -14,11 +14,55 @@
     --font-display: 'Inter', sans-serif;
 }
 
+@layer utilities {
+    /* Grid utilities not auto-detected by Tailwind scanner */
+    .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    @media (min-width: 768px) {
+        .md\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+        .md\:col-span-1  { grid-column: span 1 / span 1; }
+        .md\:col-span-2  { grid-column: span 2 / span 2; }
+        .md\:col-span-3  { grid-column: span 3 / span 3; }
+        .md\:col-span-4  { grid-column: span 4 / span 4; }
+        .md\:col-span-5  { grid-column: span 5 / span 5; }
+        .md\:col-span-6  { grid-column: span 6 / span 6; }
+        .md\:col-span-7  { grid-column: span 7 / span 7; }
+        .md\:col-span-8  { grid-column: span 8 / span 8; }
+        .md\:col-span-9  { grid-column: span 9 / span 9; }
+        .md\:col-span-10 { grid-column: span 10 / span 10; }
+        .md\:col-span-11 { grid-column: span 11 / span 11; }
+        .md\:col-span-12 { grid-column: span 12 / span 12; }
+    }
+}
+
 @layer base {
     body {
         font-family: 'Inter', sans-serif;
     }
     .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    /* ── Design tokens globales (dark-first ERP) ──
+       Disponibles en todas las vistas que usan _Layout.cshtml.
+       Referenciados por las clases canónicas en shared-components.css.
+    */
+    :root {
+        --erp-bg:             #101622;   /* fondo base del layout */
+        --erp-surface:        #161c28;   /* cards, paneles sobre el bg */
+        --erp-surface-raised: #1a202c;   /* hero, modales, dropdowns */
+        --erp-surface-high:   #242a37;   /* hover states, tooltips */
+        --erp-border:         #1e293b;   /* borde standard */
+        --erp-border-muted:   #0f172a;   /* borde sutil */
+        --erp-text:           #dde2f4;   /* texto principal */
+        --erp-text-muted:     #94a3b8;   /* texto secundario */
+        --erp-text-faint:     #475569;   /* texto terciario, placeholder */
+        --erp-primary:        #135bec;   /* azul acción */
+        --erp-primary-hover:  #0f4fd6;
+        --erp-primary-faint:  rgba(19, 91, 236, 0.1);
+    }
+
+    /* Links globales — no heredar el azul Bootstrap */
+    a {
+        color: inherit;
     }
 }

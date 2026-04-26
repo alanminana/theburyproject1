@@ -1,0 +1,246 @@
+@model PlantillaContratoCreditoViewModel
+@{
+    ViewData["Title"] = "Plantilla de Contrato";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("CreditoPersonal", "ConfiguracionPago") ?? "/ConfiguracionPago/CreditoPersonal";
+    var puedeEditar = User.TienePermiso("configuraciones", "update");
+    var variables = new[]
+    {
+        "{{Vendedor.Nombre}}",
+        "{{Vendedor.Domicilio}}",
+        "{{Vendedor.DNI}}",
+        "{{Vendedor.CUIT}}",
+        "{{Comprador.NombreCompleto}}",
+        "{{Comprador.DNI}}",
+        "{{Comprador.CUITCUIL}}",
+        "{{Comprador.Domicilio}}",
+        "{{Comprador.Localidad}}",
+        "{{Comprador.Telefono}}",
+        "{{Garante.NombreCompleto}}",
+        "{{Garante.DNI}}",
+        "{{Garante.Domicilio}}",
+        "{{Garante.Relacion}}",
+        "{{Venta.Numero}}",
+        "{{Venta.Fecha}}",
+        "{{Venta.Total}}",
+        "{{Venta.Productos}}",
+        "{{Credito.Numero}}",
+        "{{Credito.CantidadCuotas}}",
+        "{{Credito.MontoCuota}}",
+        "{{Credito.TotalAPagar}}",
+        "{{Credito.FechaPrimeraCuota}}",
+        "{{Credito.PlanCuotas}}",
+        "{{Contrato.Numero}}",
+        "{{Pagare.Numero}}",
+        "{{Contrato.FechaEmision}}",
+        "{{UsuarioGeneracion}}",
+        "{{Sucursal}}",
+        "{{Caja}}"
+    };
+}
+
+@section Styles {
+    <partial name="~/Views/Credito/_CreditoModuleStyles.cshtml" />
+}
+
+<div class="space-y-8">
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" class="hover:text-primary no-underline">Crédito personal</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Contrato</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">contract</span>
+                        Plantilla contractual
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Plantilla de contrato de venta</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Administrá la plantilla activa para ventas con Crédito Personal. Los contratos generados conservarán su propio snapshot.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
+                <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver
+                </a>
+            </div>
+        </header>
+
+        <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
+                <p class="mt-2 text-lg font-black @(Model.Activa ? "text-emerald-400" : "text-slate-300")">@(Model.Activa ? "Activa" : "Inactiva")</p>
+                <p class="mt-1 text-xs text-slate-400">plantilla seleccionada para emisión</p>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Vigencia</p>
+                <p class="mt-2 text-lg font-black text-white">@Model.VigenteDesde.ToString("dd/MM/yyyy")</p>
+                <p class="mt-1 text-xs text-slate-400">@(Model.VigenteHasta.HasValue ? $"hasta {Model.VigenteHasta.Value:dd/MM/yyyy}" : "sin fecha de cierre")</p>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Auditoría</p>
+                <p class="mt-2 text-sm font-bold text-white">@(Model.EsNueva ? "Sin guardar" : $"Creada {Model.CreatedAt:dd/MM/yyyy}")</p>
+                <p class="mt-1 text-xs text-slate-400">@(Model.UpdatedAt.HasValue ? $"editada {Model.UpdatedAt.Value:dd/MM/yyyy HH:mm}" : Model.CreatedBy ?? "pendiente")</p>
+            </div>
+        </div>
+    </section>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    <form asp-action="Index" asp-controller="ConfiguracionContratoCredito" method="post" class="space-y-8">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+        }
+        <input type="hidden" asp-for="Id" />
+
+        <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
+
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div class="space-y-8 lg:col-span-2">
+                <section class="card-erp-panel-padded">
+                    <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">storefront</span>
+                        <h2 class="text-xl font-bold text-white">Datos del vendedor</h2>
+                    </div>
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="Nombre" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="Nombre" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="Nombre" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex items-end">
+                            <label class="inline-flex h-12 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-semibold text-slate-300">
+                                <input asp-for="Activa" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                Plantilla activa
+                            </label>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="NombreVendedor" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="NombreVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="NombreVendedor" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="DomicilioVendedor" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="DomicilioVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="DomicilioVendedor" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="DniVendedor" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="DniVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="DniVendedor" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="CuitVendedor" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="CuitVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="CuitVendedor" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="CiudadFirma" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="CiudadFirma" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="CiudadFirma" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="Jurisdiccion" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="Jurisdiccion" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="Jurisdiccion" class="text-xs text-red-500"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card-erp-panel-padded">
+                    <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">gavel</span>
+                        <h2 class="text-xl font-bold text-white">Condiciones y vigencia</h2>
+                    </div>
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="InteresMoraDiarioPorcentaje" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0.0001" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="InteresMoraDiarioPorcentaje" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="VigenteDesde" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="VigenteDesde" type="date" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="VigenteDesde" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="VigenteHasta" class="text-sm font-semibold text-slate-300"></label>
+                            <input asp-for="VigenteHasta" type="date" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <span asp-validation-for="VigenteHasta" class="text-xs text-red-500"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card-erp-panel-padded">
+                    <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">article</span>
+                        <h2 class="text-xl font-bold text-white">Textos legales</h2>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="TextoContrato" class="text-sm font-semibold text-slate-300"></label>
+                            <textarea asp-for="TextoContrato" rows="18" readonly="@(!puedeEditar)" class="min-h-[28rem] rounded-lg border-2 border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm leading-relaxed text-white focus:border-primary focus:ring-0"></textarea>
+                            <span asp-validation-for="TextoContrato" class="text-xs text-red-500"></span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label asp-for="TextoPagare" class="text-sm font-semibold text-slate-300"></label>
+                            <textarea asp-for="TextoPagare" rows="12" readonly="@(!puedeEditar)" class="min-h-[20rem] rounded-lg border-2 border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm leading-relaxed text-white focus:border-primary focus:ring-0"></textarea>
+                            <span asp-validation-for="TextoPagare" class="text-xs text-red-500"></span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="space-y-8">
+                <section class="card-erp-panel-padded">
+                    <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <span class="material-symbols-outlined text-primary">data_object</span>
+                        <h2 class="text-xl font-bold text-white">Variables</h2>
+                    </div>
+                    <div class="space-y-2">
+                        @foreach (var variable in variables)
+                        {
+                            <code class="block rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-semibold text-slate-300">@variable</code>
+                        }
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">Cancelar</a>
+            @if (puedeEditar)
+            {
+                <button type="submit" class="btn-erp-primary w-full sm:w-auto sm:py-2.5">
+                    <span class="material-symbols-outlined text-[20px]">save</span>
+                    Guardar plantilla
+                </button>
+            }
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

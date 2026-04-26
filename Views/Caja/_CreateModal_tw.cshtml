@@ -6,18 +6,18 @@
     <div id="modal-caja-backdrop" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden hidden opacity-0 transition-opacity duration-300"></div>
 
     <!-- Panel -->
-    <div id="modal-caja-panel" class="fixed top-0 right-0 z-50 h-full w-full max-w-lg lg:sticky lg:top-0 lg:z-auto lg:h-auto lg:w-[28rem] lg:max-w-none lg:max-h-[calc(100vh-4rem)] bg-white dark:bg-slate-900 rounded-l-2xl lg:rounded-2xl border-l lg:border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out">
+    <div id="modal-caja-panel" class="fixed top-0 right-0 z-50 h-full w-full max-w-lg lg:sticky lg:top-0 lg:z-auto lg:h-auto lg:w-[28rem] lg:max-w-none lg:max-h-[calc(100vh-4rem)] bg-slate-900 rounded-l-2xl lg:rounded-2xl border-l lg:border border-slate-800 shadow-2xl flex flex-col translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out">
 
         <!-- Header -->
-        <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-center justify-between p-6 border-b border-slate-800 shrink-0">
             <div>
-                <h3 class="text-xl font-extrabold text-slate-900 dark:text-white">Nueva caja</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Registre una nueva terminal de caja en el sistema.</p>
+                <h3 class="text-xl font-extrabold text-white">Nueva caja</h3>
+                <p class="text-xs text-slate-400 mt-1">Registre una nueva terminal de caja en el sistema.</p>
             </div>
             <button type="button"
                     data-caja-close-modal
                     aria-label="Cerrar modal"
-                    class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -33,24 +33,24 @@
                 <!-- Código + Nombre -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div class="flex flex-col gap-1.5">
-                        <label asp-for="Codigo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        <label asp-for="Codigo" class="text-sm font-semibold text-slate-300">
                             Código <span class="text-rose-500">*</span>
                         </label>
                         <div class="relative">
                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">tag</span>
                             <input asp-for="Codigo" type="text" placeholder="Ej: C01-HQ" required
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
                         </div>
                         <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <label asp-for="Nombre" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        <label asp-for="Nombre" class="text-sm font-semibold text-slate-300">
                             Nombre <span class="text-rose-500">*</span>
                         </label>
                         <div class="relative">
                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">point_of_sale</span>
                             <input asp-for="Nombre" type="text" placeholder="Ej: Caja Principal 01" required
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
                         </div>
                         <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
                     </div>
@@ -59,49 +59,49 @@
                 <!-- Sucursal + Ubicación -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div class="flex flex-col gap-1.5">
-                        <label asp-for="Sucursal" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sucursal</label>
+                        <label asp-for="Sucursal" class="text-sm font-semibold text-slate-300">Sucursal</label>
                         <div class="relative">
                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">store</span>
                             <input asp-for="Sucursal" type="text" placeholder="Ej: Casa Central"
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ubicación</label>
+                        <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-300">Ubicación</label>
                         <div class="relative">
                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">location_on</span>
                             <input asp-for="Ubicacion" type="text" placeholder="Ej: Planta baja - Zona A"
-                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
+                                   class="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all" />
                         </div>
                     </div>
                 </div>
 
                 <!-- Descripción -->
                 <div class="flex flex-col gap-1.5">
-                    <label asp-for="Descripcion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Descripción</label>
+                    <label asp-for="Descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
                     <textarea asp-for="Descripcion" rows="2"
                               placeholder="Detalles adicionales sobre esta terminal de caja..."
-                              class="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all"></textarea>
+                              class="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-primary focus:border-primary transition-all"></textarea>
                 </div>
 
                 <!-- Activa toggle -->
-                <div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input asp-for="Activa" type="checkbox" class="sr-only peer" checked />
-                        <div class="w-11 h-6 bg-slate-300 dark:bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                     </label>
                     <div>
-                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Caja activa</p>
+                        <p class="text-sm font-semibold text-slate-300">Caja activa</p>
                         <p class="text-xs text-slate-400">La caja estará disponible para apertura y operaciones</p>
                     </div>
                 </div>
             </div>
 
             <!-- Footer -->
-            <div class="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800 shrink-0 justify-end">
+            <div class="flex gap-3 p-6 border-t border-slate-800 shrink-0 justify-end">
                 <button type="button"
                         data-caja-close-modal
-                        class="px-5 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm">
+                        class="px-5 py-2.5 border border-slate-700 text-slate-300 font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm">
                     Cancelar
                 </button>
                 <button type="submit" id="btnGuardarCaja"

@@ -16,56 +16,31 @@
 }
 
 @section Styles {
-    <style>
-        .documento-upload-hero-actions,
-        .documento-upload-footer-actions {
-            display: flex;
-            width: 100%;
-            flex-direction: column;
-        }
-
-        .documento-upload-hero-action,
-        .documento-upload-footer-action {
-            width: 100%;
-        }
-
-        @@media (min-width: 640px) {
-            .documento-upload-hero-actions,
-            .documento-upload-footer-actions {
-                width: auto;
-                flex-direction: row;
-            }
-
-            .documento-upload-hero-action,
-            .documento-upload-footer-action {
-                width: auto;
-            }
-        }
-    </style>
+    <partial name="_DocumentoClienteModuleStyles" />
 }
 
 <div class="space-y-8">
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+    <section class="card-erp-panel-padded">
         <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
                     <ol class="inline-flex flex-wrap items-center gap-y-1">
                         <li><a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
                         <li><a asp-controller="DocumentoCliente" asp-action="Index" class="hover:text-primary no-underline">Documentación</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-900 dark:text-slate-100">@ViewData["Title"]</li>
+                        <li class="text-slate-100">@ViewData["Title"]</li>
                     </ol>
                 </nav>
 
                 <div class="space-y-3">
-                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="badge-erp badge-erp-primary">
                         <span class="material-symbols-outlined text-sm">cloud_upload</span>
                         DocumentoCliente
                     </span>
                     <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">@ViewData["Title"]</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">@ViewData["Title"]</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
                             @if (Model.ReemplazarExistente)
                             {
                                 <text>Actualizá el legajo documental reemplazando el archivo actual por una nueva versión, sin perder el contexto operativo del cliente.</text>
@@ -80,16 +55,16 @@
                             }
                         </p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">person</span>
                             @clienteResumen
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">sync_alt</span>
                             @operacionLabel
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">description</span>
                             @documentoObjetivo
                         </span>
@@ -99,7 +74,7 @@
 
             <div class="documento-upload-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                 <a href="@volverHref"
-                   class="documento-upload-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:py-2.5 no-underline">
+                   class="documento-upload-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold transition-colors hover:bg-slate-100 border-slate-700 text-slate-200 hover:bg-slate-800 sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">arrow_back</span>
                     Volver
                 </a>
@@ -112,25 +87,25 @@
         </header>
 
         <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Operación</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@operacionLabel</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">modo actual del flujo</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Operación</p>
+                <p class="mt-2 text-2xl font-black text-white">@operacionLabel</p>
+                <p class="mt-1 text-xs text-slate-400">modo actual del flujo</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cliente</p>
-                <p class="mt-2 text-lg font-black text-slate-900 dark:text-white">@clienteResumen</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">destino del legajo documental</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</p>
+                <p class="mt-2 text-lg font-black text-white">@clienteResumen</p>
+                <p class="mt-1 text-xs text-slate-400">destino del legajo documental</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Tipo inicial</p>
-                <p class="mt-2 text-lg font-black text-slate-900 dark:text-white">@tipoInicial</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">ayuda para precargar el formulario</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Tipo inicial</p>
+                <p class="mt-2 text-lg font-black text-white">@tipoInicial</p>
+                <p class="mt-1 text-xs text-slate-400">ayuda para precargar el formulario</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Archivo destino</p>
-                <p class="mt-2 text-lg font-black text-slate-900 dark:text-white">@documentoObjetivo</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">reemplazo o alta de documento</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Archivo destino</p>
+                <p class="mt-2 text-lg font-black text-white">@documentoObjetivo</p>
+                <p class="mt-1 text-xs text-slate-400">reemplazo o alta de documento</p>
             </article>
         </div>
     </section>
@@ -153,9 +128,9 @@
 
         <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
-                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+                <section class="overflow-hidden rounded-xl border shadow-sm border-slate-800 bg-slate-900">
+                    <div class="border-b px-6 py-4 border-slate-800">
+                        <h2 class="flex items-center gap-2 text-base font-bold text-white">
                             <span class="material-symbols-outlined text-primary">upload_file</span>
                             Datos del documento
                         </h2>
@@ -168,7 +143,7 @@
                             <label asp-for="ClienteId" class="mb-1.5 block text-sm font-bold"></label>
                             @if (clienteBloqueado)
                             {
-                                <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+                                <div class="flex items-center gap-3 rounded-lg border px-4 py-3 border-slate-700 bg-slate-800">
                                     <span class="material-symbols-outlined text-slate-400">person</span>
                                     <span class="text-sm font-medium">@Model.ClienteNombre</span>
                                     <input type="hidden" asp-for="ClienteId" />
@@ -177,7 +152,7 @@
                             else
                             {
                                 <select asp-for="ClienteId" asp-items="@(ViewBag.Clientes as SelectList)"
-                                        class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                                        class="w-full rounded-lg border px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 border-slate-700 bg-slate-800 text-white">
                                     <option value="">— Seleccionar cliente —</option>
                                 </select>
                             }
@@ -187,7 +162,7 @@
                         <div>
                             <label asp-for="TipoDocumento" class="mb-1.5 block text-sm font-bold"></label>
                             <select asp-for="TipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
-                                    class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                                    class="w-full rounded-lg border px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 border-slate-700 bg-slate-800 text-white">
                                 <option value="">— Seleccionar tipo —</option>
                             </select>
                             <span asp-validation-for="TipoDocumento" class="mt-1 text-xs text-red-500"></span>
@@ -196,7 +171,7 @@
                         <div>
                             <label asp-for="Archivo" class="mb-1.5 block text-sm font-bold"></label>
                             <div id="dropZone"
-                                 class="relative rounded-xl border-2 border-dashed border-slate-300 p-8 text-center transition-colors hover:border-primary/50 dark:border-slate-600">
+                                 class="relative rounded-xl border-2 border-dashed border-slate-300 p-8 text-center transition-colors hover:border-primary/50 border-slate-600">
                                 <input asp-for="Archivo"
                                        type="file"
                                        id="archivoInput"
@@ -204,14 +179,14 @@
                                        class="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
                                 <div id="dropZoneContent">
                                     <span class="material-symbols-outlined mb-2 text-4xl text-slate-400">cloud_upload</span>
-                                    <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                    <p class="text-sm font-semibold text-slate-300">
                                         Arrastrá o hacé clic para seleccionar archivo
                                     </p>
                                     <p class="mt-1 text-xs text-slate-400">PDF, JPG, PNG, DOC, DOCX — Máx. 10 MB</p>
                                 </div>
                                 <div id="filePreview" class="hidden">
                                     <span class="material-symbols-outlined mb-2 text-4xl text-emerald-500">description</span>
-                                    <p id="fileName" class="text-sm font-semibold text-slate-900 dark:text-white"></p>
+                                    <p id="fileName" class="text-sm font-semibold text-white"></p>
                                     <p id="fileSize" class="mt-1 text-xs text-slate-400"></p>
                                 </div>
                             </div>
@@ -222,7 +197,7 @@
                             <label asp-for="FechaVencimiento" class="mb-1.5 block text-sm font-bold"></label>
                             <input asp-for="FechaVencimiento"
                                    type="date"
-                                   class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                   class="w-full rounded-lg border px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 border-slate-700 bg-slate-800 text-white" />
                             <p class="mt-1 text-xs text-slate-400">Opcional. Dejar vacío si el documento no vence.</p>
                         </div>
 
@@ -230,7 +205,7 @@
                             <label asp-for="Observaciones" class="mb-1.5 block text-sm font-bold"></label>
                             <textarea asp-for="Observaciones"
                                       rows="3"
-                                      class="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                      class="w-full resize-none rounded-lg border px-4 py-2.5 text-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/50 border-slate-700 bg-slate-800 text-white"
                                       placeholder="Notas o aclaraciones sobre el documento..."></textarea>
                         </div>
                     </div>
@@ -238,27 +213,27 @@
             </div>
 
             <div class="space-y-6">
-                <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Resumen operativo</h3>
-                    <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+                <section class="rounded-xl border p-6 shadow-sm border-slate-800 bg-slate-900">
+                    <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Resumen operativo</h3>
+                    <div class="space-y-4 text-sm text-slate-300">
                         <div>
                             <p class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Cliente</p>
-                            <p class="font-semibold text-slate-900 dark:text-white">@clienteResumen</p>
+                            <p class="font-semibold text-white">@clienteResumen</p>
                         </div>
                         <div>
                             <p class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Operación</p>
-                            <p class="font-semibold text-slate-900 dark:text-white">@operacionLabel</p>
+                            <p class="font-semibold text-white">@operacionLabel</p>
                         </div>
                         <div>
                             <p class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Destino</p>
-                            <p class="font-semibold text-slate-900 dark:text-white">@documentoObjetivo</p>
+                            <p class="font-semibold text-white">@documentoObjetivo</p>
                         </div>
                     </div>
                 </section>
 
-                <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Buenas prácticas</h3>
-                    <ul class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                <section class="rounded-xl border p-6 shadow-sm border-slate-800 bg-slate-900">
+                    <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Buenas prácticas</h3>
+                    <ul class="space-y-3 text-sm text-slate-300">
                         <li class="flex items-start gap-2">
                             <span class="material-symbols-outlined mt-0.5 text-base text-primary">check_circle</span>
                             Verificá que el archivo sea legible antes de subirlo.
@@ -293,10 +268,10 @@
             <input type="hidden" name="returnToDetails" value="true" />
         }
 
-        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <section class="rounded-xl border p-4 shadow-sm border-slate-800 bg-slate-900 sm:p-5">
             <div class="documento-upload-footer-actions flex w-full flex-col gap-3 sm:flex-row sm:justify-end">
                 <a href="@volverHref"
-                   class="documento-upload-footer-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:py-2.5 no-underline">
+                   class="documento-upload-footer-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold transition-colors hover:bg-slate-100 border-slate-700 text-slate-200 hover:bg-slate-800 sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">close</span>
                     Cancelar
                 </a>

@@ -1,5 +1,6 @@
 ﻿using TheBuryProject.Models.DTOs;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -28,6 +29,9 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId);
         Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId);
         Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago);
+        Task<PagoMultipleCuotasResult> PagarCuotasAsync(
+            PagoMultipleCuotasRequest request,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Adelanta el pago de una cuota (paga la última cuota pendiente para reducir el plazo).

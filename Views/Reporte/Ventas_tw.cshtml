@@ -1,0 +1,337 @@
+@model TheBuryProject.ViewModels.ReporteVentasResultadoViewModel
+@using TheBuryProject.Models.Enums
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Reporte de Ventas";
+    var filtro = ViewBag.Filtro as TheBuryProject.ViewModels.ReporteVentasFiltroViewModel
+                 ?? new TheBuryProject.ViewModels.ReporteVentasFiltroViewModel();
+    var clientes  = ViewBag.Clientes  as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var productos = ViewBag.Productos as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var categorias = ViewBag.Categorias as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var vendedores = ViewBag.Vendedores as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var tieneResultados = Model != null;
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Reporte de Ventas</h1>
+            <p class="text-sm text-slate-400">Resumen por período, tipo de pago y vendedor.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3 text-sm text-amber-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">warning</span>@TempData["Warning"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                Filtros
+            </h2>
+        </div>
+        <div class="px-6 py-5">
+            <form asp-action="Ventas" method="post">
+                @Html.AntiForgeryToken()
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Desde</label>
+                        <input type="date" name="FechaDesde"
+                               value="@filtro.FechaDesde?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Hasta</label>
+                        <input type="date" name="FechaHasta"
+                               value="@filtro.FechaHasta?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Cliente</label>
+                        <select name="ClienteId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            @foreach (var item in clientes)
+                            {
+                                <option value="@item.Value" selected="@(filtro.ClienteId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Producto</label>
+                        <select name="ProductoId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            @foreach (var item in productos)
+                            {
+                                <option value="@item.Value" selected="@(filtro.ProductoId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Categoría</label>
+                        <select name="CategoriaId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todas</option>
+                            @foreach (var item in categorias)
+                            {
+                                <option value="@item.Value" selected="@(filtro.CategoriaId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Tipo de pago</label>
+                        <select name="TipoPago"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            <option value="0" selected="@(filtro.TipoPago == TipoPago.Efectivo       ? "selected" : null)">Efectivo</option>
+                            <option value="1" selected="@(filtro.TipoPago == TipoPago.Transferencia  ? "selected" : null)">Transferencia</option>
+                            <option value="2" selected="@(filtro.TipoPago == TipoPago.TarjetaDebito  ? "selected" : null)">Tarjeta Débito</option>
+                            <option value="3" selected="@(filtro.TipoPago == TipoPago.TarjetaCredito ? "selected" : null)">Tarjeta Crédito</option>
+                            <option value="4" selected="@(filtro.TipoPago == TipoPago.Cheque         ? "selected" : null)">Cheque</option>
+                            <option value="5" selected="@(filtro.TipoPago == TipoPago.CreditoPersonal ? "selected" : null)">Crédito Personal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Vendedor</label>
+                        <select name="VendedorId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            @foreach (var item in vendedores)
+                            {
+                                <option value="@item.Value" selected="@(filtro.VendedorId == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="flex items-end">
+                        <button type="submit" class="btn-erp-primary w-full">
+                            <span class="material-symbols-outlined text-base">search</span>
+                            Generar reporte
+                        </button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (tieneResultados)
+    {
+        var r = Model!;
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Total ventas</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TotalVentas.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">@r.CantidadVentas transacciones</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-success">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-400">$@r.TotalGanancia.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Costo: $@r.TotalCosto.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen promedio</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">@r.MargenPromedio.ToString("N1")%</p>
+                <p class="text-xs text-slate-500 mt-1">@r.CantidadProductosVendidos productos vendidos</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ticket promedio</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TicketPromedio.ToString("N2")</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 justify-end">
+            <a asp-action="ExportarVentasExcel"
+               asp-route-FechaDesde="@filtro.FechaDesde?.ToString("yyyy-MM-dd")"
+               asp-route-FechaHasta="@filtro.FechaHasta?.ToString("yyyy-MM-dd")"
+               asp-route-ClienteId="@filtro.ClienteId"
+               asp-route-ProductoId="@filtro.ProductoId"
+               asp-route-CategoriaId="@filtro.CategoriaId"
+               asp-route-TipoPago="@((int?)filtro.TipoPago)"
+               asp-route-VendedorId="@filtro.VendedorId"
+               class="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900/20 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-900/40 transition-colors">
+                <span class="material-symbols-outlined text-base">download</span>
+                Exportar Excel
+            </a>
+            <a asp-action="ExportarVentasPdf"
+               asp-route-FechaDesde="@filtro.FechaDesde?.ToString("yyyy-MM-dd")"
+               asp-route-FechaHasta="@filtro.FechaHasta?.ToString("yyyy-MM-dd")"
+               asp-route-ClienteId="@filtro.ClienteId"
+               asp-route-ProductoId="@filtro.ProductoId"
+               asp-route-CategoriaId="@filtro.CategoriaId"
+               asp-route-TipoPago="@((int?)filtro.TipoPago)"
+               asp-route-VendedorId="@filtro.VendedorId"
+               class="inline-flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-900/40 transition-colors">
+                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                Exportar PDF
+            </a>
+        </div>
+
+        @if (r.VentasPorTipoPago.Any())
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">payments</span>
+                        Por tipo de pago
+                    </h2>
+                </div>
+                <div class="px-6 py-4 flex flex-wrap gap-3">
+                    @foreach (var kv in r.VentasPorTipoPago)
+                    {
+                        <div class="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 min-w-[9rem]">
+                            <p class="text-xs text-slate-400">@kv.Key</p>
+                            <p class="text-lg font-semibold text-slate-100">$@kv.Value.ToString("N2")</p>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (r.Ventas.Any())
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">receipt_long</span>
+                        Ventas del período
+                        <span class="ml-auto text-xs font-normal text-slate-400">@r.Ventas.Count registros</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-800/50">
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Nro.</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Fecha</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Cliente</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Vendedor</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo pago</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Total</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Ganancia</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Margen</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var v in r.Ventas)
+                            {
+                                <tr class="hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-mono text-xs">
+                                        <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                           class="text-primary hover:underline">@v.NumeroVenta</a>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-400">@v.FechaVenta.ToString("dd/MM/yyyy")</td>
+                                    <td class="px-4 py-3 text-slate-100">@v.ClienteNombre</td>
+                                    <td class="px-4 py-3 text-slate-400">@v.VendedorNombre</td>
+                                    <td class="px-4 py-3 text-slate-400">@v.TipoPagoDescripcion</td>
+                                    <td class="px-4 py-3 text-right font-medium text-slate-100">$@v.Total.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-emerald-400">$@v.Ganancia.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-slate-400">@v.MargenPorcentaje.ToString("N1")%</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="rounded-xl border border-slate-800 bg-slate-800/50 px-6 py-10 text-center text-sm text-slate-400">
+                <span class="material-symbols-outlined text-3xl block mb-2">receipt_long</span>
+                No se encontraron ventas para los filtros seleccionados.
+            </div>
+        }
+
+        @if (r.ProductosMasVendidos.Any() || r.ClientesTop.Any())
+        {
+            <div class="grid gap-6 lg:grid-cols-2">
+
+                @if (r.ProductosMasVendidos.Any())
+                {
+                    <section class="card-erp-panel">
+                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-xl">trending_up</span>
+                                Productos más vendidos
+                            </h2>
+                        </div>
+                        <div class="divide-y divide-slate-800">
+                            @foreach (var p in r.ProductosMasVendidos.Take(10))
+                            {
+                                <div class="px-6 py-3 flex items-center gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-slate-100 truncate">@p.ProductoNombre</p>
+                                        <p class="text-xs text-slate-400">@p.CategoriaNombre · @p.CantidadVendida uds.</p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <p class="text-sm font-semibold text-slate-100">$@p.MontoTotal.ToString("N0")</p>
+                                        <p class="text-xs text-emerald-400">@p.MargenPromedio.ToString("N1")%</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+                @if (r.ClientesTop.Any())
+                {
+                    <section class="card-erp-panel">
+                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-xl">groups</span>
+                                Clientes top
+                            </h2>
+                        </div>
+                        <div class="divide-y divide-slate-800">
+                            @foreach (var c in r.ClientesTop.Take(10))
+                            {
+                                <div class="px-6 py-3 flex items-center gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-slate-100 truncate">@c.ClienteNombre</p>
+                                        <p class="text-xs text-slate-400">@c.ClienteDocumento · @c.CantidadCompras compras</p>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <p class="text-sm font-semibold text-slate-100">$@c.MontoTotal.ToString("N0")</p>
+                                        <p class="text-xs text-slate-400">ticket: $@c.TicketPromedio.ToString("N0")</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+            </div>
+        }
+    }
+    else
+    {
+        <div class="rounded-xl border border-slate-800 bg-slate-800/50 px-6 py-12 text-center text-sm text-slate-400">
+            <span class="material-symbols-outlined text-4xl block mb-3">bar_chart</span>
+            Seleccioná los filtros y hacé clic en <strong>Generar reporte</strong> para ver los resultados.
+        </div>
+    }
+
+</div>

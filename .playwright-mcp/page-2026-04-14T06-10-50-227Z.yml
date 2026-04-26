@@ -1,0 +1,192 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph: Operaciones
+        - generic [ref=e9]:
+          - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e11]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e12] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e13]: group
+            - paragraph: Clientes
+      - generic [ref=e14]:
+        - paragraph: Logística
+        - generic [ref=e15]:
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e19]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e21]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e22]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e24] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e25]: security
+          - paragraph: Seguridad
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e29]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e31]:
+      - generic [ref=e32]: chevron_left
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Reporte de Márgenes" [level=2] [ref=e36]
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: Dolar Blue
+            - generic [ref=e41]: $1.245,00
+          - generic [ref=e42]:
+            - generic [ref=e43]: Tarjeta
+            - generic [ref=e44]: $1.482,50
+          - generic [ref=e45]:
+            - generic [ref=e46]: Oficial
+            - generic [ref=e47]: $942,00
+      - generic [ref=e48]:
+        - button "notifications" [ref=e49]:
+          - generic [ref=e50]: notifications
+        - button "search" [ref=e52]:
+          - generic [ref=e53]: search
+        - button "help" [ref=e55]:
+          - generic [ref=e56]: help
+    - generic [ref=e58]:
+      - generic [ref=e59]:
+        - link "arrow_back" [ref=e60] [cursor=pointer]:
+          - /url: /Reporte
+          - generic [ref=e61]: arrow_back
+        - generic [ref=e62]:
+          - heading "Reporte de Márgenes" [level=1] [ref=e63]
+          - paragraph [ref=e64]: Análisis de márgenes por producto y categoría.
+      - generic [ref=e65]:
+        - heading "filter_list Filtros" [level=2] [ref=e67]:
+          - generic [ref=e68]: filter_list
+          - text: Filtros
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - text: Categoría
+            - combobox [ref=e73]:
+              - option "Todas" [selected]
+              - option "dsadsa"
+              - option "Electrónica"
+              - option "LAVARROPAS"
+              - option "Refrigeración"
+          - generic [ref=e74]:
+            - text: Marca
+            - combobox [ref=e75]:
+              - option "Todas" [selected]
+              - option "asddsa"
+              - option "DREAN"
+              - option "LG"
+              - option "Samsung"
+              - option "Whirlpool"
+          - button "search Filtrar" [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]: search
+            - text: Filtrar
+          - link "download Exportar Excel" [ref=e78] [cursor=pointer]:
+            - /url: /Reporte/ExportarMargenesExcel
+            - generic [ref=e79]: download
+            - text: Exportar Excel
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - paragraph [ref=e82]: Margen promedio
+          - paragraph [ref=e83]: "-118,7%"
+        - generic [ref=e84]:
+          - paragraph [ref=e85]: Ganancia potencial
+          - paragraph [ref=e86]: $531.082.793,93
+        - generic [ref=e87]:
+          - paragraph [ref=e88]: Margen bajo (<20%)
+          - paragraph [ref=e89]: "1"
+          - paragraph [ref=e90]: productos
+        - generic [ref=e91]:
+          - paragraph [ref=e92]: Margen alto (>35%)
+          - paragraph [ref=e93]: "3"
+          - paragraph [ref=e94]: productos
+      - generic [ref=e95]:
+        - heading "inventory_2 Productos 4 registros" [level=2] [ref=e97]:
+          - generic [ref=e98]: inventory_2
+          - text: Productos
+          - generic [ref=e99]: 4 registros
+        - table [ref=e101]:
+          - rowgroup [ref=e102]:
+            - row "Código Producto Categoría Marca P. Compra P. Venta Margen Stock G. potencial" [ref=e103]:
+              - columnheader "Código" [ref=e104]
+              - columnheader "Producto" [ref=e105]
+              - columnheader "Categoría" [ref=e106]
+              - columnheader "Marca" [ref=e107]
+              - columnheader "P. Compra" [ref=e108]
+              - columnheader "P. Venta" [ref=e109]
+              - columnheader "Margen" [ref=e110]
+              - columnheader "Stock" [ref=e111]
+              - columnheader "G. potencial" [ref=e112]
+          - rowgroup [ref=e113]:
+            - row "GDIO#### Televisor LED Electrónica Samsung $38.669,07 $817.737,18 95,3% Muy Alto 446 $347.464.377,06" [ref=e114]:
+              - cell "GDIO####" [ref=e115]
+              - cell "Televisor LED" [ref=e116]
+              - cell "Electrónica" [ref=e117]
+              - cell "Samsung" [ref=e118]
+              - cell "$38.669,07" [ref=e119]
+              - cell "$817.737,18" [ref=e120]
+              - cell "95,3% Muy Alto" [ref=e121]:
+                - text: 95,3%
+                - generic [ref=e122]: Muy Alto
+              - cell "446" [ref=e123]
+              - cell "$347.464.377,06" [ref=e124]
+            - row "OOXP#### Televisor LED Electrónica LG $200,00 $401.960,23 100,0% Muy Alto 457 $183.604.425,11" [ref=e125]:
+              - cell "OOXP####" [ref=e126]
+              - cell "Televisor LED" [ref=e127]
+              - cell "Electrónica" [ref=e128]
+              - cell "LG" [ref=e129]
+              - cell "$200,00" [ref=e130]
+              - cell "$401.960,23" [ref=e131]
+              - cell "100,0% Muy Alto" [ref=e132]:
+                - text: 100,0%
+                - generic [ref=e133]: Muy Alto
+              - cell "457" [ref=e134]
+              - cell "$183.604.425,11" [ref=e135]
+            - row "qe Plancha Electrónica LG $10,00 $44,00 77,3% Muy Alto 453 $15.402,00" [ref=e136]:
+              - cell "qe" [ref=e137]
+              - cell "Plancha" [ref=e138]
+              - cell "Electrónica" [ref=e139]
+              - cell "LG" [ref=e140]
+              - cell "$10,00" [ref=e141]
+              - cell "$44,00" [ref=e142]
+              - cell "77,3% Muy Alto" [ref=e143]:
+                - text: 77,3%
+                - generic [ref=e144]: Muy Alto
+              - cell "453" [ref=e145]
+              - cell "$15.402,00" [ref=e146]
+            - row "cafe cafetera Electrónica DREAN $123,00 $14,52 -747,1% Muy Bajo 13 $-1.410,24" [ref=e147]:
+              - cell "cafe" [ref=e148]
+              - cell "cafetera" [ref=e149]
+              - cell "Electrónica" [ref=e150]
+              - cell "DREAN" [ref=e151]
+              - cell "$123,00" [ref=e152]
+              - cell "$14,52" [ref=e153]
+              - cell "-747,1% Muy Bajo" [ref=e154]:
+                - text: "-747,1%"
+                - generic [ref=e155]: Muy Bajo
+              - cell "13" [ref=e156]
+              - cell "$-1.410,24" [ref=e157]

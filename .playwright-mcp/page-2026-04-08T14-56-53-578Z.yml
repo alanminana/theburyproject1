@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]: rocket_launch
+      - heading "TheBuryProject" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Sistema de Gestión Empresarial
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Correo electrónico
+        - generic [ref=e13]:
+          - generic [ref=e15]: mail
+          - textbox "Correo electrónico" [ref=e16]:
+            - /placeholder: usuario@empresa.com
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Contraseña
+          - link "¿Olvidaste tu contraseña?" [ref=e20] [cursor=pointer]:
+            - /url: /Identity/Account/ForgotPassword
+        - generic [ref=e21]:
+          - generic [ref=e23]: lock
+          - textbox "••••••••" [ref=e24]
+          - button "visibility" [ref=e25]:
+            - generic [ref=e26]: visibility
+      - generic [ref=e28] [cursor=pointer]:
+        - generic [ref=e29]:
+          - checkbox "check Recordar usuario" [ref=e30]
+          - generic [ref=e31]: check
+        - generic [ref=e32]: Recordar usuario
+      - button "Iniciar Sesión" [ref=e33]
+    - paragraph [ref=e35]: ¿No tenés acceso? Contactá al administrador.
+  - contentinfo [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]: Sistema v1.0
+        - generic [ref=e40]: Acceso Restringido
+      - paragraph [ref=e41]: © 2026 TheBuryProject

@@ -72,7 +72,8 @@ public class VentaServiceConsultasTests : IDisposable
             new StubCurrentUserConsultas(),
             null!,
             null!,
-            null!);
+            null!,
+            new StubContratoVentaCreditoService());
     }
 
     public void Dispose()

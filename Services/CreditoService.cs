@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Threading;
 using TheBuryProject.Data;
 using TheBuryProject.Models.DTOs;
@@ -8,6 +9,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Services
 {
@@ -15,6 +17,15 @@ namespace TheBuryProject.Services
     {
         private const int MinCuotasCredito = 1;
         private const int MaxCuotasCredito = 120;
+        private static readonly IReadOnlyDictionary<string, string> MediosPagoPermitidos =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Efectivo"] = "Efectivo",
+                ["Transferencia"] = "Transferencia",
+                ["Tarjeta Débito"] = "Tarjeta Débito",
+                ["Tarjeta Crédito"] = "Tarjeta Crédito",
+                ["Cheque"] = "Cheque"
+            };
 
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
@@ -61,14 +72,21 @@ namespace TheBuryProject.Services
                 // Aplicar filtros
                 if (filter != null)
                 {
+                    if (filter.ClienteId.HasValue)
+                        query = query.Where(c => c.ClienteId == filter.ClienteId.Value);
+
                     if (!string.IsNullOrWhiteSpace(filter.Numero))
                         query = query.Where(c => c.Numero.Contains(filter.Numero));
 
                     if (!string.IsNullOrWhiteSpace(filter.Cliente))
+                    {
+                        var clienteTerm = filter.Cliente.Trim();
                         query = query.Where(c =>
-                            c.Cliente.NumeroDocumento.Contains(filter.Cliente) ||
-                            c.Cliente.Nombre.Contains(filter.Cliente) ||
-                            c.Cliente.Apellido.Contains(filter.Cliente));
+                            c.Numero.Contains(clienteTerm) ||
+                            c.Cliente.NumeroDocumento.Contains(clienteTerm) ||
+                            c.Cliente.Nombre.Contains(clienteTerm) ||
+                            c.Cliente.Apellido.Contains(clienteTerm));
+                    }
 
                     if (filter.Estado.HasValue)
                         query = query.Where(c => c.Estado == filter.Estado.Value);
@@ -464,6 +482,8 @@ namespace TheBuryProject.Services
         {
             try
             {
+                var medioPago = NormalizarMedioPago(pago.MedioPago);
+
                 var cuota = await _context.Cuotas
                     .Include(c => c.Credito)
                     .FirstOrDefaultAsync(c => c.Id == pago.CuotaId &&
@@ -476,47 +496,244 @@ namespace TheBuryProject.Services
                 if (cuota.Estado == EstadoCuota.Pagada)
                     throw new InvalidOperationException("La cuota ya está pagada");
 
-                var ahora = DateTime.UtcNow;
+                var cajaActiva = await _cajaService.ObtenerAperturaActivaParaVentaAsync();
+                if (cajaActiva == null)
+                    throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago.");
 
-                // Calcular punitorio si está vencida
-                if (ahora > cuota.FechaVencimiento && cuota.Estado != EstadoCuota.Pagada)
+                await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+                try
                 {
-                    var diasAtraso = (ahora - cuota.FechaVencimiento).Days;
-                    // Punitorio basado en la tasa de interés del crédito (alineado con MoraAlertasService)
-                    cuota.MontoPunitorio = cuota.MontoTotal * (cuota.Credito.TasaInteres / 100m / 12m) * (diasAtraso / 30m);
+                    cuota.MontoPunitorio = CalcularPunitorioActualizado(cuota, DateTime.UtcNow);
+
+                    cuota.MontoPagado += pago.MontoPagado;
+                    cuota.FechaPago = pago.FechaPago;
+                    cuota.MedioPago = medioPago;
+                    cuota.ComprobantePago = pago.ComprobantePago;
+
+                    if (!string.IsNullOrWhiteSpace(pago.Observaciones))
+                        cuota.Observaciones = pago.Observaciones;
+
+                    var totalACobrar = cuota.MontoTotal + cuota.MontoPunitorio;
+
+                    cuota.Estado = ResolverEstadoCuota(cuota.MontoPagado, totalACobrar);
+
+                    await _context.SaveChangesAsync();
+
+                    var movimientoCaja = await _cajaService.RegistrarMovimientoCuotaAsync(
+                        cuota.Id,
+                        cuota.Credito.Numero,
+                        cuota.NumeroCuota,
+                        pago.MontoPagado,
+                        medioPago,
+                        _currentUserService.GetUsername());
+
+                    if (movimientoCaja == null)
+                        throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago.");
+
+                    await RecalcularSaldoCreditoAsync(cuota.CreditoId);
+                    await transaction.CommitAsync();
+
+                    return true;
                 }
-
-                cuota.MontoPagado += pago.MontoPagado;
-                cuota.FechaPago = pago.FechaPago;
-                cuota.MedioPago = pago.MedioPago;
-                cuota.ComprobantePago = pago.ComprobantePago;
-
-                if (!string.IsNullOrWhiteSpace(pago.Observaciones))
-                    cuota.Observaciones = pago.Observaciones;
-
-                var totalACobrar = cuota.MontoTotal + cuota.MontoPunitorio;
-
-                cuota.Estado = ResolverEstadoCuota(cuota.MontoPagado, totalACobrar);
-
-                await _context.SaveChangesAsync();
-
-                // Registrar movimiento de caja para el cobro de cuota
-                await _cajaService.RegistrarMovimientoCuotaAsync(
-                    cuota.Id,
-                    cuota.Credito.Numero,
-                    cuota.NumeroCuota,
-                    pago.MontoPagado,
-                    pago.MedioPago,
-                    _currentUserService.GetUsername());
-
-                // Actualizar saldo del crédito
-                await RecalcularSaldoCreditoAsync(cuota.CreditoId);
-
-                return true;
+                catch
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    throw;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al pagar cuota: {CuotaId}", pago.CuotaId);
+                throw;
+            }
+        }
+
+        public async Task<PagoMultipleCuotasResult> PagarCuotasAsync(
+            PagoMultipleCuotasRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            if (request.ClienteId <= 0)
+                throw new InvalidOperationException("El cliente es requerido.");
+
+            var cuotaIdsRequest = request.CuotaIds ?? new List<int>();
+            var cuotaIds = cuotaIdsRequest
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (!cuotaIds.Any())
+                throw new InvalidOperationException("Debe seleccionar al menos una cuota.");
+
+            if (cuotaIds.Count != cuotaIdsRequest.Count)
+                throw new InvalidOperationException("La selección contiene cuotas duplicadas o inválidas.");
+
+            var medioPago = NormalizarMedioPago(request.MedioPago);
+            var observaciones = request.Observaciones?.Trim();
+            var fechaPago = DateTime.UtcNow;
+            var usuario = _currentUserService.GetUsername();
+
+            var cajaActiva = await _cajaService.ObtenerAperturaActivaParaVentaAsync();
+            if (cajaActiva == null)
+                throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago múltiple.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+
+            try
+            {
+                var cuotas = await _context.Cuotas
+                    .Include(c => c.Credito)
+                        .ThenInclude(c => c.Cliente)
+                    .Where(c => cuotaIds.Contains(c.Id) &&
+                                !c.IsDeleted &&
+                                !c.Credito.IsDeleted &&
+                                c.Credito.Cliente != null &&
+                                !c.Credito.Cliente.IsDeleted)
+                    .ToListAsync(cancellationToken);
+
+                var cuotasEncontradas = cuotas.Select(c => c.Id).ToHashSet();
+                var cuotasFaltantes = cuotaIds
+                    .Where(id => !cuotasEncontradas.Contains(id))
+                    .ToList();
+
+                if (cuotasFaltantes.Any())
+                    throw new InvalidOperationException($"No se encontraron cuotas seleccionadas: {string.Join(", ", cuotasFaltantes)}.");
+
+                var clienteIds = cuotas
+                    .Select(c => c.Credito.ClienteId)
+                    .Distinct()
+                    .ToList();
+
+                if (clienteIds.Count != 1 || clienteIds[0] != request.ClienteId)
+                    throw new InvalidOperationException("Todas las cuotas seleccionadas deben pertenecer al cliente indicado.");
+
+                var pagosPlanificados = new List<(Cuota Cuota, decimal Punitorio, decimal Subtotal, decimal Mora, decimal Total)>();
+
+                foreach (var cuota in cuotas.OrderBy(c => c.CreditoId).ThenBy(c => c.NumeroCuota))
+                {
+                    if (cuota.Estado == EstadoCuota.Pagada)
+                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} ya está pagada.");
+
+                    if (cuota.Estado == EstadoCuota.Cancelada)
+                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} está cancelada.");
+
+                    var punitorio = CalcularPunitorioActualizado(cuota, fechaPago);
+                    var saldo = CalcularSaldoPendienteCuota(cuota, punitorio);
+
+                    if (saldo <= 0)
+                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} no tiene saldo pendiente.");
+
+                    var mora = Math.Min(punitorio > 0 ? punitorio : 0m, saldo);
+                    var subtotal = saldo - mora;
+
+                    pagosPlanificados.Add((cuota, punitorio, subtotal, mora, saldo));
+                }
+
+                foreach (var pago in pagosPlanificados)
+                {
+                    pago.Cuota.MontoPunitorio = pago.Punitorio;
+                    pago.Cuota.MontoPagado += pago.Total;
+                    pago.Cuota.FechaPago = fechaPago;
+                    pago.Cuota.MedioPago = medioPago;
+
+                    if (!string.IsNullOrWhiteSpace(observaciones))
+                    {
+                        pago.Cuota.Observaciones = CombinarObservacionesCuota(
+                            pago.Cuota.Observaciones,
+                            observaciones);
+                    }
+
+                    pago.Cuota.Estado = ResolverEstadoCuota(
+                        pago.Cuota.MontoPagado,
+                        pago.Cuota.MontoTotal + pago.Cuota.MontoPunitorio);
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                foreach (var pago in pagosPlanificados)
+                {
+                    var movimientoCaja = await _cajaService.RegistrarMovimientoCuotaAsync(
+                        pago.Cuota.Id,
+                        pago.Cuota.Credito.Numero,
+                        pago.Cuota.NumeroCuota,
+                        pago.Total,
+                        medioPago,
+                        usuario);
+
+                    if (movimientoCaja == null)
+                        throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago múltiple.");
+                }
+
+                var creditoIds = pagosPlanificados
+                    .Select(p => p.Cuota.CreditoId)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var creditoId in creditoIds)
+                {
+                    await RecalcularSaldoCreditoAsync(creditoId);
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+
+                var result = new PagoMultipleCuotasResult
+                {
+                    ClienteId = request.ClienteId,
+                    CuotaIds = pagosPlanificados.Select(p => p.Cuota.Id).ToList(),
+                    CreditoIds = creditoIds,
+                    CantidadCuotas = pagosPlanificados.Count,
+                    CantidadCreditos = creditoIds.Count,
+                    Subtotal = pagosPlanificados.Sum(p => p.Subtotal),
+                    MoraTotal = pagosPlanificados.Sum(p => p.Mora),
+                    TotalPagado = pagosPlanificados.Sum(p => p.Total),
+                    FechaPago = fechaPago,
+                    Cuotas = pagosPlanificados
+                        .Select(p => new PagoMultipleCuotaResult
+                        {
+                            CuotaId = p.Cuota.Id,
+                            CreditoId = p.Cuota.CreditoId,
+                            CreditoNumero = p.Cuota.Credito.Numero,
+                            NumeroCuota = p.Cuota.NumeroCuota,
+                            Subtotal = p.Subtotal,
+                            Mora = p.Mora,
+                            TotalPagado = p.Total,
+                            Estado = p.Cuota.Estado.ToString()
+                        })
+                        .ToList()
+                };
+
+                _logger.LogInformation(
+                    "Pago múltiple registrado para cliente {ClienteId}: {CantidadCuotas} cuotas, {CantidadCreditos} créditos, total {Total:N2}",
+                    request.ClienteId,
+                    result.CantidadCuotas,
+                    result.CantidadCreditos,
+                    result.TotalPagado);
+
+                return result;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                _logger.LogWarning(
+                    ex,
+                    "Conflicto de concurrencia al registrar pago múltiple para cliente {ClienteId}. Cuotas: {CuotaIds}",
+                    request.ClienteId,
+                    string.Join(", ", cuotaIds));
+                throw new InvalidOperationException("Una o más cuotas fueron modificadas por otro usuario. Recargá la cartera e intentá nuevamente.", ex);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                _logger.LogError(
+                    ex,
+                    "Error al registrar pago múltiple para cliente {ClienteId}. Cuotas: {CuotaIds}",
+                    request.ClienteId,
+                    string.Join(", ", cuotaIds));
                 throw;
             }
         }
@@ -772,6 +989,46 @@ namespace TheBuryProject.Services
                 return EstadoCuota.Parcial;
 
             return EstadoCuota.Pendiente;
+        }
+
+        private static string NormalizarMedioPago(string? medioPago)
+        {
+            var valor = medioPago?.Trim();
+            if (string.IsNullOrWhiteSpace(valor))
+                throw new InvalidOperationException("El medio de pago es requerido.");
+
+            if (MediosPagoPermitidos.TryGetValue(valor, out var medioPagoPermitido))
+                return medioPagoPermitido;
+
+            throw new InvalidOperationException(
+                $"Medio de pago inválido. Valores permitidos: {string.Join(", ", MediosPagoPermitidos.Values)}.");
+        }
+
+        private static decimal CalcularPunitorioActualizado(Cuota cuota, DateTime ahora)
+        {
+            if (ahora > cuota.FechaVencimiento && cuota.Estado != EstadoCuota.Pagada)
+            {
+                var diasAtraso = (ahora - cuota.FechaVencimiento).Days;
+                return cuota.MontoTotal * (cuota.Credito.TasaInteres / 100m / 12m) * (diasAtraso / 30m);
+            }
+
+            return cuota.MontoPunitorio;
+        }
+
+        private static decimal CalcularSaldoPendienteCuota(Cuota cuota, decimal punitorio)
+        {
+            return cuota.MontoTotal + punitorio - cuota.MontoPagado;
+        }
+
+        private static string CombinarObservacionesCuota(string? observacionesActuales, string observacionesNuevas)
+        {
+            var observaciones = string.IsNullOrWhiteSpace(observacionesActuales)
+                ? observacionesNuevas
+                : $"{observacionesActuales}{Environment.NewLine}{observacionesNuevas}";
+
+            return observaciones.Length <= 500
+                ? observaciones
+                : observaciones[..500];
         }
 
         private static decimal CalcularCapitalPendienteCuota(Cuota cuota)

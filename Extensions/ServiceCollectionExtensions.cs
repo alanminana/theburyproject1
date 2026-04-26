@@ -36,5 +36,13 @@ namespace TheBuryProject.Extensions
 
             return services;
         }
+
+        public static IServiceCollection AddTicketServices(this IServiceCollection services)
+        {
+            services.AddScoped<IFileStorageService, LocalFileStorageService>();
+            services.AddScoped<ITicketService, TicketService>();
+
+            return services;
+        }
     }
 }

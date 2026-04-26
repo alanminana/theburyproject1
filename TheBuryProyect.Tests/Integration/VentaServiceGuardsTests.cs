@@ -134,7 +134,8 @@ public class VentaServiceGuardsTests
             currentUserService,
             null!,                  // IValidacionVentaService
             cajaService,
-            null!);                 // ICreditoDisponibleService
+            null!,                  // ICreditoDisponibleService
+            new StubContratoVentaCreditoService());
     }
 
     private static VentaViewModel MinimalViewModel() => new()

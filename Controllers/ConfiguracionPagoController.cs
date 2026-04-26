@@ -369,6 +369,94 @@ namespace TheBuryProject.Controllers
 
         #region Crédito personal — Perfiles y configuración
 
+        [HttpGet]
+        public async Task<IActionResult> CreditoPersonal(string? returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+            var modelo = await ConstruirCreditoPersonalConfigAsync();
+            return View("CreditoPersonal_tw", modelo);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        public async Task<IActionResult> CreditoPersonal(
+            CreditoPersonalConfigViewModel config,
+            string? nuevoPerfilNombre,
+            string? nuevoPerfilDescripcion,
+            decimal? nuevoPerfilTasaMensual,
+            decimal? nuevoPerfilGastosAdministrativos,
+            int? nuevoPerfilMinCuotas,
+            int? nuevoPerfilMaxCuotas,
+            bool nuevoPerfilActivo = true,
+            int? nuevoPerfilOrden = null,
+            string? returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+
+            if (config.DefaultsGlobales == null)
+            {
+                ModelState.AddModelError(nameof(config.DefaultsGlobales), "Debe indicar los valores globales.");
+            }
+            else if (config.DefaultsGlobales.MaxCuotas < config.DefaultsGlobales.MinCuotas)
+            {
+                ModelState.AddModelError("DefaultsGlobales.MaxCuotas", "El máximo global debe ser mayor o igual al mínimo.");
+            }
+
+            config.Perfiles = (config.Perfiles ?? new List<PerfilCreditoViewModel>())
+                .Where(p => p.Id > 0 || !string.IsNullOrWhiteSpace(p.Nombre))
+                .ToList();
+
+            foreach (var perfil in config.Perfiles)
+            {
+                if (string.IsNullOrWhiteSpace(perfil.Nombre))
+                {
+                    ModelState.AddModelError(nameof(config.Perfiles), "Los perfiles existentes deben tener nombre.");
+                }
+
+                if (perfil.MaxCuotas < perfil.MinCuotas)
+                {
+                    ModelState.AddModelError(nameof(config.Perfiles), $"El perfil '{perfil.Nombre}' tiene máximo menor al mínimo.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(nuevoPerfilNombre))
+            {
+                var minNuevo = nuevoPerfilMinCuotas ?? 1;
+                var maxNuevo = nuevoPerfilMaxCuotas ?? 24;
+                if (maxNuevo < minNuevo)
+                {
+                    ModelState.AddModelError("nuevoPerfilMaxCuotas", "El máximo del nuevo perfil debe ser mayor o igual al mínimo.");
+                }
+
+                config.Perfiles.Add(new PerfilCreditoViewModel
+                {
+                    Nombre = nuevoPerfilNombre.Trim(),
+                    Descripcion = nuevoPerfilDescripcion,
+                    TasaMensual = nuevoPerfilTasaMensual ?? 0m,
+                    GastosAdministrativos = nuevoPerfilGastosAdministrativos ?? 0m,
+                    MinCuotas = minNuevo,
+                    MaxCuotas = maxNuevo,
+                    Activo = nuevoPerfilActivo,
+                    Orden = nuevoPerfilOrden ?? 0
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View("CreditoPersonal_tw", config);
+            }
+
+            await _configuracionPagoService.GuardarCreditoPersonalAsync(config);
+            TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
+
+            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
+            if (!string.IsNullOrWhiteSpace(safeReturnUrl))
+                return Redirect(safeReturnUrl);
+
+            return RedirectToAction(nameof(CreditoPersonal));
+        }
+
         /// <summary>
         /// Obtiene todos los perfiles de crédito.
         /// </summary>
@@ -406,6 +494,29 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al guardar configuración de crédito personal");
                 return Json(new { success = false, message = "Error al guardar: " + ex.Message });
             }
+        }
+
+        private async Task<CreditoPersonalConfigViewModel> ConstruirCreditoPersonalConfigAsync()
+        {
+            await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+            var configuraciones = await _configuracionPagoService.GetAllAsync();
+            var creditoPersonal = configuraciones
+                .FirstOrDefault(c => c.TipoPago == TipoPago.CreditoPersonal);
+
+            var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
+
+            return new CreditoPersonalConfigViewModel
+            {
+                DefaultsGlobales = new DefaultsGlobalesViewModel
+                {
+                    TasaMensual = creditoPersonal?.TasaInteresMensualCreditoPersonal ?? 0m,
+                    GastosAdministrativos = creditoPersonal?.GastosAdministrativosDefaultCreditoPersonal ?? 0m,
+                    MinCuotas = creditoPersonal?.MinCuotasDefaultCreditoPersonal ?? 1,
+                    MaxCuotas = creditoPersonal?.MaxCuotasDefaultCreditoPersonal ?? 24
+                },
+                Perfiles = perfiles
+            };
         }
 
         #endregion

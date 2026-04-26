@@ -1,83 +1,78 @@
-.cliente-page-shell {
-    margin-inline: auto;
-    max-width: 80rem;
-    padding-block: 2rem;
-    width: 100%;
+/* ─────────────────────────────────────────────────────────────
+   cliente-module.css
+   Styles for the Cliente module views: Create_tw, Edit_tw
+   ───────────────────────────────────────────────────────────── */
+
+/*
+ * .hidden override: garantiza que el toggle del acordeón siempre
+ * gane sobre cualquier display custom que pueda aplicar el layout.
+ */
+.hidden { display: none !important; }
+
+/* ── Modal slide-in animation ─────────────────────────────────── */
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
 }
 
-.cliente-page-header-layout {
+.cliente-panel-slide-in {
+    animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Index row contextual menu ───────────────────────────────── */
+.cliente-row-menu > summary {
+    list-style: none;
+}
+
+.cliente-row-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.cliente-row-menu[open] > summary {
+    background-color: #1e293b;
+    color: #cbd5e1;
+}
+
+.cliente-row-menu__content {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.25rem);
+    z-index: 20;
+    min-width: 9rem;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background-color: #0f172a;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.cliente-row-menu__item {
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.cliente-page-header-actions,
-.cliente-page-footer-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
     width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 0;
+    background: transparent;
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
 }
 
-.cliente-page-header-action,
-.cliente-page-footer-action {
-    width: 100%;
+.cliente-row-menu__item:hover,
+.cliente-row-menu__item:focus-visible {
+    background-color: #1e293b;
+    outline: none;
 }
 
-.cliente-page-metrics {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.cliente-row-menu__item--danger {
+    color: #f87171;
 }
 
-.cliente-page-main-grid {
-    display: grid;
-    gap: 1.5rem;
-}
-
-.cliente-page-main-grid--aside-right {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.cliente-page-scroll-hint {
-    display: block;
-}
-
-.cliente-form-footer {
-    backdrop-filter: blur(16px);
-}
-
-@media (min-width: 1024px) {
-    .cliente-page-header-layout {
-        align-items: flex-end;
-        flex-direction: row;
-        justify-content: space-between;
-    }
-
-    .cliente-page-header-actions,
-    .cliente-page-footer-actions {
-        align-items: center;
-        flex-direction: row;
-        justify-content: flex-end;
-        width: auto;
-    }
-
-    .cliente-page-header-action,
-    .cliente-page-footer-action {
-        width: auto;
-    }
-
-    .cliente-page-main-grid--aside-right {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
-    }
-
-    .cliente-page-scroll-hint {
-        display: none !important;
-    }
-}
-
-@media (min-width: 1280px) {
-    .cliente-page-metrics--4 {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
+.cliente-row-menu__item--danger:hover,
+.cliente-row-menu__item--danger:focus-visible {
+    background-color: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
 }

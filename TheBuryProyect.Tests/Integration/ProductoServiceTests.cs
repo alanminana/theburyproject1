@@ -40,7 +40,8 @@ public class ProductoServiceTests : IDisposable
             _context,
             NullLogger<ProductoService>.Instance,
             new StubPrecioHistoricoServiceProd(),
-            new StubCurrentUserServiceProd());
+            new StubCurrentUserServiceProd(),
+            new TheBuryProject.Tests.Infrastructure.StubPrecioService());
     }
 
     public void Dispose()

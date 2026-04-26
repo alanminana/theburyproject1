@@ -49,7 +49,8 @@ public class CatalogoServiceTests : IDisposable
         _categoriaService = new CategoriaService(_context, NullLogger<CategoriaService>.Instance);
         _marcaService = new MarcaService(_context, NullLogger<MarcaService>.Instance);
         var precioHistorico = new PrecioHistoricoService(_context, NullLogger<PrecioHistoricoService>.Instance);
-        _productoService = new ProductoService(_context, NullLogger<ProductoService>.Instance, precioHistorico, stubUser);
+        _productoService = new ProductoService(_context, NullLogger<ProductoService>.Instance, precioHistorico, stubUser,
+            new TheBuryProject.Tests.Infrastructure.StubPrecioService());
         _precioService = new PrecioService(_context, NullLogger<PrecioService>.Instance, stubUser, config);
 
         var catalogLookup = new CatalogLookupService(_categoriaService, _marcaService, _productoService);

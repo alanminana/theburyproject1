@@ -14,24 +14,24 @@
 
     var estadoBadgeClasses = Model.Estado switch
     {
-        EstadoDocumento.Verificado => "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300",
-        EstadoDocumento.Rechazado => "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300",
-        EstadoDocumento.Vencido => "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/20 dark:text-orange-300",
-        _ => "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300"
+        EstadoDocumento.Verificado => "border-emerald-900/50 bg-emerald-950/20 text-emerald-300",
+        EstadoDocumento.Rechazado => "border-red-900/50 bg-red-950/20 text-red-300",
+        EstadoDocumento.Vencido => "border-orange-900/50 bg-orange-950/20 text-orange-300",
+        _ => "border-amber-900/50 bg-amber-950/20 text-amber-300"
     };
     var estadoCardClasses = Model.Estado switch
     {
-        EstadoDocumento.Verificado => "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20",
-        EstadoDocumento.Rechazado => "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20",
-        EstadoDocumento.Vencido => "border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/20",
-        _ => "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20"
+        EstadoDocumento.Verificado => "border-emerald-900/50 bg-emerald-950/20",
+        EstadoDocumento.Rechazado => "border-red-900/50 bg-red-950/20",
+        EstadoDocumento.Vencido => "border-orange-900/50 bg-orange-950/20",
+        _ => "border-amber-900/50 bg-amber-950/20"
     };
     var estadoTextClasses = Model.Estado switch
     {
-        EstadoDocumento.Verificado => "text-emerald-700 dark:text-emerald-300",
-        EstadoDocumento.Rechazado => "text-red-700 dark:text-red-300",
-        EstadoDocumento.Vencido => "text-orange-700 dark:text-orange-300",
-        _ => "text-amber-700 dark:text-amber-300"
+        EstadoDocumento.Verificado => "text-emerald-700 text-emerald-300",
+        EstadoDocumento.Rechazado => "text-red-700 text-red-300",
+        EstadoDocumento.Vencido => "text-orange-700 text-orange-300",
+        _ => "text-amber-300"
     };
     var estadoIcon = Model.Estado switch
     {
@@ -43,65 +43,44 @@
 }
 
 @section Styles {
-    <style>
-        .documento-details-hero-actions {
-            display: flex;
-            width: 100%;
-            flex-direction: column;
-        }
-
-        .documento-details-hero-action {
-            width: 100%;
-        }
-
-        @@media (min-width: 640px) {
-            .documento-details-hero-actions {
-                width: auto;
-                flex-direction: row;
-            }
-
-            .documento-details-hero-action {
-                width: auto;
-            }
-        }
-    </style>
+    <partial name="_DocumentoClienteModuleStyles" />
 }
 
 <div class="space-y-8">
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+    <section class="card-erp-panel-padded">
         <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
                     <ol class="inline-flex flex-wrap items-center gap-y-1">
                         <li><a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
                         <li><a asp-controller="DocumentoCliente" asp-action="Index" class="hover:text-primary no-underline">Documentación</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-900 dark:text-slate-100">Detalle</li>
+                        <li class="text-slate-100">Detalle</li>
                     </ol>
                 </nav>
 
                 <div class="space-y-3">
-                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="badge-erp badge-erp-primary">
                         <span class="material-symbols-outlined text-sm">description</span>
                         DocumentoCliente
                     </span>
                     <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">@Model.TipoDocumentoNombre</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">@Model.TipoDocumentoNombre</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
                             Legajo documental de @(Model.ClienteNombre ?? "cliente"), con trazabilidad de archivo, validación y acciones operativas del documento.
                         </p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
                         <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold @estadoBadgeClasses">
                             <span class="material-symbols-outlined text-sm">@estadoIcon</span>
                             @Model.EstadoNombre
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">person</span>
                             @(Model.ClienteNombre ?? "Cliente sin nombre")
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-semibold text-slate-600 border-slate-700 bg-slate-950/40 text-slate-300">
                             <span class="material-symbols-outlined text-sm">calendar_month</span>
                             @vencimientoTexto
                         </span>
@@ -111,12 +90,12 @@
 
             <div class="documento-details-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
                 <a href="@volverHref"
-                   class="documento-details-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:py-2.5 no-underline">
+                   class="documento-details-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold transition-colors hover:bg-slate-100 border-slate-700 text-slate-200 hover:bg-slate-800 sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">arrow_back</span>
                     Volver
                 </a>
                 <a asp-action="Descargar" asp-route-id="@Model.Id"
-                   class="documento-details-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:py-2.5 no-underline">
+                   class="documento-details-hero-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold transition-colors hover:bg-slate-100 border-slate-700 text-slate-200 hover:bg-slate-800 sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">download</span>
                     Descargar
                 </a>
@@ -130,25 +109,25 @@
         </header>
 
         <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Estado</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
                 <p class="mt-2 text-2xl font-black @estadoTextClasses">@Model.EstadoNombre</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">situación actual del documento</p>
+                <p class="mt-1 text-xs text-slate-400">situación actual del documento</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Archivo</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.TamanoFormateado</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">tamaño del archivo cargado</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Archivo</p>
+                <p class="mt-2 text-2xl font-black text-white">@Model.TamanoFormateado</p>
+                <p class="mt-1 text-xs text-slate-400">tamaño del archivo cargado</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Subido</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.FechaSubida.ToString("dd/MM")</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@Model.FechaSubida.ToString("yyyy HH:mm")</p>
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Subido</p>
+                <p class="mt-2 text-2xl font-black text-white">@Model.FechaSubida.ToString("dd/MM")</p>
+                <p class="mt-1 text-xs text-slate-400">@Model.FechaSubida.ToString("yyyy HH:mm")</p>
             </article>
-            <article class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">@fechaEstadoTitulo</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@fechaEstadoValor</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <article class="rounded-xl border px-4 py-4 border-slate-800 bg-slate-950/40">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">@fechaEstadoTitulo</p>
+                <p class="mt-2 text-2xl font-black text-white">@fechaEstadoValor</p>
+                <p class="mt-1 text-xs text-slate-400">
                     @(Model.FechaVerificacion.HasValue ? (Model.VerificadoPor ?? "sin usuario") : "fecha clave del legajo")
                 </p>
             </article>
@@ -157,7 +136,7 @@
 
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400" role="status">
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-400" role="status">
             <span class="material-symbols-outlined text-lg">check_circle</span>
             @TempData["Success"]
         </div>
@@ -172,9 +151,9 @@
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div class="space-y-6 lg:col-span-2">
-            <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                    <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+            <section class="overflow-hidden rounded-xl border shadow-sm border-slate-800 bg-slate-900">
+                <div class="border-b px-6 py-4 border-slate-800">
+                    <h2 class="flex items-center gap-2 text-base font-bold text-white">
                         <span class="material-symbols-outlined text-primary">description</span>
                         Información del Archivo
                     </h2>
@@ -183,27 +162,27 @@
                     <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Nombre</dt>
-                            <dd class="break-all text-sm font-medium text-slate-900 dark:text-white">@(Model.NombreArchivo ?? "—")</dd>
+                            <dd class="break-all text-sm font-medium text-white">@(Model.NombreArchivo ?? "—")</dd>
                         </div>
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Tipo MIME</dt>
-                            <dd class="text-sm font-medium text-slate-900 dark:text-white">@(Model.TipoMIME ?? "—")</dd>
+                            <dd class="text-sm font-medium text-white">@(Model.TipoMIME ?? "—")</dd>
                         </div>
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Tamaño</dt>
-                            <dd class="text-sm font-medium text-slate-900 dark:text-white">@Model.TamanoFormateado</dd>
+                            <dd class="text-sm font-medium text-white">@Model.TamanoFormateado</dd>
                         </div>
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Tipo Documento</dt>
-                            <dd class="text-sm font-medium text-slate-900 dark:text-white">@Model.TipoDocumentoNombre</dd>
+                            <dd class="text-sm font-medium text-white">@Model.TipoDocumentoNombre</dd>
                         </div>
                     </dl>
                 </div>
             </section>
 
-            <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                    <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+            <section class="overflow-hidden rounded-xl border shadow-sm border-slate-800 bg-slate-900">
+                <div class="border-b px-6 py-4 border-slate-800">
+                    <h2 class="flex items-center gap-2 text-base font-bold text-white">
                         <span class="material-symbols-outlined text-primary">calendar_month</span>
                         Fechas y trazabilidad
                     </h2>
@@ -212,21 +191,21 @@
                     <dl class="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Fecha de Subida</dt>
-                            <dd class="text-sm font-medium text-slate-900 dark:text-white">@Model.FechaSubida.ToString("dd/MM/yyyy HH:mm")</dd>
+                            <dd class="text-sm font-medium text-white">@Model.FechaSubida.ToString("dd/MM/yyyy HH:mm")</dd>
                         </div>
                         <div>
                             <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Fecha de Vencimiento</dt>
-                            <dd class="text-sm font-medium text-slate-900 dark:text-white">@vencimientoTexto</dd>
+                            <dd class="text-sm font-medium text-white">@vencimientoTexto</dd>
                         </div>
                         @if (Model.FechaVerificacion.HasValue)
                         {
                             <div>
                                 <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Verificado el</dt>
-                                <dd class="text-sm font-medium text-slate-900 dark:text-white">@Model.FechaVerificacion.Value.ToString("dd/MM/yyyy HH:mm")</dd>
+                                <dd class="text-sm font-medium text-white">@Model.FechaVerificacion.Value.ToString("dd/MM/yyyy HH:mm")</dd>
                             </div>
                             <div>
                                 <dt class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Verificado Por</dt>
-                                <dd class="text-sm font-medium text-slate-900 dark:text-white">@(Model.VerificadoPor ?? "—")</dd>
+                                <dd class="text-sm font-medium text-white">@(Model.VerificadoPor ?? "—")</dd>
                             </div>
                         }
                     </dl>
@@ -235,9 +214,9 @@
 
             @if (tieneNotas)
             {
-                <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+                <section class="overflow-hidden rounded-xl border shadow-sm border-slate-800 bg-slate-900">
+                    <div class="border-b px-6 py-4 border-slate-800">
+                        <h2 class="flex items-center gap-2 text-base font-bold text-white">
                             <span class="material-symbols-outlined text-primary">notes</span>
                             Observaciones y notas
                         </h2>
@@ -247,14 +226,14 @@
                         {
                             <div>
                                 <p class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</p>
-                                <p class="whitespace-pre-line text-sm text-slate-700 dark:text-slate-300">@Model.Observaciones</p>
+                                <p class="whitespace-pre-line text-sm text-slate-300">@Model.Observaciones</p>
                             </div>
                         }
                         @if (!string.IsNullOrWhiteSpace(Model.MotivoRechazo))
                         {
                             <div class="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
                                 <p class="mb-1 text-xs font-bold uppercase tracking-wider text-red-500">Motivo de Rechazo</p>
-                                <p class="whitespace-pre-line text-sm text-red-600 dark:text-red-400">@Model.MotivoRechazo</p>
+                                <p class="whitespace-pre-line text-sm text-red-400">@Model.MotivoRechazo</p>
                             </div>
                         }
                     </div>
@@ -269,15 +248,15 @@
                         <span class="material-symbols-outlined text-3xl @estadoTextClasses">@estadoIcon</span>
                     </div>
                     <div class="space-y-1">
-                        <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Estado</p>
+                        <p class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
                         <p class="text-lg font-black @estadoTextClasses">@Model.EstadoNombre</p>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Usá este panel para validar, rechazar o reemplazar el archivo según corresponda.</p>
+                        <p class="text-sm text-slate-300">Usá este panel para validar, rechazar o reemplazar el archivo según corresponda.</p>
                     </div>
                 </div>
             </section>
 
-            <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Acciones</h3>
+            <section class="rounded-xl border p-6 shadow-sm border-slate-800 bg-slate-900">
+                <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Acciones</h3>
                 <div class="space-y-3">
                     @if (Model.Estado == EstadoDocumento.Pendiente)
                     {
@@ -299,7 +278,7 @@
                             @Html.AntiForgeryToken()
                             <div class="mb-2">
                                 <textarea name="motivo" rows="2" placeholder="Motivo del rechazo..."
-                                          class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 transition-all focus:border-red-500 focus:ring-2 focus:ring-red-500/50 dark:border-slate-700 dark:bg-slate-800 dark:text-white resize-none"></textarea>
+                                          class="w-full rounded-lg border px-3 py-2 text-sm transition-all focus:border-red-500 focus:ring-2 focus:ring-red-500/50 border-slate-700 bg-slate-800 text-white resize-none"></textarea>
                             </div>
                             <button type="submit"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/50 px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-500/10">
@@ -316,7 +295,7 @@
                           data-documento-label="@deleteLabel">
                         @Html.AntiForgeryToken()
                         <button type="submit"
-                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-500 dark:border-slate-700 dark:text-slate-300">
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-500 border-slate-700 text-slate-300">
                             <span class="material-symbols-outlined text-lg">delete</span>
                             Eliminar Documento
                         </button>
@@ -324,9 +303,9 @@
                 </div>
             </section>
 
-            <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cliente</h3>
-                <p class="text-base font-semibold text-slate-900 dark:text-white">@(Model.ClienteNombre ?? "—")</p>
+            <section class="rounded-xl border p-6 shadow-sm border-slate-800 bg-slate-900">
+                <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</h3>
+                <p class="text-base font-semibold text-white">@(Model.ClienteNombre ?? "—")</p>
                 <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.ClienteId"
                    class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline no-underline">
                     Ver perfil del cliente

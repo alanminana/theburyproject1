@@ -122,7 +122,8 @@ file static class VentaServiceFactory
             new StubCurrentUserService(),
             null!,                                          // IValidacionVentaService
             null!,                                          // ICajaService
-            null!);
+            null!,
+            new StubContratoVentaCreditoService());
     }
 
     private static (AppDbContext ctx, SqliteConnection conn) CreateContext()

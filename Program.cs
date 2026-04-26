@@ -66,6 +66,7 @@ builder.Services.AddSingleton<IMapper>(sp =>
 builder.Services.AddCoreServices();
 builder.Services.AddVentaServices();
 builder.Services.AddCreditoServices();
+builder.Services.AddTicketServices();
 
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<IMarcaService, MarcaService>();
@@ -80,6 +81,8 @@ builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<ICreditoService, CreditoService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
+builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
+builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoService>();
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();
 builder.Services.AddScoped<IRolService, RolService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
@@ -100,6 +103,8 @@ builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<INotificacionService, NotificacionService>();
 builder.Services.AddScoped<IDocumentacionService, DocumentacionService>();
 builder.Services.AddScoped<IClienteLookupService, ClienteLookupService>();
+builder.Services.AddScoped<VentaViewBagBuilder>();
+builder.Services.AddScoped<CreditoViewBagBuilder>();
 
 // 5.4 BCRA Central de Deudores
 builder.Services.AddHttpClient<ISituacionCrediticiaBcraService, SituacionCrediticiaBcraService>(client =>
@@ -117,7 +122,9 @@ builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
 
 // 6. MVC
-builder.Services.AddControllersWithViews();
+var mvcBuilder = builder.Services.AddControllersWithViews();
+if (builder.Environment.IsDevelopment())
+    mvcBuilder.AddRazorRuntimeCompilation();
 
 // 7. Razor Pages (Identity UI)
 builder.Services.AddRazorPages();

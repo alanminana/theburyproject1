@@ -1,0 +1,149 @@
+@model CreditoViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = $"Eliminar Crédito {Model.Numero}";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Details", "Credito", new { id = Model.Id }) ?? $"/Credito/Details/{Model.Id}";
+
+    string estadoBg = Model.Estado switch
+    {
+        EstadoCredito.Solicitado => "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        EstadoCredito.Aprobado   => "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        EstadoCredito.Activo     => "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        EstadoCredito.Rechazado  => "bg-red-500/10 text-red-400 border-red-500/20",
+        _                        => "bg-slate-500/10 text-slate-400 border-slate-500/20"
+    };
+}
+
+@if (TempData["Error"] is string errorMsg)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-400">
+        <span class="material-symbols-outlined">error</span>
+        <p class="text-sm font-medium">@errorMsg</p>
+    </div>
+}
+
+<div class="mx-auto flex max-w-4xl flex-col gap-6">
+
+    <header class="flex flex-wrap items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+            <a href="@volverHref"
+               class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-200 transition-colors hover:bg-slate-700 no-underline"
+               aria-label="Volver al detalle del crédito">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+            </a>
+            <div class="flex flex-col gap-1">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-rose-500">Zona de riesgo</p>
+                <h1 class="text-3xl font-black tracking-tight text-white">Eliminar crédito</h1>
+                <p class="max-w-2xl text-sm text-slate-400">
+                    Esta operación es permanente. Una vez eliminado, el crédito no puede recuperarse.
+                </p>
+            </div>
+        </div>
+        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide @estadoBg">
+            @Model.Estado
+        </span>
+    </header>
+
+    <section class="rounded-xl border border-rose-900/40 bg-rose-950/20 p-5">
+        <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined mt-0.5 text-rose-500">warning</span>
+            <div class="space-y-1">
+                <p class="text-sm font-bold text-rose-300">¿Confirmás la eliminación de este crédito?</p>
+                <p class="text-sm text-rose-300/80">
+                    El crédito, sus cuotas y los registros asociados se eliminarán permanentemente del sistema.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
+
+        <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 shadow-sm">
+            <div class="border-b border-slate-800 px-6 py-5">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">credit_score</span>
+                    <h2 class="text-lg font-bold text-white">Resumen del crédito</h2>
+                </div>
+            </div>
+            <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Número</p>
+                    <p class="font-mono text-lg font-bold text-white">@(Model.Numero ?? "—")</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</p>
+                    <p class="font-semibold text-white">@(Model.ClienteNombre ?? "—")</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Monto solicitado</p>
+                    <p class="font-medium text-white">@Model.MontoSolicitado.ToString("C2")</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha solicitud</p>
+                    <p class="font-medium text-white">@Model.FechaSolicitud.ToString("dd/MM/yyyy")</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</p>
+                    <p class="font-medium text-white">@Model.CantidadCuotas</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Tasa mensual</p>
+                    <p class="font-medium text-white">@(Model.TasaInteres * 100)%</p>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+                {
+                    <div class="space-y-1 sm:col-span-2">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</p>
+                        <p class="text-sm text-slate-300">@Model.Observaciones</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <aside class="credito-section p-5">
+            <h2 class="text-base font-bold text-white">Antes de confirmar</h2>
+            <ul class="mt-4 space-y-3 text-sm text-slate-300">
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined mt-0.5 text-base text-slate-400">check_circle</span>
+                    <span>El crédito dejará de aparecer en la cartera operativa.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined mt-0.5 text-base text-slate-400">check_circle</span>
+                    <span>Las cuotas asociadas también se eliminarán.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined mt-0.5 text-base text-rose-400">warning</span>
+                    <span>Esta acción no puede deshacerse.</span>
+                </li>
+            </ul>
+
+            <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="mt-6 flex flex-col gap-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+                @if (returnUrl != null)
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+
+                <button type="submit"
+                        class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-600/20 transition-colors hover:bg-rose-700">
+                    <span class="material-symbols-outlined text-lg">delete</span>
+                    Confirmar eliminación
+                </button>
+
+                <a href="@volverHref"
+                   class="btn-erp-ghost h-11 no-underline">
+                    Cancelar
+                </a>
+            </form>
+        </aside>
+
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/shared-ui.js" asp-append-version="true"></script>
+}

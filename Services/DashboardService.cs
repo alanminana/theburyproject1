@@ -50,9 +50,17 @@ namespace TheBuryProject.Services
                 ? ventasRaw.Where(v => v.FechaVenta >= inicioMes).Average(v => v.Total)
                 : 0;
 
-            // Créditos: fetch raw para sumas
+            // Créditos: fetch raw para sumas — incluye todos los estados operativos
+            var estadosOperativos = new[]
+            {
+                EstadoCredito.Activo,
+                EstadoCredito.Generado,
+                EstadoCredito.Configurado,
+                EstadoCredito.Aprobado,
+                EstadoCredito.PendienteConfiguracion
+            };
             var creditosRaw = await _context.Creditos
-                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted && c.Estado == EstadoCredito.Activo)
+                .Where(c => !c.IsDeleted && c.Cliente != null && !c.Cliente.IsDeleted && estadosOperativos.Contains(c.Estado))
                 .Select(c => new { c.TotalAPagar, c.SaldoPendiente })
                 .ToListAsync();
             var creditosActivos    = creditosRaw.Count;

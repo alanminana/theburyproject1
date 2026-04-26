@@ -1,0 +1,187 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTI�N
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Log�stica
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesi�n":
+          - generic: logout
+          - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Seguridad" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - navigation [ref=e65]:
+              - link "ERP" [ref=e66] [cursor=pointer]:
+                - /url: /
+              - generic [ref=e67]: /
+              - generic [ref=e68]: Seguridad
+            - generic [ref=e69]:
+              - generic [ref=e70]: security
+              - text: Seguridad
+            - generic [ref=e71]:
+              - heading "Módulo Seguridad" [level=1] [ref=e72]
+              - paragraph [ref=e73]: Punto de entrada del módulo RBAC. Desde acá se organiza la gestión de usuarios, roles, permisos de rol y auditoría.
+          - generic [ref=e74]:
+            - article [ref=e75]:
+              - paragraph [ref=e76]: Usuarios activos
+              - paragraph [ref=e77]: "10"
+            - article [ref=e78]:
+              - paragraph [ref=e79]: Bloqueados
+              - paragraph [ref=e80]: "0"
+            - article [ref=e81]:
+              - paragraph [ref=e82]: Roles
+              - paragraph [ref=e83]: "9"
+            - article [ref=e84]:
+              - paragraph [ref=e85]: Permisos asignados
+              - paragraph [ref=e86]: "469"
+        - navigation [ref=e87]:
+          - link "Usuarios" [ref=e88] [cursor=pointer]:
+            - /url: /Seguridad?tab=usuarios
+          - link "Roles" [ref=e89] [cursor=pointer]:
+            - /url: /Seguridad?tab=roles
+          - link "Permisos de Rol" [ref=e90] [cursor=pointer]:
+            - /url: /Seguridad?tab=permisos-rol
+          - link "Auditoría" [ref=e91] [cursor=pointer]:
+            - /url: /Seguridad?tab=auditoria
+      - generic [ref=e92]:
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]: shield_lock
+              - text: Permisos de Rol
+            - generic [ref=e98]:
+              - heading "Gobernanza fina de accesos por rol" [level=2] [ref=e99]
+              - paragraph [ref=e100]: Administrá la matriz completa de permisos sin salir del módulo. Filtrá por grupo o módulo, copiá configuraciones existentes y guardá cambios sobre el rol seleccionado.
+            - generic [ref=e102]:
+              - generic [ref=e103]: account_tree
+              - text: Matriz por módulo y acción
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - paragraph [ref=e106]: Roles disponibles
+              - paragraph [ref=e107]: "9"
+              - paragraph [ref=e108]: Base habilitada para copiar o ajustar permisos.
+            - generic [ref=e109]:
+              - paragraph [ref=e110]: Módulos cubiertos
+              - paragraph [ref=e111]: "29"
+              - paragraph [ref=e112]: Cada fila controla un bloque funcional completo.
+            - generic [ref=e113]:
+              - paragraph [ref=e114]: Grupos
+              - paragraph [ref=e115]: "11"
+              - paragraph [ref=e116]: Filtrá la matriz pesada por dominio operativo.
+            - generic [ref=e117]:
+              - paragraph [ref=e118]: Permisos marcados
+              - paragraph [ref=e119]: "0"
+              - paragraph [ref=e120]: Se recalcula al filtrar o tocar la matriz.
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - text: Rol
+            - combobox "Rol" [ref=e125]:
+              - option "Seleccionar rol..." [selected]
+              - option "Administrador"
+              - option "Cajero"
+              - option "Contador"
+              - option "Gerente"
+              - option "Repositor"
+              - option "SuperAdmin"
+              - option "Tecnico"
+              - option "test vendedor"
+              - option "Vendedor"
+          - generic [ref=e126]:
+            - text: Buscar módulo
+            - textbox "Buscar módulo" [ref=e127]:
+              - /placeholder: "Ej: usuarios, ventas, caja..."
+          - generic [ref=e128]:
+            - text: Grupo
+            - combobox "Grupo" [ref=e129]:
+              - option "Todos los grupos" [selected]
+              - option "Autorizaciones"
+              - option "Caja"
+              - option "Catálogo"
+              - option "Clientes"
+              - option "Compras"
+              - option "Configuración"
+              - option "Devoluciones"
+              - option "Reportes"
+              - option "Sistema"
+              - option "Stock"
+              - option "Ventas"
+          - generic [ref=e130]:
+            - button "grid_view Cargar matriz" [ref=e131]:
+              - generic [ref=e132]: grid_view
+              - text: Cargar matriz
+            - button "filter_list_off" [ref=e133]:
+              - generic [ref=e134]: filter_list_off
+        - generic [ref=e135]:
+          - generic [ref=e137]: admin_panel_settings
+          - paragraph [ref=e138]: Seleccioná un rol para configurar permisos
+          - paragraph [ref=e139]: La matriz editable se habilita una vez elegido el rol destino.

@@ -540,18 +540,10 @@ const PrecioModal = (() => {
         .then(function (data) {
             if (data.exitoso) {
                 close();
-                // Show success notification and reload the page so updated prices are visible
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Precios actualizados',
-                        text: data.mensaje || (data.productosActualizados + ' productos actualizados'),
-                        timer: 2500,
-                        showConfirmButton: false
-                    }).then(function () { location.reload(); });
-                } else {
-                    location.reload();
-                }
+                var successMsg = data.mensaje || (data.productosActualizados + ' productos actualizados. Aplicá o refrescá los filtros para ver los precios nuevos.');
+                document.dispatchEvent(new CustomEvent('catalogo:toast', {
+                    detail: { message: successMsg, type: 'success' }
+                }));
             } else {
                 showError(data.mensaje || 'Error al aplicar el cambio');
                 applyBtn.disabled = false;

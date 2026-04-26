@@ -26,18 +26,17 @@ namespace TheBuryProject.Controllers
         private const string AccionRechazar = "reject";
         private const string AccionFacturar = "invoice";
         private readonly IVentaService _ventaService;
-        private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly ILogger<VentaController> _logger;
         private readonly IFinancialCalculationService _financialCalculationService;
         private readonly IPrequalificationService _prequalificationService;
         private readonly ICreditoService _creditoService;
         private readonly IDocumentacionService _documentacionService;
-        private readonly IProductoService _productoService;
         private readonly IClienteLookupService _clienteLookup;
         private readonly IValidacionVentaService _validacionVentaService;
         private readonly ICurrentUserService _currentUser;
-        private readonly IUsuarioService _usuarioService;
         private readonly ICajaService _cajaService;
+        private readonly VentaViewBagBuilder _viewBagBuilder;
+        private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
 
         #region Helpers de caja
 
@@ -66,32 +65,30 @@ namespace TheBuryProject.Controllers
 
         public VentaController(
             IVentaService ventaService,
-            IConfiguracionPagoService configuracionPagoService,
             ILogger<VentaController> logger,
             IFinancialCalculationService financialCalculationService,
             IPrequalificationService prequalificationService,
             ICreditoService creditoService,
             IDocumentacionService documentacionService,
-            IProductoService productoService,
             IClienteLookupService clienteLookup,
             IValidacionVentaService validacionVentaService,
             ICurrentUserService currentUser,
-            IUsuarioService usuarioService,
-            ICajaService cajaService)
+            ICajaService cajaService,
+            VentaViewBagBuilder viewBagBuilder,
+            IContratoVentaCreditoService contratoVentaCreditoService)
         {
             _ventaService = ventaService;
-            _configuracionPagoService = configuracionPagoService;
             _logger = logger;
             _financialCalculationService = financialCalculationService;
             _prequalificationService = prequalificationService;
             _creditoService = creditoService;
             _documentacionService = documentacionService;
-            _productoService = productoService;
             _clienteLookup = clienteLookup;
             _validacionVentaService = validacionVentaService;
             _currentUser = currentUser;
-            _usuarioService = usuarioService;
             _cajaService = cajaService;
+            _viewBagBuilder = viewBagBuilder;
+            _contratoVentaCreditoService = contratoVentaCreditoService;
         }
 
         #endregion
@@ -121,6 +118,16 @@ namespace TheBuryProject.Controllers
                 ViewBag.PuedeOperarVentas = aperturaActiva != null;
                 ViewBag.UserNameCaja = userName;
 
+                // Cargar datos del formulario de creación solo cuando hay caja abierta
+                if (aperturaActiva != null)
+                {
+                    await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
+                    ViewBag.IvaRate = VentaConstants.IVA_RATE;
+                    // Restaurar TiposPago/Estados sobreescritos por CargarViewBags
+                    ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
+                    ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
+                }
+
                 return View("Index_tw", ventas);
             }
             catch (Exception ex)
@@ -145,6 +152,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
+                ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
                 return View("Details_tw", venta);
             }
             catch (Exception ex)
@@ -153,6 +161,26 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al cargar los detalles de la venta";
                 return RedirectToAction(nameof(Index));
             }
+        }
+
+        private async Task<ContratoVentaCreditoResumenViewModel?> ObtenerContratoResumenPorVentaAsync(int ventaId)
+        {
+            var contrato = await _contratoVentaCreditoService.ObtenerContratoPorVentaAsync(ventaId);
+            if (contrato == null)
+                return null;
+
+            return new ContratoVentaCreditoResumenViewModel
+            {
+                VentaId = contrato.VentaId,
+                CreditoId = contrato.CreditoId,
+                NumeroContrato = contrato.NumeroContrato,
+                NumeroPagare = contrato.NumeroPagare,
+                FechaGeneracionUtc = contrato.FechaGeneracionUtc,
+                UsuarioGeneracion = contrato.UsuarioGeneracion,
+                EstadoDocumento = contrato.EstadoDocumento,
+                NombreArchivo = contrato.NombreArchivo,
+                ContentHash = contrato.ContentHash
+            };
         }
 
         #endregion
@@ -255,32 +283,72 @@ namespace TheBuryProject.Controllers
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Presupuesto));
         }
 
-        /// <summary>
-        /// Prevalida la aptitud crediticia del cliente sin persistir datos.
-        /// Retorna el resultado de la evaluación para informar al vendedor antes de guardar.
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> PrevalidarCredito(int clienteId, decimal monto)
+        // POST: Venta/CreateAjax — version AJAX para el modal del Index
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
+        public async Task<IActionResult> CreateAjax(VentaViewModel viewModel)
         {
             try
             {
-                if (clienteId <= 0)
+                if (!await UsuarioTieneCajaAbiertaAsync())
                 {
-                    return BadRequest(new { error = "Debe seleccionar un cliente válido" });
+                    return Json(new
+                    {
+                        success = false,
+                        errors = new Dictionary<string, string[]>
+                        {
+                            { "", new[] { "Debe abrir una caja antes de crear una venta." } }
+                        }
+                    });
                 }
 
-                if (monto <= 0)
+                LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+
+                if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
-                    return BadRequest(new { error = "El monto debe ser mayor a cero" });
+                    var errors = ModelState
+                        .Where(k => k.Value?.Errors.Any() == true)
+                        .ToDictionary(
+                            k => k.Key,
+                            k => k.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+                    return Json(new { success = false, errors });
                 }
 
-                var resultado = await _validacionVentaService.PrevalidarAsync(clienteId, monto);
-                return Json(resultado);
+                var venta = await _ventaService.CreateAsync(viewModel);
+
+                if (venta.TipoPago == TipoPago.CreditoPersonal && venta.CreditoId.HasValue)
+                {
+                    var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id = venta.Id });
+                    var redirectUrl = Url.Action(
+                        "ConfigurarVenta", "Credito",
+                        new { id = venta.CreditoId, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl });
+
+                    var msg = venta.RequiereAutorizacion
+                        ? $"Venta {venta.Numero} creada. Requiere autorización. Configure el plan de pago."
+                        : $"Venta {venta.Numero} creada. Configure el plan de financiamiento.";
+
+                    return Json(new { success = true, requiresRedirect = true, redirectUrl, message = msg });
+                }
+
+                var detailsUrl = Url.Action(nameof(Details), new { id = venta.Id });
+                var mensaje = venta.RequiereAutorizacion
+                    ? $"Venta {venta.Numero} creada. Requiere autorización antes de confirmar."
+                    : $"Venta {venta.Numero} creada exitosamente";
+
+                return Json(new { success = true, requiresRedirect = true, redirectUrl = detailsUrl, message = mensaje });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al prevalidar crédito para cliente {ClienteId}", clienteId);
-                return StatusCode(500, new { error = "Error interno al validar aptitud crediticia" });
+                _logger.LogError(ex, "Error al crear venta via AJAX");
+                return Json(new
+                {
+                    success = false,
+                    errors = new Dictionary<string, string[]>
+                    {
+                        { "", new[] { "Error al crear la venta: " + ex.Message } }
+                    }
+                });
             }
         }
 
@@ -400,7 +468,12 @@ namespace TheBuryProject.Controllers
                         "Edit(POST) venta {Id} ModelState invalid. Errors:{Errors}",
                         id,
                         errorsJson);
-                    return await RetornarVistaConDatos(viewModel);
+                    await CargarViewBags(
+                        viewModel.ClienteId,
+                        viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
+                        viewModel.VendedorUserId);
+                    ViewBag.IvaRate = VentaConstants.IVA_RATE;
+                    return View("Edit_tw", viewModel);
                 }
 
                 var resultado = await _ventaService.UpdateAsync(id, viewModel);
@@ -1177,40 +1250,6 @@ namespace TheBuryProject.Controllers
 
         #endregion
 
-        #region API JSON — Financiamiento y crédito
-
-        // GET: API endpoint para obtener tarjetas activas
-        [HttpGet]
-        public async Task<IActionResult> GetTarjetasActivas()
-        {
-            try
-            {
-                var tarjetas = await _configuracionPagoService.GetTarjetasActivasAsync();
-
-                var resultado = tarjetas.Select(t => new
-                {
-                    id = t.Id,
-                    nombre = t.NombreTarjeta,
-                    tipo = t.TipoTarjeta,
-                    permiteCuotas = t.PermiteCuotas,
-                    cantidadMaximaCuotas = t.CantidadMaximaCuotas,
-                    tipoCuota = t.TipoCuota,
-                    tasaInteres = t.TasaInteresesMensual,
-                    tieneRecargo = t.TieneRecargoDebito,
-                    porcentajeRecargo = t.PorcentajeRecargoDebito
-                });
-
-                return Json(resultado);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener tarjetas activas");
-                return StatusCode(500, "Error al obtener las tarjetas");
-            }
-        }
-
-        #endregion
-
         #region Métodos privados
 
         private async Task CargarViewBags(
@@ -1218,175 +1257,8 @@ namespace TheBuryProject.Controllers
             IEnumerable<int>? productoIdsIncluidos = null,
             string? vendedorUserIdSeleccionado = null)
         {
-            var creditosCount = 0;
-            var vendedoresCount = 0;
-
-            // Usar el servicio centralizado para obtener clientes ya formateados
-            var clientes = await _clienteLookup.GetClientesSelectListAsync(clienteIdSeleccionado);
-            ViewBag.Clientes = new SelectList(clientes, "Value", "Text", clienteIdSeleccionado?.ToString());
-
-            var productos = await _productoService.SearchAsync(soloActivos: true, orderBy: "nombre");
-
-            var productoIdsIncluidosSet = productoIdsIncluidos != null
-                ? new HashSet<int>(productoIdsIncluidos)
-                : null;
-
-            ViewBag.Productos = new SelectList(
-                productos
-                    .Where(p => p.StockActual > 0 || (productoIdsIncluidosSet != null && productoIdsIncluidosSet.Contains(p.Id)))
-                    .Select(p => new
-                    {
-                        p.Id,
-                        Detalle = $"{p.Codigo} - {p.Nombre} (Stock: {p.StockActual}) - ${p.PrecioVenta:N2}"
-                    }),
-                "Id",
-                "Detalle");
-
-            var categoriasFiltro = productos
-                .Where(p => p.Categoria != null)
-                .Select(p => p.Categoria!)
-                .GroupBy(c => c.Id)
-                .Select(g => g.First())
-                .OrderBy(c => c.Nombre)
-                .Select(c => new { c.Id, c.Nombre })
-                .ToList();
-
-            var marcasFiltro = productos
-                .Where(p => p.Marca != null)
-                .Select(p => p.Marca!)
-                .GroupBy(m => m.Id)
-                .Select(g => g.First())
-                .OrderBy(m => m.Nombre)
-                .Select(m => new { m.Id, m.Nombre })
-                .ToList();
-
-            ViewBag.CategoriasFiltro = new SelectList(categoriasFiltro, "Id", "Nombre");
-            ViewBag.MarcasFiltro = new SelectList(marcasFiltro, "Id", "Nombre");
-            ViewBag.TiposPago = EnumHelper.GetSelectList<TipoPago>();
-
-            // Cargar créditos disponibles del cliente si hay uno seleccionado
-            if (clienteIdSeleccionado.HasValue)
-            {
-                var creditosDisponibles = (await _creditoService.GetByClienteIdAsync(clienteIdSeleccionado.Value))
-                    .Where(c => (c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Aprobado)
-                                && c.SaldoPendiente > 0)
-                    .OrderByDescending(c => c.FechaAprobacion ?? DateTime.MinValue)
-                    .Select(c => new
-                    {
-                        c.Id,
-                        Detalle = $"{c.Numero} - Saldo: ${c.SaldoPendiente:N2}"
-                    })
-                    .ToList();
-
-                ViewBag.Creditos = new SelectList(creditosDisponibles, "Id", "Detalle");
-                creditosCount = creditosDisponibles.Count;
-            }
-            else
-            {
-                ViewBag.Creditos = new SelectList(Enumerable.Empty<SelectListItem>());
-            }
-
-            // Cargar tarjetas activas
-            var tarjetas = await _configuracionPagoService.GetTarjetasActivasAsync();
-            var tarjetasDisponibles = tarjetas
-                .Select(t => new
-                {
-                    t.Id,
-                    Detalle = $"{t.NombreTarjeta} ({t.TipoTarjeta})"
-                })
-                .ToList();
-            ViewBag.Tarjetas = new SelectList(tarjetasDisponibles, "Id", "Detalle");
-
-            var puedeDelegarVendedor = _currentUser.IsInRole(Roles.SuperAdmin) ||
-                                       _currentUser.IsInRole(Roles.Administrador) ||
-                                       _currentUser.IsInRole(Roles.Gerente);
-            ViewBag.PuedeDelegarVendedor = puedeDelegarVendedor;
-
-            if (puedeDelegarVendedor)
-            {
-                var vendedores = await _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor);
-
-                ViewBag.Vendedores = new SelectList(
-                    vendedores,
-                    "Id",
-                    "UserName",
-                    vendedorUserIdSeleccionado);
-                vendedoresCount = vendedores.Count;
-            }
-
-            _logger.LogDebug(
-                "CargarViewBags ClienteId:{ClienteId} Clientes:{Clientes} ProductosTotal:{ProductosTotal} ProductosIncluidos:{ProductosIncluidos} Creditos:{Creditos} Tarjetas:{Tarjetas} Vendedores:{Vendedores}",
-                clienteIdSeleccionado,
-                clientes.Count(),
-                productos.Count(),
-                productoIdsIncluidos?.Distinct().Count() ?? 0,
-                creditosCount,
-                tarjetasDisponibles.Count,
-                vendedoresCount);
+            await _viewBagBuilder.CargarAsync(ViewBag, clienteIdSeleccionado, productoIdsIncluidos, vendedorUserIdSeleccionado);
         }
-
-        // GET: API endpoint para calcular crédito personal
-        [HttpGet]
-        public async Task<IActionResult> CalcularCreditoPersonall(int creditoId, decimal monto, int cuotas, string fechaPrimeraCuota)
-        {
-            try
-            {
-                if (!DateTime.TryParse(fechaPrimeraCuota, out DateTime fecha))
-                    fecha = DateTime.Today.AddMonths(1);
-
-                var resultado = await _ventaService.CalcularCreditoPersonallAsync(creditoId, monto, cuotas, fecha);
-
-                return Json(new
-                {
-                    creditoNumero = resultado.CreditoNumero,
-                    creditoTotalAsignado = resultado.CreditoTotalAsignado,
-                    creditoDisponible = resultado.CreditoDisponible,
-                    montoAFinanciar = resultado.MontoAFinanciar,
-                    cantidadCuotas = resultado.CantidadCuotas,
-                    montoCuota = resultado.MontoCuota,
-                    tasaInteres = resultado.TasaInteresMensual,
-                    totalAPagar = resultado.TotalAPagar,
-                    interesTotal = resultado.InteresTotal,
-                    saldoRestante = resultado.SaldoRestante,
-                    cuotas = resultado.Cuotas.Select(c => new
-                    {
-                        numeroCuota = c.NumeroCuota,
-                        fechaVencimiento = c.FechaVencimiento.ToString("dd/MM/yyyy"),
-                        monto = c.Monto,
-                        saldo = c.Saldo
-                    })
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al calcular crédito personal");
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        // GET: API endpoint para validar disponibilidad de crédito
-        [HttpGet]
-        public async Task<IActionResult> ValidarCreditoDisponible(int creditoId, decimal monto)
-        {
-            try
-            {
-                var disponible = await _ventaService.ValidarDisponibilidadCreditoAsync(creditoId, monto);
-
-                return Json(new
-                {
-                    disponible = disponible,
-                    mensaje = disponible
-                        ? "Crédito suficiente"
-                        : "Crédito insuficiente para este monto"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al validar crédito");
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
 
         private VentaViewModel CrearVentaInicial(EstadoVenta estadoInicial)
         {

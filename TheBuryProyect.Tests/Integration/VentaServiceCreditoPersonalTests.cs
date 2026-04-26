@@ -183,7 +183,8 @@ public class VentaServiceCreditoPersonalTests
             new StubCurrentUserServiceCP(),
             validacionVentaService,
             cajaService,
-            null!);                  // ICreditoDisponibleService
+            null!,                   // ICreditoDisponibleService
+            new StubContratoVentaCreditoService());
     }
 
     private static VentaViewModel CreditoPersonalViewModel() => new()

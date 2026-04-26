@@ -202,7 +202,12 @@ namespace TheBuryProject.Controllers
                 var producto = _mapper.Map<Producto>(viewModel);
                 await _productoService.CreateAsync(producto);
 
-                return Json(new { success = true, message = "Producto creado exitosamente" });
+                return Json(new
+                {
+                    success = true,
+                    message = "Producto creado exitosamente",
+                    entity  = new { id = producto.Id }
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -328,7 +333,7 @@ namespace TheBuryProject.Controllers
         // POST: Producto/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try
             {
@@ -353,12 +358,119 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al eliminar el producto. Intentá nuevamente.";
             }
 
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
             return RedirectToAction(nameof(Index));
         }
 
         #endregion
 
         #region API y helpers
+
+        [HttpGet]
+        public async Task<IActionResult> GetJson(int id)
+        {
+            try
+            {
+                var producto = await _productoService.GetByIdAsync(id);
+                if (producto == null) return NotFound();
+
+                var vm = _mapper.Map<ProductoViewModel>(producto);
+                var precioSinIVA = QuitarIVA(vm.PrecioVenta, vm.PorcentajeIVA);
+
+                return Json(new
+                {
+                    id = vm.Id,
+                    rowVersion = vm.RowVersion != null ? Convert.ToBase64String(vm.RowVersion) : "",
+                    codigo = vm.Codigo,
+                    nombre = vm.Nombre,
+                    descripcion = vm.Descripcion,
+                    categoriaId = vm.CategoriaId,
+                    categoriaNombre = vm.CategoriaNombre,
+                    subcategoriaId = vm.SubcategoriaId,
+                    subcategoriaNombre = vm.SubcategoriaNombre,
+                    marcaId = vm.MarcaId,
+                    marcaNombre = vm.MarcaNombre,
+                    submarcaId = vm.SubmarcaId,
+                    submarcaNombre = vm.SubmarcaNombre,
+                    precioCompra = vm.PrecioCompra,
+                    precioVenta = precioSinIVA,
+                    porcentajeIVA = vm.PorcentajeIVA,
+                    stockActual = vm.StockActual,
+                    stockMinimo = vm.StockMinimo,
+                    activo = vm.Activo,
+                    caracteristicas = vm.Caracteristicas.Select(c => new { id = c.Id, nombre = c.Nombre, valor = c.Valor })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener producto JSON {Id}", id);
+                return StatusCode(500, new { error = "Error al cargar el producto" });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditAjax(int id, ProductoViewModel viewModel)
+        {
+            if (id != viewModel.Id)
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Id inválido." } } } });
+
+            viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(e => e.Value?.Errors.Count > 0)
+                    .ToDictionary(e => e.Key, e => e.Value!.Errors.Select(x => x.ErrorMessage).ToArray());
+                return Json(new { success = false, errors });
+            }
+
+            try
+            {
+                if (viewModel.RowVersion is null || viewModel.RowVersion.Length == 0)
+                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "No se recibió la versión de fila. Recargá la página." } } } });
+
+                if (await _productoService.ExistsCodigoAsync(viewModel.Codigo, id))
+                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe otro producto con este código." } } } });
+
+                viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
+
+                var producto = _mapper.Map<Producto>(viewModel);
+                producto.RowVersion = viewModel.RowVersion;
+                await _productoService.UpdateAsync(producto);
+
+                var updated = await _productoService.GetByIdAsync(id);
+                var updatedVm = _mapper.Map<ProductoViewModel>(updated!);
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Producto actualizado exitosamente",
+                    entity = new
+                    {
+                        id = updatedVm.Id,
+                        codigo = updatedVm.Codigo,
+                        nombre = updatedVm.Nombre,
+                        descripcion = updatedVm.Descripcion,
+                        categoriaNombre = updatedVm.CategoriaNombre,
+                        marcaNombre = updatedVm.MarcaNombre,
+                        precioActual = updatedVm.PrecioVenta,
+                        stockActual = updatedVm.StockActual,
+                        activo = updatedVm.Activo
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar producto {Id} vía AJAX", id);
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar el producto. Intentá nuevamente." } } } });
+            }
+        }
 
         /// <summary>
         /// Obtiene las subcategorías (hijas) de una categoría padre para dropdown AJAX

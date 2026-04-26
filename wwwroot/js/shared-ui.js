@@ -28,10 +28,84 @@ TheBury.autoDismissToasts = function (delay) {
             el.style.transition = 'opacity 0.5s ease, transform 0.4s ease';
             el.style.opacity = '0';
             el.style.transform = 'translateY(-8px)';
-            setTimeout(function () { el.remove(); }, 500);
+            setTimeout(function () {
+                var h = el.offsetHeight;
+                el.style.overflow = 'hidden';
+                el.style.maxHeight = h + 'px';
+                el.style.transition = 'max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease';
+                requestAnimationFrame(function () {
+                    el.style.maxHeight = '0';
+                    el.style.marginTop = '0';
+                    el.style.marginBottom = '0';
+                    el.style.paddingTop = '0';
+                    el.style.paddingBottom = '0';
+                });
+                setTimeout(function () { el.remove(); }, 320);
+            }, 500);
         }, delay);
     });
 };
+
+// ── Confirm modal (rendered via _ConfirmModal partial in _Layout) ──
+(function () {
+    'use strict';
+
+    function getModal()      { return document.getElementById('confirmModal'); }
+    function getActionBtn()  { return document.getElementById('confirmModalAction'); }
+
+    window.openConfirmModal = function (bodyText, onConfirm) {
+        var modal = getModal();
+        if (!modal) return;
+
+        var body = document.getElementById('confirmModalBody');
+        if (bodyText && body) body.textContent = bodyText;
+
+        // Replace action button to clear previous listeners
+        var actionBtn = getActionBtn();
+        if (actionBtn) {
+            var freshBtn = actionBtn.cloneNode(true);
+            actionBtn.parentNode.replaceChild(freshBtn, actionBtn);
+            if (typeof onConfirm === 'function') {
+                freshBtn.addEventListener('click', function () {
+                    onConfirm();
+                    window.closeConfirmModal();
+                });
+            }
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    };
+
+    window.closeConfirmModal = function () {
+        var modal = getModal();
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = getModal();
+        if (!modal) return;
+
+        // Backdrop click
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) window.closeConfirmModal();
+        });
+
+        // Close buttons inside modal
+        modal.addEventListener('click', function (e) {
+            if (e.target.closest('[data-confirm-modal-close]')) {
+                window.closeConfirmModal();
+            }
+        });
+
+        // Escape key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') window.closeConfirmModal();
+        });
+    });
+})();
 
 /**
  * Shared confirmation wrapper. Prefer this over calling the modal function directly.

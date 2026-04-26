@@ -2,18 +2,14 @@
 (function () {
     'use strict';
 
-    function setSectionState(button, expanded) {
-        if (!button) return;
-
-        var sectionName = button.getAttribute('data-cliente-section-toggle');
-        var content = document.getElementById('content-' + sectionName);
-        var chevron = document.getElementById('chevron-' + sectionName);
-
+    function toggleSection(name, forceOpen) {
+        var content = document.getElementById('section-' + name);
+        var chevron = document.getElementById('chevron-' + name);
         if (!content || !chevron) return;
-
-        content.classList.toggle('hidden', !expanded);
-        chevron.classList.toggle('rotate-180', !expanded);
-        button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        var isOpen = !content.classList.contains('hidden');
+        var shouldOpen = forceOpen !== undefined ? forceOpen : !isOpen;
+        content.classList.toggle('hidden', !shouldOpen);
+        chevron.classList.toggle('rotate-180', !shouldOpen);
     }
 
     function validarMontos() {
@@ -37,29 +33,18 @@
         return true;
     }
 
+    function getCancelUrl() {
+        var cancelLink = document.querySelector('[data-cliente-cancel]');
+        return cancelLink ? cancelLink.href : null;
+    }
+
     function initClienteForm() {
-        document.querySelectorAll('[data-cliente-section-toggle]').forEach(function (button) {
-            var sectionName = button.getAttribute('data-cliente-section-toggle');
-            var content = document.getElementById('content-' + sectionName);
-            setSectionState(button, !(content && content.classList.contains('hidden')));
+        // Accordion toggle (delegated)
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-cliente-section]');
+            if (!btn) return;
+            toggleSection(btn.getAttribute('data-cliente-section'));
         });
-
-        if (document.body.dataset.clienteFormHandlersBound !== 'true') {
-            document.body.dataset.clienteFormHandlersBound = 'true';
-
-            document.addEventListener('click', function (event) {
-                var toggleButton = event.target.closest('[data-cliente-section-toggle]');
-                if (!toggleButton) return;
-
-                event.preventDefault();
-                event.stopPropagation();
-
-                var sectionName = toggleButton.getAttribute('data-cliente-section-toggle');
-                var content = document.getElementById('content-' + sectionName);
-                var expanded = !!(content && !content.classList.contains('hidden'));
-                setSectionState(toggleButton, !expanded);
-            }, true);
-        }
 
         var minInput = document.getElementById('montoMinimo');
         var maxInput = document.getElementById('montoMaximo');
@@ -68,16 +53,19 @@
         if (maxInput) maxInput.addEventListener('input', validarMontos);
 
         var form = document.getElementById('clienteForm');
-        if (!form) return;
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                if (!validarMontos()) {
+                    e.preventDefault();
+                    toggleSection('credito', true);
+                }
+            });
+        }
 
-        form.addEventListener('submit', function (e) {
-            if (validarMontos()) return;
-
-            e.preventDefault();
-
-            var creditoToggle = document.querySelector('[data-cliente-section-toggle="credito"]');
-            if (creditoToggle) {
-                setSectionState(creditoToggle, true);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                var url = getCancelUrl();
+                if (url) window.location.href = url;
             }
         });
     }

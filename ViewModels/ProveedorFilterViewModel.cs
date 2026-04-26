@@ -19,5 +19,8 @@ namespace TheBuryProject.ViewModels
         public List<SelectListItem> CategoriasDisponibles { get; set; } = new();
         public List<SelectListItem> MarcasDisponibles { get; set; } = new();
         public List<SelectListItem> ProductosDisponibles { get; set; } = new();
+
+        // JSON enriquecido para el product picker (incluye marca y categoría)
+        public string ProductosPickerJson { get; set; } = "[]";
     }
 }

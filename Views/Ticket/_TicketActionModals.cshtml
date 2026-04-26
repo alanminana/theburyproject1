@@ -1,0 +1,102 @@
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Helpers
+@{
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<form id="ticketStatusForm" asp-controller="Ticket" asp-action="CambiarEstado" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="TicketIds" data-ticket-status-ids />
+    <input type="hidden" name="NuevoEstado" data-ticket-status-value />
+    <input type="hidden" name="Descripcion" data-ticket-status-description />
+    <input type="hidden" name="ReturnUrl" value="@returnUrl" />
+</form>
+
+<form id="ticketDeleteForm" asp-controller="Ticket" asp-action="Eliminar" method="post" class="hidden">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="TicketIds" data-ticket-delete-ids />
+    <input type="hidden" name="ReturnUrl" value="@returnUrl" />
+</form>
+
+<div id="ticketStatusModal"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="ticketStatusModalTitle">
+    <div class="w-full max-w-lg rounded-xl border border-slate-800 bg-slate-950 shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-800 px-6 py-4">
+            <div class="space-y-1">
+                <p id="ticketStatusModalMode" class="text-xs font-bold uppercase tracking-[0.18em] text-primary-on-dark">Cambio de estado</p>
+                <h2 id="ticketStatusModalTitle" class="text-lg font-black text-white">Actualizar ticket</h2>
+                <p id="ticketStatusModalSubtitle" class="text-sm text-slate-400">Seleccioná el nuevo estado y confirmá la acción.</p>
+            </div>
+            <button type="button"
+                    class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    data-ticket-status-close
+                    aria-label="Cerrar modal de cambio de estado">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+        </div>
+
+        <div class="space-y-4 px-6 py-5">
+            <div id="ticketStatusCurrentWrap" class="hidden rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Estado actual</p>
+                <p id="ticketStatusCurrentLabel" class="mt-1 text-sm font-semibold text-slate-200"></p>
+            </div>
+
+            <div>
+                <label for="ticketStatusSelect" class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Nuevo estado
+                </label>
+                <select id="ticketStatusSelect"
+                        class="filter-select-erp"
+                        data-ticket-status-select>
+                    <option value="">Seleccionar estado...</option>
+                    @foreach (var estado in Enum.GetValues<EstadoTicket>())
+                    {
+                        <option value="@((int)estado)"
+                                data-requires-description="@TicketUiHelper.RequiereDescripcion(estado).ToString().ToLowerInvariant()">
+                            @estado.GetDisplayName()
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <div class="mb-1.5 flex items-center justify-between gap-3">
+                    <label for="ticketStatusDescription" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Descripción
+                    </label>
+                    <span id="ticketStatusDescriptionHint" class="text-[11px] text-slate-500">Opcional salvo resolución</span>
+                </div>
+                <textarea id="ticketStatusDescription"
+                          rows="4"
+                          maxlength="4000"
+                          class="w-full resize-y rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-primary/40 focus:ring-2 focus:ring-primary/30"
+                          placeholder="Agregá una resolución o comentario operativo cuando corresponda."
+                          data-ticket-status-description-input></textarea>
+                <p class="mt-2 text-xs text-slate-500">
+                    El backend actual persiste la descripción como resolución solo al pasar a Resuelto.
+                </p>
+            </div>
+
+            <div id="ticketStatusError"
+                 class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-300"
+                 role="alert"></div>
+        </div>
+
+        <div class="flex flex-col-reverse gap-2 border-t border-slate-800 px-6 py-4 sm:flex-row sm:justify-end">
+            <button type="button"
+                    class="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                    data-ticket-status-close>
+                Cancelar
+            </button>
+            <button type="button"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    data-ticket-status-confirm>
+                <span class="material-symbols-outlined text-base">done</span>
+                Confirmar cambio
+            </button>
+        </div>
+    </div>
+</div>

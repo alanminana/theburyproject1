@@ -1,0 +1,147 @@
+@model TheBuryProject.ViewModels.BatchListViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Cambios de Precios";
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>@TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap items-center gap-3">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2 flex-1">
+                <span class="material-symbols-outlined text-primary text-xl">price_change</span>
+                Cambios de Precios
+            </h2>
+            <a asp-action="Simular" class="btn-erp-primary btn-sm no-underline shrink-0">
+                <span class="material-symbols-outlined text-base">add</span>
+                Nueva simulación
+            </a>
+            <div class="flex flex-wrap gap-2">
+                @{
+                    var estadosNav = new[]
+                    {
+                        ((EstadoBatch?)null, "Todos"),
+                        (EstadoBatch.Simulado,  "Simulados"),
+                        (EstadoBatch.Aprobado,  "Aprobados"),
+                        (EstadoBatch.Aplicado,  "Aplicados"),
+                        (EstadoBatch.Revertido, "Revertidos"),
+                        (EstadoBatch.Rechazado, "Rechazados"),
+                    };
+                }
+                @foreach (var (estado, label) in estadosNav)
+                {
+                    var isActive = Model.EstadoFiltro == estado;
+                    <a asp-action="Index" asp-route-estado="@(estado.HasValue ? ((int)estado.Value).ToString() : "")"
+                       class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors @(isActive ? "bg-primary text-white" : "bg-slate-800 text-slate-400 hover:text-slate-200")">
+                        @label
+                    </a>
+                }
+            </div>
+        </div>
+
+        @if (Model.Batches.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Nombre</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Valor</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Productos</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Estado</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Solicitado por</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Fecha</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var b in Model.Batches)
+                        {
+                            var estadoBadge = b.Estado switch
+                            {
+                                EstadoBatch.Simulado  => "badge-erp badge-erp-info",
+                                EstadoBatch.Aprobado  => "badge-erp badge-erp-success",
+                                EstadoBatch.Aplicado  => "badge-erp badge-erp-primary",
+                                EstadoBatch.Revertido => "badge-erp",
+                                EstadoBatch.Rechazado => "badge-erp badge-erp-danger",
+                                EstadoBatch.Cancelado => "badge-erp",
+                                _                     => "badge-erp"
+                            };
+                            var signo = b.TipoAplicacion == TipoAplicacion.Aumento ? "+" : "-";
+                            var sufijo = b.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="px-4 py-3 font-medium text-slate-100 max-w-xs truncate">@b.Nombre</td>
+                                <td class="px-4 py-3 text-slate-400">@b.TipoCambioDisplay</td>
+                                <td class="px-4 py-3 text-right font-semibold @(b.TipoAplicacion == TipoAplicacion.Aumento ? "text-emerald-400" : "text-red-400")">
+                                    @signo@b.ValorCambio.ToString("N2")@sufijo
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-300">@b.CantidadProductos</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="@estadoBadge">@b.EstadoDisplay</span>
+                                </td>
+                                <td class="px-4 py-3 text-slate-400">@b.SolicitadoPor</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@b.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <a asp-action="Preview" asp-route-id="@b.Id"
+                                           class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                                            <span class="material-symbols-outlined text-[14px]">visibility</span>
+                                        </a>
+                                        @if (b.Estado == EstadoBatch.Simulado)
+                                        {
+                                            <a asp-action="Autorizar" asp-route-id="@b.Id"
+                                               class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60 transition-colors">
+                                                <span class="material-symbols-outlined text-[14px]">check</span>
+                                            </a>
+                                        }
+                                        @if (b.Estado == EstadoBatch.Aprobado)
+                                        {
+                                            <a asp-action="Aplicar" asp-route-id="@b.Id"
+                                               class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
+                                                <span class="material-symbols-outlined text-[14px]">bolt</span>
+                                            </a>
+                                        }
+                                        @if (b.Estado == EstadoBatch.Aplicado)
+                                        {
+                                            <a asp-action="Revertir" asp-route-id="@b.Id"
+                                               class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-amber-900/40 text-amber-400 hover:bg-amber-900/60 transition-colors">
+                                                <span class="material-symbols-outlined text-[14px]">undo</span>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="px-6 py-12 text-center text-sm text-slate-400">
+                <span class="material-symbols-outlined text-4xl block mb-3">price_change</span>
+                No hay batches de cambios
+                @if (Model.EstadoFiltro.HasValue)
+                {
+                    <span>con estado "@Model.EstadoFiltro.Value"</span>
+                }
+                <span>.</span>
+            </div>
+        }
+    </section>
+
+</div>

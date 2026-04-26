@@ -50,6 +50,17 @@ const ProductoModal = (() => {
         const form = el('form-nuevo-producto');
         if (form) form.reset();
 
+        // Limpiar autocompletes
+        const catInput = el('ac-categoria-input');
+        const catClear = el('ac-categoria-clear');
+        if (catInput) catInput.value = '';
+        if (catClear) catClear.classList.add('hidden');
+
+        const marcaInput = el('ac-marca-input');
+        const marcaClear = el('ac-marca-clear');
+        if (marcaInput) marcaInput.value = '';
+        if (marcaClear) marcaClear.classList.add('hidden');
+
         // Limpiar subcategorías / submarcas
         resetSelect(el('modal-subcategoriaId'), 'Seleccionar subcategoría');
         resetSelect(el('modal-submarcaId'), 'Seleccionar submarca');
@@ -73,17 +84,166 @@ const ProductoModal = (() => {
         selectEl.innerHTML = `<option value="">${placeholder}</option>`;
     }
 
+    // ── Autocomplete widget ─────────────────────────────────
+    /**
+     * Mounts a search-as-you-type autocomplete on a pre-built HTML structure.
+     * @param {object} opts
+     *   inputId       – text input id
+     *   hiddenId      – hidden input id (carries the selected value for form submission)
+     *   dropdownId    – dropdown container id
+     *   clearBtnId    – clear/X button id
+     *   items         – array of { id, nombre }
+     *   onSelect      – callback(id) fired when a value is chosen or cleared
+     */
+    function initAutocomplete(opts) {
+        const input    = el(opts.inputId);
+        const hidden   = el(opts.hiddenId);
+        const dropdown = el(opts.dropdownId);
+        const clearBtn = el(opts.clearBtnId);
+        if (!input || !hidden || !dropdown) return;
+
+        let activeIndex = -1;
+        let selectedLabel = '';
+
+        function openDropdown(filtered) {
+            dropdown.innerHTML = '';
+            activeIndex = -1;
+
+            if (!filtered.length) {
+                const empty = document.createElement('div');
+                empty.className = 'px-4 py-3 text-sm text-slate-400';
+                empty.textContent = 'Sin resultados';
+                dropdown.appendChild(empty);
+            } else {
+                filtered.forEach((item, i) => {
+                    const row = document.createElement('button');
+                    row.type = 'button';
+                    row.className = 'w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-primary/20 hover:text-white transition-colors focus:outline-none focus:bg-primary/20';
+                    row.dataset.acValue = item.id;
+                    row.dataset.acLabel = item.nombre;
+                    row.textContent = item.nombre;
+                    row.addEventListener('mousedown', (e) => {
+                        e.preventDefault(); // avoid blur before click
+                        selectItem(item.id, item.nombre);
+                    });
+                    dropdown.appendChild(row);
+                });
+            }
+            dropdown.classList.remove('hidden');
+        }
+
+        function closeDropdown() {
+            dropdown.classList.add('hidden');
+            activeIndex = -1;
+        }
+
+        function selectItem(id, label) {
+            input.value = label;
+            hidden.value = id;
+            selectedLabel = label;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            closeDropdown();
+            // fire change so cascading dropdowns react
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function clearSelection() {
+            input.value = '';
+            hidden.value = '';
+            selectedLabel = '';
+            if (clearBtn) clearBtn.classList.add('hidden');
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function filter(query) {
+            if (!query.trim()) return opts.items.slice(0, 50);
+            const q = query.toLowerCase();
+            return opts.items.filter(i => i.nombre.toLowerCase().includes(q)).slice(0, 50);
+        }
+
+        input.addEventListener('input', () => {
+            const q = input.value;
+            if (!q) {
+                hidden.value = '';
+                if (clearBtn) clearBtn.classList.add('hidden');
+            }
+            openDropdown(filter(q));
+        });
+
+        input.addEventListener('focus', () => {
+            openDropdown(filter(input.value));
+        });
+
+        input.addEventListener('blur', () => {
+            // Small delay so mousedown on dropdown fires first
+            setTimeout(() => {
+                closeDropdown();
+                if (hidden.value) {
+                    // If the text was edited after selection without picking a new item, the
+                    // hidden ID is stale — clear it so the form doesn't submit a wrong value.
+                    if (input.value !== selectedLabel) {
+                        clearSelection();
+                    }
+                } else {
+                    // No active selection — clear any leftover text
+                    input.value = '';
+                    if (clearBtn) clearBtn.classList.add('hidden');
+                }
+            }, 150);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            const rows = dropdown.querySelectorAll('button[data-ac-value]');
+            if (!rows.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, rows.length - 1);
+                rows.forEach((r, i) => r.classList.toggle('bg-primary/20', i === activeIndex));
+                rows[activeIndex]?.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                rows.forEach((r, i) => r.classList.toggle('bg-primary/20', i === activeIndex));
+                rows[activeIndex]?.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIndex >= 0 && rows[activeIndex]) {
+                    const r = rows[activeIndex];
+                    selectItem(r.dataset.acValue, r.dataset.acLabel);
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', clearSelection);
+        }
+
+        // Position dropdown relative to its container
+        const wrapper = dropdown.closest('.autocomplete-erp');
+        if (wrapper) wrapper.style.position = 'relative';
+
+        if (opts.onSelect) {
+            hidden.addEventListener('change', () => opts.onSelect(hidden.value));
+        }
+    }
+
     // ── Dropdowns en cascada ────────────────────────────────
     function initCascadingDropdowns() {
-        const catSelect = el('modal-categoriaId');
-        const marcaSelect = el('modal-marcaId');
+        const catData   = (window.CatalogoData && window.CatalogoData.categorias) || [];
+        const marcaData = (window.CatalogoData && window.CatalogoData.marcas)     || [];
 
-        if (catSelect) {
-            catSelect.addEventListener('change', async () => {
-                const catId = catSelect.value;
+        initAutocomplete({
+            inputId:    'ac-categoria-input',
+            hiddenId:   'modal-categoriaId',
+            dropdownId: 'ac-categoria-dropdown',
+            clearBtnId: 'ac-categoria-clear',
+            items:      catData,
+            onSelect: async (catId) => {
                 const subSelect = el('modal-subcategoriaId');
                 resetSelect(subSelect, 'Seleccionar subcategoría');
-
                 if (!catId) return;
                 try {
                     const resp = await fetch(`/Producto/GetSubcategorias?categoriaId=${encodeURIComponent(catId)}`);
@@ -96,15 +256,18 @@ const ProductoModal = (() => {
                         subSelect.appendChild(opt);
                     });
                 } catch { /* silent */ }
-            });
-        }
+            }
+        });
 
-        if (marcaSelect) {
-            marcaSelect.addEventListener('change', async () => {
-                const marcaId = marcaSelect.value;
+        initAutocomplete({
+            inputId:    'ac-marca-input',
+            hiddenId:   'modal-marcaId',
+            dropdownId: 'ac-marca-dropdown',
+            clearBtnId: 'ac-marca-clear',
+            items:      marcaData,
+            onSelect: async (marcaId) => {
                 const subSelect = el('modal-submarcaId');
                 resetSelect(subSelect, 'Seleccionar submarca');
-
                 if (!marcaId) return;
                 try {
                     const resp = await fetch(`/Producto/GetSubmarcas?marcaId=${encodeURIComponent(marcaId)}`);
@@ -117,8 +280,8 @@ const ProductoModal = (() => {
                         subSelect.appendChild(opt);
                     });
                 } catch { /* silent */ }
-            });
-        }
+            }
+        });
     }
 
     // ── Cálculo IVA ─────────────────────────────────────────
@@ -228,7 +391,9 @@ const ProductoModal = (() => {
 
                 if (result.success) {
                     close();
-                    location.reload();
+                    document.dispatchEvent(new CustomEvent('catalogo:toast', {
+                        detail: { message: 'Producto creado exitosamente. Aplicá o refrescá los filtros para verlo en la lista.', type: 'success' }
+                    }));
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }

@@ -1,0 +1,210 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic [ref=e7]:
+        - heading "TheBuryProject" [level=1] [ref=e8]
+        - paragraph [ref=e9]: SISTEMA GESTI�N
+    - navigation [ref=e10]:
+      - link "grid_view Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e13]: grid_view
+        - paragraph [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - paragraph [ref=e16]: Operaciones
+        - generic [ref=e17]:
+          - link "shopping_bag Ventas" [ref=e18] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e19]: shopping_bag
+            - paragraph [ref=e20]: Ventas
+          - link "group Clientes" [ref=e21] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e22]: group
+            - paragraph [ref=e23]: Clientes
+      - generic [ref=e24]:
+        - paragraph [ref=e25]: Log�stica
+        - generic [ref=e26]:
+          - link "inventory_2 Inventario" [ref=e27] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e28]: inventory_2
+            - paragraph [ref=e29]: Inventario
+          - link "local_shipping Proveedores" [ref=e30] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e31]: local_shipping
+            - paragraph [ref=e32]: Proveedores
+          - link "point_of_sale Cajas" [ref=e33] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e34]: point_of_sale
+            - paragraph [ref=e35]: Cajas
+      - generic [ref=e36]:
+        - paragraph [ref=e37]: Sistemas
+        - link "security Seguridad" [ref=e39] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e40]: security
+          - paragraph [ref=e41]: Seguridad
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e45]: account_circle
+        - generic [ref=e46]:
+          - paragraph [ref=e47]: admin@thebury.com
+          - paragraph [ref=e48]: SuperAdmin
+      - button "logout Cerrar sesi�n" [ref=e50] [cursor=pointer]:
+        - generic [ref=e51]: logout
+        - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e53]:
+      - generic [ref=e54]: chevron_left
+  - main [ref=e55]:
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Gestión de Clientes" [level=2] [ref=e58]
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: Dolar Blue
+            - generic [ref=e63]: $1.245,00
+          - generic [ref=e64]:
+            - generic [ref=e65]: Tarjeta
+            - generic [ref=e66]: $1.482,50
+          - generic [ref=e67]:
+            - generic [ref=e68]: Oficial
+            - generic [ref=e69]: $942,00
+      - generic [ref=e70]:
+        - button "notifications" [ref=e71]:
+          - generic [ref=e72]: notifications
+        - button "search" [ref=e74]:
+          - generic [ref=e75]: search
+        - button "help" [ref=e77]:
+          - generic [ref=e78]: help
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]: groups
+              - text: Clientes
+            - generic [ref=e86]:
+              - heading "Gestión de Clientes" [level=1] [ref=e87]
+              - paragraph [ref=e88]: Administrá altas, legajos y condiciones crediticias desde una sola vista, con filtros rápidos y acciones seguras.
+          - generic [ref=e89]:
+            - button "tune Límite de Puntajes" [ref=e90] [cursor=pointer]:
+              - generic [ref=e91]: tune
+              - generic [ref=e92]: Límite de Puntajes
+            - link "description Documentación" [ref=e93] [cursor=pointer]:
+              - /url: /DocumentoCliente
+              - generic [ref=e94]: description
+              - generic [ref=e95]: Documentación
+            - link "payments Créditos Totales" [ref=e96] [cursor=pointer]:
+              - /url: /Credito
+              - generic [ref=e97]: payments
+              - generic [ref=e98]: Créditos Totales
+            - link "person_add Nuevo Cliente" [ref=e99] [cursor=pointer]:
+              - /url: /Cliente/Create
+              - generic [ref=e100]: person_add
+              - generic [ref=e101]: Nuevo Cliente
+        - generic [ref=e102]:
+          - article [ref=e103]:
+            - paragraph [ref=e104]: Resultados
+            - paragraph [ref=e105]: "1"
+            - paragraph [ref=e106]: clientes filtrados en el sistema
+          - article [ref=e107]:
+            - paragraph [ref=e108]: Activos
+            - generic [ref=e109]:
+              - paragraph [ref=e110]: "1"
+              - paragraph [ref=e111]: 0 inactivos
+            - paragraph [ref=e112]: estado operativo en página actual
+          - article [ref=e113]:
+            - paragraph [ref=e114]: Deuda Visible
+            - paragraph [ref=e115]: $ 0,00
+            - paragraph [ref=e116]: suma de créditos listados en pantalla
+          - article [ref=e117]:
+            - paragraph [ref=e118]: Score Promedio
+            - paragraph [ref=e119]: "6"
+            - paragraph [ref=e120]: promedio de puntaje con score disponible
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - heading "Filtros" [level=2] [ref=e125]
+            - paragraph [ref=e126]: Buscá por nombre, documento o contacto y ajustá el estado.
+          - generic [ref=e127]:
+            - generic [ref=e128]: tune
+            - text: 1 resultado
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Búsqueda rápida
+            - generic [ref=e132]:
+              - generic [ref=e133]: search
+              - textbox "Nombre, documento o contacto..." [ref=e134]
+          - generic [ref=e135]:
+            - generic [ref=e136]: Estado
+            - combobox [ref=e137]:
+              - option "Todos los estados" [selected]
+              - option "Activo"
+              - option "Inactivo"
+          - generic [ref=e138]:
+            - generic [ref=e139]: Tipo de Documento
+            - combobox [ref=e140]:
+              - option "Tipo Documento"
+              - option "DNI"
+              - option "CUIL"
+              - option "CUIT" [selected]
+          - generic [ref=e141]:
+            - button "Buscar" [ref=e142]
+            - link "filter_alt_off" [ref=e143] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e144]: filter_alt_off
+      - generic [ref=e145]:
+        - generic [ref=e146]:
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - heading "Clientes registrados" [level=2] [ref=e149]
+              - paragraph [ref=e150]: Revisá perfil, deuda, scoring y accesos directos a crédito desde una única tabla.
+            - generic [ref=e151]:
+              - generic [ref=e152]: list_alt
+              - text: 1 en página
+          - paragraph [ref=e153]: Deslizá la tabla para ver todas las columnas y acciones.
+        - region "Tabla de clientes" [ref=e155]:
+          - table [ref=e156]:
+            - rowgroup [ref=e157]:
+              - row "Documento Cliente Contacto Domicilio Puntaje Créditos Estado Acciones" [ref=e158]:
+                - columnheader "Documento" [ref=e159]
+                - columnheader "Cliente" [ref=e160]
+                - columnheader "Contacto" [ref=e161]
+                - columnheader "Domicilio" [ref=e162]
+                - columnheader "Puntaje" [ref=e163]
+                - columnheader "Créditos" [ref=e164]
+                - columnheader "Estado" [ref=e165]
+                - columnheader "Acciones" [ref=e166]
+            - rowgroup [ref=e167]:
+              - row "DNI-11111111111111111111 VP Pérez Ventilador Mayorista 1132083369 tisu@gmail.com Sarmiento 654 6 $ 0,00 Activo visibility edit delete Crédito" [ref=e168]:
+                - cell "DNI-11111111111111111111" [ref=e169]
+                - cell "VP Pérez Ventilador Mayorista" [ref=e170]:
+                  - generic [ref=e171]:
+                    - generic [ref=e172]: VP
+                    - generic [ref=e173]:
+                      - generic [ref=e174]: Pérez Ventilador
+                      - generic [ref=e175]: Mayorista
+                - cell "1132083369 tisu@gmail.com" [ref=e176]:
+                  - generic [ref=e177]:
+                    - generic [ref=e178]: "1132083369"
+                    - generic [ref=e179]: tisu@gmail.com
+                - cell "Sarmiento 654" [ref=e180]
+                - cell "6" [ref=e181]:
+                  - generic [ref=e183]: "6"
+                - cell "$ 0,00" [ref=e185]
+                - cell "Activo" [ref=e186]:
+                  - generic [ref=e187]: Activo
+                - cell "visibility edit delete Crédito" [ref=e188]:
+                  - generic [ref=e189]:
+                    - link "visibility" [ref=e190] [cursor=pointer]:
+                      - /url: /Cliente/Details/5
+                      - generic [ref=e191]: visibility
+                    - link "edit" [ref=e192] [cursor=pointer]:
+                      - /url: /Cliente/Edit/5
+                      - generic [ref=e193]: edit
+                    - button "delete" [ref=e194]:
+                      - generic [ref=e195]: delete
+                    - link "Crédito" [ref=e196] [cursor=pointer]:
+                      - /url: /Credito?clienteId=5
+        - generic [ref=e197]:
+          - generic [ref=e198]: Mostrando 1 de 1 clientes
+          - generic [ref=e199]: Accedé a detalle, edición y crédito desde la misma fila.

@@ -63,7 +63,8 @@ public class VentaServiceExcepcionDocumentalTests : IDisposable
             null!,   // ICurrentUserService
             null!,   // IValidacionVentaService
             null!,   // ICajaService
-            null!);  // ICreditoDisponibleService
+            null!,   // ICreditoDisponibleService
+            new StubContratoVentaCreditoService());
     }
 
     public void Dispose()

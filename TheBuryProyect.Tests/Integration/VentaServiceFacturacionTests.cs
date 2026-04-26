@@ -136,7 +136,17 @@ public class VentaServiceFacturacionTests : IDisposable
 
         ICajaService cajaStub = new StubCajaServiceFacturacion(apertura, _movimientoCajaRegistrado);
 
-        _service = new VentaService(
+        _service = CreateService(cajaStub, existeContratoGenerado: true);
+    }
+
+    private VentaService CreateService(ICajaService cajaService, bool existeContratoGenerado)
+    {
+        var mapper = new MapperConfiguration(
+                cfg => { cfg.AddProfile<MappingProfile>(); },
+                NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        return new VentaService(
             _context,
             mapper,
             NullLogger<VentaService>.Instance,
@@ -148,8 +158,9 @@ public class VentaServiceFacturacionTests : IDisposable
             null!,   // IPrecioService
             new StubCurrentUserFacturacion(),
             null!,   // IValidacionVentaService
-            cajaStub,
-            null!);  // ICreditoDisponibleService
+            cajaService,
+            null!,   // ICreditoDisponibleService
+            new StubContratoVentaCreditoService(existeContratoGenerado));
     }
 
     public void Dispose()
@@ -232,6 +243,22 @@ public class VentaServiceFacturacionTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.FacturarVentaAsync(venta.Id, facturaVm));
+    }
+
+    [Fact]
+    public async Task Facturar_CreditoPersonalSinContratoGenerado_LanzaInvalidOperationException()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.CreditoPersonal);
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+        var serviceSinContrato = CreateService(
+            new StubCajaServiceFacturacion(_context.AperturasCaja.First(), _movimientoCajaRegistrado),
+            existeContratoGenerado: false);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            serviceSinContrato.FacturarVentaAsync(venta.Id, facturaVm));
+
+        Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
+        Assert.False(await _context.Facturas.AnyAsync(f => f.VentaId == venta.Id));
     }
 
     // -------------------------------------------------------------------------

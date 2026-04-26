@@ -7,20 +7,20 @@
 
     string DevState(EstadoDevolucion e) => e switch
     {
-        EstadoDevolucion.Pendiente => "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-        EstadoDevolucion.EnRevision => "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
-        EstadoDevolucion.Aprobada => "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300",
-        EstadoDevolucion.Completada => "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
-        EstadoDevolucion.Rechazada => "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
-        _ => "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        EstadoDevolucion.Pendiente => "bg-amber-500/15 text-amber-300",
+        EstadoDevolucion.EnRevision => "bg-sky-500/15 text-sky-300",
+        EstadoDevolucion.Aprobada => "bg-indigo-500/15 text-indigo-300",
+        EstadoDevolucion.Completada => "bg-emerald-500/15 text-emerald-300",
+        EstadoDevolucion.Rechazada => "bg-rose-500/15 text-rose-300",
+        _ => "bg-slate-100 text-slate-700 bg-slate-800 text-slate-300"
     };
 
     string ResClass(TipoResolucionDevolucion t) => t switch
     {
-        TipoResolucionDevolucion.ReembolsoDinero => "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
-        TipoResolucionDevolucion.CambioMismoProducto => "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
-        TipoResolucionDevolucion.CambioOtroProducto => "bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300",
-        _ => "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+        TipoResolucionDevolucion.ReembolsoDinero => "bg-rose-500/15 text-rose-300",
+        TipoResolucionDevolucion.CambioMismoProducto => "bg-sky-500/15 text-sky-300",
+        TipoResolucionDevolucion.CambioOtroProducto => "bg-violet-500/15 text-violet-300",
+        _ => "bg-amber-500/15 text-amber-300"
     };
 
     string GarClass(Garantia g)
@@ -28,20 +28,20 @@
         var hoy = DateTime.UtcNow.Date;
         if (g.FechaVencimiento.Date < hoy || g.Estado == EstadoGarantia.Vencida)
         {
-            return "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300";
+            return "bg-rose-500/15 text-rose-300";
         }
 
         if (g.Estado == EstadoGarantia.EnUso)
         {
-            return "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300";
+            return "bg-sky-500/15 text-sky-300";
         }
 
         if (g.FechaVencimiento.Date <= hoy.AddDays(30))
         {
-            return "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300";
+            return "bg-amber-500/15 text-amber-300";
         }
 
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300";
+        return "bg-emerald-500/15 text-emerald-300";
     }
 
     string Crit(Devolucion d) => d.RequiereRMA || d.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero || d.TotalDevolucion >= 1000m
@@ -52,9 +52,9 @@
 
     string CritClass(string crit) => crit switch
     {
-        "Alto" => "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300",
-        "Medio" => "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-        _ => "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        "Alto" => "bg-rose-500/15 text-rose-300",
+        "Medio" => "bg-amber-500/15 text-amber-300",
+        _ => "bg-slate-100 text-slate-700 bg-slate-800 text-slate-300"
     };
 
     var tab = Model.ActiveTab == "garantias" ? "garantias" : "devoluciones";
@@ -106,503 +106,443 @@
     <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 }
 
-<div class="space-y-6">
-    <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.14),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.02),_rgba(15,23,42,0))] bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.20),_transparent_30%),linear-gradient(135deg,_rgba(15,23,42,0.52),_rgba(15,23,42,0.15))] sm:p-8">
-        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-3xl space-y-4">
-                <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
-                    <span class="material-symbols-outlined text-sm">assignment_return</span>
-                    Postventa
-                </span>
+<div class="space-y-3">
 
-                <div class="space-y-3">
-                    <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Devoluciones y garantías</h1>
-                    <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
-                        Seguimiento operativo de reclamos, vencimientos y resoluciones pendientes. La generación nueva sigue iniciándose desde ventas, pero este tablero concentra alertas, volumen y contexto de postventa.
-                    </p>
-                </div>
-
-                <div class="flex flex-wrap gap-2">
-                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        <span class="material-symbols-outlined text-sm">warning</span>
-                        @alertas alerta@(alertas == 1 ? "" : "s") activas
-                    </span>
-                    <span class="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
-                        <span class="material-symbols-outlined text-sm">sync_alt</span>
-                        @Model.RmasPendientes RMA pendiente@(Model.RmasPendientes == 1 ? "" : "s")
-                    </span>
-                    <span class="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                        <span class="material-symbols-outlined text-sm">verified_user</span>
-                        @Model.TotalGarantiasVigentes garantía@(Model.TotalGarantiasVigentes == 1 ? "" : "s") vigente@(Model.TotalGarantiasVigentes == 1 ? "" : "s")
-                    </span>
+    @* Hero compacto: barra operativa plana  *@
+    <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 shadow-sm sm:px-5">
+        <div class="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:justify-between">
+            @* Título  *@
+            <div class="flex min-w-0 items-center gap-2.5">
+                <span class="material-symbols-outlined shrink-0 text-[22px] text-primary">assignment_return</span>
+                <div class="min-w-0">
+                    <h1 class="text-base font-black leading-tight text-white lg:text-lg">Devoluciones y garantías</h1>
+                    <p class="text-[11px] font-medium text-slate-500">Postventa · reclamos, vencimientos y resoluciones</p>
                 </div>
             </div>
-
-            <div class="grid w-full gap-3 sm:grid-cols-2 xl:w-[26rem]">
-                <a href="@ventasUrl"
-                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">open_in_new</span>
-                    <span>Iniciar desde ventas</span>
-                </a>
-                <a href="@Url.Action("Index", "Venta")"
-                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">storefront</span>
-                    <span>Ir a ventas</span>
-                </a>
-                <a href="@exportUrl"
-                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">download</span>
-                    <span>Exportar CSV</span>
-                </a>
-                <a href="@(tab == "devoluciones" ? tabGarUrl : tabDevUrl)"
-                   class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
-                    <span>@(tab == "devoluciones" ? "Ver garantías" : "Ver devoluciones")</span>
+            @* Pills de alerta  *@
+            <div class="flex shrink-0 flex-wrap gap-1.5">
+                @if (alertas > 0)
+                {
+                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-300">
+                        <span class="material-symbols-outlined text-[14px] text-amber-400">warning</span>
+                        @alertas alerta@(alertas == 1 ? "" : "s")
+                    </span>
+                }
+                <span class="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-bold text-sky-300">
+                    <span class="material-symbols-outlined text-[14px]">sync_alt</span>
+                    @Model.RmasPendientes RMA
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                    <span class="material-symbols-outlined text-[14px]">verified_user</span>
+                    @Model.TotalGarantiasVigentes vigentes
+                </span>
+            </div>
+            @* Acciones  *@
+            <div class="ml-auto flex shrink-0 gap-2">
+                <a href="@ventasUrl" class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                    <span>Nueva en ventas</span>
                 </a>
             </div>
         </div>
-
-        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <article class="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-4 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-400">Pendientes</p>
-                        <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">@Model.TotalPendientes</p>
-                    </div>
-                    <span class="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-300">postventa</span>
-                </div>
-                <p class="mt-2 text-xs text-amber-700/80 dark:text-amber-300/80">casos todavía abiertos o a resolver</p>
-            </article>
-
-            <article class="rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-4 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/20">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-400">Aprobadas</p>
-                        <p class="mt-2 text-2xl font-black text-indigo-700 dark:text-indigo-300">@Model.TotalAprobadas</p>
-                    </div>
-                    <span class="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">este ciclo</span>
-                </div>
-                <p class="mt-2 text-xs text-indigo-700/80 dark:text-indigo-300/80">listas para completar circuito operativo</p>
-            </article>
-
-            <article class="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-4 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">Garantías activas</p>
-                        <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">@Model.TotalGarantiasVigentes</p>
-                    </div>
-                    <span class="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">cobertura</span>
-                </div>
-                <p class="mt-2 text-xs text-emerald-700/80 dark:text-emerald-300/80">productos todavía cubiertos por garantía</p>
-            </article>
-
-            <article class="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-4 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 dark:text-rose-400">Alertas críticas</p>
-                        <p class="mt-2 text-2xl font-black text-rose-700 dark:text-rose-300">@Model.TotalGarantiasProximasVencer</p>
-                    </div>
-                    <span class="rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-300">por vencer</span>
-                </div>
-                <p class="mt-2 text-xs text-rose-700/80 dark:text-rose-300/80">coberturas que necesitan seguimiento rápido</p>
-            </article>
+        @* Stat strip compacto  *@
+        <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-800/70 pt-2">
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Pendientes</span>
+                <span class="text-sm font-black tabular-nums text-amber-300">@Model.TotalPendientes</span>
+            </div>
+            <div class="h-3 w-px bg-slate-700"></div>
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Aprobadas</span>
+                <span class="text-sm font-black tabular-nums text-indigo-300">@Model.TotalAprobadas</span>
+            </div>
+            <div class="h-3 w-px bg-slate-700"></div>
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Garantías</span>
+                <span class="text-sm font-black tabular-nums text-emerald-300">@Model.TotalGarantiasVigentes</span>
+            </div>
+            <div class="h-3 w-px bg-slate-700"></div>
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Por vencer</span>
+                <span class="text-sm font-black tabular-nums text-rose-300">@Model.TotalGarantiasProximasVencer</span>
+            </div>
+            <div class="h-3 w-px bg-slate-700"></div>
+            <div class="flex items-baseline gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Completadas</span>
+                <span class="text-sm font-black tabular-nums text-slate-200">@Model.TotalCompletadas</span>
+            </div>
         </div>
     </section>
 
     @if (TempData["Info"] != null)
     {
-        <div class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800 shadow-sm dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300">
+        <div class="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-300 shadow-sm">
             @TempData["Info"]
         </div>
     }
 
     @if (TempData["Error"] != null)
     {
-        <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 shadow-sm dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+        <div class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 shadow-sm">
             @TempData["Error"]
         </div>
     }
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(19rem,0.95fr)]">
-        <section class="space-y-6">
-            <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <div class="border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div class="space-y-2">
-                            <div class="flex flex-wrap gap-2">
-                                <a href="@tabDevUrl"
-                                   class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] no-underline @(tab == "devoluciones" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700")">
-                                    <span>Devoluciones</span>
-                                    <span class="rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-black text-current">@Model.TodasDevoluciones.Count</span>
-                                </a>
-                                <a href="@tabGarUrl"
-                                   class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] no-underline @(tab == "garantias" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700")">
-                                    <span>Garantías</span>
-                                    <span class="rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-black text-current">@Model.TodasGarantias.Count</span>
-                                </a>
-                            </div>
-                            <div>
-                                <h2 class="text-lg font-black text-slate-900 dark:text-white">@currentTabTitle</h2>
-                                <p class="text-sm text-slate-500 dark:text-slate-400">@currentTabSubtitle</p>
-                            </div>
-                        </div>
+    @* Layout principal: full-width en garantías, 2-col en devoluciones  *@
+    <div class="@(tab == "devoluciones" ? "grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(17rem,0.85fr)]" : "")">
 
-                        <div class="flex flex-wrap gap-2">
-                            @if (tab == "devoluciones")
-                            {
-                                <span class="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Pendientes @Model.TotalPendientes</span>
-                                <span class="rounded-full bg-sky-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">En revisión @Model.EnRevision.Count</span>
-                                <span class="rounded-full bg-indigo-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300">Aprobadas @Model.TotalAprobadas</span>
-                                <span class="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">Completadas @Model.TotalCompletadas</span>
-                            }
-                            else
-                            {
-                                <span class="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">Vigentes @Model.TotalGarantiasVigentes</span>
-                                <span class="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Próximas @Model.TotalGarantiasProximasVencer</span>
-                                <span class="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-rose-800 dark:bg-rose-500/15 dark:text-rose-300">Vencidas @Model.TotalGarantiasVencidas</span>
-                            }
-                        </div>
-                    </div>
-                </div>
+        <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
 
-                <div class="border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
-                    <form asp-action="Index" method="get" class="space-y-4">
-                        <input type="hidden" name="tab" value="@tab" />
-                        <input type="hidden" name="page" value="1" />
-
-                        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                            <div class="relative w-full max-w-xl">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
-                                <input type="text"
-                                       name="search"
-                                       value="@Model.Search"
-                                       placeholder="@(tab == "devoluciones" ? "Buscar ID, cliente o ticket..." : "Buscar garantía, cliente o producto...")"
-                                       class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500" />
-                            </div>
-
-                            <div class="flex flex-col gap-2 sm:flex-row">
-                                <details class="relative" @(hasFilters ? "open" : null)>
-                                    <summary class="list-none">
-                                        <span class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
-                                            <span class="material-symbols-outlined text-[18px]">filter_list</span>
-                                            Filtros
-                                        </span>
-                                    </summary>
-                                    <div class="right-0 z-20 mt-3 w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900 sm:absolute sm:w-[340px]">
-                                        <div class="grid gap-3">
-                                            @if (tab == "devoluciones")
-                                            {
-                                                <label class="space-y-1.5">
-                                                    <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Estado</span>
-                                                    <select name="estado" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                                                        <option value="" selected="@string.IsNullOrWhiteSpace(Model.EstadoFilter)">Todos</option>
-                                                        @foreach (var o in Enum.GetValues<EstadoDevolucion>())
-                                                        {
-                                                            <option value="@o" selected="@(Model.EstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
-                                                        }
-                                                    </select>
-                                                </label>
-                                                <label class="space-y-1.5">
-                                                    <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Resolución</span>
-                                                    <select name="resolucion" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                                                        <option value="" selected="@string.IsNullOrWhiteSpace(Model.ResolucionFilter)">Todas</option>
-                                                        @foreach (var o in Enum.GetValues<TipoResolucionDevolucion>())
-                                                        {
-                                                            <option value="@o" selected="@(Model.ResolucionFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
-                                                        }
-                                                    </select>
-                                                </label>
-                                            }
-                                            else
-                                            {
-                                                <label class="space-y-1.5">
-                                                    <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Estado</span>
-                                                    <select name="garantiaEstado" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                                                        <option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaEstadoFilter)">Todos</option>
-                                                        @foreach (var o in Enum.GetValues<EstadoGarantia>())
-                                                        {
-                                                            <option value="@o" selected="@(Model.GarantiaEstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
-                                                        }
-                                                    </select>
-                                                </label>
-                                                <label class="space-y-1.5">
-                                                    <span class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Ventana</span>
-                                                    <select name="garantiaVentana" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
-                                                        <option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaVentanaFilter)">Todas</option>
-                                                        <option value="proximas" selected="@(Model.GarantiaVentanaFilter == "proximas")">Próximas</option>
-                                                        <option value="vencidas" selected="@(Model.GarantiaVentanaFilter == "vencidas")">Vencidas</option>
-                                                        <option value="enuso" selected="@(Model.GarantiaVentanaFilter == "enuso")">En uso</option>
-                                                        <option value="extendidas" selected="@(Model.GarantiaVentanaFilter == "extendidas")">Extendidas</option>
-                                                    </select>
-                                                </label>
-                                            }
-
-                                            <div class="flex flex-col-reverse gap-2 pt-1 sm:flex-row">
-                                                <a href="@(tab == "devoluciones" ? tabDevUrl : tabGarUrl)"
-                                                   class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-300 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 no-underline">
-                                                    Limpiar
-                                                </a>
-                                                <button type="submit"
-                                                        class="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-primary px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white transition-colors hover:bg-primary/90">
-                                                    Aplicar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </details>
-
-                                <a href="@exportUrl"
-                                   class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 no-underline">
-                                    <span class="material-symbols-outlined text-[18px]">download</span>
-                                    CSV
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h3 class="text-base font-black text-slate-900 dark:text-white">@currentTabTitle</h3>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Mostrando @Model.FirstItemIndex-@Model.LastItemIndex de @Model.TotalFiltered resultados.</p>
-                        </div>
-                        <span class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                            <span class="material-symbols-outlined text-sm">monitoring</span>
-                            @currentTabCount registro@(currentTabCount == 1 ? "" : "s")
-                        </span>
-                    </div>
-                </div>
-
-                <div data-oc-scroll style="--oc-scroll-min-width: @tableMinWidth;" class="overflow-hidden">
-                    <div class="border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:px-6">
-                        <p data-oc-scroll-hint hidden class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                            Deslizá horizontalmente para revisar todos los campos del tablero.
-                        </p>
-                    </div>
-
-                    <div class="relative">
-                        <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-                        <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-
-                        <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
-                            @if (tab == "devoluciones")
-                            {
-                                @if (devs.Any())
-                                {
-                                    <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left">
-                                        <thead class="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                                            <tr>
-                                                <th class="px-4 py-3 sm:px-6">ID</th>
-                                                <th class="px-4 py-3 sm:px-6">Cliente</th>
-                                                <th class="px-4 py-3 sm:px-6">Venta</th>
-                                                <th class="px-4 py-3 sm:px-6">Motivo</th>
-                                                <th class="px-4 py-3 sm:px-6">Resolución</th>
-                                                <th class="px-4 py-3 text-center sm:px-6">Impacto</th>
-                                                <th class="px-4 py-3 text-center sm:px-6">Estado</th>
-                                                <th class="px-4 py-3 text-right sm:px-6">Monto</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                                            @foreach (var d in devs)
-                                            {
-                                                var c = Crit(d);
-                                                <tr class="bg-white transition-colors hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/40">
-                                                    <td class="px-4 py-4 sm:px-6">
-                                                        <span class="text-sm font-black text-primary tabular-nums">@d.NumeroDevolucion</span>
-                                                    </td>
-                                                    <td class="px-4 py-4 sm:px-6">
-                                                        <div class="flex flex-col">
-                                                            <span class="text-sm font-bold text-slate-900 dark:text-white">@(d.Cliente != null ? d.Cliente.ToDisplayName() : "")</span>
-                                                            <span class="text-xs text-slate-500 dark:text-slate-400">@d.Cliente?.NumeroDocumento</span>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">@d.Venta?.Numero</td>
-                                                    <td class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300 sm:px-6">@(string.IsNullOrWhiteSpace(d.Descripcion) ? d.Motivo.GetDisplayName() : d.Descripcion.Length > 42 ? $"{d.Descripcion[..42]}..." : d.Descripcion)</td>
-                                                    <td class="px-4 py-4 sm:px-6">
-                                                        <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-center sm:px-6">
-                                                        <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @CritClass(c)">@c</span>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-center sm:px-6">
-                                                        <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @DevState(d.Estado)">@d.Estado.GetDisplayName()</span>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-right text-sm font-black text-slate-900 tabular-nums dark:text-white sm:px-6">@d.TotalDevolucion.ToString("C2")</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                }
-                                else
-                                {
-                                    <div class="px-6 py-16 text-center">
-                                        <span class="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">assignment_return</span>
-                                        <h3 class="mt-4 text-lg font-black text-slate-900 dark:text-white">No hay devoluciones para esos filtros</h3>
-                                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Ajustá la búsqueda o limpiá los filtros para revisar más casos.</p>
-                                    </div>
-                                }
-                            }
-                            else
-                            {
-                                @if (gars.Any())
-                                {
-                                    <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left">
-                                        <thead class="bg-slate-50 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
-                                            <tr>
-                                                <th class="px-4 py-3 sm:px-6">Garantía</th>
-                                                <th class="px-4 py-3 sm:px-6">Cliente</th>
-                                                <th class="px-4 py-3 sm:px-6">Producto</th>
-                                                <th class="px-4 py-3 text-center sm:px-6">Estado</th>
-                                                <th class="px-4 py-3 sm:px-6">Inicio</th>
-                                                <th class="px-4 py-3 sm:px-6">Vencimiento</th>
-                                                <th class="px-4 py-3 text-center sm:px-6">Cobertura</th>
-                                                <th class="px-4 py-3 text-right sm:px-6">Notas</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                                            @foreach (var g in gars)
-                                            {
-                                                <tr class="bg-white transition-colors hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/40">
-                                                    <td class="px-4 py-4 text-sm font-black text-primary tabular-nums sm:px-6">@g.NumeroGarantia</td>
-                                                    <td class="px-4 py-4 sm:px-6">
-                                                        <div class="flex flex-col">
-                                                            <span class="text-sm font-bold text-slate-900 dark:text-white">@(g.Cliente != null ? g.Cliente.ToDisplayName() : "")</span>
-                                                            <span class="text-xs text-slate-500 dark:text-slate-400">@g.Cliente?.NumeroDocumento</span>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-4 sm:px-6">
-                                                        <div class="flex flex-col">
-                                                            <span class="text-sm font-semibold text-slate-900 dark:text-white">@g.Producto?.Nombre</span>
-                                                            <span class="text-xs text-slate-500 dark:text-slate-400">@g.Producto?.Codigo</span>
-                                                        </div>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-center sm:px-6">
-                                                        <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span>
-                                                    </td>
-                                                    <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">@g.FechaInicio.ToString("dd/MM/yyyy")</td>
-                                                    <td class="px-4 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">@g.FechaVencimiento.ToString("dd/MM/yyyy")</td>
-                                                    <td class="px-4 py-4 text-center text-sm font-bold text-slate-700 dark:text-slate-200 sm:px-6">@g.MesesGarantia mes@(g.MesesGarantia == 1 ? string.Empty : "es")</td>
-                                                    <td class="px-4 py-4 text-right text-sm text-slate-600 dark:text-slate-300 sm:px-6">@(g.GarantiaExtendida ? "Extendida" : "Base")</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                }
-                                else
-                                {
-                                    <div class="px-6 py-16 text-center">
-                                        <span class="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">verified_user</span>
-                                        <h3 class="mt-4 text-lg font-black text-slate-900 dark:text-white">No hay garantías para esos filtros</h3>
-                                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Probá otra ventana de vencimiento o una búsqueda distinta.</p>
-                                    </div>
-                                }
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                <footer class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-                    <span class="font-semibold">Resultados: @Model.FirstItemIndex-@Model.LastItemIndex de @Model.TotalFiltered</span>
-                    @if (Model.TotalPages > 1)
+            @* Fila 1: tabs + pills de estado  *@
+            <div class="flex items-stretch justify-between border-b border-slate-800">
+                <nav class="flex shrink-0 overflow-x-auto">
+                    <a href="@tabDevUrl"
+                       class="shrink-0 inline-flex items-center gap-1.5 border-b-2 px-5 py-3 text-xs font-bold no-underline transition-colors @(tab == "devoluciones" ? "border-primary bg-primary/10 text-primary" : "border-transparent text-slate-400 hover:bg-white/5 hover:text-white")">
+                        Devoluciones
+                        <span class="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-black">@Model.TodasDevoluciones.Count</span>
+                    </a>
+                    <a href="@tabGarUrl"
+                       class="shrink-0 inline-flex items-center gap-1.5 border-b-2 px-5 py-3 text-xs font-bold no-underline transition-colors @(tab == "garantias" ? "border-primary bg-primary/10 text-primary" : "border-transparent text-slate-400 hover:bg-white/5 hover:text-white")">
+                        Garantías
+                        <span class="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-black">@Model.TodasGarantias.Count</span>
+                    </a>
+                </nav>
+                <div class="flex flex-wrap items-center gap-1.5 px-3 py-2">
+                    @if (tab == "devoluciones")
                     {
-                        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                            @if (Model.CurrentPage > 1)
-                            {
-                                <a href="@pageUrl(Model.CurrentPage - 1)" class="inline-flex min-h-10 items-center gap-1 rounded-full border border-slate-300 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-600 transition-colors hover:bg-white hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900 no-underline">
-                                    <span class="material-symbols-outlined text-sm">chevron_left</span>Ant
-                                </a>
-                            }
-                            else
-                            {
-                                <span class="inline-flex min-h-10 items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 dark:border-slate-800 dark:text-slate-600">
-                                    <span class="material-symbols-outlined text-sm">chevron_left</span>Ant
-                                </span>
-                            }
-
-                            <div class="flex flex-wrap gap-2">
-                                @for (var p = start; p <= end; p++)
-                                {
-                                    if (p == Model.CurrentPage)
-                                    {
-                                        <span class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full bg-primary px-3 py-2 text-xs font-black text-white">@p.ToString("00")</span>
-                                    }
-                                    else
-                                    {
-                                        <a href="@pageUrl(p)" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-white hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900 no-underline">@p.ToString("00")</a>
-                                    }
-                                }
-                            </div>
-
-                            @if (Model.CurrentPage < Model.TotalPages)
-                            {
-                                <a href="@pageUrl(Model.CurrentPage + 1)" class="inline-flex min-h-10 items-center gap-1 rounded-full border border-slate-300 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-600 transition-colors hover:bg-white hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900 no-underline">
-                                    Sig<span class="material-symbols-outlined text-sm">chevron_right</span>
-                                </a>
-                            }
-                            else
-                            {
-                                <span class="inline-flex min-h-10 items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 dark:border-slate-800 dark:text-slate-600">
-                                    Sig<span class="material-symbols-outlined text-sm">chevron_right</span>
-                                </span>
-                            }
-                        </div>
-                    }
-                </footer>
-            </section>
-        </section>
-
-        <aside class="space-y-6">
-            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Radar operativo</p>
-                        <h2 class="mt-2 text-lg font-black text-slate-900 dark:text-white">Prioridades del día</h2>
-                    </div>
-                    <span class="material-symbols-outlined text-xl text-primary">radar</span>
-                </div>
-
-                <div class="mt-4 space-y-3">
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Reembolsos por caja</p>
-                        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.ReembolsosPendientesCaja</p>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">@Model.MontoReembolsosPendientesCaja.ToString("C2") pendiente de tesorería.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Volumen monitoreado</p>
-                        <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@Model.TotalFiltered</p>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">caso@(Model.TotalFiltered == 1 ? "" : "s") visibles con los filtros actuales.</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Motivos frecuentes</p>
-                        <h2 class="mt-2 text-lg font-black text-slate-900 dark:text-white">Tendencias rápidas</h2>
-                    </div>
-                    <span class="material-symbols-outlined text-xl text-primary">insights</span>
-                </div>
-
-                <div class="mt-4 flex flex-wrap gap-2">
-                    @if (motivos.Any())
-                    {
-                        @foreach (var motivo in motivos)
-                        {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                                @motivo.Key.GetDisplayName()
-                                <span class="rounded-full bg-primary/10 px-2 py-0.5 text-primary">@motivo.Value</span>
-                            </span>
-                        }
+                        <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-amber-300">Pend. @Model.TotalPendientes</span>
+                        <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-sky-300">Rev. @Model.EnRevision.Count</span>
+                        <span class="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-indigo-300">Apr. @Model.TotalAprobadas</span>
+                        <span class="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-emerald-300">Comp. @Model.TotalCompletadas</span>
                     }
                     else
                     {
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Todavía no hay suficientes devoluciones para consolidar tendencias.</p>
+                        <span class="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-emerald-300">Vig. @Model.TotalGarantiasVigentes</span>
+                        <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-amber-300">Próx. @Model.TotalGarantiasProximasVencer</span>
+                        <span class="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-rose-300">Venc. @Model.TotalGarantiasVencidas</span>
                     }
                 </div>
-            </section>
-        </aside>
+            </div>
+
+            @* Fila 2: search + filtros + export + conteo  *@
+            <div class="border-b border-slate-800 px-4 py-2 sm:px-5">
+                <form asp-action="Index" method="get" class="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="tab" value="@tab" />
+                    <input type="hidden" name="page" value="1" />
+
+                    <div class="relative min-w-0 flex-1">
+                        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span>
+                        <input type="text"
+                               name="search"
+                               value="@Model.Search"
+                               placeholder="@(tab == "devoluciones" ? "ID, cliente o ticket..." : "Garantía, cliente o producto...")"
+                               class="w-full rounded-xl border py-2 pl-9 pr-3 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
+                    </div>
+
+                    <details class="relative" @(hasFilters ? "open" : null)>
+                        <summary class="list-none">
+                            <span class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-200 transition-colors hover:bg-slate-800">
+                                <span class="material-symbols-outlined text-[16px]">filter_list</span>
+                                Filtros@(hasFilters ? " ·" : "")
+                            </span>
+                        </summary>
+                        <div class="right-0 z-20 mt-2 w-full rounded-2xl border p-3 shadow-2xl border-slate-700 bg-slate-900 sm:absolute sm:w-[300px]">
+                            <div class="grid gap-2.5">
+                                @if (tab == "devoluciones")
+                                {
+                                    <label class="space-y-1">
+                                        <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Estado</span>
+                                        <select name="estado" class="w-full rounded-lg border px-2.5 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white">
+                                            <option value="" selected="@string.IsNullOrWhiteSpace(Model.EstadoFilter)">Todos</option>
+                                            @foreach (var o in Enum.GetValues<EstadoDevolucion>())
+                                            {
+                                                <option value="@o" selected="@(Model.EstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
+                                            }
+                                        </select>
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Resolución</span>
+                                        <select name="resolucion" class="w-full rounded-lg border px-2.5 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white">
+                                            <option value="" selected="@string.IsNullOrWhiteSpace(Model.ResolucionFilter)">Todas</option>
+                                            @foreach (var o in Enum.GetValues<TipoResolucionDevolucion>())
+                                            {
+                                                <option value="@o" selected="@(Model.ResolucionFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
+                                            }
+                                        </select>
+                                    </label>
+                                }
+                                else
+                                {
+                                    <label class="space-y-1">
+                                        <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Estado</span>
+                                        <select name="garantiaEstado" class="w-full rounded-lg border px-2.5 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white">
+                                            <option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaEstadoFilter)">Todos</option>
+                                            @foreach (var o in Enum.GetValues<EstadoGarantia>())
+                                            {
+                                                <option value="@o" selected="@(Model.GarantiaEstadoFilter.Equals(o.ToString(), StringComparison.OrdinalIgnoreCase))">@o.GetDisplayName()</option>
+                                            }
+                                        </select>
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Ventana</span>
+                                        <select name="garantiaVentana" class="w-full rounded-lg border px-2.5 py-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white">
+                                            <option value="" selected="@string.IsNullOrWhiteSpace(Model.GarantiaVentanaFilter)">Todas</option>
+                                            <option value="proximas" selected="@(Model.GarantiaVentanaFilter == "proximas")">Próximas</option>
+                                            <option value="vencidas" selected="@(Model.GarantiaVentanaFilter == "vencidas")">Vencidas</option>
+                                            <option value="enuso" selected="@(Model.GarantiaVentanaFilter == "enuso")">En uso</option>
+                                            <option value="extendidas" selected="@(Model.GarantiaVentanaFilter == "extendidas")">Extendidas</option>
+                                        </select>
+                                    </label>
+                                }
+                                <div class="flex gap-2 pt-0.5">
+                                    <a href="@(tab == "devoluciones" ? tabDevUrl : tabGarUrl)"
+                                       class="inline-flex h-8 flex-1 items-center justify-center rounded-lg border border-slate-700 px-2 text-[11px] font-bold uppercase tracking-[0.13em] text-slate-300 transition-colors hover:bg-slate-800 no-underline">
+                                        Limpiar
+                                    </a>
+                                    <button type="submit"
+                                            class="inline-flex h-8 flex-1 items-center justify-center rounded-lg bg-primary px-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white transition-colors hover:bg-primary/90">
+                                        Aplicar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <a href="@exportUrl" class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 text-[11px] font-bold text-slate-300 transition-colors hover:bg-slate-800 no-underline">
+                        <span class="material-symbols-outlined text-[16px]">download</span>
+                        CSV
+                    </a>
+
+                    <span class="ml-auto text-[11px] font-semibold text-slate-500 tabular-nums">@Model.FirstItemIndex–@Model.LastItemIndex / @Model.TotalFiltered</span>
+                </form>
+            </div>
+
+            @* Tabla con scroll horizontal  *@
+            <div data-oc-scroll style="--oc-scroll-min-width: @tableMinWidth;" class="overflow-hidden">
+                <div class="border-b border-slate-800 px-4 py-2 sm:px-5">
+                    <p data-oc-scroll-hint hidden class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        Deslizá horizontalmente para ver todos los campos.
+                    </p>
+                </div>
+
+                <div class="relative">
+                    <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+
+                    <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
+                        @if (tab == "devoluciones")
+                        {
+                            @if (devs.Any())
+                            {
+                                <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left">
+                                    <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
+                                        <tr>
+                                            <th class="px-4 py-2.5 sm:px-5">ID</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Cliente</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Venta</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Motivo</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Resolución</th>
+                                            <th class="px-4 py-2.5 text-center sm:px-5">Impacto</th>
+                                            <th class="px-4 py-2.5 text-center sm:px-5">Estado</th>
+                                            <th class="px-4 py-2.5 text-right sm:px-5">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var d in devs)
+                                        {
+                                            var c = Crit(d);
+                                            <tr class="transition-colors hover:bg-slate-900/40">
+                                                <td class="px-4 py-3 sm:px-5">
+                                                    <span class="text-sm font-black text-primary tabular-nums">@d.NumeroDevolucion</span>
+                                                </td>
+                                                <td class="px-4 py-3 sm:px-5">
+                                                    <div class="flex flex-col">
+                                                        <span class="text-sm font-bold text-white">@(d.Cliente != null ? d.Cliente.ToDisplayName() : "")</span>
+                                                        <span class="text-xs text-slate-400">@d.Cliente?.NumeroDocumento</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@d.Venta?.Numero</td>
+                                                <td class="px-4 py-3 text-sm text-slate-300 sm:px-5">@(string.IsNullOrWhiteSpace(d.Descripcion) ? d.Motivo.GetDisplayName() : d.Descripcion.Length > 42 ? $"{d.Descripcion[..42]}..." : d.Descripcion)</td>
+                                                <td class="px-4 py-3 sm:px-5">
+                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-center sm:px-5">
+                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @CritClass(c)">@c</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-center sm:px-5">
+                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @DevState(d.Estado)">@d.Estado.GetDisplayName()</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-white sm:px-5">@d.TotalDevolucion.ToString("C2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <div class="px-6 py-10 text-center">
+                                    <span class="material-symbols-outlined text-4xl text-slate-600">assignment_return</span>
+                                    <h3 class="mt-3 text-base font-black text-white">No hay devoluciones para esos filtros</h3>
+                                    <p class="mt-1 text-sm text-slate-400">Ajustá la búsqueda o limpiá los filtros para revisar más casos.</p>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @if (gars.Any())
+                            {
+                                <table class="min-w-[var(--oc-scroll-min-width)] w-full text-left">
+                                    <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
+                                        <tr>
+                                            <th class="px-4 py-2.5 sm:px-5">Garantía</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Cliente</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Producto</th>
+                                            <th class="px-4 py-2.5 text-center sm:px-5">Estado</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Inicio</th>
+                                            <th class="px-4 py-2.5 sm:px-5">Vencimiento</th>
+                                            <th class="px-4 py-2.5 text-center sm:px-5">Cobertura</th>
+                                            <th class="px-4 py-2.5 text-right sm:px-5">Notas</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var g in gars)
+                                        {
+                                            <tr class="transition-colors hover:bg-slate-900/40">
+                                                <td class="px-4 py-3 text-sm font-black text-primary tabular-nums sm:px-5">@g.NumeroGarantia</td>
+                                                <td class="px-4 py-3 sm:px-5">
+                                                    <div class="flex flex-col">
+                                                        <span class="text-sm font-bold text-white">@(g.Cliente != null ? g.Cliente.ToDisplayName() : "")</span>
+                                                        <span class="text-xs text-slate-400">@g.Cliente?.NumeroDocumento</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3 sm:px-5">
+                                                    <div class="flex flex-col">
+                                                        <span class="text-sm font-semibold text-white">@g.Producto?.Nombre</span>
+                                                        <span class="text-xs text-slate-400">@g.Producto?.Codigo</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3 text-center sm:px-5">
+                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@g.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                                <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@g.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                                                <td class="px-4 py-3 text-center text-sm font-bold text-slate-200 sm:px-5">@g.MesesGarantia mes@(g.MesesGarantia == 1 ? string.Empty : "es")</td>
+                                                <td class="px-4 py-3 text-right text-sm text-slate-300 sm:px-5">@(g.GarantiaExtendida ? "Extendida" : "Base")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <div class="px-6 py-10 text-center">
+                                    <span class="material-symbols-outlined text-4xl text-slate-600">verified_user</span>
+                                    <h3 class="mt-3 text-base font-black text-white">No hay garantías para esos filtros</h3>
+                                    <p class="mt-1 text-sm text-slate-400">Probá otra ventana de vencimiento o una búsqueda distinta.</p>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <footer class="flex flex-col gap-2 border-t border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-300 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+                <span class="text-xs font-semibold text-slate-500">Resultados: @Model.FirstItemIndex–@Model.LastItemIndex de @Model.TotalFiltered</span>
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (Model.CurrentPage > 1)
+                        {
+                            <a href="@pageUrl(Model.CurrentPage - 1)" class="inline-flex min-h-9 items-center gap-1 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-300 transition-colors hover:bg-slate-900 no-underline">
+                                <span class="material-symbols-outlined text-sm">chevron_left</span>Ant
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="inline-flex min-h-9 items-center gap-1 rounded-full border border-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-600">
+                                <span class="material-symbols-outlined text-sm">chevron_left</span>Ant
+                            </span>
+                        }
+
+                        <div class="flex flex-wrap gap-1.5">
+                            @for (var p = start; p <= end; p++)
+                            {
+                                if (p == Model.CurrentPage)
+                                {
+                                    <span class="inline-flex min-h-9 min-w-9 items-center justify-center rounded-full bg-primary px-2.5 py-1.5 text-xs font-black text-white">@p.ToString("00")</span>
+                                }
+                                else
+                                {
+                                    <a href="@pageUrl(p)" class="inline-flex min-h-9 min-w-9 items-center justify-center rounded-full border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-900 no-underline">@p.ToString("00")</a>
+                                }
+                            }
+                        </div>
+
+                        @if (Model.CurrentPage < Model.TotalPages)
+                        {
+                            <a href="@pageUrl(Model.CurrentPage + 1)" class="inline-flex min-h-9 items-center gap-1 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-300 transition-colors hover:bg-slate-900 no-underline">
+                                Sig<span class="material-symbols-outlined text-sm">chevron_right</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="inline-flex min-h-9 items-center gap-1 rounded-full border border-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-600">
+                                Sig<span class="material-symbols-outlined text-sm">chevron_right</span>
+                            </span>
+                        }
+                    </div>
+                }
+            </footer>
+        </section>
+
+        @* Aside: solo visible en pestaña Devoluciones  *@
+        @if (tab == "devoluciones")
+        {
+            <aside class="space-y-3">
+                <section class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Radar operativo</p>
+                        <span class="material-symbols-outlined text-base text-primary">radar</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">Reembolsos</p>
+                            <p class="mt-1 text-xl font-black text-white">@Model.ReembolsosPendientesCaja</p>
+                            <p class="mt-0.5 text-[11px] text-slate-400">@Model.MontoReembolsosPendientesCaja.ToString("C0")</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400">Visibles</p>
+                            <p class="mt-1 text-xl font-black text-white">@Model.TotalFiltered</p>
+                            <p class="mt-0.5 text-[11px] text-slate-400">con filtros activos</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Motivos frecuentes</p>
+                        <span class="material-symbols-outlined text-base text-primary">insights</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        @if (motivos.Any())
+                        {
+                            @foreach (var motivo in motivos)
+                            {
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.13em] text-slate-200">
+                                    @motivo.Key.GetDisplayName()
+                                    <span class="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">@motivo.Value</span>
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-xs text-slate-400">Sin tendencias aún.</p>
+                        }
+                    </div>
+                </section>
+            </aside>
+        }
+
     </div>
 </div>
 

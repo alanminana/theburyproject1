@@ -8,3 +8,9 @@ obj/
 appsettings.Development.json
 
 wwwroot/uploads/
+node_modules
+
+# Unlighthouse
+.unlighthouse/
+.unlighthouse-session/
+.env.unlighthouse

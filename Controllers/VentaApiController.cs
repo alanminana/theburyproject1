@@ -7,6 +7,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels.Requests;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Controllers
 {
@@ -21,6 +22,8 @@ namespace TheBuryProject.Controllers
         private readonly IVentaService _ventaService;
         private readonly IPrecioService _precioService;
         private readonly IClienteService _clienteService;
+        private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly IValidacionVentaService _validacionVentaService;
         private readonly ILogger<VentaApiController> _logger;
 
         public VentaApiController(
@@ -29,6 +32,8 @@ namespace TheBuryProject.Controllers
             IVentaService ventaService,
             IPrecioService precioService,
             IClienteService clienteService,
+            IConfiguracionPagoService configuracionPagoService,
+            IValidacionVentaService validacionVentaService,
             ILogger<VentaApiController> logger)
         {
             _productoService = productoService;
@@ -36,6 +41,8 @@ namespace TheBuryProject.Controllers
             _ventaService = ventaService;
             _precioService = precioService;
             _clienteService = clienteService;
+            _configuracionPagoService = configuracionPagoService;
+            _validacionVentaService = validacionVentaService;
             _logger = logger;
         }
 
@@ -133,77 +140,12 @@ namespace TheBuryProject.Controllers
             try
             {
                 if (string.IsNullOrWhiteSpace(term))
-                {
                     return Ok(new List<object>());
-                }
 
-                var limite = Math.Clamp(take, 1, 50);
-                var termino = term.Trim();
+                var resultado = await _productoService.BuscarParaVentaAsync(
+                    term, take, categoriaId, marcaId, soloConStock, precioMin, precioMax);
 
-                var productos = (await _productoService.SearchAsync(
-                        searchTerm: termino,
-                    categoriaId: categoriaId,
-                    marcaId: marcaId,
-                        soloActivos: true,
-                        orderBy: "nombre"))
-                    .ToList();
-
-                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-                var preciosBatch = listaPredeterminada != null
-                    ? await _precioService.GetPreciosVigentesBatchAsync(
-                        productos.Select(p => p.Id), listaPredeterminada.Id)
-                    : new Dictionary<int, ProductoPrecioLista>();
-                var resultado = new List<object>(productos.Count);
-
-                foreach (var producto in productos)
-                {
-                    var precioVenta = producto.PrecioVenta;
-                    if (preciosBatch.TryGetValue(producto.Id, out var vigente))
-                        precioVenta = vigente.Precio;
-
-                    if (soloConStock && producto.StockActual <= 0)
-                        continue;
-
-                    if (precioMin.HasValue && precioVenta < precioMin.Value)
-                        continue;
-
-                    if (precioMax.HasValue && precioVenta > precioMax.Value)
-                        continue;
-
-                    var caracteristicas = producto.Caracteristicas?
-                        .Where(c => !c.IsDeleted)
-                        .Select(c => (object)new
-                        {
-                            nombre = c.Nombre,
-                            valor = c.Valor
-                        })
-                        .ToList() ?? new List<object>();
-
-                    var caracteristicasResumen = producto.Caracteristicas?
-                        .Where(c => !c.IsDeleted)
-                        .Take(3)
-                        .Select(c => c.Valor)
-                        .ToList() ?? new List<string>();
-
-                    resultado.Add(new
-                    {
-                        id = producto.Id,
-                        codigo = producto.Codigo,
-                        nombre = producto.Nombre,
-                        marca = producto.Marca?.Nombre,
-                        submarca = producto.Submarca?.Nombre,
-                        categoria = producto.Categoria?.Nombre,
-                        subcategoria = producto.Subcategoria?.Nombre,
-                        descripcion = producto.Descripcion,
-                        stockActual = producto.StockActual,
-                        precioVenta,
-                        caracteristicas,
-                        caracteristicasResumen = string.Join(" · ", caracteristicasResumen),
-                        codigoExacto = string.Equals(producto.Codigo, termino, StringComparison.OrdinalIgnoreCase)
-                    });
-                }
-
-                return Ok(resultado.Take(limite));
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -332,6 +274,60 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al calcular totales de venta desde el backend");
                 return StatusCode(500, new { error = "No se pudieron calcular los totales" });
+            }
+        }
+
+        #endregion
+
+        #region Tarjetas y prevalidación
+
+        [HttpGet]
+        public async Task<IActionResult> GetTarjetasActivas()
+        {
+            try
+            {
+                var tarjetas = await _configuracionPagoService.GetTarjetasActivasAsync();
+
+                var resultado = tarjetas.Select(t => new
+                {
+                    id = t.Id,
+                    nombre = t.NombreTarjeta,
+                    tipo = t.TipoTarjeta,
+                    permiteCuotas = t.PermiteCuotas,
+                    cantidadMaximaCuotas = t.CantidadMaximaCuotas,
+                    tipoCuota = t.TipoCuota,
+                    tasaInteres = t.TasaInteresesMensual,
+                    tieneRecargo = t.TieneRecargoDebito,
+                    porcentajeRecargo = t.PorcentajeRecargoDebito
+                });
+
+                return Ok(resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener tarjetas activas");
+                return StatusCode(500, new { error = "Error al obtener las tarjetas" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> PrevalidarCredito(int clienteId, decimal monto)
+        {
+            try
+            {
+                if (clienteId <= 0)
+                    return BadRequest(new { error = "Debe seleccionar un cliente válido" });
+
+                if (monto <= 0)
+                    return BadRequest(new { error = "El monto debe ser mayor a cero" });
+
+                var resultado = await _validacionVentaService.PrevalidarAsync(clienteId, monto);
+                return Ok(resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al prevalidar crédito para cliente {ClienteId}", clienteId);
+                return StatusCode(500, new { error = "Error interno al validar aptitud crediticia" });
             }
         }
 

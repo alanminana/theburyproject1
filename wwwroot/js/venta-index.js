@@ -417,4 +417,61 @@
     }
 
     queueScrollRefresh();
+
+    // ── Nueva Venta bloqueada: highlight panel caja cerrada ───
+    /**
+     * highlightSection(panelId, focusId, msgId, msgText)
+     * Scroll suave al panel, anima el borde/fondo, da foco al CTA
+     * y muestra un mensaje accesible inline. Se limpia solo.
+     */
+    function highlightSection(panelId, focusId, msgId, msgText) {
+        const panel = document.getElementById(panelId);
+        const focusEl = document.getElementById(focusId);
+        const msgEl = document.getElementById(msgId);
+        if (!panel) return;
+
+        // Scroll suave
+        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Animación: limpiar clase previa si reactivó rápido
+        panel.classList.remove('caja-highlight-active');
+        void panel.offsetWidth; // forzar reflow para reiniciar animación
+        panel.classList.add('caja-highlight-active');
+
+        // Foco accesible al botón CTA
+        if (focusEl) {
+            setTimeout(() => focusEl.focus({ preventScroll: true }), 300);
+        }
+
+        // Mensaje inline accesible
+        if (msgEl && msgText) {
+            msgEl.textContent = msgText;
+            msgEl.classList.remove('sr-only');
+            msgEl.classList.add('ml-2', 'text-xs', 'font-semibold', 'text-amber-400');
+        }
+
+        // Limpiar después de la animación
+        setTimeout(() => {
+            panel.classList.remove('caja-highlight-active');
+            if (msgEl) {
+                msgEl.textContent = '';
+                msgEl.classList.add('sr-only');
+                msgEl.classList.remove('ml-2', 'text-xs', 'font-semibold', 'text-amber-400');
+            }
+        }, 2200);
+    }
+
+    const btnNuevaVentaBloqueada = document.querySelector('[data-action="nueva-venta-bloqueada"]');
+    if (btnNuevaVentaBloqueada) {
+        btnNuevaVentaBloqueada.addEventListener('click', function () {
+            highlightSection(
+                'panel-caja-cerrada',
+                'btn-abrir-caja',
+                'msg-caja-cerrada',
+                'Primero tenés que abrir la caja para poder vender.'
+            );
+        });
+    }
+
+    // filter panel toggle — handled by module-index.js (shared)
 })();

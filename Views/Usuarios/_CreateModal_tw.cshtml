@@ -12,17 +12,17 @@
 <!-- Modal Panel -->
 <div id="createUserPanel"
      class="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
-    <div class="bg-white dark:bg-[#161d2b] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pointer-events-auto scale-95 opacity-0 transition-all duration-300"
+    <div class="bg-[#161d2b] w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] pointer-events-auto scale-95 opacity-0 transition-all duration-300"
          id="createUserCard">
 
         <!-- Header -->
-        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-start shrink-0">
+        <div class="px-6 py-5 border-b border-slate-800 flex justify-between items-start shrink-0">
             <div>
-                <h3 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Nuevo Usuario</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Complete los datos para registrar un nuevo usuario en el sistema.</p>
+                <h3 class="text-2xl font-bold text-slate-100">Nuevo Usuario</h3>
+                <p class="text-sm text-slate-400 mt-1">Complete los datos para registrar un nuevo usuario en el sistema.</p>
             </div>
             <button type="button" id="closeCreateUser"
-                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    class="text-slate-400 hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -35,11 +35,11 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Error container -->
-                <div id="createUserErrors" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-lg p-4 flex gap-3">
+                <div id="createUserErrors" class="hidden bg-red-900/20 border border-red-900/50 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
                     <div class="text-sm">
-                        <p class="font-semibold text-red-800 dark:text-red-400">Existen errores en el formulario</p>
-                        <div id="createUserErrorList" class="text-red-700 dark:text-red-400/80 space-y-0.5"></div>
+                        <p class="font-semibold text-red-400">Existen errores en el formulario</p>
+                        <div id="createUserErrorList" class="text-red-400/80 space-y-0.5"></div>
                     </div>
                 </div>
 
@@ -47,7 +47,7 @@
                 <section>
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary text-xl">lock</span>
-                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Datos de Acceso</h4>
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-400">Datos de Acceso</h4>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1.5">
@@ -55,28 +55,28 @@
                                 Username <span class="text-red-500">*</span>
                             </label>
                             <input asp-for="UserName" type="text" placeholder="Ej: jdoe" required
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="Email" class="text-sm font-medium">
                                 Email <span class="text-red-500">*</span>
                             </label>
                             <input asp-for="Email" type="email" placeholder="usuario@thebury.com" required
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="Password" class="text-sm font-medium">
                                 Contraseña <span class="text-red-500">*</span>
                             </label>
                             <input asp-for="Password" type="password" placeholder="••••••••" required
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="ConfirmPassword" class="text-sm font-medium">
                                 Confirmar contraseña <span class="text-red-500">*</span>
                             </label>
                             <input asp-for="ConfirmPassword" type="password" placeholder="••••••••" required
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                     </div>
                 </section>
@@ -85,25 +85,25 @@
                 <section>
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary text-xl">person</span>
-                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Datos Personales</h4>
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-400">Datos Personales</h4>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="Nombre" class="text-sm font-medium">Nombre</label>
                             <input asp-for="Nombre" type="text" placeholder="Juan"
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="Apellido" class="text-sm font-medium">Apellido</label>
                             <input asp-for="Apellido" type="text" placeholder="Pérez"
-                                   class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                   class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                         </div>
                         <div class="flex flex-col gap-1.5 md:col-span-2">
                             <label asp-for="Telefono" class="text-sm font-medium">Teléfono</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 text-lg">call</span>
                                 <input asp-for="Telefono" type="tel" placeholder="+54 11 0000-0000"
-                                       class="w-full pl-10 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
+                                       class="w-full pl-10 bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11" />
                             </div>
                         </div>
                     </div>
@@ -113,7 +113,7 @@
                 <section>
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary text-xl">settings_account_box</span>
-                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Asignación</h4>
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-400">Asignación</h4>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-2 md:col-span-2">
@@ -121,21 +121,21 @@
                                 <label asp-for="RolesSeleccionados" class="text-sm font-medium">
                                     Roles <span class="text-red-500">*</span>
                                 </label>
-                                <span class="text-xs text-slate-500 dark:text-slate-400">Puede seleccionar más de uno</span>
+                                <span class="text-xs text-slate-400">Puede seleccionar más de uno</span>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 p-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-800/30 p-3">
                                 @foreach (var r in roles)
                                 {
                                     var isChecked = Model.RolesSeleccionados.Contains(r, StringComparer.OrdinalIgnoreCase);
-                                    <label class="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 py-3 cursor-pointer hover:border-primary/40 transition-colors">
+                                    <label class="flex items-start gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-3 cursor-pointer hover:border-primary/40 transition-colors">
                                         <input type="checkbox"
                                                name="RolesSeleccionados"
                                                value="@r"
                                                @(isChecked ? "checked" : null)
-                                               class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                                               class="mt-0.5 size-4 rounded border-slate-600 text-primary focus:ring-primary/50" />
                                         <div class="min-w-0">
-                                            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@r</span>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">El usuario heredará los permisos definidos por este rol.</p>
+                                            <span class="text-sm font-semibold text-slate-100">@r</span>
+                                            <p class="text-xs text-slate-400 mt-1">El usuario heredará los permisos definidos por este rol.</p>
                                         </div>
                                     </label>
                                 }
@@ -144,7 +144,7 @@
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="SucursalId" class="text-sm font-medium">Sucursal</label>
                             <select asp-for="SucursalId"
-                                    class="bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11 px-3">
+                                    class="bg-slate-800/50 border-slate-700 rounded-lg focus:ring-primary focus:border-primary transition-all h-11 px-3">
                                 <option value="">Sin asignar</option>
                                 @foreach (var s in sucursales)
                                 {
@@ -157,9 +157,9 @@
                             <label class="flex items-center gap-3 cursor-pointer group">
                                 <div class="relative inline-flex items-center">
                                     <input asp-for="Activo" type="checkbox" checked class="sr-only peer" />
-                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                                 </div>
-                                <span class="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors">Usuario activo</span>
+                                <span class="text-sm font-medium text-slate-300 group-hover:text-primary transition-colors">Usuario activo</span>
                             </label>
                         </div>
                     </div>
@@ -167,9 +167,9 @@
             </div>
 
             <!-- Footer -->
-            <div class="px-6 py-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-3 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+            <div class="px-6 py-5 border-t border-slate-800 flex flex-col sm:flex-row justify-end gap-3 bg-slate-900/50 shrink-0">
                 <button type="button" id="cancelCreateUser"
-                        class="px-6 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        class="px-6 py-2.5 rounded-lg border border-slate-700 text-slate-300 font-semibold hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
                 <button type="submit" id="submitCreateUser"

@@ -32,6 +32,7 @@ namespace TheBuryProject.Services
         private readonly IValidacionVentaService _validacionVentaService;
         private readonly ICajaService _cajaService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
 
         public VentaService(
             AppDbContext context,
@@ -46,7 +47,8 @@ namespace TheBuryProject.Services
             ICurrentUserService currentUserService,
             IValidacionVentaService validacionVentaService,
             ICajaService cajaService,
-            ICreditoDisponibleService creditoDisponibleService)
+            ICreditoDisponibleService creditoDisponibleService,
+            IContratoVentaCreditoService contratoVentaCreditoService)
         {
             _context = context;
             _mapper = mapper;
@@ -61,6 +63,7 @@ namespace TheBuryProject.Services
             _validacionVentaService = validacionVentaService;
             _cajaService = cajaService;
             _creditoDisponibleService = creditoDisponibleService;
+            _contratoVentaCreditoService = contratoVentaCreditoService;
         }
 
         #region Consultas
@@ -661,6 +664,7 @@ namespace TheBuryProject.Services
                     }
 
                     await ValidarCupoDisponibleEnConfirmacionAsync(venta, venta.Total);
+                    await ValidarContratoCreditoPersonalGeneradoAsync(venta);
                 }
                 else
                 {
@@ -808,6 +812,7 @@ namespace TheBuryProject.Services
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);
                 _validator.ValidarAutorizacion(venta);
+                await ValidarContratoCreditoPersonalGeneradoAsync(venta);
 
                 await DescontarStockYRegistrarMovimientos(venta);
 
@@ -972,6 +977,7 @@ namespace TheBuryProject.Services
 
             _validator.ValidarEstadoParaFacturacion(venta);
             _validator.ValidarAutorizacion(venta);
+            await ValidarContratoCreditoPersonalGeneradoAsync(venta);
             venta.AperturaCajaId = aperturaActiva.Id;
 
             var factura = _mapper.Map<Factura>(facturaViewModel);
@@ -1025,6 +1031,18 @@ namespace TheBuryProject.Services
             }
 
             return aperturaActiva;
+        }
+
+        private async Task ValidarContratoCreditoPersonalGeneradoAsync(Venta venta)
+        {
+            if (venta.TipoPago != TipoPago.CreditoPersonal)
+                return;
+
+            if (!await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(venta.Id))
+            {
+                throw new InvalidOperationException(
+                    "Debe generar e imprimir el Contrato de Venta antes de continuar.");
+            }
         }
 
         public async Task<int?> AnularFacturaAsync(int facturaId, string motivo)

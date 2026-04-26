@@ -21,6 +21,31 @@
         });
     }
 
+    // ── Collapsible filter panel (shared — works on any index with btn-toggle-filtros / filtros-body) ──
+    // Uses data-expanded / data-hidden (not aria-expanded) to avoid layout.js closeAllDropdowns override.
+    var btnToggle   = document.getElementById('btn-toggle-filtros');
+    var filtrosBody = document.getElementById('filtros-body');
+    if (btnToggle && filtrosBody) {
+        filtrosBody.style.maxHeight = filtrosBody.getAttribute('data-hidden') === 'true'
+            ? '0px'
+            : filtrosBody.scrollHeight + 'px';
+
+        btnToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var expanded = btnToggle.getAttribute('data-expanded') === 'true';
+            if (expanded) {
+                filtrosBody.style.maxHeight = filtrosBody.scrollHeight + 'px';
+                requestAnimationFrame(function () { filtrosBody.style.maxHeight = '0px'; });
+                btnToggle.setAttribute('data-expanded', 'false');
+                filtrosBody.setAttribute('data-hidden', 'true');
+            } else {
+                filtrosBody.style.maxHeight = filtrosBody.scrollHeight + 'px';
+                btnToggle.setAttribute('data-expanded', 'true');
+                filtrosBody.setAttribute('data-hidden', 'false');
+            }
+        });
+    }
+
     // ── Delete confirmation ──
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-delete-url]');

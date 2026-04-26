@@ -1,0 +1,197 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Logística
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Gestión de Proveedores" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: local_shipping
+              - text: Proveedores
+            - generic [ref=e66]:
+              - heading "Gestión de Proveedores" [level=1] [ref=e67]
+              - paragraph [ref=e68]: Administra la relación con tus proveedores, revisá la cobertura de catálogo y resolvé altas, ediciones y bajas desde un único punto operativo.
+          - generic [ref=e69]:
+            - link "visibility Ver Órdenes" [ref=e70] [cursor=pointer]:
+              - /url: /OrdenCompra
+              - generic [ref=e71]: visibility
+              - text: Ver Órdenes
+            - button "add Nuevo Proveedor" [ref=e72] [cursor=pointer]:
+              - generic [ref=e73]: add
+              - text: Nuevo Proveedor
+        - generic [ref=e74]:
+          - article [ref=e75]:
+            - paragraph [ref=e76]: Total
+            - paragraph [ref=e77]: "1"
+            - paragraph [ref=e78]: proveedores listados
+          - article [ref=e79]:
+            - paragraph [ref=e80]: Activos
+            - paragraph [ref=e81]: "1"
+            - paragraph [ref=e82]: operativos hoy
+          - article [ref=e83]:
+            - paragraph [ref=e84]: Cobertura
+            - paragraph [ref=e85]: "1"
+            - paragraph [ref=e86]: con categorías asociadas
+          - article [ref=e87]:
+            - paragraph [ref=e88]: Contacto
+            - paragraph [ref=e89]: "1"
+            - paragraph [ref=e90]: con canal disponible
+      - generic [ref=e92]:
+        - button "filter_alt Filtros y orden Buscá por razón social, CUIT o contacto y ajustá el criterio de visualización. 1 resultado expand_more" [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]: filter_alt
+            - generic [ref=e96]:
+              - paragraph [ref=e97]: Filtros y orden
+              - paragraph [ref=e98]: Buscá por razón social, CUIT o contacto y ajustá el criterio de visualización.
+          - generic [ref=e99]:
+            - generic [ref=e100]: 1 resultado
+            - generic [ref=e101]: expand_more
+        - generic [ref=e102]:
+          - generic [ref=e103]:
+            - generic [ref=e104]: Búsqueda rápida
+            - generic [ref=e105]:
+              - generic [ref=e106]: search
+              - textbox "Nombre, CUIT o Razón Social" [ref=e107]
+          - generic [ref=e108]:
+            - generic [ref=e109]: Ordenar por
+            - combobox [ref=e110]:
+              - option "Razón Social" [selected]
+              - option "CUIT"
+              - option "Email"
+              - option "Teléfono"
+          - generic [ref=e111]:
+            - generic [ref=e112]: Dirección
+            - combobox [ref=e113]:
+              - option "Ascendente" [selected]
+              - option "Descendente"
+          - generic [ref=e115] [cursor=pointer]:
+            - checkbox "Solo activos" [ref=e116]
+            - generic [ref=e117]: Solo activos
+          - generic [ref=e118]:
+            - button "Buscar" [ref=e119]
+            - link "filter_alt_off" [ref=e120] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e121]: filter_alt_off
+      - generic [ref=e122]:
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - heading "Listado de proveedores" [level=2] [ref=e126]
+            - paragraph [ref=e127]: Revisá cobertura, contacto y estado desde una sola grilla operativa.
+          - generic [ref=e128]:
+            - generic [ref=e129]: list_alt
+            - text: 1 proveedor
+        - region "Listado de proveedores" [ref=e131]:
+          - table [ref=e132]:
+            - rowgroup [ref=e133]:
+              - row "CUIT Razón Social Productos Contacto Estado Acciones" [ref=e134]:
+                - columnheader "CUIT" [ref=e135]
+                - columnheader "Razón Social" [ref=e136]
+                - columnheader "Productos" [ref=e137]
+                - columnheader "Contacto" [ref=e138]
+                - columnheader "Estado" [ref=e139]
+                - columnheader "Acciones" [ref=e140]
+            - rowgroup [ref=e141]:
+              - row "20-20962889-1 Electrodomésticos SA Refrigeración mail zytykyj@hotmail.com phone 1154722530 Activo Ver detalle de Electrodomésticos SA Editar Electrodomésticos SA Eliminar Electrodomésticos SA" [ref=e142]:
+                - cell "20-20962889-1" [ref=e143]
+                - cell "Electrodomésticos SA" [ref=e144]:
+                  - generic [ref=e146]: Electrodomésticos SA
+                - cell "Refrigeración" [ref=e147]:
+                  - generic [ref=e149]: Refrigeración
+                - cell "mail zytykyj@hotmail.com phone 1154722530" [ref=e150]:
+                  - generic [ref=e151]:
+                    - link "mail zytykyj@hotmail.com" [ref=e152] [cursor=pointer]:
+                      - /url: mailto:zytykyj@hotmail.com
+                      - generic [ref=e153]: mail
+                      - text: zytykyj@hotmail.com
+                    - generic [ref=e154]:
+                      - generic [ref=e155]: phone
+                      - text: "1154722530"
+                - cell "Activo" [ref=e156]:
+                  - generic [ref=e157]: Activo
+                - cell "Ver detalle de Electrodomésticos SA Editar Electrodomésticos SA Eliminar Electrodomésticos SA" [ref=e159]:
+                  - generic [ref=e160]:
+                    - link "Ver detalle de Electrodomésticos SA" [ref=e161] [cursor=pointer]:
+                      - /url: /Proveedor/Details/1
+                      - generic [ref=e162]: visibility
+                    - button "Editar Electrodomésticos SA" [ref=e163] [cursor=pointer]:
+                      - generic [ref=e164]: edit
+                    - button "Eliminar Electrodomésticos SA" [ref=e166] [cursor=pointer]:
+                      - generic [ref=e167]: delete
+        - generic [ref=e168]:
+          - generic [ref=e169]: Mostrando 1 de 1 proveedores
+          - paragraph [ref=e170]: Las acciones de detalle, edición y eliminación están en la última columna.

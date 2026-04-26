@@ -1,0 +1,64 @@
+/* ─────────────────────────────────────────────────────────────
+   seguridad-module.css
+   Styles for the Seguridad module views:
+     Index.cshtml, EditUsuario_tw, RolDetails_tw, Auditoria_tw
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   EDIT USUARIO
+   ══════════════════════════════════════════════════════════════ */
+
+#edit-user-footer-actions {
+    display: flex;
+}
+
+@media (max-width: 639px) {
+    #edit-user-footer-actions {
+        flex-direction: column-reverse;
+    }
+
+    #edit-user-footer-actions .edit-user-footer-action {
+        width: 100%;
+    }
+}
+
+@media (min-width: 640px) {
+    #edit-user-footer-actions {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #edit-user-footer-actions .edit-user-footer-action {
+        width: auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ROL DETAILS
+   ══════════════════════════════════════════════════════════════ */
+
+.seguridad-role-detail-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.seguridad-role-detail-actions > a {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .seguridad-role-detail-actions {
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .seguridad-role-detail-actions > a {
+        width: auto;
+    }
+}

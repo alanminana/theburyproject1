@@ -1,0 +1,144 @@
+@model IEnumerable<TheBuryProject.ViewModels.AlertaStockViewModel>
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Alertas por Producto";
+    var producto = ViewBag.Producto as TheBuryProject.Models.Entities.Producto;
+    var productoNombre = producto?.Nombre ?? "Producto";
+    var productoCodigo = producto?.Codigo ?? "";
+    var lista = Model?.ToList() ?? new List<TheBuryProject.ViewModels.AlertaStockViewModel>();
+    var productoId = lista.FirstOrDefault()?.ProductoId ?? 0;
+}
+
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <div class="hero-erp sm:p-8">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1 min-w-0">
+                <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
+                    <a asp-action="Index" class="hover:text-slate-200 transition-colors">Alertas de Stock</a>
+                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+                    <span class="text-slate-200">Por producto</span>
+                </nav>
+                <h1 class="text-xl sm:text-2xl font-bold text-slate-100">@productoNombre</h1>
+                @if (!string.IsNullOrEmpty(productoCodigo))
+                {
+                    <p class="mt-1 text-sm text-slate-400">Código: @productoCodigo</p>
+                }
+            </div>
+            <div class="flex flex-wrap gap-2 shrink-0">
+                <a asp-action="Index" class="btn-erp-ghost">
+                    <span class="material-symbols-outlined text-base">arrow_back</span>
+                    Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">history</span>
+                Historial de alertas
+                <span class="ml-auto text-xs font-normal text-slate-400">@lista.Count registros</span>
+            </h2>
+        </div>
+
+        @if (lista.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Prioridad</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Stock</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Mínimo</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Estado</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Fecha alerta</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Resolución</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var a in lista)
+                        {
+                            var prioridadBadge = a.Prioridad switch
+                            {
+                                PrioridadAlerta.Critica => "badge-erp badge-erp-danger",
+                                PrioridadAlerta.Alta    => "badge-erp badge-erp-warning",
+                                PrioridadAlerta.Media   => "badge-erp badge-erp-info",
+                                _                       => "badge-erp"
+                            };
+                            var tipoBadge = a.Tipo switch
+                            {
+                                TipoAlertaStock.StockAgotado  => "badge-erp badge-erp-danger",
+                                TipoAlertaStock.StockCritico  => "badge-erp badge-erp-warning",
+                                TipoAlertaStock.StockBajo     => "badge-erp badge-erp-info",
+                                _                             => "badge-erp"
+                            };
+                            var estadoBadge = a.Estado switch
+                            {
+                                EstadoAlerta.Pendiente  => "badge-erp badge-erp-warning",
+                                EstadoAlerta.EnProceso  => "badge-erp badge-erp-info",
+                                EstadoAlerta.Resuelta   => "badge-erp badge-erp-success",
+                                EstadoAlerta.Ignorada   => "badge-erp",
+                                _                       => "badge-erp"
+                            };
+                            var estaActiva = a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso;
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="px-4 py-3"><span class="@tipoBadge">@a.TipoDescripcion</span></td>
+                                <td class="px-4 py-3 text-center"><span class="@prioridadBadge">@a.PrioridadDescripcion</span></td>
+                                <td class="px-4 py-3 text-right font-semibold @(a.StockActual <= 0 ? "text-red-400" : "text-amber-400")">@a.StockActual.ToString("N0")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">@a.StockMinimo.ToString("N0")</td>
+                                <td class="px-4 py-3 text-center"><span class="@estadoBadge">@a.EstadoDescripcion</span></td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">@a.FechaAlerta.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">
+                                    @(a.FechaResolucion.HasValue ? a.FechaResolucion.Value.ToString("dd/MM/yyyy HH:mm") : "—")
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <a asp-action="Details" asp-route-id="@a.Id"
+                                           class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors" title="Ver detalle">
+                                            <span class="material-symbols-outlined text-[14px]">visibility</span>
+                                        </a>
+                                        @if (estaActiva)
+                                        {
+                                            <form asp-action="Resolver" method="post" class="inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@a.Id" />
+                                                @if (a.RowVersion != null)
+                                                {
+                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
+                                                }
+                                                <button type="submit"
+                                                        class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60 transition-colors"
+                                                        title="Resolver">
+                                                    <span class="material-symbols-outlined text-[14px]">check</span>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="px-6 py-12 text-center text-sm text-emerald-400">
+                <span class="material-symbols-outlined text-4xl block mb-3">check_circle</span>
+                No hay alertas registradas para este producto.
+            </div>
+        }
+    </section>
+
+</div>

@@ -152,6 +152,7 @@ namespace TheBuryProject.Services
             // Carga batch de las entidades a actualizar
             var existentes = idsExistentes.Count > 0
                 ? await _context.ConfiguracionesPago
+                    .Include(c => c.ConfiguracionesTarjeta)
                     .Where(c => idsExistentes.Contains(c.Id) && !c.IsDeleted)
                     .ToListAsync()
                 : new List<ConfiguracionPago>();
@@ -174,6 +175,8 @@ namespace TheBuryProject.Services
                             ? vm.TasaInteresMensualCreditoPersonal
                             : null;
                     entidad.UpdatedAt = ahora;
+
+                    ActualizarConfiguracionesTarjeta(entidad, vm.ConfiguracionesTarjeta, ahora);
                 }
                 else if (vm.Id == 0)
                 {
@@ -182,6 +185,47 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+        }
+
+        private static void ActualizarConfiguracionesTarjeta(
+            ConfiguracionPago entidad,
+            IReadOnlyList<ConfiguracionTarjetaViewModel>? tarjetasVm,
+            DateTime ahora)
+        {
+            if (tarjetasVm == null || tarjetasVm.Count == 0)
+                return;
+
+            var tarjetasMap = entidad.ConfiguracionesTarjeta
+                .Where(t => !t.IsDeleted)
+                .ToDictionary(t => t.Id);
+
+            foreach (var tarjetaVm in tarjetasVm)
+            {
+                if (tarjetaVm.Id <= 0 || !tarjetasMap.TryGetValue(tarjetaVm.Id, out var tarjeta))
+                    continue;
+
+                tarjeta.NombreTarjeta = tarjetaVm.NombreTarjeta;
+                tarjeta.TipoTarjeta = tarjetaVm.TipoTarjeta;
+                tarjeta.Activa = tarjetaVm.Activa;
+                tarjeta.PermiteCuotas = tarjetaVm.PermiteCuotas;
+                tarjeta.CantidadMaximaCuotas = tarjetaVm.PermiteCuotas
+                    ? tarjetaVm.CantidadMaximaCuotas
+                    : null;
+                tarjeta.TipoCuota = tarjetaVm.PermiteCuotas
+                    ? tarjetaVm.TipoCuota
+                    : null;
+                tarjeta.TasaInteresesMensual =
+                    tarjetaVm.PermiteCuotas && tarjetaVm.TipoCuota == TipoCuotaTarjeta.ConInteres
+                        ? tarjetaVm.TasaInteresesMensual
+                        : null;
+                tarjeta.TieneRecargoDebito = tarjetaVm.TipoTarjeta == TipoTarjeta.Debito &&
+                                             tarjetaVm.TieneRecargoDebito;
+                tarjeta.PorcentajeRecargoDebito = tarjeta.TieneRecargoDebito
+                    ? tarjetaVm.PorcentajeRecargoDebito
+                    : null;
+                tarjeta.Observaciones = tarjetaVm.Observaciones;
+                tarjeta.UpdatedAt = ahora;
+            }
         }
 
         public async Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync()
@@ -260,6 +304,18 @@ namespace TheBuryProject.Services
             // Actualizar defaults globales en ConfiguracionPago (TipoPago = CreditoPersonal)
             var configCreditoPersonal = await _context.ConfiguracionesPago
                 .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
+
+            if (configCreditoPersonal == null && config.DefaultsGlobales != null)
+            {
+                configCreditoPersonal = new ConfiguracionPago
+                {
+                    TipoPago = TipoPago.CreditoPersonal,
+                    Nombre = TipoPago.CreditoPersonal.ToString(),
+                    Activo = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ConfiguracionesPago.Add(configCreditoPersonal);
+            }
 
             if (configCreditoPersonal != null && config.DefaultsGlobales != null)
             {

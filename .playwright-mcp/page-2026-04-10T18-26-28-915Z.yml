@@ -1,0 +1,284 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic [ref=e7]:
+        - heading "TheBuryProject" [level=1] [ref=e8]
+        - paragraph [ref=e9]: SISTEMA GESTI�N
+    - navigation [ref=e10]:
+      - link "grid_view Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e13]: grid_view
+        - paragraph [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - paragraph [ref=e16]: Operaciones
+        - generic [ref=e17]:
+          - link "shopping_bag Ventas" [ref=e18] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e19]: shopping_bag
+            - paragraph [ref=e20]: Ventas
+          - link "group Clientes" [ref=e21] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e22]: group
+            - paragraph [ref=e23]: Clientes
+      - generic [ref=e24]:
+        - paragraph [ref=e25]: Log�stica
+        - generic [ref=e26]:
+          - link "inventory_2 Inventario" [ref=e27] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e28]: inventory_2
+            - paragraph [ref=e29]: Inventario
+          - link "local_shipping Proveedores" [ref=e30] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e31]: local_shipping
+            - paragraph [ref=e32]: Proveedores
+          - link "point_of_sale Cajas" [ref=e33] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e34]: point_of_sale
+            - paragraph [ref=e35]: Cajas
+      - generic [ref=e36]:
+        - paragraph [ref=e37]: Sistemas
+        - link "security Seguridad" [ref=e39] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e40]: security
+          - paragraph [ref=e41]: Seguridad
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e45]: account_circle
+        - generic [ref=e46]:
+          - paragraph [ref=e47]: admin@thebury.com
+          - paragraph [ref=e48]: SuperAdmin
+      - button "logout Cerrar sesi�n" [ref=e50] [cursor=pointer]:
+        - generic [ref=e51]: logout
+        - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e53]:
+      - generic [ref=e54]: chevron_left
+  - main [ref=e55]:
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Dashboard" [level=2] [ref=e58]
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: Dolar Blue
+            - generic [ref=e63]: $1.245,00
+          - generic [ref=e64]:
+            - generic [ref=e65]: Tarjeta
+            - generic [ref=e66]: $1.482,50
+          - generic [ref=e67]:
+            - generic [ref=e68]: Oficial
+            - generic [ref=e69]: $942,00
+      - generic [ref=e70]:
+        - button "notifications" [ref=e71]:
+          - generic [ref=e72]: notifications
+        - button "search" [ref=e74]:
+          - generic [ref=e75]: search
+        - button "help" [ref=e77]:
+          - generic [ref=e78]: help
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: space_dashboard
+            - text: Dashboard
+          - heading "Centro operativo del día" [level=1] [ref=e85]
+        - generic [ref=e86]:
+          - article [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - paragraph [ref=e90]: Ventas totales
+                - paragraph [ref=e91]: $ 14,52
+              - generic [ref=e92]: mes
+          - article [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - paragraph [ref=e96]: Operaciones
+                - paragraph [ref=e97]: "1"
+              - generic [ref=e98]: 3 pend.
+          - article [ref=e99]:
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - paragraph [ref=e102]: Créditos activos
+                - paragraph [ref=e103]: "0"
+              - generic [ref=e104]: 30 días
+          - article [ref=e105]:
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - paragraph [ref=e108]: Cuotas en vista
+                - paragraph [ref=e109]: "6"
+              - generic [ref=e110]: total
+            - paragraph [ref=e111]: 4 venc. · 2 próx.
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: warning
+                  - text: Inventario
+                - heading "Alertas de stock" [level=2] [ref=e119]
+              - link "open_in_new Ver alertas" [ref=e120] [cursor=pointer]:
+                - /url: /AlertaStock
+                - generic [ref=e121]: open_in_new
+                - text: Ver alertas
+            - table [ref=e126]:
+              - rowgroup [ref=e127]:
+                - row "SKU Producto Stock Estado Acciones" [ref=e128]:
+                  - columnheader "SKU" [ref=e129]
+                  - columnheader "Producto" [ref=e130]
+                  - columnheader "Stock" [ref=e131]
+                  - columnheader "Estado" [ref=e132]
+                  - columnheader "Acciones" [ref=e133]
+              - rowgroup [ref=e134]:
+                - row "BP-1022 Cubierta 205/55 R16 2 Stock crítico Reponer" [ref=e135]:
+                  - cell "BP-1022" [ref=e136]
+                  - cell "Cubierta 205/55 R16" [ref=e137]
+                  - cell "2" [ref=e138]
+                  - cell "Stock crítico" [ref=e139]
+                  - cell "Reponer" [ref=e140]:
+                    - button "Reponer" [ref=e141]
+                - row "BP-5044 Amortiguador Trasero 5 Reponer pronto Reponer" [ref=e142]:
+                  - cell "BP-5044" [ref=e143]
+                  - cell "Amortiguador Trasero" [ref=e144]
+                  - cell "5" [ref=e145]
+                  - cell "Reponer pronto" [ref=e146]
+                  - cell "Reponer" [ref=e147]:
+                    - button "Reponer" [ref=e148]
+                - row "BP-9012 Batería Moura 12V 75Ah 3 Reponer pronto Reponer" [ref=e149]:
+                  - cell "BP-9012" [ref=e150]
+                  - cell "Batería Moura 12V 75Ah" [ref=e151]
+                  - cell "3" [ref=e152]
+                  - cell "Reponer pronto" [ref=e153]
+                  - cell "Reponer" [ref=e154]:
+                    - button "Reponer" [ref=e155]
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - generic [ref=e159]:
+                  - generic [ref=e160]: schedule
+                  - text: Cobranzas
+                - heading "Cuotas y pagos" [level=2] [ref=e161]
+              - generic [ref=e162]:
+                - generic [ref=e163]: 4 venc. / 2 próx.
+                - generic [ref=e164]:
+                  - button "Vencidas" [pressed] [ref=e165]
+                  - button "Próximas" [ref=e166]
+            - table [ref=e171]:
+              - rowgroup [ref=e172]:
+                - row "Cliente Concepto Vencimiento Monto Estado Acciones" [ref=e173]:
+                  - columnheader "Cliente" [ref=e174]
+                  - columnheader "Concepto" [ref=e175]
+                  - columnheader "Vencimiento" [ref=e176]
+                  - columnheader "Monto" [ref=e177]
+                  - columnheader "Estado" [ref=e178]
+                  - columnheader "Acciones" [ref=e179]
+              - rowgroup [ref=e180]:
+                - 'row "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5 Cuota 1 Hace 54 d $ 0,00 Vencido send_money" [ref=e181]':
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5" [ref=e182]':
+                    - paragraph [ref=e183]: "Pérez, Ventilador - DNI: 11111111111111111111"
+                    - paragraph [ref=e184]: "ID: 5"
+                  - cell "Cuota 1" [ref=e185]
+                  - cell "Hace 54 d" [ref=e186]
+                  - cell "$ 0,00" [ref=e187]
+                  - cell "Vencido" [ref=e188]:
+                    - generic [ref=e191]: Vencido
+                  - cell "send_money" [ref=e192]:
+                    - link "send_money" [ref=e193] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/17?cuotaId=37
+                      - generic [ref=e194]: send_money
+                - 'row "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5 Cuota 2 Hace 26 d $ 8.677,97 Vencido send_money" [ref=e195]':
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5" [ref=e196]':
+                    - paragraph [ref=e197]: "Pérez, Ventilador - DNI: 11111111111111111111"
+                    - paragraph [ref=e198]: "ID: 5"
+                  - cell "Cuota 2" [ref=e199]
+                  - cell "Hace 26 d" [ref=e200]
+                  - cell "$ 8.677,97" [ref=e201]
+                  - cell "Vencido" [ref=e202]:
+                    - generic [ref=e205]: Vencido
+                  - cell "send_money" [ref=e206]:
+                    - link "send_money" [ref=e207] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/17?cuotaId=38
+                      - generic [ref=e208]: send_money
+                - 'row "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5 Cuota 1 Hace 26 d $ 2,00 Vencido send_money" [ref=e209]':
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5" [ref=e210]':
+                    - paragraph [ref=e211]: "Pérez, Ventilador - DNI: 11111111111111111111"
+                    - paragraph [ref=e212]: "ID: 5"
+                  - cell "Cuota 1" [ref=e213]
+                  - cell "Hace 26 d" [ref=e214]
+                  - cell "$ 2,00" [ref=e215]
+                  - cell "Vencido" [ref=e216]:
+                    - generic [ref=e219]: Vencido
+                  - cell "send_money" [ref=e220]:
+                    - link "send_money" [ref=e221] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/18?cuotaId=49
+                      - generic [ref=e222]: send_money
+                - 'row "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5 Cuota 1 Hace 15 d $ 4,01 Vencido send_money" [ref=e223]':
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111 ID: 5" [ref=e224]':
+                    - paragraph [ref=e225]: "Pérez, Ventilador - DNI: 11111111111111111111"
+                    - paragraph [ref=e226]: "ID: 5"
+                  - cell "Cuota 1" [ref=e227]
+                  - cell "Hace 15 d" [ref=e228]
+                  - cell "$ 4,01" [ref=e229]
+                  - cell "Vencido" [ref=e230]:
+                    - generic [ref=e233]: Vencido
+                  - cell "send_money" [ref=e234]:
+                    - link "send_money" [ref=e235] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/19?cuotaId=61
+                      - generic [ref=e236]: send_money
+        - complementary [ref=e237]:
+          - generic [ref=e238]:
+            - generic [ref=e239]:
+              - generic [ref=e240]: bolt
+              - heading "Accesos rápidos" [level=2] [ref=e241]
+            - generic [ref=e242]:
+              - link "add_shopping_cart Nueva Venta" [ref=e243] [cursor=pointer]:
+                - /url: /Venta/Create
+                - generic [ref=e244]: add_shopping_cart
+                - generic [ref=e245]: Nueva Venta
+              - link "person_add Nuevo Cliente" [ref=e246] [cursor=pointer]:
+                - /url: /Cliente/Create
+                - generic [ref=e247]: person_add
+                - generic [ref=e248]: Nuevo Cliente
+              - link "receipt_long Reportes" [ref=e249] [cursor=pointer]:
+                - /url: /Reporte
+                - generic [ref=e250]: receipt_long
+                - generic [ref=e251]: Reportes
+              - link "box_edit Catálogo" [ref=e252] [cursor=pointer]:
+                - /url: /Catalogo
+                - generic [ref=e253]: box_edit
+                - generic [ref=e254]: Catálogo
+              - link "point_of_sale Caja" [ref=e255] [cursor=pointer]:
+                - /url: /Caja
+                - generic [ref=e256]: point_of_sale
+                - generic [ref=e257]: Caja
+              - link "credit_card Créditos" [ref=e258] [cursor=pointer]:
+                - /url: /Credito
+                - generic [ref=e259]: credit_card
+                - generic [ref=e260]: Créditos
+          - generic [ref=e261]:
+            - generic [ref=e263]:
+              - generic [ref=e264]: monitoring
+              - heading "Actividad reciente" [level=2] [ref=e265]
+            - generic [ref=e266]:
+              - generic [ref=e269]:
+                - paragraph [ref=e270]: "Venta registrada #8821 por $12.500"
+                - paragraph [ref=e271]: Hace 15 minutos
+              - generic [ref=e274]:
+                - paragraph [ref=e275]: Cliente nuevo Marcos Solari
+                - paragraph [ref=e276]: Hace 2 horas
+              - generic [ref=e279]:
+                - paragraph [ref=e280]: Stock bajo Batería Moura SKU-9012
+                - paragraph [ref=e281]: Hace 4 horas
+          - generic [ref=e282]:
+            - generic [ref=e283]:
+              - generic [ref=e284]:
+                - generic [ref=e285]: note_stack
+                - heading "Notas rápidas" [level=2] [ref=e286]
+              - button "add Guardar" [ref=e287]:
+                - generic [ref=e288]: add
+                - text: Guardar
+            - generic [ref=e289]:
+              - textbox "Escribí un recordatorio..." [ref=e290]
+              - button "save Guardar" [ref=e292]:
+                - generic [ref=e293]: save
+                - text: Guardar

@@ -1,5 +1,79 @@
 /* Shared component helpers */
 
+/* ── Devolucion quick-modal layout ──
+   Used by Views/Shared/_VentaDevolucionModal.cshtml
+   (consumed in Venta/Index_tw and Venta/Details_tw)
+*/
+#modal-devolucion-venta .devolucion-quick-modal__panel {
+    display: flex;
+    max-height: min(calc(100vh - 2rem), 92vh);
+    flex-direction: column;
+}
+
+#modal-devolucion-venta .devolucion-quick-modal__form {
+    display: flex;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+#modal-devolucion-venta [data-devolucion-modal-content] {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#modal-devolucion-venta .devolucion-quick-modal__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#modal-devolucion-venta .devolucion-quick-modal__actions {
+    display: flex;
+    width: 100%;
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+}
+
+#modal-devolucion-venta .devolucion-quick-modal__action-btn {
+    width: 100%;
+    min-height: 2.75rem;
+}
+
+@media (min-width: 640px) {
+    #modal-devolucion-venta .devolucion-quick-modal__footer {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__actions {
+        width: auto;
+        flex-direction: row;
+    }
+
+    #modal-devolucion-venta .devolucion-quick-modal__action-btn {
+        width: auto;
+    }
+}
+
+/* ── Seguridad: permisos-rol actions row ──
+   Used by Views/Shared/_SeguridadPermisosRolTab.cshtml
+*/
+@media (min-width: 640px) {
+    #permissionsRoleActions {
+        width: auto;
+        flex-direction: row;
+    }
+
+    #permissionsRoleActions .permissions-role-action {
+        width: auto;
+    }
+}
+
 .icon-size-22 {
     font-size: 22px;
 }
@@ -140,3 +214,555 @@
 .progress-w-98 { width: 98%; }
 .progress-w-99 { width: 99%; }
 .progress-w-100 { width: 100%; }
+
+/* ══════════════════════════════════════════════════════════════
+   SISTEMA DE BOTONES CANÓNICO
+   Uso: reemplazar definiciones inline repetidas en cada vista.
+   Altura base h-11 (44px) — cumple WCAG touch target.
+   ══════════════════════════════════════════════════════════════ */
+
+/* -- Primario: acción principal de la página -- */
+.btn-erp-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;           /* 44px */
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: #135bec;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(19, 91, 236, 0.22);
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-erp-primary:hover  { background-color: #0f4fd6; }
+.btn-erp-primary:focus-visible { outline: 2px solid #135bec; outline-offset: 2px; }
+.btn-erp-primary:disabled,
+.btn-erp-primary[aria-disabled="true"] {
+    background-color: #334155;
+    color: #64748b;
+    box-shadow: none;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* -- Secundario: acción relevante pero no principal -- */
+.btn-erp-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: #1e293b;  /* slate-800 en dark; se ve bien en dark-first */
+    color: #e2e8f0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid #334155;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.btn-erp-secondary:hover { background-color: #273549; }
+.btn-erp-secondary:focus-visible { outline: 2px solid #135bec; outline-offset: 2px; }
+.btn-erp-secondary:disabled,
+.btn-erp-secondary[aria-disabled="true"] {
+    color: #475569;
+    border-color: #1e293b;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* -- Ghost / outline: acción contextual de baja jerarquía -- */
+.btn-erp-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: transparent;
+    color: #94a3b8;              /* slate-400 */
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid #334155;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.btn-erp-ghost:hover {
+    background-color: #1e293b;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+.btn-erp-ghost:focus-visible { outline: 2px solid #135bec; outline-offset: 2px; }
+.btn-erp-ghost:disabled,
+.btn-erp-ghost[aria-disabled="true"] {
+    color: #475569;
+    border-color: #1e293b;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* -- Advertencia / configuración: configurar, pendiente, acción no destructiva -- */
+.btn-erp-warning {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: rgba(245, 158, 11, 0.12);  /* amber-500/12 */
+    color: #fbbf24;                               /* amber-400 */
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.btn-erp-warning:hover  { background-color: rgba(245, 158, 11, 0.2); }
+.btn-erp-warning:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+.btn-erp-warning:disabled,
+.btn-erp-warning[aria-disabled="true"] {
+    color: #475569;
+    border-color: #1e293b;
+    background-color: transparent;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* -- Éxito / positivo: aprobar, confirmar, recepcionar -- */
+.btn-erp-success {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: #059669;       /* emerald-600 */
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.22);
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-erp-success:hover  { background-color: #047857; }
+.btn-erp-success:focus-visible { outline: 2px solid #059669; outline-offset: 2px; }
+.btn-erp-success:disabled,
+.btn-erp-success[aria-disabled="true"] {
+    background-color: #334155;
+    color: #64748b;
+    box-shadow: none;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* -- Peligro: eliminar, cancelar, rechazar -- */
+.btn-erp-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border-radius: 0.75rem;
+    background-color: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.btn-erp-danger:hover { background-color: rgba(239, 68, 68, 0.2); }
+.btn-erp-danger:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+
+/* Variante compacta (h-9 / 36px) — filtros, acciones de tabla */
+/* Soporta tanto .btn-sm como .btn-erp-sm (alias) */
+.btn-erp-primary.btn-sm,
+.btn-erp-secondary.btn-sm,
+.btn-erp-ghost.btn-sm,
+.btn-erp-danger.btn-sm,
+.btn-erp-warning.btn-sm,
+.btn-erp-success.btn-sm,
+.btn-erp-primary.btn-erp-sm,
+.btn-erp-secondary.btn-erp-sm,
+.btn-erp-ghost.btn-erp-sm,
+.btn-erp-danger.btn-erp-sm,
+.btn-erp-warning.btn-erp-sm,
+.btn-erp-success.btn-erp-sm {
+    height: 2.25rem;
+    padding-inline: 1rem;
+    font-size: 0.8125rem;
+    border-radius: 0.625rem;
+}
+
+/* Ancho completo en contextos móviles */
+.btn-erp-block {
+    width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SISTEMA DE CARDS CANÓNICO
+   Superficies elevadas sobre el fondo base del layout.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Card base: panel, sección, contenedor de contenido */
+.card-erp {
+    border-radius: 1rem;
+    border: 1px solid #1e293b;          /* slate-800 */
+    background-color: #161c28;          /* surface-low — ligeramente más claro que el bg */
+    padding: 1.5rem;
+}
+
+/* Card métrica: stat card en grids de KPIs */
+.card-erp-metric {
+    border-radius: 0.875rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    padding: 1rem;
+}
+
+/* Card métrica accent — variante de color semántico */
+.card-erp-metric-success {
+    border-radius: 0.875rem;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    background-color: rgba(16, 185, 129, 0.06);
+    padding: 1rem;
+}
+.card-erp-metric-warning {
+    border-radius: 0.875rem;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    background-color: rgba(245, 158, 11, 0.06);
+    padding: 1rem;
+}
+.card-erp-metric-danger {
+    border-radius: 0.875rem;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    background-color: rgba(239, 68, 68, 0.06);
+    padding: 1rem;
+}
+.card-erp-metric-info {
+    border-radius: 0.875rem;
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    background-color: rgba(14, 165, 233, 0.06);
+    padding: 1rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HERO SECTION — estructura canónica de cabecera de índice
+   ══════════════════════════════════════════════════════════════ */
+
+.hero-erp {
+    border-radius: 1.5rem;
+    border: 1px solid #1e293b;
+    background-color: #1a202c;
+    padding: 1.5rem;
+    overflow: hidden;
+}
+
+@media (min-width: 640px) {
+    .hero-erp { padding: 2rem; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTROS / FILTER PANEL
+   ══════════════════════════════════════════════════════════════ */
+
+.filter-panel-erp {
+    border-radius: 1rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    padding: 1.25rem;
+}
+
+@media (min-width: 640px) {
+    .filter-panel-erp { padding: 1.5rem; }
+}
+
+/* Collapsible body (max-height animation, driven by JS).
+   Pre-collapse via CSS when data-hidden="true" so el panel ya está cerrado antes de
+   que corra el JS, evitando el CLS por el salto de layout al setear maxHeight=0. */
+.filter-panel-erp__body {
+    overflow: hidden;
+    transition: max-height 0.28s ease;
+}
+.filter-panel-erp__body[data-hidden="true"] {
+    max-height: 0;
+}
+
+/* Chevron icon rotation state */
+.filter-panel-erp__toggle-icon {
+    transition: transform 0.25s ease;
+}
+
+[data-expanded="false"] .filter-panel-erp__toggle-icon {
+    transform: rotate(-90deg);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PANEL DE CONTENIDO — sección secundaria dentro de un detail
+   Uso: info general, sidebar cards, paneles secundarios.
+   Diferencia vs card-erp: no tiene padding propio (el hijo lo maneja),
+   soporta overflow:hidden para contener header+body con border-b.
+   ══════════════════════════════════════════════════════════════ */
+
+.card-erp-panel {
+    border-radius: 0.75rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    overflow: hidden;
+}
+
+/* Variante con padding directo (sin header/body separados) */
+.card-erp-panel-padded {
+    border-radius: 0.75rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    overflow: hidden;
+    padding: 1.5rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TABLA CANÓNICA
+   ══════════════════════════════════════════════════════════════ */
+
+.table-erp-wrapper {
+    border-radius: 1rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    overflow: hidden;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BADGE / PILL canónico
+   ══════════════════════════════════════════════════════════════ */
+
+.badge-erp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0.1875rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.badge-erp-primary  { background-color: rgba(19, 91, 236, 0.12); color: #6ea3ff; border: 1px solid rgba(19, 91, 236, 0.2); }
+.badge-erp-neutral  { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.badge-erp-success  { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge-erp-warning  { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+.badge-erp-danger   { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-erp-info     { background-color: rgba(14, 165, 233, 0.1); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.2); }
+
+/* ══════════════════════════════════════════════════════════════
+   ACCIONES POR FILA — row-action
+   Sistema canónico para botones de acción dentro de tablas/listados.
+
+   Estructura esperada:
+     <a class="row-action row-action--primary" title="Ver">
+       <span class="material-symbols-outlined">visibility</span>
+       <span class="row-action__label">Ver</span>
+     </a>
+
+   Comportamiento:
+   - Mobile: muestra icono + label (compacto, touch-friendly)
+   - sm+: solo icono, tamaño fijo 2.25rem × 2.25rem (icon-button)
+   ══════════════════════════════════════════════════════════════ */
+
+.row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.5rem;
+    background-color: transparent;
+    color: #64748b;              /* slate-500 */
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.row-action:focus-visible {
+    outline: 2px solid #135bec;
+    outline-offset: 2px;
+}
+
+/* Label — visible en mobile, oculto en sm+ */
+.row-action__label {
+    display: inline;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+/* Icon — tamaño base */
+.row-action .material-symbols-outlined {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+/* Variante neutral (default hover) */
+.row-action:hover {
+    background-color: #1e293b;
+    color: #cbd5e1;
+}
+
+/* -- Primary: ver / detalle -- */
+.row-action--primary { color: #64748b; }
+.row-action--primary:hover {
+    background-color: rgba(19, 91, 236, 0.12);
+    color: #6ea3ff;
+}
+
+/* -- Warning: acción reversible / devolver / pagar -- */
+.row-action--warning { color: #64748b; }
+.row-action--warning:hover {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+}
+
+/* -- Danger: eliminar / anular -- */
+.row-action--danger { color: #64748b; }
+.row-action--danger:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+}
+
+/* -- Disabled state -- */
+.row-action--disabled,
+.row-action[aria-disabled="true"] {
+    color: #334155;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.row-action--disabled:hover,
+.row-action[aria-disabled="true"]:hover {
+    background-color: transparent;
+    color: #334155;
+}
+
+/* sm+ → icon-button: tamaño fijo, sin label (40px = closer to 44px WCAG target) */
+@media (min-width: 640px) {
+    .row-action {
+        width: 2.5rem;
+        height: 2.5rem;
+        padding: 0;
+        border-radius: 0.5rem;
+    }
+    .row-action__label {
+        display: none;
+    }
+    .row-action .material-symbols-outlined {
+        font-size: 20px;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SEPARACIÓN VISUAL DE SECCIONES
+   ══════════════════════════════════════════════════════════════ */
+
+.section-header-erp {
+    position: relative;
+    padding-left: 1rem;
+    margin-bottom: 0.5rem;
+}
+.section-header-erp::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 9999px;
+    background: linear-gradient(to bottom, #135bec, #135bec80);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTROS — inputs y selects compartidos entre módulos de índice
+   ══════════════════════════════════════════════════════════════ */
+
+.filter-input-erp,
+.filter-select-erp {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background-color: #161c28;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #dde2f4;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    appearance: none;
+}
+
+.filter-input-erp::placeholder {
+    color: #94a3b8;
+}
+
+.filter-input-erp:focus,
+.filter-select-erp:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+}
+
+.filter-select-erp {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1.125rem;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+
+.filter-select-erp option {
+    background-color: #161c28;
+    color: #dde2f4;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ACCESIBILIDAD — texto sobre fondos oscuros
+   #135bec (primary) solo alcanza ~3.4:1 en fondos oscuros → falla WCAG AA.
+   Usar esta clase en lugar de text-primary cuando el color es el del texto visible.
+   ══════════════════════════════════════════════════════════════ */
+.text-primary-on-dark {
+    color: #5b8dff; /* contraste ~6.1:1 sobre #101622 — WCAG AA */
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SELECT — opciones desplegadas legibles en dark theme
+   Los <option> del OS ignoran Tailwind; sin esta regla aparecen
+   con fondo blanco del sistema aunque el select tenga bg-slate-*.
+   Scope: todos los select del ERP (body.dark → html.dark).
+   Excluye bg-transparent intencionalmente con :not([class*="bg-transparent"]).
+   ══════════════════════════════════════════════════════════════ */
+select option {
+    background-color: #161c28;
+    color: #dde2f4;
+}
+
+/* Cobertura para selects Tailwind inline sin clase propia.
+   Solo actúa cuando no hay otra regla de módulo más específica. */
+select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credito-input):not(.venta-select):not(.venta-input):not(.vm-select) {
+    color-scheme: dark;
+}

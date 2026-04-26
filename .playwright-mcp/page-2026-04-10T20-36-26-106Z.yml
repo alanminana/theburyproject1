@@ -1,0 +1,402 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTI�N
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Log�stica
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesi�n":
+          - generic: logout
+          - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Seguridad" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - navigation [ref=e65]:
+              - link "ERP" [ref=e66] [cursor=pointer]:
+                - /url: /
+              - generic [ref=e67]: /
+              - generic [ref=e68]: Seguridad
+            - generic [ref=e69]:
+              - generic [ref=e70]: security
+              - text: Seguridad
+            - generic [ref=e71]:
+              - heading "Módulo Seguridad" [level=1] [ref=e72]
+              - paragraph [ref=e73]: Punto de entrada del módulo RBAC. Desde acá se organiza la gestión de usuarios, roles, permisos de rol y auditoría.
+          - generic [ref=e74]:
+            - article [ref=e75]:
+              - paragraph [ref=e76]: Usuarios activos
+              - paragraph [ref=e77]: "10"
+            - article [ref=e78]:
+              - paragraph [ref=e79]: Bloqueados
+              - paragraph [ref=e80]: "0"
+            - article [ref=e81]:
+              - paragraph [ref=e82]: Roles
+              - paragraph [ref=e83]: "9"
+            - article [ref=e84]:
+              - paragraph [ref=e85]: Permisos asignados
+              - paragraph [ref=e86]: "469"
+        - navigation [ref=e87]:
+          - link "Usuarios" [ref=e88] [cursor=pointer]:
+            - /url: /Seguridad?tab=usuarios
+          - link "Roles" [ref=e89] [cursor=pointer]:
+            - /url: /Seguridad?tab=roles
+          - link "Permisos de Rol" [ref=e90] [cursor=pointer]:
+            - /url: /Seguridad?tab=permisos-rol
+          - link "Auditoría" [ref=e91] [cursor=pointer]:
+            - /url: /Seguridad?tab=auditoria
+      - generic [ref=e92]:
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]: history
+              - text: Auditoría
+            - generic [ref=e98]:
+              - heading "Registro histórico de actividad operativa" [level=3] [ref=e99]
+              - paragraph [ref=e100]: Consultá movimientos relevantes del sistema por usuario, módulo, acción o rango de fechas. La tabla conserva el contexto del evento y permite revisar actividad reciente sin salir del módulo.
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]: manage_search
+                - text: Filtrado por usuario, módulo y acción
+              - generic [ref=e104]:
+                - generic [ref=e105]: schedule
+                - text: "Última actividad: 30/03/2026 01:19"
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - paragraph [ref=e108]: Resultados visibles
+              - paragraph [ref=e109]: "14"
+              - paragraph [ref=e110]: Se actualiza con cada combinación de filtros.
+            - generic [ref=e111]:
+              - paragraph [ref=e112]: Usuarios
+              - paragraph [ref=e113]: "1"
+              - paragraph [ref=e114]: Base disponible para segmentar la trazabilidad.
+            - generic [ref=e115]:
+              - paragraph [ref=e116]: Módulos
+              - paragraph [ref=e117]: "1"
+              - paragraph [ref=e118]: Cobertura funcional auditada por el sistema.
+            - generic [ref=e119]:
+              - paragraph [ref=e120]: Acciones
+              - paragraph [ref=e121]: "3"
+              - paragraph [ref=e122]: Tipos de eventos listos para filtrar.
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - paragraph [ref=e126]: Filtros de consulta
+              - paragraph [ref=e127]: Acotá el histórico por actor, módulo, acción o rango de fechas antes de revisar la tabla completa.
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - generic [ref=e130]: table_rows
+                - text: Mostrando 1-14
+              - generic [ref=e131]:
+                - generic [ref=e132]: rule_settings
+                - text: 14 resultados
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - text: Usuario
+              - combobox "Usuario" [ref=e135]:
+                - option "Todos los usuarios" [selected]
+                - option "admin@thebury.com"
+            - generic [ref=e136]:
+              - text: Módulo
+              - combobox "Módulo" [ref=e137]:
+                - option "Todos los módulos" [selected]
+                - option "Seguridad"
+            - generic [ref=e138]:
+              - text: Acción
+              - combobox "Acción" [ref=e139]:
+                - option "Todas las acciones" [selected]
+                - option "Editar"
+                - option "Permisos"
+                - option "Reset Password"
+            - generic [ref=e140]:
+              - text: Rango de fechas
+              - generic [ref=e141]:
+                - textbox [ref=e142]
+                - textbox [ref=e143]
+            - generic [ref=e144]:
+              - button "filter_alt Buscar" [ref=e145]:
+                - generic [ref=e146]: filter_alt
+                - text: Buscar
+              - link "Limpiar" [ref=e147] [cursor=pointer]:
+                - /url: /Seguridad?tab=auditoria
+        - generic [ref=e148]:
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - paragraph [ref=e152]: Timeline de eventos auditados
+              - paragraph [ref=e153]: Cada fila combina fecha, actor, acción y entidad afectada para acelerar revisión operativa.
+            - generic [ref=e154]:
+              - generic [ref=e155]:
+                - generic [ref=e156]: summarize
+                - text: 14 registros
+              - generic [ref=e157]:
+                - generic [ref=e158]: calendar_month
+                - text: Rango 1-14
+          - region "Registro de auditoría" [ref=e161]:
+            - table [ref=e162]:
+              - rowgroup [ref=e163]:
+                - row "Fecha / Hora Usuario Acción Módulo Entidad Detalle" [ref=e164]:
+                  - columnheader "Fecha / Hora" [ref=e165]
+                  - columnheader "Usuario" [ref=e166]
+                  - columnheader "Acción" [ref=e167]
+                  - columnheader "Módulo" [ref=e168]
+                  - columnheader "Entidad" [ref=e169]
+                  - columnheader "Detalle" [ref=e170]
+              - rowgroup [ref=e171]:
+                - row "30 mar 2026 01:19:26 A admin@thebury.com Reset Password Seguridad Usuario \"vendedor@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e172]:
+                  - cell "30 mar 2026 01:19:26" [ref=e173]:
+                    - generic [ref=e174]: 30 mar 2026
+                    - generic [ref=e175]: 01:19:26
+                  - cell "A admin@thebury.com" [ref=e176]:
+                    - generic [ref=e177]:
+                      - generic [ref=e178]: A
+                      - generic [ref=e179]: admin@thebury.com
+                  - cell "Reset Password" [ref=e180]:
+                    - generic [ref=e181]: Reset Password
+                  - cell "Seguridad" [ref=e182]
+                  - cell "Usuario \"vendedor@thebury.com\"" [ref=e183]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e184]
+                - row "29 mar 2026 22:53:56 A admin@thebury.com Reset Password Seguridad Usuario \"vendedor@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e185]:
+                  - cell "29 mar 2026 22:53:56" [ref=e186]:
+                    - generic [ref=e187]: 29 mar 2026
+                    - generic [ref=e188]: 22:53:56
+                  - cell "A admin@thebury.com" [ref=e189]:
+                    - generic [ref=e190]:
+                      - generic [ref=e191]: A
+                      - generic [ref=e192]: admin@thebury.com
+                  - cell "Reset Password" [ref=e193]:
+                    - generic [ref=e194]: Reset Password
+                  - cell "Seguridad" [ref=e195]
+                  - cell "Usuario \"vendedor@thebury.com\"" [ref=e196]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e197]
+                - row "29 mar 2026 17:22:28 A admin@thebury.com Reset Password Seguridad Usuario \"vendedor@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e198]:
+                  - cell "29 mar 2026 17:22:28" [ref=e199]:
+                    - generic [ref=e200]: 29 mar 2026
+                    - generic [ref=e201]: 17:22:28
+                  - cell "A admin@thebury.com" [ref=e202]:
+                    - generic [ref=e203]:
+                      - generic [ref=e204]: A
+                      - generic [ref=e205]: admin@thebury.com
+                  - cell "Reset Password" [ref=e206]:
+                    - generic [ref=e207]: Reset Password
+                  - cell "Seguridad" [ref=e208]
+                  - cell "Usuario \"vendedor@thebury.com\"" [ref=e209]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e210]
+                - row "29 mar 2026 09:15:54 A admin@thebury.com Reset Password Seguridad Usuario \"tecnico@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e211]:
+                  - cell "29 mar 2026 09:15:54" [ref=e212]:
+                    - generic [ref=e213]: 29 mar 2026
+                    - generic [ref=e214]: 09:15:54
+                  - cell "A admin@thebury.com" [ref=e215]:
+                    - generic [ref=e216]:
+                      - generic [ref=e217]: A
+                      - generic [ref=e218]: admin@thebury.com
+                  - cell "Reset Password" [ref=e219]:
+                    - generic [ref=e220]: Reset Password
+                  - cell "Seguridad" [ref=e221]
+                  - cell "Usuario \"tecnico@thebury.com\"" [ref=e222]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e223]
+                - 'row "29 mar 2026 09:15:11 A admin@thebury.com Editar Seguridad Usuario \"tecnico@thebury.com\" Edición de usuario. Roles: Vendedor · Sucursal: Casa Central · Estado: activo." [ref=e224]':
+                  - cell "29 mar 2026 09:15:11" [ref=e225]:
+                    - generic [ref=e226]: 29 mar 2026
+                    - generic [ref=e227]: 09:15:11
+                  - cell "A admin@thebury.com" [ref=e228]:
+                    - generic [ref=e229]:
+                      - generic [ref=e230]: A
+                      - generic [ref=e231]: admin@thebury.com
+                  - cell "Editar" [ref=e232]:
+                    - generic [ref=e233]: Editar
+                  - cell "Seguridad" [ref=e234]
+                  - cell "Usuario \"tecnico@thebury.com\"" [ref=e235]
+                  - 'cell "Edición de usuario. Roles: Vendedor · Sucursal: Casa Central · Estado: activo." [ref=e236]'
+                - row "29 mar 2026 09:14:14 A admin@thebury.com Reset Password Seguridad Usuario \"tecnico@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e237]:
+                  - cell "29 mar 2026 09:14:14" [ref=e238]:
+                    - generic [ref=e239]: 29 mar 2026
+                    - generic [ref=e240]: 09:14:14
+                  - cell "A admin@thebury.com" [ref=e241]:
+                    - generic [ref=e242]:
+                      - generic [ref=e243]: A
+                      - generic [ref=e244]: admin@thebury.com
+                  - cell "Reset Password" [ref=e245]:
+                    - generic [ref=e246]: Reset Password
+                  - cell "Seguridad" [ref=e247]
+                  - cell "Usuario \"tecnico@thebury.com\"" [ref=e248]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e249]
+                - row "29 mar 2026 09:13:29 A admin@thebury.com Reset Password Seguridad Usuario \"test1\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e250]:
+                  - cell "29 mar 2026 09:13:29" [ref=e251]:
+                    - generic [ref=e252]: 29 mar 2026
+                    - generic [ref=e253]: 09:13:29
+                  - cell "A admin@thebury.com" [ref=e254]:
+                    - generic [ref=e255]:
+                      - generic [ref=e256]: A
+                      - generic [ref=e257]: admin@thebury.com
+                  - cell "Reset Password" [ref=e258]:
+                    - generic [ref=e259]: Reset Password
+                  - cell "Seguridad" [ref=e260]
+                  - cell "Usuario \"test1\"" [ref=e261]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e262]
+                - row "29 mar 2026 09:12:38 A admin@thebury.com Reset Password Seguridad Usuario \"test\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e263]:
+                  - cell "29 mar 2026 09:12:38" [ref=e264]:
+                    - generic [ref=e265]: 29 mar 2026
+                    - generic [ref=e266]: 09:12:38
+                  - cell "A admin@thebury.com" [ref=e267]:
+                    - generic [ref=e268]:
+                      - generic [ref=e269]: A
+                      - generic [ref=e270]: admin@thebury.com
+                  - cell "Reset Password" [ref=e271]:
+                    - generic [ref=e272]: Reset Password
+                  - cell "Seguridad" [ref=e273]
+                  - cell "Usuario \"test\"" [ref=e274]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e275]
+                - row "29 mar 2026 09:11:16 A admin@thebury.com Reset Password Seguridad Usuario \"test\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e276]:
+                  - cell "29 mar 2026 09:11:16" [ref=e277]:
+                    - generic [ref=e278]: 29 mar 2026
+                    - generic [ref=e279]: 09:11:16
+                  - cell "A admin@thebury.com" [ref=e280]:
+                    - generic [ref=e281]:
+                      - generic [ref=e282]: A
+                      - generic [ref=e283]: admin@thebury.com
+                  - cell "Reset Password" [ref=e284]:
+                    - generic [ref=e285]: Reset Password
+                  - cell "Seguridad" [ref=e286]
+                  - cell "Usuario \"test\"" [ref=e287]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e288]
+                - row "29 mar 2026 08:59:12 A admin@thebury.com Permisos Seguridad Rol \"Vendedor\" 17 permisos guardados manualmente." [ref=e289]:
+                  - cell "29 mar 2026 08:59:12" [ref=e290]:
+                    - generic [ref=e291]: 29 mar 2026
+                    - generic [ref=e292]: 08:59:12
+                  - cell "A admin@thebury.com" [ref=e293]:
+                    - generic [ref=e294]:
+                      - generic [ref=e295]: A
+                      - generic [ref=e296]: admin@thebury.com
+                  - cell "Permisos" [ref=e297]:
+                    - generic [ref=e298]: Permisos
+                  - cell "Seguridad" [ref=e299]
+                  - cell "Rol \"Vendedor\"" [ref=e300]
+                  - cell "17 permisos guardados manualmente." [ref=e301]
+                - 'row "29 mar 2026 08:57:50 A admin@thebury.com Editar Seguridad Usuario \"vendedor@thebury.com\" Edición de usuario. Roles: Vendedor · Sucursal: Casa Central · Estado: activo." [ref=e302]':
+                  - cell "29 mar 2026 08:57:50" [ref=e303]:
+                    - generic [ref=e304]: 29 mar 2026
+                    - generic [ref=e305]: 08:57:50
+                  - cell "A admin@thebury.com" [ref=e306]:
+                    - generic [ref=e307]:
+                      - generic [ref=e308]: A
+                      - generic [ref=e309]: admin@thebury.com
+                  - cell "Editar" [ref=e310]:
+                    - generic [ref=e311]: Editar
+                  - cell "Seguridad" [ref=e312]
+                  - cell "Usuario \"vendedor@thebury.com\"" [ref=e313]
+                  - 'cell "Edición de usuario. Roles: Vendedor · Sucursal: Casa Central · Estado: activo." [ref=e314]'
+                - row "29 mar 2026 08:57:25 A admin@thebury.com Reset Password Seguridad Usuario \"vendedor@thebury.com\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e315]:
+                  - cell "29 mar 2026 08:57:25" [ref=e316]:
+                    - generic [ref=e317]: 29 mar 2026
+                    - generic [ref=e318]: 08:57:25
+                  - cell "A admin@thebury.com" [ref=e319]:
+                    - generic [ref=e320]:
+                      - generic [ref=e321]: A
+                      - generic [ref=e322]: admin@thebury.com
+                  - cell "Reset Password" [ref=e323]:
+                    - generic [ref=e324]: Reset Password
+                  - cell "Seguridad" [ref=e325]
+                  - cell "Usuario \"vendedor@thebury.com\"" [ref=e326]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e327]
+                - row "29 mar 2026 08:56:51 A admin@thebury.com Reset Password Seguridad Usuario \"test1\" Reseteo manual de contraseña desde modal de Seguridad." [ref=e328]:
+                  - cell "29 mar 2026 08:56:51" [ref=e329]:
+                    - generic [ref=e330]: 29 mar 2026
+                    - generic [ref=e331]: 08:56:51
+                  - cell "A admin@thebury.com" [ref=e332]:
+                    - generic [ref=e333]:
+                      - generic [ref=e334]: A
+                      - generic [ref=e335]: admin@thebury.com
+                  - cell "Reset Password" [ref=e336]:
+                    - generic [ref=e337]: Reset Password
+                  - cell "Seguridad" [ref=e338]
+                  - cell "Usuario \"test1\"" [ref=e339]
+                  - cell "Reseteo manual de contraseña desde modal de Seguridad." [ref=e340]
+                - 'row "16 mar 2026 19:11:46 A admin@thebury.com Editar Seguridad Rol \"Cajero\" Rol actualizado. Estado: activo." [ref=e341]':
+                  - cell "16 mar 2026 19:11:46" [ref=e342]:
+                    - generic [ref=e343]: 16 mar 2026
+                    - generic [ref=e344]: 19:11:46
+                  - cell "A admin@thebury.com" [ref=e345]:
+                    - generic [ref=e346]:
+                      - generic [ref=e347]: A
+                      - generic [ref=e348]: admin@thebury.com
+                  - cell "Editar" [ref=e349]:
+                    - generic [ref=e350]: Editar
+                  - cell "Seguridad" [ref=e351]
+                  - cell "Rol \"Cajero\"" [ref=e352]
+                  - 'cell "Rol actualizado. Estado: activo." [ref=e353]'
+          - generic [ref=e354]:
+            - generic [ref=e355]: Mostrando 1-14 de 14 resultados
+            - generic [ref=e356]:
+              - button "chevron_left" [disabled] [ref=e357]:
+                - generic [ref=e358]: chevron_left
+              - button "1" [ref=e359]
+              - button "chevron_right" [disabled] [ref=e360]:
+                - generic [ref=e361]: chevron_right

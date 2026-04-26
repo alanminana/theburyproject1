@@ -181,12 +181,41 @@ public class CajasListViewModel
     public IList<Caja> CajasActivas { get; set; } = new List<Caja>();
     public IList<Caja> CajasInactivas { get; set; } = new List<Caja>();
 }
+/// <summary>
+/// Resumen de totales agrupados por tipo de pago dentro de una apertura de caja.
+/// Derivado de las ventas (TipoPago); no refleja movimientos de caja reales.
+/// </summary>
+public class TotalPorTipoPagoViewModel
+{
+    public string TipoPago { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+    public int Cantidad { get; set; }
+    public bool GeneraIngresoInmediato { get; set; }
+}
+
+/// <summary>
+/// Resumen de movimientos reales de caja agrupados por medio de pago inferido.
+/// Derivado de ConceptoMovimientoCaja y Observaciones; no de TipoPago (campo inexistente en MovimientoCaja).
+/// </summary>
+public class ResumenMedioPagoCajaViewModel
+{
+    public string MedioPago { get; set; } = string.Empty;
+    public decimal TotalIngresos { get; set; }
+    public decimal TotalEgresos { get; set; }
+    public int CantidadMovimientos { get; set; }
+}
 
 /// <summary>
 /// ViewModel para detalles de apertura de caja
 /// </summary>
 public class DetallesAperturaViewModel
 {
+    public List<TotalPorTipoPagoViewModel> TotalesPorTipoPago { get; set; } = new();
+    /// <summary>
+    /// Resumen real de caja por medio de pago inferido desde MovimientoCaja.
+    /// Reemplaza TotalesPorTipoPago como fuente de verdad del efectivo real.
+    /// </summary>
+    public List<ResumenMedioPagoCajaViewModel> ResumenRealPorMedioPago { get; set; } = new();
     public AperturaCaja Apertura { get; set; } = null!;
     public List<MovimientoCaja> Movimientos { get; set; } = new();
     public decimal SaldoActual { get; set; }

@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Reportes";
+}
+
+<div class="max-w-5xl mx-auto space-y-6">
+    <h1 class="text-lg font-black text-white">Reportes</h1>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <a asp-action="Ventas"
+           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
+            <span class="material-symbols-outlined text-primary text-2xl">bar_chart</span>
+            <div>
+                <p class="font-semibold text-slate-100">Ventas</p>
+                <p class="text-xs text-slate-400 mt-1">Resumen de ventas por período, tipo de pago y vendedor.</p>
+            </div>
+        </a>
+
+        <a asp-action="Margenes"
+           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
+            <span class="material-symbols-outlined text-primary text-2xl">trending_up</span>
+            <div>
+                <p class="font-semibold text-slate-100">Márgenes</p>
+                <p class="text-xs text-slate-400 mt-1">Análisis de márgenes por producto y categoría.</p>
+            </div>
+        </a>
+
+        <a asp-action="Morosidad"
+           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
+            <span class="material-symbols-outlined text-primary text-2xl">account_balance_wallet</span>
+            <div>
+                <p class="font-semibold text-slate-100">Morosidad</p>
+                <p class="text-xs text-slate-400 mt-1">Estado de cuotas vencidas y créditos en mora.</p>
+            </div>
+        </a>
+    </div>
+</div>

@@ -70,7 +70,8 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             new StubCurrentUserDelUpd(),
             null!,
             null!,
-            null!);
+            null!,
+            new StubContratoVentaCreditoService());
     }
 
     public void Dispose()

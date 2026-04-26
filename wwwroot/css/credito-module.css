@@ -1,0 +1,200 @@
+/* ─────────────────────────────────────────────────────────────
+   credito-module.css
+   Styles for the Credito module views:
+     Index_tw, Details_tw, ConfigurarVenta_tw,
+     PagarCuota_tw, AdelantarCuota_tw, CuotasVencidas_tw
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   MÓDULO CRÉDITO — clases canónicas compartidas entre vistas
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes creditoSlideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.credito-cliente-panel-slide-in {
+    animation: creditoSlideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Input / select estándar */
+.credito-input,
+.credito-select {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #161c28;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #dde2f4;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.credito-input:focus,
+.credito-select:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+}
+.credito-input::placeholder { color: #475569; }
+
+.credito-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1.125rem;
+    padding-right: 2rem;
+    cursor: pointer;
+    appearance: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DETAILS
+   ══════════════════════════════════════════════════════════════ */
+
+[data-credito-header-actions] {
+    width: 100%;
+}
+
+[data-credito-header-actions] > * {
+    width: 100%;
+}
+
+@media (min-width: 1280px) {
+    [data-credito-header-actions] {
+        width: auto;
+        flex-direction: row;
+        justify-content: flex-end;
+        align-self: flex-start;
+    }
+
+    [data-credito-header-actions] > * {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   CONFIGURAR VENTA
+   ══════════════════════════════════════════════════════════════ */
+
+[data-credito-config-header-actions],
+[data-credito-config-footer-actions] {
+    width: 100%;
+}
+
+[data-credito-config-header-actions] {
+    flex-direction: column;
+}
+
+[data-credito-config-footer-actions] {
+    flex-direction: column-reverse;
+}
+
+[data-credito-config-header-actions] > *,
+[data-credito-config-footer-actions] > * {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    [data-credito-config-header-actions],
+    [data-credito-config-footer-actions] {
+        width: auto;
+        flex-direction: row;
+        justify-content: flex-end;
+        align-self: flex-start;
+    }
+
+    [data-credito-config-header-actions] > *,
+    [data-credito-config-footer-actions] > * {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PAGAR CUOTA
+   ══════════════════════════════════════════════════════════════ */
+
+[data-credito-pago-header-actions],
+[data-credito-pago-footer-actions] {
+    width: 100%;
+}
+
+[data-credito-pago-header-actions] {
+    flex-direction: column;
+}
+
+[data-credito-pago-footer-actions] {
+    flex-direction: column-reverse;
+}
+
+[data-credito-pago-header-actions] > *,
+[data-credito-pago-footer-actions] > * {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    [data-credito-pago-header-actions],
+    [data-credito-pago-footer-actions] {
+        width: auto;
+        flex-direction: row;
+        justify-content: flex-end;
+        align-self: flex-start;
+    }
+
+    [data-credito-pago-header-actions] > *,
+    [data-credito-pago-footer-actions] > * {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ADELANTAR CUOTA
+   ══════════════════════════════════════════════════════════════ */
+
+[data-credito-adelanto-header-actions],
+[data-credito-adelanto-footer-actions] {
+    width: 100%;
+}
+
+[data-credito-adelanto-header-actions] {
+    flex-direction: column;
+}
+
+[data-credito-adelanto-footer-actions] {
+    flex-direction: column-reverse;
+}
+
+[data-credito-adelanto-header-actions] > *,
+[data-credito-adelanto-footer-actions] > * {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    [data-credito-adelanto-header-actions],
+    [data-credito-adelanto-footer-actions] {
+        width: auto;
+        flex-direction: row;
+        justify-content: flex-end;
+        align-self: flex-start;
+    }
+
+    [data-credito-adelanto-header-actions] > *,
+    [data-credito-adelanto-footer-actions] > * {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}

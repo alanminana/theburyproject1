@@ -1,0 +1,153 @@
+@model TheBuryProject.ViewModels.SimularCambioMasivoViewModel
+@using TheBuryProject.Models.Enums
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Simular Cambio Masivo";
+    var listas    = ViewBag.Listas    as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var categorias = ViewBag.Categorias as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var marcas    = ViewBag.Marcas    as SelectList ?? new SelectList(Enumerable.Empty<object>());
+}
+
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Nueva Simulación</h1>
+            <p class="text-sm text-slate-400">Configurá el cambio masivo de precios antes de aplicarlo.</p>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>
+            <asp-validation-summary model-only="false" />
+        </div>
+    }
+
+    <form asp-action="Simular" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="space-y-6">
+
+            <section class="card-erp-panel-padded space-y-4">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">label</span>
+                    Identificación
+                </h2>
+                <div class="space-y-1">
+                    <label asp-for="Nombre" class="text-xs font-medium text-slate-400"></label>
+                    <input asp-for="Nombre" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ej: Aumento enero 2025" />
+                    <span asp-validation-for="Nombre" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="Notas" class="text-xs font-medium text-slate-400"></label>
+                    <textarea asp-for="Notas" rows="2" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Notas opcionales..."></textarea>
+                </div>
+            </section>
+
+            <section class="card-erp-panel-padded space-y-4">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">tune</span>
+                    Parámetros del cambio
+                </h2>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="space-y-1">
+                        <label asp-for="TipoCambio" class="text-xs font-medium text-slate-400"></label>
+                        <select asp-for="TipoCambio" asp-items="Html.GetEnumSelectList<TipoCambio>()"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label asp-for="TipoAplicacion" class="text-xs font-medium text-slate-400"></label>
+                        <select asp-for="TipoAplicacion" asp-items="Html.GetEnumSelectList<TipoAplicacion>()"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label asp-for="ValorCambio" class="text-xs font-medium text-slate-400"></label>
+                        <input asp-for="ValorCambio" type="number" step="0.01" min="0"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                        <span asp-validation-for="ValorCambio" class="text-xs text-red-400"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-erp-panel-padded space-y-4">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">list</span>
+                    Listas de precios afectadas
+                </h2>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    @foreach (var lista in listas)
+                    {
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="ListasIds" value="@lista.Value"
+                                   class="rounded border-slate-700 bg-slate-800 text-primary focus:ring-primary/50"
+                                   @(Model.ListasIds.Contains(int.Parse(lista.Value ?? "0")) ? "checked" : "") />
+                            <span class="text-sm text-slate-300">@lista.Text</span>
+                        </label>
+                    }
+                </div>
+                <span asp-validation-for="ListasIds" class="text-xs text-red-400"></span>
+            </section>
+
+            <section class="card-erp-panel-padded space-y-4">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                    Alcance (opcional — dejar vacío aplica a todos)
+                </h2>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Categorías</label>
+                        <select name="CategoriasIds" multiple size="4"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            @foreach (var cat in categorias)
+                            {
+                                var catSelected = Model.CategoriasIds != null && int.TryParse(cat.Value, out var catId) && Model.CategoriasIds.Contains(catId);
+                                if (catSelected) { <option value="@cat.Value" selected>@cat.Text</option> }
+                                else             { <option value="@cat.Value">@cat.Text</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Marcas</label>
+                        <select name="MarcasIds" multiple size="4"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            @foreach (var marca in marcas)
+                            {
+                                var marcaSelected = Model.MarcasIds != null && int.TryParse(marca.Value, out var marcaId) && Model.MarcasIds.Contains(marcaId);
+                                if (marcaSelected) { <option value="@marca.Value" selected>@marca.Text</option> }
+                                else               { <option value="@marca.Value">@marca.Text</option> }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="ProductoIdsText" class="text-xs font-medium text-slate-400">IDs de productos específicos (separados por coma)</label>
+                    <input asp-for="ProductoIdsText"
+                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                           placeholder="Ej: 1,2,3,45" />
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="FechaVigencia" class="text-xs font-medium text-slate-400"></label>
+                    <input asp-for="FechaVigencia" type="datetime-local"
+                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                </div>
+            </section>
+
+            <div class="flex justify-end gap-3">
+                <a asp-action="Index" class="btn-erp-ghost">Cancelar</a>
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-base">play_arrow</span>
+                    Simular cambio
+                </button>
+            </div>
+
+        </div>
+    </form>
+
+</div>

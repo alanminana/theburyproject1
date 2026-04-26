@@ -1,0 +1,173 @@
+@model TheBuryProject.ViewModels.ReporteMargenesViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Reporte de Márgenes";
+    var categorias = ViewBag.Categorias as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var marcas     = ViewBag.Marcas     as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    int? categoriaId = ViewBag.CategoriaId as int?;
+    int? marcaId     = ViewBag.MarcaId     as int?;
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Reporte de Márgenes</h1>
+            <p class="text-sm text-slate-400">Análisis de márgenes por producto y categoría.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3 text-sm text-amber-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">warning</span>@TempData["Warning"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                Filtros
+            </h2>
+        </div>
+        <div class="px-6 py-5">
+            <form asp-action="Margenes" method="get">
+                <div class="flex flex-wrap gap-4 items-end">
+
+                    <div class="space-y-1 w-52">
+                        <label class="text-xs font-medium text-slate-400">Categoría</label>
+                        <select name="categoriaId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todas</option>
+                            @foreach (var item in categorias)
+                            {
+                                <option value="@item.Value" selected="@(categoriaId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1 w-52">
+                        <label class="text-xs font-medium text-slate-400">Marca</label>
+                        <select name="marcaId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todas</option>
+                            @foreach (var item in marcas)
+                            {
+                                <option value="@item.Value" selected="@(marcaId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-base">search</span>
+                        Filtrar
+                    </button>
+
+                    <a asp-action="ExportarMargenesExcel"
+                       asp-route-categoriaId="@categoriaId"
+                       asp-route-marcaId="@marcaId"
+                       class="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900/20 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-900/40 transition-colors">
+                        <span class="material-symbols-outlined text-base">download</span>
+                        Exportar Excel
+                    </a>
+
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model != null)
+    {
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen promedio</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">@Model.MargenPromedioGeneral.ToString("N1")%</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-success">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia potencial</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-400">$@Model.GananciaTotalPotencial.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-warning">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen bajo (&lt;20%)</p>
+                <p class="mt-1 text-2xl font-bold text-amber-400">@Model.ProductosConMargenBajo</p>
+                <p class="text-xs text-slate-500 mt-1">productos</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-success">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen alto (&gt;35%)</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-400">@Model.ProductosConMargenAlto</p>
+                <p class="text-xs text-slate-500 mt-1">productos</p>
+            </div>
+        </div>
+
+        @if (Model.Productos.Any())
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">inventory_2</span>
+                        Productos
+                        <span class="ml-auto text-xs font-normal text-slate-400">@Model.Productos.Count registros</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-800/50">
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Código</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Categoría</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Marca</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">P. Compra</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">P. Venta</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Margen</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Stock</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">G. potencial</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var p in Model.Productos)
+                            {
+                                var margenColor = p.MargenPorcentaje < 10 ? "text-red-400"
+                                    : p.MargenPorcentaje < 20 ? "text-amber-400"
+                                    : p.MargenPorcentaje < 35 ? "text-slate-300"
+                                    : "text-emerald-400";
+                                <tr class="hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-mono text-xs text-slate-500">@p.Codigo</td>
+                                    <td class="px-4 py-3 font-medium text-slate-100">@p.Nombre</td>
+                                    <td class="px-4 py-3 text-slate-400">@p.CategoriaNombre</td>
+                                    <td class="px-4 py-3 text-slate-400">@(p.MarcaNombre ?? "—")</td>
+                                    <td class="px-4 py-3 text-right text-slate-400">$@p.PrecioCompra.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-slate-100">$@p.PrecioVenta.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="font-semibold @margenColor">@p.MargenPorcentaje.ToString("N1")%</span>
+                                        <span class="block text-xs text-slate-400">@p.MargenCategoria</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-slate-400">@p.StockActual.ToString("N0")</td>
+                                    <td class="px-4 py-3 text-right text-emerald-400">$@p.GananciaPotencial.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="rounded-xl border border-slate-800 bg-slate-800/50 px-6 py-10 text-center text-sm text-slate-400">
+                <span class="material-symbols-outlined text-3xl block mb-2">inventory_2</span>
+                No se encontraron productos para los filtros seleccionados.
+            </div>
+        }
+    }
+
+</div>

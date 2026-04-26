@@ -10,6 +10,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Controllers
 {
@@ -24,10 +25,11 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionMoraService _configuracionMoraService;
         private readonly IVentaService _ventaService;
         private readonly ILogger<CreditoController> _logger;
-        private readonly IClienteLookupService _clienteLookup;
-        private readonly IProductoService _productoService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
+
         private readonly ICurrentUserService _currentUser;
+        private readonly CreditoViewBagBuilder _viewBagBuilder;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
@@ -70,6 +72,78 @@ namespace TheBuryProject.Controllers
             return System.Text.Json.JsonSerializer.Serialize(data);
         }
 
+        private static List<CreditoClienteIndexViewModel> AgruparCreditosPorCliente(IEnumerable<CreditoViewModel> creditos)
+        {
+            return creditos
+                .Where(c => c.ClienteId > 0)
+                .GroupBy(c => c.ClienteId)
+                .Select(grupo =>
+                {
+                    var creditosCliente = grupo
+                        .OrderByDescending(c => c.FechaSolicitud)
+                        .ThenByDescending(c => c.Id)
+                        .ToList();
+
+                    var cliente = creditosCliente.First().Cliente;
+                    var cuotas = creditosCliente
+                        .SelectMany(c => c.Cuotas ?? Enumerable.Empty<CuotaViewModel>())
+                        .ToList();
+
+                    var cuotasVencidas = cuotas.Count(c => c.EstaVencida);
+
+                    return new CreditoClienteIndexViewModel
+                    {
+                        Cliente = cliente,
+                        Documento = !string.IsNullOrWhiteSpace(cliente.NumeroDocumento)
+                            ? cliente.NumeroDocumento
+                            : $"Cliente #{cliente.Id}",
+                        CantidadCreditos = creditosCliente.Count,
+                        SaldoPendienteTotal = creditosCliente.Sum(c => c.SaldoPendiente),
+                        CuotasVencidas = cuotasVencidas,
+                        ProximoVencimiento = ObtenerProximoVencimiento(cuotas),
+                        EstadoConsolidado = ResolverEstadoConsolidado(creditosCliente, cuotasVencidas),
+                        Creditos = creditosCliente
+                    };
+                })
+                .OrderByDescending(c => c.CuotasVencidas > 0)
+                .ThenBy(c => c.ProximoVencimiento ?? DateTime.MaxValue)
+                .ThenBy(c => c.Cliente.NombreCompleto)
+                .ToList();
+        }
+
+        private static DateTime? ObtenerProximoVencimiento(IEnumerable<CuotaViewModel> cuotas) =>
+            cuotas
+                .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
+                .OrderBy(c => c.FechaVencimiento)
+                .Select(c => (DateTime?)c.FechaVencimiento)
+                .FirstOrDefault();
+
+        private static string ResolverEstadoConsolidado(IReadOnlyCollection<CreditoViewModel> creditos, int cuotasVencidas)
+        {
+            if (cuotasVencidas > 0)
+                return "En mora";
+
+            if (creditos.Any(c => c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Generado))
+                return "Activo";
+
+            if (creditos.Any(c => c.Estado == EstadoCredito.Solicitado || c.Estado == EstadoCredito.PendienteConfiguracion))
+                return "Pendiente";
+
+            if (creditos.Any(c => c.Estado == EstadoCredito.Aprobado || c.Estado == EstadoCredito.Configurado))
+                return "Aprobado";
+
+            if (creditos.All(c => c.Estado == EstadoCredito.Finalizado))
+                return "Finalizado";
+
+            if (creditos.All(c => c.Estado == EstadoCredito.Rechazado))
+                return "Rechazado";
+
+            if (creditos.All(c => c.Estado == EstadoCredito.Cancelado))
+                return "Cancelado";
+
+            return "Mixto";
+        }
+
         public CreditoController(
             ICreditoService creditoService,
             IEvaluacionCreditoService evaluacionService,
@@ -78,10 +152,10 @@ namespace TheBuryProject.Controllers
             IConfiguracionMoraService configuracionMoraService,
             IVentaService ventaService,
             ILogger<CreditoController> logger,
-            IClienteLookupService clienteLookup,
-            IProductoService productoService,
             ICreditoDisponibleService creditoDisponibleService,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            CreditoViewBagBuilder viewBagBuilder,
+            IContratoVentaCreditoService contratoVentaCreditoService)
         {
             _creditoService = creditoService;
             _evaluacionService = evaluacionService;
@@ -90,10 +164,10 @@ namespace TheBuryProject.Controllers
             _configuracionMoraService = configuracionMoraService;
             _ventaService = ventaService;
             _logger = logger;
-            _clienteLookup = clienteLookup;
-            _productoService = productoService;
             _creditoDisponibleService = creditoDisponibleService;
             _currentUser = currentUser;
+            _viewBagBuilder = viewBagBuilder;
+            _contratoVentaCreditoService = contratoVentaCreditoService;
         }
 
         #region Index / Detalle / Simular
@@ -104,14 +178,17 @@ namespace TheBuryProject.Controllers
             try
             {
                 var creditos = await _creditoService.GetAllAsync(filter);
+                var clientes = AgruparCreditosPorCliente(creditos);
+
                 ViewBag.Filter = filter;
-                return View("Index_tw", creditos);
+                return View("Index_tw", clientes);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al listar créditos");
                 TempData["Error"] = "Error al cargar los créditos";
-                return View("Index_tw", new List<CreditoViewModel>());
+                ViewBag.Filter = filter;
+                return View("Index_tw", new List<CreditoClienteIndexViewModel>());
             }
         }
 
@@ -184,6 +261,8 @@ namespace TheBuryProject.Controllers
                     detalle.CupoGlobalMensajeError = ex.Message;
                 }
 
+                ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorCreditoAsync(id);
+
                 return View("Details_tw", detalle);
             }
             catch (Exception ex)
@@ -192,6 +271,26 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al cargar el crédito";
                 return RedirectToAction(nameof(Index));
             }
+        }
+
+        private async Task<ContratoVentaCreditoResumenViewModel?> ObtenerContratoResumenPorCreditoAsync(int creditoId)
+        {
+            var contrato = await _contratoVentaCreditoService.ObtenerContratoPorCreditoAsync(creditoId);
+            if (contrato == null)
+                return null;
+
+            return new ContratoVentaCreditoResumenViewModel
+            {
+                VentaId = contrato.VentaId,
+                CreditoId = contrato.CreditoId,
+                NumeroContrato = contrato.NumeroContrato,
+                NumeroPagare = contrato.NumeroPagare,
+                FechaGeneracionUtc = contrato.FechaGeneracionUtc,
+                UsuarioGeneracion = contrato.UsuarioGeneracion,
+                EstadoDocumento = contrato.EstadoDocumento,
+                NombreArchivo = contrato.NombreArchivo,
+                ContentHash = contrato.ContentHash
+            };
         }
 
         [HttpPost]
@@ -289,15 +388,12 @@ namespace TheBuryProject.Controllers
             }
 
             // Validar que el crédito esté en estado que permita configuración
-            if (credito.Estado != EstadoCredito.PendienteConfiguracion && 
-                credito.Estado != EstadoCredito.Solicitado)
+            if (credito.Estado != EstadoCredito.PendienteConfiguracion &&
+                credito.Estado != EstadoCredito.Solicitado &&
+                credito.Estado != EstadoCredito.Configurado)
             {
-                // Si ya está Configurado, Generado o más avanzado, no permitir reconfigurar
-                if (credito.Estado == EstadoCredito.Configurado)
-                {
-                    TempData["Info"] = "El crédito ya está configurado. Puede confirmar la venta.";
-                }
-                else if (credito.Estado == EstadoCredito.Generado || 
+                // Si ya está Generado o más avanzado, no permitir reconfigurar
+                if (credito.Estado == EstadoCredito.Generado ||
                          credito.Estado == EstadoCredito.Activo ||
                          credito.Estado == EstadoCredito.Finalizado)
                 {
@@ -346,7 +442,10 @@ namespace TheBuryProject.Controllers
                 CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
                 TasaMensual = parametrosCliente.TasaMensual,
                 GastosAdministrativos = parametrosCliente.GastosAdministrativos,
-                FechaPrimeraCuota = credito.FechaPrimeraCuota
+                FechaPrimeraCuota = credito.FechaPrimeraCuota,
+                CreditoEstaConfigurado = credito.Estado == EstadoCredito.Configurado,
+                ContratoGenerado = ventaId.HasValue &&
+                    await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(ventaId.Value)
             };
 
             // Pasar datos del cliente a la vista para JS
@@ -508,8 +607,13 @@ namespace TheBuryProject.Controllers
 
             if (modelo.VentaId.HasValue)
             {
-                TempData["Success"] = "Crédito configurado. Puede confirmar la venta.";
-                return RedirectToAction("Details", "Venta", new { id = modelo.VentaId.Value });
+                TempData["Success"] = "Crédito configurado. Genere el Contrato de Venta antes de confirmar.";
+                return RedirectToAction(nameof(ConfigurarVenta), new
+                {
+                    id = modelo.CreditoId,
+                    ventaId = modelo.VentaId.Value,
+                    returnUrl = Url.GetSafeReturnUrl(returnUrl)
+                });
             }
 
             TempData["Success"] = "Crédito configurado y listo para confirmación.";
@@ -578,6 +682,8 @@ namespace TheBuryProject.Controllers
         /// </summary>
         private async Task<IActionResult> RetornarVistaConPerfilesAsync(ConfiguracionCreditoVentaViewModel modelo)
         {
+            modelo.ContratoGenerado = modelo.VentaId.HasValue &&
+                await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
             ViewBag.PerfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
             return View("ConfigurarVenta_tw", modelo);
         }
@@ -888,6 +994,40 @@ namespace TheBuryProject.Controllers
             return View("PagarCuota_tw", modelo);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RegistrarPagoMultiple([FromBody] PagoMultipleCuotasRequest? request)
+        {
+            if (request == null)
+                return BadRequest(new { success = false, errors = new[] { "Solicitud inválida." } });
+
+            if (!ModelState.IsValid)
+            {
+                var errores = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .ToArray();
+
+                return BadRequest(new { success = false, errors = errores });
+            }
+
+            try
+            {
+                var resultado = await _creditoService.PagarCuotasAsync(request);
+                return Ok(new { success = true, data = resultado });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, errors = new[] { ex.Message } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar pago múltiple para cliente {ClienteId}", request.ClienteId);
+                return StatusCode(500, new { success = false, errors = new[] { "Error al registrar el pago múltiple." } });
+            }
+        }
+
         // GET: Credito/AdelantarCuota/5
         public async Task<IActionResult> AdelantarCuota(int id, string? returnUrl = null)
         {
@@ -972,29 +1112,6 @@ namespace TheBuryProject.Controllers
 
         #endregion
 
-        #region API JSON — Evaluar crédito
-
-        // GET: API endpoint para evaluar crédito en tiempo real
-        [HttpGet]
-        public async Task<IActionResult> EvaluarCredito(int clienteId, decimal montoSolicitado, int? garanteId = null)
-        {
-            try
-            {
-                _logger.LogInformation("Evaluando crédito para cliente {ClienteId}, monto {Monto}", clienteId, montoSolicitado);
-
-                var evaluacion = await _evaluacionService.EvaluarSolicitudAsync(clienteId, montoSolicitado, garanteId);
-
-                return Json(evaluacion);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al evaluar crédito");
-                return StatusCode(500, new { error = "Error al evaluar crédito: " + ex.Message });
-            }
-        }
-
-        #endregion
-
         #region Cuotas vencidas
 
         // GET: Credito/CuotasVencidas
@@ -1024,26 +1141,7 @@ namespace TheBuryProject.Controllers
 
         private async Task CargarViewBags(int? clienteIdSeleccionado = null, int? garanteIdSeleccionado = null)
         {
-            _logger.LogInformation("Cargando ViewBags...");
-
-            // Usar servicio centralizado para clientes y garantes
-            var clientes = await _clienteLookup.GetClientesSelectListAsync(clienteIdSeleccionado);
-            ViewBag.Clientes = new SelectList(clientes, "Value", "Text", clienteIdSeleccionado?.ToString());
-
-            var garantes = await _clienteLookup.GetClientesSelectListAsync(garanteIdSeleccionado);
-            ViewBag.Garantes = new SelectList(garantes, "Value", "Text", garanteIdSeleccionado?.ToString());
-
-            var productos = await _productoService.SearchAsync(soloActivos: true, orderBy: "nombre");
-            ViewBag.Productos = new SelectList(
-                productos
-                    .Where(p => p.StockActual > 0)
-                    .Select(p => new
-                    {
-                        p.Id,
-                        Detalle = $"{p.Codigo} - {p.Nombre} (Stock: {p.StockActual}) - ${p.PrecioVenta:N2}"
-                    }),
-                "Id",
-                "Detalle");
+            await _viewBagBuilder.CargarAsync(ViewBag, clienteIdSeleccionado, garanteIdSeleccionado);
         }
 
         #endregion

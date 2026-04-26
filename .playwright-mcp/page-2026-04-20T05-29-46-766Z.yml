@@ -1,0 +1,229 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Sistemas
+          - link "security Seguridad" [ref=e24] [cursor=pointer]:
+            - /url: /Seguridad
+            - generic [ref=e25]: security
+            - paragraph: Seguridad
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e29]: account_circle
+          - generic:
+            - paragraph: admin@thebury.com
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e31]:
+        - generic [ref=e32]: chevron_left
+    - main [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - heading "Órdenes de Compra" [level=2] [ref=e36]
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]: Dolar Blue
+              - generic [ref=e41]: $1.245,00
+            - generic [ref=e42]:
+              - generic [ref=e43]: Tarjeta
+              - generic [ref=e44]: $1.482,50
+            - generic [ref=e45]:
+              - generic [ref=e46]: Oficial
+              - generic [ref=e47]: $942,00
+        - generic [ref=e48]:
+          - button "notifications" [ref=e49]:
+            - generic [ref=e50]: notifications
+          - button "search" [ref=e52]:
+            - generic [ref=e53]: search
+          - button "Panel de incidentes" [ref=e54]:
+            - generic [ref=e55]: assignment
+          - button "help" [ref=e57]:
+            - generic [ref=e58]: help
+      - generic [ref=e59]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - button "filter_alt Filtros Buscá por nº de orden, proveedor, estado o rango de fechas. 2 resultados expand_more" [ref=e63]:
+              - generic [ref=e64]:
+                - generic [ref=e65]: filter_alt
+                - generic [ref=e66]:
+                  - paragraph [ref=e67]: Filtros
+                  - paragraph [ref=e68]: Buscá por nº de orden, proveedor, estado o rango de fechas.
+              - generic [ref=e69]:
+                - generic [ref=e70]: 2 resultados
+                - generic [ref=e71]: expand_more
+            - link "add_circle Nueva Orden" [ref=e72] [cursor=pointer]:
+              - /url: /OrdenCompra/Create
+              - generic [ref=e73]: add_circle
+              - text: Nueva Orden
+          - generic:
+            - generic [ref=e74]:
+              - generic [ref=e75]:
+                - generic [ref=e76]: Búsqueda rápida
+                - generic [ref=e77]:
+                  - generic [ref=e78]: search
+                  - textbox "Buscar por Nº de orden o referencia" [ref=e79]:
+                    - /placeholder: Nº de orden o referencia...
+              - generic [ref=e80]:
+                - generic [ref=e81]: Proveedor
+                - combobox "Proveedor" [ref=e82]:
+                  - option "Todos" [selected]
+                  - option "Electrodomésticos SA"
+              - generic [ref=e83]:
+                - generic [ref=e84]: Estado
+                - combobox "Estado de orden" [ref=e85]:
+                  - option "Cualquier estado" [selected]
+                  - option "Borrador"
+                  - option "Enviada"
+                  - option "Confirmada"
+                  - option "En tránsito"
+                  - option "Recibida"
+                  - option "Cancelada"
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - generic [ref=e88]: Ordenar por
+                - combobox "Ordenar por" [ref=e89]:
+                  - option "Fecha Emisión" [selected]
+                  - option "Nº Orden"
+                  - option "Proveedor"
+                  - option "Estado"
+                  - option "Total"
+              - generic [ref=e90]:
+                - generic [ref=e91]: Dirección
+                - combobox "Dirección de orden" [ref=e92]:
+                  - option "Descendente" [selected]
+                  - option "Ascendente"
+              - generic [ref=e93]:
+                - generic [ref=e94]: Desde
+                - textbox "Fecha desde" [ref=e95]
+              - generic [ref=e96]:
+                - generic [ref=e97]: Hasta
+                - textbox "Fecha hasta" [ref=e98]
+              - generic [ref=e99]:
+                - button "Buscar" [ref=e100]
+                - link "filter_alt_off" [ref=e101] [cursor=pointer]:
+                  - /url: /OrdenCompra
+                  - generic [ref=e102]: filter_alt_off
+        - region "Tabla de órdenes de compra" [ref=e105]:
+          - table [ref=e106]:
+            - rowgroup [ref=e107]:
+              - row "Número Proveedor Fecha Emisión Fecha Entrega Estado Items Total Acciones" [ref=e108]:
+                - columnheader "Número" [ref=e109]
+                - columnheader "Proveedor" [ref=e110]
+                - columnheader "Fecha Emisión" [ref=e111]
+                - columnheader "Fecha Entrega" [ref=e112]
+                - columnheader "Estado" [ref=e113]
+                - columnheader "Items" [ref=e114]
+                - columnheader "Total" [ref=e115]
+                - columnheader "Acciones" [ref=e116]
+            - rowgroup [ref=e117]:
+              - row "OC-2026-0001 Electrodomésticos SA 31 mar 2026 -- Borrador 1 $4.678.957,47 Ver detalle de la orden Editar no disponible Recepción no disponible Eliminar orden" [ref=e118]:
+                - cell "OC-2026-0001" [ref=e119]
+                - cell "Electrodomésticos SA" [ref=e120]
+                - cell "31 mar 2026" [ref=e121]
+                - cell "--" [ref=e122]
+                - cell "Borrador" [ref=e123]:
+                  - generic [ref=e124]: Borrador
+                - cell "1" [ref=e125]
+                - cell "$4.678.957,47" [ref=e126]
+                - cell "Ver detalle de la orden Editar no disponible Recepción no disponible Eliminar orden" [ref=e127]:
+                  - generic [ref=e128]:
+                    - link "Ver detalle de la orden" [ref=e129] [cursor=pointer]:
+                      - /url: /OrdenCompra/Details/2
+                      - generic [ref=e130]: visibility
+                    - button "Editar no disponible" [disabled]:
+                      - generic: edit
+                    - button "Recepción no disponible" [disabled]:
+                      - generic: local_shipping
+                    - link "Eliminar orden" [ref=e131] [cursor=pointer]:
+                      - /url: /OrdenCompra/Delete/2
+                      - generic [ref=e132]: delete
+              - row "OC-2026-0002 Electrodomésticos SA 31 mar 2026 -- Recibida 1 $4.678.957,47 Ver detalle de la orden Editar no disponible Recepción no disponible Eliminar no disponible" [ref=e133]:
+                - cell "OC-2026-0002" [ref=e134]
+                - cell "Electrodomésticos SA" [ref=e135]
+                - cell "31 mar 2026" [ref=e136]
+                - cell "--" [ref=e137]
+                - cell "Recibida" [ref=e138]:
+                  - generic [ref=e139]: Recibida
+                - cell "1" [ref=e140]
+                - cell "$4.678.957,47" [ref=e141]
+                - cell "Ver detalle de la orden Editar no disponible Recepción no disponible Eliminar no disponible" [ref=e142]:
+                  - generic [ref=e143]:
+                    - link "Ver detalle de la orden" [ref=e144] [cursor=pointer]:
+                      - /url: /OrdenCompra/Details/1002
+                      - generic [ref=e145]: visibility
+                    - button "Editar no disponible" [disabled]:
+                      - generic: edit
+                    - button "Recepción no disponible" [disabled]:
+                      - generic: local_shipping
+                    - button "Eliminar no disponible" [disabled]:
+                      - generic: delete
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - text: Total Órdenes
+              - paragraph [ref=e150]: "2"
+            - generic [ref=e151]:
+              - text: Total Valorizado
+              - paragraph [ref=e152]: $9.357.914,94
+          - generic [ref=e153]:
+            - generic [ref=e154]: Mostrando
+            - generic [ref=e155]: "2"
+            - generic [ref=e156]: órdenes
+  - button "bug_report" [ref=e157]:
+    - generic [ref=e158]: bug_report
+  - complementary [ref=e159]:
+    - generic [ref=e160]:
+      - generic [ref=e161]:
+        - generic [ref=e162]: assignment
+        - heading [level=2] [ref=e163]: Incidentes
+      - generic [ref=e164]:
+        - button [ref=e165]:
+          - generic [ref=e166]: add
+          - text: Nuevo
+        - button [ref=e167]:
+          - generic [ref=e168]: close
+    - generic [ref=e169]:
+      - generic [ref=e170]:
+        - textbox [ref=e171]:
+          - /placeholder: Buscar...
+        - combobox [ref=e172] [cursor=pointer]
+        - combobox [ref=e173] [cursor=pointer]
+        - button [ref=e174]:
+          - generic [ref=e175]: filter_list
+      - list [ref=e176]

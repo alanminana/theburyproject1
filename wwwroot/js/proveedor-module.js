@@ -237,15 +237,15 @@
         bindModuleEvents();
         initToastDismiss();
         initScrollAffordances();
-        bindTextFilter('#proveedor-producto-search', '.proveedor-producto-item');
-        bindTextFilter('#edit-producto-search', '.edit-producto-item');
+        if (typeof ProveedorProductPicker !== 'undefined') {
+            ProveedorProductPicker.init();
+        }
     }
 
     function initDetails() {
         bindModuleEvents();
         initToastDismiss();
         const [scrollAffordance] = initScrollAffordances();
-        bindTextFilter('#edit-producto-search', '.edit-producto-item');
         loadProductos(scrollAffordance);
     }
 

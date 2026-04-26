@@ -1,0 +1,378 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Logística
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Editar Cliente" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - link "Volver al detalle" [ref=e62] [cursor=pointer]:
+        - /url: /Cliente/Details/5
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - navigation [ref=e66]:
+              - link "Clientes" [ref=e67] [cursor=pointer]:
+                - /url: /Cliente
+              - generic [ref=e68]: chevron_right
+              - link "Pérez Ventilador" [ref=e69] [cursor=pointer]:
+                - /url: /Cliente/Details/5
+              - generic [ref=e70]: chevron_right
+              - generic [ref=e71]: Editar
+            - heading "Editar Cliente" [level=2] [ref=e72]
+          - generic [ref=e73]:
+            - link "Cancelar" [ref=e74] [cursor=pointer]:
+              - /url: /Cliente/Details/5
+            - button "save Guardar Cambios" [ref=e75]:
+              - generic [ref=e76]: save
+              - text: Guardar Cambios
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e83]: "1"
+                - generic [ref=e84]:
+                  - heading "Datos Personales" [level=3] [ref=e85]
+                  - paragraph [ref=e86]: Información básica del cliente
+              - generic [ref=e87]:
+                - generic [ref=e88]:
+                  - generic [ref=e89]: Tipo Documento *
+                  - combobox "Tipo Documento *" [ref=e90]:
+                    - option "DNI" [selected]
+                    - option "CUIL"
+                    - option "CUIT"
+                - generic [ref=e91]:
+                  - generic [ref=e92]: Número Documento *
+                  - textbox "Número Documento *" [ref=e93]:
+                    - /placeholder: "Ej: 30456789"
+                    - text: "11111111111111111111"
+                - generic [ref=e94]:
+                  - generic [ref=e95]: CUIL/CUIT
+                  - textbox "CUIL/CUIT" [ref=e96]:
+                    - /placeholder: Solo números, 11 dígitos
+                - generic [ref=e97]:
+                  - generic [ref=e98]: Apellido *
+                  - textbox "Apellido *" [ref=e99]:
+                    - /placeholder: Apellido del cliente
+                    - text: Pérez
+                - generic [ref=e100]:
+                  - generic [ref=e101]: Nombre *
+                  - textbox "Nombre *" [ref=e102]:
+                    - /placeholder: Nombre del cliente
+                    - text: Ventilador
+                - generic [ref=e103]:
+                  - generic [ref=e104]: Fecha de Nacimiento
+                  - textbox "Fecha de Nacimiento" [ref=e105]: 2024-04-23
+                - generic [ref=e106]:
+                  - generic [ref=e107]: Estado Civil
+                  - combobox "Estado Civil" [ref=e108]:
+                    - option "Seleccionar..."
+                    - option "Soltero/a" [selected]
+                    - option "Casado/a"
+                    - option "Divorciado/a"
+                    - option "Viudo/a"
+                    - option "Unión de hecho"
+            - separator [ref=e109]
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - generic [ref=e112]: "2"
+                - generic [ref=e113]:
+                  - heading "Datos del Cónyuge" [level=3] [ref=e114]
+                  - paragraph [ref=e115]: Opcional — solo si aplica
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: Nombre Completo
+                  - textbox "Nombre Completo" [ref=e119]:
+                    - /placeholder: Nombre y apellido del cónyuge
+                    - text: Aire Acondicionado
+                - generic [ref=e120]:
+                  - generic [ref=e121]: Tipo Documento
+                  - combobox "Tipo Documento" [ref=e122]:
+                    - option "Seleccionar..."
+                    - option "DNI" [selected]
+                    - option "CUIL"
+                    - option "CUIT"
+                - generic [ref=e123]:
+                  - generic [ref=e124]: Número Documento
+                  - textbox "Número Documento" [ref=e125]:
+                    - /placeholder: "Ej: 30456789"
+                    - text: "15928007"
+                - generic [ref=e126]:
+                  - generic [ref=e127]: Teléfono
+                  - textbox "Teléfono" [ref=e128]:
+                    - /placeholder: "Ej: 3814567890"
+                    - text: "1169864959"
+                - generic [ref=e129]:
+                  - generic [ref=e130]: Sueldo
+                  - generic [ref=e131]:
+                    - generic [ref=e132]: $
+                    - textbox "Sueldo" [ref=e133]:
+                      - /placeholder: "0.00"
+                      - text: 302624,83
+            - separator [ref=e134]
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: "3"
+                - generic [ref=e138]:
+                  - heading "Datos de Contacto" [level=3] [ref=e139]
+                  - paragraph [ref=e140]: Teléfono, email y dirección
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - generic [ref=e143]: Teléfono *
+                  - textbox "Teléfono *" [ref=e144]:
+                    - /placeholder: "Ej: 3814567890"
+                    - text: "1132083369"
+                - generic [ref=e145]:
+                  - generic [ref=e146]: Teléfono Alternativo
+                  - textbox "Teléfono Alternativo" [ref=e147]:
+                    - /placeholder: "Ej: 3814567890"
+                    - text: "1150234820"
+                - generic [ref=e148]:
+                  - generic [ref=e149]: Email
+                  - textbox "Email" [ref=e150]:
+                    - /placeholder: ejemplo@correo.com
+                    - text: tisu@gmail.com
+                - generic [ref=e151]:
+                  - generic [ref=e152]: Domicilio *
+                  - textbox "Domicilio *" [ref=e153]:
+                    - /placeholder: Calle, número, piso, depto
+                    - text: Sarmiento 654
+                - generic [ref=e154]:
+                  - generic [ref=e155]: Localidad
+                  - textbox "Localidad" [ref=e156]:
+                    - /placeholder: "Ej: San Miguel de Tucumán"
+                    - text: Neuquén
+                - generic [ref=e157]:
+                  - generic [ref=e158]: Provincia
+                  - combobox "Provincia" [ref=e159]:
+                    - option "Seleccionar..."
+                    - option "Buenos Aires"
+                    - option "CABA"
+                    - option "Catamarca"
+                    - option "Chaco"
+                    - option "Chubut"
+                    - option "Córdoba"
+                    - option "Corrientes"
+                    - option "Entre Ríos"
+                    - option "Formosa"
+                    - option "Jujuy"
+                    - option "La Pampa"
+                    - option "La Rioja"
+                    - option "Mendoza"
+                    - option "Misiones"
+                    - option "Neuquén"
+                    - option "Río Negro"
+                    - option "Salta"
+                    - option "San Juan"
+                    - option "San Luis"
+                    - option "Santa Cruz"
+                    - option "Santa Fe" [selected]
+                    - option "Santiago del Estero"
+                    - option "Tierra del Fuego"
+                    - option "Tucumán"
+                - generic [ref=e160]:
+                  - generic [ref=e161]: Código Postal
+                  - textbox "Código Postal" [ref=e162]:
+                    - /placeholder: "Ej: 4000"
+                    - text: PIHQ####
+            - separator [ref=e163]
+            - generic [ref=e164]:
+              - generic [ref=e165]:
+                - generic [ref=e166]: "4"
+                - generic [ref=e167]:
+                  - heading "Situación Laboral" [level=3] [ref=e168]
+                  - paragraph [ref=e169]: Empleo e ingresos del cliente
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]: Empleador
+                  - textbox "Empleador" [ref=e173]:
+                    - /placeholder: Nombre de la empresa
+                    - text: Industria SA
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Tipo de Empleo
+                  - combobox "Tipo de Empleo" [ref=e176]:
+                    - option "Seleccionar..."
+                    - option "Relación de dependencia" [selected]
+                    - option "Autónomo"
+                    - option "Monotributista"
+                    - option "Informal"
+                - generic [ref=e177]:
+                  - generic [ref=e178]: Sueldo
+                  - generic [ref=e179]:
+                    - generic [ref=e180]: $
+                    - textbox "Sueldo" [ref=e181]:
+                      - /placeholder: "0.00"
+                      - text: 490610,28
+                - generic [ref=e182]:
+                  - generic [ref=e183]: Teléfono Laboral
+                  - textbox "Teléfono Laboral" [ref=e184]:
+                    - /placeholder: "Ej: 3814567890"
+                    - text: "1125109977"
+                - generic [ref=e185]:
+                  - generic [ref=e186]: Tiempo de Trabajo
+                  - textbox "Tiempo de Trabajo" [ref=e187]:
+                    - /placeholder: "Ej: 3 años"
+                - generic [ref=e189] [cursor=pointer]:
+                  - checkbox "Tiene Recibo de Sueldo" [ref=e190]
+                  - generic [ref=e191]: Tiene Recibo de Sueldo
+            - separator [ref=e192]
+            - generic [ref=e193]:
+              - generic [ref=e194]:
+                - generic [ref=e195]: "5"
+                - generic [ref=e196]:
+                  - heading "Configuración Crediticia" [level=3] [ref=e197]
+                  - paragraph [ref=e198]: Parámetros personalizados para este cliente
+              - generic [ref=e199]:
+                - generic [ref=e200]:
+                  - generic [ref=e201]: Perfil de Crédito Preferido
+                  - combobox "Perfil de Crédito Preferido" [ref=e202]:
+                    - option "Sin perfil preferido" [selected]
+                - generic [ref=e203]:
+                  - generic [ref=e204]: Tasa Interés Mensual (%)
+                  - generic [ref=e205]:
+                    - textbox "Tasa Interés Mensual (%)" [ref=e206]:
+                      - /placeholder: "Ej: 5.00"
+                      - text: 8,76
+                    - generic [ref=e207]: "%"
+                - generic [ref=e208]:
+                  - generic [ref=e209]: Gastos Administrativos (%)
+                  - generic [ref=e210]:
+                    - textbox "Gastos Administrativos (%)" [ref=e211]:
+                      - /placeholder: "Ej: 2.00"
+                      - text: 22,29
+                    - generic [ref=e212]: "%"
+                - generic [ref=e213]:
+                  - generic [ref=e214]: Cuotas Máximas
+                  - spinbutton "Cuotas Máximas" [ref=e215]: "24"
+                - generic [ref=e216]:
+                  - generic [ref=e217]: Monto Mínimo ($)
+                  - generic [ref=e218]:
+                    - generic [ref=e219]: $
+                    - textbox "0.00" [ref=e220]: 427393,43
+                - generic [ref=e221]:
+                  - generic [ref=e222]: Monto Máximo ($)
+                  - generic [ref=e223]:
+                    - generic [ref=e224]: $
+                    - textbox "0.00" [ref=e225]: 376119,17
+            - separator [ref=e226]
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - generic [ref=e229]: "6"
+                - generic [ref=e230]:
+                  - heading "Observaciones y Estado" [level=3] [ref=e231]
+                  - paragraph [ref=e232]: Notas internas y estado del cliente
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - generic [ref=e235]: Observaciones
+                  - textbox "Observaciones" [ref=e236]:
+                    - /placeholder: Notas internas sobre el cliente...
+                    - text: Requiere factura A
+                - generic [ref=e238] [cursor=pointer]:
+                  - checkbox "Cliente Activo Los clientes inactivos no pueden generar nuevos créditos" [checked] [ref=e239]
+                  - generic [ref=e240]:
+                    - text: Cliente Activo
+                    - paragraph [ref=e241]: Los clientes inactivos no pueden generar nuevos créditos
+          - complementary [ref=e242]:
+            - generic [ref=e243]:
+              - generic [ref=e244]:
+                - generic [ref=e245]: badge
+                - heading "Datos del cliente" [level=4] [ref=e246]
+              - generic [ref=e247]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Nombre
+                  - generic [ref=e250]: Pérez Ventilador
+                - generic [ref=e251]:
+                  - generic [ref=e252]: Documento
+                  - generic [ref=e253]: DNI 11111111111111111111
+                - generic [ref=e254]:
+                  - generic [ref=e255]: Score
+                  - generic [ref=e256]: 6,00
+              - separator [ref=e257]
+              - generic [ref=e258]:
+                - generic [ref=e259]: info
+                - heading "Consideraciones" [level=4] [ref=e260]
+              - list [ref=e261]:
+                - listitem [ref=e262]:
+                  - generic [ref=e263]: arrow_right
+                  - text: Los cambios en la configuración crediticia aplican a créditos
+                  - strong [ref=e264]: futuros
+                  - text: ", no a los vigentes."
+                - listitem [ref=e265]:
+                  - generic [ref=e266]: arrow_right
+                  - text: Desactivar el cliente impide nuevos créditos pero no cancela los activos.
+                - listitem [ref=e267]:
+                  - generic [ref=e268]: arrow_right
+                  - text: Los campos marcados con
+                  - strong [ref=e269]: "*"
+                  - text: son obligatorios.

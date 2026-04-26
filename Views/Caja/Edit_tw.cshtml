@@ -15,22 +15,22 @@
 <div class="caja-page-shell space-y-8">
 
     <header class="space-y-6">
-        <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+        <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
+            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
             <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-slate-900 dark:text-white">Editar caja</span>
+            <span class="text-white">Editar caja</span>
         </div>
 
         <div class="caja-page-header-layout">
             <div class="space-y-2">
-                <h1 class="text-slate-900 dark:text-white text-4xl font-black tracking-tight">Editar caja</h1>
-                <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+                <h1 class="text-white text-4xl font-black tracking-tight">Editar caja</h1>
+                <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
                     Ajustá los datos de la terminal sin perder claridad sobre su identificación, disponibilidad operativa y ubicación física.
                 </p>
             </div>
             <div class="caja-page-header-actions">
                 <a asp-action="Index"
-                   class="caja-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all no-underline text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                   class="caja-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-700 transition-all no-underline text-slate-200 border border-slate-700">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Volver
                 </a>
@@ -40,38 +40,38 @@
 
     @if (TempData["Error"] != null)
     {
-        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
+        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
             <span class="material-symbols-outlined text-lg">error</span>
             @TempData["Error"]
         </div>
     }
 
     <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 empty:hidden"
+         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden"
          role="alert"></div>
 
     <div class="caja-page-metrics caja-page-metrics--4">
-        <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Código</p>
-            <p data-caja-preview-code class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(string.IsNullOrWhiteSpace(codigoActual) ? "Pendiente" : codigoActual)</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Identificador interno usado en listados y operaciones.</p>
+        <article class="card-erp-panel p-4">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Código</p>
+            <p data-caja-preview-code class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(codigoActual) ? "Pendiente" : codigoActual)</p>
+            <p class="mt-1 text-xs text-slate-400">Identificador interno usado en listados y operaciones.</p>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Nombre visible</p>
-            <p data-caja-preview-name class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(string.IsNullOrWhiteSpace(nombreActual) ? "Terminal sin nombre" : nombreActual)</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Cómo verán la caja los usuarios en el módulo operativo.</p>
+        <article class="card-erp-panel p-4">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Nombre visible</p>
+            <p data-caja-preview-name class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(nombreActual) ? "Terminal sin nombre" : nombreActual)</p>
+            <p class="mt-1 text-xs text-slate-400">Cómo verán la caja los usuarios en el módulo operativo.</p>
         </article>
         <article data-caja-preview-status-card class="rounded-2xl border @(activa ? "border-emerald-500/20 bg-emerald-500/10" : "border-rose-500/20 bg-rose-500/10") p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(activa ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">Estado actual</p>
-            <p data-caja-preview-status class="mt-2 text-2xl font-black @(activa ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">@(activa ? "Activa" : "Inactiva")</p>
-            <p data-caja-preview-status-copy class="mt-1 text-xs @(activa ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-rose-600/80 dark:text-rose-400/80")">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(activa ? "text-emerald-400" : "text-rose-400")">Estado actual</p>
+            <p data-caja-preview-status class="mt-2 text-2xl font-black @(activa ? "text-emerald-400" : "text-rose-400")">@(activa ? "Activa" : "Inactiva")</p>
+            <p data-caja-preview-status-copy class="mt-1 text-xs @(activa ? "text-emerald-600/80 text-emerald-400/80" : "text-rose-600/80 text-rose-400/80")">
                 @(activa ? "Puede usarse para nuevas aperturas y flujos operativos." : "Quedará fuera del flujo operativo hasta volver a activarla.")
             </p>
         </article>
         <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Ubicación operativa</p>
-            <p data-caja-preview-location class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(string.IsNullOrWhiteSpace(ubicacionResumen) ? "Sin definir" : ubicacionResumen)</p>
-            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Sucursal y posición física para soporte y coordinación.</p>
+            <p data-caja-preview-location class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(ubicacionResumen) ? "Sin definir" : ubicacionResumen)</p>
+            <p class="mt-1 text-xs text-slate-300">Sucursal y posición física para soporte y coordinación.</p>
         </article>
     </div>
 
@@ -82,14 +82,14 @@
         <input type="hidden" asp-for="Estado" />
 
         <div class="caja-page-main-grid caja-page-main-grid--aside-right">
-            <section class="rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <section class="card-erp-panel">
                 <div class="p-6 space-y-8">
                     <div class="space-y-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="material-symbols-outlined text-primary">edit_square</span>
-                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Datos editables</h2>
+                            <h2 class="text-white text-xl font-bold">Datos editables</h2>
                         </div>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                        <p class="text-sm text-slate-400">
                             Actualizá la información visible de la terminal y revisá el estado operativo antes de guardar cambios.
                         </p>
                     </div>
@@ -97,7 +97,7 @@
                     <div class="space-y-6">
                         <div class="caja-form-fields-grid caja-form-fields-grid--2">
                             <div class="flex flex-col gap-2">
-                                <label asp-for="Codigo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                <label asp-for="Codigo" class="text-sm font-semibold text-slate-300">
                                     Código <span class="text-rose-500">*</span>
                                 </label>
                                 <div class="relative">
@@ -107,13 +107,13 @@
                                            placeholder="Ej: C01-HQ"
                                            required
                                            data-caja-form-codigo
-                                           class="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                           class="caja-input py-3 pl-10" />
                                 </div>
                                 <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label asp-for="Nombre" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                <label asp-for="Nombre" class="text-sm font-semibold text-slate-300">
                                     Nombre <span class="text-rose-500">*</span>
                                 </label>
                                 <div class="relative">
@@ -123,7 +123,7 @@
                                            placeholder="Ej: Caja Principal 01"
                                            required
                                            data-caja-form-nombre
-                                           class="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                           class="caja-input py-3 pl-10" />
                                 </div>
                                 <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
                             </div>
@@ -131,57 +131,57 @@
 
                         <div class="caja-form-fields-grid caja-form-fields-grid--2">
                             <div class="flex flex-col gap-2">
-                                <label asp-for="Sucursal" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sucursal</label>
+                                <label asp-for="Sucursal" class="text-sm font-semibold text-slate-300">Sucursal</label>
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">store</span>
                                     <input asp-for="Sucursal"
                                            type="text"
                                            placeholder="Ej: Casa Central"
                                            data-caja-form-sucursal
-                                           class="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                           class="caja-input py-3 pl-10" />
                                 </div>
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Ubicación</label>
+                                <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-300">Ubicación</label>
                                 <div class="relative">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">location_on</span>
                                     <input asp-for="Ubicacion"
                                            type="text"
                                            placeholder="Ej: Planta baja - Zona A"
                                            data-caja-form-ubicacion
-                                           class="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                           class="caja-input py-3 pl-10" />
                                 </div>
                             </div>
                         </div>
 
                         <div class="flex flex-col gap-2">
-                            <label asp-for="Descripcion" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Descripción</label>
+                            <label asp-for="Descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
                             <textarea asp-for="Descripcion"
                                       rows="4"
                                       placeholder="Detalles adicionales sobre esta terminal de caja..."
-                                      class="w-full rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white">@descripcionActual</textarea>
+                                      class="caja-input p-4">@descripcionActual</textarea>
                         </div>
 
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 dark:border-slate-700 dark:bg-slate-800/70">
+                        <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5">
                             <div class="flex items-center gap-3">
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input asp-for="Activa" type="checkbox" class="sr-only peer" data-caja-form-activa />
-                                    <div class="w-11 h-6 bg-slate-300 dark:bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                                 </label>
                                 <div class="space-y-1">
-                                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Caja activa</p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">Cambiar este estado impacta su disponibilidad para aperturas futuras, sin alterar historial previo.</p>
+                                    <p class="text-sm font-semibold text-slate-300">Caja activa</p>
+                                    <p class="text-xs text-slate-400">Cambiar este estado impacta su disponibilidad para aperturas futuras, sin alterar historial previo.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="border-t border-slate-200 px-6 py-5 dark:border-slate-800">
+                <div class="border-t border-slate-800 px-6 py-5">
                     <div class="caja-page-footer-actions">
                         <a asp-action="Index"
-                           class="caja-page-footer-action inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-8 py-3 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                           class="caja-page-footer-action inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-8 py-3 text-slate-300 font-bold hover:bg-slate-800 transition-colors no-underline">
                             Cancelar
                         </a>
                         <button type="submit"
@@ -194,12 +194,12 @@
             </section>
 
             <aside class="caja-form-panel-stack">
-                <section class="rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <section class="card-erp-panel-padded">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary">shield</span>
-                        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Edición controlada</h2>
+                        <h2 class="text-white text-lg font-bold">Edición controlada</h2>
                     </div>
-                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    <p class="text-sm text-slate-300 leading-relaxed">
                         Los cambios impactarán la configuración visible de la caja, pero el historial operativo y la concurrencia siguen protegidos por validación del sistema.
                     </p>
                 </section>
@@ -207,9 +207,9 @@
                 <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="material-symbols-outlined text-amber-500">rule</span>
-                        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Antes de guardar</h2>
+                        <h2 class="text-white text-lg font-bold">Antes de guardar</h2>
                     </div>
-                    <ul class="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                    <ul class="space-y-3 text-sm text-slate-300">
                         <li class="flex items-start gap-2">
                             <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
                             Verificá que código y nombre sigan siendo reconocibles para el equipo.

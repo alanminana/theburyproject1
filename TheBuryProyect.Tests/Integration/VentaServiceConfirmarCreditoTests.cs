@@ -194,7 +194,17 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
-        _service = new VentaService(
+        _service = CreateService(existeContratoGenerado: true);
+    }
+
+    private VentaService CreateService(bool existeContratoGenerado)
+    {
+        var mapper = new MapperConfiguration(
+                cfg => { cfg.AddProfile<MappingProfile>(); },
+                NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        return new VentaService(
             _context,
             mapper,
             NullLogger<VentaService>.Instance,
@@ -207,7 +217,8 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             new StubCurrentUserServiceConfirmar(),
             new StubValidacionVentaServiceConfirmar(),
             new StubCajaServiceConfirmar(_apertura),
-            new StubCreditoDisponibleServiceConfirmar());
+            new StubCreditoDisponibleServiceConfirmar(),
+            new StubContratoVentaCreditoService(existeContratoGenerado));
     }
 
     public void Dispose()
@@ -538,6 +549,42 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             () => _service.ConfirmarVentaCreditoAsync(venta.Id));
 
         Assert.Contains("Configurado", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_SinContratoGenerado_LanzaInvalidOperation()
+    {
+        // Arrange
+        var (venta, _) = await SeedVentaConfirmable();
+        var serviceSinContrato = CreateService(existeContratoGenerado: false);
+
+        // Act + Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => serviceSinContrato.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
+
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Presupuesto, ventaActualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_ConExcepcionDocumental_SinContratoGenerado_NoPermiteContinuar()
+    {
+        // Arrange: una excepción documental/autorización no debe saltear el contrato.
+        var (venta, _) = await SeedVentaConfirmable();
+        venta.RequiereAutorizacion = true;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+        venta.MotivoAutorizacion = "EXCEPCION_DOC|testuser|Documento exceptuado";
+        await _context.SaveChangesAsync();
+
+        var serviceSinContrato = CreateService(existeContratoGenerado: false);
+
+        // Act + Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => serviceSinContrato.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Equal("Debe generar e imprimir el Contrato de Venta antes de continuar.", ex.Message);
     }
 
     // -------------------------------------------------------------------------

@@ -1,0 +1,87 @@
+/* ─────────────────────────────────────────────────────────────
+   documentocliente-module.css
+   Styles for the DocumentoCliente module views:
+     Index_tw, Details_tw, Upload_tw
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   INDEX
+   ══════════════════════════════════════════════════════════════ */
+
+.documento-index-header-actions { display: flex; width: 100%; flex-direction: column; }
+.documento-index-header-action { width: 100%; }
+.documento-index-filter-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.documento-index-row-action-label { display: inline; }
+.documento-index-scroll-hint { display: block; }
+
+@media (min-width: 640px) {
+    .documento-index-header-actions { width: auto; flex-direction: row; }
+    .documento-index-header-action { width: auto; }
+    .documento-index-row-action { width: 2.25rem; height: 2.25rem; padding: 0; }
+    .documento-index-row-action-label { display: none; }
+}
+
+@media (min-width: 1024px) {
+    .documento-index-scroll-hint { display: none !important; }
+}
+
+@media (min-width: 1280px) {
+    .documento-index-filter-actions { display: flex; justify-content: flex-end; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   DETAILS
+   ══════════════════════════════════════════════════════════════ */
+
+.documento-details-hero-actions {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+
+.documento-details-hero-action {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .documento-details-hero-actions {
+        width: auto;
+        flex-direction: row;
+    }
+
+    .documento-details-hero-action {
+        width: auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   UPLOAD
+   ══════════════════════════════════════════════════════════════ */
+
+.documento-upload-hero-actions,
+.documento-upload-footer-actions {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+
+.documento-upload-hero-action,
+.documento-upload-footer-action {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .documento-upload-hero-actions,
+    .documento-upload-footer-actions {
+        width: auto;
+        flex-direction: row;
+    }
+
+    .documento-upload-hero-action,
+    .documento-upload-footer-action {
+        width: auto;
+    }
+}

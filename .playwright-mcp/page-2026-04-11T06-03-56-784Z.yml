@@ -1,0 +1,276 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Logística
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Nueva Venta" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - generic [ref=e67]: Ventas
+              - generic [ref=e68]: /
+              - generic [ref=e69]: Venta en curso
+            - generic [ref=e70]:
+              - heading "Nueva Venta" [level=1] [ref=e71]
+              - paragraph [ref=e72]: Armá la venta, verificá elegibilidad crediticia y cerrá la operación sin salir de la pantalla.
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - generic [ref=e75]: verified_user
+                - text: Sistema operativo
+              - generic [ref=e76]:
+                - generic [ref=e77]: credit_score
+                - text: Validación crediticia en línea
+              - generic [ref=e78]:
+                - generic [ref=e79]: inventory_2
+                - text: Stock y precios al momento
+          - generic [ref=e80]:
+            - link "Cancelar" [ref=e81] [cursor=pointer]:
+              - /url: /Venta
+            - button "Guardar Operación" [ref=e82]
+        - generic [ref=e83]:
+          - article [ref=e84]:
+            - paragraph [ref=e85]: Cliente
+            - paragraph [ref=e86]: Sin seleccionar
+            - paragraph [ref=e87]: Buscá un cliente para iniciar la operación.
+          - article [ref=e88]:
+            - paragraph [ref=e89]: Detalle
+            - paragraph [ref=e90]: 0 productos
+            - paragraph [ref=e91]: Sumá artículos y ajustá cantidades o descuentos antes de confirmar.
+          - article [ref=e92]:
+            - paragraph [ref=e93]: Total estimado
+            - paragraph [ref=e94]: $ 0,00
+            - paragraph [ref=e95]: Incluye IVA y descuentos recalculados en tiempo real.
+          - article [ref=e96]:
+            - paragraph [ref=e97]: Cobro
+            - paragraph [ref=e98]: Efectivo
+            - paragraph [ref=e99]: El detalle cambia automáticamente según la forma de pago elegida.
+      - generic [ref=e100]:
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - generic [ref=e105]: "1"
+                - generic [ref=e106]:
+                  - heading "Datos generales" [level=2] [ref=e107]
+                  - paragraph [ref=e108]: Seleccioná el cliente, la fecha y el medio de cobro antes de armar el detalle.
+              - generic [ref=e109]:
+                - generic [ref=e110]: person
+                - text: Cliente + contexto
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - generic [ref=e113]: Buscar Cliente
+                - generic [ref=e114]:
+                  - generic [ref=e115]: search
+                  - textbox "Nombre, CUIT o DNI del cliente..." [ref=e116]
+              - generic [ref=e117]:
+                - generic [ref=e118]: Fecha de Operación
+                - textbox [ref=e119]: 2026-04-11
+              - generic [ref=e120]:
+                - generic [ref=e121]: Forma de Pago
+                - combobox [ref=e122]:
+                  - option "Efectivo" [selected]
+                  - option "Transferencia"
+                  - option "Tarjeta Débito"
+                  - option "Tarjeta Crédito"
+                  - option "Cheque"
+                  - option "Crédito Personal"
+                  - option "Mercado Pago"
+                  - option "Cuenta Corriente"
+                  - option "Tarjeta"
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - generic [ref=e126]: "2"
+                - generic [ref=e127]:
+                  - heading "Selección de productos" [level=2] [ref=e128]
+                  - paragraph [ref=e129]: Buscá artículos, afiná por filtros y revisá el detalle antes de pasar al cobro.
+              - generic [ref=e130]:
+                - generic [ref=e131]: shopping_bag
+                - text: 0 productos
+            - generic [ref=e132]:
+              - combobox [ref=e133] [cursor=pointer]:
+                - 'option "Categoría: Todas" [selected]'
+                - option "Electrónica"
+              - combobox [ref=e134] [cursor=pointer]:
+                - 'option "Marca: Todas" [selected]'
+                - option "DREAN"
+                - option "LG"
+                - option "Samsung"
+              - generic [ref=e135]:
+                - spinbutton [ref=e136] [cursor=pointer]
+                - spinbutton [ref=e137] [cursor=pointer]
+              - generic [ref=e138] [cursor=pointer]:
+                - checkbox "Solo con stock" [checked] [ref=e139]
+                - generic [ref=e140]: Solo con stock
+            - generic [ref=e142]:
+              - generic: search
+              - textbox "Escriba código o nombre del producto..." [ref=e143]
+            - generic [ref=e144]:
+              - region "Detalle de productos de la venta" [ref=e146]:
+                - table [ref=e147]:
+                  - rowgroup [ref=e148]:
+                    - row "Cód. Producto Cant. Unitario Desc. Subtotal" [ref=e149]:
+                      - columnheader "Cód." [ref=e150]
+                      - columnheader "Producto" [ref=e151]
+                      - columnheader "Cant." [ref=e152]
+                      - columnheader "Unitario" [ref=e153]
+                      - columnheader "Desc." [ref=e154]
+                      - columnheader "Subtotal" [ref=e155]
+                      - columnheader [ref=e156]
+                  - rowgroup
+              - generic [ref=e157]:
+                - generic [ref=e158]: shopping_cart
+                - paragraph [ref=e159]: No hay productos agregados. Buscá y añadí productos arriba.
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - generic [ref=e163]: "3"
+              - generic [ref=e164]:
+                - heading "Detalle de cobro" [level=2] [ref=e165]
+                - paragraph [ref=e166]: La pantalla adapta los campos requeridos según la forma de pago elegida.
+            - generic [ref=e167]:
+              - generic [ref=e168]: payments
+              - text: Dinámico por medio
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - generic [ref=e172]:
+                - generic [ref=e173]: "4"
+                - generic [ref=e174]:
+                  - heading "Verificación crediticia" [level=2] [ref=e175]
+                  - paragraph [ref=e176]: Chequeá cupo, mora y documentación antes de confirmar.
+              - generic [ref=e177]:
+                - generic [ref=e178]: analytics
+                - text: Antes de confirmar
+            - generic [ref=e179]:
+              - button "analytics Verificar Elegibilidad" [ref=e180]:
+                - generic [ref=e181]: analytics
+                - text: Verificar Elegibilidad
+              - button "shield_question Aplicar Excepción (omitir validaciones)" [ref=e184]:
+                - generic [ref=e185]: shield_question
+                - text: Aplicar Excepción (omitir validaciones)
+          - generic [ref=e186]:
+            - generic [ref=e187]:
+              - generic [ref=e188]: "5"
+              - generic [ref=e189]:
+                - heading "Vendedor y observaciones" [level=2] [ref=e190]
+                - paragraph [ref=e191]: Trazabilidad interna y responsable asignado.
+            - generic [ref=e192]:
+              - generic [ref=e193]: Vendedor
+              - combobox [ref=e194]:
+                - option "Seleccione vendedor..." [selected]
+                - option "tecnico@thebury.com"
+                - option "test"
+                - option "vendedor@thebury.com"
+            - generic [ref=e195]:
+              - generic [ref=e196]: Observaciones
+              - textbox "Notas internas sobre la venta..." [ref=e197]
+          - generic [ref=e198]:
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - paragraph [ref=e201]: Cierre
+                - heading "Resumen de totales" [level=2] [ref=e202]
+                - paragraph [ref=e203]: Subtotal, descuentos, IVA y confirmación.
+              - generic [ref=e204]:
+                - generic [ref=e205]: receipt_long
+                - text: Tiempo real
+            - generic [ref=e206]:
+              - generic [ref=e207]:
+                - generic [ref=e208]: Subtotal Neto
+                - generic [ref=e209]: $ 0,00
+              - generic [ref=e210]:
+                - generic [ref=e211]: Descuento Global (0%)
+                - generic [ref=e212]: "-$ 0,00"
+              - generic [ref=e213]:
+                - generic [ref=e214]: IVA (21%)
+                - generic [ref=e215]: $ 0,00
+              - generic [ref=e217]:
+                - generic [ref=e218]: TOTAL FINAL
+                - generic [ref=e219]:
+                  - generic [ref=e220]: $ 0,00
+                  - text: ARS pesos argentinos
+            - button "point_of_sale Confirmar Transacción" [ref=e221]:
+              - generic [ref=e222]: point_of_sale
+              - text: Confirmar Transacción
+            - paragraph [ref=e223]: Al confirmar, se generará la factura correspondiente.
+          - generic [ref=e224]:
+            - link "description Guardar como Cotización" [ref=e225] [cursor=pointer]:
+              - /url: /Venta/Cotizar
+              - generic [ref=e226]: description
+              - text: Guardar como Cotización
+            - button "print Imprimir Borrador" [ref=e227] [cursor=pointer]:
+              - generic [ref=e228]: print
+              - text: Imprimir Borrador

@@ -280,6 +280,17 @@ public static class RolesPermisosSeeder
                 ("Editar", "update", 3),
                 ("Eliminar", "delete", 4),
                 ("Asignar Permisos", "assignpermissions", 5)
+            }),
+
+            // TICKETS INTERNOS
+            ("Tickets", "tickets", "Sistema", "bi-ticket-perforated", 100, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Crear", "create", 2),
+                ("Editar", "update", 3),
+                ("Cambiar Estado", "changestatus", 4),
+                ("Resolver", "resolve", 5),
+                ("Eliminar", "delete", 6)
             })
         };
 
@@ -484,6 +495,16 @@ public static class RolesPermisosSeeder
                 { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }
+            });
+        }
+
+        // Tickets: todos los roles pueden crear y ver; solo Admin/SuperAdmin/Gerente pueden resolver y eliminar
+        var todosLosRoles = new[] { gerenteRole, vendedorRole, cajeroRole, repositorRole, tecnicoRole, contadorRole };
+        foreach (var rol in todosLosRoles.Where(r => r != null))
+        {
+            await AsignarPermisosEspecificosAsync(context, rol!.Id, modulos, new Dictionary<string, string[]>
+            {
+                { "tickets", new[] { "view", "create", "update", "changestatus" } }
             });
         }
 

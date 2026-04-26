@@ -1,0 +1,828 @@
+@model TheBuryProject.ViewModels.VentaViewModel
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Helpers
+@{
+    ViewData["Title"] = Model.Estado == EstadoVenta.Cotizacion ? $"Editar Cotización {Model.Numero}" : $"Editar Venta {Model.Numero}";
+    var clientes = ViewBag.Clientes as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var productos = ViewBag.Productos as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var tiposPago = ViewBag.TiposPago as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>;
+    var tarjetas = ViewBag.Tarjetas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var creditos = ViewBag.Creditos as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var categorias = ViewBag.CategoriasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var marcas = ViewBag.MarcasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var vendedores = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
+    var ivaRate = (decimal)(ViewBag.IvaRate ?? 0.21m);
+    var esCotizacion = Model.Estado == EstadoVenta.Cotizacion;
+    var estadoOperacionLabel = esCotizacion ? "Cotización" : "Venta";
+}
+
+<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+
+<!-- Validation Errors -->
+@if (!ViewData.ModelState.IsValid)
+{
+    <div id="banner-errores" class="flex flex-1 flex-col items-start justify-between gap-4 rounded-xl border border-red-500/30 bg-red-500/10 p-5 sm:flex-row sm:items-center mb-6">
+        <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-red-500">error</span>
+            <div class="flex flex-col gap-1">
+                <p class="text-white text-base font-bold leading-tight">Corrige los errores antes de continuar</p>
+                <div class="text-slate-400 text-sm font-normal">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <p>@error.ErrorMessage</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <button type="button" id="btn-cerrar-banner-errores"
+                class="text-sm font-bold leading-normal flex items-center gap-2 text-white opacity-70 hover:opacity-100">
+            Cerrar
+        </button>
+    </div>
+}
+
+<!-- Success/Warning/Error Toasts -->
+@if (TempData["Success"] != null)
+{
+    <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <span class="material-symbols-outlined">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Warning"] != null)
+{
+    <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-400" role="status">
+        <span class="material-symbols-outlined">warning</span>
+        @TempData["Warning"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+        <span class="material-symbols-outlined">error</span>
+        @TempData["Error"]
+    </div>
+}
+
+<form id="venta-form" asp-action="Edit" method="post" class="space-y-8">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="Estado" />
+    <input type="hidden" asp-for="RowVersion" />
+    <input type="hidden" id="hdn-iva-rate" value="@ivaRate" />
+
+    <!-- Header Section -->
+    <section class="venta-hero-section sm:p-8">
+        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="space-y-4">
+                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <a asp-action="Index" class="venta-breadcrumb-pill no-underline hover:bg-slate-700 transition-colors">Ventas</a>
+                    <span class="text-slate-600">/</span>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="venta-breadcrumb-pill no-underline hover:bg-slate-700 transition-colors">@Model.Numero</a>
+                    <span class="text-slate-600">/</span>
+                    <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">Editar</span>
+                </div>
+                <div class="space-y-2">
+                    <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">
+                        @(esCotizacion ? "Editar Cotización" : "Editar Venta")
+                    </h1>
+                    <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
+                        Modificá los datos de la operación. Solo se pueden editar ventas en estado Cotización o Presupuesto.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs font-medium">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-amber-400">
+                        <span class="material-symbols-outlined text-sm">edit</span>
+                        Modo edición
+                    </span>
+                    <span class="inline-flex items-center gap-2 venta-info-pill">
+                        <span class="material-symbols-outlined text-sm">credit_score</span>
+                        Validación crediticia en línea
+                    </span>
+                    <span class="inline-flex items-center gap-2 venta-info-pill">
+                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                        Stock y precios al momento
+                    </span>
+                </div>
+            </div>
+
+            <div class="venta-create-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-[15rem] xl:flex-col">
+                <a asp-action="Details" asp-route-id="@Model.Id"
+                   class="btn-erp-ghost h-11 w-full xl:w-full no-underline">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 xl:w-full">
+                    Guardar cambios
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <article class="venta-hero-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</p>
+                <p id="hero-cliente" class="mt-3 text-sm font-bold text-white">Sin seleccionar</p>
+                <p id="hero-cliente-detalle" class="mt-1 text-xs text-slate-400">Buscá un cliente para iniciar la operación.</p>
+            </article>
+            <article class="venta-hero-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Detalle</p>
+                <p id="hero-detalles-count" class="mt-3 text-sm font-bold text-white">0 productos</p>
+                <p class="mt-1 text-xs text-slate-400">Sumá artículos y ajustá cantidades o descuentos antes de confirmar.</p>
+            </article>
+            <article class="venta-hero-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Total estimado</p>
+                <p id="hero-total" class="mt-3 text-sm font-bold text-white">$0,00</p>
+                <p class="mt-1 text-xs text-slate-400">Incluye IVA y descuentos recalculados en tiempo real.</p>
+            </article>
+            <article class="venta-hero-metric">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cobro</p>
+                <p id="hero-tipo-pago" class="mt-3 text-sm font-bold text-white">Sin definir</p>
+                <p class="mt-1 text-xs text-slate-400">El detalle cambia automáticamente según la forma de pago elegida.</p>
+            </article>
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
+        <!-- Left Column: Main Form -->
+        <div class="lg:col-span-2 flex flex-col gap-8">
+
+            <!-- 1. General Data Section -->
+            <section class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 1</p>
+                        <h2 class="mt-1 text-lg font-bold text-white">Datos generales</h2>
+                        <p class="mt-1 text-sm text-slate-400">Seleccioná el cliente, la fecha y el medio de cobro antes de armar el detalle.</p>
+                    </div>
+                    <span class="badge-erp badge-erp-neutral self-start">
+                        <span class="material-symbols-outlined text-sm">person</span>
+                        Cliente + contexto
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Client Search -->
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Buscar Cliente</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400">search</span>
+                            <input id="input-buscar-cliente" type="text" autocomplete="off"
+                                   class="venta-input pl-10"
+                                   placeholder="Nombre, CUIT o DNI del cliente..." />
+                            <div id="dropdown-clientes" class="absolute top-full left-0 w-full bg-slate-800 mt-1 rounded-lg border border-slate-700 shadow-xl z-20 hidden max-h-60 overflow-y-auto"></div>
+                        </div>
+                        <input type="hidden" asp-for="ClienteId" id="hdn-cliente-id" />
+                    </div>
+
+                    <!-- Selected Client Info -->
+                    <div id="info-cliente" class="md:col-span-2 hidden rounded-2xl border border-primary/20 bg-primary/10 p-4 ">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="size-10 bg-primary/20 rounded-full flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-primary text-sm">person</span>
+                                </div>
+                                <div>
+                                    <p id="info-cliente-nombre" class="text-sm font-bold text-white"></p>
+                                    <p id="info-cliente-doc" class="text-xs text-slate-500"></p>
+                                </div>
+                            </div>
+                            <button type="button" id="btn-limpiar-cliente" class="text-xs font-bold text-red-500 hover:underline">Cambiar</button>
+                        </div>
+                    </div>
+
+                    <!-- Date -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Fecha de Operación</label>
+                        <input asp-for="FechaVenta" type="date"
+                               class="venta-input" />
+                    </div>
+
+                    <!-- Payment Type -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Forma de Pago</label>
+                        <select asp-for="TipoPago" id="select-tipo-pago"
+                                class="venta-input">
+                            @if (tiposPago != null)
+                            {
+                                @foreach (var tp in tiposPago)
+                                {
+                                    <option value="@tp.Value">@tp.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dynamic Info: Credit Notice (hidden by default) -->
+                <div id="panel-aviso-credito" class="mt-6 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 hidden">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="material-symbols-outlined text-orange-500">info</span>
+                        <span class="text-orange-500 font-bold text-sm">Aviso de Crédito Personal</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <p class="text-slate-400">Disponible</p>
+                            <p id="credito-disponible" class="text-white font-bold">$0,00</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-400">Solicitado</p>
+                            <p id="credito-solicitado" class="text-white font-bold">$0,00</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-400">Margen</p>
+                            <p id="credito-margen" class="text-white font-bold">$0,00</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Products Section -->
+            <section class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 2</p>
+                        <h2 class="mt-1 text-lg font-bold text-white">Selección de productos</h2>
+                        <p class="mt-1 text-sm text-slate-400">Buscá artículos, afiná por filtros y revisá el detalle antes de pasar al cobro.</p>
+                    </div>
+                    <span id="detalle-items-badge" class="badge-erp badge-erp-neutral self-start">
+                        <span class="material-symbols-outlined text-sm">shopping_bag</span>
+                        0 productos
+                    </span>
+                </div>
+
+                <!-- Advanced Filters -->
+                <div class="grid grid-cols-1 gap-3 rounded-2xl border border-slate-800 bg-slate-800/50 p-4 md:grid-cols-4">
+                    <select id="filtro-categoria" class="text-xs bg-slate-800 border border-slate-700 rounded-md">
+                        <option value="">Categoría: Todas</option>
+                        @if (categorias != null)
+                        {
+                            @foreach (var cat in categorias)
+                            {
+                                <option value="@cat.Value">@cat.Text</option>
+                            }
+                        }
+                    </select>
+                    <select id="filtro-marca" class="text-xs bg-slate-800 border border-slate-700 rounded-md">
+                        <option value="">Marca: Todas</option>
+                        @if (marcas != null)
+                        {
+                            @foreach (var marca in marcas)
+                            {
+                                <option value="@marca.Value">@marca.Text</option>
+                            }
+                        }
+                    </select>
+                    <div class="flex gap-2">
+                        <input id="filtro-precio-min" type="number" min="0" step="0.01" class="w-full text-xs bg-slate-800 border border-slate-700 rounded-md" placeholder="Min $" />
+                        <input id="filtro-precio-max" type="number" min="0" step="0.01" class="w-full text-xs bg-slate-800 border border-slate-700 rounded-md" placeholder="Max $" />
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input id="filtro-solo-stock" type="checkbox" checked class="rounded text-primary focus:ring-primary bg-slate-800 border-slate-700" />
+                        <span class="text-xs text-slate-400 font-medium">Solo con stock</span>
+                    </label>
+                </div>
+
+                <!-- Search and Quick Add -->
+                <div class="flex flex-col gap-4 mb-8">
+                    <div class="relative">
+                        <input id="input-buscar-producto" type="text" autocomplete="off"
+                               class="venta-select"
+                               placeholder="Escriba código o nombre del producto..." />
+                        <div id="dropdown-productos" class="absolute top-full left-0 w-full bg-slate-800 mt-1 rounded-lg border border-slate-700 shadow-xl z-20 hidden max-h-72 overflow-y-auto"></div>
+                    </div>
+                    <div id="panel-agregar-producto" class="hidden grid-cols-2 gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 md:grid-cols-5">
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Producto Seleccionado</label>
+                            <input id="txt-producto-seleccionado" type="text" readonly
+                                   class="w-full text-sm bg-slate-700 border-none rounded-lg text-slate-300" />
+                            <input type="hidden" id="hdn-producto-id" />
+                            <input type="hidden" id="hdn-producto-codigo" />
+                            <input type="hidden" id="hdn-producto-precio" />
+                            <input type="hidden" id="hdn-producto-stock" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Cantidad</label>
+                            <input id="txt-cantidad" type="number" min="1" value="1"
+                                   class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg" />
+                            <p id="stock-error" class="hidden text-[9px] text-red-500 font-bold mt-1"></p>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc. %</label>
+                            <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
+                                   class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg" />
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" id="btn-agregar-producto"
+                                    class="w-full py-2 bg-primary text-white rounded-lg flex items-center justify-center gap-1 font-bold text-sm">
+                                <span class="material-symbols-outlined text-sm">add</span> Añadir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Table -->
+                <div id="venta-detalles-scroll" data-oc-scroll style="--oc-scroll-min-width: 46rem;">
+                    <p data-oc-scroll-hint hidden class="mb-3 text-xs font-medium text-slate-400 lg:hidden">
+                        Deslizá la tabla para revisar cantidades, descuentos y subtotales completos.
+                    </p>
+                    <div data-oc-scroll-shell>
+                        <div data-oc-scroll-fade="left" hidden></div>
+                        <div data-oc-scroll-fade="right" hidden></div>
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Detalle de productos de la venta">
+                            <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-800">
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Cód.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase">Producto</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-center">Cant.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Unitario</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Desc.</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right">Subtotal</th>
+                                        <th class="py-3 px-2 text-[10px] font-bold text-slate-500 uppercase text-right"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-detalles" class="divide-y divide-slate-800/50">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="detalles-vacio" class="text-center py-12 text-slate-400">
+                        <span class="material-symbols-outlined text-4xl mb-2">shopping_cart</span>
+                        <p class="text-sm">No hay productos agregados. Busque y añada productos arriba.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Payment Details Section (Cards/Checks/Credit) -->
+            <section id="seccion-detalle-cobro" class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 3</p>
+                        <h2 class="mt-1 text-lg font-bold text-white">Detalle de cobro</h2>
+                        <p class="mt-1 text-sm text-slate-400">La pantalla adapta los campos requeridos según la forma de pago elegida.</p>
+                    </div>
+                    <span class="badge-erp badge-erp-neutral self-start">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                        Dinámico por medio
+                    </span>
+                </div>
+                <div class="flex flex-col gap-8">
+
+                    <!-- Card View -->
+                    <div id="panel-tarjeta" class="p-6 rounded-xl border border-slate-700 bg-slate-800/30 hidden">
+                        <h4 class="text-sm font-bold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">payments</span> Datos de Tarjeta
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarjeta</label>
+                                <select id="select-tarjeta" name="DatosTarjeta.ConfiguracionTarjetaId"
+                                        class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
+                                    <option value="">Seleccione tarjeta...</option>
+                                    @if (tarjetas != null)
+                                    {
+                                        @foreach (var t in tarjetas)
+                                        {
+                                            <option value="@t.Value">@t.Text</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cuotas</label>
+                                <select id="select-cuotas-tarjeta" name="DatosTarjeta.CantidadCuotas"
+                                        class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
+                                    <option value="1">1 Pago</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Autorización</label>
+                                <input type="text" name="DatosTarjeta.NumeroAutorizacion" id="txt-num-autorizacion-tarjeta"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="000000" />
+                            </div>
+                        </div>
+                        <div id="panel-tarjeta-resumen" class="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-700 hidden">
+                            <div class="px-3 py-2 bg-primary/10 rounded-md">
+                                <p class="text-[10px] text-primary font-bold uppercase">Monto por cuota</p>
+                                <p id="tarjeta-monto-cuota" class="text-sm font-bold text-white">$0,00</p>
+                            </div>
+                            <div class="px-3 py-2 bg-slate-700 rounded-md">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Total con interés</p>
+                                <p id="tarjeta-total-interes" class="text-sm font-bold text-white">$0,00</p>
+                            </div>
+                            <div class="px-3 py-2 bg-slate-700 rounded-md">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Recargo aplicado</p>
+                                <p id="tarjeta-recargo" class="text-sm font-bold text-white">0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Check View -->
+                    <div id="panel-cheque" class="p-6 rounded-xl border border-slate-700 bg-slate-800/30 hidden">
+                        <h4 class="text-sm font-bold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">receipt_long</span> Datos del Cheque
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de Cheque</label>
+                                <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="Nº de cheque" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Banco</label>
+                                <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="Nombre del banco" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Titular</label>
+                                <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="Nombre del titular" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">CUIT</label>
+                                <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="XX-XXXXXXXX-X" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de Emisión</label>
+                                <input type="date" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de Vencimiento</label>
+                                <input type="date" name="DatosCheque.FechaVencimiento" id="txt-fecha-vencimiento-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Monto</label>
+                                <input type="number" step="0.01" name="DatosCheque.Monto" id="txt-monto-cheque"
+                                       class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
+                                       placeholder="$0,00" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Credit View -->
+                    <div id="panel-credito-personal" class="p-6 rounded-xl border border-slate-700 bg-slate-800/30 hidden">
+                        <h4 class="text-sm font-bold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">account_balance</span> Crédito Personal
+                        </h4>
+                        <div class="flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                            <span class="material-symbols-outlined text-primary text-lg mt-0.5 shrink-0">info</span>
+                            <p class="text-slate-300">
+                                El sistema evaluará el cupo crediticio del cliente y generará el crédito automáticamente.
+                                Usá el botón <strong>Verificar Elegibilidad</strong> para consultar el cupo disponible antes de confirmar.
+                            </p>
+                        </div>
+                        <div id="panel-credito-cupo" class="mt-4 grid grid-cols-2 gap-3 hidden">
+                            <div class="px-3 py-2 bg-slate-700 rounded-md">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Cupo disponible</p>
+                                <p id="credito-cupo-valor" class="text-sm font-bold text-emerald-500">$0,00</p>
+                            </div>
+                            <div class="px-3 py-2 bg-slate-700 rounded-md">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Estado</p>
+                                <p id="credito-cupo-estado" class="text-sm font-bold text-white">—</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Right Column: Verification & Totals -->
+        <div class="flex flex-col gap-8">
+
+            <!-- 4. Credit Eligibility Verification -->
+            <section id="seccion-verificacion-crediticia" class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Control operativo</p>
+                        <h2 class="mt-1 text-lg font-bold text-white">Verificación crediticia</h2>
+                        <p class="mt-1 text-sm text-slate-400">Chequeá cupo, mora y documentación antes de confirmar una venta financiada.</p>
+                    </div>
+                    <span class="badge-erp badge-erp-neutral self-start">
+                        <span class="material-symbols-outlined text-sm">analytics</span>
+                        Antes de confirmar
+                    </span>
+                </div>
+                <div class="flex flex-col gap-5">
+                    <!-- Verify Button -->
+                    <button type="button" id="btn-verificar-elegibilidad"
+                            class="w-full py-4 bg-primary/10 text-primary rounded-xl font-bold hover:bg-primary/20 transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">analytics</span> Verificar Elegibilidad
+                    </button>
+
+                    <div id="venta-create-feedback-slot" class="hidden" aria-live="polite"></div>
+
+                    <!-- Result Panel -->
+                    <div id="panel-resultado-verificacion" class="hidden space-y-4">
+                        <!-- Badge -->
+                        <div id="verificacion-badge" class="flex items-center justify-between p-3 rounded-lg">
+                            <span class="text-xs font-bold text-slate-400">Resultado SCORE:</span>
+                            <span id="verificacion-estado" class="px-2 py-1 rounded-md text-white text-[10px] font-black uppercase tracking-widest"></span>
+                        </div>
+
+                        <!-- Balance Info -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-500">Límite de Crédito:</span>
+                                <span id="verificacion-limite" class="font-bold text-white">$0,00</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-500">Crédito Utilizado:</span>
+                                <span id="verificacion-utilizado" class="font-bold text-white">$0,00</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-500">Cupo Disponible:</span>
+                                <span id="verificacion-saldo" class="font-bold">$0,00</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div id="verificacion-barra" class="h-full bg-primary w-0 transition-all duration-500"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sufficiency Indicator -->
+                        <div id="panel-cupo-suficiente" class="p-3 rounded-lg bg-green-500/10 border border-green-500/20 hidden">
+                            <p class="text-xs font-bold text-green-400 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">check_circle</span>
+                                Cupo suficiente para esta operación
+                            </p>
+                        </div>
+                        <div id="panel-cupo-insuficiente" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
+                            <p class="text-xs font-bold text-red-500 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">block</span>
+                                Cupo insuficiente — operación bloqueada
+                            </p>
+                            <p id="cupo-insuficiente-detalle" class="text-[11px] text-slate-500 mt-1"></p>
+                        </div>
+                    </div>
+
+                    <!-- Motivos / Alertas -->
+                    <div id="panel-motivos" class="hidden space-y-2">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Observaciones</p>
+                        <div id="lista-motivos" class="space-y-1"></div>
+                    </div>
+
+                    <!-- Mora Alert -->
+                    <div id="panel-alerta-mora" class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
+                        <p class="text-xs font-bold text-red-500 flex items-center gap-2 mb-2">
+                            <span class="material-symbols-outlined text-sm">warning</span> Alerta de Mora
+                        </p>
+                        <p id="alerta-mora-texto" class="text-[11px] text-slate-400"></p>
+                    </div>
+
+                    <!-- Documentation Section (shown when doc is incomplete) -->
+                    <div id="panel-documentacion-faltante" class="hidden">
+                        <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            <p class="text-xs font-bold text-amber-400 flex items-center gap-2 mb-3">
+                                <span class="material-symbols-outlined text-sm">folder_off</span>
+                                Documentación crediticia incompleta
+                            </p>
+                            <div id="lista-docs-faltantes" class="space-y-1 mb-3"></div>
+                            <button type="button" id="btn-cargar-documentacion"
+                                    data-venta-modal-action="open"
+                                    data-venta-modal-target="documentacion"
+                                    class="w-full py-2.5 text-xs font-bold text-amber-300 bg-amber-500/20 rounded-lg hover:bg-amber-500/30 transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">upload_file</span>
+                                Cargar documentación crediticia
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Exception Section -->
+                    @if (User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create"))
+                    {
+                    <div class="pt-4 border-t border-slate-800">
+                        <input type="hidden" asp-for="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
+                        <div id="panel-excepcion-inactiva">
+                            <button type="button" id="btn-aplicar-excepcion"
+                                    class="w-full py-3 text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2">
+                                <span class="material-symbols-outlined text-sm">shield_question</span>
+                                Aplicar Excepción (omitir validaciones)
+                            </button>
+                        </div>
+                        <div id="panel-excepcion-activa" class="hidden">
+                            <div class="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 space-y-3">
+                                <p class="text-xs font-bold text-orange-400 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm">shield_question</span>
+                                    Confirmar excepción documental
+                                </p>
+                                <p class="text-[11px] text-slate-400">
+                                    Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio para continuar.
+                                </p>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                        Motivo <span class="text-red-500">*</span>
+                                    </label>
+                                    <textarea asp-for="MotivoExcepcionDocumentalCreate" id="txt-excepcion-documental"
+                                              class="w-full h-20 text-xs bg-slate-800 border border-slate-700 rounded-lg focus:ring-primary px-3 py-2"
+                                              placeholder="Ej: Cliente con legajo en trámite, aprobado por gerencia..."></textarea>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="button" id="btn-confirmar-excepcion"
+                                            class="flex-1 py-2.5 text-[11px] font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all flex items-center justify-center gap-1">
+                                        <span class="material-symbols-outlined text-sm">check_circle</span>
+                                        Aplicar y continuar
+                                    </button>
+                                    <button type="button" id="btn-cancelar-excepcion"
+                                            class="flex-1 py-2.5 text-[11px] font-bold text-slate-500 bg-slate-800 rounded-lg hover:bg-slate-700 transition-all">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    }
+                </div>
+            </section>
+
+            <!-- 5. Seller & Observations -->
+            <section class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+                <div class="mb-5">
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Contexto</p>
+                    <h2 class="mt-1 text-lg font-bold text-white">Vendedor y observaciones</h2>
+                    <p class="mt-1 text-sm text-slate-400">Dejá trazabilidad interna de la operación y del responsable asignado.</p>
+                </div>
+                @if (puedeDelegarVendedor && vendedores != null)
+                {
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
+                        <select asp-for="VendedorUserId" asp-items="vendedores"
+                                class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
+                            <option value="">Seleccione vendedor...</option>
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
+                        <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
+                            <div class="size-8 bg-primary/20 rounded-full flex items-center justify-center">
+                                <span class="material-symbols-outlined text-primary text-sm">person</span>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold">@(User.Identity?.Name ?? "Usuario")</p>
+                                <p class="text-[10px] text-slate-500 uppercase">Vendedor asignado</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Observaciones</label>
+                    <textarea asp-for="Observaciones"
+                              class="w-full h-32 text-sm bg-slate-800 border border-slate-700 rounded-lg focus:ring-primary"
+                              placeholder="Notas internas sobre la venta..."></textarea>
+                </div>
+            </section>
+
+            <!-- 6. Totals Panel -->
+            <section class="overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20">
+                <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.2em] opacity-80">Cierre</p>
+                        <h2 class="mt-1 text-xl font-black tracking-tight">Resumen de totales</h2>
+                        <p class="mt-1 text-sm text-white/75">Control final de subtotal, descuentos, IVA y confirmación de la operación.</p>
+                    </div>
+                    <span class="inline-flex items-center gap-2 self-start rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                        <span class="material-symbols-outlined text-sm">receipt_long</span>
+                        Totales en tiempo real
+                    </span>
+                </div>
+                <div class="space-y-3 mb-6">
+                    <div class="flex justify-between text-sm">
+                        <span class="opacity-70">Subtotal Neto</span>
+                        <span id="total-subtotal" class="font-medium">$0,00</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="opacity-70">Descuento Global (<span id="total-descuento-label">0%</span>)</span>
+                        <span id="total-descuento" class="font-medium">-$0,00</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="opacity-70">IVA (21%)</span>
+                        <span id="total-iva" class="font-medium">$0,00</span>
+                    </div>
+                    <div class="pt-3 border-t border-white/20">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold">TOTAL FINAL</span>
+                            <div class="text-right">
+                                <span id="total-final" class="block text-3xl font-black">$0,00</span>
+                                <span class="text-[10px] opacity-70">ARS pesos argentinos</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden fields for totals -->
+                <input type="hidden" asp-for="Subtotal" id="hdn-subtotal" />
+                <input type="hidden" asp-for="Descuento" id="hdn-descuento" />
+                <input type="hidden" asp-for="IVA" id="hdn-iva" />
+                <input type="hidden" asp-for="Total" id="hdn-total" />
+
+                <button type="submit" id="btn-confirmar"
+                        class="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 text-sm font-black uppercase tracking-wider text-primary shadow-lg shadow-slate-950/20 transition-all hover:bg-slate-100 hover:shadow-xl hover:shadow-slate-950/30">
+                    <span class="material-symbols-outlined">save</span>
+                    Guardar cambios
+                </button>
+                <p class="text-center text-[10px] mt-4 opacity-60">
+                    Los cambios quedarán guardados en la operación @Model.Numero.
+                </p>
+            </section>
+
+            <div class="venta-create-secondary-actions flex flex-col gap-3 sm:flex-row">
+                <a asp-action="Details" asp-route-id="@Model.Id"
+                   class="btn-erp-ghost w-full flex-1 sm:w-auto no-underline">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span> Volver al detalle
+                </a>
+                <button type="button" id="btn-imprimir-borrador"
+                        class="btn-erp-ghost w-full flex-1 sm:w-auto">
+                    <span class="material-symbols-outlined text-sm">print</span> Imprimir Borrador
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden container for dynamic detail inputs (form posting) -->
+    <div id="detalles-hidden-inputs" class="hidden"></div>
+</form>
+
+<!-- Modal: Cargar Documentación Crediticia -->
+<div id="modal-documentacion" data-venta-modal="documentacion" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-documentacion-overlay" data-venta-modal-action="close"></div>
+    <div class="relative flex items-center justify-center min-h-screen p-4">
+        <div class="relative bg-slate-900 rounded-2xl border border-slate-800 w-full max-w-lg shadow-2xl">
+            <div class="flex items-center justify-between p-6 border-b border-slate-800">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">upload_file</span> Documentación Crediticia
+                </h3>
+                <button type="button" id="btn-cerrar-modal-doc" data-venta-modal-action="close" class="p-1 rounded-lg hover:bg-slate-800 transition-all">
+                    <span class="material-symbols-outlined text-slate-400">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-slate-300">
+                    Completá o renová la documentación faltante sin abandonar la operación. Cuando cierres el modal, podés volver a verificar elegibilidad.
+                </div>
+                <!-- Missing / Expired Documents List -->
+                <div id="modal-docs-pendientes" class="space-y-3">
+                    <p class="text-xs font-bold text-slate-500 uppercase">Documentos pendientes</p>
+                    <div id="modal-lista-docs" class="space-y-2"></div>
+                </div>
+
+                <!-- Upload Area -->
+                <div class="border-2 border-dashed border-slate-700 rounded-xl p-6 text-center">
+                    <span class="material-symbols-outlined text-3xl text-slate-400 mb-2">cloud_upload</span>
+                    <p class="text-sm font-bold text-slate-400 mb-1">Subir documentación</p>
+                    <p class="text-[11px] text-slate-400 mb-3">PDF, JPG, PNG — máximo 10 MB</p>
+                    <label class="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg cursor-pointer hover:bg-primary/20 transition-all">
+                        <span class="material-symbols-outlined text-sm">attach_file</span> Seleccionar archivo
+                        <input type="file" id="input-doc-archivo" accept=".pdf,.jpg,.jpeg,.png" class="hidden" />
+                    </label>
+                    <p id="doc-archivo-nombre" class="text-[11px] text-slate-500 mt-2 hidden"></p>
+                </div>
+
+                <!-- Document Type Select -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo de documento</label>
+                    <select id="select-tipo-documento"
+                            class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
+                        <option value="">Seleccione tipo...</option>
+                    </select>
+                </div>
+
+                <!-- Upload feedback -->
+                <div id="doc-upload-feedback" class="hidden p-3 rounded-lg text-xs font-bold"></div>
+            </div>
+            <div class="venta-create-doc-footer flex flex-col-reverse gap-3 border-t border-slate-800 p-6 sm:flex-row">
+                <button type="button" id="btn-subir-documento"
+                        class="venta-create-doc-action inline-flex w-full flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-xs font-bold uppercase tracking-tighter text-white transition-all hover:bg-primary/90"
+                        disabled>
+                    <span class="material-symbols-outlined text-sm">upload</span> Subir Documento
+                </button>
+                <button type="button" id="btn-ir-documentacion"
+                        class="venta-create-doc-action btn-erp-ghost w-full flex-1">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span> Ir a Documentación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+@section Styles {
+    <partial name="_VentaModuleStyles" />
+}
+
+@section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/venta-module.js" asp-append-version="true"></script>
+    <script src="~/js/venta-create.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,31 @@
+@* ═══════════════════════════════════════════════════════════════
+   _ClienteModal.cshtml — Shell del modal de alta / edición
+   El contenido del panel (header + form) se inyecta vía AJAX
+   desde /Cliente/ModalCreate o /Cliente/ModalEdit/{id}.
+   ═══════════════════════════════════════════════════════════════ *@
+<div id="modal-cliente" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog" aria-label="Formulario de cliente">
+
+    @* Backdrop *@
+    <div id="modal-cliente-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+    @* Panel *@
+    <div id="modal-cliente-panel" class="cliente-panel-slide-in absolute right-0 top-0 flex h-full w-full max-w-6xl flex-col bg-[#161d2c] shadow-2xl">
+
+        @* Estado cargando *@
+        <div id="modal-cliente-loading" class="flex flex-1 items-center justify-center">
+            <div class="flex flex-col items-center gap-3 text-slate-400">
+                <span class="material-symbols-outlined text-5xl" style="animation: spin 1s linear infinite">progress_activity</span>
+                <p class="text-sm font-medium">Cargando formulario...</p>
+            </div>
+        </div>
+
+        @* Contenido inyectado (header + form) *@
+        <div id="modal-cliente-content" class="hidden flex h-full min-h-0 flex-col"></div>
+
+    </div>
+</div>
+
+@* Spinner keyframe (no depende del módulo CSS del layout) *@
+<style>
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>

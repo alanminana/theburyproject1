@@ -1,0 +1,349 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Logística
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Historial de Cierres" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - link "ERP" [ref=e64] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e65]: /
+          - link "Cajas" [ref=e66] [cursor=pointer]:
+            - /url: /Caja
+          - generic [ref=e67]: /
+          - generic [ref=e68]: Historial de cierres
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - heading "Historial de cierres" [level=1] [ref=e71]
+            - paragraph [ref=e72]: Consultá la auditoría de cierres, detectá diferencias y seguí los desvíos más relevantes por caja, fecha y responsables.
+          - link "arrow_back Volver a cajas" [ref=e74] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e75]: arrow_back
+            - text: Volver a cajas
+      - generic [ref=e76]:
+        - generic [ref=e77]:
+          - paragraph [ref=e78]: Total Cierres
+          - generic [ref=e80]: "7"
+          - paragraph [ref=e81]: Registros analizados en la consulta actual.
+        - generic [ref=e82]:
+          - paragraph [ref=e83]: Cierres Exactos
+          - generic [ref=e84]:
+            - generic [ref=e85]: "0"
+            - generic [ref=e86]: check_circle
+          - paragraph [ref=e87]: Cierres sin diferencia entre sistema y caja real.
+        - generic [ref=e88]:
+          - paragraph [ref=e89]: "% Exactitud"
+          - generic [ref=e91]: 0%
+          - paragraph [ref=e93]: Nivel de precisión del efectivo registrado.
+        - generic [ref=e94]:
+          - paragraph [ref=e95]: Sobrantes
+          - generic [ref=e96]:
+            - generic [ref=e97]: "2"
+            - generic [ref=e98]: Alertas
+          - paragraph [ref=e99]: Cierres con efectivo real por encima de lo esperado.
+        - generic [ref=e100]:
+          - paragraph [ref=e101]: Faltantes
+          - generic [ref=e102]:
+            - generic [ref=e103]: "5"
+            - generic [ref=e104]: Crítico
+          - paragraph [ref=e105]: Cierres con efectivo faltante respecto del sistema.
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]: filter_alt
+            - heading "Filtros de auditoría" [level=2] [ref=e110]
+          - paragraph [ref=e111]: Acotá la consulta por caja y rango de fechas para revisar cierres específicos.
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - generic [ref=e114]: Seleccionar Caja
+            - combobox [ref=e115]:
+              - option "Todas las cajas" [selected]
+              - option "admin"
+              - option "vendedor1"
+          - generic [ref=e116]:
+            - generic [ref=e117]: Fecha Desde
+            - textbox [ref=e118]
+          - generic [ref=e119]:
+            - generic [ref=e120]: Fecha Hasta
+            - textbox [ref=e121]
+          - button "filter_alt Filtrar" [ref=e122]:
+            - generic [ref=e123]: filter_alt
+            - text: Filtrar
+          - link "Limpiar" [ref=e124] [cursor=pointer]:
+            - /url: /Caja/Historial
+      - generic [ref=e125]:
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - generic [ref=e129]: receipt_long
+              - heading "Detalle de cierres" [level=2] [ref=e130]
+            - paragraph [ref=e131]: Revisá responsables, montos esperados y diferencias por cierre sin perder contexto en mobile.
+          - generic [ref=e132]:
+            - generic [ref=e133]: monitoring
+            - text: 7 cierres visibles
+        - region "Tabla del historial de cierres" [ref=e136]:
+          - table [ref=e137]:
+            - rowgroup [ref=e138]:
+              - row "Fecha Cierre Caja Apertura/Cierre Esperado Real Diferencia Estado Acción" [ref=e139]:
+                - columnheader "Fecha Cierre" [ref=e140]
+                - columnheader "Caja" [ref=e141]
+                - columnheader "Apertura/Cierre" [ref=e142]
+                - columnheader "Esperado" [ref=e143]
+                - columnheader "Real" [ref=e144]
+                - columnheader "Diferencia" [ref=e145]
+                - columnheader "Estado" [ref=e146]
+                - columnheader "Acción" [ref=e147]
+            - rowgroup [ref=e148]:
+              - 'row "11 abr 2026 05:40 PM admin A: admin@thebury.com C: admin@thebury.com $6.666,00 $12.567,00 +$5.901,00 Sobrante open_in_new Ver detalle" [ref=e149]':
+                - cell "11 abr 2026 05:40 PM" [ref=e150]:
+                  - paragraph [ref=e151]: 11 abr 2026
+                  - paragraph [ref=e152]: 05:40 PM
+                - cell "admin" [ref=e153]
+                - 'cell "A: admin@thebury.com C: admin@thebury.com" [ref=e154]':
+                  - generic [ref=e155]:
+                    - generic [ref=e156]: "A: admin@thebury.com"
+                    - generic [ref=e157]: "C: admin@thebury.com"
+                - cell "$6.666,00" [ref=e158]
+                - cell "$12.567,00" [ref=e159]
+                - cell "+$5.901,00" [ref=e160]
+                - cell "Sobrante" [ref=e161]:
+                  - generic [ref=e162]: Sobrante
+                - cell "open_in_new Ver detalle" [ref=e164]:
+                  - link "open_in_new Ver detalle" [ref=e165] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/7
+                    - generic [ref=e166]: open_in_new
+                    - text: Ver detalle
+              - 'row "07 abr 2026 00:20 PM vendedor1 A: vendedor@thebury.com C: admin@thebury.com $12.525,04 $2.345,00 -$10.180,04 Faltante open_in_new Ver detalle" [ref=e167]':
+                - cell "07 abr 2026 00:20 PM" [ref=e168]:
+                  - paragraph [ref=e169]: 07 abr 2026
+                  - paragraph [ref=e170]: 00:20 PM
+                - cell "vendedor1" [ref=e171]
+                - 'cell "A: vendedor@thebury.com C: admin@thebury.com" [ref=e172]':
+                  - generic [ref=e173]:
+                    - generic [ref=e174]: "A: vendedor@thebury.com"
+                    - generic [ref=e175]: "C: admin@thebury.com"
+                - cell "$12.525,04" [ref=e176]
+                - cell "$2.345,00" [ref=e177]
+                - cell "-$10.180,04" [ref=e178]
+                - cell "Faltante" [ref=e179]:
+                  - generic [ref=e180]: Faltante
+                - cell "open_in_new Ver detalle" [ref=e182]:
+                  - link "open_in_new Ver detalle" [ref=e183] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/6
+                    - generic [ref=e184]: open_in_new
+                    - text: Ver detalle
+              - 'row "07 abr 2026 00:19 PM admin A: admin@thebury.com C: admin@thebury.com $35.000,00 $26,00 -$34.974,00 Faltante open_in_new Ver detalle" [ref=e185]':
+                - cell "07 abr 2026 00:19 PM" [ref=e186]:
+                  - paragraph [ref=e187]: 07 abr 2026
+                  - paragraph [ref=e188]: 00:19 PM
+                - cell "admin" [ref=e189]
+                - 'cell "A: admin@thebury.com C: admin@thebury.com" [ref=e190]':
+                  - generic [ref=e191]:
+                    - generic [ref=e192]: "A: admin@thebury.com"
+                    - generic [ref=e193]: "C: admin@thebury.com"
+                - cell "$35.000,00" [ref=e194]
+                - cell "$26,00" [ref=e195]
+                - cell "-$34.974,00" [ref=e196]
+                - cell "Faltante" [ref=e197]:
+                  - generic [ref=e198]: Faltante
+                - cell "open_in_new Ver detalle" [ref=e200]:
+                  - link "open_in_new Ver detalle" [ref=e201] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/5
+                    - generic [ref=e202]: open_in_new
+                    - text: Ver detalle
+              - 'row "29 mar 2026 18:06 PM vendedor1 A: vendedor@thebury.com C: vendedor@thebury.com $100.000,00 $1.221.312,00 +$1.121.312,00 Sobrante open_in_new Ver detalle" [ref=e203]':
+                - cell "29 mar 2026 18:06 PM" [ref=e204]:
+                  - paragraph [ref=e205]: 29 mar 2026
+                  - paragraph [ref=e206]: 18:06 PM
+                - cell "vendedor1" [ref=e207]
+                - 'cell "A: vendedor@thebury.com C: vendedor@thebury.com" [ref=e208]':
+                  - generic [ref=e209]:
+                    - generic [ref=e210]: "A: vendedor@thebury.com"
+                    - generic [ref=e211]: "C: vendedor@thebury.com"
+                - cell "$100.000,00" [ref=e212]
+                - cell "$1.221.312,00" [ref=e213]
+                - cell "+$1.121.312,00" [ref=e214]
+                - cell "Sobrante" [ref=e215]:
+                  - generic [ref=e216]: Sobrante
+                - cell "open_in_new Ver detalle" [ref=e218]:
+                  - link "open_in_new Ver detalle" [ref=e219] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/4
+                    - generic [ref=e220]: open_in_new
+                    - text: Ver detalle
+              - 'row "29 mar 2026 08:59 PM pepito A: admin@thebury.com C: vendedor@thebury.com $198.649,53 $2.444,00 -$196.205,53 Faltante open_in_new Ver detalle" [ref=e221]':
+                - cell "29 mar 2026 08:59 PM" [ref=e222]:
+                  - paragraph [ref=e223]: 29 mar 2026
+                  - paragraph [ref=e224]: 08:59 PM
+                - cell "pepito" [ref=e225]
+                - 'cell "A: admin@thebury.com C: vendedor@thebury.com" [ref=e226]':
+                  - generic [ref=e227]:
+                    - generic [ref=e228]: "A: admin@thebury.com"
+                    - generic [ref=e229]: "C: vendedor@thebury.com"
+                - cell "$198.649,53" [ref=e230]
+                - cell "$2.444,00" [ref=e231]
+                - cell "-$196.205,53" [ref=e232]
+                - cell "Faltante" [ref=e233]:
+                  - generic [ref=e234]: Faltante
+                - cell "open_in_new Ver detalle" [ref=e236]:
+                  - link "open_in_new Ver detalle" [ref=e237] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/3
+                    - generic [ref=e238]: open_in_new
+                    - text: Ver detalle
+              - 'row "13 feb 2026 06:44 PM pepito A: test1 C: admin@thebury.com $12.345,00 $0,00 -$12.345,00 Faltante open_in_new Ver detalle" [ref=e239]':
+                - cell "13 feb 2026 06:44 PM" [ref=e240]:
+                  - paragraph [ref=e241]: 13 feb 2026
+                  - paragraph [ref=e242]: 06:44 PM
+                - cell "pepito" [ref=e243]
+                - 'cell "A: test1 C: admin@thebury.com" [ref=e244]':
+                  - generic [ref=e245]:
+                    - generic [ref=e246]: "A: test1"
+                    - generic [ref=e247]: "C: admin@thebury.com"
+                - cell "$12.345,00" [ref=e248]
+                - cell "$0,00" [ref=e249]
+                - cell "-$12.345,00" [ref=e250]
+                - cell "Faltante" [ref=e251]:
+                  - generic [ref=e252]: Faltante
+                - cell "open_in_new Ver detalle" [ref=e254]:
+                  - link "open_in_new Ver detalle" [ref=e255] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/2
+                    - generic [ref=e256]: open_in_new
+                    - text: Ver detalle
+              - 'row "11 feb 2026 16:43 PM pepito A: admin@thebury.com C: test1 $1.439.461,99 $0,00 -$1.439.461,99 Faltante open_in_new Ver detalle" [ref=e257]':
+                - cell "11 feb 2026 16:43 PM" [ref=e258]:
+                  - paragraph [ref=e259]: 11 feb 2026
+                  - paragraph [ref=e260]: 16:43 PM
+                - cell "pepito" [ref=e261]
+                - 'cell "A: admin@thebury.com C: test1" [ref=e262]':
+                  - generic [ref=e263]:
+                    - generic [ref=e264]: "A: admin@thebury.com"
+                    - generic [ref=e265]: "C: test1"
+                - cell "$1.439.461,99" [ref=e266]
+                - cell "$0,00" [ref=e267]
+                - cell "-$1.439.461,99" [ref=e268]
+                - cell "Faltante" [ref=e269]:
+                  - generic [ref=e270]: Faltante
+                - cell "open_in_new Ver detalle" [ref=e272]:
+                  - link "open_in_new Ver detalle" [ref=e273] [cursor=pointer]:
+                    - /url: /Caja/DetallesCierre/1
+                    - generic [ref=e274]: open_in_new
+                    - text: Ver detalle
+      - generic [ref=e275]:
+        - generic [ref=e276]:
+          - generic [ref=e277]:
+            - generic [ref=e278]: trending_up
+            - heading "Top cierres con sobrante" [level=3] [ref=e279]
+          - generic [ref=e280]:
+            - generic [ref=e281]:
+              - generic [ref=e282]:
+                - paragraph [ref=e283]: 29 mar - vendedor1
+                - paragraph [ref=e284]: "Responsable: vendedor@thebury.com"
+              - generic [ref=e285]: +$1.121.312,00
+            - generic [ref=e286]:
+              - generic [ref=e287]:
+                - paragraph [ref=e288]: 11 abr - admin
+                - paragraph [ref=e289]: "Responsable: admin@thebury.com"
+              - generic [ref=e290]: +$5.901,00
+        - generic [ref=e291]:
+          - generic [ref=e292]:
+            - generic [ref=e293]: trending_down
+            - heading "Top cierres con faltante" [level=3] [ref=e294]
+          - generic [ref=e295]:
+            - generic [ref=e296]:
+              - generic [ref=e297]:
+                - paragraph [ref=e298]: 11 feb - pepito
+                - paragraph [ref=e299]: "Responsable: test1"
+              - generic [ref=e300]: "-$1.439.461,99"
+            - generic [ref=e301]:
+              - generic [ref=e302]:
+                - paragraph [ref=e303]: 29 mar - pepito
+                - paragraph [ref=e304]: "Responsable: vendedor@thebury.com"
+              - generic [ref=e305]: "-$196.205,53"
+            - generic [ref=e306]:
+              - generic [ref=e307]:
+                - paragraph [ref=e308]: 07 abr - admin
+                - paragraph [ref=e309]: "Responsable: admin@thebury.com"
+              - generic [ref=e310]: "-$34.974,00"
+            - generic [ref=e311]:
+              - generic [ref=e312]:
+                - paragraph [ref=e313]: 13 feb - pepito
+                - paragraph [ref=e314]: "Responsable: admin@thebury.com"
+              - generic [ref=e315]: "-$12.345,00"
+            - generic [ref=e316]:
+              - generic [ref=e317]:
+                - paragraph [ref=e318]: 07 abr - vendedor1
+                - paragraph [ref=e319]: "Responsable: admin@thebury.com"
+              - generic [ref=e320]: "-$10.180,04"

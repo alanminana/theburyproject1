@@ -1,0 +1,7 @@
+/* dashboard-module.css — estilos de layout responsivo del Dashboard */
+
+@media (min-width: 1024px) {
+    .dashboard-main-grid { grid-template-columns: minmax(0, 1fr) 22rem; }
+    .dashboard-sidebar { position: sticky; top: 1.5rem; align-self: start; }
+    .dashboard-hero-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

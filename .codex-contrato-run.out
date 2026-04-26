@@ -1,0 +1,55 @@
+Usando la configuración de inicio de C:\Users\xh4ac\code\TheBuryProyect\Properties\launchSettings.json...
+info: Program[0]
+      Iniciando inicialización de base de datos...
+info: Program[0]
+      Migraciones aplicadas exitosamente
+info: Program[0]
+      Roles, módulos, permisos y sucursales inicializados exitosamente
+info: Program[0]
+      Usuario administrador ya existe: admin@thebury.com
+info: Program[0]
+      Inicialización de base de datos completada
+warn: Program[0]
+      Usuarios de prueba creados - ⚠️ SOLO PARA DESARROLLO
+info: TheBuryProject.Services.MoraBackgroundService[0]
+      MoraBackgroundService iniciado
+warn: LuckyPennySoftware.AutoMapper.License[0]
+      You do not have a valid license key for the Lucky Penny software AutoMapper. This is allowed for development and testing scenarios. If you are running in production you are required to have a licensed version. Please visit https://luckypennysoftware.com to obtain a valid license.
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      AlertaStockBackgroundService iniciado. Ejecutará cada 2 horas
+info: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      DocumentoVencidoBackgroundService iniciado. Se ejecutar� diariamente a las 02:00
+info: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Pr�xima ejecuci�n programada para: 27/04/2026 02:00:00 (220 minutos)
+warn: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Modo DEBUG: Esperando m�ximo 30 segundos en lugar de 220 minutos
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5191
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\xh4ac\code\TheBuryProyect
+info: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Iniciando marcado de documentos vencidos...
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      Iniciando verificación de stock.
+info: TheBuryProject.Services.AlertaStockService[0]
+      Generadas 0 nuevas alertas de stock bajo
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      Verificación completada. No se generaron nuevas alertas
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      Iniciando limpieza de alertas antiguas.
+info: TheBuryProject.Services.DocumentoClienteService[0]
+      Se marcaron 0 documentos como vencidos
+info: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Marcado de documentos vencidos completado
+info: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Pr�xima ejecuci�n programada para: 27/04/2026 02:00:00 (220 minutos)
+info: TheBuryProject.Services.AlertaStockService[0]
+      Eliminadas 0 alertas antiguas
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      Limpieza completada. No hay alertas antiguas para eliminar
+info: TheBuryProject.Services.AlertaStockBackgroundService[0]
+      Próxima verificación de stock en 120 minutos

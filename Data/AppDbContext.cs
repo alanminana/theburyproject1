@@ -55,6 +55,8 @@ namespace TheBuryProject.Data
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<VentaDetalle> VentaDetalles { get; set; }
         public DbSet<Factura> Facturas { get; set; }
+        public DbSet<PlantillaContratoCredito> PlantillasContratoCredito { get; set; }
+        public DbSet<ContratoVentaCredito> ContratosVentaCredito { get; set; }
         public DbSet<ConfiguracionPago> ConfiguracionesPago { get; set; }
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
@@ -102,6 +104,10 @@ namespace TheBuryProject.Data
         public DbSet<PriceChangeItem> PriceChangeItems { get; set; }
         public DbSet<CambioPrecioEvento> CambioPrecioEventos { get; set; }
         public DbSet<CambioPrecioDetalle> CambioPrecioDetalles { get; set; }
+
+        public DbSet<Ticket> Tickets { get; set; }
+        public DbSet<TicketAdjunto> TicketAdjuntos { get; set; }
+        public DbSet<TicketChecklistItem> TicketChecklistItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -891,6 +897,134 @@ namespace TheBuryProject.Data
             });
 
             // =======================
+            // PlantillaContratoCredito
+            // =======================
+            modelBuilder.Entity<PlantillaContratoCredito>(entity =>
+            {
+                entity.ToTable("PlantillasContratoCredito");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Nombre)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.NombreVendedor)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.DomicilioVendedor)
+                    .IsRequired()
+                    .HasMaxLength(300);
+
+                entity.Property(e => e.DniVendedor)
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.CuitVendedor)
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.CiudadFirma)
+                    .IsRequired()
+                    .HasMaxLength(120);
+
+                entity.Property(e => e.Jurisdiccion)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.InteresMoraDiarioPorcentaje)
+                    .HasPrecision(8, 4);
+
+                entity.Property(e => e.TextoContrato)
+                    .IsRequired()
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.Property(e => e.TextoPagare)
+                    .IsRequired()
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.HasIndex(e => e.Activa);
+                entity.HasIndex(e => e.VigenteDesde);
+                entity.HasIndex(e => e.VigenteHasta);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // =======================
+            // ContratoVentaCredito
+            // =======================
+            modelBuilder.Entity<ContratoVentaCredito>(entity =>
+            {
+                entity.ToTable("ContratosVentaCredito");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.NumeroContrato)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.NumeroPagare)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.UsuarioGeneracion)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.RutaArchivo)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.NombreArchivo)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.ContentHash)
+                    .HasMaxLength(128);
+
+                entity.Property(e => e.TextoContratoSnapshot)
+                    .IsRequired()
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.Property(e => e.TextoPagareSnapshot)
+                    .IsRequired()
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.Property(e => e.DatosSnapshotJson)
+                    .IsRequired()
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.HasIndex(e => e.VentaId)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.CreditoId);
+                entity.HasIndex(e => e.ClienteId);
+                entity.HasIndex(e => e.PlantillaContratoCreditoId);
+                entity.HasIndex(e => e.NumeroContrato)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.NumeroPagare)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.FechaGeneracionUtc);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.Venta)
+                    .WithMany()
+                    .HasForeignKey(e => e.VentaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Credito)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.PlantillaContratoCredito)
+                    .WithMany()
+                    .HasForeignKey(e => e.PlantillaContratoCreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =======================
             // ConfiguracionPago
             // =======================
             modelBuilder.Entity<ConfiguracionPago>(entity =>
@@ -1677,6 +1811,65 @@ namespace TheBuryProject.Data
                     .WithMany()
                     .HasForeignKey(e => e.ProductoId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =======================
+            // Ticket
+            // =======================
+            modelBuilder.Entity<Ticket>(entity =>
+            {
+                entity.ToTable("Tickets");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Titulo).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Descripcion).IsRequired().HasMaxLength(4000);
+                entity.Property(e => e.ModuloOrigen).HasMaxLength(100);
+                entity.Property(e => e.VistaOrigen).HasMaxLength(200);
+                entity.Property(e => e.UrlOrigen).HasMaxLength(500);
+                entity.Property(e => e.ContextKey).HasMaxLength(200);
+                entity.Property(e => e.Resolucion).HasMaxLength(4000);
+                entity.Property(e => e.ResueltoPor).HasMaxLength(100);
+
+                entity.HasIndex(e => e.Estado);
+                entity.HasIndex(e => e.Tipo);
+                entity.HasIndex(e => e.CreatedAt);
+            });
+
+            // =======================
+            // TicketAdjunto
+            // =======================
+            modelBuilder.Entity<TicketAdjunto>(entity =>
+            {
+                entity.ToTable("TicketAdjuntos");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.NombreArchivo).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.RutaArchivo).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.TipoMIME).HasMaxLength(100);
+
+                entity.HasOne(e => e.Ticket)
+                    .WithMany(t => t.Adjuntos)
+                    .HasForeignKey(e => e.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // TicketChecklistItem
+            // =======================
+            modelBuilder.Entity<TicketChecklistItem>(entity =>
+            {
+                entity.ToTable("TicketChecklistItems");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Descripcion).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.CompletadoPor).HasMaxLength(100);
+
+                entity.HasIndex(e => new { e.TicketId, e.Orden });
+
+                entity.HasOne(e => e.Ticket)
+                    .WithMany(t => t.ChecklistItems)
+                    .HasForeignKey(e => e.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Seed de datos inicial

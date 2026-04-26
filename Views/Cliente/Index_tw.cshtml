@@ -1,14 +1,10 @@
 @model ClienteFilterViewModel
 @{
     ViewData["Title"] = "Gestión de Clientes";
+    ViewData["MetaDescription"] = "Administración de clientes, límites de crédito y documentación asociada en el ERP TheBuryProject.";
 
     var totalEnPagina = Model.Clientes?.Count() ?? 0;
     var clientesActivos = Model.Clientes?.Count(c => c.Activo) ?? 0;
-    var clientesInactivos = totalEnPagina - clientesActivos;
-    var deudaTotal = Model.Clientes?.Sum(c => c.MontoAdeudado ?? 0m) ?? 0m;
-    var scorePromedio = Model.Clientes != null && Model.Clientes.Any(c => c.PuntajeRiesgo > 0)
-        ? Model.Clientes.Where(c => c.PuntajeRiesgo > 0).Average(c => (double)c.PuntajeRiesgo)
-        : 0;
 
     string ProgressWidthClass(double percentage)
     {
@@ -21,179 +17,195 @@
     <partial name="_ClienteModuleStyles" />
 }
 
-<div class="cliente-page-shell space-y-6">
-    <div class="cliente-page-header-layout">
-        <div class="space-y-3">
-            <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
-                <span class="material-symbols-outlined text-sm">groups</span>
-                Clientes
-            </div>
-            <div class="space-y-2">
-                <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Gestión de Clientes</h1>
-                <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-                    Administrá altas, legajos y condiciones crediticias desde una sola vista, con filtros rápidos y acciones seguras.
-                </p>
-            </div>
-        </div>
-        <div class="cliente-page-header-actions">
-            <button type="button"
-                    data-cliente-open-limites
-                    class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                <span class="material-symbols-outlined text-lg">tune</span>
-                <span>Límite de Puntajes</span>
-            </button>
-            <a asp-controller="DocumentoCliente"
-               asp-action="Index"
-               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 no-underline">
-                <span class="material-symbols-outlined text-lg">description</span>
-                <span>Documentación</span>
-            </a>
-            <a asp-controller="Credito"
-               asp-action="Index"
-               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 no-underline">
-                <span class="material-symbols-outlined text-lg">payments</span>
-                <span>Créditos Totales</span>
-            </a>
-            <a asp-controller="Cliente"
-               asp-action="Create"
-               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-blue-700 no-underline">
-                <span class="material-symbols-outlined text-lg font-bold">person_add</span>
-                <span>Nuevo Cliente</span>
-            </a>
-        </div>
-    </div>
+<div class="space-y-6">
 
-    <div class="cliente-page-metrics cliente-page-metrics--4">
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Resultados</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@Model.TotalResultados</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Clientes filtrados en el sistema</p>
+    <!-- TempData Alerts -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Activos</p>
-            <div class="mt-3 flex items-end justify-between gap-3">
-                <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">@clientesActivos</p>
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">@clientesInactivos inactivos</p>
-            </div>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Estado operativo de la página actual</p>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Deuda Visible</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@deudaTotal.ToString("C")</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Suma de créditos listados en pantalla</p>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Score Promedio</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@Math.Round(scorePromedio, 0)</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Promedio de puntaje con score disponible</p>
-        </div>
-    </div>
-
-    <form id="filterForm"
-          method="get"
-          asp-action="Index"
-          class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-5">
-            <div class="relative md:col-span-2">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
-                <input name="SearchTerm"
-                       value="@Model.SearchTerm"
-                       type="text"
-                       class="w-full rounded-lg border-none bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 transition-all placeholder:text-slate-500 focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white"
-                       placeholder="Buscar por nombre, documento o contacto..." />
-            </div>
-            <div>
-                <select name="SoloActivos"
-                        class="w-full rounded-lg border-none bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white">
-                    <option value="">Todos los estados</option>
-                    <option value="true" selected="@(Model.SoloActivos == true ? "selected" : null)">Activo</option>
-                    <option value="false" selected="@(Model.SoloActivos == false ? "selected" : null)">Inactivo</option>
-                </select>
-            </div>
-            <div>
-                <select name="TipoDocumento"
-                        class="w-full rounded-lg border-none bg-slate-50 px-4 py-2 text-sm text-slate-900 transition-all focus:ring-2 focus:ring-primary/50 dark:bg-slate-800 dark:text-white">
-                    <option value="">Tipo Documento</option>
-                    @if (ViewBag.TiposDocumento != null)
-                    {
-                        @foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
-                        {
-                            <option value="@tipo.Value" selected="@(Model.TipoDocumento == tipo.Value ? "selected" : null)">@tipo.Text</option>
-                        }
-                    }
-                </select>
-            </div>
-            <div class="flex gap-2">
-                <button type="button"
-                        id="btnLimpiar"
-                        class="flex-1 rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
-                    Limpiar
-                </button>
-                <button type="submit"
-                        class="rounded-lg bg-primary/10 p-2 text-primary transition-colors hover:bg-primary/20"
-                        aria-label="Aplicar filtros">
-                    <span class="material-symbols-outlined">filter_list</span>
-                </button>
-            </div>
-        </div>
-    </form>
+    }
 
     <div id="clienteIndexFeedback"
          class="hidden rounded-xl border px-4 py-3 text-sm font-semibold"
          role="alert"
          aria-live="polite"></div>
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="toast-msg rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2" role="status">
-            <span class="material-symbols-outlined text-lg">check_circle</span>
-            @TempData["Success"]
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="toast-msg rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-500 flex items-center gap-2" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
-            @TempData["Error"]
-        </div>
+    @{
+        var filtroClienteActivo = !string.IsNullOrEmpty(Model.SearchTerm)
+                               || Model.SoloActivos.HasValue
+                               || !string.IsNullOrEmpty(Model.TipoDocumento);
     }
 
-    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-            <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Clientes registrados</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                        Revisá perfil, deuda, scoring y accesos directos a crédito desde una única tabla.
-                    </p>
+    <!-- Main panel -->
+    <section data-oc-scroll style="--oc-scroll-min-width: 60rem;" class="card-erp-panel overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <h2 class="text-base font-bold text-white">Clientes registrados</h2>
+                    <p class="text-sm text-slate-400">Buscá perfiles, revisá contacto y ejecutá acciones comerciales desde una grilla compacta.</p>
                 </div>
-                <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    @totalEnPagina en página
-                </span>
+                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge-erp badge-erp-neutral">
+                            <span class="material-symbols-outlined text-sm">list_alt</span>
+                            @totalEnPagina visibles
+                        </span>
+                        <span class="badge-erp badge-erp-success">
+                            <span class="material-symbols-outlined text-sm">check_circle</span>
+                            @clientesActivos activos
+                        </span>
+                        @if (filtroClienteActivo)
+                        {
+                            <span class="badge-erp badge-erp-primary">
+                                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                                Filtros activos
+                            </span>
+                        }
+                    </div>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div class="flex flex-wrap items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/40 p-1">
+                            <button type="button" data-cliente-open-limites class="btn-erp-ghost btn-sm">
+                                <span class="material-symbols-outlined text-[16px]">tune</span>
+                                Límites
+                            </button>
+                            <a asp-controller="DocumentoCliente" asp-action="Index"
+                               class="btn-erp-ghost btn-sm no-underline">
+                                <span class="material-symbols-outlined text-[16px]">description</span>
+                                Docs
+                            </a>
+                            <a asp-controller="Credito" asp-action="Index"
+                               class="btn-erp-ghost btn-sm no-underline">
+                                <span class="material-symbols-outlined text-[16px]">payments</span>
+                                Créditos
+                            </a>
+                        </div>
+                        <button type="button" data-cliente-modal-open="create" class="btn-erp-primary btn-sm sm:w-auto">
+                            <span class="material-symbols-outlined text-[16px]">person_add</span>
+                            Nuevo Cliente
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div data-oc-scroll style="--oc-scroll-min-width: 1000px;" class="relative">
-            <div data-oc-scroll-hint hidden class="cliente-page-scroll-hint px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                Deslizá la tabla para ver todas las columnas y acciones.
+        <form id="filterForm" method="get" asp-action="Index"
+              class="border-b border-slate-800 bg-slate-900/30 p-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="min-w-[220px] flex-1">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Buscar cliente</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
+                        <input name="SearchTerm"
+                               value="@Model.SearchTerm"
+                               type="text"
+                               aria-label="Buscar cliente por nombre, documento o contacto"
+                               class="w-full rounded-lg border-none bg-slate-800 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                               placeholder="Nombre, documento o contacto..." />
+                    </div>
+                </div>
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Estado</label>
+                    <select name="SoloActivos"
+                            aria-label="Estado del cliente"
+                            class="filter-select-erp">
+                        <option value="">Todos</option>
+                        @if (Model.SoloActivos == true)
+                        {
+                            <option value="true" selected>Activo</option>
+                        }
+                        else
+                        {
+                            <option value="true">Activo</option>
+                        }
+                        @if (Model.SoloActivos == false)
+                        {
+                            <option value="false" selected>Inactivo</option>
+                        }
+                        else
+                        {
+                            <option value="false">Inactivo</option>
+                        }
+                    </select>
+                </div>
+                <div class="w-48">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Documento</label>
+                    <select name="TipoDocumento"
+                            aria-label="Tipo de documento"
+                            class="filter-select-erp">
+                        @if (string.IsNullOrEmpty(Model.TipoDocumento))
+                        {
+                            <option value="" selected>Todos</option>
+                        }
+                        else
+                        {
+                            <option value="">Todos</option>
+                        }
+                        @if (ViewBag.TiposDocumento != null)
+                        {
+                            @foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                            {
+                                var tipoValue = string.IsNullOrEmpty(tipo.Value) ? tipo.Text : tipo.Value;
+                                if (Model.TipoDocumento == tipoValue)
+                                {
+                                    <option value="@tipoValue" selected>@tipo.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@tipoValue">@tipo.Text</option>
+                                }
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit"
+                            class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white"
+                            title="Filtrar clientes">
+                        <span class="material-symbols-outlined text-lg">filter_list</span>
+                        <span>Filtrar</span>
+                    </button>
+                    @if (filtroClienteActivo)
+                    {
+                        <a asp-action="Index"
+                           class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                           title="Limpiar filtros">
+                            <span class="material-symbols-outlined text-lg">clear_all</span>
+                        </a>
+                    }
+                </div>
             </div>
-            <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-            <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-            <div class="overflow-x-auto scroll-smooth" data-oc-scroll-region tabindex="0" role="region" aria-label="Tabla de clientes">
-                <table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);" data-oc-scroll-table>
+        </form>
+
+        <p data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
+            Deslizá la tabla para ver crédito, estado y acciones completas.
+        </p>
+        <div data-oc-scroll-shell class="relative">
+            <div data-oc-scroll-fade="left" hidden></div>
+            <div data-oc-scroll-fade="right" hidden></div>
+            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Tabla de clientes">
+                <table class="w-full border-collapse text-left" data-oc-scroll-table>
                     <thead>
-                        <tr class="border-b border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50">
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Documento</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Cliente</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Contacto</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Domicilio</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Puntaje</th>
-                            <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Créditos</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Estado</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
+                        <tr class="border-b border-slate-800 bg-slate-800/30">
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Contacto</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Domicilio</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Riesgo</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Crédito</th>
+                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody class="divide-y divide-slate-800">
                         @if (Model.Clientes != null && Model.Clientes.Any())
                         {
                             @foreach (var c in Model.Clientes)
@@ -206,92 +218,110 @@
                                 var puntajeColor = puntaje >= 700 ? "emerald" : (puntaje >= 400 ? "amber" : "red");
                                 var puntajePct = Math.Min(100, Math.Max(0, puntaje / 10));
 
-                                var avatarColors = new[] { "primary", "amber-500", "emerald-500", "violet-500", "rose-500" };
-                                var avatarColor = avatarColors[Math.Abs(c.Id) % avatarColors.Length];
-
                                 var tipoCliente = c.Sueldo.HasValue && c.Sueldo > 200000 ? "Mayorista" : "Minorista";
 
-                                <tr class="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                    <td class="px-6 py-4 text-sm font-medium text-slate-600 dark:text-slate-400">
-                                        @(c.TipoDocumento ?? "DNI")-@c.NumeroDocumento
-                                    </td>
-                                    <td class="px-6 py-4">
+                                <tr class="transition-colors hover:bg-white/5">
+                                    <td class="px-5 py-3">
                                         <div class="flex items-center gap-3">
-                                            <div class="flex size-9 items-center justify-center rounded-full bg-@(avatarColor)/20 text-sm font-bold text-@(avatarColor)">
+                                            <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-sm font-bold text-primary">
                                                 @initials
                                             </div>
-                                            <div class="flex flex-col">
-                                                <span class="text-sm font-bold text-slate-900 dark:text-white">@c.Apellido @c.Nombre</span>
-                                                <span class="text-[10px] uppercase tracking-tighter text-slate-500">@tipoCliente</span>
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-bold text-white">@c.Apellido @c.Nombre</p>
+                                                <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                                                    <span class="font-mono">@(c.TipoDocumento ?? "DNI")-@c.NumeroDocumento</span>
+                                                    <span class="h-1 w-1 rounded-full bg-slate-700"></span>
+                                                    <span class="uppercase tracking-[0.12em]">@tipoCliente</span>
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex flex-col text-sm">
-                                            <span class="text-slate-900 dark:text-slate-200">@(c.Telefono ?? "—")</span>
-                                            <span class="text-xs text-slate-500">@(c.Email ?? "Sin email")</span>
+                                    <td class="px-5 py-3">
+                                        <div class="flex max-w-[16rem] flex-col gap-0.5 text-sm">
+                                            <span class="text-slate-200">@(c.Telefono ?? "Sin teléfono")</span>
+                                            <span class="truncate text-xs text-slate-500">@(c.Email ?? "Sin email")</span>
                                         </div>
                                     </td>
-                                    <td class="max-w-[150px] truncate px-6 py-4 text-sm text-slate-600 dark:text-slate-400" title="@c.Domicilio">
+                                    <td class="max-w-[13rem] truncate px-5 py-3 text-sm text-slate-400" title="@c.Domicilio">
                                         @(c.Domicilio ?? "—")
                                     </td>
-                                    <td class="px-6 py-4">
+                                    <td class="px-5 py-3">
                                         @if (puntaje > 0)
                                         {
-                                            <div class="flex items-center gap-1">
-                                                <span class="text-sm font-bold text-@(puntajeColor)-600 dark:text-@(puntajeColor)-400">@puntaje</span>
-                                                <div class="h-1 w-12 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-bold text-@(puntajeColor)-400">@puntaje</span>
+                                                <div class="h-1.5 w-14 overflow-hidden rounded-full bg-slate-700">
                                                     <div class="h-full rounded-full bg-@(puntajeColor)-500 @ProgressWidthClass(puntajePct)"></div>
                                                 </div>
                                             </div>
                                         }
                                         else
                                         {
-                                            <span class="text-sm font-bold text-slate-400 dark:text-slate-600">--</span>
+                                            <span class="text-sm font-bold text-slate-600">--</span>
                                         }
                                     </td>
-                                    <td class="px-6 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
+                                    <td class="px-5 py-3 text-right text-sm font-bold text-white">
                                         @(c.MontoAdeudado.HasValue ? c.MontoAdeudado.Value.ToString("C") : "$0,00")
                                     </td>
-                                    <td class="px-6 py-4">
+                                    <td class="px-5 py-3">
                                         @if (c.Activo)
                                         {
-                                            <span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Activo</span>
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                                Activo
+                                            </span>
                                         }
                                         else
                                         {
-                                            <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">Inactivo</span>
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-400">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                                                Inactivo
+                                            </span>
                                         }
                                     </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center justify-center gap-2">
+                                    <td class="px-5 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-1">
                                             <a asp-action="Details"
                                                asp-route-id="@c.Id"
-                                               class="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 text-primary transition-all hover:bg-primary hover:text-white no-underline"
-                                               title="Ver detalle">
-                                                <span class="material-symbols-outlined text-sm">visibility</span>
-                                                <span class="text-[11px] font-semibold lg:hidden">Ver</span>
+                                               class="row-action row-action--primary no-underline"
+                                               title="Ver detalle"
+                                               aria-label="Ver detalle de @c.Apellido @c.Nombre">
+                                                <span class="material-symbols-outlined">visibility</span>
+                                                <span class="row-action__label">Ver</span>
                                             </a>
-                                            <a asp-action="Edit"
-                                               asp-route-id="@c.Id"
-                                               class="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1.5 text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 no-underline"
-                                               title="Editar">
-                                                <span class="material-symbols-outlined text-sm">edit</span>
-                                                <span class="text-[11px] font-semibold lg:hidden">Editar</span>
-                                            </a>
-                                            <button data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                                    data-nombre="@c.Apellido @c.Nombre"
-                                                    class="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-red-600 transition-all hover:bg-red-500 hover:text-white dark:bg-red-900/10"
-                                                    title="Eliminar">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                                <span class="text-[11px] font-semibold lg:hidden">Eliminar</span>
+                                            <button type="button"
+                                                    data-cliente-modal-open="edit"
+                                                    data-cliente-id="@c.Id"
+                                                    class="row-action"
+                                                    title="Editar"
+                                                    aria-label="Editar @c.Apellido @c.Nombre">
+                                                <span class="material-symbols-outlined">edit</span>
+                                                <span class="row-action__label">Editar</span>
                                             </button>
                                             <a asp-controller="Credito"
                                                asp-action="Index"
                                                asp-route-clienteId="@c.Id"
-                                               class="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-tight text-white transition-colors hover:bg-blue-700 no-underline">
-                                                Ir a Crédito
+                                               class="row-action row-action--primary no-underline"
+                                               title="Ver créditos"
+                                               aria-label="Ver créditos de @c.Apellido @c.Nombre">
+                                                <span class="material-symbols-outlined">payments</span>
+                                                <span class="row-action__label">Crédito</span>
                                             </a>
+                                            <details class="cliente-row-menu relative" data-cliente-row-menu>
+                                                <summary class="row-action cursor-pointer" title="Más acciones" aria-label="Más acciones para @c.Apellido @c.Nombre">
+                                                    <span class="material-symbols-outlined">more_vert</span>
+                                                    <span class="row-action__label">Más</span>
+                                                </summary>
+                                                <div class="cliente-row-menu__content">
+                                                    <button type="button"
+                                                            data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                                            data-nombre="@c.Apellido @c.Nombre"
+                                                            class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                                                        Eliminar
+                                                    </button>
+                                                </div>
+                                            </details>
                                         </div>
                                     </td>
                                 </tr>
@@ -300,11 +330,11 @@
                         else
                         {
                             <tr>
-                                <td colspan="8" class="px-6 py-12 text-center">
+                                <td colspan="7" class="px-6 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">person_off</span>
-                                        <p class="text-sm font-semibold text-slate-500">No se encontraron clientes</p>
-                                        <p class="text-xs text-slate-400">Intenta con otros filtros o agrega un nuevo cliente</p>
+                                        <span class="material-symbols-outlined text-4xl text-slate-600">person_off</span>
+                                        <p class="text-sm font-semibold text-slate-400">No se encontraron clientes</p>
+                                        <p class="text-xs text-slate-500">Intentá con otros filtros o agregá un nuevo cliente</p>
                                     </div>
                                 </td>
                             </tr>
@@ -314,21 +344,24 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-2 border-t border-slate-800 bg-slate-900/30 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-xs text-slate-500">
                 Mostrando @totalEnPagina de @Model.TotalResultados clientes
             </span>
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Accedé a detalle, edición y crédito desde la misma fila.
+            <span class="text-xs font-semibold text-slate-400">
+                Acciones directas: detalle, edición y crédito. Eliminación queda en el menú de fila.
             </span>
         </div>
-    </div>
+    </section>
 
     <div id="limitesModalContainer"></div>
 </div>
+
+<partial name="_ClienteModal" />
 
 @section Scripts {
     <script src="~/js/module-index.js" asp-append-version="true"></script>
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/cliente-index.js" asp-append-version="true"></script>
+    <script src="~/js/cliente-modal.js" asp-append-version="true"></script>
 }

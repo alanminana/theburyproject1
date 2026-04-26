@@ -2,6 +2,7 @@
 @using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Módulo de Cajas";
+    ViewData["MetaDescription"] = "Administración de cajas, aperturas, cierres y movimientos de efectivo del ERP TheBuryProject.";
     var abiertas = Model.AperturasAbiertas?.ToList() ?? new List<TheBuryProject.Models.Entities.AperturaCaja>();
     var activas = Model.CajasActivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
     var inactivas = Model.CajasInactivas?.ToList() ?? new List<TheBuryProject.Models.Entities.Caja>();
@@ -17,101 +18,44 @@
 <div class="caja-index-shell flex min-h-full items-start gap-0">
 <div id="cajaMainContent" class="caja-page-shell flex-1 min-w-0 space-y-8">
 
-    <!-- Header Section -->
-    <header class="space-y-6">
-        <div class="caja-page-header-layout caja-index-header-layout">
-        <div class="space-y-2">
-            <nav class="flex text-xs font-medium text-slate-500 dark:text-slate-400 gap-2 mb-2">
-                <a asp-controller="Home" asp-action="Index" class="hover:text-primary transition-colors">ERP</a>
-                <span>/</span>
-                <span>Módulo de Cajas</span>
-            </nav>
-            <h1 class="text-slate-900 dark:text-white text-4xl font-black tracking-tight">Módulo de Cajas</h1>
-            <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
-                Gestione aperturas, cierres y flujos de efectivo desde un único panel operativo. Revise el estado actual de sus terminales, abra nuevas cajas y acceda rápido a cada turno activo.
-            </p>
-        </div>
-        <div class="caja-page-header-actions caja-index-header-actions sm:flex-row sm:items-center">
-            <a asp-action="Historial"
-               class="caja-page-header-action caja-index-header-action inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline sm:w-auto">
-                <span class="material-symbols-outlined text-lg">history</span>
-                Historial de cierres
-            </a>
-            @if (esAdmin)
-            {
-                <button type="button"
-                        data-caja-open-create
-                        class="caja-page-header-action caja-index-header-action inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 cursor-pointer sm:w-auto">
-                    <span class="material-symbols-outlined text-lg">add_circle</span>
-                    Nueva caja
-                </button>
-            }
-        </div>
-        </div>
-
-        <div class="caja-page-metrics caja-page-metrics--4 caja-index-metrics">
-            <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Aperturas visibles</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@aperturasMostradas.Count</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Turnos actualmente accesibles desde este panel.</p>
-            </article>
-            <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cajas operativas</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@activas.Count</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Terminales activas listas para uso comercial.</p>
-            </article>
-            <article class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-sm">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Listas para abrir</p>
-                <p class="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">@cajasDisponibles</p>
-                <p class="mt-1 text-xs text-emerald-600/80 dark:text-emerald-400/80">Cajas cerradas disponibles para un nuevo turno.</p>
-            </article>
-            <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">En uso / archivadas</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@cajasEnUso <span class="text-base text-slate-400">/</span> @inactivas.Count</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Seguimiento rápido del parque de cajas.</p>
-            </article>
-        </div>
-    </header>
+    <div class="flex flex-wrap items-center gap-3">
+        <h1 class="text-base font-black text-white flex-1">Módulo de Cajas</h1>
+        <a asp-action="Historial" class="btn-erp-secondary btn-sm no-underline">
+            <span class="material-symbols-outlined text-[16px]">history</span>
+            Historial de cierres
+        </a>
+        @if (esAdmin)
+        {
+            <button type="button" data-caja-open-create class="btn-erp-primary btn-sm">
+                <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                Nueva caja
+            </button>
+        }
+    </div>
 
     <!-- TempData Alerts -->
     <div id="caja-index-feedback-slot" class="space-y-3" aria-live="polite"></div>
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-            <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
-                <span class="material-symbols-outlined">check_circle</span>
-            </div>
-            <div>
-                <p class="text-emerald-500 text-sm font-bold leading-tight">Operación exitosa</p>
-                <p class="text-emerald-500/80 text-xs font-medium">@TempData["Success"]</p>
-            </div>
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
         </div>
     }
     @if (TempData["Warning"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
-            <div class="bg-amber-500/20 text-amber-500 p-2 rounded-lg">
-                <span class="material-symbols-outlined">warning</span>
-            </div>
-            <div>
-                <p class="text-amber-500 text-sm font-bold leading-tight">Atención</p>
-                <p class="text-amber-500/80 text-xs font-medium">@TempData["Warning"]</p>
-            </div>
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-400" role="alert">
+            <span class="material-symbols-outlined">warning</span>
+            @TempData["Warning"]
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
-            <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
-                <span class="material-symbols-outlined">error</span>
-            </div>
-            <div>
-                <p class="text-rose-500 text-sm font-bold leading-tight">Error</p>
-                <p class="text-rose-500/80 text-xs font-medium">@TempData["Error"]</p>
-            </div>
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
         </div>
     }
-
     <!-- ═══════════════════════════════════════════════════ -->
     <!-- Cajas Abiertas (Aperturas activas) -->
     <!-- ═══════════════════════════════════════════════════ -->
@@ -120,16 +64,16 @@
             <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="material-symbols-outlined text-primary">sensors</span>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">
+                    <h2 class="text-lg font-bold text-white">
                         @(esAdmin ? "Cajas actualmente abiertas" : "Mi caja abierta")
-                    </h3>
+                    </h2>
                     <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">En vivo</span>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400">
+                <p class="text-sm text-slate-400">
                     Turnos en curso con accesos rápidos para registrar movimientos, revisar actividad y cerrar caja.
                 </p>
             </div>
-            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
                 <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
                 @aperturasMostradas.Count @(aperturasMostradas.Count == 1 ? "apertura visible" : "aperturas visibles")
             </div>
@@ -137,17 +81,17 @@
 
         @if (aperturasMostradas.Any())
         {
-            <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+            <div class="card-erp-panel p-4"
                  data-oc-scroll
                  style="--oc-scroll-min-width: 70rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
                 <div data-oc-scroll-hint
-                 class="caja-page-scroll-hint caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                 class="caja-page-scroll-hint caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
                      hidden>
                     <div class="flex items-center gap-2 font-semibold">
                         <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
                         <span id="caja-scroll-hint-abiertas">Deslizá la tabla para ver más columnas y acciones</span>
                     </div>
-                    <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                         Scroll horizontal
                     </span>
                 </div>
@@ -167,23 +111,23 @@
                          aria-describedby="caja-scroll-hint-abiertas"
                          tabindex="0">
                         <table data-oc-scroll-table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <thead class="bg-slate-800/50">
                                 <tr>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Caja / Código</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Usuario Apertura</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Fecha / Hora</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Fondo inicial</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Movimientos</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Caja / Código</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Usuario Apertura</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Fecha / Hora</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Fondo inicial</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Movimientos</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
                                         <span class="flex items-center gap-1">
                                             Saldo en caja
                                             <span class="material-symbols-outlined text-[13px] text-slate-400" title="Efectivo físico esperado: fondo inicial + ingresos (efectivo, tarjeta, cheque, cobros de cuota) − egresos. No incluye ventas a crédito personal ni cuenta corriente.">info</span>
                                         </span>
                                     </th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">Acciones</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tbody class="divide-y divide-slate-800">
                                 @foreach (var apertura in aperturasMostradas)
                                 {
                                     var movs = apertura.Movimientos ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
@@ -193,11 +137,11 @@
                                     var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
                                     var esPropietario = apertura.UsuarioApertura == currentUser;
 
-                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col">
-                                                <span class="text-sm font-bold text-slate-900 dark:text-white">@(apertura.Caja?.Nombre ?? "—")</span>
-                                                <span class="text-xs text-slate-500">@(apertura.Caja?.Codigo ?? "—")</span>
+                                                <span class="text-sm font-bold text-white">@(apertura.Caja?.Nombre ?? "—")</span>
+                                                <span class="text-xs text-slate-400">@(apertura.Caja?.Codigo ?? "—")</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
@@ -205,21 +149,21 @@
                                                 <div class="size-6 rounded-full bg-primary/20 flex items-center justify-center">
                                                     <span class="material-symbols-outlined text-primary text-xs">person</span>
                                                 </div>
-                                                <span class="text-sm text-slate-700 dark:text-slate-300">@apertura.UsuarioApertura</span>
+                                                <span class="text-sm text-slate-300">@apertura.UsuarioApertura</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col">
-                                                <span class="text-sm text-slate-700 dark:text-slate-300">@apertura.FechaApertura.ToString("dd/MM/yyyy")</span>
-                                                <span class="text-xs text-slate-500">@apertura.FechaApertura.ToString("HH:mm") hs</span>
+                                                <span class="text-sm text-slate-300">@apertura.FechaApertura.ToString("dd/MM/yyyy")</span>
+                                                <span class="text-xs text-slate-400">@apertura.FechaApertura.ToString("HH:mm") hs</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <span class="font-mono text-sm text-slate-500 dark:text-slate-400">@apertura.MontoInicial.ToString("C2")</span>
+                                            <span class="font-mono text-sm text-slate-400">@apertura.MontoInicial.ToString("C2")</span>
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col gap-1">
-                                                <span class="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 w-fit">
+                                                <span class="px-2 py-0.5 rounded-full bg-slate-800 text-xs font-bold text-slate-400 w-fit">
                                                     @cantMov @(cantMov == 1 ? "movimiento" : "movimientos")
                                                 </span>
                                                 @if (totalIngresos > 0 || totalEgresos > 0)
@@ -242,7 +186,7 @@
                                                 <span class="font-mono text-base font-black @(saldoActual >= apertura.MontoInicial ? "text-emerald-500" : "text-amber-400")">
                                                     @saldoActual.ToString("C2")
                                                 </span>
-                                                <span class="text-[10px] text-slate-500 uppercase tracking-wide">Solo efectivo físico</span>
+                                                <span class="text-[10px] text-slate-400 uppercase tracking-wide">Solo efectivo físico</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 text-right">
@@ -250,7 +194,7 @@
                                             {
                                                 <div class="flex min-w-max flex-wrap items-center justify-end gap-2">
                                                     <a asp-action="DetallesApertura" asp-route-id="@apertura.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 text-slate-600 dark:text-slate-300 hover:text-primary text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors no-underline"
+                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-primary/10 text-slate-300 hover:text-primary text-xs font-bold border border-slate-700 transition-colors no-underline"
                                                        title="Ver movimientos y operaciones">
                                                         <span class="material-symbols-outlined text-base">list_alt</span>
                                                         <span class="caja-index-action-label">Ver movimientos</span>
@@ -262,7 +206,7 @@
                                                         <span class="caja-index-action-label">Movimiento</span>
                                                     </a>
                                                     <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all no-underline">
+                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-colors no-underline">
                                                         <span class="material-symbols-outlined text-base">lock</span>
                                                         <span class="caja-index-action-label">Cerrar caja</span>
                                                     </a>
@@ -283,13 +227,13 @@
         }
         else
         {
-            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
-                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">point_of_sale</span>
+            <div class="card-erp-panel p-8 text-center">
+                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600">point_of_sale</span>
                 @if (esAdmin)
                 {
                     <p class="text-sm text-slate-500 mt-2">No hay cajas abiertas en este momento.</p>
                     <a asp-action="Abrir"
-                       class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all no-underline">
+                       class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors no-underline">
                         <span class="material-symbols-outlined text-sm">lock_open</span> Abrir una caja
                     </a>
                 }
@@ -310,13 +254,13 @@
             <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="material-symbols-outlined text-primary">point_of_sale</span>
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Maestro de Cajas Activas</h3>
+                    <h2 class="text-lg font-bold text-white">Maestro de Cajas Activas</h2>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400">
+                <p class="text-sm text-slate-400">
                     Terminales disponibles para apertura, con acceso a la apertura activa o a su gestión administrativa.
                 </p>
             </div>
-            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
                 <span class="material-symbols-outlined text-sm text-primary">inventory_2</span>
                 @activas.Count activas · @cajasDisponibles listas para abrir
             </div>
@@ -324,17 +268,17 @@
 
         @if (activas.Any())
         {
-            <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+            <div class="card-erp-panel p-4"
                  data-oc-scroll
                  style="--oc-scroll-min-width: 52rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
                 <div data-oc-scroll-hint
-                 class="caja-page-scroll-hint caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                 class="caja-page-scroll-hint caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
                      hidden>
                     <div class="flex items-center gap-2 font-semibold">
                         <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
                         <span id="caja-scroll-hint-activas">Deslizá la tabla para ver estados y acciones</span>
                     </div>
-                    <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                         Scroll horizontal
                     </span>
                 </div>
@@ -354,30 +298,30 @@
                          aria-describedby="caja-scroll-hint-activas"
                          tabindex="0">
                         <table data-oc-scroll-table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <thead class="bg-slate-800/50">
                                 <tr>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Código</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Nombre de Caja</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Sucursal / Ubicación</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Estado</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">Gestión</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Código</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Nombre de Caja</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Sucursal / Ubicación</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Estado</th>
+                                    <th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">Gestión</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tbody id="cajas-activas-tbody" class="divide-y divide-slate-800">
                                 @foreach (var caja in activas)
                                 {
                                     var estaAbierta = caja.Estado == EstadoCaja.Abierta;
                                     var aperturaActiva = abiertas.FirstOrDefault(a => a.CajaId == caja.Id);
                                     var esMiApertura = aperturaActiva?.UsuarioApertura == currentUser;
-                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <tr data-caja-row-id="@caja.Id" class="hover:bg-slate-800/30 transition-colors">
                                         <td class="px-6 py-4 text-sm font-mono text-slate-500">@caja.Codigo</td>
-                                        <td class="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">@caja.Nombre</td>
+                                        <td class="px-6 py-4 text-sm font-bold text-white">@caja.Nombre</td>
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col">
-                                                <span class="text-sm text-slate-700 dark:text-slate-300">@(caja.Sucursal ?? "—")</span>
+                                                <span class="text-sm text-slate-300">@(caja.Sucursal ?? "—")</span>
                                                 @if (!string.IsNullOrEmpty(caja.Ubicacion))
                                                 {
-                                                    <span class="text-xs text-slate-500">@caja.Ubicacion</span>
+                                                    <span class="text-xs text-slate-400">@caja.Ubicacion</span>
                                                 }
                                             </div>
                                         </td>
@@ -404,7 +348,7 @@
                                                     @if (aperturaActiva != null && (esAdmin || esMiApertura))
                                                     {
                                                         <a asp-action="DetallesApertura" asp-route-id="@aperturaActiva.Id"
-                                                           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-primary/10 hover:text-primary transition-colors no-underline"
+                                                           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-primary/10 hover:text-primary transition-colors no-underline"
                                                            title="Ver apertura activa">
                                                             <span class="material-symbols-outlined text-base">open_in_new</span>
                                                             <span class="caja-index-action-label">Ver apertura</span>
@@ -418,7 +362,7 @@
                                                 else
                                                 {
                                                     <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-all no-underline">
+                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-colors no-underline">
                                                         <span class="material-symbols-outlined text-base">lock_open</span>
                                                         <span class="caja-index-action-label">Abrir caja</span>
                                                     </a>
@@ -428,7 +372,7 @@
                                                     <button type="button"
                                                             data-caja-open-edit
                                                             data-caja-id="@caja.Id"
-                                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900/70 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-slate-800 transition-colors"
                                                             title="Editar">
                                                         <span class="material-symbols-outlined text-base">edit</span>
                                                         <span class="caja-index-action-label">Editar</span>
@@ -463,8 +407,8 @@
         }
         else
         {
-            <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center">
-                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">inventory</span>
+            <div class="card-erp-panel p-8 text-center">
+                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600">inventory</span>
                 <p class="text-sm text-slate-500 mt-2">No hay cajas activas configuradas.</p>
             </div>
         }
@@ -480,28 +424,28 @@
                 <div class="space-y-2">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-slate-500">archive</span>
-                        <h3 class="text-lg font-bold text-slate-500 dark:text-slate-400">Cajas Inactivas / Depreciadas</h3>
+                        <h2 class="text-lg font-bold text-slate-400">Cajas Inactivas / Depreciadas</h2>
                     </div>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                    <p class="text-sm text-slate-400">
                         Historial de cajas archivadas con acceso a reactivación o eliminación definitiva.
                     </p>
                 </div>
-                <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
                     <span class="material-symbols-outlined text-sm text-slate-500">inventory</span>
                     @inactivas.Count @(inactivas.Count == 1 ? "caja archivada" : "cajas archivadas")
                 </div>
             </div>
-            <div class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm opacity-80 dark:border-slate-800 dark:bg-slate-900/60"
+            <div class="card-erp-panel p-4 opacity-80"
                  data-oc-scroll
                  style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
                 <div data-oc-scroll-hint
-                     class="caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                     class="caja-index-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
                      hidden>
                     <div class="flex items-center gap-2 font-semibold">
                         <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
                         <span id="caja-scroll-hint-inactivas">Deslizá la tabla para ver la gestión de cajas archivadas</span>
                     </div>
-                    <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                         Scroll horizontal
                     </span>
                 </div>
@@ -521,7 +465,7 @@
                          aria-describedby="caja-scroll-hint-inactivas"
                          tabindex="0">
                         <table data-oc-scroll-table class="w-full text-left border-collapse">
-                            <thead class="bg-slate-50 dark:bg-slate-800/50">
+                            <thead class="bg-slate-800/50">
                                 <tr>
                                     <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Código</th>
                                     <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Nombre</th>
@@ -529,10 +473,10 @@
                                     <th class="px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tbody class="divide-y divide-slate-800">
                                 @foreach (var caja in inactivas)
                                 {
-                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
                                         <td class="px-6 py-3 text-sm font-mono text-slate-400 italic line-through">@caja.Codigo</td>
                                         <td class="px-6 py-3 text-sm text-slate-500">@caja.Nombre</td>
                                         <td class="px-6 py-3 text-sm text-slate-500">@(caja.Sucursal ?? "—")</td>
@@ -541,7 +485,7 @@
                                                 <button type="button"
                                                         data-caja-open-edit
                                                         data-caja-id="@caja.Id"
-                                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900/70 text-slate-500 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900/70 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-slate-800 transition-colors"
                                                         title="Reactivar / Editar">
                                                     <span class="material-symbols-outlined text-base">restore_from_trash</span>
                                                     <span class="caja-index-action-label">Reactivar</span>
@@ -578,22 +522,6 @@
 
 @section Styles {
     <partial name="_CajaModuleStyles" />
-    <style>
-        .caja-index-section-badge {
-            display: inline-flex;
-            width: fit-content;
-        }
-
-        @@media (min-width: 1024px) {
-            .caja-index-shell {
-                gap: 2rem;
-            }
-
-            .caja-index-action-label {
-                display: none;
-            }
-        }
-    </style>
 }
 
 @section Scripts {

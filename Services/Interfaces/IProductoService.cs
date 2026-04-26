@@ -1,4 +1,5 @@
 ﻿using TheBuryProject.Models.Entities;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -37,6 +38,19 @@ namespace TheBuryProject.Services.Interfaces
             int? marcaId = null,
             bool stockBajo = false,
             bool soloActivos = false);
+
+        /// <summary>
+        /// Busca productos para el panel de venta: aplica filtros de stock y precio,
+        /// resuelve el precio vigente de lista y proyecta a DTO listo para serializar.
+        /// </summary>
+        Task<IEnumerable<ProductoVentaDto>> BuscarParaVentaAsync(
+            string term,
+            int take = 20,
+            int? categoriaId = null,
+            int? marcaId = null,
+            bool soloConStock = true,
+            decimal? precioMin = null,
+            decimal? precioMax = null);
 
         // Stock
         Task<Producto> ActualizarStockAsync(int id, decimal cantidad);

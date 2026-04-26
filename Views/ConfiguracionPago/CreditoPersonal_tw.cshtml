@@ -1,0 +1,228 @@
+@model CreditoPersonalConfigViewModel
+@{
+    ViewData["Title"] = "Configuración de Crédito Personal";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
+        ? returnUrl
+        : Url.Action("Index", "Credito") ?? "/Credito";
+    var perfiles = Model.Perfiles ?? new List<PerfilCreditoViewModel>();
+    var puedeEditar = User.TienePermiso("configuraciones", "update");
+}
+
+@section Styles {
+    <partial name="_CreditoModuleStyles" />
+}
+
+<div class="space-y-8">
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-3xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Credito" asp-action="Index" class="hover:text-primary no-underline">Créditos</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Configuración</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">settings</span>
+                        Crédito personal
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Configurar crédito personal</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Administrá los valores globales del sistema y los perfiles reutilizables que luego se aplican en la configuración de ventas a crédito.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
+                <a asp-controller="ConfiguracionContratoCredito" asp-action="Index"
+                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+                   class="btn-erp-secondary w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">contract</span>
+                    Plantilla contrato
+                </a>
+                <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver
+                </a>
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    <form asp-action="CreditoPersonal" asp-controller="ConfiguracionPago" method="post" class="space-y-8">
+        @if (!string.IsNullOrWhiteSpace(returnUrl))
+        {
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+        }
+
+        <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
+
+        <section class="card-erp-panel-padded">
+            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span class="material-symbols-outlined text-primary">public</span>
+                <h2 class="text-xl font-bold text-white">Global del sistema</h2>
+            </div>
+
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="DefaultsGlobales.TasaMensual" class="text-sm font-semibold text-slate-300">Tasa mensual (%)</label>
+                    <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100" readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="DefaultsGlobales.GastosAdministrativos" class="text-sm font-semibold text-slate-300">Gastos administrativos</label>
+                    <input asp-for="DefaultsGlobales.GastosAdministrativos" type="number" step="0.01" min="0" readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <span asp-validation-for="DefaultsGlobales.GastosAdministrativos" class="text-xs text-red-500"></span>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="DefaultsGlobales.MinCuotas" class="text-sm font-semibold text-slate-300">Mínimo cuotas</label>
+                    <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <span asp-validation-for="DefaultsGlobales.MinCuotas" class="text-xs text-red-500"></span>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="DefaultsGlobales.MaxCuotas" class="text-sm font-semibold text-slate-300">Máximo cuotas</label>
+                    <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card-erp-panel-padded">
+            <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">badge</span>
+                    <h2 class="text-xl font-bold text-white">Perfiles de crédito</h2>
+                </div>
+                <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
+                    <span class="material-symbols-outlined text-sm">format_list_bulleted</span>
+                    @perfiles.Count perfil@(perfiles.Count == 1 ? "" : "es")
+                </span>
+            </div>
+
+            <div class="space-y-4">
+                @for (var i = 0; i < perfiles.Count; i++)
+                {
+                    <div class="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                        <input type="hidden" asp-for="Perfiles[i].Id" />
+                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                            <div class="lg:col-span-3">
+                                <label asp-for="Perfiles[i].Nombre" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Nombre</label>
+                                <input asp-for="Perfiles[i].Nombre" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-3">
+                                <label asp-for="Perfiles[i].Descripcion" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Descripción</label>
+                                <input asp-for="Perfiles[i].Descripcion" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label asp-for="Perfiles[i].TasaMensual" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Tasa</label>
+                                <input asp-for="Perfiles[i].TasaMensual" type="number" step="0.01" min="0" max="100" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label asp-for="Perfiles[i].GastosAdministrativos" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Gastos</label>
+                                <input asp-for="Perfiles[i].GastosAdministrativos" type="number" step="0.01" min="0" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label asp-for="Perfiles[i].MinCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Min</label>
+                                <input asp-for="Perfiles[i].MinCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label asp-for="Perfiles[i].MaxCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Max</label>
+                                <input asp-for="Perfiles[i].MaxCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label asp-for="Perfiles[i].Orden" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
+                                <input asp-for="Perfiles[i].Orden" type="number" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="flex items-end lg:col-span-1">
+                                <label class="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm font-semibold text-slate-300">
+                                    <input asp-for="Perfiles[i].Activo" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                    Activo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (puedeEditar)
+                {
+                    <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-4">
+                        <div class="mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">add_circle</span>
+                            <h3 class="text-sm font-black uppercase tracking-wider text-slate-300">Nuevo perfil</h3>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                            <div class="lg:col-span-3">
+                                <label for="nuevoPerfilNombre" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Nombre</label>
+                                <input id="nuevoPerfilNombre" name="nuevoPerfilNombre" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-3">
+                                <label for="nuevoPerfilDescripcion" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Descripción</label>
+                                <input id="nuevoPerfilDescripcion" name="nuevoPerfilDescripcion" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label for="nuevoPerfilTasaMensual" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Tasa</label>
+                                <input id="nuevoPerfilTasaMensual" name="nuevoPerfilTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label for="nuevoPerfilGastosAdministrativos" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Gastos</label>
+                                <input id="nuevoPerfilGastosAdministrativos" name="nuevoPerfilGastosAdministrativos" type="number" step="0.01" min="0" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label for="nuevoPerfilMinCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Min</label>
+                                <input id="nuevoPerfilMinCuotas" name="nuevoPerfilMinCuotas" type="number" min="1" max="120" value="1" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label for="nuevoPerfilMaxCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Max</label>
+                                <input id="nuevoPerfilMaxCuotas" name="nuevoPerfilMaxCuotas" type="number" min="1" max="120" value="24" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="lg:col-span-1">
+                                <label for="nuevoPerfilOrden" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
+                                <input id="nuevoPerfilOrden" name="nuevoPerfilOrden" type="number" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
+                            </div>
+                            <div class="flex items-end lg:col-span-1">
+                                <label class="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm font-semibold text-slate-300">
+                                    <input type="hidden" name="nuevoPerfilActivo" value="false" />
+                                    <input type="checkbox" name="nuevoPerfilActivo" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                    Activo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">Cancelar</a>
+            @if (puedeEditar)
+            {
+                <button type="submit" class="btn-erp-primary w-full sm:w-auto sm:py-2.5">
+                    <span class="material-symbols-outlined text-[20px]">save</span>
+                    Guardar configuración
+                </button>
+            }
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

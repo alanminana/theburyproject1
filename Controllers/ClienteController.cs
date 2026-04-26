@@ -220,6 +220,97 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        #endregion
+
+        #region Modal AJAX (Create / Edit sin navegación)
+
+        [HttpGet]
+        public async Task<IActionResult> ModalCreate()
+        {
+            CargarDropdowns();
+            await CargarPerfilesCredito();
+            return PartialView("_ClienteFormPartial", new ClienteViewModel());
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ModalEdit(int id)
+        {
+            var cliente = await _clienteService.GetByIdAsync(id);
+            if (cliente == null)
+                return NotFound();
+
+            var viewModel = _mapper.Map<ClienteViewModel>(cliente);
+            CargarDropdowns();
+            await CargarPerfilesCredito(viewModel.PerfilCreditoPreferidoId);
+            return PartialView("_ClienteFormPartial", viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "create")]
+        public async Task<IActionResult> CreateAjax(ClienteViewModel viewModel)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .Where(m => !string.IsNullOrEmpty(m))
+                    .ToList();
+                return Json(new { success = false, errors });
+            }
+
+            try
+            {
+                var cliente = _mapper.Map<Cliente>(viewModel);
+                await _clienteService.CreateAsync(cliente);
+                return Json(new { success = true, id = cliente.Id, nombre = cliente.NombreCompleto });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Json(new { success = false, errors = new[] { ex.Message } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear cliente vía AJAX");
+                return Json(new { success = false, errors = new[] { "Error al crear el cliente." } });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
+        public async Task<IActionResult> EditAjax(ClienteViewModel viewModel)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .Where(m => !string.IsNullOrEmpty(m))
+                    .ToList();
+                return Json(new { success = false, errors });
+            }
+
+            try
+            {
+                var cliente = _mapper.Map<Cliente>(viewModel);
+                await _clienteService.UpdateAsync(cliente);
+                return Json(new { success = true, id = cliente.Id, nombre = cliente.NombreCompleto });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Json(new { success = false, errors = new[] { ex.Message } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar cliente {Id} vía AJAX", viewModel.Id);
+                return Json(new { success = false, errors = new[] { "Error al actualizar el cliente." } });
+            }
+        }
+
+        #endregion
+
         public async Task<IActionResult> Delete(int id, string? returnUrl = null)
         {
             try
@@ -263,8 +354,6 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Delete), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }
-
-        #endregion
 
         #region Crédito y aptitud
 

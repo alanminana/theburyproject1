@@ -64,7 +64,16 @@ namespace TheBuryProject.Controllers
                     TotalResultados = viewModels.Count(),
                     CategoriasDisponibles = categorias.OrderBy(c => c.Nombre).Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.Nombre }).ToList(),
                     MarcasDisponibles = marcas.OrderBy(m => m.Nombre).Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Nombre }).ToList(),
-                    ProductosDisponibles = productos.OrderBy(p => p.Nombre).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}" }).ToList()
+                    ProductosDisponibles = productos.OrderBy(p => p.Nombre).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}" }).ToList(),
+                    ProductosPickerJson = System.Text.Json.JsonSerializer.Serialize(
+                        productos.OrderBy(p => p.Nombre).Select(p => new {
+                            id = p.Id,
+                            codigo = p.Codigo ?? "",
+                            nombre = p.Nombre,
+                            marca = p.Marca?.Nombre ?? "",
+                            categoria = p.Categoria?.Nombre ?? ""
+                        })
+                    )
                 };
 
                 return View("Index_tw", filterViewModel);
@@ -163,7 +172,7 @@ namespace TheBuryProject.Controllers
 
                 var proveedor = _mapper.Map<Proveedor>(viewModel);
                 await _proveedorService.CreateAsync(proveedor);
-                return Json(new { success = true, message = "Proveedor creado exitosamente" });
+                return Json(new { success = true, message = "Proveedor creado exitosamente", entity = new { id = proveedor.Id, cuit = proveedor.Cuit, razonSocial = proveedor.RazonSocial, nombreFantasia = proveedor.NombreFantasia, email = proveedor.Email, telefono = proveedor.Telefono, activo = proveedor.Activo } });
             }
             catch (InvalidOperationException ex)
             {
@@ -285,7 +294,7 @@ namespace TheBuryProject.Controllers
 
                 var proveedor = _mapper.Map<Proveedor>(viewModel);
                 await _proveedorService.UpdateAsync(proveedor);
-                return Json(new { success = true, message = "Proveedor actualizado exitosamente" });
+                return Json(new { success = true, message = "Proveedor actualizado exitosamente", entity = new { id = proveedor.Id, cuit = proveedor.Cuit, razonSocial = proveedor.RazonSocial, nombreFantasia = proveedor.NombreFantasia, email = proveedor.Email, telefono = proveedor.Telefono, activo = proveedor.Activo } });
             }
             catch (InvalidOperationException ex)
             {

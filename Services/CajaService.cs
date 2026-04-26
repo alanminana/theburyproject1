@@ -912,47 +912,91 @@ namespace TheBuryProject.Services
 
         #region Reportes y Estadísticas
 
-        public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId)
+public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId)
+{
+    try
+    {
+        var apertura = await ObtenerAperturaPorIdAsync(aperturaId);
+        if (apertura == null)
         {
-            try
-            {
-                var apertura = await ObtenerAperturaPorIdAsync(aperturaId);
-                if (apertura == null)
-                {
-                    throw new InvalidOperationException("Apertura no encontrada");
-                }
-
-                var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
-
-                var ventasDelTurno = await _context.Ventas
-                    .AsNoTracking()
-                    .Include(v => v.Cliente)
-                    .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)
-                    .OrderByDescending(v => v.FechaVenta)
-                    .ToListAsync();
-
-                var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
-
-                var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
-
-                return new DetallesAperturaViewModel
-                {
-                    Apertura = apertura,
-                    Movimientos = movimientos,
-                    VentasDelTurno = ventasDelTurno,
-                    SaldoActual = saldoActual,
-                    TotalIngresos = totalIngresos,
-                    TotalEgresos = totalEgresos,
-                    CantidadMovimientos = movimientos.Count
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener detalles de apertura {AperturaId}", aperturaId);
-                throw;
-            }
+            throw new InvalidOperationException("Apertura no encontrada");
         }
 
+        var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
+
+        var ventasDelTurno = await _context.Ventas
+            .AsNoTracking()
+            .Include(v => v.Cliente)
+            .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)
+            .OrderByDescending(v => v.FechaVenta)
+            .ToListAsync();
+
+        var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
+        var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
+
+        var totalesPorTipoPago = ventasDelTurno
+            .GroupBy(v => v.TipoPago)
+            .Select(g => new TotalPorTipoPagoViewModel
+            {
+                TipoPago = g.Key switch
+                {
+                    TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                    TipoPago.MercadoPago => "Mercado Pago",
+                    TipoPago.Efectivo => "Efectivo",
+                    TipoPago.Transferencia => "Transferencia",
+                    TipoPago.Cheque => "Cheque",
+                    TipoPago.CreditoPersonal => "Crédito Personal",
+                    TipoPago.CuentaCorriente => "Cuenta Corriente",
+                    _ => g.Key.ToString()
+                },
+                Total = g.Sum(v => v.Total),
+                Cantidad = g.Count(),
+                GeneraIngresoInmediato =
+                    g.Key != TipoPago.CreditoPersonal &&
+                    g.Key != TipoPago.CuentaCorriente
+            })
+            .GroupBy(x => x.TipoPago)
+            .Select(g => new TotalPorTipoPagoViewModel
+            {
+                TipoPago = g.Key,
+                Total = g.Sum(x => x.Total),
+                Cantidad = g.Sum(x => x.Cantidad),
+                GeneraIngresoInmediato = g.All(x => x.GeneraIngresoInmediato)
+            })
+            .OrderByDescending(x => x.Total)
+            .ToList();
+
+        var resumenRealPorMedioPago = movimientos
+            .GroupBy(m => ResolverMedioPagoMovimiento(m))
+            .Select(g => new ResumenMedioPagoCajaViewModel
+            {
+                MedioPago = g.Key,
+                TotalIngresos = g.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).Sum(m => m.Monto),
+                TotalEgresos  = g.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto),
+                CantidadMovimientos = g.Count()
+            })
+            .OrderByDescending(x => x.TotalIngresos)
+            .ToList();
+
+        return new DetallesAperturaViewModel
+        {
+            Apertura = apertura,
+            Movimientos = movimientos,
+            VentasDelTurno = ventasDelTurno,
+            SaldoActual = saldoActual,
+            TotalIngresos = totalIngresos,
+            TotalEgresos = totalEgresos,
+            CantidadMovimientos = movimientos.Count,
+            TotalesPorTipoPago = totalesPorTipoPago,
+            ResumenRealPorMedioPago = resumenRealPorMedioPago
+        };
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error al obtener detalles de apertura {AperturaId}", aperturaId);
+        throw;
+    }
+}
         public async Task<ReporteCajaViewModel> GenerarReporteCajaAsync(
             DateTime fechaDesde,
             DateTime fechaHasta,
@@ -1070,6 +1114,35 @@ namespace TheBuryProject.Services
                 .Sum(m => m.Monto);
 
             return (ingresos, egresos);
+        }
+
+        // MovimientoCaja no tiene campo TipoPago. Se infiere desde Concepto y, como fallback,
+        // desde palabras clave en Observaciones. Documentado: gap arquitectónico pendiente.
+        private static string ResolverMedioPagoMovimiento(MovimientoCaja mov)
+        {
+            return mov.Concepto switch
+            {
+                ConceptoMovimientoCaja.VentaEfectivo      => "Efectivo",
+                ConceptoMovimientoCaja.VentaTarjeta       => "Tarjeta",
+                ConceptoMovimientoCaja.VentaCheque        => "Cheque",
+                ConceptoMovimientoCaja.DepositoEfectivo   => "Efectivo",
+                ConceptoMovimientoCaja.ExtraccionEfectivo => "Efectivo",
+                ConceptoMovimientoCaja.GastoOperativo     => "Efectivo",
+                ConceptoMovimientoCaja.AjusteCaja         => "Ajuste",
+                _                                         => InferirMedioPorObservaciones(mov.Observaciones)
+            };
+        }
+
+        private static string InferirMedioPorObservaciones(string? observaciones)
+        {
+            if (string.IsNullOrWhiteSpace(observaciones)) return "Efectivo";
+            var obs = observaciones.ToLowerInvariant();
+            if (obs.Contains("transferencia"))                            return "Transferencia";
+            if (obs.Contains("mercadopago") || obs.Contains("mercado pago")) return "Mercado Pago";
+            if (obs.Contains("débito") || obs.Contains("debito"))         return "Tarjeta Débito";
+            if (obs.Contains("crédito") || obs.Contains("credito") || obs.Contains("tarjeta")) return "Tarjeta";
+            if (obs.Contains("cheque"))                                   return "Cheque";
+            return "Efectivo";
         }
 
         // Validación de negocio (las validaciones de formato están en el ViewModel con DataAnnotations)

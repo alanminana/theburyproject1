@@ -1,0 +1,196 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph: Operaciones
+        - generic [ref=e9]:
+          - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e11]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e12] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e13]: group
+            - paragraph: Clientes
+      - generic [ref=e14]:
+        - paragraph: Logística
+        - generic [ref=e15]:
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e19]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e21]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e22]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e24] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e25]: security
+          - paragraph: Seguridad
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e29]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e31]:
+      - generic [ref=e32]: chevron_left
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Módulo de Cajas" [level=2] [ref=e36]
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: Dolar Blue
+            - generic [ref=e41]: $1.245,00
+          - generic [ref=e42]:
+            - generic [ref=e43]: Tarjeta
+            - generic [ref=e44]: $1.482,50
+          - generic [ref=e45]:
+            - generic [ref=e46]: Oficial
+            - generic [ref=e47]: $942,00
+      - generic [ref=e48]:
+        - button "notifications" [ref=e49]:
+          - generic [ref=e50]: notifications
+        - button "search" [ref=e52]:
+          - generic [ref=e53]: search
+        - button "help" [ref=e55]:
+          - generic [ref=e56]: help
+    - generic [ref=e59]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - heading "Cajas" [level=1] [ref=e63]
+          - paragraph [ref=e64]: Administrá las terminales de caja, aperturas activas y movimientos desde un único panel operativo.
+        - generic [ref=e65]:
+          - link "history Historial de cierres" [ref=e66] [cursor=pointer]:
+            - /url: /Caja/Historial
+            - generic [ref=e67]: history
+            - text: Historial de cierres
+          - button "add_circle Nueva caja" [ref=e68] [cursor=pointer]:
+            - generic [ref=e69]: add_circle
+            - text: Nueva caja
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]: sensors
+              - heading "Cajas actualmente abiertas" [level=3] [ref=e75]
+              - generic [ref=e76]: En vivo
+            - paragraph [ref=e77]: Turnos en curso con accesos rápidos para registrar movimientos, revisar actividad y cerrar caja.
+          - generic [ref=e78]:
+            - generic [ref=e79]: monitoring
+            - text: 1 apertura visible
+        - region "Tabla de cajas abiertas" [ref=e82]:
+          - table [ref=e83]:
+            - rowgroup [ref=e84]:
+              - row "Caja / Código Usuario Apertura Fecha / Hora Fondo inicial Movimientos Saldo en caja info Acciones" [ref=e85]:
+                - columnheader "Caja / Código" [ref=e86]
+                - columnheader "Usuario Apertura" [ref=e87]
+                - columnheader "Fecha / Hora" [ref=e88]
+                - columnheader "Fondo inicial" [ref=e89]
+                - columnheader "Movimientos" [ref=e90]
+                - columnheader "Saldo en caja info" [ref=e91]:
+                  - generic [ref=e92]:
+                    - text: Saldo en caja
+                    - 'generic "Efectivo físico esperado: fondo inicial + ingresos (efectivo, tarjeta, cheque, cobros de cuota) − egresos. No incluye ventas a crédito personal ni cuenta corriente." [ref=e93]': info
+                - columnheader "Acciones" [ref=e94]
+            - rowgroup [ref=e95]:
+              - row "admin qweqwe person admin@thebury.com 11/04/2026 05:41 hs $ 2.312,00 0 movimientos $ 2.312,00 Solo efectivo físico list_alt add_card lock" [ref=e96]:
+                - cell "admin qweqwe" [ref=e97]:
+                  - generic [ref=e98]:
+                    - generic [ref=e99]: admin
+                    - generic [ref=e100]: qweqwe
+                - cell "person admin@thebury.com" [ref=e101]:
+                  - generic [ref=e102]:
+                    - generic [ref=e104]: person
+                    - generic [ref=e105]: admin@thebury.com
+                - cell "11/04/2026 05:41 hs" [ref=e106]:
+                  - generic [ref=e107]:
+                    - generic [ref=e108]: 11/04/2026
+                    - generic [ref=e109]: 05:41 hs
+                - cell "$ 2.312,00" [ref=e110]
+                - cell "0 movimientos" [ref=e111]:
+                  - generic [ref=e113]: 0 movimientos
+                - cell "$ 2.312,00 Solo efectivo físico" [ref=e114]:
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: $ 2.312,00
+                    - generic [ref=e117]: Solo efectivo físico
+                - cell "list_alt add_card lock" [ref=e118]:
+                  - generic [ref=e119]:
+                    - link "list_alt" [ref=e120] [cursor=pointer]:
+                      - /url: /Caja/DetallesApertura/8
+                      - generic [ref=e121]: list_alt
+                    - link "add_card" [ref=e122] [cursor=pointer]:
+                      - /url: /Caja/RegistrarMovimiento?aperturaId=8
+                      - generic [ref=e123]: add_card
+                    - link "lock" [ref=e124] [cursor=pointer]:
+                      - /url: /Caja/Cerrar?aperturaId=8
+                      - generic [ref=e125]: lock
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: point_of_sale
+              - heading "Maestro de Cajas Activas" [level=3] [ref=e131]
+            - paragraph [ref=e132]: Terminales disponibles para apertura, con acceso a la apertura activa o a su gestión administrativa.
+          - generic [ref=e133]:
+            - generic [ref=e134]: inventory_2
+            - text: 2 activas · 1 listas para abrir
+        - region "Tabla del maestro de cajas activas" [ref=e137]:
+          - table [ref=e138]:
+            - rowgroup [ref=e139]:
+              - row "Código Nombre de Caja Sucursal / Ubicación Estado Gestión" [ref=e140]:
+                - columnheader "Código" [ref=e141]
+                - columnheader "Nombre de Caja" [ref=e142]
+                - columnheader "Sucursal / Ubicación" [ref=e143]
+                - columnheader "Estado" [ref=e144]
+                - columnheader "Gestión" [ref=e145]
+            - rowgroup [ref=e146]:
+              - row "qweqwe admin wq wq Abierta open_in_new edit" [ref=e147]:
+                - cell "qweqwe" [ref=e148]
+                - cell "admin" [ref=e149]
+                - cell "wq wq" [ref=e150]:
+                  - generic [ref=e151]:
+                    - generic [ref=e152]: wq
+                    - generic [ref=e153]: wq
+                - cell "Abierta" [ref=e154]:
+                  - generic [ref=e157]: Abierta
+                - cell "open_in_new edit" [ref=e158]:
+                  - generic [ref=e159]:
+                    - link "open_in_new" [ref=e160] [cursor=pointer]:
+                      - /url: /Caja/DetallesApertura/8
+                      - generic [ref=e161]: open_in_new
+                    - button "edit" [ref=e162]:
+                      - generic [ref=e163]: edit
+              - row "ven01 vendedor1 javo Cerrada lock_open edit delete" [ref=e164]:
+                - cell "ven01" [ref=e165]
+                - cell "vendedor1" [ref=e166]
+                - cell "javo" [ref=e167]:
+                  - generic [ref=e169]: javo
+                - cell "Cerrada" [ref=e170]:
+                  - generic [ref=e173]: Cerrada
+                - cell "lock_open edit delete" [ref=e174]:
+                  - generic [ref=e175]:
+                    - link "lock_open" [ref=e176] [cursor=pointer]:
+                      - /url: /Caja/Abrir?cajaId=2
+                      - generic [ref=e177]: lock_open
+                    - button "edit" [ref=e178]:
+                      - generic [ref=e179]: edit
+                    - button "delete" [ref=e181]:
+                      - generic [ref=e182]: delete

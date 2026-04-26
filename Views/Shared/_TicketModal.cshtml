@@ -1,0 +1,138 @@
+@using TheBuryProject.Models.Enums
+
+<div id="ticket-modal"
+     class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm"
+     role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+
+    <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-lg text-amber-400">bug_report</span>
+                <h5 id="ticket-modal-title" class="text-base font-semibold text-slate-100">Reportar incidencia</h5>
+            </div>
+            <button type="button"
+                    data-ticket-modal-action="close"
+                    class="text-slate-400 hover:text-slate-100 transition-colors p-1 rounded-md hover:bg-slate-800"
+                    aria-label="Cerrar">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+        </div>
+
+        <!-- Loading overlay -->
+        <div id="ticket-modal-loading" class="hidden flex-1 py-12 flex items-center justify-center text-slate-400 gap-3">
+            <span class="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
+            <span class="text-sm">Enviando...</span>
+        </div>
+
+        <!-- Form body -->
+        <div id="ticket-modal-body" class="overflow-y-auto px-6 py-5 flex-1">
+
+            <!-- Error banner -->
+            <div id="ticket-modal-error"
+                 class="hidden mb-4 bg-rose-950/60 border border-rose-700 text-rose-300 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
+                <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
+                <span id="ticket-modal-error-text"></span>
+            </div>
+
+            <form id="form-ticket" class="space-y-4" novalidate>
+
+                <!-- Título -->
+                <div>
+                    <label for="ticket-titulo" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Título <span class="text-rose-400">*</span>
+                    </label>
+                    <input id="ticket-titulo"
+                           name="titulo"
+                           type="text"
+                           maxlength="200"
+                           required
+                           autocomplete="off"
+                           placeholder="Describí brevemente el problema o mejora"
+                           class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
+                                  placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
+                </div>
+
+                <!-- Tipo -->
+                <div>
+                    <label for="ticket-tipo" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Tipo <span class="text-rose-400">*</span>
+                    </label>
+                    <select id="ticket-tipo"
+                            name="tipo"
+                            required
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
+                                   focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                        <option value="">— Seleccioná un tipo —</option>
+                        @foreach (var item in Html.GetEnumSelectList<TipoTicket>())
+                        {
+                            <option value="@item.Value">@item.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <label for="ticket-descripcion" class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Descripción <span class="text-rose-400">*</span>
+                    </label>
+                    <textarea id="ticket-descripcion"
+                              name="descripcion"
+                              rows="4"
+                              maxlength="4000"
+                              required
+                              placeholder="Describí qué ocurre, cómo reproducirlo y qué esperabas que pasara"
+                              class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
+                                     placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none"></textarea>
+                </div>
+
+                <!-- Adjuntos -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-1.5">
+                        Adjuntos
+                        <span class="text-slate-500 font-normal text-xs">(opcional · máx. 10 MB c/u)</span>
+                    </label>
+                    <label for="ticket-adjuntos"
+                           class="flex items-center gap-2 w-full bg-slate-800 border border-dashed border-slate-600
+                                  text-slate-400 rounded-lg px-3 py-2 text-sm cursor-pointer select-none
+                                  hover:border-blue-500 hover:text-slate-300 transition-colors">
+                        <span class="material-symbols-outlined text-base">attach_file</span>
+                        <span>Agregar archivos</span>
+                    </label>
+                    <input id="ticket-adjuntos"
+                           type="file"
+                           multiple
+                           accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                           class="hidden" />
+                    <ul id="ticket-adjuntos-lista" class="hidden mt-2 space-y-1.5"></ul>
+                </div>
+
+                <!-- Contexto de origen: oculto, completado por JS -->
+                <input type="hidden" id="ticket-modulo-origen" name="moduloOrigen" />
+                <input type="hidden" id="ticket-vista-origen"  name="vistaOrigen"  />
+                <input type="hidden" id="ticket-url-origen"    name="urlOrigen"    />
+                <input type="hidden" id="ticket-context-key"   name="contextKey"   />
+
+                @Html.AntiForgeryToken()
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-800 shrink-0">
+            <button type="button"
+                    data-ticket-modal-action="close"
+                    class="btn-erp-secondary text-sm px-4 py-2">
+                Cancelar
+            </button>
+            <button type="button"
+                    id="ticket-modal-submit"
+                    data-ticket-modal-action="submit"
+                    class="btn-erp-primary text-sm px-4 py-2 flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">send</span>
+                Enviar reporte
+            </button>
+        </div>
+
+    </div>
+</div>

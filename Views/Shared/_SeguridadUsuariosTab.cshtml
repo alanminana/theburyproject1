@@ -1,17 +1,13 @@
 @model SeguridadUsuariosTabViewModel
 @{
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
-    var usuariosBloqueados = Model.Usuarios.Count(user => user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow);
-    var usuariosActivos = Model.Usuarios.Count(user => user.Activo && !(user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow));
-    var usuariosSinConfirmar = Model.Usuarios.Count(user => user.Activo && !user.EmailConfirmed);
-    var usuariosSinRol = Model.Usuarios.Count(user => !user.Roles.Any());
 }
 
 <div class="max-w-7xl mx-auto space-y-6">
 
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
             <div class="bg-emerald-500/20 text-emerald-500 p-2 rounded-lg">
                 <span class="material-symbols-outlined">check_circle</span>
             </div>
@@ -23,7 +19,7 @@
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-4 bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl">
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
             <div class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">
                 <span class="material-symbols-outlined">error</span>
             </div>
@@ -34,111 +30,76 @@
         </div>
     }
 
-    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-6 py-6 md:px-8 md:py-7">
-            <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
-                <div class="space-y-3">
-                    <div class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                        <span class="material-symbols-outlined text-sm">group</span>
-                        Seguridad / Usuarios
-                    </div>
-                    <div class="space-y-2">
-                        <h3 class="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">Gestión operativa de usuarios</h3>
-                        <p class="max-w-2xl text-sm md:text-base text-slate-500 dark:text-slate-400">
-                            Administrá altas, estado, credenciales y acciones masivas sin salir del módulo. Esta superficie concentra el control diario de acceso al sistema.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="flex flex-col sm:flex-row xl:flex-col gap-3 xl:min-w-[240px]">
-                    <button type="button"
-                            class="btn-open-create-user inline-flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 w-full">
-                        <span class="material-symbols-outlined text-sm">person_add</span>
-                        Nuevo usuario
-                    </button>
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-3 text-left">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Operación centralizada</p>
-                        <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">Altas, bloqueo, reseteo y acciones masivas desde una sola superficie.</p>
-                    </div>
-                </div>
+    <div class="filter-panel-erp">
+        <button type="button"
+                id="btn-toggle-filtros"
+                data-expanded="false"
+                class="flex w-full items-center justify-between gap-3 text-left">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Búsqueda y filtros</p>
             </div>
+            <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
+        </button>
 
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Activos</p>
-                    <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@usuariosActivos</p>
+        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="true">
+            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4">
+                <div class="md:col-span-2 relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                    <input id="searchUsuarios" type="text"
+                           class="w-full pl-10 pr-4 py-2 bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-white placeholder:text-slate-500"
+                           placeholder="Buscar por nombre, usuario o correo..." />
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloqueados</p>
-                    <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@usuariosBloqueados</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sin confirmar</p>
-                    <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@usuariosSinConfirmar</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sin rol</p>
-                    <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@usuariosSinRol</p>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-white dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div class="md:col-span-2 relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-            <input id="searchUsuarios" type="text"
-                   class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white placeholder:text-slate-500"
-                   placeholder="Buscar por nombre, usuario o correo..." />
-        </div>
-
-        <select id="filterRol"
-                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
-            <option value="">Todos los roles</option>
-            @foreach (var rol in Model.AllRoles)
-            {
-                <option value="@rol">@rol</option>
-            }
-        </select>
-
-        <select id="filterSucursal"
-                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
-            <option value="">Todas las sucursales</option>
-            @foreach (var suc in Model.AllSucursales)
-            {
-                <option value="@suc.Id">@suc.Nombre</option>
-            }
-        </select>
-
-        <select id="filterEstado"
-                class="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-slate-900 dark:text-white">
-            <option value="">Cualquier estado</option>
-            <option value="activo">Activo</option>
-            <option value="inactivo">Inactivo</option>
-            <option value="bloqueado">Bloqueado</option>
-            <option value="sin-confirmar">Sin confirmar</option>
-        </select>
-
-        <div class="md:col-span-4 lg:col-span-2 flex flex-wrap items-center justify-end gap-2">
-            <div class="flex items-center gap-2 flex-1 min-w-[220px] lg:flex-none lg:min-w-[250px]">
-                <select id="orderBy"
-                        class="flex-1 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-3 py-2 focus:ring-primary text-slate-900 dark:text-white">
-                    <option value="username">Usuario</option>
-                    <option value="nombre">Nombre</option>
-                    <option value="email">Email</option>
-                    <option value="rol">Rol</option>
-                    <option value="sucursal">Sucursal</option>
-                    <option value="estado">Estado</option>
-                    <option value="ultimoAcceso">Último acceso</option>
+                <select id="filterRol"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Todos los roles</option>
+                    @foreach (var rol in Model.AllRoles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
                 </select>
-                <button type="button" id="toggleOrderDir"
-                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" title="Cambiar dirección">
-                    <span id="orderDirIcon" class="material-symbols-outlined text-lg">arrow_upward</span>
-                </button>
-                <button type="button" id="clearFilters"
-                        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors" title="Limpiar filtros">
-                    <span class="material-symbols-outlined text-lg">filter_list_off</span>
-                </button>
+
+                <select id="filterSucursal"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Todas las sucursales</option>
+                    @foreach (var suc in Model.AllSucursales)
+                    {
+                        <option value="@suc.Id">@suc.Nombre</option>
+                    }
+                </select>
+
+                <select id="filterEstado"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Cualquier estado</option>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                    <option value="bloqueado">Bloqueado</option>
+                    <option value="sin-confirmar">Sin confirmar</option>
+                </select>
+
+                <div class="md:col-span-4 lg:col-span-2 flex flex-wrap items-center justify-end gap-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-[220px] lg:flex-none lg:min-w-[250px]">
+                        <select id="orderBy"
+                                class="flex-1 bg-slate-800 border-none rounded-lg text-sm px-3 py-2 focus:ring-primary text-white">
+                            <option value="username">Usuario</option>
+                            <option value="nombre">Nombre</option>
+                            <option value="email">Email</option>
+                            <option value="rol">Rol</option>
+                            <option value="sucursal">Sucursal</option>
+                            <option value="estado">Estado</option>
+                            <option value="ultimoAcceso">Último acceso</option>
+                        </select>
+                        <button type="button" id="toggleOrderDir"
+                                class="row-action" title="Cambiar dirección">
+                            <span id="orderDirIcon" class="material-symbols-outlined">arrow_upward</span>
+                        </button>
+                        <button type="button" id="clearFilters"
+                                class="row-action" title="Limpiar filtros">
+                            <span class="material-symbols-outlined">filter_list_off</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -149,7 +110,7 @@
                 <p class="text-sm font-semibold text-primary">
                     <span id="selectedCount">0</span> usuarios seleccionados
                 </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p class="text-xs text-slate-400">
                     Aplicá cambios masivos sobre la selección actual sin salir del listado.
                 </p>
             </div>
@@ -161,60 +122,73 @@
             <input type="hidden" name="sucursalId" id="bulkSucursalId" />
             <input type="hidden" name="returnUrl" value="@currentUrl" />
             <button type="button" data-seguridad-bulk-action="activar"
-                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm align-middle mr-0.5">check_circle</span> Activar
+                    class="btn-erp-success btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">check_circle</span> Activar
             </button>
             <button type="button" data-seguridad-bulk-action="desactivar"
-                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 transition-colors w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm align-middle mr-0.5">person_off</span> Desactivar
+                    class="btn-erp-secondary btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">person_off</span> Desactivar
             </button>
             <button type="button" data-seguridad-bulk-action="bloquear"
-                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-colors w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm align-middle mr-0.5">lock</span> Bloquear
+                    class="btn-erp-danger btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">lock</span> Bloquear
             </button>
             <button type="button" data-seguridad-bulk-modal="asignarRol"
-                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm align-middle mr-0.5">key</span> Asignar rol
+                    class="btn-erp-primary btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">key</span> Asignar rol
             </button>
             <button type="button" data-seguridad-bulk-modal="cambiarSucursal"
-                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm align-middle mr-0.5">store</span> Cambiar sucursal
+                    class="btn-erp-warning btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">store</span> Cambiar sucursal
             </button>
             </form>
-            <button type="button" id="clearSelection" class="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 px-3 py-2 text-xs font-semibold text-primary/80 hover:text-primary hover:bg-primary/10 transition-colors w-full sm:w-auto" title="Deseleccionar todo">
+            <button type="button" id="clearSelection" class="btn-erp-ghost btn-sm w-full sm:w-auto" title="Deseleccionar todo">
                 <span class="material-symbols-outlined text-sm">close</span>
                 Limpiar selección
             </button>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+        <nav class="flex items-center overflow-x-auto border-b border-slate-800">
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="shrink-0 border-b-2 border-primary text-primary bg-primary/10 px-5 py-3 text-sm font-bold no-underline transition-colors">Usuarios</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Roles</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Permisos de Rol</a>
+            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Auditoría</a>
+            <div class="ml-auto shrink-0 px-3">
+                <button type="button" class="btn-open-create-user btn-erp-primary">
+                    <span class="material-symbols-outlined text-sm">person_add</span>
+                    Nuevo usuario
+                </button>
+            </div>
+        </nav>
         <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1000px;">
-            <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 lg:hidden">
+            <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
                 Deslizá para ver más columnas
             </div>
             <div data-oc-scroll-shell class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95"></div>
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de usuarios del módulo Seguridad">
             <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
-                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                <thead class="bg-slate-800/50 border-b border-slate-800">
                     <tr>
                         <th class="px-4 py-4 w-10">
                             <input type="checkbox" id="selectAll"
-                                   class="size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-slate-50 dark:bg-slate-800" />
+                                   class="size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
+                                   aria-label="Seleccionar todos los usuarios" />
                         </th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuario</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nombre completo</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Email</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Roles asignados</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sucursal</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estado</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Último acceso</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Usuario</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre completo</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Email</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Roles asignados</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sucursal</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Último acceso</th>
+                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                 </thead>
-                <tbody id="usuariosTableBody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody id="usuariosTableBody" class="divide-y divide-slate-800">
                     @if (Model.Usuarios.Any())
                     {
                         @foreach (var user in Model.Usuarios)
@@ -240,7 +214,7 @@
                                 ? user.UserName[..1].ToUpperInvariant()
                                 : string.Concat(user.NombreCompleto.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpperInvariant();
 
-                            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors usuario-row"
+                            <tr class="hover:bg-slate-800/30 transition-colors usuario-row"
                                 data-id="@user.Id"
                                 data-name="@user.UserName.ToLowerInvariant()"
                                 data-fullname="@(user.NombreCompleto?.ToLowerInvariant() ?? "")"
@@ -254,8 +228,9 @@
                                 data-search="@searchIndex"
                                 data-ultimo-acceso="@(user.UltimoAcceso?.ToString("o") ?? "")">
                                 <td class="px-4 py-3">
-                                    <input type="checkbox" class="row-check size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50 bg-slate-50 dark:bg-slate-800"
-                                           value="@user.Id" />
+                                    <input type="checkbox" class="row-check size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
+                                           value="@user.Id"
+                                           aria-label="Seleccionar @user.UserName" />
                                 </td>
 
                                 <td class="px-4 py-3">
@@ -263,14 +238,14 @@
                                         <div class="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
                                             @initials
                                         </div>
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-white">@user.UserName</span>
+                                        <span class="text-sm font-semibold text-white">@user.UserName</span>
                                     </div>
                                 </td>
 
                                 <td class="px-4 py-3">
                                     @if (!string.IsNullOrEmpty(user.NombreCompleto))
                                     {
-                                        <span class="text-sm text-slate-700 dark:text-slate-300">@user.NombreCompleto</span>
+                                        <span class="text-sm text-slate-300">@user.NombreCompleto</span>
                                     }
                                     else
                                     {
@@ -279,7 +254,7 @@
                                 </td>
 
                                 <td class="px-4 py-3">
-                                    <span class="text-sm text-slate-600 dark:text-slate-400">@user.Email</span>
+                                    <span class="text-sm text-slate-400">@user.Email</span>
                                 </td>
 
                                 <td class="px-4 py-3">
@@ -291,14 +266,14 @@
                                                 var isAdmin = role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)
                                                            || role.Equals("Administrador", StringComparison.OrdinalIgnoreCase);
 
-                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium @(isAdmin ? "bg-primary/10 text-primary" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300")">
+                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium @(isAdmin ? "bg-primary/10 text-primary" : "bg-slate-800 text-slate-300")">
                                                     @role
                                                 </span>
                                             }
 
                                             @if (user.Roles.Count > 3)
                                             {
-                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                                                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400"
                                                       title="@rolesJoined">
                                                     +@(user.Roles.Count - 3)
                                                 </span>
@@ -314,7 +289,7 @@
                                 <td class="px-4 py-3">
                                     @if (!string.IsNullOrEmpty(user.Sucursal))
                                     {
-                                        <span class="text-sm text-slate-600 dark:text-slate-400">@user.Sucursal</span>
+                                        <span class="text-sm text-slate-400">@user.Sucursal</span>
                                     }
                                     else
                                     {
@@ -323,13 +298,11 @@
                                 </td>
 
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
-                                        @(statusColor == "emerald" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
-                                          statusColor == "rose" ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" :
-                                          statusColor == "amber" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
-                                          "bg-slate-500/10 text-slate-600 dark:text-slate-400")">
-                                        <span class="size-1.5 rounded-full
-                                            @(statusColor == "emerald" ? "bg-emerald-500" :
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold @(statusColor == "emerald" ? "bg-emerald-500/10 text-emerald-400" :
+                                          statusColor == "rose" ? "bg-rose-500/10 text-rose-400" :
+                                          statusColor == "amber" ? "bg-amber-500/10 text-amber-400" :
+                                          "bg-slate-500/10 text-slate-400")">
+                                        <span class="size-1.5 rounded-full @(statusColor == "emerald" ? "bg-emerald-500" :
                                               statusColor == "rose" ? "bg-rose-500" :
                                               statusColor == "amber" ? "bg-amber-500" :
                                               "bg-slate-400")"></span>
@@ -340,7 +313,7 @@
                                 <td class="px-4 py-3">
                                     @if (user.UltimoAcceso.HasValue)
                                     {
-                                        <span class="text-sm text-slate-600 dark:text-slate-400" title="@user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")">
+                                        <span class="text-sm text-slate-400" title="@user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")">
                                             @user.UltimoAcceso.Value.ToString("dd/MM/yy HH:mm")
                                         </span>
                                     }
@@ -353,16 +326,16 @@
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex flex-wrap items-center justify-end gap-1.5">
                                         <a asp-controller="Usuarios" asp-action="Details" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
-                                           class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-primary/10 hover:text-primary transition-colors md:px-1.5"
+                                           class="row-action row-action--primary"
                                            title="Ver detalle">
-                                            <span class="material-symbols-outlined text-lg">visibility</span>
-                                            <span class="text-[11px] font-semibold md:hidden">Ver</span>
+                                            <span class="material-symbols-outlined">visibility</span>
+                                            <span class="row-action__label">Ver</span>
                                         </a>
                                         <a asp-controller="Seguridad" asp-action="EditUsuario" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
-                                           class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors md:px-1.5"
+                                           class="row-action"
                                            title="Editar">
-                                            <span class="material-symbols-outlined text-lg">edit</span>
-                                            <span class="text-[11px] font-semibold md:hidden">Editar</span>
+                                            <span class="material-symbols-outlined">edit</span>
+                                            <span class="row-action__label">Editar</span>
                                         </a>
                                         @if (user.Activo)
                                         {
@@ -371,10 +344,10 @@
                                                 <input type="hidden" name="id" value="@user.Id" />
                                                 <input type="hidden" name="returnUrl" value="@currentUrl" />
                                                 <button type="submit"
-                                                        class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 transition-colors md:px-1.5"
+                                                        class="row-action"
                                                         title="Desactivar">
-                                                    <span class="material-symbols-outlined text-lg">person_off</span>
-                                                    <span class="text-[11px] font-semibold md:hidden">Desactivar</span>
+                                                    <span class="material-symbols-outlined">person_off</span>
+                                                    <span class="row-action__label">Desactivar</span>
                                                 </button>
                                             </form>
                                         }
@@ -385,10 +358,10 @@
                                                 <input type="hidden" name="id" value="@user.Id" />
                                                 <input type="hidden" name="returnUrl" value="@currentUrl" />
                                                 <button type="submit"
-                                                        class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-500 transition-colors md:px-1.5"
+                                                        class="row-action"
                                                         title="Reactivar">
-                                                    <span class="material-symbols-outlined text-lg">person_check</span>
-                                                    <span class="text-[11px] font-semibold md:hidden">Reactivar</span>
+                                                    <span class="material-symbols-outlined">person_check</span>
+                                                    <span class="row-action__label">Reactivar</span>
                                                 </button>
                                             </form>
                                         }
@@ -399,33 +372,33 @@
                                                 <input type="hidden" name="id" value="@user.Id" />
                                                 <input type="hidden" name="returnUrl" value="@currentUrl" />
                                                 <button type="submit"
-                                                        class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-500 transition-colors md:px-1.5"
+                                                        class="row-action"
                                                         title="Desbloquear">
-                                                    <span class="material-symbols-outlined text-lg">lock_open</span>
-                                                    <span class="text-[11px] font-semibold md:hidden">Desbloquear</span>
+                                                    <span class="material-symbols-outlined">lock_open</span>
+                                                    <span class="row-action__label">Desbloquear</span>
                                                 </button>
                                             </form>
                                         }
                                         else if (user.Activo)
                                         {
                                             <button type="button" data-seguridad-user-id="@user.Id" data-seguridad-return-url="@currentUrl"
-                                                    class="btn-block-user inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-500 transition-colors md:px-1.5"
+                                                    class="btn-block-user row-action row-action--danger"
                                                     title="Bloquear">
-                                                <span class="material-symbols-outlined text-lg">lock</span>
-                                                <span class="text-[11px] font-semibold md:hidden">Bloquear</span>
+                                                <span class="material-symbols-outlined">lock</span>
+                                                <span class="row-action__label">Bloquear</span>
                                             </button>
                                         }
                                         <button type="button" data-seguridad-user-id="@user.Id"
-                                                class="btn-change-pass inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-500 transition-colors md:px-1.5"
+                                                class="btn-change-pass row-action row-action--warning"
                                                 title="Resetear contraseña">
-                                            <span class="material-symbols-outlined text-lg">lock_reset</span>
-                                            <span class="text-[11px] font-semibold md:hidden">Contraseña</span>
+                                            <span class="material-symbols-outlined">lock_reset</span>
+                                            <span class="row-action__label">Contraseña</span>
                                         </button>
                                         <a asp-controller="Usuarios" asp-action="Delete" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
-                                           class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-slate-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 hover:text-rose-500 transition-colors md:px-1.5"
+                                           class="row-action row-action--danger"
                                            title="Eliminar">
-                                            <span class="material-symbols-outlined text-lg">delete</span>
-                                            <span class="text-[11px] font-semibold md:hidden">Eliminar</span>
+                                            <span class="material-symbols-outlined">delete</span>
+                                            <span class="row-action__label">Eliminar</span>
                                         </a>
                                     </div>
                                 </td>
@@ -441,12 +414,12 @@
         @if (!Model.Usuarios.Any())
         {
             <div id="emptyState" class="px-6 py-16 text-center">
-                <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                    <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">group_off</span>
+                <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
+                    <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">group_off</span>
                 </div>
-                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">No se encontraron usuarios</p>
+                <p class="text-sm font-semibold text-slate-300 mb-1">No se encontraron usuarios</p>
                 <p class="text-xs text-slate-500 mb-4">Creá un nuevo usuario para comenzar a gestionar el acceso al sistema.</p>
-                <button type="button" class="btn-open-create-user inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                <button type="button" class="btn-open-create-user btn-erp-primary">
                     <span class="material-symbols-outlined text-sm">person_add</span>
                     Nuevo usuario
                 </button>
@@ -454,28 +427,28 @@
         }
 
         <div id="emptyFilterState" class="hidden px-6 py-16 text-center">
-            <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                <span class="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500">search_off</span>
+            <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
+                <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">search_off</span>
             </div>
-            <p class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Sin resultados</p>
+            <p class="text-sm font-semibold text-slate-300 mb-1">Sin resultados</p>
             <p class="text-xs text-slate-500 mb-4">Probá ajustando los filtros o la búsqueda.</p>
             <button type="button" id="clearFiltersEmpty"
-                    class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    class="btn-erp-ghost">
                 <span class="material-symbols-outlined text-sm">filter_list_off</span>
                 Limpiar filtros
             </button>
         </div>
 
-        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 dark:border-slate-800">
+        <div class="px-6 py-4 bg-slate-800/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-800">
             <p class="text-xs text-slate-500">
                 <span id="visibleCount">@Model.Usuarios.Count</span> de @Model.Usuarios.Count usuarios
                 @if (!Model.MostrarInactivos)
                 {
-                    <span> — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" asp-route-mostrarInactivos="true" class="text-primary hover:underline">Mostrar inactivos</a></span>
+                    <span> — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" asp-route-mostrarInactivos="true" class="text-primary underline decoration-primary/50 hover:decoration-primary">Mostrar inactivos</a></span>
                 }
                 else
                 {
-                    <span> (incluyendo inactivos) — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="text-primary hover:underline">Ocultar inactivos</a></span>
+                    <span> (incluyendo inactivos) — <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="text-primary underline decoration-primary/50 hover:decoration-primary">Ocultar inactivos</a></span>
                 }
             </p>
         </div>
@@ -490,31 +463,31 @@
          class="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
         <div id="bulkConfigCard"
-             class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden pointer-events-auto scale-95 opacity-0 transition-all duration-300">
-            <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+             class="w-full max-w-lg bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden pointer-events-auto scale-95 opacity-0 transition-all duration-300">
+            <div class="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="p-2 bg-primary/10 rounded-lg">
                         <span class="material-symbols-outlined text-primary">group</span>
                     </div>
                     <div>
-                        <h3 id="bulkConfigTitle" class="text-lg font-bold text-slate-900 dark:text-white">Acción masiva</h3>
-                        <p id="bulkConfigDescription" class="text-xs text-slate-500 dark:text-slate-400 mt-1"></p>
+                        <h3 id="bulkConfigTitle" class="text-lg font-bold text-white">Acción masiva</h3>
+                        <p id="bulkConfigDescription" class="text-xs text-slate-400 mt-1"></p>
                     </div>
                 </div>
                 <button type="button" id="closeBulkConfig"
-                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        class="row-action">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
 
             <div class="p-6 space-y-5">
                 <div id="bulkConfigError"
-                     class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400"></div>
+                     class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400"></div>
 
                 <div id="bulkRoleField" class="hidden space-y-2">
-                    <label for="bulkRoleSelect" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Rol a asignar</label>
+                    <label for="bulkRoleSelect" class="text-sm font-semibold text-slate-300">Rol a asignar</label>
                     <select id="bulkRoleSelect"
-                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-white">
                         <option value="">Seleccionar rol...</option>
                         @foreach (var rol in Model.AllRoles)
                         {
@@ -524,9 +497,9 @@
                 </div>
 
                 <div id="bulkSucursalField" class="hidden space-y-2">
-                    <label for="bulkSucursalSelect" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sucursal destino</label>
+                    <label for="bulkSucursalSelect" class="text-sm font-semibold text-slate-300">Sucursal destino</label>
                     <select id="bulkSucursalSelect"
-                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-slate-900 dark:text-white">
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-white">
                         <option value="">Seleccionar sucursal...</option>
                         @foreach (var suc in Model.AllSucursales)
                         {
@@ -536,13 +509,13 @@
                 </div>
             </div>
 
-            <div class="px-6 py-5 bg-slate-50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <div class="px-6 py-5 bg-slate-800/30 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-slate-800">
                 <button type="button" id="cancelBulkConfig"
-                        class="w-full sm:w-auto px-5 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        class="btn-erp-ghost w-full sm:w-auto">
                     Cancelar
                 </button>
                 <button type="button" id="submitBulkConfig"
-                        class="w-full sm:w-auto px-5 py-3 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors">
+                        class="btn-erp-primary w-full sm:w-auto">
                     Confirmar
                 </button>
             </div>

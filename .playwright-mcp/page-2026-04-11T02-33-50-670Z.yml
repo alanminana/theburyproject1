@@ -1,0 +1,394 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e14]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e16]: group
+            - paragraph: Clientes
+      - generic [ref=e17]:
+        - paragraph: Logística
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e20]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e22]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e24]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Gestión de Créditos" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: Dolar Blue
+            - generic [ref=e44]: $1.245,00
+          - generic [ref=e45]:
+            - generic [ref=e46]: Tarjeta
+            - generic [ref=e47]: $1.482,50
+          - generic [ref=e48]:
+            - generic [ref=e49]: Oficial
+            - generic [ref=e50]: $942,00
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - generic [ref=e66]: credit_score
+              - text: Créditos
+            - generic [ref=e67]:
+              - heading "Gestión de Créditos" [level=1] [ref=e68]
+              - paragraph [ref=e69]: Centralizá cartera, cobranzas y seguimiento de mora desde una sola pantalla operativa, manteniendo contexto de cuotas y saldo pendiente.
+          - generic [ref=e70]:
+            - generic [ref=e71]: warning
+            - text: 3 cuotas en mora · 3 críticos
+        - generic [ref=e72]:
+          - article [ref=e73]:
+            - paragraph [ref=e74]: Créditos
+            - paragraph [ref=e75]: "10"
+            - paragraph [ref=e76]: registros en cartera
+          - article [ref=e77]:
+            - paragraph [ref=e78]: Operativos
+            - paragraph [ref=e79]: "6"
+            - paragraph [ref=e80]: activos o generados
+          - article [ref=e81]:
+            - paragraph [ref=e82]: Saldo pendiente
+            - paragraph [ref=e83]: $ 57.800
+            - paragraph [ref=e84]: capital por cobrar
+          - article [ref=e85]:
+            - paragraph [ref=e86]: Mora activa
+            - paragraph [ref=e87]: "3"
+            - paragraph [ref=e88]: 3 crítico(s)
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - heading "Seguimiento operativo" [level=2] [ref=e92]
+          - paragraph [ref=e93]: Alterná entre la cartera completa y la cola de mora sin salir del índice.
+        - navigation "Secciones de créditos" [ref=e94]:
+          - button "credit_card Cartera" [pressed] [ref=e95]:
+            - generic [ref=e96]: credit_card
+            - generic [ref=e97]: Cartera
+          - button "warning Moras 3" [ref=e98]:
+            - generic [ref=e99]: warning
+            - generic [ref=e100]: Moras
+            - generic [ref=e101]: "3"
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - heading "Filtros y contexto" [level=2] [ref=e106]
+              - paragraph [ref=e107]: Buscá por cliente, estado o ventana temporal para ubicar el crédito correcto más rápido.
+            - generic [ref=e108]:
+              - generic [ref=e109]: manage_search
+              - text: 4 pendiente(s) de gestión
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - generic [ref=e112]: search
+              - textbox "Buscar por cliente, DNI o número de crédito..." [ref=e113]
+            - combobox [ref=e115]:
+              - option "Todos los estados" [selected]
+              - option "Solicitado"
+              - option "Aprobado"
+              - option "Activo"
+              - option "Finalizado"
+              - option "Rechazado"
+              - option "Cancelado"
+              - option "PendienteConfiguracion"
+              - option "Configurado"
+              - option "Generado"
+            - textbox [ref=e117]:
+              - /placeholder: Desde
+            - textbox [ref=e119]:
+              - /placeholder: Hasta
+            - generic [ref=e120]:
+              - button "Limpiar" [ref=e121] [cursor=pointer]
+              - button "filter_list Filtrar" [ref=e122]:
+                - generic [ref=e123]: filter_list
+                - generic [ref=e124]: Filtrar
+        - generic [ref=e125]:
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - heading "Cartera de créditos" [level=2] [ref=e129]
+              - paragraph [ref=e130]: Seguimiento operativo de saldos, cuotas y estados del crédito.
+            - generic [ref=e131]:
+              - generic [ref=e132]: account_balance_wallet
+              - text: 10 créditos
+          - region "Listado de créditos" [ref=e134]:
+            - table [ref=e135]:
+              - rowgroup [ref=e136]:
+                - row "ID Cliente Monto Total Saldo Pendiente Cuotas Estado Acciones" [ref=e137]:
+                  - columnheader "ID" [ref=e138]
+                  - columnheader "Cliente" [ref=e139]
+                  - columnheader "Monto Total" [ref=e140]
+                  - columnheader "Saldo Pendiente" [ref=e141]
+                  - columnheader "Cuotas" [ref=e142]
+                  - columnheader "Estado" [ref=e143]
+                  - columnheader "Acciones" [ref=e144]
+              - rowgroup [ref=e145]:
+                - row "CRE-202604-000026 VE Ventilador $ 16 $ 15 0 / 12 Al día payments visibility edit" [ref=e146]:
+                  - cell "CRE-202604-000026" [ref=e147]
+                  - cell "VE Ventilador" [ref=e148]:
+                    - generic [ref=e149]:
+                      - generic [ref=e150]: VE
+                      - link "Ventilador" [ref=e151] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 16" [ref=e152]
+                  - cell "$ 15" [ref=e153]
+                  - cell "0 / 12" [ref=e154]
+                  - cell "Al día" [ref=e155]:
+                    - generic [ref=e157]: Al día
+                  - cell "payments visibility edit" [ref=e158]:
+                    - generic [ref=e159]:
+                      - link "payments" [ref=e160] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/26
+                        - generic [ref=e161]: payments
+                      - link "visibility" [ref=e162] [cursor=pointer]:
+                        - /url: /Credito/Details/26
+                        - generic [ref=e163]: visibility
+                      - link "edit" [ref=e164] [cursor=pointer]:
+                        - /url: /Credito/Edit/26
+                        - generic [ref=e165]: edit
+                - row "CRE-202603-000025 VE Ventilador $ 16 $ 12 2 / 12 Al día payments visibility edit" [ref=e166]:
+                  - cell "CRE-202603-000025" [ref=e167]
+                  - cell "VE Ventilador" [ref=e168]:
+                    - generic [ref=e169]:
+                      - generic [ref=e170]: VE
+                      - link "Ventilador" [ref=e171] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 16" [ref=e172]
+                  - cell "$ 12" [ref=e173]
+                  - cell "2 / 12" [ref=e174]
+                  - cell "Al día" [ref=e175]:
+                    - generic [ref=e177]: Al día
+                  - cell "payments visibility edit" [ref=e178]:
+                    - generic [ref=e179]:
+                      - link "payments" [ref=e180] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/25
+                        - generic [ref=e181]: payments
+                      - link "visibility" [ref=e182] [cursor=pointer]:
+                        - /url: /Credito/Details/25
+                        - generic [ref=e183]: visibility
+                      - link "edit" [ref=e184] [cursor=pointer]:
+                        - /url: /Credito/Edit/25
+                        - generic [ref=e185]: edit
+                - row "CRE-202603-000024 VE Ventilador $ 16 $ 15 0 / 12 Al día payments visibility edit" [ref=e186]:
+                  - cell "CRE-202603-000024" [ref=e187]
+                  - cell "VE Ventilador" [ref=e188]:
+                    - generic [ref=e189]:
+                      - generic [ref=e190]: VE
+                      - link "Ventilador" [ref=e191] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 16" [ref=e192]
+                  - cell "$ 15" [ref=e193]
+                  - cell "0 / 12" [ref=e194]
+                  - cell "Al día" [ref=e195]:
+                    - generic [ref=e197]: Al día
+                  - cell "payments visibility edit" [ref=e198]:
+                    - generic [ref=e199]:
+                      - link "payments" [ref=e200] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/24
+                        - generic [ref=e201]: payments
+                      - link "visibility" [ref=e202] [cursor=pointer]:
+                        - /url: /Credito/Details/24
+                        - generic [ref=e203]: visibility
+                      - link "edit" [ref=e204] [cursor=pointer]:
+                        - /url: /Credito/Edit/24
+                        - generic [ref=e205]: edit
+                - row "CRE-202603-000023 VE Ventilador $ 0 $ 15 0 / 0 Pendiente visibility edit" [ref=e206]:
+                  - cell "CRE-202603-000023" [ref=e207]
+                  - cell "VE Ventilador" [ref=e208]:
+                    - generic [ref=e209]:
+                      - generic [ref=e210]: VE
+                      - link "Ventilador" [ref=e211] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 0" [ref=e212]
+                  - cell "$ 15" [ref=e213]
+                  - cell "0 / 0" [ref=e214]
+                  - cell "Pendiente" [ref=e215]:
+                    - generic [ref=e217]: Pendiente
+                  - cell "visibility edit" [ref=e218]:
+                    - generic [ref=e219]:
+                      - link "visibility" [ref=e220] [cursor=pointer]:
+                        - /url: /Credito/Details/23
+                        - generic [ref=e221]: visibility
+                      - link "edit" [ref=e222] [cursor=pointer]:
+                        - /url: /Credito/Edit/23
+                        - generic [ref=e223]: edit
+                - row "CRE-202603-000022 VE Ventilador $ 0 $ 15 0 / 0 Pendiente visibility edit" [ref=e224]:
+                  - cell "CRE-202603-000022" [ref=e225]
+                  - cell "VE Ventilador" [ref=e226]:
+                    - generic [ref=e227]:
+                      - generic [ref=e228]: VE
+                      - link "Ventilador" [ref=e229] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 0" [ref=e230]
+                  - cell "$ 15" [ref=e231]
+                  - cell "0 / 0" [ref=e232]
+                  - cell "Pendiente" [ref=e233]:
+                    - generic [ref=e235]: Pendiente
+                  - cell "visibility edit" [ref=e236]:
+                    - generic [ref=e237]:
+                      - link "visibility" [ref=e238] [cursor=pointer]:
+                        - /url: /Credito/Details/22
+                        - generic [ref=e239]: visibility
+                      - link "edit" [ref=e240] [cursor=pointer]:
+                        - /url: /Credito/Edit/22
+                        - generic [ref=e241]: edit
+                - row "CRE-202603-000021 VE Ventilador $ 0 $ 15 0 / 0 Pendiente visibility edit" [ref=e242]:
+                  - cell "CRE-202603-000021" [ref=e243]
+                  - cell "VE Ventilador" [ref=e244]:
+                    - generic [ref=e245]:
+                      - generic [ref=e246]: VE
+                      - link "Ventilador" [ref=e247] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 0" [ref=e248]
+                  - cell "$ 15" [ref=e249]
+                  - cell "0 / 0" [ref=e250]
+                  - cell "Pendiente" [ref=e251]:
+                    - generic [ref=e253]: Pendiente
+                  - cell "visibility edit" [ref=e254]:
+                    - generic [ref=e255]:
+                      - link "visibility" [ref=e256] [cursor=pointer]:
+                        - /url: /Credito/Details/21
+                        - generic [ref=e257]: visibility
+                      - link "edit" [ref=e258] [cursor=pointer]:
+                        - /url: /Credito/Edit/21
+                        - generic [ref=e259]: edit
+                - row "CRE-202603-000020 VE Ventilador $ 0 $ 15 0 / 0 Pendiente visibility edit" [ref=e260]:
+                  - cell "CRE-202603-000020" [ref=e261]
+                  - cell "VE Ventilador" [ref=e262]:
+                    - generic [ref=e263]:
+                      - generic [ref=e264]: VE
+                      - link "Ventilador" [ref=e265] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 0" [ref=e266]
+                  - cell "$ 15" [ref=e267]
+                  - cell "0 / 0" [ref=e268]
+                  - cell "Pendiente" [ref=e269]:
+                    - generic [ref=e271]: Pendiente
+                  - cell "visibility edit" [ref=e272]:
+                    - generic [ref=e273]:
+                      - link "visibility" [ref=e274] [cursor=pointer]:
+                        - /url: /Credito/Details/20
+                        - generic [ref=e275]: visibility
+                      - link "edit" [ref=e276] [cursor=pointer]:
+                        - /url: /Credito/Edit/20
+                        - generic [ref=e277]: edit
+                - row "CRE-202603-000019 VE Ventilador $ 48 $ 29 0 / 12 En mora payments visibility edit" [ref=e278]:
+                  - cell "CRE-202603-000019" [ref=e279]
+                  - cell "VE Ventilador" [ref=e280]:
+                    - generic [ref=e281]:
+                      - generic [ref=e282]: VE
+                      - link "Ventilador" [ref=e283] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 48" [ref=e284]
+                  - cell "$ 29" [ref=e285]
+                  - cell "0 / 12" [ref=e286]
+                  - cell "En mora" [ref=e287]:
+                    - generic [ref=e289]: En mora
+                  - cell "payments visibility edit" [ref=e290]:
+                    - generic [ref=e291]:
+                      - link "payments" [ref=e292] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/19
+                        - generic [ref=e293]: payments
+                      - link "visibility" [ref=e294] [cursor=pointer]:
+                        - /url: /Credito/Details/19
+                        - generic [ref=e295]: visibility
+                      - link "edit" [ref=e296] [cursor=pointer]:
+                        - /url: /Credito/Edit/19
+                        - generic [ref=e297]: edit
+                - row "CRE-202603-000018 VE Ventilador $ 24 $ 15 0 / 12 En mora payments visibility edit" [ref=e298]:
+                  - cell "CRE-202603-000018" [ref=e299]
+                  - cell "VE Ventilador" [ref=e300]:
+                    - generic [ref=e301]:
+                      - generic [ref=e302]: VE
+                      - link "Ventilador" [ref=e303] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 24" [ref=e304]
+                  - cell "$ 15" [ref=e305]
+                  - cell "0 / 12" [ref=e306]
+                  - cell "En mora" [ref=e307]:
+                    - generic [ref=e309]: En mora
+                  - cell "payments visibility edit" [ref=e310]:
+                    - generic [ref=e311]:
+                      - link "payments" [ref=e312] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/18
+                        - generic [ref=e313]: payments
+                      - link "visibility" [ref=e314] [cursor=pointer]:
+                        - /url: /Credito/Details/18
+                        - generic [ref=e315]: visibility
+                      - link "edit" [ref=e316] [cursor=pointer]:
+                        - /url: /Credito/Edit/18
+                        - generic [ref=e317]: edit
+                - row "CRE-202602-000017 VE Ventilador $ 104.136 $ 57.657 0 / 12 En mora payments visibility edit" [ref=e318]:
+                  - cell "CRE-202602-000017" [ref=e319]
+                  - cell "VE Ventilador" [ref=e320]:
+                    - generic [ref=e321]:
+                      - generic [ref=e322]: VE
+                      - link "Ventilador" [ref=e323] [cursor=pointer]:
+                        - /url: /Cliente/Details/5
+                  - cell "$ 104.136" [ref=e324]
+                  - cell "$ 57.657" [ref=e325]
+                  - cell "0 / 12" [ref=e326]
+                  - cell "En mora" [ref=e327]:
+                    - generic [ref=e329]: En mora
+                  - cell "payments visibility edit" [ref=e330]:
+                    - generic [ref=e331]:
+                      - link "payments" [ref=e332] [cursor=pointer]:
+                        - /url: /Credito/PagarCuota/17
+                        - generic [ref=e333]: payments
+                      - link "visibility" [ref=e334] [cursor=pointer]:
+                        - /url: /Credito/Details/17
+                        - generic [ref=e335]: visibility
+                      - link "edit" [ref=e336] [cursor=pointer]:
+                        - /url: /Credito/Edit/17
+                        - generic [ref=e337]: edit
+          - generic [ref=e338]:
+            - paragraph [ref=e339]: Mostrando 10 créditos en la cartera filtrada.
+            - paragraph [ref=e340]: La columna de acciones mantiene acceso directo a pago, detalle y edición.

@@ -195,18 +195,61 @@
             });
         }
 
-        document.querySelectorAll('[data-cliente-reject-form]').forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                var motivo = window.prompt('Indique el motivo del rechazo:');
-                if (!motivo || !motivo.trim()) {
-                    event.preventDefault();
+        var rejectModal       = document.getElementById('rejectDocModal');
+        var rejectMotivo      = document.getElementById('rejectDocMotivo');
+        var rejectError       = document.getElementById('rejectDocMotivoError');
+        var rejectConfirmBtn  = document.getElementById('rejectDocModalConfirmBtn');
+        var rejectCancelBtn   = document.getElementById('rejectDocModalCancelBtn');
+        var rejectCloseBtn    = document.getElementById('rejectDocModalClose');
+        var pendingRejectForm = null;
+
+        function openRejectModal(form) {
+            if (!rejectModal) return false;
+            pendingRejectForm = form;
+            if (rejectMotivo) rejectMotivo.value = '';
+            if (rejectError) rejectError.classList.add('hidden');
+            rejectModal.classList.remove('hidden');
+            rejectModal.classList.add('flex');
+            if (rejectMotivo) rejectMotivo.focus();
+            return true;
+        }
+
+        function closeRejectModal() {
+            if (!rejectModal) return;
+            rejectModal.classList.add('hidden');
+            rejectModal.classList.remove('flex');
+            pendingRejectForm = null;
+        }
+
+        if (rejectConfirmBtn) {
+            rejectConfirmBtn.addEventListener('click', function () {
+                var motivo = rejectMotivo ? rejectMotivo.value.trim() : '';
+                if (!motivo) {
+                    if (rejectError) rejectError.classList.remove('hidden');
+                    if (rejectMotivo) rejectMotivo.focus();
                     return;
                 }
+                if (!pendingRejectForm) return;
+                var hiddenInput = pendingRejectForm.querySelector('.motivo-hidden');
+                if (hiddenInput) hiddenInput.value = motivo;
+                closeRejectModal();
+                pendingRejectForm.submit();
+            });
+        }
 
-                var hiddenInput = form.querySelector('.motivo-hidden');
-                if (hiddenInput) {
-                    hiddenInput.value = motivo.trim();
-                }
+        if (rejectCancelBtn) rejectCancelBtn.addEventListener('click', closeRejectModal);
+        if (rejectCloseBtn)  rejectCloseBtn.addEventListener('click', closeRejectModal);
+
+        if (rejectModal) {
+            rejectModal.addEventListener('click', function (event) {
+                if (event.target === rejectModal) closeRejectModal();
+            });
+        }
+
+        document.querySelectorAll('[data-cliente-reject-form]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                openRejectModal(form);
             });
         });
 
@@ -222,6 +265,7 @@
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 closeUploadModal();
+                closeRejectModal();
             }
         });
 

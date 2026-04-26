@@ -160,9 +160,11 @@
         selectAll.indeterminate = !selectAll.checked && visibleChecks.some(checkbox => checkbox.checked);
     }
 
-    function applyFilters() {
+    function applyFilters(skipHide = false) {
         const visibleRows = sortRows([...getVisibleRows()]);
-        rows.forEach(row => { row.style.display = 'none'; });
+        if (!skipHide) {
+            rows.forEach(row => { row.style.display = 'none'; });
+        }
         visibleRows.forEach(row => {
             row.style.display = '';
             tableBody?.appendChild(row);
@@ -618,7 +620,7 @@
         seguridad.confirmAction(`¿Desbloquear a ${userName}?`, () => unlockForm.submit());
     });
 
-    applyFilters();
+    applyFilters(true); // skipHide=true en init para evitar el CLS por hide masivo + re-append
     initUsersScrollAffordance();
     refreshUsersScrollAffordance();
 })();

@@ -1,0 +1,28 @@
+/* ─────────────────────────────────────────────────────────────
+   proveedor-module.css
+   Styles for the Proveedor module views:
+     Index_tw, Details_tw
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   DETAILS
+   ══════════════════════════════════════════════════════════════ */
+
+.proveedor-details-hero-actions {
+    width: 100%;
+}
+
+.proveedor-details-hero-action {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .proveedor-details-hero-actions {
+        width: auto;
+    }
+
+    .proveedor-details-hero-action {
+        width: auto;
+    }
+}

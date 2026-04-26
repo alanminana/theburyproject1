@@ -2,6 +2,7 @@ using AutoMapper;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Helpers
 {
@@ -523,6 +524,55 @@ namespace TheBuryProject.Helpers
             CreateMap<GestionarRMAViewModel, RMA>()
                 .ForMember(dest => dest.Devolucion, opt => opt.Ignore())
                 .ForMember(dest => dest.Proveedor, opt => opt.Ignore());
+
+            // =======================
+            // Ticket
+            // =======================
+            CreateMap<Ticket, TicketViewModel>()
+                .ForMember(d => d.TipoNombre,   o => o.MapFrom(s => s.Tipo.GetDisplayName()))
+                .ForMember(d => d.EstadoNombre, o => o.MapFrom(s => s.Estado.GetDisplayName()));
+
+            CreateMap<Ticket, TicketDetalleViewModel>()
+                .ForMember(d => d.TipoNombre,   o => o.MapFrom(s => s.Tipo.GetDisplayName()))
+                .ForMember(d => d.EstadoNombre, o => o.MapFrom(s => s.Estado.GetDisplayName()));
+
+            CreateMap<CreateTicketRequest, Ticket>()
+                .ForMember(d => d.Id,              o => o.Ignore())
+                .ForMember(d => d.Estado,          o => o.Ignore())
+                .ForMember(d => d.Resolucion,      o => o.Ignore())
+                .ForMember(d => d.ResueltoPor,     o => o.Ignore())
+                .ForMember(d => d.FechaResolucion, o => o.Ignore())
+                .ForMember(d => d.Adjuntos,        o => o.Ignore())
+                .ForMember(d => d.ChecklistItems,  o => o.Ignore())
+                .ForMember(d => d.CreatedAt,       o => o.Ignore())
+                .ForMember(d => d.CreatedBy,       o => o.Ignore())
+                .ForMember(d => d.UpdatedAt,       o => o.Ignore())
+                .ForMember(d => d.UpdatedBy,       o => o.Ignore())
+                .ForMember(d => d.IsDeleted,       o => o.Ignore())
+                .ForMember(d => d.RowVersion,      o => o.Ignore());
+
+            CreateMap<UpdateTicketRequest, Ticket>()
+                .ForMember(d => d.Id,              o => o.Ignore())
+                .ForMember(d => d.Estado,          o => o.Ignore())
+                .ForMember(d => d.ModuloOrigen,    o => o.Ignore())
+                .ForMember(d => d.VistaOrigen,     o => o.Ignore())
+                .ForMember(d => d.UrlOrigen,       o => o.Ignore())
+                .ForMember(d => d.ContextKey,      o => o.Ignore())
+                .ForMember(d => d.Resolucion,      o => o.Ignore())
+                .ForMember(d => d.ResueltoPor,     o => o.Ignore())
+                .ForMember(d => d.FechaResolucion, o => o.Ignore())
+                .ForMember(d => d.Adjuntos,        o => o.Ignore())
+                .ForMember(d => d.ChecklistItems,  o => o.Ignore())
+                .ForMember(d => d.CreatedAt,       o => o.Ignore())
+                .ForMember(d => d.CreatedBy,       o => o.Ignore())
+                .ForMember(d => d.UpdatedAt,       o => o.Ignore())
+                .ForMember(d => d.UpdatedBy,       o => o.Ignore())
+                .ForMember(d => d.IsDeleted,       o => o.Ignore())
+                .ForMember(d => d.RowVersion,      o => o.Ignore());
+
+            CreateMap<TicketAdjunto, TicketAdjuntoViewModel>();
+
+            CreateMap<TicketChecklistItem, TicketChecklistItemViewModel>();
 
         }
 

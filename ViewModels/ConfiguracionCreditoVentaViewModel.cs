@@ -62,5 +62,11 @@ namespace TheBuryProject.ViewModels
         [DataType(DataType.Date)]
         [Required(ErrorMessage = "Debe indicar la fecha de la primera cuota")]
         public DateTime? FechaPrimeraCuota { get; set; }
+
+        public bool CreditoEstaConfigurado { get; set; }
+
+        public bool ContratoGenerado { get; set; }
+
+        public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado;
     }
 }

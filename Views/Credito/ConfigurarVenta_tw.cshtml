@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Solicitud de Crédito Personal";
     var returnUrl = ViewData["ReturnUrl"] as string;
+    var puedeConfigurarCreditoPersonal = User.TienePermiso("configuraciones", "view");
 
     // Serializar datos del cliente para JS
     var clienteConfig = ViewBag.ClienteConfigPersonalizada;
@@ -15,48 +16,14 @@
 }
 
 @section Styles {
-    <style>
-        [data-credito-config-header-actions],
-        [data-credito-config-footer-actions] {
-            width: 100%;
-        }
-
-        [data-credito-config-header-actions] {
-            flex-direction: column;
-        }
-
-        [data-credito-config-footer-actions] {
-            flex-direction: column-reverse;
-        }
-
-        [data-credito-config-header-actions] > *,
-        [data-credito-config-footer-actions] > * {
-            width: 100%;
-        }
-
-        @@media (min-width: 640px) {
-            [data-credito-config-header-actions],
-            [data-credito-config-footer-actions] {
-                width: auto;
-                flex-direction: row;
-                justify-content: flex-end;
-                align-self: flex-start;
-            }
-
-            [data-credito-config-header-actions] > *,
-            [data-credito-config-footer-actions] > * {
-                width: auto;
-                flex: 0 0 auto;
-            }
-        }
-    </style>
+    <partial name="_CreditoModuleStyles" />
 }
 
 <div data-credito-config class="space-y-8">
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-8">
+    <section class="card-erp-panel-padded">
         <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-500 dark:text-slate-400">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
                     <ol class="inline-flex flex-wrap items-center gap-y-1">
                         <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
                         <li><span class="mx-2 text-slate-400">/</span></li>
@@ -67,33 +34,33 @@
                             <li><a asp-controller="Venta" asp-action="Details" asp-route-id="@Model.VentaId.Value" class="hover:text-primary no-underline">Venta</a></li>
                             <li><span class="mx-2 text-slate-400">/</span></li>
                         }
-                        <li class="text-slate-900 dark:text-slate-100">Configurar crédito</li>
+                        <li class="text-slate-100">Configurar crédito</li>
                     </ol>
                 </nav>
 
                 <div class="space-y-3">
-                    <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                    <span class="badge-erp badge-erp-primary">
                         <span class="material-symbols-outlined text-sm">tune</span>
                         Crédito personal
                     </span>
                     <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">Configurar solicitud de crédito</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">
-                            Definí anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de <span class="font-semibold text-slate-700 dark:text-slate-200">@Model.ClienteNombre</span> sin salir del flujo operativo de venta.
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Configurar solicitud de crédito</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Definí anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de <span class="font-semibold text-slate-200">@Model.ClienteNombre</span> sin salir del flujo operativo de venta.
                         </p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
                             <span class="material-symbols-outlined text-sm">person</span>
                             @Model.ClienteNombre
                         </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
                             <span class="material-symbols-outlined text-sm">receipt_long</span>
                             @(string.IsNullOrWhiteSpace(Model.NumeroCredito) ? "Crédito pendiente" : Model.NumeroCredito)
                         </span>
                         @if (Model.VentaId.HasValue)
                         {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
                                 <span class="material-symbols-outlined text-sm">shopping_cart</span>
                                 Venta #@Model.VentaId.Value
                             </span>
@@ -103,8 +70,23 @@
             </div>
 
             <div data-credito-config-header-actions class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
+                <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@Model.ClienteId"
+                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+                   class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
+                    Editar cliente
+                </a>
+                @if (puedeConfigurarCreditoPersonal)
+                {
+                    <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal"
+                       asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+                       class="btn-erp-secondary w-full sm:w-auto sm:py-2.5 no-underline">
+                        <span class="material-symbols-outlined text-[20px]">settings</span>
+                        Global y perfiles
+                    </a>
+                }
                 <a href="@volverHref"
-                   class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                   class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">arrow_back</span>
                     Volver
                 </a>
@@ -112,25 +94,25 @@
         </header>
 
         <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Venta total</p>
-                <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">$ @Model.Monto.ToString("N2")</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">importe base a financiar</p>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Venta total</p>
+                <p class="mt-2 text-2xl font-black text-white">$ @Model.Monto.ToString("N2")</p>
+                <p class="mt-1 text-xs text-slate-400">importe base a financiar</p>
             </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Financiado</p>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Financiado</p>
                 <p id="hero-monto-financiado" class="mt-2 text-2xl font-black text-primary">$ @Model.MontoFinanciado.ToString("N2")</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">venta menos anticipo</p>
+                <p class="mt-1 text-xs text-slate-400">venta menos anticipo</p>
             </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Cuotas</p>
-                <p id="hero-cuotas" class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@((Model.CantidadCuotas > 0 ? Model.CantidadCuotas : 0))</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">plan configurado</p>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cuotas</p>
+                <p id="hero-cuotas" class="mt-2 text-2xl font-black text-white">@((Model.CantidadCuotas > 0 ? Model.CantidadCuotas : 0))</p>
+                <p class="mt-1 text-xs text-slate-400">plan configurado</p>
             </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Método</p>
-                <p id="hero-metodo" class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(string.IsNullOrWhiteSpace(Model.MetodoCalculo.ToString()) ? "—" : Model.MetodoCalculo.ToString())</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">origen de configuración</p>
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Método</p>
+                <p id="hero-metodo" class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(Model.MetodoCalculo.ToString()) ? "—" : Model.MetodoCalculo.ToString())</p>
+                <p class="mt-1 text-xs text-slate-400">origen de configuración</p>
             </div>
         </div>
     </section>
@@ -143,20 +125,23 @@
         <!-- TempData messages -->
         @if (TempData["Error"] != null)
         {
-            <div class="toast-msg p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">error</span> @TempData["Error"]
+            <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+                <span class="material-symbols-outlined">error</span>
+                @TempData["Error"]
             </div>
         }
         @if (TempData["Warning"] != null)
         {
-            <div class="toast-msg p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">warning</span> @TempData["Warning"]
+            <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-400" role="status">
+                <span class="material-symbols-outlined">warning</span>
+                @TempData["Warning"]
             </div>
         }
         @if (TempData["Info"] != null)
         {
-            <div class="toast-msg p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">info</span> @TempData["Info"]
+            <div class="toast-msg flex items-center gap-3 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm font-semibold text-sky-400" role="status">
+                <span class="material-symbols-outlined">info</span>
+                @TempData["Info"]
             </div>
         }
 
@@ -178,64 +163,64 @@
                 <div class="lg:col-span-2 space-y-8">
 
                     <!-- Section: Datos de la Venta -->
-                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <section class="card-erp-panel-padded">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-3">
                             <span class="material-symbols-outlined text-primary">shopping_cart</span>
-                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Datos de la Venta</h2>
+                            <h2 class="text-white text-xl font-bold">Datos de la Venta</h2>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Cliente</label>
-                                <input class="bg-slate-100 dark:bg-slate-800/50 border-none rounded-lg text-slate-500 dark:text-slate-400 h-12 px-4 cursor-not-allowed focus:ring-0"
+                                <label class="text-slate-300 text-sm font-semibold">Cliente</label>
+                                <input class="bg-slate-800/50 border-none rounded-lg text-slate-400 h-12 px-4 cursor-not-allowed focus:ring-0"
                                        readonly value="@Model.ClienteNombre" />
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Número de Crédito</label>
-                                <input class="bg-slate-100 dark:bg-slate-800/50 border-none rounded-lg text-slate-500 dark:text-slate-400 h-12 px-4 cursor-not-allowed focus:ring-0"
+                                <label class="text-slate-300 text-sm font-semibold">Número de Crédito</label>
+                                <input class="bg-slate-800/50 border-none rounded-lg text-slate-400 h-12 px-4 cursor-not-allowed focus:ring-0"
                                        readonly value="@(Model.NumeroCredito ?? "Pendiente")" />
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Monto Total de Venta</label>
+                                <label class="text-slate-300 text-sm font-semibold">Monto Total de Venta</label>
                                 <div class="relative">
                                     <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                                    <input class="bg-slate-100 dark:bg-slate-800/50 border-none rounded-lg text-slate-500 dark:text-slate-400 h-12 pl-8 pr-4 w-full cursor-not-allowed focus:ring-0"
+                                    <input class="bg-slate-800/50 border-none rounded-lg text-slate-400 h-12 pl-8 pr-4 w-full cursor-not-allowed focus:ring-0"
                                            readonly value="@Model.Monto.ToString("N2")" id="txt-monto-venta-display" />
                                     <input type="hidden" asp-for="Monto" id="hdn-monto-venta" />
                                 </div>
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Anticipo</label>
+                                <label class="text-slate-300 text-sm font-semibold">Anticipo</label>
                                 <div class="relative">
                                     <span class="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold">$</span>
                                     <input asp-for="Anticipo" type="number" step="0.01" min="0" id="txt-anticipo"
-                                           class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 pl-8 pr-4 w-full focus:ring-0 transition-all" />
+                                           class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 pl-8 pr-4 w-full focus:ring-0 transition-all" />
                                 </div>
                                 <span asp-validation-for="Anticipo" class="text-red-500 text-xs"></span>
                             </div>
                         </div>
-                        <div class="mt-6 p-4 bg-primary/5 dark:bg-primary/10 rounded-lg flex justify-between items-center border border-primary/20">
-                            <span class="text-slate-600 dark:text-slate-300 font-medium">Monto Financiado</span>
+                        <div class="mt-6 p-4 bg-primary/5 bg-primary/10 rounded-lg flex justify-between items-center border border-primary/20">
+                            <span class="text-slate-300 font-medium">Monto Financiado</span>
                             <span id="txt-monto-financiado" class="text-primary text-2xl font-black tracking-tight">$ @Model.MontoFinanciado.ToString("N2")</span>
                         </div>
                     </section>
 
                     <!-- Section: Condiciones del Crédito -->
-                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <section class="card-erp-panel-padded">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-3">
                             <span class="material-symbols-outlined text-primary">settings_applications</span>
-                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Condiciones del Crédito</h2>
+                            <h2 class="text-white text-xl font-bold">Condiciones del Crédito</h2>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Método de Cálculo -->
                             <div class="flex flex-col gap-1.5">
-                                <label asp-for="MetodoCalculo" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Método de Cálculo</label>
+                                <label asp-for="MetodoCalculo" class="text-slate-300 text-sm font-semibold">Método de Cálculo</label>
                                 <select asp-for="MetodoCalculo" id="select-metodo-calculo"
                                         asp-items="Html.GetEnumSelectList<MetodoCalculoCredito>()"
-                                        class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 px-4 w-full focus:ring-0">
+                                        class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 px-4 w-full focus:ring-0">
                                     <option value="">Seleccione método...</option>
                                 </select>
                                 <span asp-validation-for="MetodoCalculo" class="text-red-500 text-xs"></span>
-                                <p id="metodo-info" class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 hidden">
+                                <p id="metodo-info" class="text-xs text-slate-400 mt-1 flex items-center gap-1 hidden">
                                     <span class="material-symbols-outlined text-[14px]">info</span>
                                     <span id="metodo-info-texto"></span>
                                 </p>
@@ -243,9 +228,9 @@
 
                             <!-- Perfil de Crédito (visible solo con UsarPerfil) -->
                             <div class="flex flex-col gap-1.5" id="panel-perfil-credito">
-                                <label class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Perfil de Crédito</label>
+                                <label class="text-slate-300 text-sm font-semibold">Perfil de Crédito</label>
                                 <select asp-for="PerfilCreditoSeleccionadoId" id="select-perfil-credito"
-                                        class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 px-4 w-full focus:ring-0">
+                                        class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 px-4 w-full focus:ring-0">
                                     <option value="">Seleccione perfil...</option>
                                     @foreach (var p in perfilesActivos)
                                     {
@@ -263,26 +248,26 @@
 
                             <!-- Cantidad de Cuotas -->
                             <div class="flex flex-col gap-1.5">
-                                <label asp-for="CantidadCuotas" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Cantidad de Cuotas</label>
+                                <label asp-for="CantidadCuotas" class="text-slate-300 text-sm font-semibold">Cantidad de Cuotas</label>
                                 <input asp-for="CantidadCuotas" type="number" min="1" max="120" id="txt-cuotas"
-                                       class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 px-4 w-full focus:ring-0" />
+                                       class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 px-4 w-full focus:ring-0" />
                                 <span asp-validation-for="CantidadCuotas" class="text-red-500 text-xs"></span>
-                                <p id="cuotas-rango-info" class="text-xs text-slate-500 dark:text-slate-400 mt-1">Rango permitido: 1 a 120 cuotas.</p>
+                                <p id="cuotas-rango-info" class="text-xs text-slate-400 mt-1">Rango permitido: 1 a 120 cuotas.</p>
                             </div>
 
                             <!-- Tasa de Interés Mensual -->
                             <div class="flex flex-col gap-1.5">
                                 <div class="flex items-center justify-between">
-                                    <label asp-for="TasaMensual" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Tasa Mensual Aplicada</label>
+                                    <label asp-for="TasaMensual" class="text-slate-300 text-sm font-semibold">Tasa Mensual Aplicada</label>
                                     <span id="badge-tasa-fuente" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary uppercase hidden"></span>
                                 </div>
                                 <div class="relative">
                                     <input asp-for="TasaMensual" type="number" step="0.01" min="0.01" max="100" id="txt-tasa"
-                                           class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 pl-4 pr-10 w-full focus:ring-0" />
+                                           class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 pl-4 pr-10 w-full focus:ring-0" />
                                     <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
                                 </div>
                                 <span asp-validation-for="TasaMensual" class="text-red-500 text-xs"></span>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                                <p class="text-xs text-slate-400 mt-1 flex items-center gap-1">
                                     <span class="material-symbols-outlined text-[14px]">help</span>
                                     Sujeta a variación por perfil del cliente.
                                 </p>
@@ -290,20 +275,20 @@
 
                             <!-- Gastos Administrativos -->
                             <div class="flex flex-col gap-1.5">
-                                <label asp-for="GastosAdministrativos" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Gastos Administrativos</label>
+                                <label asp-for="GastosAdministrativos" class="text-slate-300 text-sm font-semibold">Gastos Administrativos</label>
                                 <div class="relative">
                                     <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                     <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" id="txt-gastos"
-                                           class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 pl-8 pr-4 w-full focus:ring-0" />
+                                           class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 pl-8 pr-4 w-full focus:ring-0" />
                                 </div>
                                 <span asp-validation-for="GastosAdministrativos" class="text-red-500 text-xs"></span>
                             </div>
 
                             <!-- Fecha Primera Cuota -->
                             <div class="flex flex-col gap-1.5">
-                                <label asp-for="FechaPrimeraCuota" class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Fecha Primera Cuota</label>
+                                <label asp-for="FechaPrimeraCuota" class="text-slate-300 text-sm font-semibold">Fecha Primera Cuota</label>
                                 <input asp-for="FechaPrimeraCuota" type="date" id="txt-fecha-primera-cuota"
-                                       class="bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-primary dark:focus:border-primary rounded-lg text-slate-900 dark:text-white h-12 px-4 w-full focus:ring-0" />
+                                       class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 px-4 w-full focus:ring-0" />
                                 <span asp-validation-for="FechaPrimeraCuota" class="text-red-500 text-xs"></span>
                             </div>
                         </div>
@@ -313,12 +298,78 @@
                 <!-- Right Column: Summary & Evaluation -->
                 <div class="space-y-8">
 
+                    <!-- Section: Documentación contractual -->
+                    <section class="card-erp-panel-padded">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-3">
+                            <span class="material-symbols-outlined text-primary">contract</span>
+                            <h2 class="text-white text-xl font-bold">Documentación contractual</h2>
+                        </div>
+
+                        <div class="space-y-4">
+                            @if (Model.ContratoGenerado)
+                            {
+                                <div class="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                                    <span class="material-symbols-outlined text-emerald-400">check_circle</span>
+                                    <div>
+                                        <p class="text-sm font-bold text-emerald-300">Contrato generado correctamente</p>
+                                        <p class="mt-1 text-xs text-emerald-100/70">El contrato ya está asociado a esta venta.</p>
+                                    </div>
+                                </div>
+                                <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
+                                   target="_blank" rel="noopener"
+                                   class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-800 px-4 py-3 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 no-underline">
+                                    <span class="material-symbols-outlined text-[20px]">print</span>
+                                    Ver / imprimir contrato
+                                </a>
+                            }
+                            else
+                            {
+                                <div class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                                    <span class="material-symbols-outlined text-amber-400">pending_actions</span>
+                                    <div>
+                                        <p class="text-sm font-bold text-amber-300">Contrato de venta pendiente</p>
+                                        <p class="mt-1 text-xs text-amber-100/70">
+                                            Debe generar e imprimir el Contrato de Venta antes de continuar.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                @if (Model.PuedeGenerarContrato)
+                                {
+                                    <button type="submit"
+                                            id="btn-generar-contrato"
+                                            data-contrato-generar
+                                            formaction="@Url.Action("Generar", "ContratoVentaCredito", new { ventaId = Model.VentaId })"
+                                            formmethod="post"
+                                            formtarget="_blank"
+                                            formnovalidate
+                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                                        <span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                                        Generar Contrato de Venta
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            disabled
+                                            class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-500">
+                                        <span class="material-symbols-outlined text-[20px]">lock</span>
+                                        Generar Contrato de Venta
+                                    </button>
+                                    <p class="text-xs text-slate-500">
+                                        Guarde primero la configuración del crédito para habilitar la generación.
+                                    </p>
+                                }
+                            }
+                        </div>
+                    </section>
+
                     <!-- Section: Evaluación Preliminar -->
-                    <section class="bg-white dark:bg-slate-900/40 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative">
+                    <section class="card-erp-panel-padded overflow-hidden relative">
                         <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-3">
                             <span class="material-symbols-outlined text-primary">analytics</span>
-                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Evaluación</h2>
+                            <h2 class="text-white text-xl font-bold">Evaluación</h2>
                         </div>
                         <div class="flex flex-col gap-4">
                             <!-- Semáforo -->
@@ -330,20 +381,20 @@
                                     </div>
                                     <span id="semaforo-tag" class="text-[10px] uppercase font-black"></span>
                                 </div>
-                                <p id="semaforo-mensaje" class="text-slate-600 dark:text-slate-300 text-sm italic mt-3"></p>
+                                <p id="semaforo-mensaje" class="text-slate-300 text-sm italic mt-3"></p>
                                 <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
                             </div>
 
                             <!-- Sin datos aún -->
                             <div id="semaforo-vacio" class="text-center py-6">
-                                <span class="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">query_stats</span>
+                                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-700">query_stats</span>
                                 <p class="text-sm text-slate-400 mt-2">Completá las condiciones para ver la evaluación.</p>
                             </div>
                         </div>
                     </section>
 
                     <!-- Section: Resumen de Plan -->
-                    <section class="bg-slate-900 dark:bg-slate-900/60 p-6 rounded-xl border border-slate-800 shadow-xl text-white">
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800 shadow-xl text-white">
                         <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-3">
                             <span class="material-symbols-outlined text-primary">receipt_long</span>
                             <h2 class="text-white text-xl font-bold">Resumen de Plan</h2>
@@ -391,32 +442,51 @@
             </div>
 
             <!-- Footer Actions -->
-            <div class="pt-8 mt-8 border-t border-slate-200 dark:border-slate-800">
+            <div class="pt-8 mt-8 border-t border-slate-800">
                 <div data-credito-config-footer-actions class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     @if (Model.VentaId.HasValue)
                     {
                         <a asp-action="Details" asp-controller="Venta" asp-route-id="@Model.VentaId"
-                           class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                           class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
                             <span class="material-symbols-outlined text-[20px]">arrow_back</span> Volver a la Venta
                         </a>
                     }
                     else
                     {
                         <a asp-action="Index" asp-controller="Credito"
-                           class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-transparent px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto sm:py-2.5 no-underline">
+                           class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
                             <span class="material-symbols-outlined text-[20px]">arrow_back</span> Volver
                         </a>
                     }
                     <button type="button" id="btn-cancelar-credito" data-credito-config-cancel data-credito-cancel-url="@volverHref"
-                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-500/30 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-500/10 sm:w-auto sm:py-2.5">
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-slate-800 px-5 py-3 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/10 sm:w-auto sm:py-2.5">
                         <span class="material-symbols-outlined text-[20px]">close</span>
                         Cancelar
                     </button>
-                    <button type="submit" id="btn-confirmar-credito"
-                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
-                        <span class="material-symbols-outlined text-[20px]">verified_user</span>
-                        Confirmar Crédito
-                    </button>
+                    @if (Model.CreditoEstaConfigurado && Model.VentaId.HasValue)
+                    {
+                        <a asp-action="Details" asp-controller="Venta" asp-route-id="@Model.VentaId.Value"
+                           class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5 no-underline">
+                            <span class="material-symbols-outlined text-[20px]">shopping_cart_checkout</span>
+                            Volver a confirmar venta
+                        </a>
+                    }
+                    else if (Model.CreditoEstaConfigurado)
+                    {
+                        <a asp-action="Details" asp-controller="Credito" asp-route-id="@Model.CreditoId"
+                           class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5 no-underline">
+                            <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+                            Ver crédito
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="submit" id="btn-confirmar-credito"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5">
+                            <span class="material-symbols-outlined text-[20px]">verified_user</span>
+                            Confirmar Crédito
+                        </button>
+                    }
                 </div>
             </div>
         </form>

@@ -1,0 +1,433 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Sistemas
+          - link "security Seguridad" [ref=e24] [cursor=pointer]:
+            - /url: /Seguridad
+            - generic [ref=e25]: security
+            - paragraph: Seguridad
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e29]: account_circle
+          - generic:
+            - paragraph: admin@thebury.com
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+    - main [ref=e30]:
+      - generic [ref=e32]:
+        - button "notifications" [ref=e33]:
+          - generic [ref=e34]: notifications
+        - button "search" [ref=e36]:
+          - generic [ref=e37]: search
+        - button "help" [ref=e39]:
+          - generic [ref=e40]: help
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - article [ref=e44]:
+            - paragraph [ref=e45]: Total
+            - paragraph [ref=e46]: "13"
+            - paragraph [ref=e47]: ventas en el período
+          - article [ref=e48]:
+            - paragraph [ref=e49]: Hoy
+            - paragraph [ref=e50]: "1"
+            - paragraph [ref=e51]: operaciones del día
+          - article [ref=e52]:
+            - paragraph [ref=e53]: Facturado hoy
+            - paragraph [ref=e54]: $15
+            - paragraph [ref=e55]: suma del día
+          - article [ref=e56]:
+            - paragraph [ref=e57]: Autorizaciones
+            - paragraph [ref=e58]: "0"
+            - paragraph [ref=e59]: sin pendientes
+        - generic [ref=e61]:
+          - button "filter_alt Filtro operativo Buscador de ventas 13 resultados expand_more" [ref=e62]:
+            - generic [ref=e63]:
+              - generic [ref=e64]: filter_alt
+              - generic [ref=e65]:
+                - paragraph [ref=e66]: Filtro operativo
+                - paragraph [ref=e67]: Buscador de ventas
+            - generic [ref=e68]:
+              - generic [ref=e69]: 13 resultados
+              - generic [ref=e70]: expand_more
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - generic [ref=e73]: Número
+              - textbox "#V-..." [ref=e74]
+            - generic [ref=e75]:
+              - generic [ref=e76]: Desde
+              - textbox [ref=e77]
+            - generic [ref=e78]:
+              - generic [ref=e79]: Hasta
+              - textbox [ref=e80]
+            - generic [ref=e81]:
+              - generic [ref=e82]: Estado
+              - combobox [ref=e83] [cursor=pointer]:
+                - option "Todos" [selected]
+                - option "Cotización"
+                - option "Presupuesto"
+                - option "Confirmada"
+                - option "Facturada"
+                - option "Entregada"
+                - option "Cancelada"
+                - option "Pend. Requisitos"
+                - option "Pend. Financiación"
+            - generic [ref=e84]:
+              - generic [ref=e85]: Tipo de Pago
+              - combobox [ref=e86] [cursor=pointer]:
+                - option "Todos" [selected]
+                - option "Efectivo"
+                - option "Transferencia"
+                - option "Tarjeta Débito"
+                - option "Tarjeta Crédito"
+                - option "Cheque"
+                - option "Crédito Personal"
+                - option "MercadoPago"
+                - option "Cuenta Corriente"
+            - generic [ref=e87]:
+              - generic [ref=e88]: Autorización
+              - combobox [ref=e89] [cursor=pointer]:
+                - option "Todas" [selected]
+                - option "No Requiere"
+                - option "Pendiente"
+                - option "Autorizada"
+                - option "Rechazada"
+            - generic [ref=e90]:
+              - button "Buscar" [ref=e91] [cursor=pointer]
+              - link "filter_alt_off" [ref=e92] [cursor=pointer]:
+                - /url: /Venta
+                - generic [ref=e93]: filter_alt_off
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - paragraph [ref=e97]: Seguimiento
+              - heading "Listado principal" [level=2] [ref=e98]
+              - paragraph [ref=e99]: Consultá estado, autorización, forma de pago y acciones disponibles sobre cada operación.
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: table_rows
+                - text: 13 registros
+              - button "percent Recargo/Descuento" [ref=e103] [cursor=pointer]:
+                - generic [ref=e104]: percent
+                - text: Recargo/Descuento
+              - link "assignment_return Devoluciones" [ref=e105] [cursor=pointer]:
+                - /url: /Devolucion?tab=devoluciones
+                - generic [ref=e106]: assignment_return
+                - text: Devoluciones
+              - button "add Nueva Venta" [ref=e107] [cursor=pointer]:
+                - generic [ref=e108]: add
+                - text: Nueva Venta
+          - region "Listado principal de ventas" [ref=e111]:
+            - table [ref=e112]:
+              - rowgroup [ref=e113]:
+                - row "Número Fecha Cliente Estado Autorización Tipo de Pago Total Acciones" [ref=e114]:
+                  - columnheader "Número" [ref=e115]
+                  - columnheader "Fecha" [ref=e116]
+                  - columnheader "Cliente" [ref=e117]
+                  - columnheader "Estado" [ref=e118]
+                  - columnheader "Autorización" [ref=e119]
+                  - columnheader "Tipo de Pago" [ref=e120]
+                  - columnheader "Total" [ref=e121]
+                  - columnheader "Acciones" [ref=e122]
+              - rowgroup [ref=e123]:
+                - 'row "VTA-202604-000002 18 abr 2026 Pérez, Ventilador - DNI: 11111111111111111111 Facturada No Requiere Efectivo $14,52 visibility Devolver producto block" [ref=e124]':
+                  - cell "VTA-202604-000002" [ref=e125]
+                  - cell "18 abr 2026" [ref=e126]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e127]'
+                  - cell "Facturada" [ref=e128]:
+                    - generic [ref=e129]: Facturada
+                  - cell "No Requiere" [ref=e130]:
+                    - generic [ref=e131]: No Requiere
+                  - cell "Efectivo" [ref=e133]
+                  - cell "$14,52" [ref=e134]
+                  - cell "visibility Devolver producto block" [ref=e135]:
+                    - generic [ref=e136]:
+                      - link "visibility" [ref=e137] [cursor=pointer]:
+                        - /url: /Venta/Details/30
+                        - generic [ref=e138]: visibility
+                      - button "Devolver producto" [ref=e139] [cursor=pointer]:
+                        - generic [ref=e140]: assignment_return
+                      - link "block" [ref=e141] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/30
+                        - generic [ref=e142]: block
+                - 'row "VTA-202604-000001 08 abr 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Crédito $14,52 visibility Devolver producto block" [ref=e143]':
+                  - cell "VTA-202604-000001" [ref=e144]
+                  - cell "08 abr 2026" [ref=e145]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e146]'
+                  - cell "Confirmada" [ref=e147]:
+                    - generic [ref=e148]: Confirmada
+                  - cell "No Requiere" [ref=e149]:
+                    - generic [ref=e150]: No Requiere
+                  - cell "Crédito" [ref=e152]
+                  - cell "$14,52" [ref=e153]
+                  - cell "visibility Devolver producto block" [ref=e154]:
+                    - generic [ref=e155]:
+                      - link "visibility" [ref=e156] [cursor=pointer]:
+                        - /url: /Venta/Details/29
+                        - generic [ref=e157]: visibility
+                      - button "Devolver producto" [ref=e158] [cursor=pointer]:
+                        - generic [ref=e159]: assignment_return
+                      - link "block" [ref=e160] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/29
+                        - generic [ref=e161]: block
+                - 'row "VTA-202603-000010 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Efectivo $29,04 visibility Devolver producto block" [ref=e162]':
+                  - cell "VTA-202603-000010" [ref=e163]
+                  - cell "29 mar 2026" [ref=e164]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e165]'
+                  - cell "Confirmada" [ref=e166]:
+                    - generic [ref=e167]: Confirmada
+                  - cell "No Requiere" [ref=e168]:
+                    - generic [ref=e169]: No Requiere
+                  - cell "Efectivo" [ref=e171]
+                  - cell "$29,04" [ref=e172]
+                  - cell "visibility Devolver producto block" [ref=e173]:
+                    - generic [ref=e174]:
+                      - link "visibility" [ref=e175] [cursor=pointer]:
+                        - /url: /Venta/Details/28
+                        - generic [ref=e176]: visibility
+                      - button "Devolver producto" [ref=e177] [cursor=pointer]:
+                        - generic [ref=e178]: assignment_return
+                      - link "block" [ref=e179] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/28
+                        - generic [ref=e180]: block
+                - 'row "VTA-202603-000009 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Efectivo $14,52 visibility Devolver producto block" [ref=e181]':
+                  - cell "VTA-202603-000009" [ref=e182]
+                  - cell "29 mar 2026" [ref=e183]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e184]'
+                  - cell "Confirmada" [ref=e185]:
+                    - generic [ref=e186]: Confirmada
+                  - cell "No Requiere" [ref=e187]:
+                    - generic [ref=e188]: No Requiere
+                  - cell "Efectivo" [ref=e190]
+                  - cell "$14,52" [ref=e191]
+                  - cell "visibility Devolver producto block" [ref=e192]:
+                    - generic [ref=e193]:
+                      - link "visibility" [ref=e194] [cursor=pointer]:
+                        - /url: /Venta/Details/27
+                        - generic [ref=e195]: visibility
+                      - button "Devolver producto" [ref=e196] [cursor=pointer]:
+                        - generic [ref=e197]: assignment_return
+                      - link "block" [ref=e198] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/27
+                        - generic [ref=e199]: block
+                - 'row "VTA-202603-000008 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Crédito $14,52 visibility Devolver producto block" [ref=e200]':
+                  - cell "VTA-202603-000008" [ref=e201]
+                  - cell "29 mar 2026" [ref=e202]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e203]'
+                  - cell "Confirmada" [ref=e204]:
+                    - generic [ref=e205]: Confirmada
+                  - cell "No Requiere" [ref=e206]:
+                    - generic [ref=e207]: No Requiere
+                  - cell "Crédito" [ref=e209]
+                  - cell "$14,52" [ref=e210]
+                  - cell "visibility Devolver producto block" [ref=e211]:
+                    - generic [ref=e212]:
+                      - link "visibility" [ref=e213] [cursor=pointer]:
+                        - /url: /Venta/Details/26
+                        - generic [ref=e214]: visibility
+                      - button "Devolver producto" [ref=e215] [cursor=pointer]:
+                        - generic [ref=e216]: assignment_return
+                      - link "block" [ref=e217] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/26
+                        - generic [ref=e218]: block
+                - 'row "VTA-202603-000007 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Crédito $14,52 visibility Devolver producto block" [ref=e219]':
+                  - cell "VTA-202603-000007" [ref=e220]
+                  - cell "29 mar 2026" [ref=e221]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e222]'
+                  - cell "Confirmada" [ref=e223]:
+                    - generic [ref=e224]: Confirmada
+                  - cell "No Requiere" [ref=e225]:
+                    - generic [ref=e226]: No Requiere
+                  - cell "Crédito" [ref=e228]
+                  - cell "$14,52" [ref=e229]
+                  - cell "visibility Devolver producto block" [ref=e230]:
+                    - generic [ref=e231]:
+                      - link "visibility" [ref=e232] [cursor=pointer]:
+                        - /url: /Venta/Details/25
+                        - generic [ref=e233]: visibility
+                      - button "Devolver producto" [ref=e234] [cursor=pointer]:
+                        - generic [ref=e235]: assignment_return
+                      - link "block" [ref=e236] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/25
+                        - generic [ref=e237]: block
+                - 'row "VTA-202603-000006 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Pend. Financiación No Requiere Crédito $14,52 visibility assignment_return block" [ref=e238]':
+                  - cell "VTA-202603-000006" [ref=e239]
+                  - cell "29 mar 2026" [ref=e240]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e241]'
+                  - cell "Pend. Financiación" [ref=e242]:
+                    - generic [ref=e243]: Pend. Financiación
+                  - cell "No Requiere" [ref=e244]:
+                    - generic [ref=e245]: No Requiere
+                  - cell "Crédito" [ref=e247]
+                  - cell "$14,52" [ref=e248]
+                  - cell "visibility assignment_return block" [ref=e249]:
+                    - generic [ref=e250]:
+                      - link "visibility" [ref=e251] [cursor=pointer]:
+                        - /url: /Venta/Details/24
+                        - generic [ref=e252]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e253] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/24
+                        - generic [ref=e254]: block
+                - 'row "VTA-202603-000005 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Pend. Financiación No Requiere Crédito $14,52 visibility assignment_return block" [ref=e255]':
+                  - cell "VTA-202603-000005" [ref=e256]
+                  - cell "29 mar 2026" [ref=e257]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e258]'
+                  - cell "Pend. Financiación" [ref=e259]:
+                    - generic [ref=e260]: Pend. Financiación
+                  - cell "No Requiere" [ref=e261]:
+                    - generic [ref=e262]: No Requiere
+                  - cell "Crédito" [ref=e264]
+                  - cell "$14,52" [ref=e265]
+                  - cell "visibility assignment_return block" [ref=e266]:
+                    - generic [ref=e267]:
+                      - link "visibility" [ref=e268] [cursor=pointer]:
+                        - /url: /Venta/Details/23
+                        - generic [ref=e269]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e270] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/23
+                        - generic [ref=e271]: block
+                - 'row "VTA-202603-000004 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Pend. Financiación No Requiere Crédito $14,52 visibility assignment_return block" [ref=e272]':
+                  - cell "VTA-202603-000004" [ref=e273]
+                  - cell "29 mar 2026" [ref=e274]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e275]'
+                  - cell "Pend. Financiación" [ref=e276]:
+                    - generic [ref=e277]: Pend. Financiación
+                  - cell "No Requiere" [ref=e278]:
+                    - generic [ref=e279]: No Requiere
+                  - cell "Crédito" [ref=e281]
+                  - cell "$14,52" [ref=e282]
+                  - cell "visibility assignment_return block" [ref=e283]:
+                    - generic [ref=e284]:
+                      - link "visibility" [ref=e285] [cursor=pointer]:
+                        - /url: /Venta/Details/22
+                        - generic [ref=e286]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e287] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/22
+                        - generic [ref=e288]: block
+                - 'row "VTA-202603-000003 29 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Pend. Financiación No Requiere Crédito $14,52 visibility assignment_return block" [ref=e289]':
+                  - cell "VTA-202603-000003" [ref=e290]
+                  - cell "29 mar 2026" [ref=e291]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e292]'
+                  - cell "Pend. Financiación" [ref=e293]:
+                    - generic [ref=e294]: Pend. Financiación
+                  - cell "No Requiere" [ref=e295]:
+                    - generic [ref=e296]: No Requiere
+                  - cell "Crédito" [ref=e298]
+                  - cell "$14,52" [ref=e299]
+                  - cell "visibility assignment_return block" [ref=e300]:
+                    - generic [ref=e301]:
+                      - link "visibility" [ref=e302] [cursor=pointer]:
+                        - /url: /Venta/Details/21
+                        - generic [ref=e303]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e304] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/21
+                        - generic [ref=e305]: block
+                - 'row "VTA-202603-000002 09 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Crédito $29,04 visibility Devolver producto block" [ref=e306]':
+                  - cell "VTA-202603-000002" [ref=e307]
+                  - cell "09 mar 2026" [ref=e308]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e309]'
+                  - cell "Confirmada" [ref=e310]:
+                    - generic [ref=e311]: Confirmada
+                  - cell "No Requiere" [ref=e312]:
+                    - generic [ref=e313]: No Requiere
+                  - cell "Crédito" [ref=e315]
+                  - cell "$29,04" [ref=e316]
+                  - cell "visibility Devolver producto block" [ref=e317]:
+                    - generic [ref=e318]:
+                      - link "visibility" [ref=e319] [cursor=pointer]:
+                        - /url: /Venta/Details/19
+                        - generic [ref=e320]: visibility
+                      - button "Devolver producto" [ref=e321] [cursor=pointer]:
+                        - generic [ref=e322]: assignment_return
+                      - link "block" [ref=e323] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/19
+                        - generic [ref=e324]: block
+                - 'row "VTA-202603-000001 07 mar 2026 Pérez, Ventilador - DNI: 11111111111111111111 Facturada No Requiere Crédito $14,52 visibility Devolver producto block" [ref=e325]':
+                  - cell "VTA-202603-000001" [ref=e326]
+                  - cell "07 mar 2026" [ref=e327]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e328]'
+                  - cell "Facturada" [ref=e329]:
+                    - generic [ref=e330]: Facturada
+                  - cell "No Requiere" [ref=e331]:
+                    - generic [ref=e332]: No Requiere
+                  - cell "Crédito" [ref=e334]
+                  - cell "$14,52" [ref=e335]
+                  - cell "visibility Devolver producto block" [ref=e336]:
+                    - generic [ref=e337]:
+                      - link "visibility" [ref=e338] [cursor=pointer]:
+                        - /url: /Venta/Details/18
+                        - generic [ref=e339]: visibility
+                      - button "Devolver producto" [ref=e340] [cursor=pointer]:
+                        - generic [ref=e341]: assignment_return
+                      - link "block" [ref=e342] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/18
+                        - generic [ref=e343]: block
+                - 'row "VTA-202602-000009 14 feb 2026 Pérez, Ventilador - DNI: 11111111111111111111 Confirmada No Requiere Crédito $62.899,00 visibility Devolver producto block" [ref=e344]':
+                  - cell "VTA-202602-000009" [ref=e345]
+                  - cell "14 feb 2026" [ref=e346]
+                  - 'cell "Pérez, Ventilador - DNI: 11111111111111111111" [ref=e347]'
+                  - cell "Confirmada" [ref=e348]:
+                    - generic [ref=e349]: Confirmada
+                  - cell "No Requiere" [ref=e350]:
+                    - generic [ref=e351]: No Requiere
+                  - cell "Crédito" [ref=e353]
+                  - cell "$62.899,00" [ref=e354]
+                  - cell "visibility Devolver producto block" [ref=e355]:
+                    - generic [ref=e356]:
+                      - link "visibility" [ref=e357] [cursor=pointer]:
+                        - /url: /Venta/Details/17
+                        - generic [ref=e358]: visibility
+                      - button "Devolver producto" [ref=e359] [cursor=pointer]:
+                        - generic [ref=e360]: assignment_return
+                      - link "block" [ref=e361] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/17
+                        - generic [ref=e362]: block
+        - generic [ref=e363]:
+          - paragraph [ref=e364]: Mostrando 13 resultados
+          - paragraph [ref=e365]: La última columna concentra seguimiento y acciones disponibles por operación.
+  - button "bug_report" [ref=e366]:
+    - generic [ref=e367]: bug_report

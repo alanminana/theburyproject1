@@ -1,0 +1,89 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTI�N
+    - navigation [ref=e7]:
+      - link "grid_view Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e10]: grid_view
+        - paragraph: Dashboard
+      - generic [ref=e11]:
+        - paragraph: Operaciones
+        - generic [ref=e12]:
+          - link "shopping_bag Ventas" [ref=e13] [cursor=pointer]:
+            - /url: /Venta
+          - link "group Clientes" [ref=e15] [cursor=pointer]:
+            - /url: /Cliente
+      - generic [ref=e17]:
+        - paragraph: Log�stica
+        - generic [ref=e18]:
+          - link "inventory_2 Inventario" [ref=e19] [cursor=pointer]:
+            - /url: /Catalogo
+          - link "local_shipping Proveedores" [ref=e21] [cursor=pointer]:
+            - /url: /Proveedor
+          - link "point_of_sale Cajas" [ref=e23] [cursor=pointer]:
+            - /url: /Caja
+      - generic [ref=e25]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e27] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e28]: security
+          - paragraph: Seguridad
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e32]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesi�n":
+          - generic: logout
+          - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e34]:
+      - generic [ref=e35]: chevron_left
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - heading "Seguridad" [level=2] [ref=e39]
+        - generic [ref=e41]:
+          - generic [ref=e42]
+          - generic [ref=e45]
+          - generic [ref=e48]
+      - generic [ref=e51]:
+        - button "notifications" [ref=e52]:
+          - generic [ref=e53]: notifications
+        - button "search" [ref=e55]:
+          - generic [ref=e56]: search
+        - button "help" [ref=e58]:
+          - generic [ref=e59]: help
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]
+          - generic [ref=e74]
+        - navigation [ref=e87]:
+          - link "Usuarios" [ref=e88] [cursor=pointer]:
+            - /url: /Seguridad?tab=usuarios
+          - link "Roles" [ref=e89] [cursor=pointer]:
+            - /url: /Seguridad?tab=roles
+          - link "Permisos de Rol" [ref=e90] [cursor=pointer]:
+            - /url: /Seguridad?tab=permisos-rol
+          - link "Auditoría" [ref=e91] [cursor=pointer]:
+            - /url: /Seguridad?tab=auditoria
+      - generic [ref=e92]:
+        - generic [ref=e94]:
+          - generic [ref=e95]
+          - generic [ref=e108]
+        - generic [ref=e121]:
+          - generic [ref=e122]
+          - combobox [ref=e125]
+          - combobox [ref=e126]
+          - combobox [ref=e127]
+          - generic [ref=e129]
+        - generic [ref=e135]:
+          - region "Tabla de usuarios del módulo Seguridad" [ref=e138]
+          - paragraph [ref=e524]

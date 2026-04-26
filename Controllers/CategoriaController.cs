@@ -403,7 +403,18 @@ namespace TheBuryProject.Controllers
                 };
 
                 await _categoriaService.CreateAsync(categoria);
-                return Json(new { success = true, message = "Categoría creada exitosamente" });
+                return Json(new
+                {
+                    success = true,
+                    message = "Categoría creada exitosamente",
+                    entity = new
+                    {
+                        id     = categoria.Id,
+                        codigo = categoria.Codigo,
+                        nombre = categoria.Nombre,
+                        activo = categoria.Activo
+                    }
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -414,6 +425,87 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al crear categoría vía AJAX");
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear la categoría. Intentá nuevamente." } } } });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetJson(int id)
+        {
+            try
+            {
+                var categoria = await _categoriaService.GetByIdAsync(id);
+                if (categoria == null) return NotFound();
+                return Json(new
+                {
+                    id = categoria.Id,
+                    codigo = categoria.Codigo,
+                    nombre = categoria.Nombre,
+                    descripcion = categoria.Descripcion ?? string.Empty,
+                    parentId = (object?)categoria.ParentId,
+                    controlSerieDefault = categoria.ControlSerieDefault,
+                    activo = categoria.Activo,
+                    rowVersion = categoria.RowVersion != null ? Convert.ToBase64String(categoria.RowVersion) : string.Empty
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener JSON de categoría {Id}", id);
+                return StatusCode(500);
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditAjax(int id, CategoriaViewModel viewModel)
+        {
+            if (id != viewModel.Id)
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "ID inválido" } } } });
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState
+                    .Where(x => x.Value!.Errors.Count > 0)
+                    .ToDictionary(k => k.Key, v => v.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+                return Json(new { success = false, errors });
+            }
+
+            try
+            {
+                if (viewModel.RowVersion is null || viewModel.RowVersion.Length == 0)
+                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "No se recibió la versión de fila. Recargá e intentá nuevamente." } } } });
+
+                if (await _categoriaService.ExistsCodigoAsync(viewModel.Codigo, id))
+                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe otra categoría con este código" } } } });
+
+                var categoria = new Categoria
+                {
+                    Id = viewModel.Id,
+                    Codigo = viewModel.Codigo,
+                    Nombre = viewModel.Nombre,
+                    Descripcion = viewModel.Descripcion,
+                    ParentId = viewModel.ParentId,
+                    ControlSerieDefault = viewModel.ControlSerieDefault,
+                    Activo = viewModel.Activo,
+                    RowVersion = viewModel.RowVersion
+                };
+
+                await _categoriaService.UpdateAsync(categoria);
+                return Json(new
+                {
+                    success = true,
+                    message = "Categoría actualizada exitosamente",
+                    entity = new { id = categoria.Id, codigo = viewModel.Codigo, nombre = viewModel.Nombre, activo = viewModel.Activo }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validación al editar categoría vía AJAX {Id}", id);
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al editar categoría vía AJAX {Id}", id);
+                return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar. Intentá nuevamente." } } } });
             }
         }
 

@@ -3,6 +3,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
 {
@@ -17,17 +18,20 @@ namespace TheBuryProject.Services
         private readonly ILogger<ProductoService> _logger;
         private readonly IPrecioHistoricoService _precioHistoricoService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IPrecioService _precioService;
 
         public ProductoService(
             AppDbContext context,
             ILogger<ProductoService> logger,
             IPrecioHistoricoService precioHistoricoService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IPrecioService precioService)
         {
             _context = context;
             _logger = logger;
             _precioHistoricoService = precioHistoricoService;
             _currentUserService = currentUserService;
+            _precioService = precioService;
         }
 
         #region CRUD Básico
@@ -597,6 +601,80 @@ namespace TheBuryProject.Services
                     Valor = nueva.Valor
                 });
             }
+        }
+
+        #endregion
+
+        #region Búsqueda para venta
+
+        public async Task<IEnumerable<ProductoVentaDto>> BuscarParaVentaAsync(
+            string term,
+            int take = 20,
+            int? categoriaId = null,
+            int? marcaId = null,
+            bool soloConStock = true,
+            decimal? precioMin = null,
+            decimal? precioMax = null)
+        {
+            var limite = Math.Clamp(take, 1, 50);
+            var termino = term.Trim();
+
+            var productos = (await SearchAsync(
+                    searchTerm: termino,
+                    categoriaId: categoriaId,
+                    marcaId: marcaId,
+                    soloActivos: true,
+                    orderBy: "nombre"))
+                .ToList();
+
+            var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
+            var preciosBatch = listaPredeterminada != null
+                ? await _precioService.GetPreciosVigentesBatchAsync(
+                    productos.Select(p => p.Id), listaPredeterminada.Id)
+                : new Dictionary<int, ProductoPrecioLista>();
+
+            var resultado = new List<ProductoVentaDto>(productos.Count);
+
+            foreach (var producto in productos)
+            {
+                var precioVenta = producto.PrecioVenta;
+                if (preciosBatch.TryGetValue(producto.Id, out var vigente))
+                    precioVenta = vigente.Precio;
+
+                if (soloConStock && producto.StockActual <= 0) continue;
+                if (precioMin.HasValue && precioVenta < precioMin.Value) continue;
+                if (precioMax.HasValue && precioVenta > precioMax.Value) continue;
+
+                var caracteristicas = producto.Caracteristicas?
+                    .Where(c => !c.IsDeleted)
+                    .Select(c => new ProductoCaracteristicaDto { Nombre = c.Nombre, Valor = c.Valor })
+                    .ToList() ?? new List<ProductoCaracteristicaDto>();
+
+                var caracteristicasResumen = producto.Caracteristicas?
+                    .Where(c => !c.IsDeleted)
+                    .Take(3)
+                    .Select(c => c.Valor)
+                    .ToList() ?? new List<string>();
+
+                resultado.Add(new ProductoVentaDto
+                {
+                    Id                    = producto.Id,
+                    Codigo                = producto.Codigo,
+                    Nombre                = producto.Nombre,
+                    Marca                 = producto.Marca?.Nombre,
+                    Submarca              = producto.Submarca?.Nombre,
+                    Categoria             = producto.Categoria?.Nombre,
+                    Subcategoria          = producto.Subcategoria?.Nombre,
+                    Descripcion           = producto.Descripcion,
+                    StockActual           = producto.StockActual,
+                    PrecioVenta           = precioVenta,
+                    Caracteristicas       = caracteristicas,
+                    CaracteristicasResumen = string.Join(" · ", caracteristicasResumen),
+                    CodigoExacto          = string.Equals(producto.Codigo, termino, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+
+            return resultado.Take(limite);
         }
 
         #endregion

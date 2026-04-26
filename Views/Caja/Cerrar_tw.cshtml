@@ -7,24 +7,24 @@
 <div class="caja-page-shell space-y-8">
 
     <header class="space-y-6">
-        <div class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Cajas</a>
+        <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
+            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
             <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="hover:text-primary transition-colors no-underline text-slate-500 dark:text-slate-400">Detalles de apertura</a>
+            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="hover:text-primary transition-colors no-underline text-slate-400">Detalles de apertura</a>
             <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-slate-900 dark:text-white">Cerrar caja</span>
+            <span class="text-white">Cerrar caja</span>
         </div>
 
         <div class="caja-page-header-layout caja-cerrar-header-layout">
             <div class="space-y-2">
-                <h1 class="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-tight">Cerrar caja</h1>
-                <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400 sm:text-base">
+                <h1 class="text-white text-4xl font-black leading-tight tracking-tight">Cerrar caja</h1>
+                <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
                     Registrá el arqueo final del turno, compará el efectivo contado contra el sistema y dejá documentado cualquier desvío antes del cierre.
                 </p>
             </div>
             <div class="caja-page-header-actions caja-cerrar-header-actions">
                 <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="caja-page-header-action caja-cerrar-header-action inline-flex items-center justify-center rounded-lg h-11 px-6 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 no-underline">
+                   class="caja-page-header-action caja-cerrar-header-action inline-flex items-center justify-center rounded-lg h-11 px-6 bg-slate-800 text-slate-700 text-white text-sm font-bold hover:bg-slate-700 transition-all border border-slate-700 no-underline">
                     <span class="material-symbols-outlined mr-2 text-xl">arrow_back</span>
                     Volver
                 </a>
@@ -34,37 +34,37 @@
 
     @if (TempData["Error"] != null)
     {
-        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
+        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
             <span class="material-symbols-outlined text-lg">error</span>
             @TempData["Error"]
         </div>
     }
 
     <div class="caja-page-metrics caja-page-metrics--4 caja-cerrar-metrics">
-        <article class="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Monto inicial</p>
-            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">$@Model.MontoInicialSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Base del turno al momento de la apertura.</p>
+        <article class="card-erp-panel p-4">
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Monto inicial</p>
+            <p class="mt-2 text-2xl font-black text-white">$@Model.MontoInicialSistema.ToString("N2")</p>
+            <p class="mt-1 text-xs text-slate-400">Base del turno al momento de la apertura.</p>
         </article>
         <article class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Ingresos sistema</p>
-            <p class="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">+$@Model.TotalIngresosSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-emerald-600/80 dark:text-emerald-400/80">Movimientos que incrementaron el saldo esperado.</p>
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">Ingresos sistema</p>
+            <p class="mt-2 text-2xl font-black text-emerald-400">+$@Model.TotalIngresosSistema.ToString("N2")</p>
+            <p class="mt-1 text-xs text-emerald-600/80 text-emerald-400/80">Movimientos que incrementaron el saldo esperado.</p>
         </article>
         <article class="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">Egresos sistema</p>
-            <p class="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400">-$@Model.TotalEgresosSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-rose-600/80 dark:text-rose-400/80">Movimientos que redujeron el saldo esperado.</p>
+            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-400">Egresos sistema</p>
+            <p class="mt-2 text-2xl font-black text-rose-400">-$@Model.TotalEgresosSistema.ToString("N2")</p>
+            <p class="mt-1 text-xs text-rose-600/80 text-rose-400/80">Movimientos que redujeron el saldo esperado.</p>
         </article>
         <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Monto esperado</p>
-            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Referencia final contra la que se valida el arqueo.</p>
+            <p class="mt-2 text-2xl font-black text-white" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</p>
+            <p class="mt-1 text-xs text-slate-300">Referencia final contra la que se valida el arqueo.</p>
         </article>
     </div>
 
     <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 empty:hidden"
+         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden"
          role="alert"></div>
 
     <form asp-action="Cerrar" method="post" id="form-cerrar" class="space-y-8">
@@ -78,23 +78,23 @@
         <div class="caja-page-main-grid caja-page-main-grid--aside-left caja-cerrar-main-grid">
 
             <aside class="space-y-6">
-                <section class="rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                <section class="card-erp-panel-padded">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary">info</span>
-                        <h2 class="text-slate-900 dark:text-white text-xl font-bold">Información de apertura</h2>
+                        <h2 class="text-white text-xl font-bold">Información de apertura</h2>
                     </div>
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-slate-500 dark:text-slate-400 text-sm">Caja</span>
-                            <span class="text-right text-slate-900 dark:text-white text-sm font-semibold">@Model.CajaNombre</span>
+                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 border-slate-800">
+                            <span class="text-slate-400 text-sm">Caja</span>
+                            <span class="text-right text-white text-sm font-semibold">@Model.CajaNombre</span>
                         </div>
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-slate-500 dark:text-slate-400 text-sm">Usuario</span>
-                            <span class="text-right text-slate-900 dark:text-white text-sm font-semibold">@Model.UsuarioApertura</span>
+                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 border-slate-800">
+                            <span class="text-slate-400 text-sm">Usuario</span>
+                            <span class="text-right text-white text-sm font-semibold">@Model.UsuarioApertura</span>
                         </div>
                         <div class="flex justify-between items-center gap-4 py-2">
-                            <span class="text-slate-500 dark:text-slate-400 text-sm">Apertura</span>
-                            <span class="text-right text-slate-900 dark:text-white text-sm font-semibold">
+                            <span class="text-slate-400 text-sm">Apertura</span>
+                            <span class="text-right text-white text-sm font-semibold">
                                 @(Model.FechaApertura?.ToString("dd/MM/yyyy hh:mm tt") ?? "—")
                             </span>
                         </div>
@@ -104,9 +104,9 @@
                 <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="material-symbols-outlined text-amber-500">rule</span>
-                        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Checklist del cierre</h2>
+                        <h2 class="text-white text-lg font-bold">Checklist del cierre</h2>
                     </div>
-                    <ul class="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                    <ul class="space-y-3 text-sm text-slate-300">
                         <li class="flex items-start gap-2">
                             <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
                             Confirmá el efectivo contado, cheques y vales antes de cerrar.
@@ -123,74 +123,74 @@
                 </section>
             </aside>
 
-            <section class="rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <section class="card-erp-panel">
                 <div class="p-6 space-y-8">
                     <div class="space-y-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
-                            <h2 class="text-slate-900 dark:text-white text-xl font-bold">Arqueo físico</h2>
+                            <h2 class="text-white text-xl font-bold">Arqueo físico</h2>
                         </div>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                        <p class="text-sm text-slate-400">
                             Ingresá los valores contados y revisá en vivo si el cierre da exacto, con sobrante o con faltante.
                         </p>
                     </div>
 
                     <div class="caja-cerrar-input-grid">
                         <div class="flex flex-col gap-2">
-                            <label asp-for="EfectivoContado" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Efectivo contado</label>
+                            <label asp-for="EfectivoContado" class="text-sm font-semibold text-slate-300">Efectivo contado</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-3 pl-8 pr-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
                             </div>
                             <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label asp-for="ChequesContados" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Cheques contados</label>
+                            <label asp-for="ChequesContados" class="text-sm font-semibold text-slate-300">Cheques contados</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="ChequesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-3 pl-8 pr-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
                             </div>
                             <span asp-validation-for="ChequesContados" class="text-rose-500 text-xs"></span>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label asp-for="ValesContados" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Vales u otros</label>
+                            <label asp-for="ValesContados" class="text-sm font-semibold text-slate-300">Vales u otros</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="ValesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-3 pl-8 pr-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
                             </div>
                             <span asp-validation-for="ValesContados" class="text-rose-500 text-xs"></span>
                         </div>
                     </div>
 
-                    <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 dark:border-slate-700 dark:bg-slate-800/70">
+                    <section class="rounded-2xl border border-slate-700 bg-slate-800/70 p-6">
                         <div class="flex flex-col gap-3 pb-5">
                             <div class="flex flex-wrap items-center justify-between gap-3">
-                                <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Resultado del arqueo</h3>
+                                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Resultado del arqueo</h3>
                                 <span id="diferencia-status"
                                       class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-500">
                                     Exacto
                                 </span>
                             </div>
-                            <p id="diferencia-help" class="text-sm text-slate-500 dark:text-slate-400">
+                            <p id="diferencia-help" class="text-sm text-slate-400">
                                 Cuando el total contado coincide con el sistema, no hace falta justificar diferencias.
                             </p>
                         </div>
 
                         <div class="caja-cerrar-result-grid">
-                            <article class="caja-cerrar-result-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total real</p>
-                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-slate-900 dark:text-white" id="total-real">$0,00</p>
+                            <article class="caja-cerrar-result-card card-erp-panel p-4">
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total real</p>
+                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-white" id="total-real">$0,00</p>
                             </article>
-                            <article class="caja-cerrar-result-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Monto esperado</p>
-                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-slate-900 dark:text-white">$@Model.MontoEsperadoSistema.ToString("N2")</p>
+                            <article class="caja-cerrar-result-card card-erp-panel p-4">
+                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monto esperado</p>
+                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-white">$@Model.MontoEsperadoSistema.ToString("N2")</p>
                             </article>
-                            <article class="caja-cerrar-result-card rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                            <article class="caja-cerrar-result-card card-erp-panel p-4">
                                 <div class="flex items-center gap-2">
-                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Diferencia</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Diferencia</p>
                                     <span class="material-symbols-outlined text-lg" id="diferencia-icon">check_circle</span>
                                 </div>
                                 <p class="caja-cerrar-result-value mt-2 text-2xl font-black" id="diferencia-valor">$0,00</p>
@@ -198,46 +198,46 @@
                         </div>
                     </section>
 
-                    <div data-caja-justificacion class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
+                    <div data-caja-justificacion class="card-erp-panel p-5">
                         <div class="flex flex-col gap-2">
-                            <label asp-for="JustificacionDiferencia" class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <label asp-for="JustificacionDiferencia" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
                                 Justificación de diferencia
                                 <span class="text-xs font-normal text-slate-400">(solo si existe descuadre)</span>
                             </label>
                             <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="3" disabled
                                       placeholder="Explique el motivo del sobrante o faltante..."
-                                      class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all disabled:opacity-50"></textarea>
+                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all disabled:opacity-50"></textarea>
                             <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
                         </div>
                     </div>
 
                     <div class="caja-cerrar-notes-grid">
                         <div class="flex flex-col gap-2">
-                            <label asp-for="DetalleArqueo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Detalle de billetes y monedas</label>
+                            <label asp-for="DetalleArqueo" class="text-sm font-semibold text-slate-300">Detalle de billetes y monedas</label>
                             <textarea asp-for="DetalleArqueo" rows="4"
                                       placeholder="Ej: 10 x $1000, 5 x $500..."
-                                      class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
+                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label asp-for="ObservacionesCierre" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Observaciones generales</label>
+                            <label asp-for="ObservacionesCierre" class="text-sm font-semibold text-slate-300">Observaciones generales</label>
                             <textarea asp-for="ObservacionesCierre" rows="4"
                                       placeholder="Notas adicionales sobre el cierre de turno..."
-                                      class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
+                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
                         </div>
                     </div>
 
                     <div class="flex items-start gap-4 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
                         <span class="material-symbols-outlined text-amber-500 mt-0.5">warning</span>
-                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                            <span class="font-bold text-amber-600 dark:text-amber-400">Aviso importante:</span> si existe diferencia entre el monto real y el esperado, debe justificarse obligatoriamente. Una vez cerrada la caja, no podrá realizar modificaciones.
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            <span class="font-bold text-amber-400">Aviso importante:</span> si existe diferencia entre el monto real y el esperado, debe justificarse obligatoriamente. Una vez cerrada la caja, no podrá realizar modificaciones.
                         </p>
                     </div>
                 </div>
 
-                <div class="border-t border-slate-200 px-6 py-5 dark:border-slate-800">
+                <div class="border-t border-slate-800 px-6 py-5">
                     <div class="caja-page-footer-actions caja-cerrar-footer-actions">
                         <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                           class="caja-page-footer-action caja-cerrar-footer-action inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-8 py-3 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline">
+                           class="caja-page-footer-action caja-cerrar-footer-action inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-8 py-3 text-slate-300 font-bold hover:bg-slate-800 transition-colors no-underline">
                             Cancelar
                         </a>
                         <button type="submit"
@@ -254,45 +254,6 @@
 
 @section Styles {
     <partial name="_CajaModuleStyles" />
-    <style>
-        .caja-cerrar-input-grid,
-        .caja-cerrar-result-grid,
-        .caja-cerrar-notes-grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .caja-cerrar-input-grid,
-        .caja-cerrar-result-grid,
-        .caja-cerrar-notes-grid {
-            grid-template-columns: minmax(0, 1fr);
-        }
-
-        html.dark .caja-cerrar-result-card {
-            background: rgba(15, 23, 42, 0.92);
-            border-color: rgb(51 65 85);
-        }
-
-        html.dark .caja-cerrar-result-value {
-            color: rgb(248 250 252);
-        }
-
-        @@media (min-width: 1024px) {
-            .caja-cerrar-input-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-
-            .caja-cerrar-notes-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @@media (min-width: 1280px) {
-            .caja-cerrar-result-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-        }
-    </style>
 }
 
 @section Scripts {

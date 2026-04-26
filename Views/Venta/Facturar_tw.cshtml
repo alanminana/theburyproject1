@@ -1,0 +1,170 @@
+@model FacturaViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Emitir Factura";
+    var venta = ViewBag.Venta as VentaViewModel;
+    var tiposFactura = ViewBag.TiposFactura as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+}
+
+@if (TempData["Error"] is string errorMsg)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-400">
+        <span class="material-symbols-outlined">error</span>
+        <p class="text-sm font-medium">@errorMsg</p>
+    </div>
+}
+
+<div class="mx-auto flex max-w-4xl flex-col gap-6">
+
+    <header class="flex flex-wrap items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+            <a asp-action="Details" asp-route-id="@Model.VentaId"
+               class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-200 transition-colors hover:bg-slate-700 no-underline"
+               aria-label="Volver al detalle de la venta">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+            </a>
+            <div class="flex flex-col gap-1">
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-green-500">Emisión de comprobante</p>
+                <h1 class="text-3xl font-black tracking-tight text-white">Emitir factura</h1>
+                <p class="max-w-2xl text-sm text-slate-400">
+                    Completá los datos del comprobante. Una vez emitida, la factura queda asociada permanentemente a la venta.
+                </p>
+            </div>
+        </div>
+        <span class="inline-flex items-center rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-green-400">
+            Lista para facturar
+        </span>
+    </header>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
+            <span class="material-symbols-outlined mt-0.5 text-rose-500">error</span>
+            <div class="text-sm text-rose-400">
+                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <p>@error.ErrorMessage</p>
+                }
+            </div>
+        </div>
+    }
+
+    <section class="grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]">
+
+        @if (venta != null)
+        {
+            <div class="venta-section overflow-hidden shadow-sm">
+                <div class="border-b border-slate-800 px-6 py-5">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary">shopping_bag</span>
+                        <h2 class="text-lg font-bold text-white">Venta a facturar</h2>
+                    </div>
+                </div>
+                <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Número de venta</p>
+                        <p class="font-mono text-lg font-bold text-white">@venta.Numero</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</p>
+                        <p class="font-semibold text-white">@venta.ClienteNombre</p>
+                        @if (!string.IsNullOrWhiteSpace(venta.ClienteDocumento))
+                        {
+                            <p class="text-xs text-slate-400">@venta.ClienteDocumento</p>
+                        }
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</p>
+                        <p class="font-medium text-white">@venta.Subtotal.ToString("C2")</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA</p>
+                        <p class="font-medium text-white">@venta.IVA.ToString("C2")</p>
+                    </div>
+                    <div class="space-y-1 sm:col-span-2">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total a facturar</p>
+                        <p class="text-2xl font-black text-green-400">@venta.Total.ToString("C2")</p>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <aside class="venta-section p-5">
+            <h2 class="text-base font-bold text-white">Datos del comprobante</h2>
+            <p class="mt-1 text-sm text-slate-400">Completá el tipo, punto de venta y fecha de emisión.</p>
+
+            <form asp-action="Facturar" method="post" class="mt-4 flex flex-col gap-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="VentaId" />
+                <input type="hidden" asp-for="Subtotal" />
+                <input type="hidden" asp-for="IVA" />
+                <input type="hidden" asp-for="Total" />
+
+                <div>
+                    <label asp-for="Tipo" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Tipo de comprobante <span class="text-rose-500">*</span>
+                    </label>
+                    <select asp-for="Tipo" asp-items="tiposFactura"
+                            class="venta-select py-2.5">
+                    </select>
+                    <span asp-validation-for="Tipo" class="text-xs text-rose-500 mt-1 block"></span>
+                </div>
+
+                <div>
+                    <label asp-for="PuntoVenta" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Punto de venta
+                    </label>
+                    <input asp-for="PuntoVenta" type="text" maxlength="50"
+                           class="venta-input py-2.5"
+                           placeholder="Ej: 0001" />
+                    <span asp-validation-for="PuntoVenta" class="text-xs text-rose-500 mt-1 block"></span>
+                </div>
+
+                <div>
+                    <label asp-for="FechaEmision" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Fecha de emisión <span class="text-rose-500">*</span>
+                    </label>
+                    <input asp-for="FechaEmision" type="date"
+                           class="venta-select py-2.5" />
+                    <span asp-validation-for="FechaEmision" class="text-xs text-rose-500 mt-1 block"></span>
+                </div>
+
+                <div>
+                    <label asp-for="CAE" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        CAE <span class="text-slate-400 font-normal">(opcional)</span>
+                    </label>
+                    <input asp-for="CAE" type="text" maxlength="100"
+                           class="venta-input py-2.5"
+                           placeholder="Código de autorización electrónica" />
+                    <span asp-validation-for="CAE" class="text-xs text-rose-500 mt-1 block"></span>
+                </div>
+
+                <div>
+                    <label asp-for="FechaVencimientoCAE" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Vencimiento CAE <span class="text-slate-400 font-normal">(opcional)</span>
+                    </label>
+                    <input asp-for="FechaVencimientoCAE" type="date"
+                           class="venta-select py-2.5" />
+                    <span asp-validation-for="FechaVencimientoCAE" class="text-xs text-rose-500 mt-1 block"></span>
+                </div>
+
+                <button type="submit"
+                        class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white shadow-lg shadow-green-600/20 transition-colors hover:bg-green-700">
+                    <span class="material-symbols-outlined text-lg">receipt</span>
+                    Emitir factura
+                </button>
+
+                <a asp-action="Details" asp-route-id="@Model.VentaId"
+                   class="btn-erp-ghost h-11 no-underline">
+                    Volver al detalle
+                </a>
+            </form>
+        </aside>
+
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/shared-ui.js" asp-append-version="true"></script>
+}

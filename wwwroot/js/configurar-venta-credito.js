@@ -37,6 +37,7 @@
     const heroCuotas       = $('#hero-cuotas');
     const heroMetodo       = $('#hero-metodo');
     const btnCancelar      = $('#btn-cancelar-credito');
+    const btnGenerarContrato = $('#btn-generar-contrato');
 
     // Plan summary
     const planCuotasLabel  = $('#plan-cuotas-label');
@@ -438,6 +439,14 @@
             } else {
                 window.location.href = cancelUrl;
             }
+        });
+    }
+
+    if (btnGenerarContrato) {
+        btnGenerarContrato.addEventListener('click', function () {
+            window.setTimeout(function () {
+                window.location.reload();
+            }, 2500);
         });
     }
 

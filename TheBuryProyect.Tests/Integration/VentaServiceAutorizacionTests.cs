@@ -60,7 +60,8 @@ public class VentaServiceAutorizacionTests : IDisposable
             new StubCurrentUserServiceVenta(),
             null!,   // IValidacionVentaService
             null!,   // ICajaService
-            null!);  // ICreditoDisponibleService
+            null!,   // ICreditoDisponibleService
+            new StubContratoVentaCreditoService());
     }
 
     public void Dispose()

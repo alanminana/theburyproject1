@@ -6,19 +6,19 @@
 
 <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
     <div id="blockUserCard"
-         class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden pointer-events-auto scale-95 opacity-0 transition-all duration-300">
-        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+         class="w-full max-w-lg bg-slate-900 rounded-xl shadow-2xl border border-slate-800 overflow-hidden pointer-events-auto scale-95 opacity-0 transition-all duration-300">
+        <div class="px-6 py-5 border-b border-slate-800 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="p-2 bg-rose-500/10 rounded-lg">
                     <span class="material-symbols-outlined text-rose-500">lock</span>
                 </div>
                 <div>
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Bloquear usuario</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@Model.UserName</p>
+                    <h2 class="text-xl font-bold text-white">Bloquear usuario</h2>
+                    <p class="text-xs text-slate-400 mt-1">@Model.UserName</p>
                 </div>
             </div>
             <button type="button" id="closeBlockUser"
-                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    class="text-slate-400 hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -33,43 +33,43 @@
                 <div class="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 flex items-start gap-3">
                     <span class="material-symbols-outlined text-rose-500 mt-0.5">warning</span>
                     <div>
-                        <p class="text-sm font-semibold text-rose-700 dark:text-rose-300">Confirmá el bloqueo de la cuenta</p>
-                        <p class="text-xs text-rose-600/90 dark:text-rose-200 mt-1">
+                        <p class="text-sm font-semibold text-rose-300">Confirmá el bloqueo de la cuenta</p>
+                        <p class="text-xs text-rose-200 mt-1">
                             Si dejás la fecha vacía, el bloqueo queda indefinido hasta que se desbloquee manualmente.
                         </p>
                     </div>
                 </div>
 
                 <div id="blockUserErrors"
-                     class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400">
+                     class="hidden rounded-lg border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
                     <div id="blockUserErrorList" class="space-y-1"></div>
                 </div>
 
                 <div class="space-y-2">
-                    <label asp-for="MotivoBloqueo" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <label asp-for="MotivoBloqueo" class="text-sm font-semibold text-slate-300">
                         Motivo de bloqueo
                     </label>
                     <textarea asp-for="MotivoBloqueo" rows="4"
-                              class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
+                              class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors"
                               placeholder="Describí el motivo del bloqueo."></textarea>
                 </div>
 
                 <div class="space-y-2">
-                    <label asp-for="BloqueadoHasta" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <label asp-for="BloqueadoHasta" class="text-sm font-semibold text-slate-300">
                         Bloqueado hasta
                     </label>
                     <input asp-for="BloqueadoHasta" type="datetime-local"
                            min="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                    <p class="text-xs text-slate-400">
                         Campo opcional. Si no se completa, el bloqueo será indefinido.
                     </p>
                 </div>
             </div>
 
-            <div class="px-6 py-5 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <div class="px-6 py-5 bg-slate-800/30 flex items-center justify-end gap-3 border-t border-slate-800">
                 <button type="button" id="cancelBlockUser"
-                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-300 hover:bg-slate-200 hover:bg-slate-700 transition-colors">
                     Cancelar
                 </button>
                 <button type="submit" id="submitBlockUser"

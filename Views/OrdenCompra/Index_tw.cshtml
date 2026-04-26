@@ -2,6 +2,7 @@
 @using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Órdenes de Compra";
+    ViewData["MetaDescription"] = "Gestión de órdenes de compra a proveedores, seguimiento de estados y recepción de mercadería.";
     var ordenes = (ViewBag.Ordenes as IEnumerable<TheBuryProject.ViewModels.OrdenCompraViewModel>
                    ?? Enumerable.Empty<TheBuryProject.ViewModels.OrdenCompraViewModel>()).ToList();
     var proveedores = ViewBag.Proveedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
@@ -12,38 +13,63 @@
         : Model.OrderBy.Trim().ToLowerInvariant();
 }
 
-<!-- Header -->
-<header class="flex flex-wrap items-center justify-between gap-4 mb-6">
-    <div class="flex flex-col gap-1">
-        <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Órdenes de Compra</h1>
-        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Gestión integral de abastecimiento para TheBuryProject</p>
-    </div>
-    <a asp-action="Create"
-       class="flex min-w-[140px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-11 px-5 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20 no-underline">
-        <span class="material-symbols-outlined text-[20px]">add_circle</span>
-        Nueva Orden
-    </a>
-</header>
+
+@{
+    var filtroOCActivo = !string.IsNullOrEmpty(Model.SearchTerm)
+                      || Model.ProveedorId.HasValue
+                      || Model.Estado.HasValue
+                      || Model.FechaDesde.HasValue
+                      || Model.FechaHasta.HasValue;
+    var filtroOCExpanded = filtroOCActivo ? "true" : "false";
+    var filtroOCHidden   = filtroOCActivo ? "false" : "true";
+}
 
 <!-- Filters -->
 <form asp-action="Index" method="get" id="form-filtros">
-    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-5 mb-6">
-        <div class="flex flex-wrap items-end gap-4">
-            <!-- Search -->
-            <div class="flex-1 min-w-[280px]">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Búsqueda rápida</label>
+    <div class="filter-panel-erp mb-6">
+        <div class="flex items-center gap-3">
+            <button type="button"
+                    id="btn-toggle-filtros"
+                    data-expanded="@filtroOCExpanded"
+                    aria-expanded="@filtroOCExpanded"
+                    aria-controls="filtros-body"
+                    class="flex flex-1 items-center justify-between gap-3 text-left">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Filtros</p>
+                        <p class="text-sm text-slate-400">Buscá por nº de orden, proveedor, estado o rango de fechas.</p>
+                    </div>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                    <span class="badge-erp badge-erp-neutral">@totalOrdenes resultado@(totalOrdenes == 1 ? "" : "s")</span>
+                    <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
+                </div>
+            </button>
+            <a asp-action="Create" class="btn-erp-primary btn-sm no-underline shrink-0">
+                <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Nueva Orden
+            </a>
+        </div>
+
+        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroOCHidden">
+        <!-- Fila 1: búsqueda + proveedor + estado -->
+        <div class="grid grid-cols-1 gap-4 pt-4 md:grid-cols-12">
+            <div class="md:col-span-5">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Búsqueda rápida</label>
                 <div class="relative">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
                     <input type="text" name="SearchTerm" value="@Model.SearchTerm"
-                           class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white"
+                           aria-label="Buscar por Nº de orden o referencia"
+                           class="w-full rounded-lg border border-slate-700 bg-slate-900 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50"
                            placeholder="Nº de orden o referencia..." />
                 </div>
             </div>
-            <!-- Proveedor -->
-            <div class="w-52">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Proveedor</label>
+            <div class="md:col-span-4">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</label>
                 <select name="ProveedorId"
-                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                        aria-label="Proveedor"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                     <option value="">Todos</option>
                     @if (proveedores != null)
                     {
@@ -54,11 +80,11 @@
                     }
                 </select>
             </div>
-            <!-- Estado -->
-            <div class="w-44">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Estado</label>
+            <div class="md:col-span-3">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Estado</label>
                 <select name="Estado"
-                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                        aria-label="Estado de orden"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                     <option value="">Cualquier estado</option>
                     <option value="@EstadoOrdenCompra.Borrador" selected="@(Model.Estado == EstadoOrdenCompra.Borrador)">Borrador</option>
                     <option value="@EstadoOrdenCompra.Enviada" selected="@(Model.Estado == EstadoOrdenCompra.Enviada)">Enviada</option>
@@ -68,11 +94,14 @@
                     <option value="@EstadoOrdenCompra.Cancelada" selected="@(Model.Estado == EstadoOrdenCompra.Cancelada)">Cancelada</option>
                 </select>
             </div>
-            <!-- Ordenar por -->
-            <div class="w-48">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Ordenar por</label>
+        </div>
+        <!-- Fila 2: ordenar + dirección + fechas + botones -->
+        <div class="mt-4 grid grid-cols-1 gap-4 border-t border-slate-800 pt-4 md:grid-cols-12">
+            <div class="md:col-span-3">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Ordenar por</label>
                 <select name="OrderBy"
-                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                        aria-label="Ordenar por"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                     <option value="fechaemision" selected="@(orderBy == "fechaemision")">Fecha Emisión</option>
                     <option value="numero" selected="@(orderBy == "numero")">Nº Orden</option>
                     <option value="proveedor" selected="@(orderBy == "proveedor")">Proveedor</option>
@@ -80,37 +109,35 @@
                     <option value="total" selected="@(orderBy == "total")">Total</option>
                 </select>
             </div>
-            <!-- Dirección -->
-            <div class="w-40">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Dirección</label>
+            <div class="md:col-span-2">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Dirección</label>
                 <select name="OrderDirection"
-                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white">
+                        aria-label="Dirección de orden"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                     <option value="desc" selected="@(Model.OrderDirection == "desc")">Descendente</option>
                     <option value="asc" selected="@(Model.OrderDirection == "asc")">Ascendente</option>
                 </select>
             </div>
-        </div>
-        <!-- Second row: dates + buttons -->
-        <div class="flex flex-wrap items-end gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div class="w-44">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Desde</label>
+            <div class="md:col-span-2">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Desde</label>
                 <input type="date" name="FechaDesde" value="@Model.FechaDesde?.ToString("yyyy-MM-dd")"
-                       class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white" />
+                       aria-label="Fecha desde"
+                       class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
             </div>
-            <div class="w-44">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Hasta</label>
+            <div class="md:col-span-2">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Hasta</label>
                 <input type="date" name="FechaHasta" value="@Model.FechaHasta?.ToString("yyyy-MM-dd")"
-                       class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary text-slate-900 dark:text-white" />
+                       aria-label="Fecha hasta"
+                       class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
             </div>
-            <div class="flex gap-2">
-                <button type="submit" class="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-lg transition-colors">Buscar</button>
-                <a asp-action="Index"
-                   class="w-10 h-10 flex items-center justify-center border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors no-underline"
-                   title="Limpiar filtros">
+            <div class="flex items-end gap-2 md:col-span-3">
+                <button type="submit" class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">Buscar</button>
+                <a asp-action="Index" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 px-3 text-slate-400 transition-colors hover:bg-slate-800 no-underline" title="Limpiar filtros">
                     <span class="material-symbols-outlined">filter_alt_off</span>
                 </a>
             </div>
         </div>
+        </div>@* /filtros-body *@
     </div>
 </form>
 
@@ -119,13 +146,13 @@
          data-oc-scroll
          style="--oc-scroll-min-width: 860px; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
     <div data-oc-scroll-hint
-         class="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 lg:hidden"
+         class="mb-3 flex items-center justify-between gap-3 rounded-lg border bg-slate-100/80 px-3 py-2 text-xs text-slate-600 border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
          hidden>
         <div class="flex items-center gap-2 font-semibold">
             <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
             <span id="ordencompra-scroll-hint-text">Deslizá la tabla para ver más columnas</span>
         </div>
-        <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+        <span class="rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 bg-slate-900/80 text-slate-400">
             Scroll horizontal
         </span>
     </div>
@@ -139,47 +166,47 @@
              hidden></div>
 
         <div data-oc-scroll-region
-             class="rounded-xl border border-slate-200 bg-white shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:border-slate-800 dark:bg-slate-900/50 dark:focus-visible:ring-offset-background-dark"
+             class="table-erp-wrapper focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background-dark"
              role="region"
              aria-label="Tabla de órdenes de compra"
              aria-describedby="ordencompra-scroll-hint-text"
              tabindex="0">
     <table data-oc-scroll-table class="w-full text-left border-collapse">
         <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800">
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Número</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Proveedor</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Fecha Emisión</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Fecha Entrega</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Estado</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Items</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Total</th>
-                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Acciones</th>
+            <tr class="border-b border-slate-800">
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Número</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Proveedor</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Emisión</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Entrega</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Items</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Total</th>
+                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Acciones</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody class="divide-y divide-slate-800">
             @if (ordenes.Any())
             {
                 @foreach (var o in ordenes)
                 {
                     var estadoBadge = o.Estado switch
                     {
-                        EstadoOrdenCompra.Borrador   => ("bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300",   "Borrador"),
-                        EstadoOrdenCompra.Enviada     => ("bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",    "Enviada"),
-                        EstadoOrdenCompra.Confirmada  => ("bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400","Confirmada"),
-                        EstadoOrdenCompra.EnTransito  => ("bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400","En tránsito"),
-                        EstadoOrdenCompra.Recibida    => ("bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400","Recibida"),
-                        EstadoOrdenCompra.Cancelada   => ("bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",       "Cancelada"),
+                        EstadoOrdenCompra.Borrador   => ("bg-slate-200 text-slate-700 bg-slate-800 text-slate-300",   "Borrador"),
+                        EstadoOrdenCompra.Enviada     => ("bg-blue-900/30 text-blue-400",    "Enviada"),
+                        EstadoOrdenCompra.Confirmada  => ("bg-green-900/30 text-green-400","Confirmada"),
+                        EstadoOrdenCompra.EnTransito  => ("bg-amber-900/30 text-amber-400","En tránsito"),
+                        EstadoOrdenCompra.Recibida    => ("bg-emerald-900/30 text-emerald-400","Recibida"),
+                        EstadoOrdenCompra.Cancelada   => ("bg-red-900/30 text-red-400",       "Cancelada"),
                         _ => ("bg-slate-200 text-slate-700", o.Estado.ToString())
                     };
                     var puedeRecepcionar = o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito;
                     var puedeEliminar = o.Estado != EstadoOrdenCompra.Recibida && o.Estado != EstadoOrdenCompra.EnTransito;
 
-                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <tr class="hover:bg-slate-800/50 transition-colors">
                         <td class="px-6 py-4 font-bold text-primary">@o.Numero</td>
                         <td class="px-6 py-4 font-medium">@o.ProveedorNombre</td>
-                        <td class="px-6 py-4 text-slate-500 dark:text-slate-400">@o.FechaEmision.ToString("dd MMM yyyy")</td>
-                        <td class="px-6 py-4 text-slate-500 dark:text-slate-400">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
+                        <td class="px-6 py-4 text-slate-400">@o.FechaEmision.ToString("dd MMM yyyy")</td>
+                        <td class="px-6 py-4 text-slate-400">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold @estadoBadge.Item1">
                                 @estadoBadge.Item2
@@ -188,57 +215,60 @@
                         <td class="px-6 py-4">@o.TotalItems</td>
                         <td class="px-6 py-4 font-bold">$@o.Total.ToString("N2")</td>
                         <td class="px-6 py-4 text-right whitespace-nowrap">
-                            <div class="flex flex-nowrap justify-end oc-action-list">
+                            <div class="flex flex-nowrap justify-end gap-1">
                                 <a asp-action="Details" asp-route-id="@o.Id"
-                                   class="oc-action-btn inline-flex items-center text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                                   class="row-action row-action--primary no-underline"
                                    aria-label="Ver detalle de la orden"
                                    title="Ver detalle">
-                                    <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">visibility</span>
-                                    <span class="oc-action-label text-xs font-semibold">Ver</span>
+                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                    <span class="row-action__label">Ver</span>
                                 </a>
-                                <span class="oc-action-disabled inline-flex cursor-not-allowed items-center text-slate-400 opacity-50"
-                                      aria-label="Editar no disponible"
-                                      title="La edición de órdenes de compra todavía no está disponible">
-                                    <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">edit</span>
-                                    <span class="oc-action-label text-xs font-semibold">Editar</span>
-                                </span>
+                                <button type="button" disabled
+                                        class="row-action row-action--disabled"
+                                        aria-label="Editar no disponible"
+                                        title="La edición de órdenes de compra todavía no está disponible">
+                                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                    <span class="row-action__label">Editar</span>
+                                </button>
                                 @if (puedeRecepcionar)
                                 {
                                     <a asp-action="Recepcionar" asp-route-id="@o.Id"
-                                       class="oc-action-btn inline-flex items-center text-emerald-600 transition-colors hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/30 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                                       class="row-action row-action--warning no-underline"
                                        aria-label="Recepcionar mercadería"
                                        title="Recepcionar mercadería">
-                                        <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">local_shipping</span>
-                                        <span class="oc-action-label text-xs font-semibold">Recibir</span>
+                                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                                        <span class="row-action__label">Recibir</span>
                                     </a>
                                 }
                                 else
                                 {
-                                    <span class="oc-action-disabled inline-flex cursor-not-allowed items-center text-slate-400 opacity-50"
-                                          aria-label="Recepción no disponible"
-                                          title="Solo se puede recepcionar en estado Confirmada o En tránsito">
-                                        <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">local_shipping</span>
-                                        <span class="oc-action-label text-xs font-semibold">Recibir</span>
-                                    </span>
+                                    <button type="button" disabled
+                                            class="row-action row-action--disabled"
+                                            aria-label="Recepción no disponible"
+                                            title="Solo se puede recepcionar en estado Confirmada o En tránsito">
+                                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                                        <span class="row-action__label">Recibir</span>
+                                    </button>
                                 }
                                 @if (puedeEliminar)
                                 {
                                     <a asp-action="Delete" asp-route-id="@o.Id"
-                                       class="oc-action-btn inline-flex items-center text-red-600 transition-colors hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                                       class="row-action row-action--danger no-underline"
                                        aria-label="Eliminar orden"
                                        title="Eliminar">
-                                        <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">delete</span>
-                                        <span class="oc-action-label text-xs font-semibold">Eliminar</span>
+                                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                        <span class="row-action__label">Eliminar</span>
                                     </a>
                                 }
                                 else
                                 {
-                                    <span class="oc-action-disabled inline-flex cursor-not-allowed items-center text-slate-400 opacity-50"
-                                          aria-label="Eliminar no disponible"
-                                          title="No se puede eliminar una orden en tránsito o recibida">
-                                        <span class="material-symbols-outlined oc-action-icon" aria-hidden="true">delete</span>
-                                        <span class="oc-action-label text-xs font-semibold">Eliminar</span>
-                                    </span>
+                                    <button type="button" disabled
+                                            class="row-action row-action--disabled"
+                                            aria-label="Eliminar no disponible"
+                                            title="No se puede eliminar una orden en tránsito o recibida">
+                                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                        <span class="row-action__label">Eliminar</span>
+                                    </button>
                                 }
                             </div>
                         </td>
@@ -252,11 +282,11 @@
     @if (!ordenes.Any())
     {
         <div class="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div class="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+            <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
                 <span class="material-symbols-outlined text-slate-400 text-3xl">search_off</span>
             </div>
-            <h3 class="text-lg font-bold text-slate-900 dark:text-white">No se encontraron órdenes</h3>
-            <p class="text-slate-500 dark:text-slate-400 max-w-xs mt-1">No se encontraron órdenes de compra que coincidan con los filtros aplicados.</p>
+            <h3 class="text-lg font-bold text-white">No se encontraron órdenes</h3>
+            <p class="text-slate-400 max-w-xs mt-1">No se encontraron órdenes de compra que coincidan con los filtros aplicados.</p>
             <a asp-action="Index" class="mt-6 text-primary font-semibold hover:underline flex items-center gap-1 no-underline">
                 <span class="material-symbols-outlined text-[18px]">filter_alt_off</span>
                 Limpiar filtros
@@ -268,21 +298,21 @@
 </section>
 
 <!-- Footer -->
-<footer class="mt-6 rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900/80 p-4 sm:p-5">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+<footer class="mt-6 rounded-xl border bg-slate-100 border-slate-800 bg-slate-900/80 p-4 sm:p-5">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div class="rounded-lg border border-slate-200 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/70">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Órdenes</span>
-                <p class="mt-1 text-2xl font-black leading-none text-slate-900 dark:text-white">@totalOrdenes.ToString("N0")</p>
+            <div class="rounded-lg border px-4 py-3 border-slate-800 bg-slate-900/70">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Órdenes</span>
+                <p class="mt-1 text-2xl font-black leading-none text-white">@totalOrdenes.ToString("N0")</p>
             </div>
-            <div class="rounded-lg border border-slate-200 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/70">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Valorizado</span>
+            <div class="rounded-lg border px-4 py-3 border-slate-800 bg-slate-900/70">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Valorizado</span>
                 <p class="mt-1 text-2xl font-black leading-none text-primary">$@totalValorizado.ToString("N2")</p>
             </div>
         </div>
-        <div class="flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400 lg:min-w-[220px] lg:justify-center">
+        <div class="flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 border-slate-700 text-slate-400 lg:min-w-[220px] lg:justify-center">
             <span>Mostrando</span>
-            <span class="font-semibold text-slate-900 dark:text-white">@ordenes.Count</span>
+            <span class="font-semibold text-white">@ordenes.Count</span>
             <span>órdenes</span>
         </div>
     </div>
@@ -304,65 +334,11 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-    <style>
-        .oc-action-list {
-            gap: 0.25rem;
-        }
-
-        .oc-action-btn,
-        .oc-action-disabled {
-            gap: 0.375rem;
-            padding: 0.5rem 0.625rem;
-            border-radius: 0.5rem;
-        }
-
-        .oc-action-icon {
-            font-size: 18px;
-        }
-
-        .oc-action-label {
-            display: inline;
-        }
-
-        @@media (min-width: 768px) {
-            .oc-action-list {
-                gap: 0.375rem;
-            }
-
-            .oc-action-btn,
-            .oc-action-disabled {
-                gap: 0.375rem;
-                padding: 0.5rem 0.625rem;
-            }
-
-            .oc-action-icon {
-                font-size: 20px;
-            }
-        }
-
-        @@media (min-width: 1024px) {
-            [data-oc-scroll-hint] {
-                display: none !important;
-            }
-
-            .oc-action-list {
-                gap: 0.25rem;
-            }
-
-            .oc-action-btn,
-            .oc-action-disabled {
-                padding: 0.35rem 0.4rem;
-            }
-
-            .oc-action-label {
-                display: none;
-            }
-        }
-    </style>
+    <partial name="_OrdenCompraModuleStyles" />
 }
 
 @section Scripts {
+    <script src="~/js/module-index.js" asp-append-version="true"></script>
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/ordencompra-index.js" asp-append-version="true"></script>
 }

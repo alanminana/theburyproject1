@@ -1,0 +1,189 @@
+@model IEnumerable<TheBuryProject.ViewModels.ProductoCriticoViewModel>
+@{
+    ViewData["Title"] = "Productos Críticos de Stock";
+    var lista    = Model?.ToList() ?? new List<TheBuryProject.ViewModels.ProductoCriticoViewModel>();
+    var agotados = lista.Where(p => p.EstaAgotado).ToList();
+    var criticos = lista.Where(p => !p.EstaAgotado).ToList();
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="hero-erp sm:p-8">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div class="flex-1 min-w-0">
+                <nav class="flex items-center gap-1.5 text-xs text-slate-400 mb-2">
+                    <a asp-action="Index" class="hover:text-slate-200 transition-colors">Alertas de Stock</a>
+                    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+                    <span class="text-slate-200">Críticos</span>
+                </nav>
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-100">Productos Críticos</h1>
+                <p class="mt-1 text-sm text-slate-400">Productos con stock agotado o por debajo del mínimo requerido.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 shrink-0">
+                <a asp-action="Index" class="btn-erp-ghost">
+                    <span class="material-symbols-outlined text-base">arrow_back</span>
+                    Ver todas las alertas
+                </a>
+                <a asp-action="Estadisticas" class="btn-erp-ghost">
+                    <span class="material-symbols-outlined text-base">bar_chart</span>
+                    Estadísticas
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    @if (lista.Any())
+    {
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="card-erp-metric card-erp-metric-danger">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Agotados</p>
+                <p class="mt-1 text-2xl font-bold text-red-400">@agotados.Count</p>
+                <p class="text-xs text-slate-500 mt-1">productos sin stock</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-warning">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Stock crítico</p>
+                <p class="mt-1 text-2xl font-bold text-amber-400">@criticos.Count</p>
+                <p class="text-xs text-slate-500 mt-1">bajo mínimo</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Total críticos</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">@lista.Count</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-danger">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Valor en riesgo</p>
+                <p class="mt-1 text-2xl font-bold text-red-400">$@lista.Sum(p => p.ValorInventario).ToString("N0")</p>
+                <p class="text-xs text-slate-500 mt-1">inventario afectado</p>
+            </div>
+        </div>
+    }
+
+    @if (agotados.Any())
+    {
+        <section class="card-erp-panel">
+            <div class="px-6 py-4 border-b border-red-900/40 bg-red-900/20">
+                <h2 class="font-semibold text-red-400 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-xl">remove_shopping_cart</span>
+                    Agotados
+                    <span class="ml-auto text-xs font-normal text-slate-400">@agotados.Count productos</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Código</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Stock</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Mínimo</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Reposición sug.</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Valor inv.</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Últ. venta</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Alertas pend.</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var p in agotados)
+                        {
+                            <tr class="hover:bg-slate-800/50 transition-colors bg-red-900/10">
+                                <td class="px-4 py-3 font-mono text-xs text-slate-500">@p.Codigo</td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-100">@p.Nombre</p>
+                                    <p class="text-xs text-slate-500">@p.CategoriaNombre@(p.MarcaNombre != null ? " · " + p.MarcaNombre : "")</p>
+                                </td>
+                                <td class="px-4 py-3 text-right font-bold text-red-400">@p.StockActual.ToString("N0")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">@p.StockMinimo.ToString("N0")</td>
+                                <td class="px-4 py-3 text-right text-amber-400">@(p.CantidadSugeridaReposicion.HasValue ? p.CantidadSugeridaReposicion.Value.ToString("N0") : "—")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">$@p.ValorInventario.ToString("N2")</td>
+                                <td class="px-4 py-3 text-slate-400 text-xs">
+                                    @(p.UltimaVenta.HasValue ? p.UltimaVenta.Value.ToString("dd/MM/yyyy") : "—")
+                                    @if (p.DiasDesdeUltimaVenta > 0)
+                                    {
+                                        <span class="block text-slate-500">hace @p.DiasDesdeUltimaVenta días</span>
+                                    }
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <a asp-action="PorProducto" asp-route-id="@p.Id"
+                                       class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs bg-amber-900/30 text-amber-400 hover:bg-amber-900/50 transition-colors">
+                                        @p.AlertasPendientes
+                                        <span class="material-symbols-outlined text-[12px]">open_in_new</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (criticos.Any())
+    {
+        <section class="card-erp-panel">
+            <div class="px-6 py-4 border-b border-amber-900/40 bg-amber-900/20">
+                <h2 class="font-semibold text-amber-400 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-xl">crisis_alert</span>
+                    Stock por debajo del mínimo
+                    <span class="ml-auto text-xs font-normal text-slate-400">@criticos.Count productos</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Código</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Stock</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Mínimo</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">% del mínimo</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Reposición sug.</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Valor inv.</th>
+                            <th class="px-4 py-3 text-center font-medium text-slate-400">Alertas pend.</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var p in criticos)
+                        {
+                            var pct = p.PorcentajeStockMinimo;
+                            var pctColor = pct < 25 ? "text-red-400" : pct < 50 ? "text-amber-400" : "text-yellow-400";
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="px-4 py-3 font-mono text-xs text-slate-500">@p.Codigo</td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-100">@p.Nombre</p>
+                                    <p class="text-xs text-slate-500">@p.CategoriaNombre@(p.MarcaNombre != null ? " · " + p.MarcaNombre : "")</p>
+                                </td>
+                                <td class="px-4 py-3 text-right font-semibold text-amber-400">@p.StockActual.ToString("N0")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">@p.StockMinimo.ToString("N0")</td>
+                                <td class="px-4 py-3 text-right font-semibold @pctColor">@pct.ToString("N0")%</td>
+                                <td class="px-4 py-3 text-right text-amber-400">@(p.CantidadSugeridaReposicion.HasValue ? p.CantidadSugeridaReposicion.Value.ToString("N0") : "—")</td>
+                                <td class="px-4 py-3 text-right text-slate-400">$@p.ValorInventario.ToString("N2")</td>
+                                <td class="px-4 py-3 text-center">
+                                    <a asp-action="PorProducto" asp-route-id="@p.Id"
+                                       class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs bg-amber-900/30 text-amber-400 hover:bg-amber-900/50 transition-colors">
+                                        @p.AlertasPendientes
+                                        <span class="material-symbols-outlined text-[12px]">open_in_new</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (!lista.Any())
+    {
+        <div class="card-erp-panel-padded py-16 text-center text-sm text-emerald-400">
+            <span class="material-symbols-outlined text-4xl block mb-3">check_circle</span>
+            No hay productos en estado crítico en este momento.
+        </div>
+    }
+
+</div>

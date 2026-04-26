@@ -5,15 +5,15 @@
 
     Func<string, string> badgeClasses = accion => accion.ToLowerInvariant() switch
     {
-        "crear" => "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-        "editar" => "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-        "eliminar" => "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400",
-        "bloquear" => "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400",
-        "desbloquear" => "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-        "reset password" => "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-        "permisos" => "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400",
-        "login" => "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-        _ => "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        "crear" => "bg-emerald-900/30 text-emerald-400",
+        "editar" => "bg-amber-900/30 text-amber-400",
+        "eliminar" => "bg-rose-900/30 text-rose-400",
+        "bloquear" => "bg-rose-900/30 text-rose-400",
+        "desbloquear" => "bg-emerald-900/30 text-emerald-400",
+        "reset password" => "bg-orange-900/30 text-orange-400",
+        "permisos" => "bg-violet-900/30 text-violet-400",
+        "login" => "bg-blue-900/30 text-blue-400",
+        _ => "bg-slate-800 text-slate-300"
     };
 
     Func<string, string> getInitials = usuario =>
@@ -26,17 +26,19 @@
 
     Func<int, string> avatarClasses = index => (index % 4) switch
     {
-        0 => "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-        1 => "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-        2 => "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-        _ => "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400"
+        0 => "bg-blue-900/30 text-blue-400",
+        1 => "bg-violet-900/30 text-violet-400",
+        2 => "bg-slate-800 text-slate-300",
+        _ => "bg-cyan-900/30 text-cyan-400"
     };
 
     var totalResultados = Model.Registros.Count;
     var rangoMostrado = totalResultados == 0 ? "0-0" : $"1-{totalResultados}";
 }
 
-<link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+@section Styles {
+    <partial name="_SeguridadModuleStyles" />
+}
 
 <partial name="_SeguridadTabs" />
 

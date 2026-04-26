@@ -1,0 +1,240 @@
+@model TheBuryProject.ViewModels.ProductoViewModel
+@{
+    ViewData["Title"] = "Editar Producto";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/catalogo-module.css" asp-append-version="true" />
+}
+
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
+                <a asp-controller="Catalogo" asp-action="Index" class="hover:text-white transition-colors no-underline">Inventario</a>
+                <span class="material-symbols-outlined text-sm">chevron_right</span>
+                <span class="text-primary">Editar Producto</span>
+            </div>
+            <h1 class="text-2xl font-bold text-white">Editar: @Model.Nombre</h1>
+        </div>
+        <a asp-controller="Catalogo" asp-action="Index"
+           class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white no-underline">
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Volver al Catálogo
+        </a>
+    </div>
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="space-y-6">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="RowVersion" />
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
+                <span class="material-symbols-outlined text-red-500 flex-shrink-0">error</span>
+                <div>
+                    <h4 class="text-sm font-bold text-red-500 mb-1">Errores de validación</h4>
+                    <div asp-validation-summary="All" class="text-xs text-red-400 space-y-0.5"></div>
+                </div>
+            </div>
+        }
+
+        <!-- Datos básicos -->
+        <div class="card-erp-panel p-6 space-y-6">
+            <div class="flex items-center gap-2 pb-4 border-b border-slate-800">
+                <span class="material-symbols-outlined text-primary">inventory_2</span>
+                <h2 class="text-lg font-bold text-white">Datos del Producto</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-1">
+                    <label asp-for="Codigo" class="text-sm font-semibold text-slate-300"></label>
+                    <input asp-for="Codigo" class="catalogo-input" placeholder="Ej: PROD-001" />
+                    <span asp-validation-for="Codigo" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="Nombre" class="text-sm font-semibold text-slate-300"></label>
+                    <input asp-for="Nombre" class="catalogo-input" placeholder="Nombre comercial del producto" />
+                    <span asp-validation-for="Nombre" class="text-xs text-red-400"></span>
+                </div>
+                <div class="md:col-span-2 space-y-1">
+                    <label asp-for="Descripcion" class="text-sm font-semibold text-slate-300"></label>
+                    <textarea asp-for="Descripcion" rows="3" class="catalogo-input" placeholder="Detalles técnicos o comerciales..."></textarea>
+                    <span asp-validation-for="Descripcion" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="CategoriaId" class="text-sm font-semibold text-slate-300"></label>
+                    <select asp-for="CategoriaId" asp-items="ViewBag.Categorias" class="catalogo-input">
+                        <option value="">Seleccionar categoría</option>
+                    </select>
+                    <span asp-validation-for="CategoriaId" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="SubcategoriaId" class="text-sm font-semibold text-slate-300"></label>
+                    <select asp-for="SubcategoriaId" id="edit-subcategoriaId" class="catalogo-input">
+                        <option value="">Sin subcategoría</option>
+                        @if (Model.SubcategoriaId.HasValue)
+                        {
+                            <option value="@Model.SubcategoriaId" selected>@Model.SubcategoriaNombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="MarcaId" class="text-sm font-semibold text-slate-300"></label>
+                    <select asp-for="MarcaId" asp-items="ViewBag.Marcas" class="catalogo-input">
+                        <option value="">Seleccionar marca</option>
+                    </select>
+                    <span asp-validation-for="MarcaId" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="SubmarcaId" class="text-sm font-semibold text-slate-300"></label>
+                    <select asp-for="SubmarcaId" id="edit-submarcaId" class="catalogo-input">
+                        <option value="">Sin submarca</option>
+                        @if (Model.SubmarcaId.HasValue)
+                        {
+                            <option value="@Model.SubmarcaId" selected>@Model.SubmarcaNombre</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Precios -->
+        <div class="card-erp-panel p-6 space-y-6">
+            <div class="flex items-center gap-2 pb-4 border-b border-slate-800">
+                <span class="material-symbols-outlined text-primary">payments</span>
+                <h2 class="text-lg font-bold text-white">Precios</h2>
+            </div>
+            <div class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3">
+                <span class="material-symbols-outlined text-primary text-base">info</span>
+                <p class="text-xs text-slate-300">Ingresá el Precio de Venta <strong>sin IVA</strong>. El sistema calculará el precio final automáticamente.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="space-y-1">
+                    <label asp-for="PrecioCompra" class="text-sm font-semibold text-slate-300"></label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input asp-for="PrecioCompra" type="number" step="0.01" min="0" class="catalogo-input pl-7" />
+                    </div>
+                    <span asp-validation-for="PrecioCompra" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Venta sin IVA</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input asp-for="PrecioVenta" id="edit-precioVenta" type="number" step="0.01" min="0" class="catalogo-input pl-7" />
+                    </div>
+                    <span asp-validation-for="PrecioVenta" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="PorcentajeIVA" class="text-sm font-semibold text-slate-300"></label>
+                    <select asp-for="PorcentajeIVA" id="edit-porcentajeIVA" class="catalogo-input">
+                        <option value="21">21%</option>
+                        <option value="10.5">10.5%</option>
+                        <option value="27">27%</option>
+                        <option value="0">0%</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-sm font-semibold text-slate-300">Precio Final (con IVA)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                        <input id="edit-precioFinal" type="text" readonly class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock -->
+        <div class="card-erp-panel p-6 space-y-6">
+            <div class="flex items-center gap-2 pb-4 border-b border-slate-800">
+                <span class="material-symbols-outlined text-primary">warehouse</span>
+                <h2 class="text-lg font-bold text-white">Stock &amp; Configuración</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label asp-for="StockActual" class="text-sm font-semibold text-slate-300"></label>
+                        <input asp-for="StockActual" type="number" min="0" step="1" class="catalogo-input" />
+                        <span asp-validation-for="StockActual" class="text-xs text-red-400"></span>
+                    </div>
+                    <div class="space-y-1">
+                        <label asp-for="StockMinimo" class="text-sm font-semibold text-slate-300"></label>
+                        <input asp-for="StockMinimo" type="number" min="0" step="1" class="catalogo-input" />
+                        <span asp-validation-for="StockMinimo" class="text-xs text-red-400"></span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800">
+                    <div>
+                        <p class="text-sm font-bold text-white">Producto Activo</p>
+                        <p class="text-xs text-slate-400">Habilitar este producto para la venta</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input asp-for="Activo" type="checkbox" value="true" class="sr-only peer" />
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Características -->
+        <div class="card-erp-panel p-6 space-y-4">
+            <div class="flex items-center gap-2 pb-4 border-b border-slate-800">
+                <span class="material-symbols-outlined text-primary">list_alt</span>
+                <h2 class="text-lg font-bold text-white">Características</h2>
+            </div>
+            @if (Model.Caracteristicas != null && Model.Caracteristicas.Any())
+            {
+                @for (var i = 0; i < Model.Caracteristicas.Count; i++)
+                {
+                    <input type="hidden" name="Caracteristicas[@i].Id" value="@Model.Caracteristicas[i].Id" />
+                    <div class="flex gap-3 items-center">
+                        <input name="Caracteristicas[@i].Nombre" type="text" value="@Model.Caracteristicas[i].Nombre"
+                               class="catalogo-input flex-1" placeholder="Característica" />
+                        <input name="Caracteristicas[@i].Valor" type="text" value="@Model.Caracteristicas[i].Valor"
+                               class="catalogo-input flex-1" placeholder="Valor" />
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="text-sm text-slate-400 italic">Este producto no tiene características registradas.</p>
+            }
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-3 pb-8">
+            <a asp-controller="Catalogo" asp-action="Index"
+               class="px-6 py-2.5 rounded-lg border border-slate-700 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors no-underline">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-8 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors">
+                <span class="material-symbols-outlined text-base">save</span>
+                Guardar Cambios
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var precioVenta  = document.getElementById('edit-precioVenta');
+            var porcentajeIVA = document.getElementById('edit-porcentajeIVA');
+            var precioFinal  = document.getElementById('edit-precioFinal');
+
+            function calcular() {
+                var pv  = parseFloat(precioVenta.value) || 0;
+                var iva = parseFloat(porcentajeIVA.value) || 0;
+                precioFinal.value = (pv * (1 + iva / 100)).toFixed(2).replace('.', ',');
+            }
+
+            precioVenta.addEventListener('input', calcular);
+            porcentajeIVA.addEventListener('change', calcular);
+            calcular();
+        })();
+    </script>
+}

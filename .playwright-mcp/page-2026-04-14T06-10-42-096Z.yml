@@ -1,0 +1,106 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph: Operaciones
+        - generic [ref=e9]:
+          - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e11]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e12] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e13]: group
+            - paragraph: Clientes
+      - generic [ref=e14]:
+        - paragraph: Logística
+        - generic [ref=e15]:
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e19]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e21]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e22]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e24] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e25]: security
+          - paragraph: Seguridad
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e29]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e31]:
+      - generic [ref=e32]: chevron_left
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Reportes" [level=2] [ref=e36]
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: Dolar Blue
+            - generic [ref=e41]: $1.245,00
+          - generic [ref=e42]:
+            - generic [ref=e43]: Tarjeta
+            - generic [ref=e44]: $1.482,50
+          - generic [ref=e45]:
+            - generic [ref=e46]: Oficial
+            - generic [ref=e47]: $942,00
+      - generic [ref=e48]:
+        - button "notifications" [ref=e49]:
+          - generic [ref=e50]: notifications
+        - button "search" [ref=e52]:
+          - generic [ref=e53]: search
+        - button "help" [ref=e55]:
+          - generic [ref=e56]: help
+    - generic [ref=e57]:
+      - generic [ref=e60]:
+        - navigation [ref=e61]:
+          - link "ERP" [ref=e62] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e63]: /
+          - generic [ref=e64]: Reportes
+        - generic [ref=e65]:
+          - generic [ref=e66]: receipt_long
+          - text: Reportes
+        - generic [ref=e67]:
+          - heading "Módulo Reportes" [level=1] [ref=e68]
+          - paragraph [ref=e69]: Generación y exportación de reportes del sistema.
+      - generic [ref=e70]:
+        - link "bar_chart Ventas Resumen de ventas por período, tipo de pago y vendedor." [ref=e71] [cursor=pointer]:
+          - /url: /Reporte/Ventas
+          - generic [ref=e72]: bar_chart
+          - generic [ref=e73]:
+            - paragraph [ref=e74]: Ventas
+            - paragraph [ref=e75]: Resumen de ventas por período, tipo de pago y vendedor.
+        - link "trending_up Márgenes Análisis de márgenes por producto y categoría." [ref=e76] [cursor=pointer]:
+          - /url: /Reporte/Margenes
+          - generic [ref=e77]: trending_up
+          - generic [ref=e78]:
+            - paragraph [ref=e79]: Márgenes
+            - paragraph [ref=e80]: Análisis de márgenes por producto y categoría.
+        - link "account_balance_wallet Morosidad Estado de cuotas vencidas y créditos en mora." [ref=e81] [cursor=pointer]:
+          - /url: /Reporte/Morosidad
+          - generic [ref=e82]: account_balance_wallet
+          - generic [ref=e83]:
+            - paragraph [ref=e84]: Morosidad
+            - paragraph [ref=e85]: Estado de cuotas vencidas y créditos en mora.

@@ -5,6 +5,9 @@ namespace TheBuryProject.ViewModels
 {
     public class CreditoFilterViewModel
     {
+        [Display(Name = "Cliente")]
+        public int? ClienteId { get; set; }
+
         [Display(Name = "Número de Crédito")]
         public string? Numero { get; set; }
 

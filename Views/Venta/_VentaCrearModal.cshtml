@@ -1,0 +1,837 @@
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Helpers
+@{
+    var tiposPago            = ViewBag.TiposPago  as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>;
+    var tarjetas             = ViewBag.Tarjetas   as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var categorias           = ViewBag.CategoriasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var marcas               = ViewBag.MarcasFiltro     as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var vendedores           = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
+    var ivaRate              = (decimal)(ViewBag.IvaRate ?? 0.21m);
+    var puedeExcepcion       = User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create");
+}
+
+@* ═══════════════════════════════════════════════════════════
+   Modal: Nueva Venta
+   ─ Full-screen overlay, alta accesibilidad visual
+   ═══════════════════════════════════════════════════════════ *@
+<div id="modal-crear-venta"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog" aria-label="Nueva Venta">
+
+    @* ── Backdrop ────────────────────────────────────────────── *@
+    <div class="absolute inset-0 bg-black/75 backdrop-blur-sm"
+         id="modal-crear-venta-backdrop"></div>
+
+    <div class="flex min-h-full items-start justify-center p-4 py-6">
+        <div class="vm-modal-panel relative w-full max-w-7xl rounded-2xl bg-[#111827] shadow-2xl shadow-black/60">
+
+            @* ── HEADER ─────────────────────────────────────────── *@
+            <div class="vm-modal-header-sep sticky top-0 z-10 flex items-center justify-between rounded-t-2xl bg-[#111827]/95 px-6 py-4 backdrop-blur-sm">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 ring-1 ring-blue-500/40">
+                        <span class="material-symbols-outlined text-blue-400">point_of_sale</span>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-black leading-tight text-white">Nueva Venta</h2>
+                        <p class="text-[11px] text-slate-400">Completá todos los campos y confirmá la transacción</p>
+                    </div>
+                </div>
+                <button type="button" id="btn-cerrar-modal-crear-venta"
+                        aria-label="Cerrar modal"
+                        class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-400 transition-all hover:border-slate-500 hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+
+            @* ── MÉTRICAS EN VIVO ──────────────────────────────── *@
+            <div class="grid grid-cols-2 gap-3 px-6 pt-5 sm:grid-cols-4">
+                <div class="vm-metric">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Cliente</p>
+                    <p id="hero-cliente" class="mt-1.5 truncate text-sm font-bold text-white">Sin seleccionar</p>
+                    <p id="hero-cliente-detalle" class="truncate text-[10px] text-slate-500">Buscá un cliente para iniciar</p>
+                </div>
+                <div class="vm-metric">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Detalle</p>
+                    <p id="hero-detalles-count" class="mt-1.5 text-sm font-bold text-white">0 productos</p>
+                    <p class="text-[10px] text-slate-500">Items en la operación</p>
+                </div>
+                <div class="vm-metric">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Total estimado</p>
+                    <p id="hero-total" class="mt-1.5 text-sm font-bold text-white">$0,00</p>
+                    <p class="text-[10px] text-slate-500">IVA incluido</p>
+                </div>
+                <div class="vm-metric">
+                    <p class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Forma de cobro</p>
+                    <p id="hero-tipo-pago" class="mt-1.5 text-sm font-bold text-white">Sin definir</p>
+                    <p class="text-[10px] text-slate-500">Cambia según selección</p>
+                </div>
+            </div>
+
+            @* ── VALIDACIÓN ────────────────────────────────────── *@
+            <div id="venta-ajax-validation-summary"
+                 class="vm-error-summary hidden">
+                <span class="material-symbols-outlined shrink-0 text-red-400">error</span>
+                <div class="flex-1">
+                    <p class="mb-1 text-sm font-bold text-red-300">Corrigé los errores antes de continuar</p>
+                    <ul id="venta-ajax-error-list" class="list-inside list-disc space-y-0.5 text-sm text-red-400"></ul>
+                </div>
+            </div>
+
+            @* ── FORMULARIO ────────────────────────────────────── *@
+            <div class="p-6">
+                <form id="venta-form" method="post" action="/Venta/CreateAjax" novalidate>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Estado" value="@((int)EstadoVenta.Presupuesto)" />
+                    <input type="hidden" id="hdn-iva-rate" value="@ivaRate" />
+
+                    <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:items-start">
+
+                        @* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                           Columna izquierda — 2/3
+                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ *@
+                        <div class="flex flex-col gap-5 lg:col-span-2">
+
+                            @* ─── § 1: Datos generales ─────────────────── *@
+                            <section class="vm-section">
+                                <div class="mb-5 flex items-start gap-3">
+                                    <div class="vm-step">1</div>
+                                    <div>
+                                        <h3 class="text-base font-bold text-white">Datos generales</h3>
+                                        <p class="mt-0.5 text-xs text-slate-400">Cliente, fecha y forma de cobro</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                                    @* Búsqueda de cliente *@
+                                    <div class="md:col-span-2">
+                                        <label class="vm-label" for="input-buscar-cliente">
+                                            <span class="material-symbols-outlined text-[14px]">person_search</span>
+                                            Buscar cliente
+                                            <span class="vm-required">*</span>
+                                        </label>
+                                        <div class="vm-search-wrap relative">
+                                            <span class="vm-search-icon material-symbols-outlined">search</span>
+                                            <input id="input-buscar-cliente"
+                                                   type="text"
+                                                   autocomplete="off"
+                                                   aria-label="Buscar cliente por nombre, CUIT o DNI"
+                                                   class="vm-input"
+                                                   placeholder="Nombre, CUIT o DNI del cliente…" />
+                                            <div id="dropdown-clientes" class="vm-dropdown hidden"></div>
+                                        </div>
+                                        <input type="hidden" name="ClienteId" id="hdn-cliente-id" />
+                                    </div>
+
+                                    @* Panel cliente seleccionado *@
+                                    <div id="info-cliente"
+                                         class="md:col-span-2 hidden rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-3">
+                                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/25 ring-1 ring-blue-400/40">
+                                                    <span class="material-symbols-outlined text-sm text-blue-400">person</span>
+                                                </div>
+                                                <div>
+                                                    <p id="info-cliente-nombre" class="text-sm font-bold text-white"></p>
+                                                    <p id="info-cliente-doc" class="text-xs text-slate-400"></p>
+                                                </div>
+                                            </div>
+                                            <button type="button" id="btn-limpiar-cliente"
+                                                    class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-all hover:border-red-400/60 hover:bg-red-500/20 hover:text-red-300 cursor-pointer">
+                                                Cambiar cliente
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @* Fecha *@
+                                    <div>
+                                        <label class="vm-label" for="FechaVenta">
+                                            <span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                            Fecha de operación
+                                        </label>
+                                        <input type="date"
+                                               name="FechaVenta"
+                                               id="FechaVenta"
+                                               class="vm-input cursor-pointer"
+                                               value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                    </div>
+
+                                    @* Tipo de pago *@
+                                    <div>
+                                        <label class="vm-label" for="select-tipo-pago">
+                                            <span class="material-symbols-outlined text-[14px]">payments</span>
+                                            Forma de pago
+                                            <span class="vm-required">*</span>
+                                        </label>
+                                        <select name="TipoPago" id="select-tipo-pago" class="vm-select">
+                                            @if (tiposPago != null)
+                                            {
+                                                foreach (var tp in tiposPago)
+                                                {
+                                                    <option value="@tp.Value">@tp.Text</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                @* Aviso crédito personal *@
+                                <div id="panel-aviso-credito"
+                                     class="mt-4 hidden rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+                                    <div class="mb-2 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-sm text-orange-400">info</span>
+                                        <span class="text-sm font-bold text-orange-300">Aviso — Crédito Personal</span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-3 text-xs">
+                                        <div class="rounded-lg bg-orange-500/10 p-2">
+                                            <p class="text-orange-500/70">Disponible</p>
+                                            <p id="credito-disponible" class="mt-0.5 font-bold text-white">$0,00</p>
+                                        </div>
+                                        <div class="rounded-lg bg-orange-500/10 p-2">
+                                            <p class="text-orange-500/70">Solicitado</p>
+                                            <p id="credito-solicitado" class="mt-0.5 font-bold text-white">$0,00</p>
+                                        </div>
+                                        <div class="rounded-lg bg-orange-500/10 p-2">
+                                            <p class="text-orange-500/70">Margen</p>
+                                            <p id="credito-margen" class="mt-0.5 font-bold text-white">$0,00</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            @* ─── § 2: Productos ────────────────────────── *@
+                            <section class="vm-section">
+                                <div class="mb-5 flex items-start gap-3">
+                                    <div class="vm-step">2</div>
+                                    <div class="flex-1 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3 class="text-base font-bold text-white">Selección de productos</h3>
+                                            <p class="mt-0.5 text-xs text-slate-400">Buscá y agregá artículos al detalle</p>
+                                        </div>
+                                        <span id="detalle-items-badge"
+                                              class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-400">
+                                            <span class="material-symbols-outlined text-[14px]">shopping_bag</span>
+                                            0 productos
+                                        </span>
+                                    </div>
+                                </div>
+
+                                @* Filtros avanzados *@
+                                <div class="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 md:grid-cols-4">
+                                    <div>
+                                        <label class="vm-label" for="filtro-categoria">
+                                            <span class="material-symbols-outlined text-[13px]">category</span>
+                                            Categoría
+                                        </label>
+                                        <select id="filtro-categoria" class="vm-select text-[13px]">
+                                            <option value="">Todas las categorías</option>
+                                            @if (categorias != null)
+                                            {
+                                                foreach (var cat in categorias)
+                                                {
+                                                    <option value="@cat.Value">@cat.Text</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="vm-label" for="filtro-marca">
+                                            <span class="material-symbols-outlined text-[13px]">label</span>
+                                            Marca
+                                        </label>
+                                        <select id="filtro-marca" class="vm-select text-[13px]">
+                                            <option value="">Todas las marcas</option>
+                                            @if (marcas != null)
+                                            {
+                                                foreach (var marca in marcas)
+                                                {
+                                                    <option value="@marca.Value">@marca.Text</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="vm-label">
+                                            <span class="material-symbols-outlined text-[13px]">attach_money</span>
+                                            Precio
+                                        </label>
+                                        <div class="flex gap-2">
+                                            <input id="filtro-precio-min" type="number" min="0" step="0.01"
+                                                   class="vm-input text-[13px]" placeholder="Min" aria-label="Precio mínimo" />
+                                            <input id="filtro-precio-max" type="number" min="0" step="0.01"
+                                                   class="vm-input text-[13px]" placeholder="Max" aria-label="Precio máximo" />
+                                        </div>
+                                    </div>
+                                    <div class="flex items-end pb-1">
+                                        <label class="vm-checkbox-label w-full">
+                                            <input id="filtro-solo-stock" type="checkbox" checked />
+                                            <span>Solo con stock disponible</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                @* Búsqueda de producto *@
+                                <div class="mb-5 flex flex-col gap-4">
+                                    <div>
+                                        <label class="vm-label" for="input-buscar-producto">
+                                            <span class="material-symbols-outlined text-[14px]">inventory_2</span>
+                                            Buscar producto
+                                        </label>
+                                        <div class="vm-search-wrap relative">
+                                            <span class="vm-search-icon material-symbols-outlined">search</span>
+                                            <input id="input-buscar-producto"
+                                                   type="text"
+                                                   autocomplete="off"
+                                                   aria-label="Buscar producto por código o nombre"
+                                                   class="vm-input"
+                                                   placeholder="Escriba código o nombre del producto…" />
+                                            <div id="dropdown-productos" class="vm-dropdown hidden"></div>
+                                        </div>
+                                    </div>
+
+                                    @* Panel agregar producto *@
+                                    <div id="panel-agregar-producto"
+                                         class="vm-panel-producto hidden grid grid-cols-2 gap-3 md:grid-cols-5">
+                                        <div class="md:col-span-2">
+                                            <label class="vm-label">
+                                                <span class="material-symbols-outlined text-[13px]">check_circle</span>
+                                                Producto seleccionado
+                                            </label>
+                                            <input id="txt-producto-seleccionado" type="text" readonly
+                                                   class="vm-input" aria-label="Producto seleccionado" />
+                                            <input type="hidden" id="hdn-producto-id" />
+                                            <input type="hidden" id="hdn-producto-codigo" />
+                                            <input type="hidden" id="hdn-producto-precio" />
+                                            <input type="hidden" id="hdn-producto-stock" />
+                                        </div>
+                                        <div>
+                                            <label class="vm-label" for="txt-cantidad">
+                                                <span class="material-symbols-outlined text-[13px]">tag</span>
+                                                Cantidad
+                                                <span class="vm-required">*</span>
+                                            </label>
+                                            <input id="txt-cantidad" type="number" min="1" value="1"
+                                                   class="vm-input" aria-label="Cantidad" />
+                                            <p id="stock-error" class="mt-1 hidden text-[10px] font-bold text-red-400"></p>
+                                        </div>
+                                        <div>
+                                            <label class="vm-label" for="txt-descuento-item">
+                                                <span class="material-symbols-outlined text-[13px]">percent</span>
+                                                Desc. %
+                                            </label>
+                                            <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
+                                                   class="vm-input" aria-label="Descuento en porcentaje" />
+                                        </div>
+                                        <div class="flex items-end">
+                                            <button type="button" id="btn-agregar-producto" class="vm-btn-add">
+                                                <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                                Añadir
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                @* Tabla de detalles *@
+                                <div id="venta-detalles-scroll" data-oc-scroll class="venta-scroll-medium">
+                                    <p data-oc-scroll-hint hidden
+                                       class="mb-3 text-xs font-medium text-slate-400">
+                                        Deslizá para ver cantidades y subtotales completos.
+                                    </p>
+                                    <div data-oc-scroll-shell>
+                                        <div data-oc-scroll-fade="left" hidden></div>
+                                        <div data-oc-scroll-fade="right" hidden></div>
+                                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Detalle de productos">
+                                            <table data-oc-scroll-table class="w-full border-collapse text-left">
+                                                <thead>
+                                                    <tr class="border-b border-slate-700">
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Cód.</th>
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Producto</th>
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center">Cant.</th>
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right">Unitario</th>
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right">Desc.</th>
+                                                        <th class="py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right">Subtotal</th>
+                                                        <th class="py-3 px-2"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="tbody-detalles" class="divide-y divide-slate-800/60"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div id="detalles-vacio" class="flex flex-col items-center justify-center py-12 text-slate-500">
+                                        <span class="material-symbols-outlined mb-3 text-5xl text-slate-700">shopping_cart</span>
+                                        <p class="text-sm font-semibold">Ningún producto agregado todavía</p>
+                                        <p class="text-xs text-slate-600">Buscá un artículo arriba y hacé click en <strong class="text-slate-400">Añadir</strong></p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            @* ─── § 3: Detalle de cobro ──────────────────── *@
+                            <section class="vm-section">
+                                <div class="mb-5 flex items-start gap-3">
+                                    <div class="vm-step">3</div>
+                                    <div>
+                                        <h3 class="text-base font-bold text-white">Detalle de cobro</h3>
+                                        <p class="mt-0.5 text-xs text-slate-400">Campos adaptados según la forma de pago</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-4">
+
+                                    @* Tarjeta *@
+                                    <div id="panel-tarjeta" class="vm-sub-panel hidden">
+                                        <h4 class="mb-4 flex items-center gap-2 text-sm font-bold text-white">
+                                            <span class="material-symbols-outlined text-blue-400">credit_card</span>
+                                            Datos de Tarjeta
+                                        </h4>
+                                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                            <div>
+                                                <label class="vm-label" for="select-tarjeta">
+                                                    <span class="material-symbols-outlined text-[13px]">credit_card</span>
+                                                    Tarjeta
+                                                </label>
+                                                <select id="select-tarjeta" name="DatosTarjeta.ConfiguracionTarjetaId" class="vm-select">
+                                                    <option value="">Seleccione tarjeta…</option>
+                                                    @if (tarjetas != null)
+                                                    {
+                                                        foreach (var t in tarjetas)
+                                                        {
+                                                            <option value="@t.Value">@t.Text</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="select-cuotas-tarjeta">
+                                                    <span class="material-symbols-outlined text-[13px]">format_list_numbered</span>
+                                                    Cuotas
+                                                </label>
+                                                <select id="select-cuotas-tarjeta" name="DatosTarjeta.CantidadCuotas" class="vm-select">
+                                                    <option value="1">1 Pago</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-num-autorizacion-tarjeta">
+                                                    <span class="material-symbols-outlined text-[13px]">pin</span>
+                                                    N° Autorización
+                                                </label>
+                                                <input type="text" name="DatosTarjeta.NumeroAutorizacion"
+                                                       id="txt-num-autorizacion-tarjeta"
+                                                       class="vm-input font-mono tracking-widest" placeholder="000000" />
+                                            </div>
+                                        </div>
+                                        <div id="panel-tarjeta-resumen"
+                                             class="mt-4 hidden flex flex-wrap gap-3 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
+                                            <div class="rounded-lg bg-blue-500/10 px-3 py-2">
+                                                <p class="text-[10px] font-bold uppercase text-blue-400">Monto/cuota</p>
+                                                <p id="tarjeta-monto-cuota" class="mt-0.5 text-sm font-bold text-white">$0,00</p>
+                                            </div>
+                                            <div class="venta-stat">
+                                                <p class="venta-stat__label">Total con interés</p>
+                                                <p id="tarjeta-total-interes" class="venta-stat__value">$0,00</p>
+                                            </div>
+                                            <div class="venta-stat">
+                                                <p class="venta-stat__label">Recargo</p>
+                                                <p id="tarjeta-recargo" class="venta-stat__value">0%</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @* Cheque *@
+                                    <div id="panel-cheque" class="vm-sub-panel hidden">
+                                        <h4 class="mb-4 flex items-center gap-2 text-sm font-bold text-white">
+                                            <span class="material-symbols-outlined text-blue-400">receipt_long</span>
+                                            Datos del Cheque
+                                        </h4>
+                                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div>
+                                                <label class="vm-label" for="txt-num-cheque">N° de Cheque</label>
+                                                <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque"
+                                                       class="vm-input font-mono" placeholder="Número de cheque" />
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-banco-cheque">Banco</label>
+                                                <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque"
+                                                       class="vm-input" placeholder="Nombre del banco" />
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-titular-cheque">Titular</label>
+                                                <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque"
+                                                       class="vm-input" placeholder="Nombre del titular" />
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-cuit-cheque">CUIT</label>
+                                                <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque"
+                                                       class="vm-input font-mono" placeholder="XX-XXXXXXXX-X" />
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-fecha-emision-cheque">Fecha de Emisión</label>
+                                                <input type="date" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque"
+                                                       class="vm-input cursor-pointer" />
+                                            </div>
+                                            <div>
+                                                <label class="vm-label" for="txt-fecha-vencimiento-cheque">Fecha de Vencimiento</label>
+                                                <input type="date" name="DatosCheque.FechaVencimiento" id="txt-fecha-vencimiento-cheque"
+                                                       class="vm-input cursor-pointer" />
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="vm-label" for="txt-monto-cheque">Monto del cheque</label>
+                                                <input type="number" step="0.01" name="DatosCheque.Monto" id="txt-monto-cheque"
+                                                       class="vm-input" placeholder="$0,00" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @* Crédito personal *@
+                                    <div id="panel-credito-personal" class="vm-sub-panel hidden">
+                                        <h4 class="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+                                            <span class="material-symbols-outlined text-blue-400">account_balance</span>
+                                            Crédito Personal
+                                        </h4>
+                                        <div class="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/8 p-4 text-sm">
+                                            <span class="material-symbols-outlined mt-0.5 shrink-0 text-lg text-blue-400">info</span>
+                                            <p class="text-slate-300">
+                                                El sistema evaluará el cupo crediticio y generará el crédito automáticamente.
+                                                Usá <strong class="text-blue-300">Verificar Elegibilidad</strong> para consultar el cupo antes de confirmar.
+                                            </p>
+                                        </div>
+                                        <div id="panel-credito-cupo" class="mt-4 hidden grid grid-cols-2 gap-3">
+                                            <div class="venta-stat">
+                                                <p class="venta-stat__label">Cupo disponible</p>
+                                                <p id="credito-cupo-valor" class="text-sm font-bold text-emerald-400">$0,00</p>
+                                            </div>
+                                            <div class="venta-stat">
+                                                <p class="venta-stat__label">Estado</p>
+                                                <p id="credito-cupo-estado" class="venta-stat__value">—</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                        @* /Columna izquierda *@
+
+                        @* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                           Columna derecha — 1/3
+                           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ *@
+                        <div class="flex flex-col gap-5">
+
+                            @* ─── § 4: Verificación crediticia ─────────── *@
+                            <section class="vm-section">
+                                <div class="mb-5 flex items-start gap-3">
+                                    <div class="vm-step">4</div>
+                                    <div>
+                                        <h3 class="text-base font-bold text-white">Verificación crediticia</h3>
+                                        <p class="mt-0.5 text-xs text-slate-400">Cupo, mora y documentación</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-4">
+                                    <button type="button" id="btn-verificar-elegibilidad" class="vm-btn-verify">
+                                        <span class="material-symbols-outlined text-[20px]">analytics</span>
+                                        Verificar Elegibilidad
+                                    </button>
+
+                                    <div id="venta-create-feedback-slot" class="hidden" aria-live="polite"></div>
+
+                                    <div id="panel-resultado-verificacion" class="hidden space-y-3">
+                                        <div id="verificacion-badge"
+                                             class="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+                                            <span class="text-xs font-bold text-slate-400">Resultado SCORE:</span>
+                                            <span id="verificacion-estado"
+                                                  class="rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white"></span>
+                                        </div>
+                                        <div class="space-y-2 rounded-xl border border-slate-700/60 bg-slate-800/40 p-3">
+                                            <div class="flex justify-between text-sm">
+                                                <span class="text-slate-500">Límite de Crédito</span>
+                                                <span id="verificacion-limite" class="font-bold text-white">$0,00</span>
+                                            </div>
+                                            <div class="flex justify-between text-sm">
+                                                <span class="text-slate-500">Crédito Utilizado</span>
+                                                <span id="verificacion-utilizado" class="font-bold text-white">$0,00</span>
+                                            </div>
+                                            <div class="flex justify-between text-sm">
+                                                <span class="text-slate-500">Cupo Disponible</span>
+                                                <span id="verificacion-saldo" class="font-bold">$0,00</span>
+                                            </div>
+                                            <div class="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-700">
+                                                <div id="verificacion-barra" class="h-full bg-blue-500 w-0 transition-all duration-500 rounded-full"></div>
+                                            </div>
+                                        </div>
+                                        <div id="panel-cupo-suficiente"
+                                             class="hidden rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                            <p class="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                                                <span class="material-symbols-outlined text-sm">check_circle</span>
+                                                Cupo suficiente para esta operación
+                                            </p>
+                                        </div>
+                                        <div id="panel-cupo-insuficiente"
+                                             class="hidden rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                                            <p class="flex items-center gap-2 text-xs font-bold text-red-400">
+                                                <span class="material-symbols-outlined text-sm">block</span>
+                                                Cupo insuficiente — operación bloqueada
+                                            </p>
+                                            <p id="cupo-insuficiente-detalle" class="mt-1 text-[11px] text-slate-500"></p>
+                                        </div>
+                                    </div>
+
+                                    <div id="panel-motivos" class="hidden space-y-2">
+                                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Observaciones</p>
+                                        <div id="lista-motivos" class="space-y-1"></div>
+                                    </div>
+
+                                    <div id="panel-alerta-mora"
+                                         class="hidden rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                                        <p class="mb-2 flex items-center gap-2 text-xs font-bold text-red-400">
+                                            <span class="material-symbols-outlined text-sm">warning</span>
+                                            Alerta de Mora
+                                        </p>
+                                        <p id="alerta-mora-texto" class="text-[11px] text-slate-400"></p>
+                                    </div>
+
+                                    <div id="panel-documentacion-faltante" class="hidden">
+                                        <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                                            <p class="mb-3 flex items-center gap-2 text-xs font-bold text-amber-300">
+                                                <span class="material-symbols-outlined text-sm">folder_off</span>
+                                                Documentación crediticia incompleta
+                                            </p>
+                                            <div id="lista-docs-faltantes" class="mb-3 space-y-1"></div>
+                                            <button type="button" id="btn-cargar-documentacion"
+                                                    data-venta-modal-action="open"
+                                                    data-venta-modal-target="documentacion"
+                                                    class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/15 py-2.5 text-xs font-bold text-amber-300 transition-all hover:bg-amber-500/25 hover:border-amber-400/50">
+                                                <span class="material-symbols-outlined text-sm">upload_file</span>
+                                                Cargar documentación crediticia
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @if (puedeExcepcion)
+                                    {
+                                        <div class="border-t border-slate-700/60 pt-4">
+                                            <input type="hidden" name="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
+                                            <div id="panel-excepcion-inactiva">
+                                                <button type="button" id="btn-aplicar-excepcion"
+                                                        class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 py-3 text-xs font-bold text-orange-400 transition-all hover:border-orange-400/50 hover:bg-orange-500/20">
+                                                    <span class="material-symbols-outlined text-sm">shield_question</span>
+                                                    Aplicar Excepción (omitir validaciones)
+                                                </button>
+                                            </div>
+                                            <div id="panel-excepcion-activa" class="hidden">
+                                                <div class="space-y-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+                                                    <p class="flex items-center gap-2 text-xs font-bold text-orange-300">
+                                                        <span class="material-symbols-outlined text-sm">shield_question</span>
+                                                        Confirmar excepción documental
+                                                    </p>
+                                                    <p class="text-[11px] text-slate-400">
+                                                        Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio para continuar.
+                                                    </p>
+                                                    <div>
+                                                        <label class="vm-label" for="txt-excepcion-documental">
+                                                            Motivo <span class="vm-required">*</span>
+                                                        </label>
+                                                        <textarea name="MotivoExcepcionDocumentalCreate"
+                                                                  id="txt-excepcion-documental"
+                                                                  class="vm-textarea h-20 resize-none"
+                                                                  placeholder="Ej: Cliente con legajo en trámite, aprobado por gerencia…"></textarea>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <button type="button" id="btn-confirmar-excepcion"
+                                                                class="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-xl bg-orange-500 py-2.5 text-[11px] font-bold text-white transition-all hover:bg-orange-600 active:scale-95">
+                                                            <span class="material-symbols-outlined text-sm">check_circle</span>
+                                                            Aplicar y continuar
+                                                        </button>
+                                                        <button type="button" id="btn-cancelar-excepcion"
+                                                                class="flex-1 cursor-pointer rounded-xl bg-slate-800 py-2.5 text-[11px] font-bold text-slate-500 transition-all hover:bg-slate-700 hover:text-slate-300">
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+
+                            @* ─── § 5: Vendedor y observaciones ─────────── *@
+                            <section class="vm-section">
+                                <div class="mb-4 flex items-start gap-3">
+                                    <div class="vm-step">5</div>
+                                    <div>
+                                        <h3 class="text-base font-bold text-white">Vendedor y observaciones</h3>
+                                        <p class="mt-0.5 text-xs text-slate-400">Trazabilidad interna</p>
+                                    </div>
+                                </div>
+
+                                @if (puedeDelegarVendedor && vendedores != null)
+                                {
+                                    <div class="mb-4">
+                                        <label class="vm-label" for="VendedorUserId">
+                                            <span class="material-symbols-outlined text-[13px]">badge</span>
+                                            Vendedor asignado
+                                        </label>
+                                        <select name="VendedorUserId" id="VendedorUserId" asp-items="vendedores" class="vm-select">
+                                            <option value="">Seleccione vendedor…</option>
+                                        </select>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mb-4">
+                                        <label class="vm-label">
+                                            <span class="material-symbols-outlined text-[13px]">badge</span>
+                                            Vendedor asignado
+                                        </label>
+                                        <div class="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+                                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/20">
+                                                <span class="material-symbols-outlined text-sm text-blue-400">person</span>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-bold text-white">@(User.Identity?.Name ?? "Usuario")</p>
+                                                <p class="text-[10px] uppercase text-slate-500">Vendedor asignado automáticamente</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+
+                                <div>
+                                    <label class="vm-label" for="Observaciones">
+                                        <span class="material-symbols-outlined text-[13px]">notes</span>
+                                        Observaciones internas
+                                    </label>
+                                    <textarea name="Observaciones" id="Observaciones"
+                                              class="vm-textarea h-24 resize-none"
+                                              placeholder="Notas internas sobre esta operación…"></textarea>
+                                </div>
+                            </section>
+
+                            @* ─── § 6: Totales y confirmación ───────────── *@
+                            <div class="vm-totals">
+                                <div class="mb-5 flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Cierre</p>
+                                        <h3 class="mt-1 text-lg font-bold tracking-tight text-slate-100">Resumen de totales</h3>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-[10px] font-bold text-slate-400">
+                                        <span class="material-symbols-outlined text-sm">receipt_long</span>
+                                        Tiempo real
+                                    </span>
+                                </div>
+
+                                <div class="mb-5 space-y-3 rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Subtotal Neto</span>
+                                        <span id="total-subtotal" class="font-semibold text-slate-200">$0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">Descuento (<span id="total-descuento-label">0%</span>)</span>
+                                        <span id="total-descuento" class="font-semibold text-slate-200">-$0,00</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-slate-400">IVA (21%)</span>
+                                        <span id="total-iva" class="font-semibold text-slate-200">$0,00</span>
+                                    </div>
+                                    <div class="border-t border-slate-700/50 pt-3">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-base font-bold text-slate-100">TOTAL FINAL</span>
+                                            <div class="text-right">
+                                                <span id="total-final" class="block text-3xl font-black text-white">$0,00</span>
+                                                <span class="text-[10px] text-slate-500">ARS pesos argentinos</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <input type="hidden" name="Subtotal"  id="hdn-subtotal" />
+                                <input type="hidden" name="Descuento" id="hdn-descuento" />
+                                <input type="hidden" name="IVA"       id="hdn-iva" />
+                                <input type="hidden" name="Total"     id="hdn-total" />
+
+                                <button type="button" id="btn-confirmar"
+                                        onclick="VentaCrearModal.submit()"
+                                        class="vm-btn-confirm">
+                                    <span class="material-symbols-outlined text-[22px]">point_of_sale</span>
+                                    Confirmar Transacción
+                                </button>
+                                <p class="mt-3 text-center text-[10px] text-slate-500">
+                                    Al confirmar se registrará la operación en el sistema.
+                                </p>
+                            </div>
+
+                        </div>
+                        @* /Columna derecha *@
+
+                    </div>
+
+                    <div id="detalles-hidden-inputs" class="hidden"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ═══════════════════════════════════════════════════════════
+   Sub-modal: Documentación crediticia
+   ═══════════════════════════════════════════════════════════ *@
+<div id="modal-documentacion" data-venta-modal="documentacion"
+     class="fixed inset-0 z-[60] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+         id="modal-documentacion-overlay"
+         data-venta-modal-action="close"></div>
+    <div class="relative flex min-h-screen items-center justify-center p-4">
+        <div class="vm-modal-panel relative w-full max-w-lg rounded-2xl bg-[#111827] shadow-2xl">
+            <div class="vm-modal-header-sep flex items-center justify-between p-6">
+                <h3 class="flex items-center gap-2 text-lg font-bold text-white">
+                    <span class="material-symbols-outlined text-blue-400">upload_file</span>
+                    Documentación Crediticia
+                </h3>
+                <button type="button" id="btn-cerrar-modal-doc"
+                        data-venta-modal-action="close"
+                        aria-label="Cerrar"
+                        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-400 transition-all hover:bg-slate-700 hover:text-white">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+            <div class="space-y-5 p-6">
+                <div class="rounded-xl border border-blue-500/20 bg-blue-500/8 p-4 text-sm text-slate-300">
+                    Completá la documentación faltante. Cuando cierres el modal podés volver a verificar elegibilidad.
+                </div>
+                <div class="space-y-3">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Documentos pendientes</p>
+                    <div id="modal-lista-docs" class="space-y-2"></div>
+                </div>
+                <div class="rounded-xl border-2 border-dashed border-slate-700 p-6 text-center transition-colors hover:border-slate-600">
+                    <span class="material-symbols-outlined mb-2 block text-4xl text-slate-500">cloud_upload</span>
+                    <p class="mb-1 text-sm font-bold text-slate-400">Subir documentación</p>
+                    <p class="mb-4 text-[11px] text-slate-500">PDF, JPG, PNG — máximo 10 MB</p>
+                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-5 py-2.5 text-xs font-bold text-blue-400 transition-all hover:bg-blue-500/20">
+                        <span class="material-symbols-outlined text-sm">attach_file</span>
+                        Seleccionar archivo
+                        <input type="file" id="input-doc-archivo" accept=".pdf,.jpg,.jpeg,.png" class="hidden" />
+                    </label>
+                    <p id="doc-archivo-nombre" class="mt-2 hidden text-[11px] text-slate-500"></p>
+                </div>
+                <div>
+                    <label class="vm-label" for="select-tipo-documento">Tipo de documento</label>
+                    <select id="select-tipo-documento" class="vm-select">
+                        <option value="">Seleccione tipo…</option>
+                    </select>
+                </div>
+                <div id="doc-upload-feedback" class="hidden rounded-xl p-3 text-xs font-bold"></div>
+            </div>
+            <div class="venta-create-doc-footer flex gap-3 border-t border-slate-700/60 p-6">
+                <button type="button" id="btn-subir-documento"
+                        class="venta-create-doc-action inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-bold uppercase tracking-tight text-white transition-all hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled>
+                    <span class="material-symbols-outlined text-sm">upload</span>
+                    Subir Documento
+                </button>
+                <button type="button" id="btn-ir-documentacion"
+                        class="venta-create-doc-action vm-btn-ghost flex-1">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span>
+                    Ir a Documentación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

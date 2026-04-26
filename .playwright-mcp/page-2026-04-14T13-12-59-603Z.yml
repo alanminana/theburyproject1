@@ -1,0 +1,136 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic:
+        - heading "TheBuryProject" [level=1]
+        - paragraph: SISTEMA GESTIÓN
+    - navigation [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph: Operaciones
+        - generic [ref=e9]:
+          - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e11]: shopping_bag
+            - paragraph: Ventas
+          - link "group Clientes" [ref=e12] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e13]: group
+            - paragraph: Clientes
+      - generic [ref=e14]:
+        - paragraph: Logística
+        - generic [ref=e15]:
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+          - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e19]: local_shipping
+            - paragraph: Proveedores
+          - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e21]: point_of_sale
+            - paragraph: Cajas
+      - generic [ref=e22]:
+        - paragraph: Sistemas
+        - link "security Seguridad" [ref=e24] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e25]: security
+          - paragraph: Seguridad
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e29]: account_circle
+        - generic:
+          - paragraph: admin@thebury.com
+          - paragraph: SuperAdmin
+      - generic:
+        - button "logout Cerrar sesión":
+          - generic: logout
+          - text: Cerrar sesión
+    - button "Colapsar/expandir sidebar" [ref=e31]:
+      - generic [ref=e32]: chevron_left
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Nueva Línea de Crédito" [level=2] [ref=e36]
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: Dolar Blue
+            - generic [ref=e41]: $1.245,00
+          - generic [ref=e42]:
+            - generic [ref=e43]: Tarjeta
+            - generic [ref=e44]: $1.482,50
+          - generic [ref=e45]:
+            - generic [ref=e46]: Oficial
+            - generic [ref=e47]: $942,00
+      - generic [ref=e48]:
+        - button "notifications" [ref=e49]:
+          - generic [ref=e50]: notifications
+        - button "search" [ref=e52]:
+          - generic [ref=e53]: search
+        - button "help" [ref=e55]:
+          - generic [ref=e56]: help
+    - generic [ref=e58]:
+      - generic [ref=e60]:
+        - link "Volver" [ref=e61] [cursor=pointer]:
+          - /url: /Credito
+          - generic [ref=e62]: arrow_back
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]: credit_score
+            - text: Crédito
+          - heading "Nueva Línea de Crédito" [level=1] [ref=e66]
+          - paragraph [ref=e67]: Completá los datos para registrar una nueva solicitud de crédito.
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e71]:
+            - generic [ref=e72]: person
+            - heading "Cliente" [level=2] [ref=e73]
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - generic [ref=e76]: Cliente *
+              - combobox "Cliente *" [ref=e77]:
+                - option "— Seleccioná un cliente —" [selected]
+                - 'option "Pérez, Ventilador - DNI: 11111111111111111111"'
+            - generic [ref=e79] [cursor=pointer]:
+              - checkbox [ref=e80]
+              - text: Requiere garante
+        - generic [ref=e81]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: payments
+            - heading "Condiciones del crédito" [level=2] [ref=e85]
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]: Monto solicitado *
+              - generic [ref=e89]:
+                - generic [ref=e90]: $
+                - spinbutton "Monto solicitado *" [ref=e91]: "0"
+            - generic [ref=e92]:
+              - generic [ref=e93]: Tasa de interés mensual (%) *
+              - generic [ref=e94]:
+                - spinbutton "Tasa de interés mensual (%) *" [ref=e95]: "0.05"
+                - generic [ref=e96]: "%"
+              - paragraph [ref=e97]: "Tasa mensual en porcentaje (ej: 5 = 5% mensual)"
+            - generic [ref=e98]:
+              - generic [ref=e99]: Cantidad de cuotas
+              - spinbutton "Cantidad de cuotas" [ref=e100]: "12"
+              - paragraph [ref=e101]: Orientativo. Las cuotas definitivas se configuran al vincular la venta.
+            - generic [ref=e102]:
+              - generic [ref=e103]: Fecha de solicitud
+              - textbox "Fecha de solicitud" [ref=e104]: 2026-04-14
+        - generic [ref=e105]:
+          - generic [ref=e107]:
+            - generic [ref=e108]: note
+            - heading "Información adicional" [level=2] [ref=e109]
+          - generic [ref=e110]:
+            - generic [ref=e111]: Observaciones
+            - textbox "Observaciones" [ref=e112]:
+              - /placeholder: Notas internas sobre la solicitud...
+        - generic [ref=e113]:
+          - link "Cancelar" [ref=e114] [cursor=pointer]:
+            - /url: /Credito
+          - button "add_card Crear línea de crédito" [ref=e115]:
+            - generic [ref=e116]: add_card
+            - text: Crear línea de crédito

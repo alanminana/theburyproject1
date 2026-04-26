@@ -35,29 +35,29 @@
 <div class="cliente-page-shell space-y-6">
     <div class="cliente-page-header-layout">
         <div class="space-y-4">
-            <nav class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <nav class="flex items-center gap-2 text-xs font-medium text-slate-400">
                 <a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a>
                 <span class="material-symbols-outlined text-[14px]">chevron_right</span>
                 <a asp-controller="Cliente" asp-action="Index" class="hover:text-primary no-underline">Clientes</a>
                 <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-                <span class="text-slate-900 dark:text-slate-100">@c.Apellido @c.Nombre</span>
+                <span class="text-slate-100">@c.Apellido @c.Nombre</span>
             </nav>
             <div class="space-y-2">
-                <div class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                <span class="badge-erp badge-erp-primary">
                     <span class="material-symbols-outlined text-sm">badge</span>
                     Legajo del cliente
-                </div>
-                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Detalle de Cliente: @c.Apellido @c.Nombre</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Consultá perfil, documentación, scoring y acciones operativas desde una única vista.</p>
+                </span>
+                <h1 class="text-3xl font-black tracking-tight text-white">@c.Apellido @c.Nombre</h1>
+                <p class="text-sm text-slate-400">Consultá perfil, documentación, scoring y acciones operativas desde una única vista.</p>
             </div>
         </div>
         <div class="cliente-page-header-actions">
             <a asp-action="Edit" asp-route-id="@c.Id"
-               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 no-underline">
+               class="cliente-page-header-action btn-erp-ghost no-underline">
                 <span class="material-symbols-outlined text-[18px]">edit</span> Editar Perfil
             </a>
             <a asp-controller="Credito" asp-action="Create" asp-route-clienteId="@c.Id"
-               class="cliente-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-blue-700 no-underline">
+               class="cliente-page-header-action btn-erp-primary no-underline">
                 <span class="material-symbols-outlined text-[18px]">payments</span>
                 Nuevo Crédito
             </a>
@@ -65,25 +65,25 @@
     </div>
 
     <div class="cliente-page-metrics cliente-page-metrics--4">
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card-erp-metric">
             <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Crédito Disponible</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@limiteDisponible.ToString("C")</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Disponible para nuevas operaciones</p>
+            <p class="mt-3 text-2xl font-bold text-white">@limiteDisponible.ToString("C")</p>
+            <p class="mt-1 text-xs text-slate-400">Disponible para nuevas operaciones</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card-erp-metric">
             <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Aptitud</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@aptitudLabel</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Estado crediticio evaluado</p>
+            <p class="mt-3 text-2xl font-bold text-white">@aptitudLabel</p>
+            <p class="mt-1 text-xs text-slate-400">Estado crediticio evaluado</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card-erp-metric">
             <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Documentos</p>
-            <p class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">@documentosVerificados</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@documentosPendientes pendientes · @documentosFaltantes faltantes</p>
+            <p class="mt-3 text-2xl font-bold text-white">@documentosVerificados</p>
+            <p class="mt-1 text-xs text-slate-400">@documentosPendientes pendientes · @documentosFaltantes faltantes</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="card-erp-metric">
             <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">BCRA</p>
-            <p class="mt-3 text-lg font-bold text-slate-900 dark:text-white">@bcraEstadoResumen</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Consulta crediticia más reciente</p>
+            <p class="mt-3 text-lg font-bold text-white">@bcraEstadoResumen</p>
+            <p class="mt-1 text-xs text-slate-400">Consulta crediticia más reciente</p>
         </div>
     </div>
 
@@ -92,13 +92,13 @@
     {
         @if (esNoApto)
         {
-            <div class="rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-500/10 p-5 flex items-start gap-4">
+            <div class="rounded-xl border border-red-500/50 bg-red-50 bg-red-500/10 p-5 flex items-start gap-4">
                 <div class="bg-red-500 text-white rounded-full p-1 flex-shrink-0">
                     <span class="material-symbols-outlined text-[24px]">priority_high</span>
                 </div>
                 <div class="flex-1">
-                    <h4 class="text-red-700 dark:text-red-400 font-bold text-lg">No Apto para Crédito</h4>
-                    <p class="text-red-600 dark:text-red-300 text-sm mt-1 leading-relaxed">
+                    <h4 class="text-red-400 font-bold text-lg">No Apto para Crédito</h4>
+                    <p class="text-red-300 text-sm mt-1 leading-relaxed">
                         @if (apt.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
                         {
                             <text>Documentación incompleta: <span class="font-bold underline">@string.Join(", ", apt.Documentacion.DocumentosFaltantes)</span>. </text>
@@ -115,19 +115,19 @@
                 </div>
                 <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
                     <input type="hidden" name="clienteId" value="@c.Id" />
-                    <button type="submit" class="text-red-700 dark:text-red-400 hover:underline text-sm font-bold">Recalcular</button>
+                    <button type="submit" class="text-red-400 hover:underline text-sm font-bold">Recalcular</button>
                 </form>
             </div>
         }
         else if (esRequiereAut)
         {
-            <div class="rounded-xl border border-orange-500/50 bg-orange-50 dark:bg-orange-500/10 p-5 flex items-start gap-4">
+            <div class="rounded-xl border border-orange-500/50 bg-orange-500/10 p-5 flex items-start gap-4">
                 <div class="bg-orange-500 text-white rounded-full p-1 flex-shrink-0">
                     <span class="material-symbols-outlined text-[24px]">warning</span>
                 </div>
                 <div class="flex-1">
-                    <h4 class="text-orange-700 dark:text-orange-400 font-bold text-lg">Requiere Autorización</h4>
-                    <p class="text-orange-600 dark:text-orange-300 text-sm mt-1 leading-relaxed">
+                    <h4 class="text-orange-700 text-orange-400 font-bold text-lg">Requiere Autorización</h4>
+                    <p class="text-orange-300 text-sm mt-1 leading-relaxed">
                         @if (apt.Mora != null && apt.Mora.RequiereAutorizacion)
                         {
                             <text>Mora de @apt.Mora.DiasMaximoMora días requiere autorización de un supervisor.</text>
@@ -140,25 +140,25 @@
                 </div>
                 <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
                     <input type="hidden" name="clienteId" value="@c.Id" />
-                    <button type="submit" class="text-orange-700 dark:text-orange-400 hover:underline text-sm font-bold">Recalcular</button>
+                    <button type="submit" class="text-orange-700 text-orange-400 hover:underline text-sm font-bold">Recalcular</button>
                 </form>
             </div>
         }
         else if (esApto)
         {
-            <div class="rounded-xl border border-green-500/50 bg-green-50 dark:bg-green-500/10 p-5 flex items-start gap-4">
+            <div class="rounded-xl border border-green-500/50 bg-green-500/10 p-5 flex items-start gap-4">
                 <div class="bg-green-500 text-white rounded-full p-1 flex-shrink-0">
                     <span class="material-symbols-outlined text-[24px]">check_circle</span>
                 </div>
                 <div class="flex-1">
-                    <h4 class="text-green-700 dark:text-green-400 font-bold text-lg">Apto para Crédito</h4>
-                    <p class="text-green-600 dark:text-green-300 text-sm mt-1 leading-relaxed">
+                    <h4 class="text-green-400 font-bold text-lg">Apto para Crédito</h4>
+                    <p class="text-green-300 text-sm mt-1 leading-relaxed">
                         El cliente cumple todos los requisitos para solicitar un crédito.
                     </p>
                 </div>
                 <form asp-action="RecalcularAptitud" method="post" class="flex-shrink-0">
                     <input type="hidden" name="clienteId" value="@c.Id" />
-                    <button type="submit" class="text-green-700 dark:text-green-400 hover:underline text-sm font-bold">Recalcular</button>
+                    <button type="submit" class="text-green-400 hover:underline text-sm font-bold">Recalcular</button>
                 </form>
             </div>
         }
@@ -169,7 +169,7 @@
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Panel de Crédito -->
-            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <div class="card-erp-panel-padded">
                 <div class="flex items-center gap-2 mb-6">
                     <span class="material-symbols-outlined text-primary">analytics</span>
                     <h3 class="text-lg font-bold">Panel de Crédito</h3>
@@ -181,13 +181,13 @@
                         {
                             <div>
                                 <div class="flex justify-between items-end mb-2">
-                                    <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Límite de Crédito Disponible</span>
+                                    <span class="text-sm font-medium text-slate-400">Límite de Crédito Disponible</span>
                                     <span class="text-primary font-bold text-lg">
                                         $ @panel.Valores.Disponible.ToString("N0")
                                         <span class="text-xs font-normal text-slate-400">/ $ @panel.Valores.Limite.ToString("N0")</span>
                                     </span>
                                 </div>
-                                <div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
                                     <div class="h-full bg-primary rounded-full @ProgressWidthClass(Convert.ToDouble(panel.PorcentajeLibre))"></div>
                                 </div>
                                 <div class="flex justify-between mt-2">
@@ -198,13 +198,13 @@
                         }
                         else if (panel?.TieneErrorConfiguracion == true)
                         {
-                            <div class="p-4 rounded-lg bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800/50">
-                                <p class="text-sm text-orange-600 dark:text-orange-400 font-medium">@panel.MensajeError</p>
+                            <div class="p-4 rounded-lg bg-orange-500/10 border border-orange-200 border-orange-800/50">
+                                <p class="text-sm text-orange-400 font-medium">@panel.MensajeError</p>
                             </div>
                         }
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Aptitud Crediticia</p>
+                            <div class="p-4 rounded-lg bg-slate-800/50 border border-slate-100 border-slate-800">
+                                <p class="text-xs text-slate-400 mb-1">Aptitud Crediticia</p>
                                 @if (apt != null)
                                 {
                                     <div class="flex items-center gap-2">
@@ -232,8 +232,8 @@
                                     <p class="text-[10px] text-slate-400 mt-2">Eval: @apt.FechaEvaluacion.ToString("dd/MM/yyyy HH:mm")</p>
                                 }
                             </div>
-                            <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Estado de Mora</p>
+                            <div class="p-4 rounded-lg bg-slate-800/50 border border-slate-100 border-slate-800">
+                                <p class="text-xs text-slate-400 mb-1">Estado de Mora</p>
                                 @if (apt?.Mora != null && apt.Mora.TieneMora)
                                 {
                                     <div class="flex items-center gap-2">
@@ -284,10 +284,10 @@
                                 bcraDot = "bg-red-500";
                             }
                         }
-                        <div class="col-span-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800" id="bcra-panel">
+                        <div class="col-span-2 p-4 rounded-lg bg-slate-800/50 border border-slate-100 border-slate-800" id="bcra-panel">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">Situación Crediticia BCRA</p>
+                                    <p class="text-xs text-slate-400 mb-1">Situación Crediticia BCRA</p>
                                     @if (!tieneCuil)
                                     {
                                         <div class="flex items-center gap-2">
@@ -335,9 +335,9 @@
             </div>
 
             <!-- Información General -->
-            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden section-card" data-section="info">
+            <div class="card-erp-panel section-card" data-section="info">
                 <button type="button" data-cliente-details-toggle="info" aria-controls="content-info" aria-expanded="true"
-                        class="w-full p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center text-left">
+                        class="w-full p-6 border-b border-slate-100 border-slate-800 flex justify-between items-center text-left">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-primary">person</span>
                         <h3 class="text-lg font-bold">Información General</h3>
@@ -349,30 +349,30 @@
                     <div>
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Datos Personales</h4>
                         <dl class="space-y-3">
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Nombre Completo</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Nombre Completo</dt>
                                 <dd class="text-sm font-semibold">@c.Apellido @c.Nombre</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">@c.TipoDocumento</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">@c.TipoDocumento</dt>
                                 <dd class="text-sm font-semibold">@c.NumeroDocumento</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">CUIL/CUIT</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">CUIL/CUIT</dt>
                                 <dd class="text-sm font-semibold">@(c.CuilCuit ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Email</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Email</dt>
                                 <dd class="text-sm font-semibold">@(c.Email ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Estado Civil</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Estado Civil</dt>
                                 <dd class="text-sm font-semibold">@(c.EstadoCivil ?? "—")</dd>
                             </div>
                             @if (c.FechaNacimiento.HasValue)
                             {
-                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Fecha de Nacimiento</dt>
+                                <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-400">Fecha de Nacimiento</dt>
                                     <dd class="text-sm font-semibold">@c.FechaNacimiento.Value.ToString("dd/MM/yyyy")</dd>
                                 </div>
                             }
@@ -382,22 +382,22 @@
                     <div>
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Datos Laborales</h4>
                         <dl class="space-y-3">
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Empresa</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Empresa</dt>
                                 <dd class="text-sm font-semibold">@(c.Empleador ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Antigüedad</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Antigüedad</dt>
                                 <dd class="text-sm font-semibold">@(c.TiempoTrabajo ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Ingresos Netos</dt>
-                                <dd class="text-sm font-semibold text-green-600 dark:text-green-400">
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Ingresos Netos</dt>
+                                <dd class="text-sm font-semibold text-green-400">
                                     @(c.Sueldo.HasValue ? "$ " + c.Sueldo.Value.ToString("N0") : "—")
                                 </dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Tipo de Empleo</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Tipo de Empleo</dt>
                                 <dd class="text-sm font-semibold">@(c.TipoEmpleo ?? "—")</dd>
                             </div>
                         </dl>
@@ -406,25 +406,25 @@
                     <div>
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Contacto &amp; Cónyuge</h4>
                         <dl class="space-y-3">
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Celular</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Celular</dt>
                                 <dd class="text-sm font-semibold">@c.Telefono</dd>
                             </div>
                             @if (!string.IsNullOrEmpty(c.TelefonoAlternativo))
                             {
-                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Tel. Alternativo</dt>
+                                <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-400">Tel. Alternativo</dt>
                                     <dd class="text-sm font-semibold">@c.TelefonoAlternativo</dd>
                                 </div>
                             }
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Domicilio</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Domicilio</dt>
                                 <dd class="text-sm font-semibold">@c.Domicilio</dd>
                             </div>
                             @if (!string.IsNullOrEmpty(c.ConyugeNombreCompleto))
                             {
-                                <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                    <dt class="text-sm text-slate-500 dark:text-slate-400">Cónyuge</dt>
+                                <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                    <dt class="text-sm text-slate-400">Cónyuge</dt>
                                     <dd class="text-sm font-semibold">@c.ConyugeNombreCompleto</dd>
                                 </div>
                             }
@@ -434,16 +434,16 @@
                     <div>
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Dirección</h4>
                         <dl class="space-y-3">
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Localidad</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Localidad</dt>
                                 <dd class="text-sm font-semibold">@(c.Localidad ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Provincia</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Provincia</dt>
                                 <dd class="text-sm font-semibold">@(c.Provincia ?? "—")</dd>
                             </div>
-                            <div class="flex justify-between border-b border-slate-50 dark:border-slate-800/50 pb-2">
-                                <dt class="text-sm text-slate-500 dark:text-slate-400">Código Postal</dt>
+                            <div class="flex justify-between border-b border-slate-50 border-slate-800/50 pb-2">
+                                <dt class="text-sm text-slate-400">Código Postal</dt>
                                 <dd class="text-sm font-semibold">@(c.CodigoPostal ?? "—")</dd>
                             </div>
                         </dl>
@@ -455,7 +455,7 @@
 
         <!-- ═══════ RIGHT COLUMN (1/3): Documentación ═══════ -->
         <div class="space-y-6">
-            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm sticky top-8">
+            <div class="card-erp-panel-padded sticky top-8">
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-primary">description</span>
@@ -463,13 +463,13 @@
                     </div>
                     @if (apt?.Documentacion != null && !apt.Documentacion.Completa)
                     {
-                        <span class="bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                        <span class="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
                             @apt.Documentacion.DocumentosFaltantes.Count Faltantes
                         </span>
                     }
                     else
                     {
-                        <span class="bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                        <span class="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
                             Completa
                         </span>
                     }
@@ -478,12 +478,12 @@
                 @if (apt?.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
                 {
                     <!-- Warning -->
-                    <div class="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800/50 rounded-lg p-3 mb-6">
-                        <div class="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                    <div class="bg-orange-500/10 border border-orange-200 border-orange-800/50 rounded-lg p-3 mb-6">
+                        <div class="flex items-center gap-2 text-orange-700 text-orange-400">
                             <span class="material-symbols-outlined text-[18px]">warning</span>
                             <p class="text-xs font-bold">Faltan documentos críticos:</p>
                         </div>
-                        <p class="text-[11px] text-orange-600 dark:text-orange-300 mt-1 ml-6 uppercase">
+                        <p class="text-[11px] text-orange-300 mt-1 ml-6 uppercase">
                             @string.Join(", ", apt.Documentacion.DocumentosFaltantes)
                         </p>
                     </div>
@@ -500,7 +500,7 @@
                             var esVencido = doc.Estado == EstadoDocumento.Vencido;
                             var returnUrlDoc = Url.Action("Details", "Cliente", new { id = c.Id });
 
-                            <li class="p-3 rounded-lg @(esVerificado ? "border border-green-500/20 bg-green-500/5" : "border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30")">
+                            <li class="p-3 rounded-lg @(esVerificado ? "border border-green-500/20 bg-green-500/5" : "border border-slate-100 border-slate-800 bg-slate-800/30")">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-3">
                                         <div class="h-10 w-10 rounded-lg @(esVerificado ? "bg-green-500/20 text-green-500" : esRechazado ? "bg-red-500/20 text-red-500" : esVencido ? "bg-orange-500/20 text-orange-500" : "bg-amber-500/20 text-amber-500") flex items-center justify-center">
@@ -531,7 +531,7 @@
                                 <div class="flex items-center gap-1.5 mt-2.5 ml-[52px]">
                                     <!-- Descargar / Ver -->
                                     <a asp-controller="DocumentoCliente" asp-action="Descargar" asp-route-id="@doc.Id"
-                                       class="h-7 px-2 flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-semibold no-underline hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                       class="h-7 px-2 flex items-center gap-1 rounded-md bg-slate-700 text-slate-300 text-[11px] font-semibold no-underline hover:bg-slate-600 transition-colors"
                                        title="Descargar archivo">
                                         <span class="material-symbols-outlined text-[16px]">download</span>
                                         <span>Ver</span>
@@ -544,7 +544,7 @@
                                               asp-route-returnUrl="@returnUrlDoc" method="post" class="inline">
                                             @Html.AntiForgeryToken()
                                             <button type="submit"
-                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors"
+                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-emerald-500/20 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-200 hover:bg-emerald-500/30 transition-colors"
                                                     title="Aprobar documento">
                                                 <span class="material-symbols-outlined text-[16px]">task_alt</span>
                                                 <span>Aprobar</span>
@@ -557,7 +557,7 @@
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="motivo" class="motivo-hidden" />
                                             <button type="submit"
-                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 text-[11px] font-semibold hover:bg-red-200 dark:hover:bg-red-500/30 transition-colors"
+                                                    class="h-7 px-2 flex items-center gap-1 rounded-md bg-red-500/20 text-red-400 text-[11px] font-semibold hover:bg-red-200 hover:bg-red-500/30 transition-colors"
                                                     title="Rechazar documento">
                                                 <span class="material-symbols-outlined text-[16px]">block</span>
                                                 <span>Rechazar</span>
@@ -591,9 +591,9 @@
                             var yaSubido = Model.Documentos?.Any(d => d.TipoDocumentoNombre == faltante) ?? false;
                             @if (!yaSubido)
                             {
-                                <li class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+                                <li class="flex items-center justify-between p-3 rounded-lg border border-slate-100 border-slate-800 bg-slate-800/30">
                                     <div class="flex items-center gap-3">
-                                        <div class="h-10 w-10 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500">
+                                        <div class="h-10 w-10 rounded-lg bg-slate-700 flex items-center justify-center text-slate-500">
                                             <span class="material-symbols-outlined">description</span>
                                         </div>
                                         <div>
@@ -624,16 +624,55 @@
     </div>
 </div>
 
+<!-- ═══════ MODAL: Rechazar Documento ═══════ -->
+<div id="rejectDocModal"
+     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+     aria-labelledby="rejectDocModalTitle" aria-modal="true" role="dialog">
+    <div class="w-full max-w-md rounded-2xl shadow-2xl bg-slate-900 border border-slate-800">
+        <div class="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+            <h2 id="rejectDocModalTitle" class="text-lg font-bold text-white">Rechazar documento</h2>
+            <button type="button" id="rejectDocModalClose"
+                    class="p-1 rounded hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-200"
+                    aria-label="Cerrar">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+        </div>
+        <div class="px-6 py-5">
+            <p class="mb-4 text-sm text-slate-400">
+                Indicá el motivo del rechazo. Esta información quedará registrada en el historial del documento.
+            </p>
+            <label for="rejectDocMotivo" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                Motivo <span class="text-rose-500">*</span>
+            </label>
+            <textarea id="rejectDocMotivo" rows="3" maxlength="500"
+                      class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/50 outline-none resize-none transition-colors"
+                      placeholder="Describí el motivo del rechazo…"></textarea>
+            <p id="rejectDocMotivoError" class="mt-1 hidden text-xs font-medium text-red-500">El motivo es obligatorio.</p>
+        </div>
+        <div class="border-t border-slate-800 px-6 py-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" id="rejectDocModalCancelBtn"
+                    class="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-800 sm:w-auto">
+                Cancelar
+            </button>
+            <button type="button" id="rejectDocModalConfirmBtn"
+                    class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
+                <span class="material-symbols-outlined text-base align-middle mr-1">block</span>
+                Confirmar rechazo
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ═══════ MODAL: Subir Documento ═══════ -->
 <div id="uploadDocModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div class="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
         <!-- Header -->
-        <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="p-6 border-b border-slate-800 flex items-center justify-between">
             <div>
                 <h2 class="text-xl font-bold">Subir Documento</h2>
                 <p id="uploadModalSubtitle" class="text-sm text-slate-500 mt-1">Adjuntar documentación para @c.Apellido @c.Nombre</p>
             </div>
-            <button type="button" data-cliente-upload-close class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <button type="button" data-cliente-upload-close class="text-slate-400 hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -651,7 +690,7 @@
                 <div>
                     <label for="modalTipoDocumento" class="block text-sm font-bold mb-1.5">Tipo de Documento</label>
                     <select name="TipoDocumento" id="modalTipoDocumento"
-                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white">
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white">
                         <option value="">— Seleccionar tipo —</option>
                         <option value="1">DNI</option>
                         <option value="2">Recibo de Sueldo</option>
@@ -664,18 +703,18 @@
                 <!-- Archivo -->
                 <div>
                     <label class="block text-sm font-bold mb-1.5">Archivo</label>
-                    <div id="modalDropZone" class="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <div id="modalDropZone" class="relative border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
                         <input type="file" name="Archivo" id="modalArchivoInput"
                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                         <div id="modalDropContent">
                             <span class="material-symbols-outlined text-3xl text-slate-400 mb-1">cloud_upload</span>
-                            <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">Arrastrá o hacé clic para seleccionar</p>
+                            <p class="text-sm font-semibold text-slate-300">Arrastrá o hacé clic para seleccionar</p>
                             <p class="text-xs text-slate-400 mt-1">PDF, JPG, PNG, DOC — Máx. 10 MB</p>
                         </div>
                         <div id="modalFilePreview" class="hidden">
                             <span class="material-symbols-outlined text-3xl text-emerald-500 mb-1">description</span>
-                            <p id="modalFileName" class="text-sm font-semibold text-slate-900 dark:text-white"></p>
+                            <p id="modalFileName" class="text-sm font-semibold text-white"></p>
                             <p id="modalFileSize" class="text-xs text-slate-400 mt-1"></p>
                         </div>
                     </div>
@@ -684,21 +723,21 @@
                 <div>
                     <label for="modalFechaVencimiento" class="block text-sm font-bold mb-1.5">Fecha de Vencimiento</label>
                     <input type="date" name="FechaVencimiento" id="modalFechaVencimiento"
-                           class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white" />
+                           class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white" />
                     <p class="text-xs text-slate-400 mt-1">Opcional. Dejar vacío si el documento no vence.</p>
                 </div>
                 <!-- Observaciones -->
                 <div>
                     <label for="modalObservaciones" class="block text-sm font-bold mb-1.5">Observaciones</label>
                     <textarea name="Observaciones" id="modalObservaciones" rows="2"
-                              class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-slate-900 dark:text-white resize-none"
+                              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-white resize-none"
                               placeholder="Notas o aclaraciones..."></textarea>
                 </div>
             </div>
             <!-- Footer -->
-            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+            <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
                 <button type="button" data-cliente-upload-close
-                        class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        class="px-5 py-2.5 rounded-lg border border-slate-700 text-sm font-semibold hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
                 <button type="submit" id="btnSubirDoc"

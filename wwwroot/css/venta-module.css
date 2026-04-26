@@ -1,0 +1,578 @@
+/* ─────────────────────────────────────────────────────────────
+   venta-module.css
+   NOTA: se fuerza .hidden a display:none !important para que
+   siempre gane sobre custom display properties (ej: display:flex
+   en .vm-error-summary). Necesario cuando el CSS custom se carga
+   después del CDN de Tailwind.
+   ───────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   (resto del archivo)
+   Styles for the Venta module views:
+     Index_tw, Create_tw, Edit_tw, Details_tw
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   INDEX — caja cerrada highlight
+   Animación elegante al intentar crear venta sin caja abierta.
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes caja-highlight {
+    0%   { box-shadow: 0 0 0 0   rgba(245, 158, 11, 0);   background-color: rgba(245, 158, 11, 0.10); }
+    25%  { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.45); background-color: rgba(245, 158, 11, 0.20); }
+    60%  { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.20); background-color: rgba(245, 158, 11, 0.15); }
+    100% { box-shadow: 0 0 0 0   rgba(245, 158, 11, 0);   background-color: rgba(245, 158, 11, 0.10); }
+}
+
+.caja-highlight-active {
+    animation: caja-highlight 1.8s ease forwards;
+    border-color: rgba(245, 158, 11, 0.6) !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   INDEX — collapsible filter panel
+   ══════════════════════════════════════════════════════════════ */
+
+.filter-panel-erp__body {
+    overflow: hidden;
+    transition: max-height 0.28s ease;
+}
+
+.filter-panel-erp__toggle-icon {
+    transition: transform 0.25s ease;
+}
+
+[data-expanded="false"] .filter-panel-erp__toggle-icon {
+    transform: rotate(-90deg);
+}
+
+
+
+
+/* ══════════════════════════════════════════════════════════════
+   MÓDULO VENTA — clases canónicas compartidas entre vistas
+   ══════════════════════════════════════════════════════════════ */
+
+/* Hero section — sección header de Create/Details */
+.venta-hero-section {
+    overflow: hidden;
+    border-radius: 1.5rem;
+    border: 1px solid #1e293b;
+    background-color: #1a202c;
+    padding: 1.5rem;
+}
+@media (min-width: 640px) {
+    .venta-hero-section { padding: 2rem; }
+}
+
+/* Hero metrics grid — 2 cols mobile, 4 en xl */
+.venta-hero-metrics {
+    margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+@media (min-width: 1280px) {
+    .venta-hero-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Hero metric card — dark-first */
+.venta-hero-metric {
+    border-radius: 0.875rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    padding: 1rem;
+}
+
+/* Sección de formulario / contenido (Create/Details) */
+.venta-section {
+    border-radius: 0.75rem;
+    border: 1px solid #1e293b;
+    background-color: #161c28;
+    padding: 1.5rem;
+}
+
+/* Label de campo en formularios */
+.venta-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+/* Input / select estándar del módulo */
+.venta-input,
+.venta-select {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #161c28;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #dde2f4;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.venta-input:focus,
+.venta-select:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+}
+.venta-input::placeholder { color: #475569; }
+
+.venta-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1.125rem;
+    padding-right: 2rem;
+    cursor: pointer;
+    appearance: none;
+}
+.venta-select option { background-color: #161c28; color: #dde2f4; }
+
+/* Breadcrumb pill neutral */
+.venta-breadcrumb-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background-color: #1e293b;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+/* Info pill secundaria (fecha, detalles, etc.) */
+.venta-info-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid #334155;
+    background-color: rgba(30, 41, 59, 0.6);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+/* Panel de sub-sección dentro de card (tarjeta, cheque, etc.) */
+.venta-sub-panel {
+    border-radius: 0.75rem;
+    border: 1px solid #1e293b;
+    background-color: rgba(30, 41, 59, 0.3);
+    padding: 1.5rem;
+}
+
+/* Stat mini (celdas de datos en grid) */
+.venta-stat {
+    border-radius: 0.5rem;
+    background-color: #1e293b;
+    padding: 0.5rem 0.75rem;
+}
+.venta-stat__label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+}
+.venta-stat__value {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #dde2f4;
+    margin-top: 0.125rem;
+}
+
+/* Scroll table width helpers — reemplaza style="--oc-scroll-min-width: Xrem" */
+.venta-scroll-medium { --oc-scroll-min-width: 46rem; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   CREATE / EDIT — document footer actions
+   ══════════════════════════════════════════════════════════════ */
+
+.venta-create-doc-footer {
+    flex-direction: column-reverse;
+}
+
+.venta-create-doc-action {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .venta-create-doc-footer {
+        flex-direction: row;
+    }
+
+    .venta-create-doc-action {
+        width: auto;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   MODAL CREAR VENTA — vm-* clases de alta visibilidad
+   Diseñadas para usuarios con baja visión:
+   · bordes visibles en todo momento (no solo al foco)
+   · labels con alto contraste y tamaño legible
+   · áreas de click amplias (min-height 3rem)
+   · focus ring grueso y llamativo
+   Paleta canónica ERP: bg #161c28, border #1e293b, primary #135bec
+   ══════════════════════════════════════════════════════════════ */
+
+/* Label ─────────────────────────────────────────────────────── */
+.vm-label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: #94a3b8;          /* slate-400 — visible sobre fondo oscuro */
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-bottom: 0.4375rem;
+    user-select: none;
+}
+.vm-label .vm-required {
+    color: #f87171;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* Input / Textarea ───────────────────────────────────────────── */
+.vm-input,
+.vm-textarea {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1rem;
+    background-color: #161c28;
+    border: 1.5px solid #2d3748;   /* visible en reposo, paleta neutral */
+    border-radius: 0.5rem;
+    font-size: 0.9375rem;
+    color: #e2e8f0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    line-height: 1.45;
+}
+.vm-input:hover:not(:focus):not(:read-only),
+.vm-textarea:hover:not(:focus):not(:read-only) {
+    border-color: #334155;
+}
+.vm-input:focus,
+.vm-textarea:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    color: #f1f5f9;
+}
+.vm-input:read-only {
+    background-color: #1e293b;
+    color: #64748b;
+    cursor: default;
+    border-color: #1e293b;
+}
+.vm-input::placeholder,
+.vm-textarea::placeholder {
+    color: #475569;
+}
+
+/* Select ────────────────────────────────────────────────────── */
+.vm-select {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    background-color: #161c28;
+    border: 1.5px solid #2d3748;
+    border-radius: 0.5rem;
+    font-size: 0.9375rem;
+    color: #e2e8f0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    background-size: 1.125rem;
+}
+.vm-select:hover:not(:focus) {
+    border-color: #334155;
+}
+.vm-select:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    color: #f1f5f9;
+}
+.vm-select option {
+    background-color: #161c28;
+    color: #e2e8f0;
+}
+
+/* Campo de búsqueda con icono animado ───────────────────────── */
+.vm-search-wrap { position: relative; }
+.vm-search-wrap .vm-search-icon {
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #475569;
+    font-size: 20px;
+    pointer-events: none;
+    transition: color 0.15s ease;
+}
+.vm-search-wrap:focus-within .vm-search-icon {
+    color: #135bec;
+}
+.vm-search-wrap .vm-input {
+    padding-left: 2.875rem;
+}
+
+/* Panel exterior del modal ──────────────────────────────────── */
+.vm-modal-panel {
+    border: 1px solid #334155;   /* slate-700, fijo para evitar el bug CDN */
+}
+
+/* Separador del header ──────────────────────────────────────── */
+.vm-modal-header-sep {
+    border-bottom: 1px solid #334155;
+}
+
+/* Section card ──────────────────────────────────────────────── */
+.vm-section {
+    border-radius: 0.75rem;
+    border: 1.5px solid #334155;   /* visible sobre fondo oscuro */
+    background-color: #161c28;
+    padding: 1.25rem;
+}
+
+/* Step badge — discreto, sin brillo ─────────────────────────── */
+.vm-step {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* Metric chip del header ─────────────────────────────────────── */
+.vm-metric {
+    border-radius: 0.75rem;
+    border: 1px solid #334155;
+    background-color: #161c28;
+    padding: 0.75rem 1rem;
+}
+
+/* Dropdown de resultados ────────────────────────────────────── */
+.vm-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background-color: #1a2235;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 50;
+    max-height: 15rem;
+    overflow-y: auto;
+}
+
+/* Botón de acción secundaria ─────────────────────────────────── */
+.vm-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background-color: transparent;
+    color: #94a3b8;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.vm-btn-ghost:hover {
+    border-color: #475569;
+    background-color: #1e293b;
+    color: #cbd5e1;
+}
+
+/* Botón "Añadir producto" ────────────────────────────────────── */
+.vm-btn-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1rem;
+    background-color: transparent;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.vm-btn-add:hover {
+    background-color: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+}
+
+/* Botón "Verificar elegibilidad" ─────────────────────────────── */
+.vm-btn-verify {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    background-color: transparent;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    letter-spacing: 0.01em;
+}
+.vm-btn-verify:hover {
+    background-color: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+}
+
+/* Botón "Confirmar Transacción" ─────────────────────────────── */
+.vm-btn-confirm {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: #135bec;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+    min-height: 3.25rem;
+}
+.vm-btn-confirm:hover {
+    background-color: #1a6aff;
+}
+.vm-btn-confirm:active {
+    background-color: #1050d4;
+}
+.vm-btn-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Totales panel ─────────────────────────────────────────────── */
+.vm-totals {
+    border-radius: 0.75rem;
+    background-color: #161c28;
+    border: 1.5px solid #334155;
+    padding: 1.25rem;
+}
+
+/* Checkbox accesible ────────────────────────────────────────── */
+.vm-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.15s ease;
+}
+.vm-checkbox-label:hover {
+    background-color: #1e293b;
+}
+.vm-checkbox-label input[type="checkbox"] {
+    width: 1.125rem;
+    height: 1.125rem;
+    accent-color: #135bec;
+    cursor: pointer;
+}
+.vm-checkbox-label span {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+/* Panel de producto seleccionado ────────────────────────────── */
+.vm-panel-producto {
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background-color: rgba(30, 41, 59, 0.3);
+    padding: 1rem;
+}
+
+/* Sub-panel de cobro (tarjeta, cheque, crédito) ─────────────── */
+.vm-sub-panel {
+    border-radius: 0.5rem;
+    border: 1px solid #334155;
+    background-color: rgba(30, 41, 59, 0.3);
+    padding: 1.25rem;
+}
+
+/* Validación summary ────────────────────────────────────────── */
+.vm-error-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background-color: rgba(239, 68, 68, 0.08);
+    padding: 1rem 1.25rem;
+    margin: 1rem 1.5rem 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   DETAILS — modal footer actions
+   ══════════════════════════════════════════════════════════════ */
+
+.venta-details-modal-footer {
+    flex-direction: column-reverse;
+}
+
+.venta-details-modal-action {
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .venta-details-modal-footer {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+
+    .venta-details-modal-action {
+        width: auto;
+    }
+}

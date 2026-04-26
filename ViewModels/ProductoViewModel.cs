@@ -121,4 +121,31 @@ namespace TheBuryProject.ViewModels
         public string? CreatedBy { get; set; }
         public string? UpdatedBy { get; set; }
     }
+
+    /// <summary>
+    /// Resultado de búsqueda de producto para el panel de venta.
+    /// Incluye precio vigente de lista y campo de coincidencia exacta de código.
+    /// </summary>
+    public class ProductoVentaDto
+    {
+        public int Id { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string? Marca { get; set; }
+        public string? Submarca { get; set; }
+        public string? Categoria { get; set; }
+        public string? Subcategoria { get; set; }
+        public string? Descripcion { get; set; }
+        public decimal StockActual { get; set; }
+        public decimal PrecioVenta { get; set; }
+        public List<ProductoCaracteristicaDto> Caracteristicas { get; set; } = new();
+        public string CaracteristicasResumen { get; set; } = string.Empty;
+        public bool CodigoExacto { get; set; }
+    }
+
+    public class ProductoCaracteristicaDto
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string Valor { get; set; } = string.Empty;
+    }
 }

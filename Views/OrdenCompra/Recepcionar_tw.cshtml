@@ -21,23 +21,23 @@
 
 @if (TempData["Success"] is string successMsg)
 {
-    <div id="toast-success" role="status" aria-live="polite" class="mb-2 flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-600 dark:text-emerald-400">
+    <div id="toast-success" role="status" aria-live="polite" class="mb-2 flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-400">
         <span class="material-symbols-outlined">check_circle</span>
         <p class="text-sm font-medium">@successMsg</p>
     </div>
 }
 @if (TempData["Error"] is string errorMsg)
 {
-    <div id="toast-error" role="alert" class="mb-2 flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400">
+    <div id="toast-error" role="alert" class="mb-2 flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-400">
         <span class="material-symbols-outlined">error</span>
         <p class="text-sm font-medium">@errorMsg</p>
     </div>
 }
 
-<section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 sm:p-6">
+<section class="mb-6 card-erp-panel-padded">
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">
+            <div class="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">
                 <a asp-action="Index" class="hover:text-primary no-underline transition-colors">Ordenes de Compra</a>
                 <span class="material-symbols-outlined text-xs">chevron_right</span>
                 <a asp-action="Details" asp-route-id="@Model.Id" class="hover:text-primary no-underline transition-colors">@Model.Numero</a>
@@ -45,8 +45,8 @@
                 <span class="text-primary">Recepcionar</span>
             </div>
             <div class="flex flex-col gap-2">
-                <h1 class="text-slate-900 dark:text-white text-3xl font-black leading-tight tracking-tight">Recepcionar Mercadería</h1>
-                <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+                <h1 class="text-white text-3xl font-black leading-tight tracking-tight">Recepcionar Mercadería</h1>
+                <p class="max-w-3xl text-sm text-slate-400">
                     Registrá el ingreso de unidades pendientes manteniendo trazabilidad clara sobre lo ya recibido y lo que queda por completar.
                 </p>
             </div>
@@ -54,11 +54,11 @@
 
         <div class="ocr-header-actions">
             <a asp-action="Details" asp-route-id="@Model.Id"
-               class="ocr-header-action flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 text-sm font-bold transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900">
+               class="ocr-header-action flex items-center justify-center gap-2 rounded-xl border bg-slate-100 text-sm font-bold transition-colors hover:bg-slate-200 border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-slate-900">
                 <span class="material-symbols-outlined text-sm">arrow_back</span>
                 Volver al detalle
             </a>
-            <span class="ocr-header-action inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-sm font-bold opacity-70 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+            <span class="ocr-header-action inline-flex items-center justify-center gap-2 rounded-xl border bg-slate-100 text-slate-500 text-sm font-bold opacity-70 cursor-not-allowed border-slate-700 bg-slate-800 text-slate-400"
                   aria-disabled="true"
                   aria-label="Editar no disponible"
                   title="La edición de órdenes de compra todavía no está disponible">
@@ -79,18 +79,18 @@
         </article>
         <article class="ocr-stat-card">
             <span class="ocr-stat-label">Productos pendientes</span>
-            <p class="mt-2 text-2xl font-black leading-none text-slate-900 dark:text-white">@productosConPendiente</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">de @Model.Detalles.Count producto(s) en la orden</p>
+            <p class="mt-2 text-2xl font-black leading-none text-white">@productosConPendiente</p>
+            <p class="mt-1 text-xs text-slate-400">de @Model.Detalles.Count producto(s) en la orden</p>
         </article>
         <article class="ocr-stat-card">
             <span class="ocr-stat-label">Unidades pendientes</span>
-            <p class="mt-2 text-2xl font-black leading-none text-slate-900 dark:text-white">@totalPendiente</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@totalRecibidas de @totalUnidades ya recepcionadas</p>
+            <p class="mt-2 text-2xl font-black leading-none text-white">@totalPendiente</p>
+            <p class="mt-1 text-xs text-slate-400">@totalRecibidas de @totalUnidades ya recepcionadas</p>
         </article>
         <article class="ocr-stat-card ocr-stat-card--accent">
             <span class="ocr-stat-label">Recepción acumulada</span>
             <p class="mt-2 text-2xl font-black leading-none text-primary">@porcentajeRecepcion%</p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">avance sobre las unidades solicitadas</p>
+            <p class="mt-1 text-xs text-slate-400">avance sobre las unidades solicitadas</p>
         </article>
     </div>
 </section>
@@ -101,14 +101,14 @@
     <input type="hidden" name="rowVersion" value="@(Model.RowVersion != null ? Convert.ToBase64String(Model.RowVersion) : "")" />
 
     <div class="lg:col-span-2 flex flex-col gap-6">
-        <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+        <section class="card-erp-panel-padded">
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,1fr)]">
-                <div class="overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 to-slate-100 p-6 dark:from-primary/10 dark:to-slate-800">
+                <div class="overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 to-slate-800 p-6">
                     <div class="flex h-full min-h-[10rem] flex-col justify-between gap-5">
                         <div class="flex items-center justify-between gap-3">
                             <div class="flex flex-col gap-1">
                                 <span class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Orden de Compra</span>
-                                <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@Model.Numero</h2>
+                                <h2 class="text-3xl font-black tracking-tight text-white">@Model.Numero</h2>
                             </div>
                             <div class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold @estadoBadge.Item1">
                                 <span class="size-2 rounded-full bg-current @(Model.Estado == EstadoOrdenCompra.EnTransito ? "animate-pulse" : "")"></span>
@@ -118,20 +118,20 @@
 
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Proveedor</p>
-                                <p class="mt-1 text-base font-semibold text-slate-900 dark:text-white">@(Model.ProveedorNombre ?? "—")</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</p>
+                                <p class="mt-1 text-base font-semibold text-white">@(Model.ProveedorNombre ?? "—")</p>
                             </div>
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fecha de emisión</p>
-                                <p class="mt-1 text-base font-semibold text-slate-900 dark:text-white">@Model.FechaEmision.ToString("dd/MM/yyyy")</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha de emisión</p>
+                                <p class="mt-1 text-base font-semibold text-white">@Model.FechaEmision.ToString("dd/MM/yyyy")</p>
                             </div>
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Unidades pedidas</p>
-                                <p class="mt-1 text-base font-semibold text-slate-900 dark:text-white">@totalUnidades</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades pedidas</p>
+                                <p class="mt-1 text-base font-semibold text-white">@totalUnidades</p>
                             </div>
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Recepción actual</p>
-                                <p class="mt-1 text-base font-semibold text-slate-900 dark:text-white">@totalRecibidas / @totalUnidades</p>
+                                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Recepción actual</p>
+                                <p class="mt-1 text-base font-semibold text-white">@totalRecibidas / @totalUnidades</p>
                             </div>
                         </div>
                     </div>
@@ -141,36 +141,36 @@
                     <div class="flex items-start gap-3">
                         <span class="material-symbols-outlined mt-0.5 text-primary">info</span>
                         <div>
-                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Notas operativas</h3>
-                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            <h3 class="text-base font-bold text-white">Notas operativas</h3>
+                            <p class="mt-1 text-sm text-slate-400">
                                 Cargá únicamente las unidades que efectivamente ingresaron. Si necesitás revisar la orden, volvé al detalle antes de confirmar.
                             </p>
                         </div>
                     </div>
-                    <div class="rounded-lg border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-                        <span class="font-semibold text-slate-900 dark:text-white">Importante:</span>
+                    <div class="rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
+                        <span class="font-semibold text-white">Importante:</span>
                         esta acción actualiza el stock inmediatamente para cada producto recepcionado.
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/50"
+        <section class="card-erp-panel flex flex-col overflow-hidden"
                  data-oc-scroll
                  style="--oc-scroll-min-width: 52rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-            <div class="border-b border-slate-200 p-6 dark:border-slate-800">
+            <div class="border-b p-6 border-slate-800">
                 <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div class="flex items-center gap-3">
                         <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <span class="material-symbols-outlined">inventory_2</span>
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Productos a recepcionar</h2>
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Controlá pendientes, estado de cada renglón y cantidad a ingresar.</p>
+                            <h2 class="text-lg font-bold text-white">Productos a recepcionar</h2>
+                            <p class="text-sm text-slate-400">Controlá pendientes, estado de cada renglón y cantidad a ingresar.</p>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-2 rounded-lg border bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 border-slate-700 bg-slate-800 text-slate-300">
                             <span class="material-symbols-outlined text-sm">list_alt</span>
                             @Model.Detalles.Count producto(s)
                         </span>
@@ -183,13 +183,13 @@
             </div>
 
             <div data-oc-scroll-hint
-                 class="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 lg:hidden"
+                 class="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border bg-slate-100/80 px-3 py-2 text-xs text-slate-600 border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
                  hidden>
                 <div class="flex items-center gap-2 font-semibold">
                     <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
                     <span id="ordencompra-recepcionar-scroll-hint">Deslizá la tabla para revisar cantidades y estados</span>
                 </div>
-                <span class="rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
+                <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                     Scroll horizontal
                 </span>
             </div>
@@ -207,41 +207,41 @@
                     <table data-oc-scroll-table class="ocr-products-table w-full text-left border-collapse">
                         <caption class="ocr-visually-hidden">Productos de la orden y cantidad a recepcionar por cada uno.</caption>
                         <thead>
-                            <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producto</th>
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Cant. Solicitada</th>
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Cant. Recibida</th>
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Pendiente</th>
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Estado</th>
-                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">A Recepcionar</th>
+                            <tr class="bg-slate-800/50 border-b border-slate-800">
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Cant. Solicitada</th>
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Cant. Recibida</th>
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Pendiente</th>
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
+                                <th scope="col" class="text-xs font-bold uppercase tracking-wider text-slate-400 text-right">A Recepcionar</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tbody class="divide-y divide-slate-800">
                             @for (int i = 0; i < Model.Detalles.Count; i++)
                             {
                                 var d = Model.Detalles[i];
                                 var pendiente = Math.Max(d.Cantidad - d.CantidadRecibida, 0);
                                 var completo = pendiente <= 0;
 
-                                <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                                <tr class="hover:/60 hover:bg-slate-800/30 transition-colors">
                                     <td>
                                         <input type="hidden" name="detalles[@i].DetalleId" value="@d.Id" />
                                         <input type="hidden" name="detalles[@i].ProductoId" value="@d.ProductoId" />
                                         <div class="flex items-center gap-3">
-                                            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800 shrink-0">
+                                            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400 bg-slate-800 shrink-0">
                                                 <span class="material-symbols-outlined">inventory_2</span>
                                             </div>
                                             <div>
-                                                <p class="text-sm font-bold text-slate-900 dark:text-white">@d.ProductoNombre</p>
+                                                <p class="text-sm font-bold text-white">@d.ProductoNombre</p>
                                                 @if (!string.IsNullOrEmpty(d.ProductoCodigo))
                                                 {
-                                                    <span class="text-xs text-slate-500 dark:text-slate-500">SKU: @d.ProductoCodigo</span>
+                                                    <span class="text-xs text-slate-500 text-slate-500">SKU: @d.ProductoCodigo</span>
                                                 }
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="text-center text-sm font-medium text-slate-900 dark:text-white">@d.Cantidad</td>
-                                    <td class="text-center text-sm font-medium text-slate-900 dark:text-white">@d.CantidadRecibida</td>
+                                    <td class="text-center text-sm font-medium text-white">@d.Cantidad</td>
+                                    <td class="text-center text-sm font-medium text-white">@d.CantidadRecibida</td>
                                     <td class="text-center text-sm font-medium @(completo ? "text-emerald-500" : "text-amber-500")">@pendiente</td>
                                     <td class="text-center">
                                         @if (completo)
@@ -265,7 +265,7 @@
                                                    value="0"
                                                    disabled
                                                    aria-label="Cantidad a recepcionar de @d.ProductoNombre no disponible"
-                                                   class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-right text-sm text-slate-400 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900/50" />
+                                                   class="w-full rounded-lg border bg-slate-100 px-3 py-2 text-right text-sm text-slate-400 cursor-not-allowed border-slate-800 bg-slate-900/50" />
                                         }
                                         else
                                         {
@@ -277,7 +277,7 @@
                                                    inputmode="numeric"
                                                    data-pendiente="@pendiente"
                                                    aria-label="Cantidad a recepcionar de @d.ProductoNombre"
-                                                   class="input-recepcion w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm text-slate-900 focus:border-primary focus:ring-2 focus:ring-primary/40 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                                                   class="input-recepcion w-full rounded-lg border px-3 py-2 text-right text-sm focus:border-primary focus:ring-2 focus:ring-primary/40 border-slate-700 bg-slate-800 text-white" />
                                         }
                                     </td>
                                 </tr>
@@ -292,11 +292,11 @@
     <aside class="lg:sticky lg:top-24 flex h-fit flex-col gap-6">
         <section id="recepcionar-summary"
                  data-total-pendiente="@totalPendiente"
-                 class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+                 class="card-erp-panel-padded">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">Resumen de Recepción</h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Verificá lo que se va a ingresar antes de confirmar.</p>
+                    <h2 class="text-lg font-bold text-white">Resumen de Recepción</h2>
+                    <p class="mt-1 text-sm text-slate-400">Verificá lo que se va a ingresar antes de confirmar.</p>
                 </div>
                 <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <span class="material-symbols-outlined">fact_check</span>
@@ -306,27 +306,27 @@
             <div class="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
                 <div class="ocr-summary-card">
                     <span class="ocr-summary-label">Productos con carga</span>
-                    <p id="lbl-productos-seleccionados" class="mt-2 text-2xl font-black leading-none text-slate-900 dark:text-white">0</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">productos con unidades a ingresar</p>
+                    <p id="lbl-productos-seleccionados" class="mt-2 text-2xl font-black leading-none text-white">0</p>
+                    <p class="mt-1 text-xs text-slate-400">productos con unidades a ingresar</p>
                 </div>
                 <div class="ocr-summary-card">
                     <span class="ocr-summary-label">Unidades a ingresar</span>
                     <p id="lbl-ingresar" class="mt-2 text-2xl font-black leading-none text-primary">0</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">se sumarán al stock al confirmar</p>
+                    <p class="mt-1 text-xs text-slate-400">se sumarán al stock al confirmar</p>
                 </div>
                 <div class="ocr-summary-card">
                     <span class="ocr-summary-label">Pendiente luego de esta carga</span>
-                    <p id="lbl-pendientes" data-initial="@totalPendiente" class="mt-2 text-2xl font-black leading-none text-slate-900 dark:text-white">@totalPendiente</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">unidades que seguirán pendientes</p>
+                    <p id="lbl-pendientes" data-initial="@totalPendiente" class="mt-2 text-2xl font-black leading-none text-white">@totalPendiente</p>
+                    <p class="mt-1 text-xs text-slate-400">unidades que seguirán pendientes</p>
                 </div>
             </div>
 
-            <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+            <div class="mt-5 rounded-xl border border-slate-800 bg-slate-800/40 p-4">
                 <div class="flex items-center justify-between gap-3">
-                    <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Avance de esta recepción</span>
-                    <span id="recepcionar-progress-text" class="text-sm font-bold text-slate-900 dark:text-white">0%</span>
+                    <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Avance de esta recepción</span>
+                    <span id="recepcionar-progress-text" class="text-sm font-bold text-white">0%</span>
                 </div>
-                <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 bg-slate-800">
                     <div id="recepcionar-progress-bar" class="h-full rounded-full bg-primary transition-all duration-200" style="width: 0%;"></div>
                 </div>
             </div>
@@ -342,19 +342,19 @@
 
             <div class="mt-6 flex flex-col gap-3">
                 <button type="submit" id="btn-confirmar"
-                        class="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900">
+                        class="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-slate-900">
                     <span class="material-symbols-outlined text-lg">check_circle</span>
                     Confirmar Recepción
                 </button>
                 <a asp-action="Details" asp-route-id="@Model.Id"
-                   class="inline-flex h-12 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 no-underline">
+                   class="inline-flex h-12 items-center justify-center rounded-lg border px-4 text-sm font-bold text-slate-600 transition-colors border-slate-700 text-slate-300 hover:bg-slate-800 no-underline">
                     Cancelar Operación
                 </a>
             </div>
 
-            <div class="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+            <div class="mt-6 rounded-lg border border-slate-800 bg-slate-800/40 p-4">
                 <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Instrucciones</p>
-                <p class="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                <p class="mt-2 text-xs leading-relaxed text-slate-400">
                     Si ingresás menos unidades que las pendientes, la orden seguirá disponible para futuras recepciones. Si completás todo, la siguiente etapa operativa dependerá del estado general de la orden.
                 </p>
             </div>
@@ -363,120 +363,7 @@
 </form>
 
 @section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
-    <style>
-        .ocr-header-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            width: 100%;
-        }
-
-        .ocr-header-action {
-            flex: 1 1 11rem;
-            min-height: 2.75rem;
-            padding: 0.75rem 1rem;
-        }
-
-        .ocr-stat-card,
-        .ocr-summary-card {
-            border: 1px solid rgb(226 232 240 / 1);
-            border-radius: 1rem;
-            background: rgb(248 250 252 / 0.86);
-            padding: 1rem;
-        }
-
-        .dark .ocr-stat-card,
-        .dark .ocr-summary-card {
-            border-color: rgb(30 41 59 / 1);
-            background: rgb(15 23 42 / 0.55);
-        }
-
-        .ocr-stat-card--accent {
-            background: linear-gradient(135deg, rgb(239 246 255 / 0.95), rgb(248 250 252 / 0.96));
-        }
-
-        .dark .ocr-stat-card--accent {
-            background: linear-gradient(135deg, rgb(15 23 42 / 0.92), rgb(30 41 59 / 0.82));
-        }
-
-        .ocr-stat-label,
-        .ocr-summary-label {
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: rgb(100 116 139 / 1);
-        }
-
-        .dark .ocr-stat-label,
-        .dark .ocr-summary-label {
-            color: rgb(148 163 184 / 1);
-        }
-
-        .ocr-products-table th,
-        .ocr-products-table td {
-            padding: 1rem;
-        }
-
-        .ocr-visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-
-        #recepcionar-feedback[data-variant="error"] {
-            display: flex;
-            border-color: rgb(251 113 133 / 0.25);
-            background: rgb(255 241 242 / 0.9);
-            color: rgb(225 29 72 / 1);
-        }
-
-        .dark #recepcionar-feedback[data-variant="error"] {
-            background: rgb(76 5 25 / 0.45);
-            color: rgb(251 113 133 / 1);
-        }
-
-        #recepcionar-feedback[data-variant="info"] {
-            display: flex;
-            border-color: rgb(59 130 246 / 0.2);
-            background: rgb(239 246 255 / 0.9);
-            color: rgb(37 99 235 / 1);
-        }
-
-        .dark #recepcionar-feedback[data-variant="info"] {
-            background: rgb(15 23 42 / 0.7);
-            color: rgb(96 165 250 / 1);
-        }
-
-        @@media (min-width: 768px) {
-            .ocr-header-actions {
-                width: auto;
-                justify-content: flex-end;
-            }
-
-            .ocr-header-action {
-                flex: 0 0 auto;
-            }
-
-            .ocr-products-table th,
-            .ocr-products-table td {
-                padding: 1.25rem 1.5rem;
-            }
-        }
-
-        @@media (min-width: 1024px) {
-            [data-oc-scroll-hint] {
-                display: none !important;
-            }
-        }
-    </style>
+    <partial name="_OrdenCompraModuleStyles" />
 }
 
 @section Scripts {

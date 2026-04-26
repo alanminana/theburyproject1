@@ -1,0 +1,10 @@
+- generic [active] [ref=e1]:
+  - heading "An error occurred during the compilation of a resource required to process this request. Please review the following specific error details and modify your source code appropriately." [level=1] [ref=e2]
+  - generic [ref=e3]:
+    - generic [ref=e4]: C:\Users\xh4ac\code\TheBuryProyect\Views\Catalogo\Index_tw.cshtml
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - heading "End of file or an unexpected character was reached before the \"tr\" tag could be parsed. Elements inside markup blocks must be complete. They must either be self-closing (\"<br />\") or have matching end tags (\"<p>Hello</p>\"). If you intended to display a \"<\" character, use the \"&lt;\" HTML entity." [level=3] [ref=e7]
+        - button "+" [ref=e8] [cursor=pointer]
+        - list [ref=e10]:
+          - listitem [ref=e11]: "<tr class=\"hover:bg-white/5 transition-colors @(!p.Activo ? \"opacity-50\" : \"\")\""

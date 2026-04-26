@@ -1,0 +1,475 @@
+@model ClienteViewModel
+@{
+    var isEdit     = Model.Id > 0;
+    var formAction = isEdit ? Url.Action("EditAjax", "Cliente") : Url.Action("CreateAjax", "Cliente");
+    var title      = isEdit ? $"{Model.Apellido} {Model.Nombre}" : "Nuevo Cliente";
+    var submitIcon = isEdit ? "save" : "person_add";
+    var submitText = isEdit ? "Guardar Cambios" : "Crear Cliente";
+}
+
+@* ── Header del panel ───────────────────────────────────────── *@
+<header class="flex shrink-0 items-center justify-between border-b border-slate-800 bg-[#161d2c]/90 px-8 py-5 backdrop-blur-sm">
+    <div>
+        <nav class="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+            <span>Clientes</span>
+            @if (isEdit)
+            {
+                <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+                <span>@Model.Apellido @Model.Nombre</span>
+            }
+            <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+            <span class="text-slate-100">@(isEdit ? "Editar" : "Nuevo")</span>
+        </nav>
+        <h2 class="text-2xl font-black tracking-tight text-slate-50">@title</h2>
+    </div>
+    <div class="flex items-center gap-3">
+        <button type="button" id="modal-cliente-cancel" class="btn-erp-ghost">
+            Cancelar
+        </button>
+        <button type="submit" form="cliente-modal-form" class="btn-erp-primary">
+            <span class="material-symbols-outlined text-[20px]">@submitIcon</span>
+            @submitText
+        </button>
+    </div>
+</header>
+
+@* ── Cuerpo scrollable ───────────────────────────────────────── *@
+<div class="flex-1 overflow-y-auto">
+    <form id="cliente-modal-form" action="@formAction" method="post" novalidate>
+        @Html.AntiForgeryToken()
+
+        @* Hidden fields (solo en edición) *@
+        @if (isEdit)
+        {
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="RowVersion" />
+            <input type="hidden" asp-for="NombreCompleto" />
+            <input type="hidden" asp-for="PuntajeRiesgo" />
+            <input type="hidden" asp-for="NivelRiesgo" />
+            <input type="hidden" asp-for="CreditosTotales" />
+            <input type="hidden" asp-for="CreditosActivos" />
+            <input type="hidden" asp-for="CuotasImpagas" />
+            <input type="hidden" asp-for="MontoAdeudado" />
+        }
+
+        @* Validation summary *@
+        <div id="cliente-modal-validation" class="mx-8 mt-6 hidden rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined shrink-0 text-red-400">error</span>
+                <ul id="cliente-modal-error-list" class="list-inside list-disc space-y-1 text-sm text-red-400"></ul>
+            </div>
+        </div>
+
+        @* Grid: secciones + aside *@
+        <div class="grid grid-cols-1 gap-8 px-8 py-8 lg:grid-cols-3">
+
+            <div class="lg:col-span-2 space-y-4">
+
+                @* ── 1. Datos Personales ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="personal"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">1</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Datos Personales</h3>
+                                <p class="text-xs text-slate-500">Información básica del cliente</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined text-slate-400 transition-transform duration-200" id="chevron-personal">expand_more</span>
+                    </button>
+                    <div id="section-personal" class="border-t border-slate-800 p-6">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div>
+                                <label asp-for="TipoDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo Documento *</label>
+                                <select asp-for="TipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="NumeroDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Número Documento *</label>
+                                <input asp-for="NumeroDocumento" placeholder="Ej: 30456789"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="CuilCuit" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">CUIL/CUIT</label>
+                                <input asp-for="CuilCuit" placeholder="Solo números, 11 dígitos" maxlength="11"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="Apellido" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Apellido *</label>
+                                <input asp-for="Apellido" placeholder="Apellido del cliente"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="Nombre" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre *</label>
+                                <input asp-for="Nombre" placeholder="Nombre del cliente"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="FechaNacimiento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Fecha de Nacimiento</label>
+                                <input asp-for="FechaNacimiento" type="date"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="EstadoCivil" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Estado Civil</label>
+                                <select asp-for="EstadoCivil" asp-items="@(ViewBag.EstadosCiviles as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── 2. Datos del Cónyuge ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="conyuge"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-xs font-bold text-pink-400">2</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Datos del Cónyuge</h3>
+                                <p class="text-xs text-slate-500">Opcional — solo si aplica</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-conyuge">expand_more</span>
+                    </button>
+                    <div id="section-conyuge" class="hidden border-t border-slate-800 p-6">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div class="md:col-span-3">
+                                <label asp-for="ConyugeNombreCompleto" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre Completo</label>
+                                <input asp-for="ConyugeNombreCompleto" placeholder="Nombre y apellido del cónyuge"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="ConyugeTipoDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo Documento</label>
+                                <select asp-for="ConyugeTipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="ConyugeNumeroDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Número Documento</label>
+                                <input asp-for="ConyugeNumeroDocumento" placeholder="Ej: 30456789"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="ConyugeTelefono" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</label>
+                                <input asp-for="ConyugeTelefono" type="tel" placeholder="Ej: 3814567890"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="ConyugeSueldo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Sueldo</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
+                                    <input asp-for="ConyugeSueldo" step="0.01" placeholder="0.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── 3. Datos de Contacto ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="contacto"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-xs font-bold text-green-400">3</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Datos de Contacto</h3>
+                                <p class="text-xs text-slate-500">Teléfono, email y dirección</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined text-slate-400 transition-transform duration-200" id="chevron-contacto">expand_more</span>
+                    </button>
+                    <div id="section-contacto" class="border-t border-slate-800 p-6">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div>
+                                <label asp-for="Telefono" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono *</label>
+                                <input asp-for="Telefono" type="tel" placeholder="Ej: 3814567890"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="TelefonoAlternativo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono Alternativo</label>
+                                <input asp-for="TelefonoAlternativo" type="tel" placeholder="Ej: 3814567890"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="Email" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Email</label>
+                                <input asp-for="Email" type="email" placeholder="ejemplo@correo.com"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div class="md:col-span-3">
+                                <label asp-for="Domicilio" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Domicilio *</label>
+                                <input asp-for="Domicilio" placeholder="Calle, número, piso, depto"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="Localidad" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Localidad</label>
+                                <input asp-for="Localidad" placeholder="Ej: San Miguel de Tucumán"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="Provincia" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Provincia</label>
+                                <select asp-for="Provincia" asp-items="@(ViewBag.Provincias as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="CodigoPostal" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Código Postal</label>
+                                <input asp-for="CodigoPostal" placeholder="Ej: 4000"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── 4. Situación Laboral ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="laboral"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-xs font-bold text-amber-400">4</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Situación Laboral</h3>
+                                <p class="text-xs text-slate-500">Empleo e ingresos del cliente</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-laboral">expand_more</span>
+                    </button>
+                    <div id="section-laboral" class="hidden border-t border-slate-800 p-6">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div>
+                                <label asp-for="Empleador" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Empleador</label>
+                                <input asp-for="Empleador" placeholder="Nombre de la empresa"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="TipoEmpleo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo de Empleo</label>
+                                <select asp-for="TipoEmpleo" asp-items="@(ViewBag.TiposEmpleo as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="Sueldo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Sueldo</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
+                                    <input asp-for="Sueldo" step="0.01" placeholder="0.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                            </div>
+                            <div>
+                                <label asp-for="TelefonoLaboral" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono Laboral</label>
+                                <input asp-for="TelefonoLaboral" type="tel" placeholder="Ej: 3814567890"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="TiempoTrabajo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tiempo de Trabajo</label>
+                                <input asp-for="TiempoTrabajo" placeholder="Ej: 3 años"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div class="flex items-end">
+                                <label class="flex cursor-pointer items-center gap-3 py-2.5">
+                                    <input asp-for="TieneReciboSueldo" type="checkbox"
+                                           class="h-5 w-5 rounded border-slate-600 text-primary focus:ring-primary/50" />
+                                    <span class="text-sm font-semibold">Tiene Recibo de Sueldo</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── 5. Configuración Crediticia ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="credito"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-400">5</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Configuración Crediticia</h3>
+                                <p class="text-xs text-slate-500">Parámetros personalizados para este cliente</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-credito">expand_more</span>
+                    </button>
+                    <div id="section-credito" class="hidden border-t border-slate-800 p-6">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div class="md:col-span-3">
+                                <label asp-for="PerfilCreditoPreferidoId" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Perfil de Crédito Preferido</label>
+                                <select asp-for="PerfilCreditoPreferidoId" asp-items="@(ViewBag.PerfilesCredito as SelectList)"
+                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                                    <option value="">Sin perfil preferido</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="TasaInteresMensualPersonalizada" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tasa Interés Mensual (%)</label>
+                                <div class="relative">
+                                    <input asp-for="TasaInteresMensualPersonalizada" step="0.01" placeholder="Ej: 5.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pr-8 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label asp-for="GastosAdministrativosPersonalizados" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Gastos Administrativos (%)</label>
+                                <div class="relative">
+                                    <input asp-for="GastosAdministrativosPersonalizados" step="0.01" placeholder="Ej: 2.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pr-8 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label asp-for="CuotasMaximasPersonalizadas" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Cuotas Máximas</label>
+                                <input asp-for="CuotasMaximasPersonalizadas" type="number" min="1" max="120" placeholder="Ej: 24"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            </div>
+                            <div>
+                                <label asp-for="MontoMinimoPersonalizado" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Monto Mínimo ($)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
+                                    <input asp-for="MontoMinimoPersonalizado" id="montoMinimo" step="0.01" placeholder="0.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                            </div>
+                            <div>
+                                <label asp-for="MontoMaximoPersonalizado" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Monto Máximo ($)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
+                                    <input asp-for="MontoMaximoPersonalizado" id="montoMaximo" step="0.01" placeholder="0.00"
+                                           class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <p id="montoError" class="mt-1 hidden text-xs text-red-400">El monto mínimo no puede ser mayor al monto máximo</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                @* ── 6. Observaciones y Estado ── *@
+                <section class="card-erp-panel">
+                    <button type="button" data-cliente-section="observaciones"
+                            class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
+                        <div class="flex items-center gap-4">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">6</span>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-100">Observaciones y Estado</h3>
+                                <p class="text-xs text-slate-500">Notas internas y estado del cliente</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-observaciones">expand_more</span>
+                    </button>
+                    <div id="section-observaciones" class="hidden border-t border-slate-800 p-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label asp-for="Observaciones" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</label>
+                                <textarea asp-for="Observaciones" rows="4" placeholder="Notas internas sobre el cliente..."
+                                          class="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50"></textarea>
+                            </div>
+                            <div>
+                                <label class="flex cursor-pointer items-center gap-3">
+                                    <input asp-for="Activo" type="checkbox"
+                                           class="h-5 w-5 rounded border-slate-600 text-primary focus:ring-primary/50" />
+                                    <div>
+                                        <span class="text-sm font-bold">Cliente Activo</span>
+                                        <p class="text-xs text-slate-500">Los clientes inactivos no pueden generar nuevos créditos</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            @* Aside *@
+            <aside>
+                @if (isEdit)
+                {
+                    <div class="card-erp-panel sticky top-8">
+                        <div class="flex items-center gap-2 border-b border-slate-800 bg-slate-800/30 px-6 py-4">
+                            <span class="material-symbols-outlined text-xl text-primary">badge</span>
+                            <h4 class="text-sm font-bold text-slate-100">Datos del cliente</h4>
+                        </div>
+                        <div class="space-y-5 p-6">
+                            <div class="space-y-2 text-xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500">Nombre</span>
+                                    <span class="font-semibold text-slate-200">@Model.Apellido @Model.Nombre</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500">Documento</span>
+                                    <span class="font-semibold text-slate-200">@Model.TipoDocumento @Model.NumeroDocumento</span>
+                                </div>
+                                @if (Model.PuntajeRiesgo > 0)
+                                {
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-500">Score</span>
+                                        <span class="font-semibold text-slate-200">@Model.PuntajeRiesgo</span>
+                                    </div>
+                                }
+                                @if (Model.CreditosActivos > 0)
+                                {
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-500">Créditos activos</span>
+                                        <span class="font-semibold text-amber-400">@Model.CreditosActivos</span>
+                                    </div>
+                                }
+                            </div>
+                            <hr class="border-slate-800" />
+                            <ul class="space-y-2 text-xs text-slate-400">
+                                <li class="flex gap-2">
+                                    <span class="material-symbols-outlined text-sm text-slate-500">arrow_right</span>
+                                    Los cambios en configuración crediticia aplican a créditos <strong class="text-slate-300">futuros</strong>.
+                                </li>
+                                <li class="flex gap-2">
+                                    <span class="material-symbols-outlined text-sm text-slate-500">arrow_right</span>
+                                    Desactivar no cancela créditos vigentes.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="card-erp-panel sticky top-8">
+                        <div class="flex items-center gap-2 border-b border-slate-800 bg-slate-800/30 px-6 py-4">
+                            <span class="material-symbols-outlined text-xl text-primary">info</span>
+                            <h4 class="text-sm font-bold text-slate-100">Guía de alta</h4>
+                        </div>
+                        <div class="p-6">
+                            <ol class="space-y-4 text-xs text-slate-400">
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">1</span>
+                                    <span><strong class="text-slate-300">Datos personales</strong> — DNI, apellido y nombre son obligatorios.</span>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-[10px] font-bold text-pink-400">2</span>
+                                    <span><strong class="text-slate-300">Cónyuge</strong> — Solo si está casado o en unión convivencial.</span>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-[10px] font-bold text-green-400">3</span>
+                                    <span><strong class="text-slate-300">Contacto</strong> — Teléfono y domicilio son obligatorios.</span>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-[10px] font-bold text-amber-400">4</span>
+                                    <span><strong class="text-slate-300">Laboral</strong> — El sueldo incide en el score crediticio.</span>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-bold text-violet-400">5</span>
+                                    <span><strong class="text-slate-300">Crédito</strong> — Dejar vacío para usar el perfil global.</span>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">6</span>
+                                    <span><strong class="text-slate-300">Estado</strong> — Activo por defecto.</span>
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+                }
+            </aside>
+
+        </div>
+    </form>
+</div>

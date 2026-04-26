@@ -187,7 +187,8 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             new StubCurrentUserEfectivo(),
             new StubValidacionVentaEfectivo(),
             new StubCajaServiceEfectivo(_apertura),
-            new StubCreditoDisponibleEfectivo());
+            new StubCreditoDisponibleEfectivo(),
+            new StubContratoVentaCreditoService());
     }
 
     public void Dispose()

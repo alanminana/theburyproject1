@@ -137,8 +137,22 @@
         };
     }
 
+    function initGaranteToggle() {
+        var toggle = document.getElementById('requiere-garante-toggle');
+        var garanteField = document.getElementById('garante-field');
+        if (!toggle || !garanteField) return;
+
+        function syncVisibility() {
+            garanteField.style.display = toggle.checked ? '' : 'none';
+        }
+
+        toggle.addEventListener('change', syncVisibility);
+        syncVisibility();
+    }
+
     TheBury.CreditoModule = {
         bindModalController: bindModalController,
+        initGaranteToggle: initGaranteToggle,
         initSharedUi: initSharedUi,
         initScrollAffordance: initScrollAffordance,
         parseJsonScript: parseJsonScript,

@@ -1,0 +1,572 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - link "rocket_launch TheBuryProject SISTEMA GESTI�N" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e6]: rocket_launch
+      - generic [ref=e7]:
+        - heading "TheBuryProject" [level=1] [ref=e8]
+        - paragraph [ref=e9]: SISTEMA GESTI�N
+    - navigation [ref=e10]:
+      - link "grid_view Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /Dashboard
+        - generic [ref=e13]: grid_view
+        - paragraph [ref=e14]: Dashboard
+      - generic [ref=e15]:
+        - paragraph [ref=e16]: Operaciones
+        - generic [ref=e17]:
+          - link "shopping_bag Ventas" [ref=e18] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e19]: shopping_bag
+            - paragraph [ref=e20]: Ventas
+          - link "group Clientes" [ref=e21] [cursor=pointer]:
+            - /url: /Cliente
+            - generic [ref=e22]: group
+            - paragraph [ref=e23]: Clientes
+      - generic [ref=e24]:
+        - paragraph [ref=e25]: Log�stica
+        - generic [ref=e26]:
+          - link "inventory_2 Inventario" [ref=e27] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e28]: inventory_2
+            - paragraph [ref=e29]: Inventario
+          - link "local_shipping Proveedores" [ref=e30] [cursor=pointer]:
+            - /url: /Proveedor
+            - generic [ref=e31]: local_shipping
+            - paragraph [ref=e32]: Proveedores
+          - link "point_of_sale Cajas" [ref=e33] [cursor=pointer]:
+            - /url: /Caja
+            - generic [ref=e34]: point_of_sale
+            - paragraph [ref=e35]: Cajas
+      - generic [ref=e36]:
+        - paragraph [ref=e37]: Sistemas
+        - link "security Seguridad" [ref=e39] [cursor=pointer]:
+          - /url: /Seguridad
+          - generic [ref=e40]: security
+          - paragraph [ref=e41]: Seguridad
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e45]: account_circle
+        - generic [ref=e46]:
+          - paragraph [ref=e47]: admin@thebury.com
+          - paragraph [ref=e48]: SuperAdmin
+      - button "logout Cerrar sesi�n" [ref=e50] [cursor=pointer]:
+        - generic [ref=e51]: logout
+        - text: Cerrar sesi�n
+    - button "Colapsar/expandir sidebar" [ref=e53]:
+      - generic [ref=e54]: chevron_left
+  - main [ref=e55]:
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - heading "Seguridad" [level=2] [ref=e58]
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: Dolar Blue
+            - generic [ref=e63]: $1.245,00
+          - generic [ref=e64]:
+            - generic [ref=e65]: Tarjeta
+            - generic [ref=e66]: $1.482,50
+          - generic [ref=e67]:
+            - generic [ref=e68]: Oficial
+            - generic [ref=e69]: $942,00
+      - generic [ref=e70]:
+        - button "notifications" [ref=e71]:
+          - generic [ref=e72]: notifications
+        - button "search" [ref=e74]:
+          - generic [ref=e75]: search
+        - button "help" [ref=e77]:
+          - generic [ref=e78]: help
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - navigation [ref=e84]:
+              - link "ERP" [ref=e85] [cursor=pointer]:
+                - /url: /
+              - generic [ref=e86]: /
+              - generic [ref=e87]: Seguridad
+            - generic [ref=e88]:
+              - generic [ref=e89]: security
+              - text: Seguridad
+            - generic [ref=e90]:
+              - heading "Módulo Seguridad" [level=1] [ref=e91]
+              - paragraph [ref=e92]: Punto de entrada del módulo RBAC. Desde acá se organiza la gestión de usuarios, roles, permisos de rol y auditoría.
+          - generic [ref=e93]:
+            - article [ref=e94]:
+              - paragraph [ref=e95]: Usuarios activos
+              - paragraph [ref=e96]: "10"
+            - article [ref=e97]:
+              - paragraph [ref=e98]: Bloqueados
+              - paragraph [ref=e99]: "0"
+            - article [ref=e100]:
+              - paragraph [ref=e101]: Roles
+              - paragraph [ref=e102]: "9"
+            - article [ref=e103]:
+              - paragraph [ref=e104]: Permisos asignados
+              - paragraph [ref=e105]: "469"
+        - navigation [ref=e106]:
+          - link "Usuarios" [ref=e107] [cursor=pointer]:
+            - /url: /Seguridad?tab=usuarios
+          - link "Roles" [ref=e108] [cursor=pointer]:
+            - /url: /Seguridad?tab=roles
+          - link "Permisos de Rol" [ref=e109] [cursor=pointer]:
+            - /url: /Seguridad?tab=permisos-rol
+          - link "Auditoría" [ref=e110] [cursor=pointer]:
+            - /url: /Seguridad?tab=auditoria
+      - generic [ref=e111]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - generic [ref=e117]: group
+                - text: Seguridad / Usuarios
+              - generic [ref=e118]:
+                - heading "Gestión operativa de usuarios" [level=3] [ref=e119]
+                - paragraph [ref=e120]: Administrá altas, estado, credenciales y acciones masivas sin salir del módulo. Esta superficie concentra el control diario de acceso al sistema.
+            - generic [ref=e121]:
+              - button "person_add Nuevo usuario" [ref=e122]:
+                - generic [ref=e123]: person_add
+                - text: Nuevo usuario
+              - generic [ref=e124]:
+                - paragraph [ref=e125]: Operación centralizada
+                - paragraph [ref=e126]: Altas, bloqueo, reseteo y acciones masivas desde una sola superficie.
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - paragraph [ref=e129]: Activos
+              - paragraph [ref=e130]: "10"
+            - generic [ref=e131]:
+              - paragraph [ref=e132]: Bloqueados
+              - paragraph [ref=e133]: "0"
+            - generic [ref=e134]:
+              - paragraph [ref=e135]: Sin confirmar
+              - paragraph [ref=e136]: "0"
+            - generic [ref=e137]:
+              - paragraph [ref=e138]: Sin rol
+              - paragraph [ref=e139]: "5"
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: search
+            - textbox "Buscar por nombre, usuario o correo..." [ref=e143]
+          - combobox [ref=e144]:
+            - option "Todos los roles" [selected]
+            - option "SuperAdmin"
+            - option "test vendedor"
+            - option "Vendedor"
+          - combobox [ref=e145]:
+            - option "Todas las sucursales" [selected]
+            - option "Casa Central"
+          - combobox [ref=e146]:
+            - option "Cualquier estado" [selected]
+            - option "Activo"
+            - option "Inactivo"
+            - option "Bloqueado"
+            - option "Sin confirmar"
+          - generic [ref=e148]:
+            - combobox [ref=e149]:
+              - option "Usuario" [selected]
+              - option "Nombre"
+              - option "Email"
+              - option "Rol"
+              - option "Sucursal"
+              - option "Estado"
+              - option "Último acceso"
+            - button "arrow_upward" [ref=e150]:
+              - generic [ref=e151]: arrow_upward
+            - button "filter_list_off" [ref=e152]:
+              - generic [ref=e153]: filter_list_off
+        - generic [ref=e154]:
+          - region "Tabla de usuarios del módulo Seguridad" [ref=e157]:
+            - table [ref=e158]:
+              - rowgroup [ref=e159]:
+                - row "Usuario Nombre completo Email Roles asignados Sucursal Estado Último acceso Acciones" [ref=e160]:
+                  - columnheader [ref=e161]:
+                    - checkbox [ref=e162]
+                  - columnheader "Usuario" [ref=e163]
+                  - columnheader "Nombre completo" [ref=e164]
+                  - columnheader "Email" [ref=e165]
+                  - columnheader "Roles asignados" [ref=e166]
+                  - columnheader "Sucursal" [ref=e167]
+                  - columnheader "Estado" [ref=e168]
+                  - columnheader "Último acceso" [ref=e169]
+                  - columnheader "Acciones" [ref=e170]
+              - rowgroup [ref=e171]:
+                - row "A admin@thebury.com — admin@thebury.com SuperAdmin Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e172]:
+                  - cell [ref=e173]:
+                    - checkbox [ref=e174]
+                  - cell "A admin@thebury.com" [ref=e175]:
+                    - generic [ref=e176]:
+                      - generic [ref=e177]: A
+                      - generic [ref=e178]: admin@thebury.com
+                  - cell "—" [ref=e179]
+                  - cell "admin@thebury.com" [ref=e180]
+                  - cell "SuperAdmin" [ref=e181]:
+                    - generic [ref=e183]: SuperAdmin
+                  - cell "Casa Central" [ref=e184]
+                  - cell "Activo" [ref=e185]:
+                    - generic [ref=e186]: Activo
+                  - cell "Nunca" [ref=e188]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e189]:
+                    - generic [ref=e190]:
+                      - link "visibility Ver" [ref=e191] [cursor=pointer]:
+                        - /url: /Usuarios/Details/aabad7a2-fc0f-4909-b9e7-a4e2c37e8037?returnUrl=%2FSeguridad
+                        - generic [ref=e192]: visibility
+                        - generic [ref=e193]: Ver
+                      - link "edit Editar" [ref=e194] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/aabad7a2-fc0f-4909-b9e7-a4e2c37e8037?returnUrl=%2FSeguridad
+                        - generic [ref=e195]: edit
+                        - generic [ref=e196]: Editar
+                      - button "person_off Desactivar" [ref=e198]:
+                        - generic [ref=e199]: person_off
+                        - generic [ref=e200]: Desactivar
+                      - button "lock Bloquear" [ref=e201]:
+                        - generic [ref=e202]: lock
+                        - generic [ref=e203]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e204]:
+                        - generic [ref=e205]: lock_reset
+                        - generic [ref=e206]: Contraseña
+                      - link "delete Eliminar" [ref=e207] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/aabad7a2-fc0f-4909-b9e7-a4e2c37e8037?returnUrl=%2FSeguridad
+                        - generic [ref=e208]: delete
+                        - generic [ref=e209]: Eliminar
+                - row "A administrador@thebury.com — administrador@thebury.com Sin rol Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e210]:
+                  - cell [ref=e211]:
+                    - checkbox [ref=e212]
+                  - cell "A administrador@thebury.com" [ref=e213]:
+                    - generic [ref=e214]:
+                      - generic [ref=e215]: A
+                      - generic [ref=e216]: administrador@thebury.com
+                  - cell "—" [ref=e217]
+                  - cell "administrador@thebury.com" [ref=e218]
+                  - cell "Sin rol" [ref=e219]
+                  - cell "Casa Central" [ref=e220]
+                  - cell "Activo" [ref=e221]:
+                    - generic [ref=e222]: Activo
+                  - cell "Nunca" [ref=e224]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e225]:
+                    - generic [ref=e226]:
+                      - link "visibility Ver" [ref=e227] [cursor=pointer]:
+                        - /url: /Usuarios/Details/f8c40af5-f971-4e92-aa1a-ecfd439943ea?returnUrl=%2FSeguridad
+                        - generic [ref=e228]: visibility
+                        - generic [ref=e229]: Ver
+                      - link "edit Editar" [ref=e230] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/f8c40af5-f971-4e92-aa1a-ecfd439943ea?returnUrl=%2FSeguridad
+                        - generic [ref=e231]: edit
+                        - generic [ref=e232]: Editar
+                      - button "person_off Desactivar" [ref=e234]:
+                        - generic [ref=e235]: person_off
+                        - generic [ref=e236]: Desactivar
+                      - button "lock Bloquear" [ref=e237]:
+                        - generic [ref=e238]: lock
+                        - generic [ref=e239]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e240]:
+                        - generic [ref=e241]: lock_reset
+                        - generic [ref=e242]: Contraseña
+                      - link "delete Eliminar" [ref=e243] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/f8c40af5-f971-4e92-aa1a-ecfd439943ea?returnUrl=%2FSeguridad
+                        - generic [ref=e244]: delete
+                        - generic [ref=e245]: Eliminar
+                - row "C cajero@thebury.com — cajero@thebury.com Sin rol Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e246]:
+                  - cell [ref=e247]:
+                    - checkbox [ref=e248]
+                  - cell "C cajero@thebury.com" [ref=e249]:
+                    - generic [ref=e250]:
+                      - generic [ref=e251]: C
+                      - generic [ref=e252]: cajero@thebury.com
+                  - cell "—" [ref=e253]
+                  - cell "cajero@thebury.com" [ref=e254]
+                  - cell "Sin rol" [ref=e255]
+                  - cell "Casa Central" [ref=e256]
+                  - cell "Activo" [ref=e257]:
+                    - generic [ref=e258]: Activo
+                  - cell "Nunca" [ref=e260]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e261]:
+                    - generic [ref=e262]:
+                      - link "visibility Ver" [ref=e263] [cursor=pointer]:
+                        - /url: /Usuarios/Details/f5b35a61-4684-44b0-9659-b0e2b1dc8000?returnUrl=%2FSeguridad
+                        - generic [ref=e264]: visibility
+                        - generic [ref=e265]: Ver
+                      - link "edit Editar" [ref=e266] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/f5b35a61-4684-44b0-9659-b0e2b1dc8000?returnUrl=%2FSeguridad
+                        - generic [ref=e267]: edit
+                        - generic [ref=e268]: Editar
+                      - button "person_off Desactivar" [ref=e270]:
+                        - generic [ref=e271]: person_off
+                        - generic [ref=e272]: Desactivar
+                      - button "lock Bloquear" [ref=e273]:
+                        - generic [ref=e274]: lock
+                        - generic [ref=e275]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e276]:
+                        - generic [ref=e277]: lock_reset
+                        - generic [ref=e278]: Contraseña
+                      - link "delete Eliminar" [ref=e279] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/f5b35a61-4684-44b0-9659-b0e2b1dc8000?returnUrl=%2FSeguridad
+                        - generic [ref=e280]: delete
+                        - generic [ref=e281]: Eliminar
+                - row "C contador@thebury.com — contador@thebury.com Sin rol Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e282]:
+                  - cell [ref=e283]:
+                    - checkbox [ref=e284]
+                  - cell "C contador@thebury.com" [ref=e285]:
+                    - generic [ref=e286]:
+                      - generic [ref=e287]: C
+                      - generic [ref=e288]: contador@thebury.com
+                  - cell "—" [ref=e289]
+                  - cell "contador@thebury.com" [ref=e290]
+                  - cell "Sin rol" [ref=e291]
+                  - cell "Casa Central" [ref=e292]
+                  - cell "Activo" [ref=e293]:
+                    - generic [ref=e294]: Activo
+                  - cell "Nunca" [ref=e296]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e297]:
+                    - generic [ref=e298]:
+                      - link "visibility Ver" [ref=e299] [cursor=pointer]:
+                        - /url: /Usuarios/Details/dadfd8bb-5d99-4fde-abb2-2e5b722d0df6?returnUrl=%2FSeguridad
+                        - generic [ref=e300]: visibility
+                        - generic [ref=e301]: Ver
+                      - link "edit Editar" [ref=e302] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/dadfd8bb-5d99-4fde-abb2-2e5b722d0df6?returnUrl=%2FSeguridad
+                        - generic [ref=e303]: edit
+                        - generic [ref=e304]: Editar
+                      - button "person_off Desactivar" [ref=e306]:
+                        - generic [ref=e307]: person_off
+                        - generic [ref=e308]: Desactivar
+                      - button "lock Bloquear" [ref=e309]:
+                        - generic [ref=e310]: lock
+                        - generic [ref=e311]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e312]:
+                        - generic [ref=e313]: lock_reset
+                        - generic [ref=e314]: Contraseña
+                      - link "delete Eliminar" [ref=e315] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/dadfd8bb-5d99-4fde-abb2-2e5b722d0df6?returnUrl=%2FSeguridad
+                        - generic [ref=e316]: delete
+                        - generic [ref=e317]: Eliminar
+                - row "G gerente@thebury.com — gerente@thebury.com Sin rol Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e318]:
+                  - cell [ref=e319]:
+                    - checkbox [ref=e320]
+                  - cell "G gerente@thebury.com" [ref=e321]:
+                    - generic [ref=e322]:
+                      - generic [ref=e323]: G
+                      - generic [ref=e324]: gerente@thebury.com
+                  - cell "—" [ref=e325]
+                  - cell "gerente@thebury.com" [ref=e326]
+                  - cell "Sin rol" [ref=e327]
+                  - cell "Casa Central" [ref=e328]
+                  - cell "Activo" [ref=e329]:
+                    - generic [ref=e330]: Activo
+                  - cell "Nunca" [ref=e332]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e333]:
+                    - generic [ref=e334]:
+                      - link "visibility Ver" [ref=e335] [cursor=pointer]:
+                        - /url: /Usuarios/Details/a1b918b5-6236-4c5a-8cfa-6376fa873d82?returnUrl=%2FSeguridad
+                        - generic [ref=e336]: visibility
+                        - generic [ref=e337]: Ver
+                      - link "edit Editar" [ref=e338] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/a1b918b5-6236-4c5a-8cfa-6376fa873d82?returnUrl=%2FSeguridad
+                        - generic [ref=e339]: edit
+                        - generic [ref=e340]: Editar
+                      - button "person_off Desactivar" [ref=e342]:
+                        - generic [ref=e343]: person_off
+                        - generic [ref=e344]: Desactivar
+                      - button "lock Bloquear" [ref=e345]:
+                        - generic [ref=e346]: lock
+                        - generic [ref=e347]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e348]:
+                        - generic [ref=e349]: lock_reset
+                        - generic [ref=e350]: Contraseña
+                      - link "delete Eliminar" [ref=e351] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/a1b918b5-6236-4c5a-8cfa-6376fa873d82?returnUrl=%2FSeguridad
+                        - generic [ref=e352]: delete
+                        - generic [ref=e353]: Eliminar
+                - row "R repositor@thebury.com — repositor@thebury.com Sin rol Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e354]:
+                  - cell [ref=e355]:
+                    - checkbox [ref=e356]
+                  - cell "R repositor@thebury.com" [ref=e357]:
+                    - generic [ref=e358]:
+                      - generic [ref=e359]: R
+                      - generic [ref=e360]: repositor@thebury.com
+                  - cell "—" [ref=e361]
+                  - cell "repositor@thebury.com" [ref=e362]
+                  - cell "Sin rol" [ref=e363]
+                  - cell "Casa Central" [ref=e364]
+                  - cell "Activo" [ref=e365]:
+                    - generic [ref=e366]: Activo
+                  - cell "Nunca" [ref=e368]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e369]:
+                    - generic [ref=e370]:
+                      - link "visibility Ver" [ref=e371] [cursor=pointer]:
+                        - /url: /Usuarios/Details/1f21aa11-686c-4bab-9a58-eb7e18cca5d5?returnUrl=%2FSeguridad
+                        - generic [ref=e372]: visibility
+                        - generic [ref=e373]: Ver
+                      - link "edit Editar" [ref=e374] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/1f21aa11-686c-4bab-9a58-eb7e18cca5d5?returnUrl=%2FSeguridad
+                        - generic [ref=e375]: edit
+                        - generic [ref=e376]: Editar
+                      - button "person_off Desactivar" [ref=e378]:
+                        - generic [ref=e379]: person_off
+                        - generic [ref=e380]: Desactivar
+                      - button "lock Bloquear" [ref=e381]:
+                        - generic [ref=e382]: lock
+                        - generic [ref=e383]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e384]:
+                        - generic [ref=e385]: lock_reset
+                        - generic [ref=e386]: Contraseña
+                      - link "delete Eliminar" [ref=e387] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/1f21aa11-686c-4bab-9a58-eb7e18cca5d5?returnUrl=%2FSeguridad
+                        - generic [ref=e388]: delete
+                        - generic [ref=e389]: Eliminar
+                - row "T tecnico@thebury.com — tecnico@thebury.com Vendedor Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e390]:
+                  - cell [ref=e391]:
+                    - checkbox [ref=e392]
+                  - cell "T tecnico@thebury.com" [ref=e393]:
+                    - generic [ref=e394]:
+                      - generic [ref=e395]: T
+                      - generic [ref=e396]: tecnico@thebury.com
+                  - cell "—" [ref=e397]
+                  - cell "tecnico@thebury.com" [ref=e398]
+                  - cell "Vendedor" [ref=e399]:
+                    - generic [ref=e401]: Vendedor
+                  - cell "Casa Central" [ref=e402]
+                  - cell "Activo" [ref=e403]:
+                    - generic [ref=e404]: Activo
+                  - cell "Nunca" [ref=e406]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e407]:
+                    - generic [ref=e408]:
+                      - link "visibility Ver" [ref=e409] [cursor=pointer]:
+                        - /url: /Usuarios/Details/c4671831-8ee4-4ece-b4d5-b3732b76d7bc?returnUrl=%2FSeguridad
+                        - generic [ref=e410]: visibility
+                        - generic [ref=e411]: Ver
+                      - link "edit Editar" [ref=e412] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/c4671831-8ee4-4ece-b4d5-b3732b76d7bc?returnUrl=%2FSeguridad
+                        - generic [ref=e413]: edit
+                        - generic [ref=e414]: Editar
+                      - button "person_off Desactivar" [ref=e416]:
+                        - generic [ref=e417]: person_off
+                        - generic [ref=e418]: Desactivar
+                      - button "lock Bloquear" [ref=e419]:
+                        - generic [ref=e420]: lock
+                        - generic [ref=e421]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e422]:
+                        - generic [ref=e423]: lock_reset
+                        - generic [ref=e424]: Contraseña
+                      - link "delete Eliminar" [ref=e425] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/c4671831-8ee4-4ece-b4d5-b3732b76d7bc?returnUrl=%2FSeguridad
+                        - generic [ref=e426]: delete
+                        - generic [ref=e427]: Eliminar
+                - row "T test — test@test.com Vendedor — Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e428]:
+                  - cell [ref=e429]:
+                    - checkbox [ref=e430]
+                  - cell "T test" [ref=e431]:
+                    - generic [ref=e432]:
+                      - generic [ref=e433]: T
+                      - generic [ref=e434]: test
+                  - cell "—" [ref=e435]
+                  - cell "test@test.com" [ref=e436]
+                  - cell "Vendedor" [ref=e437]:
+                    - generic [ref=e439]: Vendedor
+                  - cell "—" [ref=e440]
+                  - cell "Activo" [ref=e441]:
+                    - generic [ref=e442]: Activo
+                  - cell "Nunca" [ref=e444]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e445]:
+                    - generic [ref=e446]:
+                      - link "visibility Ver" [ref=e447] [cursor=pointer]:
+                        - /url: /Usuarios/Details/449851dc-9b0f-48f0-8a2a-6c6b9a9338e9?returnUrl=%2FSeguridad
+                        - generic [ref=e448]: visibility
+                        - generic [ref=e449]: Ver
+                      - link "edit Editar" [ref=e450] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/449851dc-9b0f-48f0-8a2a-6c6b9a9338e9?returnUrl=%2FSeguridad
+                        - generic [ref=e451]: edit
+                        - generic [ref=e452]: Editar
+                      - button "person_off Desactivar" [ref=e454]:
+                        - generic [ref=e455]: person_off
+                        - generic [ref=e456]: Desactivar
+                      - button "lock Bloquear" [ref=e457]:
+                        - generic [ref=e458]: lock
+                        - generic [ref=e459]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e460]:
+                        - generic [ref=e461]: lock_reset
+                        - generic [ref=e462]: Contraseña
+                      - link "delete Eliminar" [ref=e463] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/449851dc-9b0f-48f0-8a2a-6c6b9a9338e9?returnUrl=%2FSeguridad
+                        - generic [ref=e464]: delete
+                        - generic [ref=e465]: Eliminar
+                - row "T test1 — test1@test1.com test vendedor — Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e466]:
+                  - cell [ref=e467]:
+                    - checkbox [ref=e468]
+                  - cell "T test1" [ref=e469]:
+                    - generic [ref=e470]:
+                      - generic [ref=e471]: T
+                      - generic [ref=e472]: test1
+                  - cell "—" [ref=e473]
+                  - cell "test1@test1.com" [ref=e474]
+                  - cell "test vendedor" [ref=e475]:
+                    - generic [ref=e477]: test vendedor
+                  - cell "—" [ref=e478]
+                  - cell "Activo" [ref=e479]:
+                    - generic [ref=e480]: Activo
+                  - cell "Nunca" [ref=e482]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e483]:
+                    - generic [ref=e484]:
+                      - link "visibility Ver" [ref=e485] [cursor=pointer]:
+                        - /url: /Usuarios/Details/8a592a8e-fe5b-4fc4-9dc4-55f0352802c1?returnUrl=%2FSeguridad
+                        - generic [ref=e486]: visibility
+                        - generic [ref=e487]: Ver
+                      - link "edit Editar" [ref=e488] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/8a592a8e-fe5b-4fc4-9dc4-55f0352802c1?returnUrl=%2FSeguridad
+                        - generic [ref=e489]: edit
+                        - generic [ref=e490]: Editar
+                      - button "person_off Desactivar" [ref=e492]:
+                        - generic [ref=e493]: person_off
+                        - generic [ref=e494]: Desactivar
+                      - button "lock Bloquear" [ref=e495]:
+                        - generic [ref=e496]: lock
+                        - generic [ref=e497]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e498]:
+                        - generic [ref=e499]: lock_reset
+                        - generic [ref=e500]: Contraseña
+                      - link "delete Eliminar" [ref=e501] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/8a592a8e-fe5b-4fc4-9dc4-55f0352802c1?returnUrl=%2FSeguridad
+                        - generic [ref=e502]: delete
+                        - generic [ref=e503]: Eliminar
+                - row "V vendedor@thebury.com — vendedor@thebury.com Vendedor Casa Central Activo Nunca visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e504]:
+                  - cell [ref=e505]:
+                    - checkbox [ref=e506]
+                  - cell "V vendedor@thebury.com" [ref=e507]:
+                    - generic [ref=e508]:
+                      - generic [ref=e509]: V
+                      - generic [ref=e510]: vendedor@thebury.com
+                  - cell "—" [ref=e511]
+                  - cell "vendedor@thebury.com" [ref=e512]
+                  - cell "Vendedor" [ref=e513]:
+                    - generic [ref=e515]: Vendedor
+                  - cell "Casa Central" [ref=e516]
+                  - cell "Activo" [ref=e517]:
+                    - generic [ref=e518]: Activo
+                  - cell "Nunca" [ref=e520]
+                  - cell "visibility Ver edit Editar person_off Desactivar lock Bloquear lock_reset Contraseña delete Eliminar" [ref=e521]:
+                    - generic [ref=e522]:
+                      - link "visibility Ver" [ref=e523] [cursor=pointer]:
+                        - /url: /Usuarios/Details/1d592755-fdb0-436a-a2e3-b6d6d46c9ab2?returnUrl=%2FSeguridad
+                        - generic [ref=e524]: visibility
+                        - generic [ref=e525]: Ver
+                      - link "edit Editar" [ref=e526] [cursor=pointer]:
+                        - /url: /Seguridad/EditUsuario/1d592755-fdb0-436a-a2e3-b6d6d46c9ab2?returnUrl=%2FSeguridad
+                        - generic [ref=e527]: edit
+                        - generic [ref=e528]: Editar
+                      - button "person_off Desactivar" [ref=e530]:
+                        - generic [ref=e531]: person_off
+                        - generic [ref=e532]: Desactivar
+                      - button "lock Bloquear" [ref=e533]:
+                        - generic [ref=e534]: lock
+                        - generic [ref=e535]: Bloquear
+                      - button "lock_reset Contraseña" [ref=e536]:
+                        - generic [ref=e537]: lock_reset
+                        - generic [ref=e538]: Contraseña
+                      - link "delete Eliminar" [ref=e539] [cursor=pointer]:
+                        - /url: /Usuarios/Delete/1d592755-fdb0-436a-a2e3-b6d6d46c9ab2?returnUrl=%2FSeguridad
+                        - generic [ref=e540]: delete
+                        - generic [ref=e541]: Eliminar
+          - paragraph [ref=e543]:
+            - text: 10 de 10 usuarios
+            - generic [ref=e544]:
+              - text: —
+              - link "Mostrar inactivos" [ref=e545] [cursor=pointer]:
+                - /url: /Seguridad?tab=usuarios&mostrarInactivos=true

@@ -1,0 +1,285 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Sistemas
+          - link "security Seguridad" [ref=e24] [cursor=pointer]:
+            - /url: /Seguridad
+            - generic [ref=e25]: security
+            - paragraph: Seguridad
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e29]: account_circle
+          - generic:
+            - paragraph: admin@thebury.com
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e31]:
+        - generic [ref=e32]: chevron_left
+    - main [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - heading "Inventario" [level=2] [ref=e36]
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]: Dolar Blue
+              - generic [ref=e41]: $1.245,00
+            - generic [ref=e42]:
+              - generic [ref=e43]: Tarjeta
+              - generic [ref=e44]: $1.482,50
+            - generic [ref=e45]:
+              - generic [ref=e46]: Oficial
+              - generic [ref=e47]: $942,00
+        - generic [ref=e48]:
+          - button "notifications" [ref=e49]:
+            - generic [ref=e50]: notifications
+          - button "search" [ref=e52]:
+            - generic [ref=e53]: search
+          - button "Panel de incidentes" [ref=e54]:
+            - generic [ref=e55]: assignment
+          - button "help" [ref=e57]:
+            - generic [ref=e58]: help
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - button "Productos" [ref=e63]
+            - button "Categorías (4)" [ref=e64]
+            - button "Marcas (5)" [ref=e65]
+          - generic [ref=e66]:
+            - button "swap_vert Movimientos" [ref=e67] [cursor=pointer]:
+              - generic [ref=e68]: swap_vert
+              - text: Movimientos
+            - button "edit_calendar Ajuste Masivo" [ref=e69] [cursor=pointer]:
+              - generic [ref=e70]: edit_calendar
+              - generic [ref=e71]: Ajuste Masivo
+        - generic [ref=e72]:
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - heading "Productos del catálogo" [level=2] [ref=e76]
+              - paragraph [ref=e77]: Filtrá, seleccioná productos y lanzá ajustes masivos desde la misma grilla.
+            - generic [ref=e78]:
+              - generic [ref=e79]: 4 visibles
+              - button "add Nuevo Producto" [ref=e80] [cursor=pointer]:
+                - generic [ref=e81]: add
+                - text: Nuevo Producto
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]: Buscar Producto
+              - generic [ref=e86]:
+                - generic [ref=e87]: search
+                - textbox "Buscar producto por nombre o código" [ref=e88]:
+                  - /placeholder: Nombre o código...
+            - generic [ref=e89]:
+              - generic [ref=e90]: Categoría
+              - combobox "Categoría" [ref=e91]:
+                - option "Todas" [selected]
+                - option "dsadsa"
+                - option "Electrónica"
+                - option "LAVARROPAS"
+                - option "Refrigeración"
+            - generic [ref=e92]:
+              - generic [ref=e93]: Marca
+              - combobox "Marca" [ref=e94]:
+                - option "Todas" [selected]
+                - option "asddsa"
+                - option "DREAN"
+                - option "LG"
+                - option "Samsung"
+                - option "Whirlpool"
+            - generic [ref=e95]:
+              - generic [ref=e96]: Estado Stock
+              - combobox "Estado de stock" [ref=e97]:
+                - option "Cualquiera" [selected]
+                - option "Stock Bajo"
+            - button "filter_list" [ref=e99]:
+              - generic [ref=e100]: filter_list
+          - region "Tabla de productos del catálogo" [ref=e103]:
+            - table [ref=e104]:
+              - rowgroup [ref=e105]:
+                - row "Seleccionar todos los productos Código Producto Categoría Marca Stock Precio Acciones" [ref=e106]:
+                  - columnheader "Seleccionar todos los productos" [ref=e107]:
+                    - checkbox "Seleccionar todos los productos" [ref=e108] [cursor=pointer]
+                  - columnheader "Código" [ref=e109]
+                  - columnheader "Producto" [ref=e110]
+                  - columnheader "Categoría" [ref=e111]
+                  - columnheader "Marca" [ref=e112]
+                  - columnheader "Stock" [ref=e113]
+                  - columnheader "Precio" [ref=e114]
+                  - columnheader "Acciones" [ref=e115]
+              - rowgroup [ref=e116]:
+                - row "Seleccionar cafetera cafe package_2 cafetera sdadsa Electrónica DREAN 12 Unid. $ 14,52 history edit Editar delete Eliminar" [ref=e117]:
+                  - cell "Seleccionar cafetera" [ref=e118]:
+                    - checkbox "Seleccionar cafetera" [ref=e119] [cursor=pointer]
+                  - cell "cafe" [ref=e120]
+                  - cell "package_2 cafetera sdadsa" [ref=e121]:
+                    - generic [ref=e122]:
+                      - generic [ref=e124]: package_2
+                      - generic [ref=e125]:
+                        - text: cafetera
+                        - paragraph [ref=e126]: sdadsa
+                  - cell "Electrónica" [ref=e127]
+                  - cell "DREAN" [ref=e128]
+                  - cell "12 Unid." [ref=e129]:
+                    - generic [ref=e130]: 12 Unid.
+                  - cell "$ 14,52" [ref=e131]:
+                    - paragraph [ref=e132]: $ 14,52
+                  - cell "history edit Editar delete Eliminar" [ref=e133]:
+                    - generic [ref=e134]:
+                      - button "history" [ref=e135] [cursor=pointer]:
+                        - generic [ref=e136]: history
+                      - link "edit Editar" [ref=e137] [cursor=pointer]:
+                        - /url: /Producto/Edit/5
+                        - generic [ref=e138]: edit
+                        - generic [ref=e139]: Editar
+                      - link "delete Eliminar" [ref=e140] [cursor=pointer]:
+                        - /url: /Producto/Delete/5
+                        - generic [ref=e141]: delete
+                        - generic [ref=e142]: Eliminar
+                - row "Seleccionar Plancha qe package_2 Plancha Última generación Electrónica LG 453 Unid. $ 44,00 +340,0% margen history edit Editar delete Eliminar" [ref=e143]:
+                  - cell "Seleccionar Plancha" [ref=e144]:
+                    - checkbox "Seleccionar Plancha" [ref=e145] [cursor=pointer]
+                  - cell "qe" [ref=e146]
+                  - cell "package_2 Plancha Última generación" [ref=e147]:
+                    - generic [ref=e148]:
+                      - generic [ref=e150]: package_2
+                      - generic [ref=e151]:
+                        - text: Plancha
+                        - paragraph [ref=e152]: Última generación
+                  - cell "Electrónica" [ref=e153]
+                  - cell "LG" [ref=e154]
+                  - cell "453 Unid." [ref=e155]:
+                    - generic [ref=e156]: 453 Unid.
+                  - cell "$ 44,00 +340,0% margen" [ref=e157]:
+                    - paragraph [ref=e158]: $ 44,00
+                    - paragraph [ref=e159]: +340,0% margen
+                  - cell "history edit Editar delete Eliminar" [ref=e160]:
+                    - generic [ref=e161]:
+                      - button "history" [ref=e162] [cursor=pointer]:
+                        - generic [ref=e163]: history
+                      - link "edit Editar" [ref=e164] [cursor=pointer]:
+                        - /url: /Producto/Edit/3
+                        - generic [ref=e165]: edit
+                        - generic [ref=e166]: Editar
+                      - link "delete Eliminar" [ref=e167] [cursor=pointer]:
+                        - /url: /Producto/Delete/3
+                        - generic [ref=e168]: delete
+                        - generic [ref=e169]: Eliminar
+                - row "Seleccionar Televisor LED GDIO#### package_2 Televisor LED Última generación Electrónica Samsung 446 Unid. $ 817.737,18 +2.014,7% margen history edit Editar delete Eliminar" [ref=e170]:
+                  - cell "Seleccionar Televisor LED" [ref=e171]:
+                    - checkbox "Seleccionar Televisor LED" [ref=e172] [cursor=pointer]
+                  - cell "GDIO####" [ref=e173]
+                  - cell "package_2 Televisor LED Última generación" [ref=e174]:
+                    - generic [ref=e175]:
+                      - generic [ref=e177]: package_2
+                      - generic [ref=e178]:
+                        - text: Televisor LED
+                        - paragraph [ref=e179]: Última generación
+                  - cell "Electrónica" [ref=e180]
+                  - cell "Samsung" [ref=e181]
+                  - cell "446 Unid." [ref=e182]:
+                    - generic [ref=e183]: 446 Unid.
+                  - cell "$ 817.737,18 +2.014,7% margen" [ref=e184]:
+                    - paragraph [ref=e185]: $ 817.737,18
+                    - paragraph [ref=e186]: +2.014,7% margen
+                  - cell "history edit Editar delete Eliminar" [ref=e187]:
+                    - generic [ref=e188]:
+                      - button "history" [ref=e189] [cursor=pointer]:
+                        - generic [ref=e190]: history
+                      - link "edit Editar" [ref=e191] [cursor=pointer]:
+                        - /url: /Producto/Edit/1
+                        - generic [ref=e192]: edit
+                        - generic [ref=e193]: Editar
+                      - link "delete Eliminar" [ref=e194] [cursor=pointer]:
+                        - /url: /Producto/Delete/1
+                        - generic [ref=e195]: delete
+                        - generic [ref=e196]: Eliminar
+                - row "Seleccionar Televisor LED OOXP#### package_2 Televisor LED Tecnología inteligente Electrónica LG 457 Unid. $ 401.960,23 +200.880,1% margen history edit Editar delete Eliminar" [ref=e197]:
+                  - cell "Seleccionar Televisor LED" [ref=e198]:
+                    - checkbox "Seleccionar Televisor LED" [ref=e199] [cursor=pointer]
+                  - cell "OOXP####" [ref=e200]
+                  - cell "package_2 Televisor LED Tecnología inteligente" [ref=e201]:
+                    - generic [ref=e202]:
+                      - generic [ref=e204]: package_2
+                      - generic [ref=e205]:
+                        - text: Televisor LED
+                        - paragraph [ref=e206]: Tecnología inteligente
+                  - cell "Electrónica" [ref=e207]
+                  - cell "LG" [ref=e208]
+                  - cell "457 Unid." [ref=e209]:
+                    - generic [ref=e210]: 457 Unid.
+                  - cell "$ 401.960,23 +200.880,1% margen" [ref=e211]:
+                    - paragraph [ref=e212]: $ 401.960,23
+                    - paragraph [ref=e213]: +200.880,1% margen
+                  - cell "history edit Editar delete Eliminar" [ref=e214]:
+                    - generic [ref=e215]:
+                      - button "history" [ref=e216] [cursor=pointer]:
+                        - generic [ref=e217]: history
+                      - link "edit Editar" [ref=e218] [cursor=pointer]:
+                        - /url: /Producto/Edit/2
+                        - generic [ref=e219]: edit
+                        - generic [ref=e220]: Editar
+                      - link "delete Eliminar" [ref=e221] [cursor=pointer]:
+                        - /url: /Producto/Delete/2
+                        - generic [ref=e222]: delete
+                        - generic [ref=e223]: Eliminar
+          - generic [ref=e224]:
+            - generic [ref=e225]: Mostrando 4 de 4 productos
+            - generic [ref=e226]: La última columna concentra historial, edición y eliminación.
+  - button "bug_report" [ref=e227]:
+    - generic [ref=e228]: bug_report
+  - complementary [ref=e229]:
+    - generic [ref=e230]:
+      - generic [ref=e231]:
+        - generic [ref=e232]: assignment
+        - heading [level=2] [ref=e233]: Incidentes
+      - generic [ref=e234]:
+        - button [ref=e235]:
+          - generic [ref=e236]: add
+          - text: Nuevo
+        - button [ref=e237]:
+          - generic [ref=e238]: close
+    - generic [ref=e239]:
+      - generic [ref=e240]:
+        - textbox [ref=e241]:
+          - /placeholder: Buscar...
+        - combobox [ref=e242] [cursor=pointer]
+        - combobox [ref=e243] [cursor=pointer]
+        - button [ref=e244]:
+          - generic [ref=e245]: filter_list
+      - list [ref=e246]

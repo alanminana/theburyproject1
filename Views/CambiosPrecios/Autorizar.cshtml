@@ -1,0 +1,110 @@
+@model TheBuryProject.ViewModels.AutorizarBatchViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Autorizar Simulación";
+    var signo = Model.TipoCambio == TipoCambio.ValorAbsoluto ? "$" : "%";
+}
+
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Preview" asp-route-id="@Model.BatchId" class="text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Autorizar Simulación</h1>
+            <p class="text-sm text-slate-400">Aprobá o rechazá el batch de cambio de precios.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel-padded space-y-4">
+        <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-xl">info</span>
+            Detalle del batch
+        </h2>
+        <div class="grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Nombre</p>
+                <p class="text-slate-100 font-medium">@Model.Nombre</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Tipo de cambio</p>
+                <p class="text-slate-100">@Model.TipoCambio</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Valor</p>
+                <p class="text-slate-100 font-semibold">@Model.ValorCambio.ToString("N2")@signo</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Productos afectados</p>
+                <p class="text-slate-100">@Model.CantidadProductos</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Solicitado por</p>
+                <p class="text-slate-100">@Model.SolicitadoPor</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-400 mb-0.5">Fecha solicitud</p>
+                <p class="text-slate-100">@Model.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+
+        <section class="card-erp-panel-padded space-y-4">
+            <h2 class="font-semibold text-emerald-400 flex items-center gap-2">
+                <span class="material-symbols-outlined text-xl">check_circle</span>
+                Aprobar
+            </h2>
+            <p class="text-xs text-slate-400">El batch quedará listo para ser aplicado.</p>
+            <form asp-action="Aprobar" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.BatchId" />
+                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-400">Notas (opcional)</label>
+                    <textarea name="notas" rows="2"
+                              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                              placeholder="Observaciones de la aprobación..."></textarea>
+                </div>
+                <button type="submit" class="btn-erp-success w-full mt-3">
+                    <span class="material-symbols-outlined text-base">check</span>
+                    Aprobar batch
+                </button>
+            </form>
+        </section>
+
+        <section class="card-erp-panel-padded space-y-4">
+            <h2 class="font-semibold text-red-400 flex items-center gap-2">
+                <span class="material-symbols-outlined text-xl">cancel</span>
+                Rechazar
+            </h2>
+            <p class="text-xs text-slate-400">El batch quedará rechazado y no podrá aplicarse.</p>
+            <form asp-action="Rechazar" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.BatchId" />
+                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-400">Motivo <span class="text-red-400">*</span></label>
+                    <textarea name="motivo" rows="2" required
+                              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                              placeholder="Motivo del rechazo..."></textarea>
+                </div>
+                <button type="submit" class="btn-erp-danger w-full mt-3">
+                    <span class="material-symbols-outlined text-base">close</span>
+                    Rechazar batch
+                </button>
+            </form>
+        </section>
+
+    </div>
+
+</div>

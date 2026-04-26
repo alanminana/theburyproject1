@@ -12,40 +12,16 @@
     var hasTelefono = !string.IsNullOrWhiteSpace(Model.Telefono);
 }
 
-<style>
-    #edit-user-footer-actions {
-        display: flex;
-    }
-
-    @@media (max-width: 639px) {
-        #edit-user-footer-actions {
-            flex-direction: column-reverse;
-        }
-
-        #edit-user-footer-actions .edit-user-footer-action {
-            width: 100%;
-        }
-    }
-
-    @@media (min-width: 640px) {
-        #edit-user-footer-actions {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        #edit-user-footer-actions .edit-user-footer-action {
-            width: auto;
-        }
-    }
-</style>
+@section Styles {
+    <partial name="_SeguridadModuleStyles" />
+}
 
 <div class="max-w-5xl mx-auto space-y-8">
-    <section class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-6 md:px-8 py-8 border-b border-slate-200 dark:border-slate-800">
+    <section class="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-6 md:px-8 py-8 border-b border-slate-800">
             <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div class="space-y-4">
-                    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
                         <a href="@backUrl" class="hover:text-primary transition-colors no-underline">Seguridad</a>
                         <span>/</span>
                         <span>Usuarios</span>
@@ -59,24 +35,24 @@
                                 <span class="material-symbols-outlined text-sm">manage_accounts</span>
                                 Editar Usuario
                             </span>
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold @(Model.Activo ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-300")">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold @(Model.Activo ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-300")">
                                 @(Model.Activo ? "Activo" : "Inactivo")
                             </span>
                         </div>
 
                         <div>
-                            <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">@displayName</h1>
-                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-3xl">
+                            <h1 class="text-3xl font-black tracking-tight text-white">@displayName</h1>
+                            <p class="text-sm text-slate-400 mt-2 max-w-3xl">
                                 Edición centralizada desde Seguridad. Acá se modifican datos de acceso, datos personales, roles, sucursal y estado de la cuenta sin tocar el flujo de credenciales.
                             </p>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1">
                                 <span class="material-symbols-outlined text-sm">alternate_email</span>
                                 @Model.Email
                             </span>
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1">
                                 <span class="material-symbols-outlined text-sm">badge</span>
                                 @Model.UserName
                             </span>
@@ -86,7 +62,7 @@
 
                 <div class="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
                     <a href="@backUrl"
-                       class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors no-underline sm:w-auto">
+                       class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors no-underline sm:w-auto">
                         <span class="material-symbols-outlined text-sm">arrow_back</span>
                         Volver a usuarios
                     </a>
@@ -96,25 +72,25 @@
 
         <div class="px-6 md:px-8 py-6">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Estado</p>
-                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(Model.Activo ? "Activo" : "Inactivo")</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Control de habilitación de la cuenta.</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</p>
+                    <p class="mt-2 text-2xl font-black text-white">@(Model.Activo ? "Activo" : "Inactivo")</p>
+                    <p class="mt-1 text-xs text-slate-400">Control de habilitación de la cuenta.</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles asignados</p>
-                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@selectedRolesCount</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Permisos heredados desde RBAC.</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Roles asignados</p>
+                    <p class="mt-2 text-2xl font-black text-white">@selectedRolesCount</p>
+                    <p class="mt-1 text-xs text-slate-400">Permisos heredados desde RBAC.</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sucursal</p>
-                    <p class="mt-2 text-lg font-black text-slate-900 dark:text-white">@sucursalAsignada</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Contexto operativo principal del usuario.</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sucursal</p>
+                    <p class="mt-2 text-lg font-black text-white">@sucursalAsignada</p>
+                    <p class="mt-1 text-xs text-slate-400">Contexto operativo principal del usuario.</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contacto</p>
-                    <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">@(hasTelefono ? "OK" : "--")</p>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">@(hasTelefono ? Model.Telefono : "Sin teléfono cargado")</p>
+                <div class="rounded-xl border border-slate-800 bg-slate-800/40 px-4 py-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Contacto</p>
+                    <p class="mt-2 text-2xl font-black text-white">@(hasTelefono ? "OK" : "--")</p>
+                    <p class="mt-1 text-xs text-slate-400">@(hasTelefono ? Model.Telefono : "Sin teléfono cargado")</p>
                 </div>
             </div>
         </div>
@@ -123,8 +99,8 @@
     <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3">
         <span class="material-symbols-outlined text-amber-500 mt-0.5">info</span>
         <div>
-            <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">La contraseña no se edita en esta pantalla</p>
-            <p class="text-xs text-amber-600/90 dark:text-amber-200 mt-1">
+            <p class="text-sm font-semibold text-amber-300">La contraseña no se edita en esta pantalla</p>
+            <p class="text-xs text-amber-600/90 text-amber-200 mt-1">
                 El cambio o reseteo de contraseña sigue su flujo propio dentro del módulo Seguridad.
             </p>
         </div>
@@ -140,95 +116,95 @@
         }
 
         <div asp-validation-summary="ModelOnly"
-             class="empty:hidden rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-400"></div>
+             class="empty:hidden rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400"></div>
 
-        <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-5">
             <div>
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Datos de acceso</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Identificación principal de la cuenta.</p>
+                <h2 class="text-lg font-bold text-white">Datos de acceso</h2>
+                <p class="text-sm text-slate-400 mt-1">Identificación principal de la cuenta.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="space-y-2">
-                    <label asp-for="UserName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
+                    <label asp-for="UserName" class="text-sm font-semibold text-slate-300">Username</label>
                     <input asp-for="UserName"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
                     <span asp-validation-for="UserName" class="text-xs text-rose-500"></span>
                 </div>
 
                 <div class="space-y-2">
-                    <label asp-for="Email" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Email</label>
+                    <label asp-for="Email" class="text-sm font-semibold text-slate-300">Email</label>
                     <input asp-for="Email"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
                     <span asp-validation-for="Email" class="text-xs text-rose-500"></span>
                 </div>
             </div>
         </section>
 
-        <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-5">
             <div>
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Datos personales</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Información descriptiva del usuario.</p>
+                <h2 class="text-lg font-bold text-white">Datos personales</h2>
+                <p class="text-sm text-slate-400 mt-1">Información descriptiva del usuario.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="space-y-2">
-                    <label asp-for="Nombre" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Nombre</label>
+                    <label asp-for="Nombre" class="text-sm font-semibold text-slate-300">Nombre</label>
                     <input asp-for="Nombre"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
                     <span asp-validation-for="Nombre" class="text-xs text-rose-500"></span>
                 </div>
 
                 <div class="space-y-2">
-                    <label asp-for="Apellido" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Apellido</label>
+                    <label asp-for="Apellido" class="text-sm font-semibold text-slate-300">Apellido</label>
                     <input asp-for="Apellido"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
                     <span asp-validation-for="Apellido" class="text-xs text-rose-500"></span>
                 </div>
 
                 <div class="space-y-2 md:col-span-2">
-                    <label asp-for="Telefono" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Teléfono</label>
+                    <label asp-for="Telefono" class="text-sm font-semibold text-slate-300">Teléfono</label>
                     <input asp-for="Telefono"
-                           class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
+                           class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors" />
                     <span asp-validation-for="Telefono" class="text-xs text-rose-500"></span>
                 </div>
             </div>
         </section>
 
-        <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 space-y-5">
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 space-y-5">
             <div>
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Asignación</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Roles heredables, sucursal y estado de la cuenta.</p>
+                <h2 class="text-lg font-bold text-white">Asignación</h2>
+                <p class="text-sm text-slate-400 mt-1">Roles heredables, sucursal y estado de la cuenta.</p>
             </div>
 
             <div class="space-y-5">
                 <div class="space-y-3">
                     <div class="flex items-center justify-between gap-3">
-                        <label asp-for="RolesSeleccionados" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Roles</label>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Multi-select</span>
+                        <label asp-for="RolesSeleccionados" class="text-sm font-semibold text-slate-300">Roles</label>
+                        <span class="text-xs text-slate-400">Multi-select</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 p-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-800/30 p-3">
                         @if (Model.AllRoles.Any())
                         {
                             @foreach (var role in Model.AllRoles)
                             {
                                 var isChecked = Model.RolesSeleccionados.Contains(role, StringComparer.OrdinalIgnoreCase);
-                                <label class="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-3 py-3 cursor-pointer hover:border-primary/40 transition-colors">
+                                <label class="flex items-start gap-3 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-3 cursor-pointer hover:border-primary/40 transition-colors">
                                     <input type="checkbox"
                                            name="RolesSeleccionados"
                                            value="@role"
                                            @(isChecked ? "checked" : null)
-                                           class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                                           class="mt-0.5 size-4 rounded border-slate-600 text-primary focus:ring-primary/50" />
                                     <div class="min-w-0">
-                                        <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">@role</span>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">El usuario hereda permisos desde este rol.</p>
+                                        <span class="text-sm font-semibold text-slate-100">@role</span>
+                                        <p class="text-xs text-slate-400 mt-1">El usuario hereda permisos desde este rol.</p>
                                     </div>
                                 </label>
                             }
                         }
                         else
                         {
-                            <div class="sm:col-span-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                            <div class="sm:col-span-2 rounded-lg border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
                                 No hay roles disponibles para asignar.
                             </div>
                         }
@@ -238,9 +214,9 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div class="space-y-2">
-                        <label asp-for="SucursalId" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Sucursal</label>
+                        <label asp-for="SucursalId" class="text-sm font-semibold text-slate-300">Sucursal</label>
                         <select asp-for="SucursalId"
-                                class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
+                                class="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-colors">
                             <option value="">Sin asignar</option>
                             @foreach (var sucursal in Model.AllSucursales)
                             {
@@ -251,12 +227,12 @@
                     </div>
 
                     <div class="flex items-end">
-                        <label class="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-4 bg-slate-50 dark:bg-slate-800/30 cursor-pointer w-full">
+                        <label class="flex items-start gap-3 rounded-xl border border-slate-800 px-4 py-4 bg-slate-800/30 cursor-pointer w-full">
                             <input asp-for="Activo"
-                                   class="mt-0.5 size-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary/50" />
+                                   class="mt-0.5 size-4 rounded border-slate-600 text-primary focus:ring-primary/50" />
                             <div>
-                                <span class="text-sm font-semibold text-slate-900 dark:text-white">Usuario activo</span>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Si se desmarca, la cuenta queda inactiva sin tocar la contraseña.</p>
+                                <span class="text-sm font-semibold text-white">Usuario activo</span>
+                                <p class="text-xs text-slate-400 mt-1">Si se desmarca, la cuenta queda inactiva sin tocar la contraseña.</p>
                             </div>
                         </label>
                     </div>
@@ -264,9 +240,9 @@
             </div>
         </section>
 
-        <div id="edit-user-footer-actions" class="gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 sm:px-6 sm:py-5">
+        <div id="edit-user-footer-actions" class="gap-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 sm:px-6 sm:py-5">
             <a href="@backUrl"
-               class="edit-user-footer-action inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors no-underline sm:w-auto">
+               class="edit-user-footer-action inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors no-underline sm:w-auto">
                 Cancelar
             </a>
             <button type="submit"

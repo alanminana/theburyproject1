@@ -1,0 +1,162 @@
+@model TheBuryProject.ViewModels.ReporteMorosidadViewModel
+@{
+    ViewData["Title"] = "Reporte de Morosidad";
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div class="flex-1">
+            <h1 class="text-2xl font-bold text-slate-100">Reporte de Morosidad</h1>
+            <p class="text-sm text-slate-400">Estado de cuotas vencidas y créditos en mora.</p>
+        </div>
+        <div class="flex gap-2">
+            <a asp-action="ExportarMorosidadExcel"
+               class="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900/20 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-900/40 transition-colors">
+                <span class="material-symbols-outlined text-base">download</span>
+                Excel
+            </a>
+            <a asp-action="ExportarMorosidadPdf"
+               class="inline-flex items-center gap-2 rounded-lg border border-red-800 bg-red-900/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-900/40 transition-colors">
+                <span class="material-symbols-outlined text-base">picture_as_pdf</span>
+                PDF
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3 text-sm text-amber-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">warning</span>@TempData["Warning"]
+        </div>
+    }
+
+    @if (Model != null)
+    {
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="card-erp-metric card-erp-metric-danger">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda vencida total</p>
+                <p class="mt-1 text-2xl font-bold text-red-400">$@Model.TotalDeudaVencida.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">@Model.CantidadCreditosVencidos créditos</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda vigente</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">$@Model.TotalDeudaVigente.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-warning">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Clientes morosos</p>
+                <p class="mt-1 text-2xl font-bold text-amber-400">@Model.CantidadClientesMorosos</p>
+                <p class="text-xs text-slate-500 mt-1">promedio $@Model.PromedioDeudaPorCliente.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-danger">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda &gt;90 días</p>
+                <p class="mt-1 text-2xl font-bold text-red-400">$@Model.DeudaMayor90Dias.ToString("N2")</p>
+            </div>
+        </div>
+
+        <section class="card-erp-panel">
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">schedule</span>
+                    Antigüedad de la deuda vencida
+                </h2>
+            </div>
+            <div class="px-6 py-4 grid gap-3 sm:grid-cols-3">
+                <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3">
+                    <p class="text-xs text-amber-400 font-medium">1 – 30 días</p>
+                    <p class="text-xl font-bold text-amber-300 mt-1">
+                        $@((Model.TotalDeudaVencida - Model.DeudaMayor30Dias).ToString("N2"))
+                    </p>
+                </div>
+                <div class="rounded-xl border border-orange-800 bg-orange-900/20 px-4 py-3">
+                    <p class="text-xs text-orange-400 font-medium">31 – 90 días</p>
+                    <p class="text-xl font-bold text-orange-300 mt-1">
+                        $@((Model.DeudaMayor30Dias - Model.DeudaMayor90Dias).ToString("N2"))
+                    </p>
+                </div>
+                <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3">
+                    <p class="text-xs text-red-400 font-medium">Más de 90 días</p>
+                    <p class="text-xl font-bold text-red-300 mt-1">$@Model.DeudaMayor90Dias.ToString("N2")</p>
+                </div>
+            </div>
+        </section>
+
+        @if (Model.ClientesMorosos.Any())
+        {
+            <section class="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div class="px-6 py-4 border-b border-slate-800">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">person_off</span>
+                        Clientes en mora
+                        <span class="ml-auto text-xs font-normal text-slate-400">@Model.ClientesMorosos.Count registros</span>
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-800/50">
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Cliente</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Documento</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">Teléfono</th>
+                                <th class="px-4 py-3 text-center font-medium text-slate-400">Créditos venc.</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Deuda vencida</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Deuda vigente</th>
+                                <th class="px-4 py-3 text-center font-medium text-slate-400">Días atraso</th>
+                                <th class="px-4 py-3 text-center font-medium text-slate-400">Riesgo</th>
+                                <th class="px-4 py-3 text-left font-medium text-slate-400">1er venc.</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var c in Model.ClientesMorosos)
+                            {
+                                var riesgoClass = c.NivelRiesgo switch {
+                                    "Bajo"    => "bg-amber-900/40 text-amber-400",
+                                    "Medio"   => "bg-orange-900/40 text-orange-400",
+                                    "Alto"    => "bg-red-900/40 text-red-400",
+                                    _         => "bg-red-900/60 text-red-300"
+                                };
+                                <tr class="hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <a asp-controller="Cliente" asp-action="Details" asp-route-id="@c.ClienteId"
+                                           class="font-medium text-primary hover:underline">@c.ClienteNombre</a>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-400">@c.ClienteDocumento</td>
+                                    <td class="px-4 py-3 text-slate-400">@(c.ClienteTelefono ?? "—")</td>
+                                    <td class="px-4 py-3 text-center text-slate-300">@c.CantidadCreditosVencidos</td>
+                                    <td class="px-4 py-3 text-right font-medium text-red-400">$@c.TotalDeudaVencida.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-right text-slate-400">$@c.TotalDeudaVigente.ToString("N2")</td>
+                                    <td class="px-4 py-3 text-center text-slate-300">@c.DiasMaximoAtraso</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium @riesgoClass">
+                                            @c.NivelRiesgo
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-400">
+                                        @(c.FechaPrimerVencimiento.HasValue ? c.FechaPrimerVencimiento.Value.ToString("dd/MM/yyyy") : "—")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-6 py-10 text-center text-sm text-emerald-400">
+                <span class="material-symbols-outlined text-3xl block mb-2">check_circle</span>
+                No hay clientes en mora en este momento.
+            </div>
+        }
+    }
+
+</div>

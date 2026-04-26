@@ -1,10 +1,7 @@
 @model SeguridadIndexViewModel
 @{
     ViewData["Title"] = "Seguridad";
-
-    string TabClass(string tab) => Model.ActiveTab == tab
-        ? "border-b-2 border-primary text-primary pb-4 px-1 text-sm font-bold no-underline"
-        : "border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 pb-4 px-1 text-sm font-medium transition-colors no-underline";
+    ViewData["MetaDescription"] = "Gestión de usuarios, roles y permisos del sistema ERP TheBuryProject.";
 }
 
 @if (Model.ActiveTab == "usuarios" || Model.ActiveTab == "roles" || Model.ActiveTab == "permisos-rol" || Model.ActiveTab == "auditoria")
@@ -12,54 +9,7 @@
     <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 }
 
-<div class="max-w-7xl mx-auto space-y-8">
-    <div class="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-        <div class="px-6 md:px-8 py-8 border-b border-slate-200 dark:border-slate-800">
-            <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="space-y-2">
-                    <nav class="flex text-xs font-medium text-slate-500 dark:text-slate-400 gap-2">
-                        <a asp-controller="Home" asp-action="Index" class="hover:text-primary transition-colors">ERP</a>
-                        <span>/</span>
-                        <span>Seguridad</span>
-                    </nav>
-                    <div>
-                        <h2 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Módulo Seguridad</h2>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">
-                            Punto de entrada del módulo RBAC. Desde acá se organiza la gestión de usuarios, roles, permisos de rol y auditoría.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 min-w-full sm:min-w-[340px] lg:min-w-[380px]">
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuarios activos</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@Model.UsuariosActivos</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Usuarios bloqueados</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@Model.UsuariosBloqueados</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Roles</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@Model.RolesActivos</p>
-                    </div>
-                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Permisos asignados</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">@Model.PermisosAsignados</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="px-6 md:px-8">
-            <nav class="flex gap-8 overflow-x-auto">
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="@TabClass("usuarios")">Usuarios</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="@TabClass("roles")">Roles</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="@TabClass("permisos-rol")">Permisos de Rol</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="@TabClass("auditoria")">Auditoría</a>
-            </nav>
-        </div>
-    </div>
+<div class="max-w-7xl mx-auto space-y-6">
 
     @if (Model.ActiveTab == "usuarios")
     {
@@ -102,12 +52,14 @@
     {
         <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
         <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+        <script src="~/js/module-index.js" asp-append-version="true"></script>
         <script src="~/js/seguridad-index.js" asp-append-version="true"></script>
     }
     else if (Model.ActiveTab == "roles")
     {
         <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
         <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+        <script src="~/js/module-index.js" asp-append-version="true"></script>
         <script src="~/js/seguridad-roles.js" asp-append-version="true"></script>
     }
     else if (Model.ActiveTab == "permisos-rol")
