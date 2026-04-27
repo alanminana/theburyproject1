@@ -157,6 +157,14 @@ namespace TheBuryProject.Services
 
                 return viewModel;
             }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(
+                    "Validacion de carga de documento para cliente {ClienteId}: {Message}",
+                    viewModel.ClienteId,
+                    ex.Message);
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al subir documento");

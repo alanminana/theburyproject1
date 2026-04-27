@@ -31,6 +31,22 @@ namespace TheBuryProject.Controllers
                 : RedirectToAction(nameof(Index), indexRouteValues);
         }
 
+        private bool WantsJsonResponse()
+        {
+            return string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+                || Request.Headers.Accept.Any(h => h?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true);
+        }
+
+        private BadRequestObjectResult UploadValidationJson(string message)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message,
+                errors = new[] { message }
+            });
+        }
+
         public DocumentoClienteController(
             IDocumentoClienteService documentoService,
             IVentaService ventaService,
@@ -194,8 +210,29 @@ namespace TheBuryProject.Controllers
                     }
                 }
 
+                if (viewModel.Archivo == null || viewModel.Archivo.Length == 0)
+                {
+                    ModelState.AddModelError(nameof(DocumentoClienteViewModel.Archivo), "Debe seleccionar un archivo");
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    if (WantsJsonResponse())
+                    {
+                        var errors = ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .Where(e => !string.IsNullOrWhiteSpace(e))
+                            .ToList();
+
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = errors.FirstOrDefault() ?? "Por favor corrija los errores en el formulario",
+                            errors
+                        });
+                    }
+
                     ViewBag.ClienteBloqueado = viewModel.ReturnToVentaId.HasValue;
                     await CargarViewBags(viewModel.ClienteId, viewModel.ReturnToVentaId.HasValue);
 
@@ -212,6 +249,17 @@ namespace TheBuryProject.Controllers
                 }
 
                 var resultado = await _documentoService.UploadAsync(viewModel);
+
+                if (WantsJsonResponse())
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        message = $"Documento '{resultado.TipoDocumentoNombre}' subido exitosamente",
+                        documentoId = resultado.Id,
+                        nombreArchivo = resultado.NombreArchivo
+                    });
+                }
 
                 TempData["Success"] = $"Documento '{resultado.TipoDocumentoNombre}' subido exitosamente";
 
@@ -256,6 +304,32 @@ namespace TheBuryProject.Controllers
                 return RedirectToReturnUrlOrIndex(
                     returnUrl,
                     new { clienteId = viewModel.ClienteId, returnToVentaId = viewModel.ReturnToVentaId });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(
+                    "Validacion al subir documento para cliente {ClienteId}: {Message}",
+                    viewModel.ClienteId,
+                    ex.Message);
+
+                if (WantsJsonResponse())
+                {
+                    return UploadValidationJson(ex.Message);
+                }
+
+                TempData["Error"] = ex.Message;
+
+                if (returnToDetails)
+                {
+                    return RedirectToReturnUrlOrIndex(
+                        returnUrl,
+                        new { clienteId = viewModel.ClienteId, returnToVentaId = viewModel.ReturnToVentaId });
+                }
+
+                ModelState.AddModelError(nameof(DocumentoClienteViewModel.Archivo), ex.Message);
+                ViewBag.ClienteBloqueado = viewModel.ReturnToVentaId.HasValue;
+                await CargarViewBags(viewModel.ClienteId, viewModel.ReturnToVentaId.HasValue);
+                return View("Upload_tw", viewModel);
             }
             catch (Exception ex)
             {

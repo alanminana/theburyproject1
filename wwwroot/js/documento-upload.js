@@ -14,8 +14,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!archivoInput) return;
 
+    function setArchivoError(message) {
+        let errorEl = document.getElementById('archivoInput-error');
+        if (!errorEl) {
+            errorEl = document.createElement('p');
+            errorEl.id = 'archivoInput-error';
+            errorEl.className = 'mt-1 text-xs text-red-500';
+            dropZone.insertAdjacentElement('afterend', errorEl);
+        }
+
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+        dropZone.classList.add('border-red-500', 'bg-red-500/5');
+        archivoInput.setAttribute('aria-invalid', 'true');
+    }
+
+    function clearArchivoError() {
+        const errorEl = document.getElementById('archivoInput-error');
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        }
+
+        dropZone.classList.remove('border-red-500', 'bg-red-500/5');
+        archivoInput.removeAttribute('aria-invalid');
+    }
+
     function showPreview(file) {
         if (!file) return;
+        clearArchivoError();
         fileNameEl.textContent = file.name;
         const sizeMB = file.size / (1024 * 1024);
         fileSizeEl.textContent = sizeMB >= 1
@@ -62,6 +89,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         }
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            if (!archivoInput.files || archivoInput.files.length === 0) {
+                event.preventDefault();
+                setArchivoError('Debe seleccionar un archivo');
+                dropZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            if (archivoInput.files[0].size === 0) {
+                event.preventDefault();
+                setArchivoError('El archivo seleccionado esta vacio');
+            }
+        });
     }
 
     // Hide empty validation summary

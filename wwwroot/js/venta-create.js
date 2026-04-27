@@ -1137,7 +1137,14 @@
         const tipoDoc = $('#select-tipo-documento')?.value;
         const feedback = $('#doc-upload-feedback');
 
-        if (!clienteId || !file || !tipoDoc) return;
+        if (!clienteId || !file || !tipoDoc) {
+            feedback.className = 'p-3 rounded-lg text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20';
+            feedback.textContent = !file
+                ? 'Debe seleccionar un archivo'
+                : 'Debe seleccionar el tipo de documento.';
+            show(feedback);
+            return;
+        }
 
         this.disabled = true;
         this.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">progress_activity</span> Subiendo...';
@@ -1151,20 +1158,29 @@
             const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
             const resp = await fetch('/DocumentoCliente/Upload', {
                 method: 'POST',
-                headers: token ? { 'RequestVerificationToken': token } : {},
+                headers: {
+                    ...(token ? { 'RequestVerificationToken': token } : {}),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
                 body: formData
             });
 
-            if (resp.ok || resp.redirected) {
+            const contentType = resp.headers.get('content-type') || '';
+            const payload = contentType.includes('application/json')
+                ? await resp.json()
+                : null;
+
+            if (resp.ok && (!payload || payload.success !== false)) {
                 feedback.className = 'p-3 rounded-lg text-xs font-bold bg-green-500/10 text-green-600 border border-green-500/20';
-                feedback.textContent = 'Documento subido correctamente.';
+                feedback.textContent = payload?.message || 'Documento subido correctamente.';
                 show(feedback);
                 // Reset file input
                 $('#input-doc-archivo').value = '';
                 hide($('#doc-archivo-nombre'));
             } else {
                 feedback.className = 'p-3 rounded-lg text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20';
-                feedback.textContent = 'Error al subir el documento. Intente nuevamente.';
+                feedback.textContent = payload?.message || 'Error al subir el documento. Intente nuevamente.';
                 show(feedback);
             }
         } catch (err) {

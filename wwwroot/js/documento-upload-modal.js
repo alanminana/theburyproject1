@@ -121,6 +121,8 @@
             box.classList.remove('hidden');
             box.classList.add('flex');
         }
+        if (dropZone) dropZone.classList.add('border-red-500', 'bg-red-500/5');
+        if (archivoInput) archivoInput.setAttribute('aria-invalid', 'true');
     }
 
     function hideValidation() {
@@ -129,6 +131,8 @@
             box.classList.add('hidden');
             box.classList.remove('flex');
         }
+        if (dropZone) dropZone.classList.remove('border-red-500', 'bg-red-500/5');
+        if (archivoInput) archivoInput.removeAttribute('aria-invalid');
     }
 
     // ── Submit ───────────────────────────────────────────────
@@ -144,7 +148,7 @@
         if (tipoEl && !tipoEl.value) errors.push('El tipo de documento es obligatorio');
 
         if (!archivoInput || !archivoInput.files || !archivoInput.files.length) {
-            errors.push('Seleccioná un archivo');
+            errors.push('Debe seleccionar un archivo');
         }
 
         if (errors.length) {
