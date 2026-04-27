@@ -325,8 +325,8 @@
                 if (!tipo || !tipo.value) messages.push('Seleccione un tipo de documento.');
                 if (!archivo || !archivo.files || archivo.files.length === 0) {
                     messages.push('Debe seleccionar un archivo.');
-                } else if (archivo.files[0].size > 10 * 1024 * 1024) {
-                    messages.push('El archivo no puede superar los 10 MB.');
+                } else if (archivo.files[0].size > 5 * 1024 * 1024) {
+                    messages.push('El archivo no puede superar los 5 MB.');
                 }
 
                 if (messages.length > 0) {
