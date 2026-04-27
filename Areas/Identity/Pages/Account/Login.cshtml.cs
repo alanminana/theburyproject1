@@ -34,9 +34,9 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
         public class InputModel
         {
-            [Required(ErrorMessage = "El correo electrónico es obligatorio.")]
-            [EmailAddress(ErrorMessage = "Ingresá un correo electrónico válido.")]
-            public string Email { get; set; }
+            [Required(ErrorMessage = "El usuario es obligatorio.")]
+            [Display(Name = "Usuario")]
+            public string UserName { get; set; }
 
             [Required(ErrorMessage = "La contraseña es obligatoria.")]
             [DataType(DataType.Password)]
@@ -55,7 +55,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
             returnUrl ??= Url.Content("~/");
 
-            // Clear the existing external cookie to ensure a clean login process
+            // Clear the existing external cookie to ensure a clean login process.
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
 
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
@@ -71,25 +71,26 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
             if (ModelState.IsValid)
             {
+                var userName = Input.UserName?.Trim();
                 var result = await _signInManager.PasswordSignInAsync(
-                    Input.Email,
+                    userName,
                     Input.Password,
                     Input.RememberMe,
                     lockoutOnFailure: true);
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("Usuario autenticado: {Email}", Input.Email);
+                    _logger.LogInformation("Usuario autenticado: {UserName}", userName);
                     return LocalRedirect(returnUrl);
                 }
 
                 if (result.IsLockedOut)
                 {
-                    _logger.LogWarning("Cuenta bloqueada: {Email}", Input.Email);
+                    _logger.LogWarning("Cuenta bloqueada: {UserName}", userName);
                     return RedirectToPage("./Lockout");
                 }
 
-                ModelState.AddModelError(string.Empty, "Correo o contraseña incorrectos.");
+                ModelState.AddModelError(string.Empty, "Usuario o contraseña incorrectos.");
             }
 
             ReturnUrl = returnUrl;

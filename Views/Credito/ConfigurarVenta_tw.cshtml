@@ -300,37 +300,48 @@
 
                     <!-- Section: Documentación contractual -->
                     @{
-                        var sectionBorder = Model.ContratoGenerado ? "border-emerald-500/30" : "border-amber-500/30";
-                        var sectionBg     = Model.ContratoGenerado ? "bg-emerald-500/5"      : "bg-amber-500/5";
-                        var iconColor     = Model.ContratoGenerado ? "text-emerald-400"       : "text-amber-400";
+                        var contratoPendienteGenerable = Model.PuedeGenerarContrato;
+                        var sectionBorder = Model.ContratoGenerado ? "border-emerald-500/40" : contratoPendienteGenerable ? "border-amber-500/50" : "border-rose-500/45";
+                        var sectionBg     = Model.ContratoGenerado ? "bg-emerald-500/5"      : contratoPendienteGenerable ? "bg-amber-500/10" : "bg-rose-500/10";
+                        var iconColor     = Model.ContratoGenerado ? "text-emerald-300"       : contratoPendienteGenerable ? "text-amber-300" : "text-rose-300";
                         var checkIcon     = Model.ContratoGenerado ? "check_box"              : "check_box_outline_blank";
-                        var titleColor    = Model.ContratoGenerado ? "text-emerald-300"       : "text-amber-300";
-                        var statusText    = Model.ContratoGenerado ? "Contrato generado correctamente" : "Contrato de venta pendiente";
+                        var titleColor    = Model.ContratoGenerado ? "text-emerald-200"       : contratoPendienteGenerable ? "text-amber-200" : "text-rose-200";
+                        var statusText    = Model.ContratoGenerado ? "Contrato generado" : "Contrato de venta pendiente";
+                        var pillClasses   = Model.ContratoGenerado
+                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
+                            : contratoPendienteGenerable
+                                ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
+                                : "border-rose-500/40 bg-rose-500/15 text-rose-200";
                     }
-                    <section class="card-erp-panel-padded border @sectionBorder @sectionBg">
+                    <section class="card-erp-panel-padded border-2 @sectionBorder @sectionBg" aria-labelledby="contrato-checklist-title">
                         <div class="flex items-center gap-3 mb-5 pb-3 border-b @sectionBorder">
-                            <span class="material-symbols-outlined @iconColor text-[22px]">@checkIcon</span>
+                            <span class="material-symbols-outlined text-primary">fact_check</span>
                             <div class="flex-1 min-w-0">
-                                <h2 class="text-base font-bold @titleColor leading-tight">@statusText</h2>
+                                <h2 id="contrato-checklist-title" class="text-white text-xl font-bold leading-tight">Verificaciones obligatorias</h2>
                                 <p class="text-[11px] text-slate-500 mt-0.5">Documentación contractual</p>
                             </div>
-                            @if (Model.ContratoGenerado)
-                            {
-                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                                    <span class="material-symbols-outlined text-[11px]">verified</span>
-                                    Completo
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
-                                    <span class="material-symbols-outlined text-[11px]">schedule</span>
-                                    Obligatorio
-                                </span>
-                            }
+                            <span class="shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider @pillClasses">
+                                <span class="material-symbols-outlined text-[11px]">@(Model.ContratoGenerado ? "verified" : "priority_high")</span>
+                                @(Model.ContratoGenerado ? "Completo" : "Obligatorio")
+                            </span>
                         </div>
 
                         <div class="space-y-3">
+                            <div class="flex items-start gap-3 rounded-xl border @sectionBorder bg-slate-950/35 p-4">
+                                <span class="material-symbols-outlined @iconColor text-[28px]" aria-hidden="true">@checkIcon</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-base font-black leading-tight @titleColor">
+                                        <span class="sr-only">@(Model.ContratoGenerado ? "Completado:" : "Pendiente:")</span>
+                                        @statusText
+                                    </p>
+                                    <p class="mt-1 text-xs text-slate-400">
+                                        @(Model.ContratoGenerado
+                                            ? "La venta ya cumple el requisito contractual obligatorio."
+                                            : "Requisito obligatorio para poder confirmar o facturar esta venta.")
+                                    </p>
+                                </div>
+                            </div>
+
                             @if (Model.ContratoGenerado)
                             {
                                 <p class="text-xs text-slate-400">El contrato ya está generado e impreso para esta venta.</p>

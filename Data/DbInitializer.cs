@@ -195,6 +195,7 @@ namespace TheBuryProject.Data
             var context = services.GetRequiredService<AppDbContext>();
 
             var adminEmail = configuration["Admin:Email"] ?? "admin@thebury.com";
+            var adminUserName = configuration["Admin:UserName"] ?? "admin";
             var adminPassword = configuration["Admin:Password"]; // debe venir de user-secrets / ENV
             var sucursalDefault = await context.Sucursales
                 .AsNoTracking()
@@ -223,13 +224,14 @@ namespace TheBuryProject.Data
                 }
             }
 
-            var adminUser = await userManager.FindByEmailAsync(adminEmail);
+            var adminUser = await userManager.FindByNameAsync(adminUserName)
+                ?? await userManager.FindByEmailAsync(adminEmail);
 
             if (adminUser == null)
             {
                 adminUser = new ApplicationUser
                 {
-                    UserName = adminEmail,
+                    UserName = adminUserName,
                     Email = adminEmail,
                     EmailConfirmed = true,
                     Activo = true,
@@ -242,11 +244,11 @@ namespace TheBuryProject.Data
 
                 if (result.Succeeded)
                 {
-                    logger.LogInformation("Usuario administrador creado: {Email}", adminEmail);
+                    logger.LogInformation("Usuario administrador creado: {UserName} ({Email})", adminUserName, adminEmail);
 
                     // Asignar rol SuperAdmin
                     await userManager.AddToRoleAsync(adminUser, Roles.SuperAdmin);
-                    logger.LogInformation("Rol 'SuperAdmin' asignado al usuario {Email}", adminEmail);
+                    logger.LogInformation("Rol 'SuperAdmin' asignado al usuario {UserName}", adminUserName);
 
                     logger.LogWarning("⚠️ Credenciales provisionales creadas. Cambiar la contraseña inmediatamente si es necesario.");
                 }
@@ -258,9 +260,22 @@ namespace TheBuryProject.Data
             }
             else
             {
-                logger.LogInformation("Usuario administrador ya existe: {Email}", adminEmail);
+                logger.LogInformation("Usuario administrador ya existe: {UserName} ({Email})", adminUser.UserName, adminEmail);
 
                 var adminUpdated = false;
+                if (!string.Equals(adminUser.UserName, adminUserName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var userNameOwner = await userManager.FindByNameAsync(adminUserName);
+                    if (userNameOwner == null || userNameOwner.Id == adminUser.Id)
+                    {
+                        adminUser.UserName = adminUserName;
+                        adminUpdated = true;
+                    }
+                    else
+                    {
+                        logger.LogWarning("No se pudo sincronizar el usuario administrador a '{UserName}' porque ya existe otro usuario con ese nombre.", adminUserName);
+                    }
+                }
                 if (sucursalDefault != null &&
                     (adminUser.SucursalId != sucursalDefault.Id ||
                      !string.Equals(adminUser.Sucursal, sucursalDefault.Nombre, StringComparison.Ordinal)))
@@ -308,23 +323,24 @@ namespace TheBuryProject.Data
 
             var testUsers = new[]
             {
-                new { Email = "administrador@thebury.com", Password = "Admin123!", Role = Roles.Administrador },
-                new { Email = "gerente@thebury.com", Password = "Gerente123!", Role = Roles.Gerente },
-                new { Email = "vendedor@thebury.com", Password = "Vendedor123!", Role = Roles.Vendedor },
-                new { Email = "cajero@thebury.com", Password = "Cajero123!", Role = Roles.Cajero },
-                new { Email = "repositor@thebury.com", Password = "Repositor123!", Role = Roles.Repositor },
-                new { Email = "tecnico@thebury.com", Password = "Tecnico123!", Role = Roles.Tecnico },
-                new { Email = "contador@thebury.com", Password = "Contador123!", Role = Roles.Contador }
+                new { UserName = "administrador", Email = "administrador@thebury.com", Password = "Admin123!", Role = Roles.Administrador },
+                new { UserName = "gerente", Email = "gerente@thebury.com", Password = "Gerente123!", Role = Roles.Gerente },
+                new { UserName = "vendedor", Email = "vendedor@thebury.com", Password = "Vendedor123!", Role = Roles.Vendedor },
+                new { UserName = "cajero", Email = "cajero@thebury.com", Password = "Cajero123!", Role = Roles.Cajero },
+                new { UserName = "repositor", Email = "repositor@thebury.com", Password = "Repositor123!", Role = Roles.Repositor },
+                new { UserName = "tecnico", Email = "tecnico@thebury.com", Password = "Tecnico123!", Role = Roles.Tecnico },
+                new { UserName = "contador", Email = "contador@thebury.com", Password = "Contador123!", Role = Roles.Contador }
             };
 
             foreach (var testUser in testUsers)
             {
-                var user = await userManager.FindByEmailAsync(testUser.Email);
+                var user = await userManager.FindByNameAsync(testUser.UserName)
+                    ?? await userManager.FindByEmailAsync(testUser.Email);
                 if (user == null)
                 {
                     user = new ApplicationUser
                     {
-                        UserName = testUser.Email,
+                        UserName = testUser.UserName,
                         Email = testUser.Email,
                         EmailConfirmed = true,
                         Activo = true,
@@ -337,17 +353,36 @@ namespace TheBuryProject.Data
                     if (result.Succeeded)
                     {
                         await userManager.AddToRoleAsync(user, testUser.Role);
-                        logger.LogInformation("Usuario de prueba creado: {Email} con rol {Role}",
-                            testUser.Email, testUser.Role);
+                        logger.LogInformation("Usuario de prueba creado: {UserName} ({Email}) con rol {Role}",
+                            testUser.UserName, testUser.Email, testUser.Role);
                     }
                 }
-                else if (sucursalDefault != null &&
-                         (user.SucursalId != sucursalDefault.Id ||
-                          !string.Equals(user.Sucursal, sucursalDefault.Nombre, StringComparison.Ordinal)))
+                else
                 {
-                    user.SucursalId = sucursalDefault.Id;
-                    user.Sucursal = sucursalDefault.Nombre;
-                    await userManager.UpdateAsync(user);
+                    var userUpdated = false;
+                    if (!string.Equals(user.UserName, testUser.UserName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var userNameOwner = await userManager.FindByNameAsync(testUser.UserName);
+                        if (userNameOwner == null || userNameOwner.Id == user.Id)
+                        {
+                            user.UserName = testUser.UserName;
+                            userUpdated = true;
+                        }
+                    }
+
+                    if (sucursalDefault != null &&
+                        (user.SucursalId != sucursalDefault.Id ||
+                         !string.Equals(user.Sucursal, sucursalDefault.Nombre, StringComparison.Ordinal)))
+                    {
+                        user.SucursalId = sucursalDefault.Id;
+                        user.Sucursal = sucursalDefault.Nombre;
+                        userUpdated = true;
+                    }
+
+                    if (userUpdated)
+                    {
+                        await userManager.UpdateAsync(user);
+                    }
                 }
             }
 
