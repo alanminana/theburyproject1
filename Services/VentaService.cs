@@ -172,6 +172,7 @@ namespace TheBuryProject.Services
                 await AplicarPrecioVigenteADetallesAsync(venta);
 
                 CalcularTotales(venta);
+                await CalcularComisionesAsync(venta);
 
                 await CapturarSnapshotLimiteCreditoAsync(venta);
 
@@ -560,6 +561,7 @@ namespace TheBuryProject.Services
             await AplicarPrecioVigenteADetallesAsync(venta);
 
             CalcularTotales(venta);
+            await CalcularComisionesAsync(venta);
 
             await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
 
@@ -1645,6 +1647,33 @@ namespace TheBuryProject.Services
             venta.Subtotal = resultado.Subtotal;
             venta.IVA = resultado.IVA;
             venta.Total = resultado.Total;
+        }
+
+        private async Task CalcularComisionesAsync(Venta venta)
+        {
+            var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
+            if (detalles.Count == 0)
+            {
+                return;
+            }
+
+            var productoIds = detalles.Select(d => d.ProductoId).Distinct().ToList();
+            var comisionesPorProductoId = await _context.Productos
+                .AsNoTracking()
+                .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted)
+                .Select(p => new { p.Id, p.ComisionPorcentaje })
+                .ToDictionaryAsync(p => p.Id, p => p.ComisionPorcentaje);
+
+            foreach (var detalle in detalles)
+            {
+                comisionesPorProductoId.TryGetValue(detalle.ProductoId, out var porcentaje);
+
+                detalle.ComisionPorcentajeAplicada = porcentaje;
+                detalle.ComisionMonto = Math.Round(
+                    detalle.Subtotal * porcentaje / 100m,
+                    2,
+                    MidpointRounding.AwayFromZero);
+            }
         }
 
         private CalculoTotalesVentaResponse CalcularTotalesInterno(IEnumerable<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)

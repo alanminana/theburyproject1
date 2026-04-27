@@ -227,6 +227,7 @@ public class VentaServicePrecioTests
             Nombre = "Producto Test",
             Codigo = "P001",
             PrecioVenta = PrecioFallback,
+            ComisionPorcentaje = 0m,
             StockActual = 100,
             CategoriaId = categoria.Id,
             MarcaId = marca.Id,
@@ -237,6 +238,31 @@ public class VentaServicePrecioTests
 
         await ctx.SaveChangesAsync();
         return (apertura, producto, cliente);
+    }
+
+    private static async Task<Producto> CrearProductoAsync(
+        AppDbContext ctx,
+        Producto productoBase,
+        string codigo,
+        decimal precioVenta,
+        decimal comisionPorcentaje)
+    {
+        var producto = new Producto
+        {
+            Nombre = $"Producto {codigo}",
+            Codigo = codigo,
+            PrecioVenta = precioVenta,
+            ComisionPorcentaje = comisionPorcentaje,
+            StockActual = 100,
+            CategoriaId = productoBase.CategoriaId,
+            MarcaId = productoBase.MarcaId,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+
+        ctx.Productos.Add(producto);
+        await ctx.SaveChangesAsync();
+        return producto;
     }
 
     private static VentaService BuildService(
@@ -276,14 +302,26 @@ public class VentaServicePrecioTests
         Descuento = 0,
         Detalles = new List<VentaDetalleViewModel>
         {
-            new()
-            {
-                ProductoId = productoId,
-                Cantidad = 1,
-                PrecioUnitario = 0m,  // sobreescrito por AplicarPrecioVigenteADetallesAsync
-                Descuento = 0
-            }
+            Detalle(productoId, cantidad: 1, descuento: 0m)
         }
+    };
+
+    private static VentaViewModel BuildViewModel(int clienteId, IEnumerable<VentaDetalleViewModel> detalles) => new()
+    {
+        ClienteId = clienteId,
+        FechaVenta = DateTime.UtcNow,
+        Estado = EstadoVenta.Cotizacion,
+        TipoPago = TipoPago.Efectivo,
+        Descuento = 0,
+        Detalles = detalles.ToList()
+    };
+
+    private static VentaDetalleViewModel Detalle(int productoId, int cantidad, decimal descuento) => new()
+    {
+        ProductoId = productoId,
+        Cantidad = cantidad,
+        PrecioUnitario = 0m,  // sobreescrito por AplicarPrecioVigenteADetallesAsync
+        Descuento = descuento
     };
 
     // ---------------------------------------------------------------------------
@@ -427,6 +465,136 @@ public class VentaServicePrecioTests
 
             Assert.Single(detalles);
             Assert.Equal(PrecioFallback, detalles[0].PrecioUnitario);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_ProductoConComision_GuardaSnapshotDeComision()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.ComisionPorcentaje = 8m;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
+
+            var detalle = await ctx.VentaDetalles
+                .AsNoTracking()
+                .SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(8m, detalle.ComisionPorcentajeAplicada);
+            Assert.Equal(8m, detalle.ComisionMonto);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_DosProductosConComisionesDistintas_GuardaSnapshotPorDetalle()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, productoA, cliente) = await SeedBaseAsync(ctx);
+            productoA.ComisionPorcentaje = 8m;
+            var productoB = await CrearProductoAsync(ctx, productoA, "P002", precioVenta: 400m, comisionPorcentaje: 3.5m);
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
+            {
+                Detalle(productoA.Id, cantidad: 1, descuento: 0m),
+                Detalle(productoB.Id, cantidad: 1, descuento: 0m)
+            }));
+
+            var detalles = await ctx.VentaDetalles
+                .AsNoTracking()
+                .Where(d => !d.IsDeleted)
+                .OrderBy(d => d.ProductoId)
+                .ToListAsync();
+
+            Assert.Equal(2, detalles.Count);
+            Assert.Equal(8m, detalles[0].ComisionPorcentajeAplicada);
+            Assert.Equal(8m, detalles[0].ComisionMonto);
+            Assert.Equal(3.5m, detalles[1].ComisionPorcentajeAplicada);
+            Assert.Equal(14m, detalles[1].ComisionMonto);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_ProductoSinComision_GuardaComisionCero()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
+
+            var detalle = await ctx.VentaDetalles
+                .AsNoTracking()
+                .SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(0m, detalle.ComisionPorcentajeAplicada);
+            Assert.Equal(0m, detalle.ComisionMonto);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_ConDescuentoDeDetalle_CalculaComisionSobreSubtotalFinal()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.PrecioVenta = 100m;
+            producto.ComisionPorcentaje = 10m;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
+            {
+                Detalle(producto.Id, cantidad: 2, descuento: 50m)
+            }));
+
+            var detalle = await ctx.VentaDetalles
+                .AsNoTracking()
+                .SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(150m, detalle.Subtotal);
+            Assert.Equal(10m, detalle.ComisionPorcentajeAplicada);
+            Assert.Equal(15m, detalle.ComisionMonto);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_CambiarComisionDelProducto_NoAlteraSnapshotDelDetalle()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.ComisionPorcentaje = 8m;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
+
+            producto.ComisionPorcentaje = 20m;
+            await ctx.SaveChangesAsync();
+
+            var detalle = await ctx.VentaDetalles
+                .AsNoTracking()
+                .SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(8m, detalle.ComisionPorcentajeAplicada);
+            Assert.Equal(8m, detalle.ComisionMonto);
         }
     }
 }
