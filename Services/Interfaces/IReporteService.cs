@@ -31,6 +31,11 @@ namespace TheBuryProject.Services.Interfaces
             string agruparPor);
 
         /// <summary>
+        /// Genera reporte de comisiones por vendedor usando snapshots de VentaDetalle.
+        /// </summary>
+        Task<ComisionVendedorReporteViewModel> GenerarReporteComisionesVendedoresAsync(ComisionVendedorFilterViewModel filtro);
+
+        /// <summary>
         /// Exporta reporte de ventas a Excel
         /// </summary>
         Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro);

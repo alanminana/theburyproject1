@@ -84,20 +84,43 @@ public class ReporteServiceTests : IDisposable
         return producto;
     }
 
+    private async Task<ApplicationUser> SeedUsuarioAsync(string id, string userName)
+    {
+        var usuario = new ApplicationUser
+        {
+            Id = id,
+            UserName = userName,
+            NormalizedUserName = userName.ToUpperInvariant(),
+            Email = $"{id}@test.com",
+            NormalizedEmail = $"{id}@test.com".ToUpperInvariant(),
+            Activo = true
+        };
+        _context.Users.Add(usuario);
+        await _context.SaveChangesAsync();
+        return usuario;
+    }
+
     private async Task<Venta> SeedVentaAsync(
         int clienteId, int productoId,
         decimal precioUnitario, int cantidad,
         TipoPago tipoPago = TipoPago.Efectivo,
-        DateTime? fecha = null)
+        DateTime? fecha = null,
+        EstadoVenta estado = EstadoVenta.Confirmada,
+        string? vendedorUserId = null,
+        string? vendedorNombre = null,
+        decimal comisionPorcentaje = 0m,
+        decimal comisionMonto = 0m)
     {
         var total = precioUnitario * cantidad;
         var venta = new Venta
         {
             Numero = Guid.NewGuid().ToString("N")[..8],
             ClienteId = clienteId,
-            Estado = EstadoVenta.Confirmada,
+            Estado = estado,
             TipoPago = tipoPago,
             FechaVenta = fecha ?? DateTime.UtcNow,
+            VendedorUserId = vendedorUserId,
+            VendedorNombre = vendedorNombre,
             Subtotal = total,
             Total = total,
             Detalles = new List<VentaDetalle>
@@ -108,7 +131,9 @@ public class ReporteServiceTests : IDisposable
                     Cantidad = cantidad,
                     PrecioUnitario = precioUnitario,
                     Descuento = 0m,
-                    Subtotal = total
+                    Subtotal = total,
+                    ComisionPorcentajeAplicada = comisionPorcentaje,
+                    ComisionMonto = comisionMonto
                 }
             }
         };
@@ -239,6 +264,131 @@ public class ReporteServiceTests : IDisposable
         Assert.True(resultado.VentasPorTipoPago.ContainsKey(TipoPago.Tarjeta.ToString()));
         Assert.Equal(100m, resultado.VentasPorTipoPago[TipoPago.Efectivo.ToString()]);
         Assert.Equal(200m, resultado.VentasPorTipoPago[TipoPago.Tarjeta.ToString()]);
+    }
+
+    // -------------------------------------------------------------------------
+    // GenerarReporteComisionesVendedoresAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GenerarReporteComisiones_UsaSnapshotDeVentaDetalle()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedUsuarioAsync("vend-1", "Vendedor Uno");
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 2,
+            vendedorUserId: "vend-1",
+            vendedorNombre: "Vendedor Uno",
+            comisionPorcentaje: 8m,
+            comisionMonto: 16m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
+
+        Assert.Single(resultado.Items);
+        Assert.Equal(200m, resultado.TotalVendido);
+        Assert.Equal(16m, resultado.TotalComision);
+        Assert.Equal(8m, resultado.Items[0].ComisionPorcentajeAplicada);
+        Assert.Equal(16m, resultado.Items[0].ComisionMonto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_CambioPosteriorProducto_NoAlteraReporteHistorico()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 1,
+            comisionPorcentaje: 8m,
+            comisionMonto: 8m);
+
+        producto.ComisionPorcentaje = 25m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
+
+        Assert.Single(resultado.Items);
+        Assert.Equal(8m, resultado.Items[0].ComisionPorcentajeAplicada);
+        Assert.Equal(8m, resultado.Items[0].ComisionMonto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_FiltroPorVendedor_IncluyeSoloVendedor()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedUsuarioAsync("vend-1", "Uno");
+        await SeedUsuarioAsync("vend-2", "Dos");
+
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-1", vendedorNombre: "Uno", comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-2", vendedorNombre: "Dos", comisionPorcentaje: 8m, comisionMonto: 8m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
+        {
+            VendedorUserId = "vend-1"
+        });
+
+        Assert.Single(resultado.Items);
+        Assert.Equal("vend-1", resultado.Items[0].VendedorUserId);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_FiltroPorRangoFechas_IncluyeSoloRango()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var hoy = DateTime.UtcNow.Date;
+
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy.AddDays(-10), comisionPorcentaje: 8m, comisionMonto: 8m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
+        {
+            FechaDesde = hoy.AddDays(-1),
+            FechaHasta = hoy
+        });
+
+        Assert.Single(resultado.Items);
+        Assert.Equal(hoy, resultado.Items[0].FechaVenta.Date);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_FiltroPorTipoPago_IncluyeSoloTipo()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Efectivo, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Transferencia, comisionPorcentaje: 8m, comisionMonto: 8m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
+        {
+            TipoPago = TipoPago.Transferencia
+        });
+
+        Assert.Single(resultado.Items);
+        Assert.Equal(TipoPago.Transferencia, resultado.Items[0].TipoPago);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_ExcluyeCanceladasPorDefecto()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Confirmada, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Cancelada, comisionPorcentaje: 8m, comisionMonto: 8m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
+
+        Assert.Single(resultado.Items);
+        Assert.Equal(EstadoVenta.Confirmada, resultado.Items[0].EstadoVenta);
     }
 
     // -------------------------------------------------------------------------

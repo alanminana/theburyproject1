@@ -430,6 +430,119 @@ namespace TheBuryProject.Services
             detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
                     .Sum(d => d.Cantidad * d.Producto!.PrecioCompra);
 
+        public async Task<ComisionVendedorReporteViewModel> GenerarReporteComisionesVendedoresAsync(
+            ComisionVendedorFilterViewModel filtro)
+        {
+            try
+            {
+                var query = _context.VentaDetalles
+                    .AsNoTracking()
+                    .Where(d =>
+                        !d.IsDeleted &&
+                        d.Venta != null &&
+                        !d.Venta.IsDeleted &&
+                        d.Producto != null &&
+                        !d.Producto.IsDeleted)
+                    .AsQueryable();
+
+                if (filtro.FechaDesde.HasValue)
+                {
+                    var desde = filtro.FechaDesde.Value.Date;
+                    query = query.Where(d => d.Venta.FechaVenta >= desde);
+                }
+
+                if (filtro.FechaHasta.HasValue)
+                {
+                    var hastaExclusivo = filtro.FechaHasta.Value.Date.AddDays(1);
+                    query = query.Where(d => d.Venta.FechaVenta < hastaExclusivo);
+                }
+
+                if (!string.IsNullOrWhiteSpace(filtro.VendedorUserId))
+                {
+                    query = query.Where(d => d.Venta.VendedorUserId == filtro.VendedorUserId);
+                }
+
+                if (filtro.TipoPago.HasValue)
+                {
+                    query = query.Where(d => d.Venta.TipoPago == filtro.TipoPago.Value);
+                }
+
+                if (filtro.EstadoVenta.HasValue)
+                {
+                    query = query.Where(d => d.Venta.Estado == filtro.EstadoVenta.Value);
+                }
+                else
+                {
+                    query = query.Where(d => d.Venta.Estado != EstadoVenta.Cancelada);
+                }
+
+                if (filtro.ProductoId.HasValue)
+                {
+                    query = query.Where(d => d.ProductoId == filtro.ProductoId.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(filtro.ClienteTexto))
+                {
+                    var texto = filtro.ClienteTexto.Trim();
+                    query = query.Where(d =>
+                        d.Venta.Numero.Contains(texto) ||
+                        d.Producto.Nombre.Contains(texto) ||
+                        d.Producto.Codigo.Contains(texto) ||
+                        d.Venta.Cliente.Nombre.Contains(texto) ||
+                        d.Venta.Cliente.Apellido.Contains(texto) ||
+                        d.Venta.Cliente.NumeroDocumento.Contains(texto));
+                }
+
+                var items = await query
+                    .OrderByDescending(d => d.Venta.FechaVenta)
+                    .ThenByDescending(d => d.Venta.Id)
+                    .ThenBy(d => d.Id)
+                    .Select(d => new ComisionVendedorItemViewModel
+                    {
+                        FechaVenta = d.Venta.FechaVenta,
+                        NumeroVenta = d.Venta.Numero,
+                        VentaId = d.VentaId,
+                        VendedorUserId = d.Venta.VendedorUserId,
+                        VendedorNombre = !string.IsNullOrWhiteSpace(d.Venta.VendedorNombre)
+                            ? d.Venta.VendedorNombre!
+                            : d.Venta.VendedorUser != null && !string.IsNullOrWhiteSpace(d.Venta.VendedorUser.UserName)
+                                ? d.Venta.VendedorUser.UserName!
+                                : "Sin vendedor",
+                        ClienteNombre = d.Venta.Cliente.Apellido + ", " + d.Venta.Cliente.Nombre,
+                        ProductoId = d.ProductoId,
+                        ProductoNombre = d.Producto.Nombre,
+                        Cantidad = d.Cantidad,
+                        PrecioUnitario = d.PrecioUnitario,
+                        PrecioFinalItem = d.Subtotal,
+                        TipoPago = d.Venta.TipoPago,
+                        TipoPagoDescripcion = d.Venta.TipoPago.GetDisplayName(),
+                        EstadoVenta = d.Venta.Estado,
+                        EstadoVentaDescripcion = d.Venta.Estado.ToString(),
+                        ComisionPorcentajeAplicada = d.ComisionPorcentajeAplicada,
+                        ComisionMonto = d.ComisionMonto
+                    })
+                    .ToListAsync();
+
+                return new ComisionVendedorReporteViewModel
+                {
+                    Filtros = filtro,
+                    Items = items,
+                    TotalVendido = items.Sum(i => i.PrecioFinalItem),
+                    TotalComision = items.Sum(i => i.ComisionMonto),
+                    CantidadVentas = items.Select(i => i.VentaId).Distinct().Count(),
+                    CantidadProductosVendidos = items.Sum(i => i.Cantidad),
+                    PromedioComisionPorcentaje = items.Count > 0
+                        ? items.Average(i => i.ComisionPorcentajeAplicada)
+                        : 0m
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de comisiones por vendedor");
+                throw;
+            }
+        }
+
         // Métodos auxiliares privados
         private async Task<List<ProductoMasVendidoViewModel>> ObtenerProductosMasVendidosAsync(ReporteVentasFiltroViewModel filtro)
         {

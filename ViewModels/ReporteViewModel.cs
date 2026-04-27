@@ -1,5 +1,7 @@
 ﻿using TheBuryProject.Models.Enums;
 
+using Microsoft.AspNetCore.Mvc.Rendering;
+
 namespace TheBuryProject.ViewModels
 {
     /// <summary>
@@ -199,5 +201,52 @@ namespace TheBuryProject.ViewModels
         public decimal Monto { get; set; }
         public int Cantidad { get; set; }
         public decimal Ganancia { get; set; }
+    }
+
+    public class ComisionVendedorFilterViewModel
+    {
+        public string? VendedorUserId { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+        public TipoPago? TipoPago { get; set; }
+        public EstadoVenta? EstadoVenta { get; set; }
+        public int? ProductoId { get; set; }
+        public string? ClienteTexto { get; set; }
+    }
+
+    public class ComisionVendedorItemViewModel
+    {
+        public DateTime FechaVenta { get; set; }
+        public string NumeroVenta { get; set; } = string.Empty;
+        public int VentaId { get; set; }
+        public string? VendedorUserId { get; set; }
+        public string VendedorNombre { get; set; } = string.Empty;
+        public string ClienteNombre { get; set; } = string.Empty;
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public decimal PrecioFinalItem { get; set; }
+        public TipoPago TipoPago { get; set; }
+        public string TipoPagoDescripcion { get; set; } = string.Empty;
+        public EstadoVenta EstadoVenta { get; set; }
+        public string EstadoVentaDescripcion { get; set; } = string.Empty;
+        public decimal ComisionPorcentajeAplicada { get; set; }
+        public decimal ComisionMonto { get; set; }
+    }
+
+    public class ComisionVendedorReporteViewModel
+    {
+        public ComisionVendedorFilterViewModel Filtros { get; set; } = new();
+        public List<ComisionVendedorItemViewModel> Items { get; set; } = new();
+        public decimal TotalVendido { get; set; }
+        public decimal TotalComision { get; set; }
+        public int CantidadVentas { get; set; }
+        public int CantidadProductosVendidos { get; set; }
+        public decimal PromedioComisionPorcentaje { get; set; }
+        public IEnumerable<SelectListItem> Vendedores { get; set; } = Enumerable.Empty<SelectListItem>();
+        public IEnumerable<SelectListItem> Productos { get; set; } = Enumerable.Empty<SelectListItem>();
+        public IEnumerable<SelectListItem> TiposPago { get; set; } = Enumerable.Empty<SelectListItem>();
+        public IEnumerable<SelectListItem> EstadosVenta { get; set; } = Enumerable.Empty<SelectListItem>();
     }
 }

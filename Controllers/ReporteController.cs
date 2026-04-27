@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -118,6 +120,28 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al generar reporte de morosidad");
                 TempData["Error"] = "Error al generar el reporte de morosidad";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // GET: Reporte/ComisionesVendedores
+        [HttpGet]
+        public async Task<IActionResult> ComisionesVendedores([FromQuery] ComisionVendedorFilterViewModel filtro)
+        {
+            try
+            {
+                filtro.FechaDesde ??= new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                filtro.FechaHasta ??= DateTime.Today;
+
+                var resultado = await _reporteService.GenerarReporteComisionesVendedoresAsync(filtro);
+                await CargarFiltrosComisionesAsync(resultado);
+
+                return View("ComisionesVendedores_tw", resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de comisiones por vendedor");
+                TempData["Error"] = "Error al generar el reporte de comisiones por vendedor";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -241,6 +265,27 @@ namespace TheBuryProject.Controllers
             ViewBag.Categorias = new SelectList(categorias, "Id", "Nombre");
             ViewBag.Marcas = new SelectList(marcas, "Id", "Nombre");
             ViewBag.Vendedores = new SelectList(usuarios, "Id", "UserName");
+        }
+
+        private async Task CargarFiltrosComisionesAsync(ComisionVendedorReporteViewModel reporte)
+        {
+            var productos = await _productoService.GetAllAsync();
+            var usuarios = await _usuarioService.GetUsuarioSelectListAsync();
+
+            reporte.Vendedores = new SelectList(
+                usuarios,
+                "Id",
+                "UserName",
+                reporte.Filtros.VendedorUserId);
+
+            reporte.Productos = new SelectList(
+                productos,
+                "Id",
+                "Nombre",
+                reporte.Filtros.ProductoId);
+
+            reporte.TiposPago = EnumHelper.GetSelectList<TipoPago>(reporte.Filtros.TipoPago);
+            reporte.EstadosVenta = EnumHelper.GetSelectList<EstadoVenta>(reporte.Filtros.EstadoVenta);
         }
 
         #endregion

@@ -1,0 +1,255 @@
+@model TheBuryProject.ViewModels.ComisionVendedorReporteViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Comisiones por vendedor";
+    var f = Model.Filtros;
+
+    string EstadoBadge(EstadoVenta estado) => estado switch
+    {
+        EstadoVenta.Confirmada => "border-emerald-700 bg-emerald-900/25 text-emerald-300",
+        EstadoVenta.Facturada => "border-blue-700 bg-blue-900/25 text-blue-300",
+        EstadoVenta.Entregada => "border-cyan-700 bg-cyan-900/25 text-cyan-300",
+        EstadoVenta.Cancelada => "border-red-700 bg-red-900/25 text-red-300",
+        EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion => "border-amber-700 bg-amber-900/25 text-amber-300",
+        _ => "border-slate-700 bg-slate-800 text-slate-300"
+    };
+
+    string TipoPagoBadge(TipoPago tipoPago) => tipoPago switch
+    {
+        TipoPago.Efectivo => "border-emerald-700 bg-emerald-900/25 text-emerald-300",
+        TipoPago.CreditoPersonal => "border-violet-700 bg-violet-900/25 text-violet-300",
+        TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.Tarjeta => "border-blue-700 bg-blue-900/25 text-blue-300",
+        TipoPago.Transferencia or TipoPago.MercadoPago => "border-cyan-700 bg-cyan-900/25 text-cyan-300",
+        _ => "border-slate-700 bg-slate-800 text-slate-300"
+    };
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+    <nav class="flex items-center gap-2 text-xs text-slate-500">
+        <a asp-action="Index" class="hover:text-slate-300">Reportes</a>
+        <span class="material-symbols-outlined text-sm">chevron_right</span>
+        <span class="text-slate-300">Comisiones</span>
+    </nav>
+
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div class="space-y-3">
+            <span class="inline-flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                <span class="material-symbols-outlined text-sm">payments</span>
+                Reporte operativo
+            </span>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-100">Comisiones por vendedor</h1>
+                <p class="mt-1 max-w-3xl text-sm text-slate-400">
+                    Consulta ventas por producto usando el porcentaje y monto de comisión guardados en cada detalle.
+                </p>
+            </div>
+        </div>
+        <a asp-action="Index" class="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-slate-200">
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Volver a reportes
+        </a>
+    </header>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                Filtros
+            </h2>
+        </div>
+        <div class="px-6 py-5">
+            <form asp-action="ComisionesVendedores" method="get">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Vendedor</label>
+                        <select asp-for="Filtros.VendedorUserId" name="VendedorUserId" asp-items="Model.Vendedores"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Desde</label>
+                        <input type="date" name="FechaDesde" value="@f.FechaDesde?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Hasta</label>
+                        <input type="date" name="FechaHasta" value="@f.FechaHasta?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Tipo de pago</label>
+                        <select asp-for="Filtros.TipoPago" name="TipoPago" asp-items="Model.TiposPago"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Estado venta</label>
+                        <select asp-for="Filtros.EstadoVenta" name="EstadoVenta" asp-items="Model.EstadosVenta"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todas no canceladas</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Producto</label>
+                        <select asp-for="Filtros.ProductoId" name="ProductoId" asp-items="Model.Productos"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1 xl:col-span-2">
+                        <label class="text-xs font-medium text-slate-400">Buscar</label>
+                        <input type="search" name="ClienteTexto" value="@f.ClienteTexto"
+                               placeholder="Cliente, DNI, venta o producto"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="btn-erp-primary w-full">
+                            <span class="material-symbols-outlined text-base">search</span>
+                            Filtrar
+                        </button>
+                        <a asp-action="ComisionesVendedores"
+                           class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-700 px-3 text-slate-300 hover:bg-slate-800"
+                           title="Limpiar filtros">
+                            <span class="material-symbols-outlined text-base">restart_alt</span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div class="card-erp-metric">
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Total vendido</p>
+            <p class="mt-1 text-2xl font-bold text-slate-100">$@Model.TotalVendido.ToString("N2")</p>
+        </div>
+        <div class="card-erp-metric card-erp-metric-success">
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Total comisión</p>
+            <p class="mt-1 text-2xl font-bold text-emerald-400">$@Model.TotalComision.ToString("N2")</p>
+        </div>
+        <div class="card-erp-metric">
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas</p>
+            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.CantidadVentas</p>
+        </div>
+        <div class="card-erp-metric">
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Productos vendidos</p>
+            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.CantidadProductosVendidos</p>
+        </div>
+        <div class="card-erp-metric">
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Comisión prom.</p>
+            <p class="mt-1 text-2xl font-bold text-slate-100">@Model.PromedioComisionPorcentaje.ToString("N2")%</p>
+        </div>
+    </div>
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">receipt_long</span>
+                Detalle de comisiones
+                <span class="ml-auto text-xs font-normal text-slate-400">@Model.Items.Count registros</span>
+            </h2>
+        </div>
+
+        @if (Model.Items.Any())
+        {
+            <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 92rem;">
+                <p data-oc-scroll-hint hidden class="px-6 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400 lg:hidden">
+                    Deslizá la tabla para revisar pago, estado y comisión
+                </p>
+                <div data-oc-scroll-shell class="relative">
+                    <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                    <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Detalle de comisiones por vendedor">
+                        <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
+                            <thead>
+                                <tr class="border-b border-slate-800 bg-slate-800/50">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Fecha</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">N° venta</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Vendedor</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Producto</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Cant.</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Precio unit.</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Final ítem</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Pago</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Estado</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión %</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión $</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                @foreach (var item in Model.Items)
+                                {
+                                    <tr class="hover:bg-slate-800/50 transition-colors">
+                                        <td class="px-4 py-3 text-sm text-slate-400">@item.FechaVenta.ToString("dd/MM/yyyy")</td>
+                                        <td class="px-4 py-3 font-mono text-xs">
+                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@item.VentaId"
+                                               class="text-primary hover:underline">@item.NumeroVenta</a>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-slate-100">@item.VendedorNombre</td>
+                                        <td class="px-4 py-3 text-sm text-slate-300">@item.ClienteNombre</td>
+                                        <td class="px-4 py-3 text-sm text-slate-100">@item.ProductoNombre</td>
+                                        <td class="px-4 py-3 text-right text-sm text-slate-300">@item.Cantidad</td>
+                                        <td class="px-4 py-3 text-right text-sm text-slate-300">$@item.PrecioUnitario.ToString("N2")</td>
+                                        <td class="px-4 py-3 text-right text-sm font-medium text-slate-100">$@item.PrecioFinalItem.ToString("N2")</td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium @TipoPagoBadge(item.TipoPago)">
+                                                @item.TipoPagoDescripcion
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium @EstadoBadge(item.EstadoVenta)">
+                                                @item.EstadoVentaDescripcion
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-sm text-slate-300">@item.ComisionPorcentajeAplicada.ToString("N2")%</td>
+                                        <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@item.ComisionMonto.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="border-t border-slate-700 bg-slate-800/70">
+                                    <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-slate-300">Totales</td>
+                                    <td class="px-4 py-3 text-right text-sm font-semibold text-slate-100">$@Model.TotalVendido.ToString("N2")</td>
+                                    <td colspan="3"></td>
+                                    <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@Model.TotalComision.ToString("N2")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="px-6 py-12 text-center text-sm text-slate-400">
+                <span class="material-symbols-outlined mb-3 block text-4xl">payments</span>
+                No se encontraron comisiones para los filtros seleccionados.
+            </div>
+        }
+    </section>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+}
