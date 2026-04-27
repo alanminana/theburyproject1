@@ -47,6 +47,7 @@
     var canViewInventario    = User.TienePermiso("cotizaciones",  "view");
     var canViewProveedores   = User.TienePermiso("proveedores",   "view");
     var canViewCaja          = User.TienePermiso("caja",          "view");
+    var canViewReportes      = User.TienePermiso("reportes",      "view");
     var canViewSeguridad     = User.TieneCualquierPermiso(
                                    ("usuarios", "view"), ("roles", "view"),
                                    ("usuarios", "update"), ("roles", "create"));
@@ -57,6 +58,7 @@
     // Visibilidad de secciones
     var showOperaciones = canViewVentas || canViewClientes;
     var showLogistica   = canViewInventario || canViewProveedores || canViewCaja;
+    var showReportes    = canViewReportes;
     var showSistemas    = canViewSeguridad || canViewTickets;
 }
 
@@ -130,6 +132,23 @@
                                 <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
                             </a>
                         }
+                    </div>
+                </div>
+            }
+
+            @if (showReportes)
+            {
+                <div>
+                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Reportes</p>
+                    <div class="space-y-1">
+                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index">
+                            <span class="material-symbols-outlined text-lg shrink-0">leaderboard</span>
+                            <p class="@NavFont(IsActive("Reporte", "Index")) sidebar-label">Reportes</p>
+                        </a>
+                        <a class="@NavClass(IsActive("Reporte", "ComisionesVendedores"))" asp-controller="Reporte" asp-action="ComisionesVendedores">
+                            <span class="material-symbols-outlined text-lg shrink-0">payments</span>
+                            <p class="@NavFont(IsActive("Reporte", "ComisionesVendedores")) sidebar-label">Comisiones vendedores</p>
+                        </a>
                     </div>
                 </div>
             }
