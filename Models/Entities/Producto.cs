@@ -74,6 +74,12 @@ namespace TheBuryProject.Models.Entities
         public decimal PorcentajeIVA { get; set; } = 21m;
 
         /// <summary>
+        /// Porcentaje de comisión que gana el vendedor al vender este producto.
+        /// Ejemplo: 8 representa 8%.
+        /// </summary>
+        public decimal ComisionPorcentaje { get; set; } = 0m;
+
+        /// <summary>
         /// Indica si el producto requiere n�mero de serie para control individual
         /// </summary>
         public bool RequiereNumeroSerie { get; set; } = false;

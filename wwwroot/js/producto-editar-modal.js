@@ -41,6 +41,7 @@
         el('prod-edit-descripcion').value = data.descripcion || '';
         el('prod-edit-precioCompra').value = data.precioCompra || 0;
         el('prod-edit-precioVenta').value  = data.precioVenta || 0;
+        el('prod-edit-comisionPorcentaje').value = data.comisionPorcentaje || 0;
         el('prod-edit-stockActual').value  = data.stockActual || 0;
         el('prod-edit-stockMinimo').value  = data.stockMinimo || 0;
         el('prod-edit-activo').checked     = !!data.activo;
@@ -245,6 +246,13 @@
         if (tds[6]) {
             var priceEl = tds[6].querySelector('.font-bold');
             if (priceEl) priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            var commissionEl = tds[6].querySelector('[data-producto-comision]');
+            if (commissionEl) {
+                var commission = Number(entity.comisionPorcentaje || 0);
+                commissionEl.textContent = commission > 0
+                    ? commission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'
+                    : 'Sin comisión';
+            }
         }
         // data attributes en el tr
         currentRow.setAttribute('data-producto-codigo', entity.codigo);
@@ -305,6 +313,13 @@
             e.preventDefault();
             hideValidation();
             clearErrors();
+
+            var fd = new FormData(form);
+            var comision = parseFloat(fd.get('ComisionPorcentaje') || '0');
+            if (isNaN(comision) || comision < 0 || comision > 100) {
+                handleServerErrors({ ComisionPorcentaje: ['La comisión vendedor debe estar entre 0 y 100'] });
+                return;
+            }
 
             var btn = el('btn-guardar-producto-edit');
             var origHTML = btn.innerHTML;

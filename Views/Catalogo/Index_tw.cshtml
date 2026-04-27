@@ -279,6 +279,17 @@
                                     {
                                         <p class="text-[10px] text-emerald-400">+@p.MargenPorcentaje.ToString("N1")% margen</p>
                                     }
+                                    <p class="text-[10px] text-slate-400">
+                                        Comisión vendedor:
+                                        @if (p.ComisionPorcentaje > 0)
+                                        {
+                                            <span data-producto-comision>@p.ComisionPorcentaje.ToString("N2")%</span>
+                                        }
+                                        else
+                                        {
+                                            <span data-producto-comision>Sin comisión</span>
+                                        }
+                                    </p>
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex flex-wrap justify-end gap-2">
@@ -755,7 +766,7 @@
                         <span class="material-symbols-outlined text-primary">info</span>
                         <p class="text-xs text-slate-300">Los precios se ingresan sin IVA. El sistema calculará el precio final automáticamente.</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio de Costo</label>
                             <div class="relative">
@@ -783,6 +794,13 @@
                                 <option value="27">27%</option>
                                 <option value="0">0%</option>
                             </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-300">Comisión vendedor (%)</label>
+                            <input name="ComisionPorcentaje" id="modal-comisionPorcentaje" type="number" min="0" max="100" step="0.01" value="0"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                            <p class="text-xs text-slate-400">Porcentaje que gana el vendedor al vender este producto.</p>
+                            <span data-valmsg-for="ComisionPorcentaje" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio Final (IVA)</label>
@@ -991,7 +1009,7 @@
                         <span class="material-symbols-outlined text-primary">info</span>
                         <p class="text-xs text-slate-300">Ingresá el Precio de Venta <strong>sin IVA</strong>. El precio final se calcula automáticamente.</p>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio de Costo</label>
                             <div class="relative">
@@ -1015,6 +1033,12 @@
                                 <option value="27">27%</option>
                                 <option value="0">0%</option>
                             </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-300">Comisión vendedor (%)</label>
+                            <input id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" type="number" min="0" max="100" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                            <p class="text-xs text-slate-400">Porcentaje que gana el vendedor al vender este producto.</p>
+                            <span data-valmsg-for="ComisionPorcentaje" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio Final</label>

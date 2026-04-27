@@ -354,6 +354,7 @@ namespace TheBuryProject.Services
                 existing.MarcaId = producto.MarcaId;
                 existing.PrecioCompra = producto.PrecioCompra;
                 existing.PrecioVenta = producto.PrecioVenta;
+                existing.ComisionPorcentaje = producto.ComisionPorcentaje;
                 existing.RequiereNumeroSerie = producto.RequiereNumeroSerie;
                 existing.StockMinimo = producto.StockMinimo;
 
@@ -544,6 +545,9 @@ namespace TheBuryProject.Services
                     "Producto {Codigo}: Precio venta ({PV}) < Precio compra ({PC})",
                     producto.Codigo, producto.PrecioVenta, producto.PrecioCompra);
             }
+
+            if (producto.ComisionPorcentaje < 0 || producto.ComisionPorcentaje > 100)
+                throw new InvalidOperationException("La comisión vendedor debe estar entre 0 y 100");
 
             if (producto.StockActual < 0)
                 throw new InvalidOperationException("El stock actual no puede ser negativo");

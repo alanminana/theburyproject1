@@ -284,6 +284,9 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PrecioCompra).HasPrecision(18, 2);
                 entity.Property(e => e.PrecioVenta).HasPrecision(18, 2);
+                entity.Property(e => e.ComisionPorcentaje)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0m);
                 entity.Property(e => e.StockActual).HasPrecision(18, 2);
                 entity.Property(e => e.StockMinimo).HasPrecision(18, 2);
 
@@ -859,6 +862,12 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.PrecioUnitario).HasPrecision(18, 2);
                 entity.Property(e => e.Descuento).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.ComisionPorcentajeAplicada)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.ComisionMonto)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
 
                 entity.HasOne(e => e.Venta)
                     .WithMany(v => v.Detalles)

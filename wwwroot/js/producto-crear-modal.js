@@ -74,6 +74,8 @@ const ProductoModal = (() => {
         // Restablecer precio final
         const precioFinal = el('modal-precioFinal');
         if (precioFinal) precioFinal.value = '0.00';
+        const comision = el('modal-comisionPorcentaje');
+        if (comision) comision.value = '0';
 
         // Ocultar errores
         hideValidation();
@@ -420,6 +422,11 @@ const ProductoModal = (() => {
 
         const venta = parseFloat(fd.get('PrecioVenta'));
         if (isNaN(venta) || venta < 0) errors.push('El precio de venta es obligatorio');
+
+        const comision = parseFloat(fd.get('ComisionPorcentaje') || '0');
+        if (isNaN(comision) || comision < 0 || comision > 100) {
+            errors.push('La comisión vendedor debe estar entre 0 y 100');
+        }
 
         return errors;
     }

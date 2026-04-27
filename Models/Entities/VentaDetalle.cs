@@ -26,6 +26,12 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal Subtotal { get; set; }
 
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal ComisionPorcentajeAplicada { get; set; } = 0m;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ComisionMonto { get; set; } = 0m;
+
         [StringLength(200)]
         public string? Observaciones { get; set; }
 

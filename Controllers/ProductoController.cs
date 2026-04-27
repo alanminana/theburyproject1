@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Globalization;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
@@ -132,6 +133,7 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ProductoViewModel viewModel)
         {
+            NormalizarComisionPorcentaje(viewModel);
             viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
 
             if (ModelState.IsValid)
@@ -178,6 +180,7 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateAjax(ProductoViewModel viewModel)
         {
+            NormalizarComisionPorcentaje(viewModel);
             viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
 
             if (!ModelState.IsValid)
@@ -259,6 +262,7 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
+            NormalizarComisionPorcentaje(viewModel);
             viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
 
             if (ModelState.IsValid)
@@ -396,6 +400,7 @@ namespace TheBuryProject.Controllers
                     precioCompra = vm.PrecioCompra,
                     precioVenta = precioSinIVA,
                     porcentajeIVA = vm.PorcentajeIVA,
+                    comisionPorcentaje = vm.ComisionPorcentaje,
                     stockActual = vm.StockActual,
                     stockMinimo = vm.StockMinimo,
                     activo = vm.Activo,
@@ -416,6 +421,7 @@ namespace TheBuryProject.Controllers
             if (id != viewModel.Id)
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Id inválido." } } } });
 
+            NormalizarComisionPorcentaje(viewModel);
             viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
 
             if (!ModelState.IsValid)
@@ -456,6 +462,7 @@ namespace TheBuryProject.Controllers
                         categoriaNombre = updatedVm.CategoriaNombre,
                         marcaNombre = updatedVm.MarcaNombre,
                         precioActual = updatedVm.PrecioVenta,
+                        comisionPorcentaje = updatedVm.ComisionPorcentaje,
                         stockActual = updatedVm.StockActual,
                         activo = updatedVm.Activo
                     }
@@ -513,6 +520,24 @@ namespace TheBuryProject.Controllers
 
         private static decimal QuitarIVA(decimal precio, decimal porcentajeIVA)
             => porcentajeIVA > 0 ? Math.Round(precio / (1 + porcentajeIVA / 100m), 2) : precio;
+
+        private void NormalizarComisionPorcentaje(ProductoViewModel viewModel)
+        {
+            var raw = Request.Form[nameof(ProductoViewModel.ComisionPorcentaje)].FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                viewModel.ComisionPorcentaje = 0m;
+                ModelState.Remove(nameof(ProductoViewModel.ComisionPorcentaje));
+                return;
+            }
+
+            var normalizado = raw.Trim().Replace(',', '.');
+            if (decimal.TryParse(normalizado, NumberStyles.Number, CultureInfo.InvariantCulture, out var valor))
+            {
+                viewModel.ComisionPorcentaje = valor;
+                ModelState.Remove(nameof(ProductoViewModel.ComisionPorcentaje));
+            }
+        }
 
         private static List<ProductoCaracteristicaViewModel> NormalizarCaracteristicas(IEnumerable<ProductoCaracteristicaViewModel>? caracteristicas)
         {

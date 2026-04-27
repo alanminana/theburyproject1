@@ -67,6 +67,10 @@ namespace TheBuryProject.ViewModels
         [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100")]
         public decimal PorcentajeIVA { get; set; } = 21m;
 
+        [Display(Name = "Comisión vendedor (%)")]
+        [Range(0, 100, ErrorMessage = "La comisión vendedor debe estar entre 0 y 100")]
+        public decimal ComisionPorcentaje { get; set; } = 0m;
+
         [Display(Name = "Stock Mínimo")]
         [Range(0, double.MaxValue, ErrorMessage = "El stock mínimo debe ser mayor o igual a 0")]
         public decimal StockMinimo { get; set; } = 0;

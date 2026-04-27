@@ -111,7 +111,7 @@
                 <span class="material-symbols-outlined text-primary text-base">info</span>
                 <p class="text-xs text-slate-300">Ingresá el Precio de Venta <strong>sin IVA</strong>. El sistema calculará el precio final automáticamente.</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div class="space-y-1">
                     <label asp-for="PrecioCompra" class="text-sm font-semibold text-slate-300"></label>
                     <div class="relative">
@@ -136,6 +136,12 @@
                         <option value="27">27%</option>
                         <option value="0">0%</option>
                     </select>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="ComisionPorcentaje" class="text-sm font-semibold text-slate-300">Comisión vendedor (%)</label>
+                    <input asp-for="ComisionPorcentaje" type="number" min="0" max="100" step="0.01" class="catalogo-input" />
+                    <p class="text-xs text-slate-400">Porcentaje que gana el vendedor al vender este producto.</p>
+                    <span asp-validation-for="ComisionPorcentaje" class="text-xs text-red-400"></span>
                 </div>
                 <div class="space-y-1">
                     <label class="text-sm font-semibold text-slate-300">Precio Final (con IVA)</label>

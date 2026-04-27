@@ -177,6 +177,7 @@ namespace TheBuryProject.Services
                 PrecioBase = producto.PrecioVenta,
                 TienePrecioLista = precioLista != null,
                 MargenPorcentaje = margen,
+                ComisionPorcentaje = producto.ComisionPorcentaje,
 
                 // Stock
                 StockActual = producto.StockActual,

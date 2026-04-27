@@ -128,6 +128,11 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public decimal MargenPorcentaje { get; set; }
 
+        /// <summary>
+        /// Porcentaje de comisión asignado al vendedor para este producto.
+        /// </summary>
+        public decimal ComisionPorcentaje { get; set; }
+
         // ============================================
         // STOCK
         // ============================================
