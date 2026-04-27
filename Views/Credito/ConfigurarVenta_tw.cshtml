@@ -299,40 +299,53 @@
                 <div class="space-y-8">
 
                     <!-- Section: Documentación contractual -->
-                    <section class="card-erp-panel-padded">
-                        <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-3">
-                            <span class="material-symbols-outlined text-primary">contract</span>
-                            <h2 class="text-white text-xl font-bold">Documentación contractual</h2>
-                        </div>
-
-                        <div class="space-y-4">
+                    @{
+                        var sectionBorder = Model.ContratoGenerado ? "border-emerald-500/30" : "border-amber-500/30";
+                        var sectionBg     = Model.ContratoGenerado ? "bg-emerald-500/5"      : "bg-amber-500/5";
+                        var iconColor     = Model.ContratoGenerado ? "text-emerald-400"       : "text-amber-400";
+                        var checkIcon     = Model.ContratoGenerado ? "check_box"              : "check_box_outline_blank";
+                        var titleColor    = Model.ContratoGenerado ? "text-emerald-300"       : "text-amber-300";
+                        var statusText    = Model.ContratoGenerado ? "Contrato generado correctamente" : "Contrato de venta pendiente";
+                    }
+                    <section class="card-erp-panel-padded border @sectionBorder @sectionBg">
+                        <div class="flex items-center gap-3 mb-5 pb-3 border-b @sectionBorder">
+                            <span class="material-symbols-outlined @iconColor text-[22px]">@checkIcon</span>
+                            <div class="flex-1 min-w-0">
+                                <h2 class="text-base font-bold @titleColor leading-tight">@statusText</h2>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Documentación contractual</p>
+                            </div>
                             @if (Model.ContratoGenerado)
                             {
-                                <div class="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                                    <span class="material-symbols-outlined text-emerald-400">check_circle</span>
-                                    <div>
-                                        <p class="text-sm font-bold text-emerald-300">Contrato generado correctamente</p>
-                                        <p class="mt-1 text-xs text-emerald-100/70">El contrato ya está asociado a esta venta.</p>
-                                    </div>
-                                </div>
+                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                                    <span class="material-symbols-outlined text-[11px]">verified</span>
+                                    Completo
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="shrink-0 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                                    <span class="material-symbols-outlined text-[11px]">schedule</span>
+                                    Obligatorio
+                                </span>
+                            }
+                        </div>
+
+                        <div class="space-y-3">
+                            @if (Model.ContratoGenerado)
+                            {
+                                <p class="text-xs text-slate-400">El contrato ya está generado e impreso para esta venta.</p>
                                 <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
                                    target="_blank" rel="noopener"
-                                   class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-800 px-4 py-3 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 no-underline">
+                                   class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/20 no-underline">
                                     <span class="material-symbols-outlined text-[20px]">print</span>
                                     Ver / imprimir contrato
                                 </a>
                             }
                             else
                             {
-                                <div class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-                                    <span class="material-symbols-outlined text-amber-400">pending_actions</span>
-                                    <div>
-                                        <p class="text-sm font-bold text-amber-300">Contrato de venta pendiente</p>
-                                        <p class="mt-1 text-xs text-amber-100/70">
-                                            Debe generar e imprimir el Contrato de Venta antes de continuar.
-                                        </p>
-                                    </div>
-                                </div>
+                                <p class="text-xs text-amber-200/70">
+                                    El contrato de venta es un requisito obligatorio. Debe generarse antes de confirmar la operación.
+                                </p>
 
                                 @if (Model.PuedeGenerarContrato)
                                 {
@@ -343,22 +356,19 @@
                                             formmethod="post"
                                             formtarget="_blank"
                                             formnovalidate
-                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-400">
                                         <span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
                                         Generar Contrato de Venta
                                     </button>
                                 }
                                 else
                                 {
-                                    <button type="button"
-                                            disabled
-                                            class="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-500">
-                                        <span class="material-symbols-outlined text-[20px]">lock</span>
-                                        Generar Contrato de Venta
-                                    </button>
-                                    <p class="text-xs text-slate-500">
-                                        Guarde primero la configuración del crédito para habilitar la generación.
-                                    </p>
+                                    <div class="rounded-xl border border-slate-700/50 bg-slate-800/60 p-3 text-xs text-slate-400">
+                                        <p class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-sm text-slate-500">info</span>
+                                            Guardá primero la configuración de cuotas para habilitar la generación del contrato.
+                                        </p>
+                                    </div>
                                 }
                             }
                         </div>
@@ -463,13 +473,20 @@
                         <span class="material-symbols-outlined text-[20px]">close</span>
                         Cancelar
                     </button>
-                    @if (Model.CreditoEstaConfigurado && Model.VentaId.HasValue)
+                    @if (Model.CreditoEstaConfigurado && Model.VentaId.HasValue && Model.ContratoGenerado)
                     {
                         <a asp-action="Details" asp-controller="Venta" asp-route-id="@Model.VentaId.Value"
                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto sm:py-2.5 no-underline">
                             <span class="material-symbols-outlined text-[20px]">shopping_cart_checkout</span>
                             Volver a confirmar venta
                         </a>
+                    }
+                    else if (Model.CreditoEstaConfigurado && Model.VentaId.HasValue && !Model.ContratoGenerado)
+                    {
+                        <div class="flex w-full items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-300 sm:w-auto">
+                            <span class="material-symbols-outlined text-[20px] shrink-0">contract</span>
+                            <span class="text-xs leading-snug">Generá el contrato de venta antes de continuar.</span>
+                        </div>
                     }
                     else if (Model.CreditoEstaConfigurado)
                     {

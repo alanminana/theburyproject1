@@ -68,6 +68,7 @@
     const panelTarjeta = $('#panel-tarjeta');
     const panelCheque = $('#panel-cheque');
     const panelCreditoPersonal = $('#panel-credito-personal');
+    const panelContratoVenta = $('#panel-contrato-venta');
 
     const selectTarjeta = $('#select-tarjeta');
     const selectCuotasTarjeta = $('#select-cuotas-tarjeta');
@@ -559,6 +560,7 @@
         isTarjeta ? show(panelTarjeta) : hide(panelTarjeta);
         isCheque ? show(panelCheque) : hide(panelCheque);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
+        isCredito ? show(panelContratoVenta) : hide(panelContratoVenta);
 
         // Credit-specific: show aviso with cached cupo if already verified
         if (isCredito) {

@@ -603,6 +603,26 @@
                             </div>
                         </div>
 
+                        @* Documentación contractual obligatoria para Crédito Personal *@
+                        <div id="panel-contrato-venta" class="hidden">
+                            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                                <p class="mb-2 flex items-center gap-2 text-xs font-bold text-amber-300">
+                                    <span class="material-symbols-outlined text-sm">contract</span>
+                                    Documentación contractual
+                                </p>
+                                <p class="mb-1 text-[11px] font-semibold text-amber-200">Contrato de venta obligatorio</p>
+                                <p class="mb-2 text-[11px] text-slate-400">
+                                    Este requisito es obligatorio para ventas con Crédito Personal y no puede omitirse.
+                                </p>
+                                <p class="mb-2 text-[11px] text-slate-400">
+                                    El contrato se generará después de guardar la venta y configurar el plan de cuotas.
+                                </p>
+                                <p class="text-[11px] text-amber-300/80">
+                                    La operación no podrá confirmarse ni facturarse hasta generar el contrato.
+                                </p>
+                            </div>
+                        </div>
+
                         @* Excepción documental (solo para usuarios con permiso) *@
                         @if (User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create"))
                         {
