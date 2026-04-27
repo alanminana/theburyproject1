@@ -68,6 +68,7 @@
     const panelTarjeta = $('#panel-tarjeta');
     const panelCheque = $('#panel-cheque');
     const panelCreditoPersonal = $('#panel-credito-personal');
+    const panelVerificacionCrediticia = $('#panel-verificacion-crediticia');
     const panelContratoVenta = $('#panel-contrato-venta');
 
     const selectTarjeta = $('#select-tarjeta');
@@ -560,13 +561,18 @@
         isTarjeta ? show(panelTarjeta) : hide(panelTarjeta);
         isCheque ? show(panelCheque) : hide(panelCheque);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
+        isCredito ? show(panelVerificacionCrediticia) : hide(panelVerificacionCrediticia);
         isCredito ? show(panelContratoVenta) : hide(panelContratoVenta);
 
         // Credit-specific: show aviso with cached cupo if already verified
         if (isCredito) {
             actualizarAvisoCredito(creditoCupoDisponible);
         } else {
+            resetVerificacion();
+            resetExcepcionCrediticia();
+            hide($('#panel-credito-cupo'));
             hide(panelAvisoCredito);
+            clearFeedback();
         }
 
         // Fetch card info if needed
@@ -676,6 +682,35 @@
         hide($('#panel-cupo-suficiente'));
         hide($('#panel-cupo-insuficiente'));
         ultimaPrevalidacion = null;
+    }
+
+    function resetExcepcionCrediticia() {
+        excepcionActiva = false;
+
+        const hdnExcepcion = $('#hdn-aplicar-excepcion');
+        if (hdnExcepcion) hdnExcepcion.value = 'false';
+
+        const txtMotivo = $('#txt-excepcion-documental');
+        if (txtMotivo) {
+            txtMotivo.value = '';
+            txtMotivo.readOnly = false;
+            txtMotivo.classList.remove('border-red-500', 'opacity-60', 'cursor-not-allowed');
+        }
+
+        const errEl = document.getElementById('excepcion-motivo-error');
+        if (errEl) errEl.remove();
+
+        const btnConfirmar = $('#btn-confirmar-excepcion');
+        if (btnConfirmar) btnConfirmar.classList.remove('hidden');
+
+        const btnCancelar = $('#btn-cancelar-excepcion');
+        if (btnCancelar) btnCancelar.classList.remove('hidden');
+
+        const badge = document.getElementById('excepcion-aplicada-badge');
+        if (badge) badge.remove();
+
+        show($('#panel-excepcion-inactiva'));
+        hide($('#panel-excepcion-activa'));
     }
 
     function mostrarResultadoVerificacion(data) {
@@ -838,6 +873,10 @@
     }
 
     $('#btn-verificar-elegibilidad')?.addEventListener('click', async function () {
+        if (selectTipoPago?.value !== TIPO_PAGO.CreditoPersonal) {
+            return;
+        }
+
         const clienteId = parseInt(hdnClienteId?.value);
         const total = parseFloat(hdnTotal?.value) || 0;
         clearFeedback();
