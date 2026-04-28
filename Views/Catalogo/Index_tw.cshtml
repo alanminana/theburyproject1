@@ -663,11 +663,12 @@
         </header>
 
         <!-- Form -->
-        <form id="form-nuevo-producto" method="post" asp-controller="Producto" asp-action="CreateAjax">
+        <form id="form-nuevo-producto" method="post" asp-controller="Producto" asp-action="CreateAjax"
+              class="flex flex-col flex-1 overflow-hidden">
             @Html.AntiForgeryToken()
 
             <!-- Scrollable Content -->
-            <div class="modal-scroll-90-140 flex-1 overflow-y-auto p-6 space-y-8">
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
                 <div id="modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
@@ -935,7 +936,8 @@
             </button>
         </header>
 
-        <form id="form-editar-producto" method="post" action="/Producto/EditAjax/0">
+        <form id="form-editar-producto" method="post" action="/Producto/EditAjax/0"
+              class="flex flex-col flex-1 overflow-hidden">
             @Html.AntiForgeryToken()
             <input type="hidden" id="prod-edit-id" name="Id" value="" />
             <input type="hidden" id="prod-edit-rowversion" name="RowVersion" value="" />
