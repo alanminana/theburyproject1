@@ -1,0 +1,476 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+        - generic [ref=e18]:
+          - paragraph: Sistemas
+          - link "bug_report Tickets" [ref=e20] [cursor=pointer]:
+            - /url: /Ticket
+            - generic [ref=e21]: bug_report
+            - paragraph: Tickets
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e25]: account_circle
+          - generic:
+            - paragraph: vendedor
+            - paragraph: Vendedor
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e27]:
+        - generic [ref=e28]: chevron_left
+    - main [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - heading "Gestión de Créditos" [level=2] [ref=e32]
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - generic [ref=e36]: Dolar Blue
+              - generic [ref=e37]: $1.245,00
+            - generic [ref=e38]:
+              - generic [ref=e39]: Tarjeta
+              - generic [ref=e40]: $1.482,50
+            - generic [ref=e41]:
+              - generic [ref=e42]: Oficial
+              - generic [ref=e43]: $942,00
+        - generic [ref=e44]:
+          - button "notifications" [ref=e45]:
+            - generic [ref=e46]: notifications
+          - button "search" [ref=e48]:
+            - generic [ref=e49]: search
+          - button "Panel de incidentes" [ref=e50]:
+            - generic [ref=e51]: assignment
+          - button "help" [ref=e53]:
+            - generic [ref=e54]: help
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - heading "Seguimiento de creditos" [level=2] [ref=e60]
+                - paragraph [ref=e61]: Gestiona la cartera por cliente y revisa moras operativas desde una vista compacta.
+                - generic [ref=e62]:
+                  - generic [ref=e63]:
+                    - generic [ref=e64]: groups
+                    - text: 1 cliente
+                  - generic [ref=e65]:
+                    - generic [ref=e66]: credit_card
+                    - text: 8 creditos
+                  - generic [ref=e67]:
+                    - generic [ref=e68]: filter_alt
+                    - text: Vista con filtros
+              - navigation "Secciones de creditos" [ref=e70]:
+                - button "credit_card Cartera por cliente" [pressed] [ref=e71]:
+                  - generic [ref=e72]: credit_card
+                  - generic [ref=e73]: Cartera por cliente
+                - button "warning Moras por credito" [ref=e74]:
+                  - generic [ref=e75]: warning
+                  - generic [ref=e76]: Moras por credito
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - generic [ref=e80]: Buscar
+                - generic [ref=e81]:
+                  - generic [ref=e82]: search
+                  - textbox "Buscar por cliente, DNI o número de crédito" [ref=e83]:
+                    - /placeholder: Cliente, DNI o N° de crédito...
+                    - text: f
+              - generic [ref=e84]:
+                - generic [ref=e85]: Estado
+                - combobox "Estado del crédito" [ref=e86] [cursor=pointer]:
+                  - option "Todos" [selected]
+                  - option "Solicitado"
+                  - option "Aprobado"
+                  - option "Activo"
+                  - option "Finalizado"
+                  - option "Rechazado"
+                  - option "Cancelado"
+                  - option "PendienteConfiguracion"
+                  - option "Configurado"
+                  - option "Generado"
+              - generic [ref=e87]:
+                - generic [ref=e88]: Desde
+                - textbox "Fecha desde" [ref=e89]
+              - generic [ref=e90]:
+                - generic [ref=e91]: Hasta
+                - textbox "Fecha hasta" [ref=e92]
+              - generic [ref=e93]:
+                - button "filter_list Aplicar" [ref=e94]:
+                  - generic [ref=e95]: filter_list
+                  - generic [ref=e96]: Aplicar
+                - link "clear_all" [ref=e97] [cursor=pointer]:
+                  - /url: /Credito
+                  - generic [ref=e98]: clear_all
+          - generic [ref=e100]:
+            - generic [ref=e102]:
+              - generic [ref=e103]:
+                - heading "Cartera por cliente" [level=2] [ref=e104]
+                - paragraph [ref=e105]: Totales de la vista actual, segun los criterios aplicados.
+              - generic [ref=e106]:
+                - generic [ref=e107]: account_balance_wallet
+                - text: 1 cliente · 8 creditos
+            - region "Listado de clientes con créditos" [ref=e109]:
+              - table [ref=e110]:
+                - rowgroup [ref=e111]:
+                  - row "Cliente Documento Créditos Saldo pendiente Cuotas vencidas Próximo vencimiento Estado Acciones" [ref=e112]:
+                    - columnheader "Cliente" [ref=e113]
+                    - columnheader "Documento" [ref=e114]
+                    - columnheader "Créditos" [ref=e115]
+                    - columnheader "Saldo pendiente" [ref=e116]
+                    - columnheader "Cuotas vencidas" [ref=e117]
+                    - columnheader "Próximo vencimiento" [ref=e118]
+                    - columnheader "Estado" [ref=e119]
+                    - columnheader "Acciones" [ref=e120]
+                - rowgroup [ref=e121]:
+                  - 'row "FU fulanito Cliente #2 32543423 8 créditos CRE-202604-000011 CRE-202604-000010 CRE-202604-000009 +5 $ 1.936 Vista actual 0 28/05/2026 Pendiente Activo manage_accounts" [ref=e122]':
+                    - 'cell "FU fulanito Cliente #2" [ref=e123]':
+                      - generic [ref=e124]:
+                        - generic [ref=e125]: FU
+                        - generic [ref=e126]:
+                          - link "fulanito" [ref=e127] [cursor=pointer]:
+                            - /url: /Cliente/Details/2
+                          - generic [ref=e128]: "Cliente #2"
+                    - cell "32543423" [ref=e129]
+                    - cell "8 créditos CRE-202604-000011 CRE-202604-000010 CRE-202604-000009 +5" [ref=e130]:
+                      - generic [ref=e131]:
+                        - generic [ref=e132]: 8 créditos
+                        - generic [ref=e133]:
+                          - link "CRE-202604-000011" [ref=e134] [cursor=pointer]:
+                            - /url: /Credito/Details/11
+                          - link "CRE-202604-000010" [ref=e135] [cursor=pointer]:
+                            - /url: /Credito/Details/10
+                          - link "CRE-202604-000009" [ref=e136] [cursor=pointer]:
+                            - /url: /Credito/Details/9
+                          - generic [ref=e137]: "+5"
+                    - cell "$ 1.936 Vista actual" [ref=e138]:
+                      - generic [ref=e139]:
+                        - generic [ref=e140]: $ 1.936
+                        - generic [ref=e141]: Vista actual
+                    - cell "0" [ref=e142]
+                    - cell "28/05/2026 Pendiente" [ref=e143]:
+                      - generic [ref=e144]:
+                        - generic [ref=e145]: 28/05/2026
+                        - generic [ref=e146]: Pendiente
+                    - cell "Activo" [ref=e147]:
+                      - generic [ref=e149]: Activo
+                    - cell "manage_accounts" [ref=e150]:
+                      - button "manage_accounts" [ref=e152] [cursor=pointer]:
+                        - generic [ref=e153]: manage_accounts
+            - generic [ref=e154]:
+              - paragraph [ref=e155]: Mostrando 1 cliente con 8 créditos en la vista actual.
+              - paragraph [ref=e156]: Saldo, cuotas vencidas y vencimiento respetan los criterios aplicados.
+        - dialog "fulanito" [ref=e179]:
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]:
+                - generic [ref=e183]:
+                  - navigation [ref=e184]:
+                    - generic [ref=e185]: Créditos
+                    - generic [ref=e186]: chevron_right
+                    - generic [ref=e187]: Gestión cliente
+                  - heading "fulanito" [level=2] [ref=e188]
+                  - paragraph [ref=e189]: Documento 32543423
+                - button "close" [active] [ref=e190]:
+                  - generic [ref=e191]: close
+              - generic [ref=e192]:
+                - generic [ref=e193]: warning
+                - generic [ref=e194]:
+                  - paragraph [ref=e195]: Vista parcial — filtros activos
+                  - paragraph [ref=e196]: Esta vista muestra solo los créditos que coinciden con los filtros actuales. Puede haber créditos del cliente que no estén visibles.
+                  - link "open_in_new Ver cartera completa del cliente" [ref=e197] [cursor=pointer]:
+                    - /url: /Credito?ClienteId=2
+                    - generic [ref=e198]: open_in_new
+                    - text: Ver cartera completa del cliente
+              - generic [ref=e199]:
+                - article [ref=e200]:
+                  - paragraph [ref=e201]: Créditos (vista actual)
+                  - paragraph [ref=e202]: "8"
+                - article [ref=e203]:
+                  - paragraph [ref=e204]: Saldo (vista actual)
+                  - paragraph [ref=e205]: $ 1.936
+                - article [ref=e206]:
+                  - paragraph [ref=e207]: Cuotas vencidas
+                  - paragraph [ref=e208]: "0"
+                - article [ref=e209]:
+                  - paragraph [ref=e210]: Próximo vencimiento
+                  - paragraph [ref=e211]: 28/05/2026
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - generic [ref=e214]:
+                  - heading "Créditos visibles en la vista actual" [level=3] [ref=e215]
+                  - paragraph [ref=e216]: Solo los créditos que coinciden con los filtros activos. No necesariamente es la cartera completa.
+                - generic [ref=e217]: 8 créditos
+              - article [ref=e218]:
+                - generic [ref=e219]:
+                  - generic [ref=e220]:
+                    - generic [ref=e221]:
+                      - heading "CRE-202604-000011" [level=4] [ref=e222]
+                      - generic [ref=e223]: Generado
+                    - paragraph [ref=e224]: Fecha alta 28/04/2026
+                  - generic [ref=e225]:
+                    - generic [ref=e226]:
+                      - term [ref=e227]: Monto original
+                      - definition [ref=e228]: $ 242
+                    - generic [ref=e229]:
+                      - term [ref=e230]: Saldo pendiente
+                      - definition [ref=e231]: $ 242
+                    - generic [ref=e232]:
+                      - term [ref=e233]: Estado
+                      - definition [ref=e234]: Generado
+                    - generic [ref=e235]:
+                      - term [ref=e236]: Cuotas
+                      - definition [ref=e237]: "12"
+                - generic [ref=e238]:
+                  - generic [ref=e239]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e240]:
+                    - generic [ref=e241]: expand_more
+                    - generic [ref=e242]: Ver cuotas
+              - article [ref=e243]:
+                - generic [ref=e244]:
+                  - generic [ref=e245]:
+                    - generic [ref=e246]:
+                      - heading "CRE-202604-000010" [level=4] [ref=e247]
+                      - generic [ref=e248]: Generado
+                    - paragraph [ref=e249]: Fecha alta 28/04/2026
+                  - generic [ref=e250]:
+                    - generic [ref=e251]:
+                      - term [ref=e252]: Monto original
+                      - definition [ref=e253]: $ 242
+                    - generic [ref=e254]:
+                      - term [ref=e255]: Saldo pendiente
+                      - definition [ref=e256]: $ 242
+                    - generic [ref=e257]:
+                      - term [ref=e258]: Estado
+                      - definition [ref=e259]: Generado
+                    - generic [ref=e260]:
+                      - term [ref=e261]: Cuotas
+                      - definition [ref=e262]: "12"
+                - generic [ref=e263]:
+                  - generic [ref=e264]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e265]:
+                    - generic [ref=e266]: expand_more
+                    - generic [ref=e267]: Ver cuotas
+              - article [ref=e268]:
+                - generic [ref=e269]:
+                  - generic [ref=e270]:
+                    - generic [ref=e271]:
+                      - heading "CRE-202604-000009" [level=4] [ref=e272]
+                      - generic [ref=e273]: Generado
+                    - paragraph [ref=e274]: Fecha alta 28/04/2026
+                  - generic [ref=e275]:
+                    - generic [ref=e276]:
+                      - term [ref=e277]: Monto original
+                      - definition [ref=e278]: $ 242
+                    - generic [ref=e279]:
+                      - term [ref=e280]: Saldo pendiente
+                      - definition [ref=e281]: $ 242
+                    - generic [ref=e282]:
+                      - term [ref=e283]: Estado
+                      - definition [ref=e284]: Generado
+                    - generic [ref=e285]:
+                      - term [ref=e286]: Cuotas
+                      - definition [ref=e287]: "12"
+                - generic [ref=e288]:
+                  - generic [ref=e289]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e290]:
+                    - generic [ref=e291]: expand_more
+                    - generic [ref=e292]: Ver cuotas
+              - article [ref=e293]:
+                - generic [ref=e294]:
+                  - generic [ref=e295]:
+                    - generic [ref=e296]:
+                      - heading "CRE-202604-000008" [level=4] [ref=e297]
+                      - generic [ref=e298]: Configurado
+                    - paragraph [ref=e299]: Fecha alta 28/04/2026
+                  - generic [ref=e300]:
+                    - generic [ref=e301]:
+                      - term [ref=e302]: Monto original
+                      - definition [ref=e303]: $ 242
+                    - generic [ref=e304]:
+                      - term [ref=e305]: Saldo pendiente
+                      - definition [ref=e306]: $ 242
+                    - generic [ref=e307]:
+                      - term [ref=e308]: Estado
+                      - definition [ref=e309]: Configurado
+                    - generic [ref=e310]:
+                      - term [ref=e311]: Cuotas
+                      - definition [ref=e312]: "12"
+                - generic [ref=e313]:
+                  - generic [ref=e314]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e315]:
+                    - generic [ref=e316]: expand_more
+                    - generic [ref=e317]: Ver cuotas
+              - article [ref=e318]:
+                - generic [ref=e319]:
+                  - generic [ref=e320]:
+                    - generic [ref=e321]:
+                      - heading "CRE-202604-000007" [level=4] [ref=e322]
+                      - generic [ref=e323]: Generado
+                    - paragraph [ref=e324]: Fecha alta 28/04/2026
+                  - generic [ref=e325]:
+                    - generic [ref=e326]:
+                      - term [ref=e327]: Monto original
+                      - definition [ref=e328]: $ 242
+                    - generic [ref=e329]:
+                      - term [ref=e330]: Saldo pendiente
+                      - definition [ref=e331]: $ 242
+                    - generic [ref=e332]:
+                      - term [ref=e333]: Estado
+                      - definition [ref=e334]: Generado
+                    - generic [ref=e335]:
+                      - term [ref=e336]: Cuotas
+                      - definition [ref=e337]: "12"
+                - generic [ref=e338]:
+                  - generic [ref=e339]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e340]:
+                    - generic [ref=e341]: expand_more
+                    - generic [ref=e342]: Ver cuotas
+              - article [ref=e343]:
+                - generic [ref=e344]:
+                  - generic [ref=e345]:
+                    - generic [ref=e346]:
+                      - heading "CRE-202604-000006" [level=4] [ref=e347]
+                      - generic [ref=e348]: Generado
+                    - paragraph [ref=e349]: Fecha alta 28/04/2026
+                  - generic [ref=e350]:
+                    - generic [ref=e351]:
+                      - term [ref=e352]: Monto original
+                      - definition [ref=e353]: $ 242
+                    - generic [ref=e354]:
+                      - term [ref=e355]: Saldo pendiente
+                      - definition [ref=e356]: $ 242
+                    - generic [ref=e357]:
+                      - term [ref=e358]: Estado
+                      - definition [ref=e359]: Generado
+                    - generic [ref=e360]:
+                      - term [ref=e361]: Cuotas
+                      - definition [ref=e362]: "24"
+                - generic [ref=e363]:
+                  - generic [ref=e364]: 24 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e365]:
+                    - generic [ref=e366]: expand_more
+                    - generic [ref=e367]: Ver cuotas
+              - article [ref=e368]:
+                - generic [ref=e369]:
+                  - generic [ref=e370]:
+                    - generic [ref=e371]:
+                      - heading "CRE-202604-000005" [level=4] [ref=e372]
+                      - generic [ref=e373]: Generado
+                    - paragraph [ref=e374]: Fecha alta 28/04/2026
+                  - generic [ref=e375]:
+                    - generic [ref=e376]:
+                      - term [ref=e377]: Monto original
+                      - definition [ref=e378]: $ 242
+                    - generic [ref=e379]:
+                      - term [ref=e380]: Saldo pendiente
+                      - definition [ref=e381]: $ 242
+                    - generic [ref=e382]:
+                      - term [ref=e383]: Estado
+                      - definition [ref=e384]: Generado
+                    - generic [ref=e385]:
+                      - term [ref=e386]: Cuotas
+                      - definition [ref=e387]: "12"
+                - generic [ref=e388]:
+                  - generic [ref=e389]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e390]:
+                    - generic [ref=e391]: expand_more
+                    - generic [ref=e392]: Ver cuotas
+              - article [ref=e393]:
+                - generic [ref=e394]:
+                  - generic [ref=e395]:
+                    - generic [ref=e396]:
+                      - heading "CRE-202604-000001" [level=4] [ref=e397]
+                      - generic [ref=e398]: Configurado
+                    - paragraph [ref=e399]: Fecha alta 28/04/2026
+                  - generic [ref=e400]:
+                    - generic [ref=e401]:
+                      - term [ref=e402]: Monto original
+                      - definition [ref=e403]: $ 242
+                    - generic [ref=e404]:
+                      - term [ref=e405]: Saldo pendiente
+                      - definition [ref=e406]: $ 242
+                    - generic [ref=e407]:
+                      - term [ref=e408]: Estado
+                      - definition [ref=e409]: Configurado
+                    - generic [ref=e410]:
+                      - term [ref=e411]: Cuotas
+                      - definition [ref=e412]: "12"
+                - generic [ref=e413]:
+                  - generic [ref=e414]: 12 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e415]:
+                    - generic [ref=e416]: expand_more
+                    - generic [ref=e417]: Ver cuotas
+            - generic [ref=e419]:
+              - generic [ref=e420]:
+                - generic [ref=e421]:
+                  - paragraph [ref=e422]: Cuotas seleccionadas
+                  - paragraph [ref=e423]: "0"
+                - generic [ref=e424]:
+                  - paragraph [ref=e425]: Créditos involucrados
+                  - paragraph [ref=e426]: "0"
+                - generic [ref=e427]:
+                  - paragraph [ref=e428]: Subtotal
+                  - paragraph [ref=e429]: $ 0,00
+                - generic [ref=e430]:
+                  - paragraph [ref=e431]: Mora total
+                  - paragraph [ref=e432]: $ 0,00
+                - generic [ref=e433]:
+                  - paragraph [ref=e434]: Total final
+                  - paragraph [ref=e435]: $ 0,00
+              - generic [ref=e436]:
+                - generic [ref=e437]:
+                  - generic [ref=e438]: Medio de pago
+                  - combobox "Medio de pago" [ref=e439]:
+                    - option "Efectivo" [selected]
+                    - option "Transferencia"
+                    - option "Tarjeta Débito"
+                    - option "Tarjeta Crédito"
+                    - option "Cheque"
+                - button "payments Registrar pago" [disabled] [ref=e440]:
+                  - generic [ref=e441]: payments
+                  - generic [ref=e442]: Registrar pago
+  - button "bug_report" [ref=e157]:
+    - generic [ref=e158]: bug_report
+  - complementary [ref=e159]:
+    - generic [ref=e160]:
+      - generic [ref=e161]:
+        - generic [ref=e162]: assignment
+        - heading [level=2] [ref=e163]: Incidentes
+      - generic [ref=e164]:
+        - button [ref=e165]:
+          - generic [ref=e166]: add
+          - text: Nuevo
+        - button [ref=e167]:
+          - generic [ref=e168]: close
+    - generic [ref=e169]:
+      - generic [ref=e170]:
+        - textbox [ref=e171]:
+          - /placeholder: Buscar...
+        - combobox [ref=e172] [cursor=pointer]
+        - combobox [ref=e173] [cursor=pointer]
+        - button [ref=e174]:
+          - generic [ref=e175]: filter_list
+      - list [ref=e176]

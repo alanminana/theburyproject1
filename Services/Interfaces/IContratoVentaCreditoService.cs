@@ -10,6 +10,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario);
         Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId);
         Task<bool> ExisteContratoGeneradoAsync(int ventaId);
+        Task<bool> ExistePlantillaActivaAsync();
         Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId);
         Task<ContratoVentaCredito?> ObtenerContratoPorCreditoAsync(int creditoId);
     }

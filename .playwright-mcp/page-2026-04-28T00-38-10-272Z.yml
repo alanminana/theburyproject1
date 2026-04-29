@@ -1,0 +1,270 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e37]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e39]:
+        - generic [ref=e40]: chevron_left
+    - main [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - heading "Dashboard" [level=2] [ref=e44]
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]: Dolar Blue
+              - generic [ref=e49]: $1.245,00
+            - generic [ref=e50]:
+              - generic [ref=e51]: Tarjeta
+              - generic [ref=e52]: $1.482,50
+            - generic [ref=e53]:
+              - generic [ref=e54]: Oficial
+              - generic [ref=e55]: $942,00
+        - generic [ref=e56]:
+          - button "notifications" [ref=e57]:
+            - generic [ref=e58]: notifications
+          - button "search" [ref=e60]:
+            - generic [ref=e61]: search
+          - button "Panel de incidentes" [ref=e62]:
+            - generic [ref=e63]: assignment
+          - button "help" [ref=e65]:
+            - generic [ref=e66]: help
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - generic [ref=e72]: space_dashboard
+              - text: Dashboard
+            - heading "Centro operativo del día" [level=1] [ref=e73]
+          - generic [ref=e74]:
+            - article [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]:
+                  - paragraph [ref=e78]: Ventas totales
+                  - paragraph [ref=e79]: $ 0,00
+                - generic [ref=e80]: mes
+            - article [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e83]:
+                  - paragraph [ref=e84]: Operaciones
+                  - paragraph [ref=e85]: "0"
+                - generic [ref=e86]: 0 pend.
+            - article [ref=e87]:
+              - generic [ref=e88]:
+                - generic [ref=e89]:
+                  - paragraph [ref=e90]: Créditos activos
+                  - paragraph [ref=e91]: "0"
+                - generic [ref=e92]: 30 días
+            - article [ref=e93]:
+              - generic [ref=e94]:
+                - generic [ref=e95]:
+                  - paragraph [ref=e96]: Cuotas en vista
+                  - paragraph [ref=e97]: "0"
+                - generic [ref=e98]: total
+              - paragraph [ref=e99]: 0 venc. · 0 próx.
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - generic [ref=e102]:
+              - generic [ref=e103]:
+                - generic [ref=e104]:
+                  - generic [ref=e105]:
+                    - generic [ref=e106]: warning
+                    - text: Inventario
+                  - heading "Alertas de stock" [level=2] [ref=e107]
+                - link "open_in_new Ver alertas" [ref=e108] [cursor=pointer]:
+                  - /url: /AlertaStock
+                  - generic [ref=e109]: open_in_new
+                  - text: Ver alertas
+              - table [ref=e114]:
+                - rowgroup [ref=e115]:
+                  - row "SKU Producto Stock Estado Acciones" [ref=e116]:
+                    - columnheader "SKU" [ref=e117]
+                    - columnheader "Producto" [ref=e118]
+                    - columnheader "Stock" [ref=e119]
+                    - columnheader "Estado" [ref=e120]
+                    - columnheader "Acciones" [ref=e121]
+                - rowgroup [ref=e122]:
+                  - row "BP-1022 Cubierta 205/55 R16 2 Stock crítico Reponer" [ref=e123]:
+                    - cell "BP-1022" [ref=e124]
+                    - cell "Cubierta 205/55 R16" [ref=e125]
+                    - cell "2" [ref=e126]
+                    - cell "Stock crítico" [ref=e127]
+                    - cell "Reponer" [ref=e128]:
+                      - button "Reponer" [ref=e129]
+                  - row "BP-5044 Amortiguador Trasero 5 Reponer pronto Reponer" [ref=e130]:
+                    - cell "BP-5044" [ref=e131]
+                    - cell "Amortiguador Trasero" [ref=e132]
+                    - cell "5" [ref=e133]
+                    - cell "Reponer pronto" [ref=e134]
+                    - cell "Reponer" [ref=e135]:
+                      - button "Reponer" [ref=e136]
+                  - row "BP-9012 Batería Moura 12V 75Ah 3 Reponer pronto Reponer" [ref=e137]:
+                    - cell "BP-9012" [ref=e138]
+                    - cell "Batería Moura 12V 75Ah" [ref=e139]
+                    - cell "3" [ref=e140]
+                    - cell "Reponer pronto" [ref=e141]
+                    - cell "Reponer" [ref=e142]:
+                      - button "Reponer" [ref=e143]
+            - generic [ref=e144]:
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]:
+                    - generic [ref=e148]: schedule
+                    - text: Cobranzas
+                  - heading "Cuotas y pagos" [level=2] [ref=e149]
+                - generic [ref=e150]:
+                  - generic [ref=e151]: 0 venc. / 0 próx.
+                  - generic [ref=e152]:
+                    - button "Vencidas" [pressed] [ref=e153]
+                    - button "Próximas" [ref=e154]
+              - table [ref=e159]:
+                - rowgroup [ref=e160]:
+                  - row "Cliente Concepto Vencimiento Monto Estado Acciones" [ref=e161]:
+                    - columnheader "Cliente" [ref=e162]
+                    - columnheader "Concepto" [ref=e163]
+                    - columnheader "Vencimiento" [ref=e164]
+                    - columnheader "Monto" [ref=e165]
+                    - columnheader "Estado" [ref=e166]
+                    - columnheader "Acciones" [ref=e167]
+                - rowgroup
+          - complementary [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]:
+                - generic [ref=e171]: bolt
+                - heading "Accesos rápidos" [level=2] [ref=e172]
+              - generic [ref=e173]:
+                - link "add_shopping_cart Nueva Venta" [ref=e174] [cursor=pointer]:
+                  - /url: /Venta/Create
+                  - generic [ref=e175]: add_shopping_cart
+                  - generic [ref=e176]: Nueva Venta
+                - link "person_add Nuevo Cliente" [ref=e177] [cursor=pointer]:
+                  - /url: /Cliente/Create
+                  - generic [ref=e178]: person_add
+                  - generic [ref=e179]: Nuevo Cliente
+                - link "receipt_long Reportes" [ref=e180] [cursor=pointer]:
+                  - /url: /Reporte
+                  - generic [ref=e181]: receipt_long
+                  - generic [ref=e182]: Reportes
+                - link "box_edit Catálogo" [ref=e183] [cursor=pointer]:
+                  - /url: /Catalogo
+                  - generic [ref=e184]: box_edit
+                  - generic [ref=e185]: Catálogo
+                - link "point_of_sale Caja" [ref=e186] [cursor=pointer]:
+                  - /url: /Caja
+                  - generic [ref=e187]: point_of_sale
+                  - generic [ref=e188]: Caja
+                - link "credit_card Créditos" [ref=e189] [cursor=pointer]:
+                  - /url: /Credito
+                  - generic [ref=e190]: credit_card
+                  - generic [ref=e191]: Créditos
+            - generic [ref=e192]:
+              - generic [ref=e194]:
+                - generic [ref=e195]: monitoring
+                - heading "Actividad reciente" [level=2] [ref=e196]
+              - generic [ref=e197]:
+                - generic [ref=e200]:
+                  - paragraph [ref=e201]: "Venta registrada #8821 por $12.500"
+                  - paragraph [ref=e202]: Hace 15 minutos
+                - generic [ref=e205]:
+                  - paragraph [ref=e206]: Cliente nuevo Marcos Solari
+                  - paragraph [ref=e207]: Hace 2 horas
+                - generic [ref=e210]:
+                  - paragraph [ref=e211]: Stock bajo Batería Moura SKU-9012
+                  - paragraph [ref=e212]: Hace 4 horas
+            - generic [ref=e213]:
+              - generic [ref=e214]:
+                - generic [ref=e215]:
+                  - generic [ref=e216]: note_stack
+                  - heading "Notas rápidas" [level=2] [ref=e217]
+                - button "add Guardar" [ref=e218]:
+                  - generic [ref=e219]: add
+                  - text: Guardar
+              - generic [ref=e220]:
+                - textbox "Escribí un recordatorio..." [ref=e221]
+                - button "save Guardar" [ref=e223]:
+                  - generic [ref=e224]: save
+                  - text: Guardar
+  - button "bug_report" [ref=e225]:
+    - generic [ref=e226]: bug_report
+  - complementary [ref=e227]:
+    - generic [ref=e228]:
+      - generic [ref=e229]:
+        - generic [ref=e230]: assignment
+        - heading [level=2] [ref=e231]: Incidentes
+      - generic [ref=e232]:
+        - button [ref=e233]:
+          - generic [ref=e234]: add
+          - text: Nuevo
+        - button [ref=e235]:
+          - generic [ref=e236]: close
+    - generic [ref=e237]:
+      - generic [ref=e238]:
+        - textbox [ref=e239]:
+          - /placeholder: Buscar...
+        - combobox [ref=e240] [cursor=pointer]
+        - combobox [ref=e241] [cursor=pointer]
+        - button [ref=e242]:
+          - generic [ref=e243]: filter_list
+      - list [ref=e244]

@@ -283,6 +283,7 @@ public class ReporteServiceTests : IDisposable
             cantidad: 2,
             vendedorUserId: "vend-1",
             vendedorNombre: "Vendedor Uno",
+            estado: EstadoVenta.Facturada,
             comisionPorcentaje: 8m,
             comisionMonto: 16m);
 
@@ -305,6 +306,7 @@ public class ReporteServiceTests : IDisposable
             producto.Id,
             precioUnitario: 100m,
             cantidad: 1,
+            estado: EstadoVenta.Facturada,
             comisionPorcentaje: 8m,
             comisionMonto: 8m);
 
@@ -326,8 +328,8 @@ public class ReporteServiceTests : IDisposable
         await SeedUsuarioAsync("vend-1", "Uno");
         await SeedUsuarioAsync("vend-2", "Dos");
 
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-1", vendedorNombre: "Uno", comisionPorcentaje: 8m, comisionMonto: 8m);
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-2", vendedorNombre: "Dos", comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-1", vendedorNombre: "Uno", estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, vendedorUserId: "vend-2", vendedorNombre: "Dos", estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
 
         var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
         {
@@ -345,8 +347,8 @@ public class ReporteServiceTests : IDisposable
         var producto = await SeedProductoAsync();
         var hoy = DateTime.UtcNow.Date;
 
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy, comisionPorcentaje: 8m, comisionMonto: 8m);
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy.AddDays(-10), comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy, estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy.AddDays(-10), estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
 
         var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
         {
@@ -364,8 +366,8 @@ public class ReporteServiceTests : IDisposable
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
 
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Efectivo, comisionPorcentaje: 8m, comisionMonto: 8m);
-        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Transferencia, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Efectivo, estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, TipoPago.Transferencia, estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
 
         var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
         {
@@ -377,18 +379,19 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerarReporteComisiones_ExcluyeCanceladasPorDefecto()
+    public async Task GenerarReporteComisiones_SoloIncluyeFacturadasYEntregadasPorDefecto()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
 
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Facturada, comisionPorcentaje: 8m, comisionMonto: 8m);
         await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Confirmada, comisionPorcentaje: 8m, comisionMonto: 8m);
         await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Cancelada, comisionPorcentaje: 8m, comisionMonto: 8m);
 
         var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
 
         Assert.Single(resultado.Items);
-        Assert.Equal(EstadoVenta.Confirmada, resultado.Items[0].EstadoVenta);
+        Assert.Equal(EstadoVenta.Facturada, resultado.Items[0].EstadoVenta);
     }
 
     // -------------------------------------------------------------------------

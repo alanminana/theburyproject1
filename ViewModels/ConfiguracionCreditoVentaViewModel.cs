@@ -67,6 +67,8 @@ namespace TheBuryProject.ViewModels
 
         public bool ContratoGenerado { get; set; }
 
-        public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado;
+        public bool PlantillaActivaDisponible { get; set; }
+
+        public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado && PlantillaActivaDisponible;
     }
 }

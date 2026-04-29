@@ -69,8 +69,6 @@
     const panelCheque = $('#panel-cheque');
     const panelCreditoPersonal = $('#panel-credito-personal');
     const panelVerificacionCrediticia = $('#panel-verificacion-crediticia');
-    const panelContratoVenta = $('#panel-contrato-venta');
-
     const selectTarjeta = $('#select-tarjeta');
     const selectCuotasTarjeta = $('#select-cuotas-tarjeta');
     const panelTarjetaResumen = $('#panel-tarjeta-resumen');
@@ -289,10 +287,7 @@
         hide(inputBuscarCliente.parentElement);
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
 
-        // Reset cupo verificado al cambiar cliente
-        creditoCupoDisponible = null;
-        hide($('#panel-credito-cupo'));
-        hide($('#panel-resultado-verificacion'));
+        invalidarVerificacionCrediticia();
         onTipoPagoChange();
     });
 
@@ -304,14 +299,9 @@
         hide(infoCliente);
         show(inputBuscarCliente.parentElement);
         inputBuscarCliente.value = '';
-        creditoCupoDisponible = null;
-        hide($('#panel-credito-cupo'));
-        hide($('#panel-resultado-verificacion'));
+        invalidarVerificacionCrediticia();
         inputBuscarCliente.focus();
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
-
-        // Reset credit panel
-        hide(panelAvisoCredito);
     });
 
     // Close dropdowns on outside click
@@ -438,6 +428,7 @@
         txtProductoSeleccionado.value = '';
 
         renderDetalles();
+        invalidarVerificacionCrediticia();
         recalcularTotales();
     });
 
@@ -493,6 +484,7 @@
         const idx = parseInt(btn.dataset.index);
         detalles.splice(idx, 1);
         renderDetalles();
+        invalidarVerificacionCrediticia();
         recalcularTotales();
     });
 
@@ -551,6 +543,8 @@
     selectTipoPago?.addEventListener('change', onTipoPagoChange);
 
     function onTipoPagoChange() {
+        invalidarVerificacionCrediticia();
+
         const val = selectTipoPago.value;
 
         const isTarjeta = val === TIPO_PAGO.TarjetaCredito || val === TIPO_PAGO.TarjetaDebito || val === TIPO_PAGO.Tarjeta;
@@ -562,18 +556,6 @@
         isCheque ? show(panelCheque) : hide(panelCheque);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
         isCredito ? show(panelVerificacionCrediticia) : hide(panelVerificacionCrediticia);
-        isCredito ? show(panelContratoVenta) : hide(panelContratoVenta);
-
-        // Credit-specific: show aviso with cached cupo if already verified
-        if (isCredito) {
-            actualizarAvisoCredito(creditoCupoDisponible);
-        } else {
-            resetVerificacion();
-            resetExcepcionCrediticia();
-            hide($('#panel-credito-cupo'));
-            hide(panelAvisoCredito);
-            clearFeedback();
-        }
 
         // Fetch card info if needed
         if (isTarjeta && tarjetaInfoCache.length === 0) {
@@ -684,6 +666,32 @@
         ultimaPrevalidacion = null;
     }
 
+    function esPrevalidacionExceptuable(data) {
+        if (!data) return false;
+        return data.resultado !== RESULTADO_PREVAL.Aprobable;
+    }
+
+    function actualizarDisponibilidadExcepcion(data) {
+        resetExcepcionCrediticia();
+
+        if (esPrevalidacionExceptuable(data)) {
+            show($('#panel-excepcion-crediticia'));
+            show($('#panel-excepcion-inactiva'));
+        }
+    }
+
+    function invalidarVerificacionCrediticia() {
+        creditoCupoDisponible = null;
+        resetVerificacion();
+        resetExcepcionCrediticia();
+        hide($('#panel-credito-cupo'));
+        hide(panelAvisoCredito);
+        clearFeedback();
+    }
+
+    document.addEventListener('venta-crear-modal:open', invalidarVerificacionCrediticia);
+    document.addEventListener('venta-crear-modal:close', invalidarVerificacionCrediticia);
+
     function resetExcepcionCrediticia() {
         excepcionActiva = false;
 
@@ -709,7 +717,8 @@
         const badge = document.getElementById('excepcion-aplicada-badge');
         if (badge) badge.remove();
 
-        show($('#panel-excepcion-inactiva'));
+        hide($('#panel-excepcion-crediticia'));
+        hide($('#panel-excepcion-inactiva'));
         hide($('#panel-excepcion-activa'));
     }
 
@@ -893,6 +902,7 @@
         this.disabled = true;
         this.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Verificando...';
         resetVerificacion();
+        resetExcepcionCrediticia();
 
         try {
             const data = await fetchJson(`/api/ventas/PrevalidarCredito?clienteId=${clienteId}&monto=${total}`);
@@ -902,6 +912,7 @@
             mostrarMotivos(data);
             mostrarAlertaMora(data);
             mostrarDocumentacionFaltante(data);
+            actualizarDisponibilidadExcepcion(data);
 
         } catch (err) {
             showFeedback('Error al verificar elegibilidad: ' + err.message, 'error');
@@ -916,6 +927,12 @@
     // The hidden field is only set to 'true' at submit time, never at panel-open time.
 
     function mostrarPanelExcepcion() {
+        if (!esPrevalidacionExceptuable(ultimaPrevalidacion)) {
+            resetExcepcionCrediticia();
+            showFeedback('Verificá elegibilidad antes de aplicar una excepción.', 'warning');
+            return;
+        }
+
         hide($('#panel-excepcion-inactiva'));
         show($('#panel-excepcion-activa'));
         hide($('#panel-cupo-insuficiente'));
@@ -947,7 +964,13 @@
         const badge = document.getElementById('excepcion-aplicada-badge');
         if (badge) badge.remove();
 
-        show($('#panel-excepcion-inactiva'));
+        if (esPrevalidacionExceptuable(ultimaPrevalidacion)) {
+            show($('#panel-excepcion-crediticia'));
+            show($('#panel-excepcion-inactiva'));
+        } else {
+            hide($('#panel-excepcion-crediticia'));
+            hide($('#panel-excepcion-inactiva'));
+        }
         hide($('#panel-excepcion-activa'));
 
         if (ultimaPrevalidacion) {

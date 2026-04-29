@@ -11,6 +11,45 @@ document.addEventListener('DOMContentLoaded', function () {
     var selectedCuotas = new Map();
     var isPagoMultipleSubmitting = false;
     var isPagoMultipleLocked = false;
+    var panelFetchController = null;
+    var panelClienteUrl = clientePanel
+        ? (clientePanel.getAttribute('data-credito-panel-cliente-url') || '/Credito/PanelCliente')
+        : '/Credito/PanelCliente';
+
+    function setLoadingContent(container) {
+        container.textContent = '';
+        var wrapper = document.createElement('div');
+        wrapper.className = 'flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16';
+        var icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined text-3xl text-primary';
+        icon.style.animation = 'spin 1s linear infinite';
+        icon.textContent = 'progress_activity';
+        var text = document.createElement('p');
+        text.className = 'text-sm font-medium text-slate-400';
+        text.textContent = 'Cargando cartera del cliente...';
+        wrapper.appendChild(icon);
+        wrapper.appendChild(text);
+        container.appendChild(wrapper);
+    }
+
+    function setErrorContent(container, message) {
+        container.textContent = '';
+        var wrapper = document.createElement('div');
+        wrapper.className = 'flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16';
+        var icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined text-3xl text-red-400';
+        icon.textContent = 'error';
+        var title = document.createElement('p');
+        title.className = 'text-sm font-bold text-red-400';
+        title.textContent = 'No se pudo cargar la cartera';
+        var sub = document.createElement('p');
+        sub.className = 'text-xs text-slate-400';
+        sub.textContent = message || 'Intentá recargar la página.';
+        wrapper.appendChild(icon);
+        wrapper.appendChild(title);
+        wrapper.appendChild(sub);
+        container.appendChild(wrapper);
+    }
     var currencyFormatter = new Intl.NumberFormat('es-AR', {
         style: 'currency',
         currency: 'ARS',
@@ -203,10 +242,21 @@ document.addEventListener('DOMContentLoaded', function () {
         updatePagoResumen(scope);
     }
 
-    function openClientePanel(clienteId, trigger) {
+    function applyTemplateContent(container, clienteId) {
         var template = getClienteTemplate(clienteId);
-        if (!clientePanel || !clientePanelContent || !template) {
+        if (!template) return false;
+        container.innerHTML = template.innerHTML;
+        return true;
+    }
+
+    async function openClientePanel(clienteId, trigger) {
+        if (!clientePanel || !clientePanelContent) {
             return;
+        }
+
+        if (panelFetchController) {
+            panelFetchController.abort();
+            panelFetchController = null;
         }
 
         lastClientePanelTrigger = trigger || null;
@@ -214,12 +264,12 @@ document.addEventListener('DOMContentLoaded', function () {
         isPagoMultipleSubmitting = false;
         isPagoMultipleLocked = false;
         clientePanel.removeAttribute('data-credito-panel-locked');
-        clientePanelContent.innerHTML = template.innerHTML;
+
+        setLoadingContent(clientePanelContent);
         clientePanelContent.setAttribute('data-credito-cliente-id', clienteId);
         clientePanel.classList.remove('hidden');
         clientePanel.setAttribute('aria-hidden', 'false');
         document.body.classList.add('overflow-hidden');
-        updatePagoResumen(clientePanelContent);
 
         window.requestAnimationFrame(function () {
             var closeButton = clientePanel.querySelector('button[data-credito-cliente-panel-close]');
@@ -227,6 +277,50 @@ document.addEventListener('DOMContentLoaded', function () {
                 closeButton.focus();
             }
         });
+
+        panelFetchController = new AbortController();
+        try {
+            var response = await fetch(panelClienteUrl + '/' + clienteId, {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'text/html' },
+                signal: panelFetchController.signal
+            });
+            panelFetchController = null;
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            var html = await response.text();
+
+            if (clientePanel.classList.contains('hidden')) {
+                return;
+            }
+
+            var tmp = document.createElement('template');
+            tmp.innerHTML = html;
+            clientePanelContent.textContent = '';
+            clientePanelContent.appendChild(tmp.content);
+            clientePanelContent.setAttribute('data-credito-cliente-id', clienteId);
+            updatePagoResumen(clientePanelContent);
+        } catch (error) {
+            panelFetchController = null;
+
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            if (clientePanel.classList.contains('hidden')) {
+                return;
+            }
+
+            if (applyTemplateContent(clientePanelContent, clienteId)) {
+                clientePanelContent.setAttribute('data-credito-cliente-id', clienteId);
+                updatePagoResumen(clientePanelContent);
+            } else {
+                setErrorContent(clientePanelContent, null);
+            }
+        }
     }
 
     function closeClientePanel() {
@@ -236,6 +330,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (isPagoMultipleLocked) {
             return;
+        }
+
+        if (panelFetchController) {
+            panelFetchController.abort();
+            panelFetchController = null;
         }
 
         clientePanel.classList.add('hidden');

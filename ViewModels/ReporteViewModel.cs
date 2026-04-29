@@ -235,10 +235,23 @@ namespace TheBuryProject.ViewModels
         public decimal ComisionMonto { get; set; }
     }
 
+    public class ComisionVendedorResumenViewModel
+    {
+        public string? VendedorUserId { get; set; }
+        public string VendedorNombre { get; set; } = string.Empty;
+        public decimal TotalVendido { get; set; }
+        public decimal TotalComision { get; set; }
+        public int CantidadVentas { get; set; }
+        public int CantidadProductosVendidos { get; set; }
+        public decimal PromedioComisionPorcentaje { get; set; }
+        public List<ComisionVendedorItemViewModel> Items { get; set; } = new();
+    }
+
     public class ComisionVendedorReporteViewModel
     {
         public ComisionVendedorFilterViewModel Filtros { get; set; } = new();
         public List<ComisionVendedorItemViewModel> Items { get; set; } = new();
+        public List<ComisionVendedorResumenViewModel> ResumenPorVendedor { get; set; } = new();
         public decimal TotalVendido { get; set; }
         public decimal TotalComision { get; set; }
         public int CantidadVentas { get; set; }

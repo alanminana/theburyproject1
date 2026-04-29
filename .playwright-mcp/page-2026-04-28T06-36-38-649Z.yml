@@ -1,0 +1,671 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e41]:
+        - generic [ref=e42]: chevron_left
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Detalle de Crédito" [level=2] [ref=e46]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: Dolar Blue
+              - generic [ref=e51]: $1.245,00
+            - generic [ref=e52]:
+              - generic [ref=e53]: Tarjeta
+              - generic [ref=e54]: $1.482,50
+            - generic [ref=e55]:
+              - generic [ref=e56]: Oficial
+              - generic [ref=e57]: $942,00
+        - generic [ref=e58]:
+          - button "notifications" [ref=e59]:
+            - generic [ref=e60]: notifications
+          - button "search" [ref=e62]:
+            - generic [ref=e63]: search
+          - button "Panel de incidentes" [ref=e64]:
+            - generic [ref=e65]: assignment
+          - button "help" [ref=e67]:
+            - generic [ref=e68]: help
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - navigation "Breadcrumb" [ref=e74]:
+                - list [ref=e75]:
+                  - listitem [ref=e76]:
+                    - link "Inicio" [ref=e77] [cursor=pointer]:
+                      - /url: /
+                  - listitem [ref=e78]: /
+                  - listitem [ref=e79]:
+                    - link "Créditos" [ref=e80] [cursor=pointer]:
+                      - /url: /Credito
+                  - listitem [ref=e81]: /
+                  - listitem [ref=e82]: Detalle
+              - generic [ref=e83]:
+                - generic [ref=e84]:
+                  - generic [ref=e85]: credit_score
+                  - text: Crédito
+                - generic [ref=e86]:
+                  - heading "Crédito CRE-202604-000006" [level=1] [ref=e87]
+                  - paragraph [ref=e88]: Seguimiento integral del crédito de fulanito, con contexto de mora, evaluación y plan de cuotas operativo.
+                - generic [ref=e89]:
+                  - generic [ref=e90]:
+                    - generic [ref=e91]: person
+                    - text: fulanito
+                  - generic [ref=e92]:
+                    - generic [ref=e93]: calendar_month
+                    - text: Solicitado el 28/04/2026
+                  - generic [ref=e94]:
+                    - generic [ref=e95]: flag
+                    - text: Generado
+            - generic [ref=e96]:
+              - link "payments Pagar Cuota" [ref=e97] [cursor=pointer]:
+                - /url: /Credito/PagarCuota/6
+                - generic [ref=e98]: payments
+                - text: Pagar Cuota
+              - link "fast_forward Adelantar" [ref=e99] [cursor=pointer]:
+                - /url: /Credito/AdelantarCuota/6
+                - generic [ref=e100]: fast_forward
+                - text: Adelantar
+              - button "block Cancelar" [ref=e101] [cursor=pointer]:
+                - generic [ref=e102]: block
+                - text: Cancelar
+              - link "arrow_back Volver" [ref=e103] [cursor=pointer]:
+                - /url: /Credito
+                - generic [ref=e104]: arrow_back
+                - text: Volver
+          - generic [ref=e105]:
+            - article [ref=e106]:
+              - paragraph [ref=e107]: Estado
+              - paragraph [ref=e108]: Generado
+              - paragraph [ref=e109]: estado operativo actual
+            - article [ref=e110]:
+              - paragraph [ref=e111]: Saldo pendiente
+              - paragraph [ref=e112]: $ 242
+              - paragraph [ref=e113]: capital a regularizar
+            - article [ref=e114]:
+              - paragraph [ref=e115]: Progreso
+              - paragraph [ref=e116]: 0%
+              - paragraph [ref=e117]: 0 / 24 cuotas pagadas
+            - article [ref=e118]:
+              - paragraph [ref=e119]: Pendientes
+              - paragraph [ref=e120]: "24"
+              - paragraph [ref=e121]: 0 moras activas
+        - generic [ref=e122]:
+          - generic [ref=e123]:
+            - heading "description Información del Crédito" [level=3] [ref=e124]:
+              - generic [ref=e125]: description
+              - text: Información del Crédito
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - paragraph [ref=e128]: Número
+                - paragraph [ref=e129]: CRE-202604-000006
+              - generic [ref=e130]:
+                - paragraph [ref=e131]: Monto Solicitado
+                - paragraph [ref=e132]: $ 242,00
+              - generic [ref=e133]:
+                - paragraph [ref=e134]: Monto Aprobado
+                - paragraph [ref=e135]: $ 242,00
+              - generic [ref=e136]:
+                - paragraph [ref=e137]: Tasa Interés Mensual
+                - paragraph [ref=e138]: 6,00%
+              - generic [ref=e139]:
+                - paragraph [ref=e140]: CFTEA
+                - paragraph [ref=e141]: 0,00%
+              - generic [ref=e142]:
+                - paragraph [ref=e143]: Cuotas
+                - paragraph [ref=e144]: "24"
+              - generic [ref=e145]:
+                - paragraph [ref=e146]: Monto por Cuota
+                - paragraph [ref=e147]: $ 19,28
+              - generic [ref=e148]:
+                - paragraph [ref=e149]: Total a Pagar
+                - paragraph [ref=e150]: $ 462,72
+              - generic [ref=e151]:
+                - paragraph [ref=e152]: Saldo Pendiente
+                - paragraph [ref=e153]: $ 242,00
+              - generic [ref=e154]:
+                - paragraph [ref=e155]: Fecha Solicitud
+                - paragraph [ref=e156]: 28/04/2026
+              - generic [ref=e157]:
+                - paragraph [ref=e158]: Fecha Aprobación
+                - paragraph [ref=e159]: 28/04/2026
+              - generic [ref=e160]:
+                - paragraph [ref=e161]: Primera Cuota
+                - paragraph [ref=e162]: 28/05/2026
+              - generic [ref=e163]:
+                - paragraph [ref=e164]: Riesgo Inicial
+                - paragraph [ref=e165]: 6 pts
+            - generic [ref=e166]:
+              - paragraph [ref=e167]: Observaciones
+              - paragraph [ref=e168]: "[Manual | Configuración Manual] | [Manual | Configuración Manual] | [Manual | Configuración Manual] | [Manual | Configuración Manual]"
+          - generic [ref=e169]:
+            - generic [ref=e170]:
+              - heading "contract Contrato generado" [level=3] [ref=e171]:
+                - generic [ref=e172]: contract
+                - text: Contrato generado
+              - generic [ref=e173]:
+                - generic [ref=e174]:
+                  - paragraph [ref=e175]: Contrato Nº
+                  - paragraph [ref=e176]: CVC-202604-000005
+                - generic [ref=e177]:
+                  - paragraph [ref=e178]: Pagaré Nº
+                  - paragraph [ref=e179]: PAG-202604-000005
+                - generic [ref=e180]:
+                  - paragraph [ref=e181]: Generación
+                  - paragraph [ref=e182]: 28/04/2026 03:35
+                - generic [ref=e183]:
+                  - paragraph [ref=e184]: Usuario
+                  - paragraph [ref=e185]: admin
+                - generic [ref=e187]:
+                  - generic [ref=e188]: check_circle
+                  - text: Verificado
+              - link "print Ver / imprimir" [ref=e189] [cursor=pointer]:
+                - /url: /ContratoVentaCredito/Ver?ventaId=8
+                - generic [ref=e190]: print
+                - text: Ver / imprimir
+            - generic [ref=e191]:
+              - heading "person Cliente" [level=3] [ref=e192]:
+                - generic [ref=e193]: person
+                - text: Cliente
+              - generic [ref=e194]:
+                - generic [ref=e195]: F
+                - generic [ref=e196]:
+                  - link "fulanito" [ref=e197] [cursor=pointer]:
+                    - /url: /Cliente/Details/2
+                  - paragraph [ref=e198]: DNI 32543423
+              - generic [ref=e199]:
+                - generic [ref=e200]:
+                  - generic [ref=e201]: phone
+                  - text: "1234563242"
+                - generic [ref=e202]:
+                  - generic [ref=e203]: mail
+                  - text: cosmefulanito@gmail.com
+                - generic [ref=e204]:
+                  - generic [ref=e205]: location_on
+                  - text: avenida siempre viva 123
+                - generic [ref=e206]:
+                  - generic [ref=e207]: payments
+                  - text: "Sueldo: $ 100.000,00"
+                - generic [ref=e208]:
+                  - generic [ref=e209]: speed
+                  - text: "Riesgo: 6 pts"
+            - generic [ref=e210]:
+              - heading "account_balance_wallet Cupo Global" [level=3] [ref=e211]:
+                - generic [ref=e212]: account_balance_wallet
+                - text: Cupo Global
+              - paragraph [ref=e213]: $ 0,00
+              - paragraph [ref=e214]: Disponible
+              - paragraph [ref=e215]: "Origen: Puntaje"
+        - generic [ref=e216]:
+          - generic [ref=e218]:
+            - heading "receipt_long Plan de Cuotas (24)" [level=3] [ref=e219]:
+              - generic [ref=e220]: receipt_long
+              - text: Plan de Cuotas
+              - generic [ref=e221]: (24)
+            - paragraph [ref=e222]: Revisá vencimientos, composición de la cuota y acciones disponibles sin salir del detalle.
+          - region "Plan de cuotas del crédito" [ref=e225]:
+            - table [ref=e226]:
+              - rowgroup [ref=e227]:
+                - row "# Vencimiento Capital Interés Total Punitorio Pagado Estado Acción" [ref=e228]:
+                  - columnheader "#" [ref=e229]
+                  - columnheader "Vencimiento" [ref=e230]
+                  - columnheader "Capital" [ref=e231]
+                  - columnheader "Interés" [ref=e232]
+                  - columnheader "Total" [ref=e233]
+                  - columnheader "Punitorio" [ref=e234]
+                  - columnheader "Pagado" [ref=e235]
+                  - columnheader "Estado" [ref=e236]
+                  - columnheader "Acción" [ref=e237]
+              - rowgroup [ref=e238]:
+                - row "1 28/05/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e239]:
+                  - cell "1" [ref=e240]
+                  - cell "28/05/2026" [ref=e241]
+                  - cell "$ 10,08" [ref=e242]
+                  - cell "$ 9,20" [ref=e243]
+                  - cell "$ 19,28" [ref=e244]
+                  - cell "$ 0,00" [ref=e245]
+                  - cell "$ 0,00" [ref=e246]
+                  - cell "Pendiente" [ref=e247]:
+                    - generic [ref=e248]: Pendiente
+                  - cell "payments Pagar" [ref=e249]:
+                    - link "payments Pagar" [ref=e250] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=1
+                      - generic [ref=e251]: payments
+                      - text: Pagar
+                - row "2 28/06/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e252]:
+                  - cell "2" [ref=e253]
+                  - cell "28/06/2026" [ref=e254]
+                  - cell "$ 10,08" [ref=e255]
+                  - cell "$ 9,20" [ref=e256]
+                  - cell "$ 19,28" [ref=e257]
+                  - cell "$ 0,00" [ref=e258]
+                  - cell "$ 0,00" [ref=e259]
+                  - cell "Pendiente" [ref=e260]:
+                    - generic [ref=e261]: Pendiente
+                  - cell "payments Pagar" [ref=e262]:
+                    - link "payments Pagar" [ref=e263] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=2
+                      - generic [ref=e264]: payments
+                      - text: Pagar
+                - row "3 28/07/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e265]:
+                  - cell "3" [ref=e266]
+                  - cell "28/07/2026" [ref=e267]
+                  - cell "$ 10,08" [ref=e268]
+                  - cell "$ 9,20" [ref=e269]
+                  - cell "$ 19,28" [ref=e270]
+                  - cell "$ 0,00" [ref=e271]
+                  - cell "$ 0,00" [ref=e272]
+                  - cell "Pendiente" [ref=e273]:
+                    - generic [ref=e274]: Pendiente
+                  - cell "payments Pagar" [ref=e275]:
+                    - link "payments Pagar" [ref=e276] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=3
+                      - generic [ref=e277]: payments
+                      - text: Pagar
+                - row "4 28/08/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e278]:
+                  - cell "4" [ref=e279]
+                  - cell "28/08/2026" [ref=e280]
+                  - cell "$ 10,08" [ref=e281]
+                  - cell "$ 9,20" [ref=e282]
+                  - cell "$ 19,28" [ref=e283]
+                  - cell "$ 0,00" [ref=e284]
+                  - cell "$ 0,00" [ref=e285]
+                  - cell "Pendiente" [ref=e286]:
+                    - generic [ref=e287]: Pendiente
+                  - cell "payments Pagar" [ref=e288]:
+                    - link "payments Pagar" [ref=e289] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=4
+                      - generic [ref=e290]: payments
+                      - text: Pagar
+                - row "5 28/09/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e291]:
+                  - cell "5" [ref=e292]
+                  - cell "28/09/2026" [ref=e293]
+                  - cell "$ 10,08" [ref=e294]
+                  - cell "$ 9,20" [ref=e295]
+                  - cell "$ 19,28" [ref=e296]
+                  - cell "$ 0,00" [ref=e297]
+                  - cell "$ 0,00" [ref=e298]
+                  - cell "Pendiente" [ref=e299]:
+                    - generic [ref=e300]: Pendiente
+                  - cell "payments Pagar" [ref=e301]:
+                    - link "payments Pagar" [ref=e302] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=5
+                      - generic [ref=e303]: payments
+                      - text: Pagar
+                - row "6 28/10/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e304]:
+                  - cell "6" [ref=e305]
+                  - cell "28/10/2026" [ref=e306]
+                  - cell "$ 10,08" [ref=e307]
+                  - cell "$ 9,20" [ref=e308]
+                  - cell "$ 19,28" [ref=e309]
+                  - cell "$ 0,00" [ref=e310]
+                  - cell "$ 0,00" [ref=e311]
+                  - cell "Pendiente" [ref=e312]:
+                    - generic [ref=e313]: Pendiente
+                  - cell "payments Pagar" [ref=e314]:
+                    - link "payments Pagar" [ref=e315] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=6
+                      - generic [ref=e316]: payments
+                      - text: Pagar
+                - row "7 28/11/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e317]:
+                  - cell "7" [ref=e318]
+                  - cell "28/11/2026" [ref=e319]
+                  - cell "$ 10,08" [ref=e320]
+                  - cell "$ 9,20" [ref=e321]
+                  - cell "$ 19,28" [ref=e322]
+                  - cell "$ 0,00" [ref=e323]
+                  - cell "$ 0,00" [ref=e324]
+                  - cell "Pendiente" [ref=e325]:
+                    - generic [ref=e326]: Pendiente
+                  - cell "payments Pagar" [ref=e327]:
+                    - link "payments Pagar" [ref=e328] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=7
+                      - generic [ref=e329]: payments
+                      - text: Pagar
+                - row "8 28/12/2026 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e330]:
+                  - cell "8" [ref=e331]
+                  - cell "28/12/2026" [ref=e332]
+                  - cell "$ 10,08" [ref=e333]
+                  - cell "$ 9,20" [ref=e334]
+                  - cell "$ 19,28" [ref=e335]
+                  - cell "$ 0,00" [ref=e336]
+                  - cell "$ 0,00" [ref=e337]
+                  - cell "Pendiente" [ref=e338]:
+                    - generic [ref=e339]: Pendiente
+                  - cell "payments Pagar" [ref=e340]:
+                    - link "payments Pagar" [ref=e341] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=8
+                      - generic [ref=e342]: payments
+                      - text: Pagar
+                - row "9 28/01/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e343]:
+                  - cell "9" [ref=e344]
+                  - cell "28/01/2027" [ref=e345]
+                  - cell "$ 10,08" [ref=e346]
+                  - cell "$ 9,20" [ref=e347]
+                  - cell "$ 19,28" [ref=e348]
+                  - cell "$ 0,00" [ref=e349]
+                  - cell "$ 0,00" [ref=e350]
+                  - cell "Pendiente" [ref=e351]:
+                    - generic [ref=e352]: Pendiente
+                  - cell "payments Pagar" [ref=e353]:
+                    - link "payments Pagar" [ref=e354] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=9
+                      - generic [ref=e355]: payments
+                      - text: Pagar
+                - row "10 28/02/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e356]:
+                  - cell "10" [ref=e357]
+                  - cell "28/02/2027" [ref=e358]
+                  - cell "$ 10,08" [ref=e359]
+                  - cell "$ 9,20" [ref=e360]
+                  - cell "$ 19,28" [ref=e361]
+                  - cell "$ 0,00" [ref=e362]
+                  - cell "$ 0,00" [ref=e363]
+                  - cell "Pendiente" [ref=e364]:
+                    - generic [ref=e365]: Pendiente
+                  - cell "payments Pagar" [ref=e366]:
+                    - link "payments Pagar" [ref=e367] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=10
+                      - generic [ref=e368]: payments
+                      - text: Pagar
+                - row "11 28/03/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e369]:
+                  - cell "11" [ref=e370]
+                  - cell "28/03/2027" [ref=e371]
+                  - cell "$ 10,08" [ref=e372]
+                  - cell "$ 9,20" [ref=e373]
+                  - cell "$ 19,28" [ref=e374]
+                  - cell "$ 0,00" [ref=e375]
+                  - cell "$ 0,00" [ref=e376]
+                  - cell "Pendiente" [ref=e377]:
+                    - generic [ref=e378]: Pendiente
+                  - cell "payments Pagar" [ref=e379]:
+                    - link "payments Pagar" [ref=e380] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=11
+                      - generic [ref=e381]: payments
+                      - text: Pagar
+                - row "12 28/04/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e382]:
+                  - cell "12" [ref=e383]
+                  - cell "28/04/2027" [ref=e384]
+                  - cell "$ 10,08" [ref=e385]
+                  - cell "$ 9,20" [ref=e386]
+                  - cell "$ 19,28" [ref=e387]
+                  - cell "$ 0,00" [ref=e388]
+                  - cell "$ 0,00" [ref=e389]
+                  - cell "Pendiente" [ref=e390]:
+                    - generic [ref=e391]: Pendiente
+                  - cell "payments Pagar" [ref=e392]:
+                    - link "payments Pagar" [ref=e393] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=12
+                      - generic [ref=e394]: payments
+                      - text: Pagar
+                - row "13 28/05/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e395]:
+                  - cell "13" [ref=e396]
+                  - cell "28/05/2027" [ref=e397]
+                  - cell "$ 10,08" [ref=e398]
+                  - cell "$ 9,20" [ref=e399]
+                  - cell "$ 19,28" [ref=e400]
+                  - cell "$ 0,00" [ref=e401]
+                  - cell "$ 0,00" [ref=e402]
+                  - cell "Pendiente" [ref=e403]:
+                    - generic [ref=e404]: Pendiente
+                  - cell "payments Pagar" [ref=e405]:
+                    - link "payments Pagar" [ref=e406] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=13
+                      - generic [ref=e407]: payments
+                      - text: Pagar
+                - row "14 28/06/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e408]:
+                  - cell "14" [ref=e409]
+                  - cell "28/06/2027" [ref=e410]
+                  - cell "$ 10,08" [ref=e411]
+                  - cell "$ 9,20" [ref=e412]
+                  - cell "$ 19,28" [ref=e413]
+                  - cell "$ 0,00" [ref=e414]
+                  - cell "$ 0,00" [ref=e415]
+                  - cell "Pendiente" [ref=e416]:
+                    - generic [ref=e417]: Pendiente
+                  - cell "payments Pagar" [ref=e418]:
+                    - link "payments Pagar" [ref=e419] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=14
+                      - generic [ref=e420]: payments
+                      - text: Pagar
+                - row "15 28/07/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e421]:
+                  - cell "15" [ref=e422]
+                  - cell "28/07/2027" [ref=e423]
+                  - cell "$ 10,08" [ref=e424]
+                  - cell "$ 9,20" [ref=e425]
+                  - cell "$ 19,28" [ref=e426]
+                  - cell "$ 0,00" [ref=e427]
+                  - cell "$ 0,00" [ref=e428]
+                  - cell "Pendiente" [ref=e429]:
+                    - generic [ref=e430]: Pendiente
+                  - cell "payments Pagar" [ref=e431]:
+                    - link "payments Pagar" [ref=e432] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=15
+                      - generic [ref=e433]: payments
+                      - text: Pagar
+                - row "16 28/08/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e434]:
+                  - cell "16" [ref=e435]
+                  - cell "28/08/2027" [ref=e436]
+                  - cell "$ 10,08" [ref=e437]
+                  - cell "$ 9,20" [ref=e438]
+                  - cell "$ 19,28" [ref=e439]
+                  - cell "$ 0,00" [ref=e440]
+                  - cell "$ 0,00" [ref=e441]
+                  - cell "Pendiente" [ref=e442]:
+                    - generic [ref=e443]: Pendiente
+                  - cell "payments Pagar" [ref=e444]:
+                    - link "payments Pagar" [ref=e445] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=16
+                      - generic [ref=e446]: payments
+                      - text: Pagar
+                - row "17 28/09/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e447]:
+                  - cell "17" [ref=e448]
+                  - cell "28/09/2027" [ref=e449]
+                  - cell "$ 10,08" [ref=e450]
+                  - cell "$ 9,20" [ref=e451]
+                  - cell "$ 19,28" [ref=e452]
+                  - cell "$ 0,00" [ref=e453]
+                  - cell "$ 0,00" [ref=e454]
+                  - cell "Pendiente" [ref=e455]:
+                    - generic [ref=e456]: Pendiente
+                  - cell "payments Pagar" [ref=e457]:
+                    - link "payments Pagar" [ref=e458] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=17
+                      - generic [ref=e459]: payments
+                      - text: Pagar
+                - row "18 28/10/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e460]:
+                  - cell "18" [ref=e461]
+                  - cell "28/10/2027" [ref=e462]
+                  - cell "$ 10,08" [ref=e463]
+                  - cell "$ 9,20" [ref=e464]
+                  - cell "$ 19,28" [ref=e465]
+                  - cell "$ 0,00" [ref=e466]
+                  - cell "$ 0,00" [ref=e467]
+                  - cell "Pendiente" [ref=e468]:
+                    - generic [ref=e469]: Pendiente
+                  - cell "payments Pagar" [ref=e470]:
+                    - link "payments Pagar" [ref=e471] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=18
+                      - generic [ref=e472]: payments
+                      - text: Pagar
+                - row "19 28/11/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e473]:
+                  - cell "19" [ref=e474]
+                  - cell "28/11/2027" [ref=e475]
+                  - cell "$ 10,08" [ref=e476]
+                  - cell "$ 9,20" [ref=e477]
+                  - cell "$ 19,28" [ref=e478]
+                  - cell "$ 0,00" [ref=e479]
+                  - cell "$ 0,00" [ref=e480]
+                  - cell "Pendiente" [ref=e481]:
+                    - generic [ref=e482]: Pendiente
+                  - cell "payments Pagar" [ref=e483]:
+                    - link "payments Pagar" [ref=e484] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=19
+                      - generic [ref=e485]: payments
+                      - text: Pagar
+                - row "20 28/12/2027 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e486]:
+                  - cell "20" [ref=e487]
+                  - cell "28/12/2027" [ref=e488]
+                  - cell "$ 10,08" [ref=e489]
+                  - cell "$ 9,20" [ref=e490]
+                  - cell "$ 19,28" [ref=e491]
+                  - cell "$ 0,00" [ref=e492]
+                  - cell "$ 0,00" [ref=e493]
+                  - cell "Pendiente" [ref=e494]:
+                    - generic [ref=e495]: Pendiente
+                  - cell "payments Pagar" [ref=e496]:
+                    - link "payments Pagar" [ref=e497] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=20
+                      - generic [ref=e498]: payments
+                      - text: Pagar
+                - row "21 28/01/2028 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e499]:
+                  - cell "21" [ref=e500]
+                  - cell "28/01/2028" [ref=e501]
+                  - cell "$ 10,08" [ref=e502]
+                  - cell "$ 9,20" [ref=e503]
+                  - cell "$ 19,28" [ref=e504]
+                  - cell "$ 0,00" [ref=e505]
+                  - cell "$ 0,00" [ref=e506]
+                  - cell "Pendiente" [ref=e507]:
+                    - generic [ref=e508]: Pendiente
+                  - cell "payments Pagar" [ref=e509]:
+                    - link "payments Pagar" [ref=e510] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=21
+                      - generic [ref=e511]: payments
+                      - text: Pagar
+                - row "22 28/02/2028 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e512]:
+                  - cell "22" [ref=e513]
+                  - cell "28/02/2028" [ref=e514]
+                  - cell "$ 10,08" [ref=e515]
+                  - cell "$ 9,20" [ref=e516]
+                  - cell "$ 19,28" [ref=e517]
+                  - cell "$ 0,00" [ref=e518]
+                  - cell "$ 0,00" [ref=e519]
+                  - cell "Pendiente" [ref=e520]:
+                    - generic [ref=e521]: Pendiente
+                  - cell "payments Pagar" [ref=e522]:
+                    - link "payments Pagar" [ref=e523] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=22
+                      - generic [ref=e524]: payments
+                      - text: Pagar
+                - row "23 28/03/2028 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e525]:
+                  - cell "23" [ref=e526]
+                  - cell "28/03/2028" [ref=e527]
+                  - cell "$ 10,08" [ref=e528]
+                  - cell "$ 9,20" [ref=e529]
+                  - cell "$ 19,28" [ref=e530]
+                  - cell "$ 0,00" [ref=e531]
+                  - cell "$ 0,00" [ref=e532]
+                  - cell "Pendiente" [ref=e533]:
+                    - generic [ref=e534]: Pendiente
+                  - cell "payments Pagar" [ref=e535]:
+                    - link "payments Pagar" [ref=e536] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=23
+                      - generic [ref=e537]: payments
+                      - text: Pagar
+                - row "24 28/04/2028 $ 10,08 $ 9,20 $ 19,28 $ 0,00 $ 0,00 Pendiente payments Pagar" [ref=e538]:
+                  - cell "24" [ref=e539]
+                  - cell "28/04/2028" [ref=e540]
+                  - cell "$ 10,08" [ref=e541]
+                  - cell "$ 9,20" [ref=e542]
+                  - cell "$ 19,28" [ref=e543]
+                  - cell "$ 0,00" [ref=e544]
+                  - cell "$ 0,00" [ref=e545]
+                  - cell "Pendiente" [ref=e546]:
+                    - generic [ref=e547]: Pendiente
+                  - cell "payments Pagar" [ref=e548]:
+                    - link "payments Pagar" [ref=e549] [cursor=pointer]:
+                      - /url: /Credito/PagarCuota/6?cuotaId=24
+                      - generic [ref=e550]: payments
+                      - text: Pagar
+  - button "bug_report" [ref=e551]:
+    - generic [ref=e552]: bug_report
+  - complementary [ref=e553]:
+    - generic [ref=e554]:
+      - generic [ref=e555]:
+        - generic [ref=e556]: assignment
+        - heading [level=2] [ref=e557]: Incidentes
+      - generic [ref=e558]:
+        - button [ref=e559]:
+          - generic [ref=e560]: add
+          - text: Nuevo
+        - button [ref=e561]:
+          - generic [ref=e562]: close
+    - generic [ref=e563]:
+      - generic [ref=e564]:
+        - textbox [ref=e565]:
+          - /placeholder: Buscar...
+        - combobox [ref=e566] [cursor=pointer]
+        - combobox [ref=e567] [cursor=pointer]
+        - button [ref=e568]:
+          - generic [ref=e569]: filter_list
+      - list [ref=e570]

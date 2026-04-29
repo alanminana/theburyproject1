@@ -1,0 +1,306 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e41]:
+        - generic [ref=e42]: chevron_left
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Gestión de Créditos" [level=2] [ref=e46]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: Dolar Blue
+              - generic [ref=e51]: $1.245,00
+            - generic [ref=e52]:
+              - generic [ref=e53]: Tarjeta
+              - generic [ref=e54]: $1.482,50
+            - generic [ref=e55]:
+              - generic [ref=e56]: Oficial
+              - generic [ref=e57]: $942,00
+        - generic [ref=e58]:
+          - button "notifications" [ref=e59]:
+            - generic [ref=e60]: notifications
+          - button "search" [ref=e62]:
+            - generic [ref=e63]: search
+          - button "Panel de incidentes" [ref=e64]:
+            - generic [ref=e65]: assignment
+          - button "help" [ref=e67]:
+            - generic [ref=e68]: help
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - heading "Seguimiento operativo" [level=2] [ref=e74]
+              - paragraph [ref=e75]: Alterná entre cartera agrupada por cliente y mora operativa por crédito/cuota.
+            - generic [ref=e76]:
+              - link "settings Global y perfiles" [ref=e77] [cursor=pointer]:
+                - /url: /ConfiguracionPago/CreditoPersonal?returnUrl=%2FCredito%3Festado%3DPendienteConfiguracion
+                - generic [ref=e78]: settings
+                - text: Global y perfiles
+              - navigation "Secciones de créditos" [ref=e79]:
+                - button "credit_card Cartera por cliente" [pressed] [ref=e80]:
+                  - generic [ref=e81]: credit_card
+                  - generic [ref=e82]: Cartera por cliente
+                - button "warning Moras por crédito" [ref=e83]:
+                  - generic [ref=e84]: warning
+                  - generic [ref=e85]: Moras por crédito
+          - generic [ref=e86]:
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: Buscar
+                - generic [ref=e91]:
+                  - generic [ref=e92]: search
+                  - textbox "Buscar por cliente, DNI o número de crédito" [ref=e93]:
+                    - /placeholder: Cliente, DNI o N° de crédito...
+              - generic [ref=e94]:
+                - generic [ref=e95]: Estado
+                - combobox "Estado del crédito" [ref=e96] [cursor=pointer]:
+                  - option "Todos"
+                  - option "Solicitado"
+                  - option "Aprobado"
+                  - option "Activo"
+                  - option "Finalizado"
+                  - option "Rechazado"
+                  - option "Cancelado"
+                  - option "PendienteConfiguracion" [selected]
+                  - option "Configurado"
+                  - option "Generado"
+              - generic [ref=e97]:
+                - generic [ref=e98]: Desde
+                - textbox "Fecha desde" [ref=e99]
+              - generic [ref=e100]:
+                - generic [ref=e101]: Hasta
+                - textbox "Fecha hasta" [ref=e102]
+              - generic [ref=e103]:
+                - button "filter_list Filtrar" [ref=e104]:
+                  - generic [ref=e105]: filter_list
+                  - generic [ref=e106]: Filtrar
+                - link "clear_all" [ref=e107] [cursor=pointer]:
+                  - /url: /Credito
+                  - generic [ref=e108]: clear_all
+            - generic [ref=e109]:
+              - generic [ref=e111]:
+                - generic [ref=e112]:
+                  - heading "Cartera filtrada por cliente" [level=2] [ref=e113]
+                  - paragraph [ref=e114]: Totales calculados sobre los créditos que coinciden con los filtros actuales.
+                - generic [ref=e115]:
+                  - generic [ref=e116]: account_balance_wallet
+                  - text: 1 cliente filtrado · 1 crédito filtrado
+              - region "Listado de clientes con créditos" [ref=e118]:
+                - table [ref=e119]:
+                  - rowgroup [ref=e120]:
+                    - row "Cliente Documento Créditos filtrados Saldo filtrado Cuotas vencidas Próximo vencimiento Estado Acciones" [ref=e121]:
+                      - columnheader "Cliente" [ref=e122]
+                      - columnheader "Documento" [ref=e123]
+                      - columnheader "Créditos filtrados" [ref=e124]
+                      - columnheader "Saldo filtrado" [ref=e125]
+                      - columnheader "Cuotas vencidas" [ref=e126]
+                      - columnheader "Próximo vencimiento" [ref=e127]
+                      - columnheader "Estado" [ref=e128]
+                      - columnheader "Acciones" [ref=e129]
+                  - rowgroup [ref=e130]:
+                    - 'row "FU fulanito Cliente #2 32543423 1 crédito filtrado CRE-202604-000006 $ 242 Saldo pendiente filtrado 0 Sin vencimientos Pendiente manage_accounts" [ref=e131]':
+                      - 'cell "FU fulanito Cliente #2" [ref=e132]':
+                        - generic [ref=e133]:
+                          - generic [ref=e134]: FU
+                          - generic [ref=e135]:
+                            - link "fulanito" [ref=e136] [cursor=pointer]:
+                              - /url: /Cliente/Details/2
+                            - generic [ref=e137]: "Cliente #2"
+                      - cell "32543423" [ref=e138]
+                      - cell "1 crédito filtrado CRE-202604-000006" [ref=e139]:
+                        - generic [ref=e140]:
+                          - generic [ref=e141]: 1 crédito filtrado
+                          - link "CRE-202604-000006" [ref=e143] [cursor=pointer]:
+                            - /url: /Credito/Details/6
+                      - cell "$ 242 Saldo pendiente filtrado" [ref=e144]:
+                        - generic [ref=e145]:
+                          - generic [ref=e146]: $ 242
+                          - generic [ref=e147]: Saldo pendiente filtrado
+                      - cell "0" [ref=e148]
+                      - cell "Sin vencimientos" [ref=e149]
+                      - cell "Pendiente" [ref=e150]:
+                        - generic [ref=e152]: Pendiente
+                      - cell "manage_accounts" [ref=e153]:
+                        - button "manage_accounts" [ref=e155] [cursor=pointer]:
+                          - generic [ref=e156]: manage_accounts
+              - generic [ref=e157]:
+                - paragraph [ref=e158]: Mostrando 1 cliente con 1 crédito en la cartera filtrada.
+                - paragraph [ref=e159]: Saldo, cuotas vencidas y vencimiento son totales del subconjunto filtrado, no el total histórico del cliente.
+        - dialog "fulanito" [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - navigation [ref=e187]:
+                    - generic [ref=e188]: Créditos
+                    - generic [ref=e189]: chevron_right
+                    - generic [ref=e190]: Gestión cliente
+                  - heading "fulanito" [level=2] [ref=e191]
+                  - paragraph [ref=e192]: Documento 32543423
+                - button "close" [active] [ref=e193]:
+                  - generic [ref=e194]: close
+              - generic [ref=e195]:
+                - article [ref=e196]:
+                  - paragraph [ref=e197]: Créditos filtrados
+                  - paragraph [ref=e198]: "1"
+                - article [ref=e199]:
+                  - paragraph [ref=e200]: Saldo filtrado
+                  - paragraph [ref=e201]: $ 242
+                - article [ref=e202]:
+                  - paragraph [ref=e203]: Cuotas vencidas
+                  - paragraph [ref=e204]: "0"
+                - article [ref=e205]:
+                  - paragraph [ref=e206]: Próximo vencimiento
+                  - paragraph [ref=e207]: Sin vencimientos
+            - generic [ref=e208]:
+              - generic [ref=e209]:
+                - generic [ref=e210]:
+                  - heading "Créditos del cliente" [level=3] [ref=e211]
+                  - paragraph [ref=e212]: Listado filtrado disponible en el índice actual.
+                - generic [ref=e213]: 1 crédito
+              - article [ref=e214]:
+                - generic [ref=e215]:
+                  - generic [ref=e216]:
+                    - generic [ref=e217]:
+                      - heading "CRE-202604-000006" [level=4] [ref=e218]
+                      - generic [ref=e219]: PendienteConfiguracion
+                    - paragraph [ref=e220]: Fecha alta 28/04/2026
+                  - generic [ref=e221]:
+                    - generic [ref=e222]:
+                      - term [ref=e223]: Monto original
+                      - definition [ref=e224]: $ 242
+                    - generic [ref=e225]:
+                      - term [ref=e226]: Saldo pendiente
+                      - definition [ref=e227]: $ 242
+                    - generic [ref=e228]:
+                      - term [ref=e229]: Estado
+                      - definition [ref=e230]: PendienteConfiguracion
+                    - generic [ref=e231]:
+                      - term [ref=e232]: Cuotas
+                      - definition [ref=e233]: "0"
+                - generic [ref=e234]:
+                  - generic [ref=e235]: 0 cuotas registradas
+                  - button "expand_more Ver cuotas" [ref=e236]:
+                    - generic [ref=e237]: expand_more
+                    - generic [ref=e238]: Ver cuotas
+            - generic [ref=e240]:
+              - generic [ref=e241]:
+                - generic [ref=e242]:
+                  - paragraph [ref=e243]: Cuotas seleccionadas
+                  - paragraph [ref=e244]: "0"
+                - generic [ref=e245]:
+                  - paragraph [ref=e246]: Créditos involucrados
+                  - paragraph [ref=e247]: "0"
+                - generic [ref=e248]:
+                  - paragraph [ref=e249]: Subtotal
+                  - paragraph [ref=e250]: $ 0,00
+                - generic [ref=e251]:
+                  - paragraph [ref=e252]: Mora total
+                  - paragraph [ref=e253]: $ 0,00
+                - generic [ref=e254]:
+                  - paragraph [ref=e255]: Total final
+                  - paragraph [ref=e256]: $ 0,00
+              - generic [ref=e257]:
+                - generic [ref=e258]:
+                  - generic [ref=e259]: Medio de pago
+                  - combobox "Medio de pago" [ref=e260]:
+                    - option "Efectivo" [selected]
+                    - option "Transferencia"
+                    - option "Tarjeta Débito"
+                    - option "Tarjeta Crédito"
+                    - option "Cheque"
+                - button "payments Registrar pago" [disabled] [ref=e261]:
+                  - generic [ref=e262]: payments
+                  - generic [ref=e263]: Registrar pago
+  - button "bug_report" [ref=e160]:
+    - generic [ref=e161]: bug_report
+  - complementary [ref=e162]:
+    - generic [ref=e163]:
+      - generic [ref=e164]:
+        - generic [ref=e165]: assignment
+        - heading [level=2] [ref=e166]: Incidentes
+      - generic [ref=e167]:
+        - button [ref=e168]:
+          - generic [ref=e169]: add
+          - text: Nuevo
+        - button [ref=e170]:
+          - generic [ref=e171]: close
+    - generic [ref=e172]:
+      - generic [ref=e173]:
+        - textbox [ref=e174]:
+          - /placeholder: Buscar...
+        - combobox [ref=e175] [cursor=pointer]
+        - combobox [ref=e176] [cursor=pointer]
+        - button [ref=e177]:
+          - generic [ref=e178]: filter_list
+      - list [ref=e179]

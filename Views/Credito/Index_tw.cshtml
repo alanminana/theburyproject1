@@ -74,46 +74,6 @@
         </div>
     }
 
-    <section class="card-erp" style="padding:1rem 1.25rem;">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-                <h2 class="text-base font-bold text-white">Seguimiento operativo</h2>
-                <p class="text-sm text-slate-400">Alterná entre cartera agrupada por cliente y mora operativa por crédito/cuota.</p>
-            </div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                @if (puedeVerConfiguracionCredito)
-                {
-                    <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal"
-                       asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
-                       class="btn-erp-secondary btn-sm no-underline sm:w-auto">
-                        <span class="material-symbols-outlined text-sm">settings</span>
-                        Global y perfiles
-                    </a>
-                }
-                <nav class="flex overflow-x-auto" id="credito-tabs" aria-label="Secciones de créditos">
-                    <button type="button"
-                            data-credito-tab="creditos"
-                            aria-pressed="true"
-                            class="shrink-0 inline-flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors">
-                        <span class="material-symbols-outlined text-lg">credit_card</span>
-                        <span>Cartera por cliente</span>
-                    </button>
-                    <button type="button"
-                            data-credito-tab="moras"
-                            aria-pressed="false"
-                            class="shrink-0 inline-flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                        <span class="material-symbols-outlined text-lg">warning</span>
-                        <span>Moras por crédito</span>
-                        @if (totalMoras > 0)
-                        {
-                            <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">@totalMoras</span>
-                        }
-                    </button>
-                </nav>
-            </div>
-        </div>
-    </section>
-
     @{
         var filtroCreditoActivo = !string.IsNullOrEmpty(filter.Cliente)
                                || filter.ClienteId.HasValue
@@ -126,9 +86,70 @@
                                || filter.SoloCuotasVencidas;
     }
 
-    <div id="tab-creditos" class="space-y-6">
+    <section class="card-erp-panel overflow-hidden">
+        <div class="flex flex-col gap-4 border-b border-slate-800 bg-slate-800/20 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="min-w-0">
+                <h2 class="text-base font-bold text-white">Seguimiento de creditos</h2>
+                <p class="text-sm text-slate-400">Gestiona la cartera por cliente y revisa moras operativas desde una vista compacta.</p>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <span class="badge-erp badge-erp-neutral">
+                        <span class="material-symbols-outlined text-sm">groups</span>
+                        @totalClientes cliente@(totalClientes == 1 ? "" : "s")
+                    </span>
+                    <span class="badge-erp badge-erp-neutral">
+                        <span class="material-symbols-outlined text-sm">credit_card</span>
+                        @totalCreditos credito@(totalCreditos == 1 ? "" : "s")
+                    </span>
+                    @if (totalMoras > 0)
+                    {
+                        <span class="badge-erp badge-erp-danger">
+                            <span class="material-symbols-outlined text-sm">warning</span>
+                            @totalMoras cuota@(totalMoras == 1 ? "" : "s") en mora
+                        </span>
+                    }
+                    @if (filtroCreditoActivo)
+                    {
+                        <span class="badge-erp badge-erp-primary">
+                            <span class="material-symbols-outlined text-sm">filter_alt</span>
+                            Vista con filtros
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+                @if (puedeVerConfiguracionCredito)
+                {
+                    <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal"
+                       asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+                       class="btn-erp-secondary btn-sm no-underline sm:w-auto">
+                        <span class="material-symbols-outlined text-sm">settings</span>
+                        Configuracion credito
+                    </a>
+                }
+                <nav class="flex overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/40 p-1" id="credito-tabs" aria-label="Secciones de creditos">
+                    <button type="button"
+                            data-credito-tab="creditos"
+                            aria-pressed="true"
+                            class="shrink-0 inline-flex items-center gap-2 rounded-md border border-primary px-4 py-2 text-sm font-bold text-primary bg-primary/10 transition-colors">
+                        <span class="material-symbols-outlined text-lg">credit_card</span>
+                        <span>Cartera por cliente</span>
+                    </button>
+                    <button type="button"
+                            data-credito-tab="moras"
+                            aria-pressed="false"
+                            class="shrink-0 inline-flex items-center gap-2 rounded-md border border-transparent px-4 py-2 text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        <span class="material-symbols-outlined text-lg">warning</span>
+                        <span>Moras por credito</span>
+                        @if (totalMoras > 0)
+                        {
+                            <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">@totalMoras</span>
+                        }
+                    </button>
+                </nav>
+            </div>
+        </div>
         <form id="filterForm" data-credito-filter-form method="get" asp-action="Index"
-              class="border-b border-slate-800 bg-slate-900/30 px-4 py-4 rounded-xl border">
+              class="bg-slate-900/30 p-4">
             @if (filter.ClienteId.HasValue)
             {
                 <input type="hidden" name="ClienteId" value="@filter.ClienteId.Value" />
@@ -171,7 +192,7 @@
                             class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
                             title="Filtrar créditos">
                         <span class="material-symbols-outlined text-lg">filter_list</span>
-                        <span>Filtrar</span>
+                        <span>Aplicar</span>
                     </button>
                     @if (filtroCreditoActivo)
                     {
@@ -184,17 +205,19 @@
                 </div>
             </div>
         </form>
+    </section>
 
+    <div id="tab-creditos" class="space-y-6">
         <div data-oc-scroll style="--oc-scroll-min-width: 76rem;" class="table-erp-wrapper">
             <div class="border-b border-slate-800 px-4 py-4 sm:px-6">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h2 class="text-base font-bold text-white">Cartera filtrada por cliente</h2>
-                        <p class="text-sm text-slate-400">Totales calculados sobre los créditos que coinciden con los filtros actuales.</p>
+                        <h2 class="text-base font-bold text-white">Cartera por cliente</h2>
+                        <p class="text-sm text-slate-400">Totales de la vista actual, segun los criterios aplicados.</p>
                     </div>
                     <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
                         <span class="material-symbols-outlined text-sm">account_balance_wallet</span>
-                        @totalClientes cliente@(totalClientes == 1 ? "" : "s") filtrado@(totalClientes == 1 ? "" : "s") · @totalCreditos crédito@(totalCreditos == 1 ? "" : "s") filtrado@(totalCreditos == 1 ? "" : "s")
+                        @totalClientes cliente@(totalClientes == 1 ? "" : "s") · @totalCreditos credito@(totalCreditos == 1 ? "" : "s")
                     </span>
                 </div>
                 <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-400 lg:hidden">
@@ -211,8 +234,8 @@
                             <tr class="border-b border-slate-800 bg-slate-800/50">
                                 <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
                                 <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Documento</th>
-                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Créditos filtrados</th>
-                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Saldo filtrado</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Créditos</th>
+                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Saldo pendiente</th>
                                 <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas vencidas</th>
                                 <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Próximo vencimiento</th>
                                 <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
@@ -241,24 +264,24 @@
                                         initials = parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
                                     }
 
-                                    string badgeColor;
+                                    string badgeClass;
                                     switch (clienteGrupo.EstadoConsolidado)
                                     {
                                         case "Activo":
-                                            badgeColor = "green";
+                                            badgeClass = "bg-emerald-500/10 text-emerald-400";
                                             break;
                                         case "En mora":
                                         case "Rechazado":
-                                            badgeColor = "red";
+                                            badgeClass = "bg-red-500/10 text-red-400";
                                             break;
                                         case "Pendiente":
-                                            badgeColor = "orange";
+                                            badgeClass = "bg-amber-500/10 text-amber-400";
                                             break;
                                         case "Aprobado":
-                                            badgeColor = "blue";
+                                            badgeClass = "bg-sky-500/10 text-sky-400";
                                             break;
                                         default:
-                                            badgeColor = "slate";
+                                            badgeClass = "bg-slate-800 text-slate-300";
                                             break;
                                     }
 
@@ -283,7 +306,7 @@
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col gap-1">
                                                 <span class="text-sm font-semibold text-white">
-                                                    @clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ? "" : "s") filtrado@(clienteGrupo.CantidadCreditos == 1 ? "" : "s")
+                                                    @clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ? "" : "s")
                                                 </span>
                                                 <div class="flex flex-wrap gap-1">
                                                     @foreach (var credito in creditosResumen)
@@ -306,7 +329,7 @@
                                         <td class="px-6 py-4 text-sm font-medium text-slate-300">
                                             <div class="flex flex-col">
                                                 <span>$ @clienteGrupo.SaldoPendienteTotal.ToString("N0")</span>
-                                                <span class="text-xs text-slate-400">Saldo pendiente filtrado</span>
+                                                <span class="text-xs text-slate-400">Vista actual</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
@@ -331,7 +354,7 @@
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="flex justify-center">
-                                                <span class="rounded-full bg-@(badgeColor)-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-@(badgeColor)-400">@clienteGrupo.EstadoConsolidado</span>
+                                                <span class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide @badgeClass">@clienteGrupo.EstadoConsolidado</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 text-right">
@@ -365,8 +388,8 @@
                 </div>
             </div>
             <div class="flex flex-col gap-2 border-t border-slate-800 p-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-                <p>Mostrando @totalClientes cliente@(totalClientes == 1 ? "" : "s") con @totalCreditos crédito@(totalCreditos == 1 ? "" : "s") en la cartera filtrada.</p>
-                <p>Saldo, cuotas vencidas y vencimiento son totales del subconjunto filtrado, no el total histórico del cliente.</p>
+                <p>Mostrando @totalClientes cliente@(totalClientes == 1 ? "" : "s") con @totalCreditos crédito@(totalCreditos == 1 ? "" : "s") en la vista actual.</p>
+                <p>Saldo, cuotas vencidas y vencimiento respetan los criterios aplicados.</p>
             </div>
         </div>
     </div>
@@ -376,7 +399,7 @@
         {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div class="card-erp-metric">
-                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Créditos en mora filtrados</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Créditos en mora</p>
                     <p class="mt-2 text-3xl font-black text-white">@resumenMoras.Count</p>
                     <p class="mt-1 text-xs text-slate-400">Lista operativa por crédito/cuota, no agrupada por cliente.</p>
                 </div>
@@ -386,9 +409,9 @@
                     <p class="mt-1 text-xs text-red-400/70">Créditos con 10 o más días de atraso.</p>
                 </div>
                 <div class="card-erp-metric-warning">
-                    <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Deuda en mora filtrada</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Deuda en mora</p>
                     <p class="mt-2 text-3xl font-black text-amber-300">$ @moraTotalAcumulada.ToString("N0")</p>
-                    <p class="mt-1 text-xs text-amber-400/70">@totalMoras cuota(s) vencida(s) del subconjunto filtrado.</p>
+                    <p class="mt-1 text-xs text-amber-400/70">@totalMoras cuota(s) vencida(s) en la vista actual.</p>
                 </div>
             </div>
 
@@ -397,7 +420,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h3 class="text-sm font-black text-white">Moras por crédito/cuota</h3>
-                            <p class="mt-1 text-xs text-slate-400">Listado operativo filtrado por crédito con cuotas vencidas. No está agrupado por cliente; la agrupación vive en Cartera.</p>
+                            <p class="mt-1 text-xs text-slate-400">Listado operativo por crédito con cuotas vencidas. Respeta los criterios aplicados arriba.</p>
                         </div>
                         <span class="inline-flex items-center gap-2 self-start rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
                             <span class="material-symbols-outlined text-sm">schedule</span>
@@ -517,6 +540,7 @@
 <div id="credito-cliente-panel"
      class="fixed inset-0 z-50 hidden"
      data-credito-cliente-panel
+     data-credito-panel-cliente-url="@Url.Action("PanelCliente", "Credito")"
      aria-hidden="true">
     <div class="hidden" data-credito-antiforgery>
         @Html.AntiForgeryToken()
@@ -562,13 +586,29 @@
                 </button>
             </div>
 
+            @if (filtroCreditoActivo)
+            {
+                <div class="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                    <span class="material-symbols-outlined shrink-0 text-lg text-amber-400">warning</span>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-amber-300">Vista parcial — filtros activos</p>
+                        <p class="mt-0.5 text-sm text-amber-400/80">Esta vista muestra solo los créditos que coinciden con los filtros actuales. Puede haber créditos del cliente que no estén visibles.</p>
+                        <a href="/Credito?ClienteId=@clienteGrupo.Cliente.Id"
+                           class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-300 underline underline-offset-2 hover:text-amber-200 no-underline">
+                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+                            Ver cartera completa del cliente
+                        </a>
+                    </div>
+                </div>
+            }
+
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Créditos filtrados</p>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Créditos (vista actual)</p>
                     <p class="mt-1 text-xl font-black text-white">@clienteGrupo.CantidadCreditos</p>
                 </article>
                 <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo filtrado</p>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo (vista actual)</p>
                     <p class="mt-1 text-xl font-black text-white">$ @clienteGrupo.SaldoPendienteTotal.ToString("N0")</p>
                 </article>
                 <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
@@ -585,8 +625,8 @@
         <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6" data-credito-cliente-panel-scroll>
             <div class="flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="text-lg font-black text-white">Créditos del cliente</h3>
-                    <p class="text-sm text-slate-400">Listado filtrado disponible en el índice actual.</p>
+                    <h3 class="text-lg font-black text-white">@(filtroCreditoActivo ? "Créditos visibles en la vista actual" : "Créditos del cliente")</h3>
+                    <p class="text-sm text-slate-400">@(filtroCreditoActivo ? "Solo los créditos que coinciden con los filtros activos. No necesariamente es la cartera completa." : "Cartera completa del cliente.")</p>
                 </div>
                 <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary-on-dark">
                     @clienteGrupo.Creditos.Count crédito@(clienteGrupo.Creditos.Count == 1 ? "" : "s")

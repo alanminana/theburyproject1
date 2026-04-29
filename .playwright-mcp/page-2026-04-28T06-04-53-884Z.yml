@@ -1,0 +1,249 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e41]:
+        - generic [ref=e42]: chevron_left
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Detalle de Crédito" [level=2] [ref=e46]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: Dolar Blue
+              - generic [ref=e51]: $1.245,00
+            - generic [ref=e52]:
+              - generic [ref=e53]: Tarjeta
+              - generic [ref=e54]: $1.482,50
+            - generic [ref=e55]:
+              - generic [ref=e56]: Oficial
+              - generic [ref=e57]: $942,00
+        - generic [ref=e58]:
+          - button "notifications" [ref=e59]:
+            - generic [ref=e60]: notifications
+          - button "search" [ref=e62]:
+            - generic [ref=e63]: search
+          - button "Panel de incidentes" [ref=e64]:
+            - generic [ref=e65]: assignment
+          - button "help" [ref=e67]:
+            - generic [ref=e68]: help
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - navigation "Breadcrumb" [ref=e74]:
+                - list [ref=e75]:
+                  - listitem [ref=e76]:
+                    - link "Inicio" [ref=e77] [cursor=pointer]:
+                      - /url: /
+                  - listitem [ref=e78]: /
+                  - listitem [ref=e79]:
+                    - link "Créditos" [ref=e80] [cursor=pointer]:
+                      - /url: /Credito
+                  - listitem [ref=e81]: /
+                  - listitem [ref=e82]: Detalle
+              - generic [ref=e83]:
+                - generic [ref=e84]:
+                  - generic [ref=e85]: credit_score
+                  - text: Crédito
+                - generic [ref=e86]:
+                  - heading "Crédito CRE-202604-000006" [level=1] [ref=e87]
+                  - paragraph [ref=e88]: Seguimiento integral del crédito de fulanito, con contexto de mora, evaluación y plan de cuotas operativo.
+                - generic [ref=e89]:
+                  - generic [ref=e90]:
+                    - generic [ref=e91]: person
+                    - text: fulanito
+                  - generic [ref=e92]:
+                    - generic [ref=e93]: calendar_month
+                    - text: Solicitado el 28/04/2026
+                  - generic [ref=e94]:
+                    - generic [ref=e95]: flag
+                    - text: PendienteConfiguracion
+            - generic [ref=e96]:
+              - button "block Cancelar" [ref=e97] [cursor=pointer]:
+                - generic [ref=e98]: block
+                - text: Cancelar
+              - link "arrow_back Volver" [ref=e99] [cursor=pointer]:
+                - /url: /Credito
+                - generic [ref=e100]: arrow_back
+                - text: Volver
+          - generic [ref=e101]:
+            - article [ref=e102]:
+              - paragraph [ref=e103]: Estado
+              - paragraph [ref=e104]: PendienteConfiguracion
+              - paragraph [ref=e105]: estado operativo actual
+            - article [ref=e106]:
+              - paragraph [ref=e107]: Saldo pendiente
+              - paragraph [ref=e108]: $ 242
+              - paragraph [ref=e109]: capital a regularizar
+            - article [ref=e110]:
+              - paragraph [ref=e111]: Progreso
+              - paragraph [ref=e112]: 0%
+              - paragraph [ref=e113]: 0 / 0 cuotas pagadas
+            - article [ref=e114]:
+              - paragraph [ref=e115]: Pendientes
+              - paragraph [ref=e116]: "0"
+              - paragraph [ref=e117]: 0 moras activas
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - heading "description Información del Crédito" [level=3] [ref=e120]:
+              - generic [ref=e121]: description
+              - text: Información del Crédito
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - paragraph [ref=e124]: Número
+                - paragraph [ref=e125]: CRE-202604-000006
+              - generic [ref=e126]:
+                - paragraph [ref=e127]: Monto Solicitado
+                - paragraph [ref=e128]: $ 242,00
+              - generic [ref=e129]:
+                - paragraph [ref=e130]: Monto Aprobado
+                - paragraph [ref=e131]: $ 242,00
+              - generic [ref=e132]:
+                - paragraph [ref=e133]: Tasa Interés Mensual
+                - paragraph [ref=e134]: 0,00%
+              - generic [ref=e135]:
+                - paragraph [ref=e136]: CFTEA
+                - paragraph [ref=e137]: 0,00%
+              - generic [ref=e138]:
+                - paragraph [ref=e139]: Cuotas
+                - paragraph [ref=e140]: "0"
+              - generic [ref=e141]:
+                - paragraph [ref=e142]: Monto por Cuota
+                - paragraph [ref=e143]: $ 0,00
+              - generic [ref=e144]:
+                - paragraph [ref=e145]: Total a Pagar
+                - paragraph [ref=e146]: $ 0,00
+              - generic [ref=e147]:
+                - paragraph [ref=e148]: Saldo Pendiente
+                - paragraph [ref=e149]: $ 242,00
+              - generic [ref=e150]:
+                - paragraph [ref=e151]: Fecha Solicitud
+                - paragraph [ref=e152]: 28/04/2026
+              - generic [ref=e153]:
+                - paragraph [ref=e154]: Riesgo Inicial
+                - paragraph [ref=e155]: 6 pts
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - heading "person Cliente" [level=3] [ref=e158]:
+                - generic [ref=e159]: person
+                - text: Cliente
+              - generic [ref=e160]:
+                - generic [ref=e161]: F
+                - generic [ref=e162]:
+                  - link "fulanito" [ref=e163] [cursor=pointer]:
+                    - /url: /Cliente/Details/2
+                  - paragraph [ref=e164]: DNI 32543423
+              - generic [ref=e165]:
+                - generic [ref=e166]:
+                  - generic [ref=e167]: phone
+                  - text: "1234563242"
+                - generic [ref=e168]:
+                  - generic [ref=e169]: mail
+                  - text: cosmefulanito@gmail.com
+                - generic [ref=e170]:
+                  - generic [ref=e171]: location_on
+                  - text: avenida siempre viva 123
+                - generic [ref=e172]:
+                  - generic [ref=e173]: payments
+                  - text: "Sueldo: $ 100.000,00"
+                - generic [ref=e174]:
+                  - generic [ref=e175]: speed
+                  - text: "Riesgo: 6 pts"
+            - generic [ref=e176]:
+              - heading "account_balance_wallet Cupo Global" [level=3] [ref=e177]:
+                - generic [ref=e178]: account_balance_wallet
+                - text: Cupo Global
+              - paragraph [ref=e179]: $ 0,00
+              - paragraph [ref=e180]: Disponible
+              - paragraph [ref=e181]: "Origen: Puntaje"
+  - button "bug_report" [ref=e182]:
+    - generic [ref=e183]: bug_report
+  - complementary [ref=e184]:
+    - generic [ref=e185]:
+      - generic [ref=e186]:
+        - generic [ref=e187]: assignment
+        - heading [level=2] [ref=e188]: Incidentes
+      - generic [ref=e189]:
+        - button [ref=e190]:
+          - generic [ref=e191]: add
+          - text: Nuevo
+        - button [ref=e192]:
+          - generic [ref=e193]: close
+    - generic [ref=e194]:
+      - generic [ref=e195]:
+        - textbox [ref=e196]:
+          - /placeholder: Buscar...
+        - combobox [ref=e197] [cursor=pointer]
+        - combobox [ref=e198] [cursor=pointer]
+        - button [ref=e199]:
+          - generic [ref=e200]: filter_list
+      - list [ref=e201]

@@ -13,7 +13,7 @@ const VentaCrearModal = (() => {
 
     function showErrors(errors) {
         const ul = errList();
-        ul.innerHTML = '';
+        ul.replaceChildren();
         for (const [field, msgs] of Object.entries(errors)) {
             (Array.isArray(msgs) ? msgs : [msgs]).forEach(m => {
                 const li = document.createElement('li');
@@ -28,16 +28,20 @@ const VentaCrearModal = (() => {
 
     function clearErrors() {
         summary().classList.add('hidden');
-        errList().innerHTML = '';
+        errList().replaceChildren();
+        const vendedorSelect = document.getElementById('VendedorUserId');
+        if (vendedorSelect) vendedorSelect.classList.remove('ring-1', 'ring-red-500', 'border-red-500');
     }
 
     function open() {
         clearErrors();
+        document.dispatchEvent(new CustomEvent('venta-crear-modal:open'));
         modal().classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     }
 
     function close() {
+        document.dispatchEvent(new CustomEvent('venta-crear-modal:close'));
         modal().classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
     }
@@ -56,6 +60,16 @@ const VentaCrearModal = (() => {
                 txt.classList.add('border-red-500', 'ring-1', 'ring-red-500');
                 txt.focus();
             }
+            return;
+        }
+
+        // Vendedor obligatorio cuando el select está disponible (roles con delegación)
+        const vendedorSelect = document.getElementById('VendedorUserId');
+        if (vendedorSelect && !vendedorSelect.value) {
+            showErrors({ '': ['El vendedor es obligatorio. Seleccioná un vendedor antes de continuar.'] });
+            vendedorSelect.classList.add('ring-1', 'ring-red-500', 'border-red-500');
+            vendedorSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            vendedorSelect.focus();
             return;
         }
 

@@ -2,61 +2,122 @@
 @using TheBuryProject.Models.Enums
 @{
     ViewData["Title"] = "Alertas de Stock";
-    var filtro      = ViewBag.Filtro      as TheBuryProject.ViewModels.AlertaStockFiltroViewModel
-                      ?? new TheBuryProject.ViewModels.AlertaStockFiltroViewModel();
-    var tiposAlerta = ViewBag.TiposAlerta as TipoAlertaStock[]  ?? Array.Empty<TipoAlertaStock>();
-    var prioridades = ViewBag.Prioridades as PrioridadAlerta[]  ?? Array.Empty<PrioridadAlerta>();
-    var estados     = ViewBag.Estados     as EstadoAlerta[]     ?? Array.Empty<EstadoAlerta>();
+    ViewData["MetaDescription"] = "Seguimiento operativo de alertas de stock, productos criticos y reposicion.";
+
+    var filtro = ViewBag.Filtro as TheBuryProject.ViewModels.AlertaStockFiltroViewModel
+                 ?? new TheBuryProject.ViewModels.AlertaStockFiltroViewModel();
+    var tiposAlerta = ViewBag.TiposAlerta as TipoAlertaStock[] ?? Array.Empty<TipoAlertaStock>();
+    var prioridades = ViewBag.Prioridades as PrioridadAlerta[] ?? Array.Empty<PrioridadAlerta>();
+    var estados = ViewBag.Estados as EstadoAlerta[] ?? Array.Empty<EstadoAlerta>();
+    var alertas = Model.Items?.ToList() ?? new List<TheBuryProject.ViewModels.AlertaStockViewModel>();
+    var filtroActivo = !string.IsNullOrWhiteSpace(filtro.ProductoNombre)
+                    || filtro.Tipo.HasValue
+                    || filtro.Prioridad.HasValue
+                    || filtro.Estado.HasValue;
+    var pendientes = alertas.Count(a => a.Estado == EstadoAlerta.Pendiente);
+    var criticas = alertas.Count(a => a.Prioridad == PrioridadAlerta.Critica || a.NotificacionUrgente);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 }
 
 <div class="space-y-6">
 
     @if (TempData["Success"] != null)
     {
-        <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>@TempData["Success"]
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
         </div>
     }
     @if (TempData["Info"] != null)
     {
-        <div class="rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-300">
-            <span class="material-symbols-outlined text-base align-middle mr-1">info</span>@TempData["Info"]
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-4 text-sm font-semibold text-slate-300" role="status">
+            <span class="material-symbols-outlined">info</span>
+            @TempData["Info"]
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
         </div>
     }
 
-    <form asp-action="Index" method="get">
-        <div class="filter-panel-erp">
-            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 class="text-base font-bold text-white">Filtros</h2>
-                    <p class="text-sm text-slate-400">Filtrá alertas por producto, tipo, prioridad o estado.</p>
+    <section data-oc-scroll style="--oc-scroll-min-width: 68rem;" class="table-erp-wrapper">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <h2 class="text-base font-bold text-white">Alertas de stock</h2>
+                    <p class="text-sm text-slate-400">Priorizá reposición, resolución e incidencias de inventario desde una grilla operativa.</p>
                 </div>
-                <span class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">tune</span>
-                    @Model.TotalRecords resultado@(Model.TotalRecords == 1 ? "" : "s")
-                </span>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
-                <div class="md:col-span-4">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Producto</label>
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                        <input type="text" name="ProductoNombre" value="@filtro.ProductoNombre"
-                               placeholder="Nombre del producto..."
-                               class="w-full rounded-lg border border-slate-700 bg-slate-900 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-all focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge-erp badge-erp-neutral">
+                            <span class="material-symbols-outlined text-sm">table_rows</span>
+                            @alertas.Count visibles
+                        </span>
+                        <span class="badge-erp badge-erp-warning">
+                            <span class="material-symbols-outlined text-sm">pending_actions</span>
+                            @pendientes pendientes
+                        </span>
+                        @if (criticas > 0)
+                        {
+                            <span class="badge-erp badge-erp-danger">
+                                <span class="material-symbols-outlined text-sm">priority_high</span>
+                                @criticas criticas
+                            </span>
+                        }
+                        @if (filtroActivo)
+                        {
+                            <span class="badge-erp badge-erp-primary">
+                                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                                Filtros activos
+                            </span>
+                        }
+                    </div>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <a asp-action="Criticos" class="btn-erp-danger btn-sm no-underline sm:w-auto">
+                            <span class="material-symbols-outlined text-[16px]">crisis_alert</span>
+                            Criticos
+                        </a>
+                        <a asp-action="Estadisticas" class="btn-erp-ghost btn-sm no-underline sm:w-auto">
+                            <span class="material-symbols-outlined text-[16px]">bar_chart</span>
+                            Estadisticas
+                        </a>
+                        <form asp-action="GenerarAlertas" method="post" class="inline" data-alerta-confirm="Generar alertas de stock ahora?">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn-erp-secondary btn-sm sm:w-auto">
+                                <span class="material-symbols-outlined text-[16px]">refresh</span>
+                                Generar alertas
+                            </button>
+                        </form>
                     </div>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</label>
-                    <select name="Tipo"
-                            class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-all focus:border-primary focus:ring-2 focus:ring-primary/50">
+            </div>
+        </div>
+
+        <form id="filterForm" asp-action="Index" method="get"
+              class="border-b border-slate-800 bg-slate-900/30 p-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="min-w-[220px] flex-1">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400" for="alerta-producto">Producto</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
+                        <input id="alerta-producto"
+                               type="text"
+                               name="ProductoNombre"
+                               value="@filtro.ProductoNombre"
+                               aria-label="Buscar alerta por producto"
+                               class="w-full rounded-lg border-none bg-slate-800 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                               placeholder="Nombre del producto..." />
+                    </div>
+                </div>
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400" for="alerta-tipo">Tipo</label>
+                    <select id="alerta-tipo" name="Tipo" aria-label="Tipo de alerta" class="filter-select-erp">
                         <option value="">Todos</option>
                         @foreach (var t in tiposAlerta)
                         {
@@ -64,10 +125,9 @@
                         }
                     </select>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Prioridad</label>
-                    <select name="Prioridad"
-                            class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-all focus:border-primary focus:ring-2 focus:ring-primary/50">
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400" for="alerta-prioridad">Prioridad</label>
+                    <select id="alerta-prioridad" name="Prioridad" aria-label="Prioridad de alerta" class="filter-select-erp">
                         <option value="">Todas</option>
                         @foreach (var p in prioridades)
                         {
@@ -75,10 +135,9 @@
                         }
                     </select>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Estado</label>
-                    <select name="Estado"
-                            class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-all focus:border-primary focus:ring-2 focus:ring-primary/50">
+                <div class="w-44">
+                    <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400" for="alerta-estado">Estado</label>
+                    <select id="alerta-estado" name="Estado" aria-label="Estado de alerta" class="filter-select-erp">
                         <option value="">Todos</option>
                         @foreach (var e in estados)
                         {
@@ -86,163 +145,181 @@
                         }
                     </select>
                 </div>
-                <div class="flex items-end gap-2 md:col-span-2">
-                    <button type="submit" class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                        Buscar
+                <div class="flex gap-2">
+                    <button type="submit"
+                            class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
+                            title="Filtrar alertas">
+                        <span class="material-symbols-outlined text-lg">filter_list</span>
+                        <span>Filtrar</span>
                     </button>
-                    <a asp-action="Index" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 px-3 text-slate-400 transition-colors hover:bg-slate-800 no-underline" title="Limpiar filtros">
-                        <span class="material-symbols-outlined">filter_alt_off</span>
-                    </a>
+                    @if (filtroActivo)
+                    {
+                        <a asp-action="Index"
+                           class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                           title="Limpiar filtros">
+                            <span class="material-symbols-outlined text-lg">clear_all</span>
+                        </a>
+                    }
                 </div>
             </div>
-        </div>
-    </form>
+        </form>
 
-    <section class="card-erp-panel">
-        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex flex-wrap items-center gap-3">
-            <h2 class="font-semibold text-slate-100 flex items-center gap-2 flex-1">
-                <span class="material-symbols-outlined text-primary text-xl">warning</span>
-                Alertas de Stock
-                <span class="text-xs font-normal text-slate-400">· @Model.TotalRecords registros</span>
-            </h2>
-            <div class="flex flex-wrap items-center gap-2">
-                <a asp-action="Criticos" class="btn-erp-danger btn-sm no-underline">
-                    <span class="material-symbols-outlined text-base">crisis_alert</span>
-                    Críticos
-                </a>
-                <a asp-action="Estadisticas" class="btn-erp-ghost btn-sm no-underline">
-                    <span class="material-symbols-outlined text-base">bar_chart</span>
-                    Estadísticas
-                </a>
-                <form asp-action="GenerarAlertas" method="post" class="inline">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-erp-secondary btn-sm"
-                            onclick="return confirm('¿Generar alertas de stock ahora?')">
-                        <span class="material-symbols-outlined text-base">refresh</span>
-                        Generar alertas
-                    </button>
-                </form>
-            </div>
-        </div>
+        <p data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
+            Deslizá la tabla para ver stock, estado y acciones completas.
+        </p>
 
-        @if (Model.Items.Any())
+        @if (alertas.Any())
         {
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-slate-800 bg-slate-800/50">
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo</th>
-                            <th class="px-4 py-3 text-center font-medium text-slate-400">Prioridad</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Stock actual</th>
-                            <th class="px-4 py-3 text-right font-medium text-slate-400">Stock mínimo</th>
-                            <th class="px-4 py-3 text-center font-medium text-slate-400">Estado</th>
-                            <th class="px-4 py-3 text-left font-medium text-slate-400">Fecha</th>
-                            <th class="px-4 py-3 text-center font-medium text-slate-400">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800">
-                        @foreach (var a in Model.Items)
-                        {
-                            var prioridadBadge = a.Prioridad switch
-                            {
-                                PrioridadAlerta.Critica => "badge-erp badge-erp-danger",
-                                PrioridadAlerta.Alta    => "badge-erp badge-erp-warning",
-                                PrioridadAlerta.Media   => "badge-erp badge-erp-info",
-                                _                       => "badge-erp"
-                            };
-                            var tipoBadge = a.Tipo switch
-                            {
-                                TipoAlertaStock.StockAgotado  => "badge-erp badge-erp-danger",
-                                TipoAlertaStock.StockCritico  => "badge-erp badge-erp-warning",
-                                TipoAlertaStock.StockBajo     => "badge-erp badge-erp-info",
-                                _                             => "badge-erp"
-                            };
-                            var estadoBadge = a.Estado switch
-                            {
-                                EstadoAlerta.Pendiente  => "badge-erp badge-erp-warning",
-                                EstadoAlerta.EnProceso  => "badge-erp badge-erp-info",
-                                EstadoAlerta.Resuelta   => "badge-erp badge-erp-success",
-                                EstadoAlerta.Ignorada   => "badge-erp",
-                                _                       => "badge-erp"
-                            };
-                            <tr class="hover:bg-slate-800/50 transition-colors @(a.NotificacionUrgente ? "bg-red-900/10" : "")">
-                                <td class="px-4 py-3">
-                                    <a asp-action="Details" asp-route-id="@a.Id"
-                                       class="font-medium text-slate-100 hover:text-primary transition-colors">@a.ProductoNombre</a>
-                                    <p class="text-xs text-slate-500">@a.ProductoCodigo · @a.CategoriaNombre</p>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span class="@tipoBadge">@a.TipoDescripcion</span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="@prioridadBadge">@a.PrioridadDescripcion</span>
-                                    @if (a.NotificacionUrgente)
-                                    {
-                                        <span class="material-symbols-outlined text-red-400 text-[14px] ml-1 align-middle">priority_high</span>
-                                    }
-                                </td>
-                                <td class="px-4 py-3 text-right font-semibold @(a.StockActual <= 0 ? "text-red-400" : a.PorcentajeStockMinimo < 50 ? "text-amber-400" : "text-slate-100")">
-                                    @a.StockActual.ToString("N0")
-                                </td>
-                                <td class="px-4 py-3 text-right text-slate-400">@a.StockMinimo.ToString("N0")</td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="@estadoBadge">@a.EstadoDescripcion</span>
-                                </td>
-                                <td class="px-4 py-3 text-slate-400 text-xs">
-                                    @a.FechaAlerta.ToString("dd/MM/yyyy HH:mm")
-                                    @if (a.EstaVencida)
-                                    {
-                                        <span class="block text-red-400">vencida</span>
-                                    }
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1">
-                                        <a asp-action="Details" asp-route-id="@a.Id"
-                                           class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors" title="Ver detalle">
-                                            <span class="material-symbols-outlined text-[14px]">visibility</span>
-                                        </a>
-                                        @if (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso)
-                                        {
-                                            <form asp-action="Resolver" method="post" class="inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@a.Id" />
-                                                @if (a.RowVersion != null)
-                                                {
-                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
-                                                }
-                                                <button type="submit"
-                                                        class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60 transition-colors"
-                                                        title="Resolver">
-                                                    <span class="material-symbols-outlined text-[14px]">check</span>
-                                                </button>
-                                            </form>
-                                            <form asp-action="Ignorar" method="post" class="inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@a.Id" />
-                                                @if (a.RowVersion != null)
-                                                {
-                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
-                                                }
-                                                <button type="submit"
-                                                        class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors"
-                                                        title="Ignorar" onclick="return confirm('¿Ignorar esta alerta?')">
-                                                    <span class="material-symbols-outlined text-[14px]">do_not_disturb</span>
-                                                </button>
-                                            </form>
-                                        }
-                                    </div>
-                                </td>
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de alertas de stock">
+                    <table data-oc-scroll-table class="w-full border-collapse text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-800/30">
+                                <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
+                                <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</th>
+                                <th class="px-5 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Prioridad</th>
+                                <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Stock actual</th>
+                                <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Stock minimo</th>
+                                <th class="px-5 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                                <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                                <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var a in alertas)
+                            {
+                                var prioridadBadge = a.Prioridad switch
+                                {
+                                    PrioridadAlerta.Critica => "badge-erp badge-erp-danger",
+                                    PrioridadAlerta.Alta => "badge-erp badge-erp-warning",
+                                    PrioridadAlerta.Media => "badge-erp badge-erp-info",
+                                    _ => "badge-erp badge-erp-neutral"
+                                };
+                                var tipoBadge = a.Tipo switch
+                                {
+                                    TipoAlertaStock.StockAgotado => "badge-erp badge-erp-danger",
+                                    TipoAlertaStock.StockCritico => "badge-erp badge-erp-warning",
+                                    TipoAlertaStock.StockBajo => "badge-erp badge-erp-info",
+                                    _ => "badge-erp badge-erp-neutral"
+                                };
+                                var estadoBadge = a.Estado switch
+                                {
+                                    EstadoAlerta.Pendiente => "badge-erp badge-erp-warning",
+                                    EstadoAlerta.EnProceso => "badge-erp badge-erp-info",
+                                    EstadoAlerta.Resuelta => "badge-erp badge-erp-success",
+                                    EstadoAlerta.Ignorada => "badge-erp badge-erp-neutral",
+                                    _ => "badge-erp badge-erp-neutral"
+                                };
+
+                                <tr class="transition-colors hover:bg-white/5 @(a.NotificacionUrgente ? "bg-red-500/[0.06]" : "")">
+                                    <td class="px-5 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-400">
+                                                <span class="material-symbols-outlined text-lg">inventory_2</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <a asp-action="Details" asp-route-id="@a.Id"
+                                                   class="block max-w-[18rem] truncate text-sm font-bold text-white transition-colors hover:text-primary-on-dark no-underline">
+                                                    @a.ProductoNombre
+                                                </a>
+                                                <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                                                    <span class="font-mono">@a.ProductoCodigo</span>
+                                                    @if (!string.IsNullOrWhiteSpace(a.CategoriaNombre))
+                                                    {
+                                                        <span class="h-1 w-1 rounded-full bg-slate-700"></span>
+                                                        <span class="truncate max-w-[12rem]">@a.CategoriaNombre</span>
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <span class="@tipoBadge">@a.TipoDescripcion</span>
+                                    </td>
+                                    <td class="px-5 py-3 text-center">
+                                        <div class="inline-flex items-center gap-1">
+                                            <span class="@prioridadBadge">@a.PrioridadDescripcion</span>
+                                            @if (a.NotificacionUrgente)
+                                            {
+                                                <span class="material-symbols-outlined text-[15px] text-red-400" title="Notificación urgente">priority_high</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3 text-right font-mono text-sm font-bold @(a.StockActual <= 0 ? "text-red-400" : a.PorcentajeStockMinimo < 50 ? "text-amber-400" : "text-slate-100")">
+                                        @a.StockActual.ToString("N0")
+                                    </td>
+                                    <td class="px-5 py-3 text-right font-mono text-sm text-slate-400">@a.StockMinimo.ToString("N0")</td>
+                                    <td class="px-5 py-3 text-center">
+                                        <span class="@estadoBadge">@a.EstadoDescripcion</span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <div class="flex flex-col text-xs">
+                                            <span class="font-semibold text-slate-300">@a.FechaAlerta.ToString("dd/MM/yyyy")</span>
+                                            <span class="text-slate-500">@a.FechaAlerta.ToString("HH:mm") hs</span>
+                                            @if (a.EstaVencida)
+                                            {
+                                                <span class="mt-1 text-[11px] font-bold text-red-400">Vencida</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-0.5">
+                                            <a asp-action="Details" asp-route-id="@a.Id"
+                                               class="row-action row-action--primary no-underline"
+                                               title="Ver detalle"
+                                               aria-label="Ver detalle de alerta de @a.ProductoNombre">
+                                                <span class="material-symbols-outlined">visibility</span>
+                                                <span class="row-action__label">Ver</span>
+                                            </a>
+                                            @if (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso)
+                                            {
+                                                <form asp-action="Resolver" method="post" class="inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@a.Id" />
+                                                    @if (a.RowVersion != null)
+                                                    {
+                                                        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
+                                                    }
+                                                    <button type="submit"
+                                                            class="row-action row-action--primary"
+                                                            title="Resolver"
+                                                            aria-label="Resolver alerta de @a.ProductoNombre">
+                                                        <span class="material-symbols-outlined">check</span>
+                                                        <span class="row-action__label">Resolver</span>
+                                                    </button>
+                                                </form>
+                                                <form asp-action="Ignorar" method="post" class="inline"
+                                                      data-alerta-confirm="Ignorar esta alerta?">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@a.Id" />
+                                                    @if (a.RowVersion != null)
+                                                    {
+                                                        <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
+                                                    }
+                                                    <button type="submit"
+                                                            class="row-action row-action--warning"
+                                                            title="Ignorar"
+                                                            aria-label="Ignorar alerta de @a.ProductoNombre">
+                                                        <span class="material-symbols-outlined">do_not_disturb</span>
+                                                        <span class="row-action__label">Ignorar</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             @if (Model.TotalPages > 1)
             {
-                <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between text-sm text-slate-400">
-                    <span>Mostrando @Model.FirstRecord–@Model.LastRecord de @Model.TotalRecords</span>
+                <div class="flex flex-col gap-3 border-t border-slate-800 px-5 py-4 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                    <span>Mostrando @Model.FirstRecord-@Model.LastRecord de @Model.TotalRecords</span>
                     <div class="flex gap-2">
                         @if (Model.HasPreviousPage)
                         {
@@ -252,7 +329,10 @@
                                asp-route-Tipo="@((int?)filtro.Tipo)"
                                asp-route-Prioridad="@((int?)filtro.Prioridad)"
                                asp-route-ProductoNombre="@filtro.ProductoNombre"
-                               class="btn-erp-ghost btn-erp-sm">Anterior</a>
+                               class="btn-erp-ghost btn-sm no-underline">
+                                <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+                                Anterior
+                            </a>
                         }
                         @if (Model.HasNextPage)
                         {
@@ -262,7 +342,10 @@
                                asp-route-Tipo="@((int?)filtro.Tipo)"
                                asp-route-Prioridad="@((int?)filtro.Prioridad)"
                                asp-route-ProductoNombre="@filtro.ProductoNombre"
-                               class="btn-erp-ghost btn-erp-sm">Siguiente</a>
+                               class="btn-erp-ghost btn-sm no-underline">
+                                Siguiente
+                                <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                            </a>
                         }
                     </div>
                 </div>
@@ -271,10 +354,15 @@
         else
         {
             <div class="px-6 py-12 text-center text-sm text-slate-400">
-                <span class="material-symbols-outlined text-4xl block mb-3">check_circle</span>
-                No hay alertas de stock para los filtros seleccionados.
+                <span class="material-symbols-outlined mx-auto mb-3 block text-4xl text-emerald-400">check_circle</span>
+                <p class="font-semibold text-slate-300">No hay alertas para los filtros seleccionados.</p>
+                <p class="mt-1 text-xs text-slate-500">Limpiá los filtros o generá alertas para revisar el estado actual del stock.</p>
             </div>
         }
     </section>
-
 </div>
+
+@section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/alerta-stock-index.js" asp-append-version="true"></script>
+}

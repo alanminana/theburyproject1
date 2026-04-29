@@ -1,0 +1,159 @@
+@model TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel
+@{
+    ViewData["Title"] = Model.EsNueva ? "Nueva plantilla de contrato" : $"Editar plantilla — {Model.Nombre}";
+}
+
+<div class="mx-auto max-w-3xl space-y-6 px-4 py-8">
+
+    <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+        <ol class="inline-flex flex-wrap items-center gap-y-1">
+            <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+            <li><span class="mx-2 text-slate-400">/</span></li>
+            <li><a asp-action="Index" class="hover:text-primary no-underline">Plantillas de contrato</a></li>
+            <li><span class="mx-2 text-slate-400">/</span></li>
+            <li class="text-slate-100">@ViewData["Title"]</li>
+        </ol>
+    </nav>
+
+    <form asp-action="@(Model.EsNueva ? "Create" : "Edit")" asp-route-id="@Model.Id" method="post" class="space-y-6">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                <span class="material-symbols-outlined align-middle text-sm">error</span>
+                Corregí los errores indicados antes de guardar.
+                <div asp-validation-summary="ModelOnly" class="mt-1 text-xs"></div>
+            </div>
+        }
+
+        <!-- Identificación -->
+        <section class="card-erp-panel-padded space-y-4">
+            <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3">Identificación</h2>
+
+            <div class="space-y-1">
+                <label asp-for="Nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <input asp-for="Nombre" class="input-erp w-full" placeholder="Ej: Contrato estándar 2025" />
+                <span asp-validation-for="Nombre" class="text-xs text-red-400"></span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="space-y-1">
+                    <label asp-for="VigenteDesde" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="VigenteDesde" type="date" class="input-erp w-full" />
+                    <span asp-validation-for="VigenteDesde" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="VigenteHasta" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="VigenteHasta" type="date" class="input-erp w-full" />
+                    <span asp-validation-for="VigenteHasta" class="text-xs text-red-400"></span>
+                    <p class="text-[11px] text-slate-500">Dejá en blanco para vigencia indefinida.</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input asp-for="Activa" type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/50" />
+                <label asp-for="Activa" class="text-sm text-slate-300 cursor-pointer">Plantilla activa</label>
+            </div>
+        </section>
+
+        <!-- Datos del vendedor -->
+        <section class="card-erp-panel-padded space-y-4">
+            <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3">Datos del vendedor</h2>
+            <p class="text-xs text-slate-500">Estos datos se incrustan fijos en cada contrato generado con esta plantilla.</p>
+
+            <div class="space-y-1">
+                <label asp-for="NombreVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <input asp-for="NombreVendedor" class="input-erp w-full" placeholder="Razón social o nombre del vendedor" />
+                <span asp-validation-for="NombreVendedor" class="text-xs text-red-400"></span>
+            </div>
+
+            <div class="space-y-1">
+                <label asp-for="DomicilioVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <input asp-for="DomicilioVendedor" class="input-erp w-full" placeholder="Domicilio legal completo" />
+                <span asp-validation-for="DomicilioVendedor" class="text-xs text-red-400"></span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="space-y-1">
+                    <label asp-for="DniVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="DniVendedor" class="input-erp w-full" placeholder="Opcional" />
+                    <span asp-validation-for="DniVendedor" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="CuitVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="CuitVendedor" class="input-erp w-full" placeholder="XX-XXXXXXXX-X" />
+                    <span asp-validation-for="CuitVendedor" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="CiudadFirma" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="CiudadFirma" class="input-erp w-full" placeholder="Ciudad donde se firma el contrato" />
+                    <span asp-validation-for="CiudadFirma" class="text-xs text-red-400"></span>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="Jurisdiccion" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                    <input asp-for="Jurisdiccion" class="input-erp w-full" placeholder="Ej: Provincia de Córdoba" />
+                    <span asp-validation-for="Jurisdiccion" class="text-xs text-red-400"></span>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label asp-for="InteresMoraDiarioPorcentaje" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <div class="flex items-center gap-2">
+                    <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0.0001" max="100"
+                           class="input-erp w-40" placeholder="0.0500" />
+                    <span class="text-sm text-slate-400">% diario</span>
+                </div>
+                <span asp-validation-for="InteresMoraDiarioPorcentaje" class="text-xs text-red-400"></span>
+            </div>
+        </section>
+
+        <!-- Texto del contrato -->
+        <section class="card-erp-panel-padded space-y-4">
+            <div class="border-b border-slate-800 pb-3 flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-semibold text-white">Texto del contrato</h2>
+                    <p class="text-xs text-slate-500 mt-1">Usá variables como <code class="text-amber-300">{{COMPRADOR_NOMBRE}}</code> para insertar datos dinámicos.</p>
+                </div>
+                <a asp-action="Index" class="text-xs text-slate-400 hover:text-slate-200 underline mt-1 shrink-0">Ver variables disponibles</a>
+            </div>
+            <div class="space-y-1">
+                <label asp-for="TextoContrato" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <textarea asp-for="TextoContrato" rows="18"
+                          class="input-erp w-full font-mono text-xs leading-relaxed"
+                          placeholder="En la ciudad de {{COMPRADOR_LOCALIDAD}}, el día {{FECHA_OPERACION}}, entre..."></textarea>
+                <span asp-validation-for="TextoContrato" class="text-xs text-red-400"></span>
+            </div>
+        </section>
+
+        <!-- Texto del pagaré -->
+        <section class="card-erp-panel-padded space-y-4">
+            <div class="border-b border-slate-800 pb-3">
+                <h2 class="text-base font-semibold text-white">Texto del pagaré</h2>
+                <p class="text-xs text-slate-500 mt-1">Texto del instrumento de pago que acompaña al contrato.</p>
+            </div>
+            <div class="space-y-1">
+                <label asp-for="TextoPagare" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
+                <textarea asp-for="TextoPagare" rows="10"
+                          class="input-erp w-full font-mono text-xs leading-relaxed"
+                          placeholder="Debo y pagaré a {{VENDEDOR_NOMBRE}}..."></textarea>
+                <span asp-validation-for="TextoPagare" class="text-xs text-red-400"></span>
+            </div>
+        </section>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn-erp-primary">
+                <span class="material-symbols-outlined text-sm">save</span>
+                @(Model.EsNueva ? "Crear plantilla" : "Guardar cambios")
+            </button>
+            <a asp-action="Index" class="btn-erp-ghost no-underline">Cancelar</a>
+        </div>
+
+    </form>
+
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,245 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+            - /url: /Catalogo
+            - generic [ref=e17]: inventory_2
+            - paragraph: Inventario
+        - generic [ref=e18]:
+          - paragraph: Sistemas
+          - link "bug_report Tickets" [ref=e20] [cursor=pointer]:
+            - /url: /Ticket
+            - generic [ref=e21]: bug_report
+            - paragraph: Tickets
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e25]: account_circle
+          - generic:
+            - paragraph: vendedor
+            - paragraph: Vendedor
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e27]:
+        - generic [ref=e28]: chevron_left
+    - main [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - heading "Dashboard" [level=2] [ref=e32]
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - generic [ref=e36]: Dolar Blue
+              - generic [ref=e37]: $1.245,00
+            - generic [ref=e38]:
+              - generic [ref=e39]: Tarjeta
+              - generic [ref=e40]: $1.482,50
+            - generic [ref=e41]:
+              - generic [ref=e42]: Oficial
+              - generic [ref=e43]: $942,00
+        - generic [ref=e44]:
+          - button "notifications" [ref=e45]:
+            - generic [ref=e46]: notifications
+          - button "search" [ref=e48]:
+            - generic [ref=e49]: search
+          - button "Panel de incidentes" [ref=e50]:
+            - generic [ref=e51]: assignment
+          - button "help" [ref=e53]:
+            - generic [ref=e54]: help
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e59]:
+              - generic [ref=e60]: space_dashboard
+              - text: Dashboard
+            - heading "Centro operativo del día" [level=1] [ref=e61]
+          - generic [ref=e62]:
+            - article [ref=e63]:
+              - generic [ref=e64]:
+                - generic [ref=e65]:
+                  - paragraph [ref=e66]: Ventas totales
+                  - paragraph [ref=e67]: $ 2.178,00
+                - generic [ref=e68]: mes
+            - article [ref=e69]:
+              - generic [ref=e70]:
+                - generic [ref=e71]:
+                  - paragraph [ref=e72]: Operaciones
+                  - paragraph [ref=e73]: "9"
+                - generic [ref=e74]: 0 pend.
+            - article [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]:
+                  - paragraph [ref=e78]: Créditos activos
+                  - paragraph [ref=e79]: "8"
+                - generic [ref=e80]: 30 días
+            - article [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e83]:
+                  - paragraph [ref=e84]: Cuotas en vista
+                  - paragraph [ref=e85]: "0"
+                - generic [ref=e86]: total
+              - paragraph [ref=e87]: 0 venc. · 0 próx.
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - generic [ref=e92]:
+                  - generic [ref=e93]:
+                    - generic [ref=e94]: warning
+                    - text: Inventario
+                  - heading "Alertas de stock" [level=2] [ref=e95]
+                - link "open_in_new Ver alertas" [ref=e96] [cursor=pointer]:
+                  - /url: /AlertaStock
+                  - generic [ref=e97]: open_in_new
+                  - text: Ver alertas
+              - table [ref=e102]:
+                - rowgroup [ref=e103]:
+                  - row "SKU Producto Stock Estado Acciones" [ref=e104]:
+                    - columnheader "SKU" [ref=e105]
+                    - columnheader "Producto" [ref=e106]
+                    - columnheader "Stock" [ref=e107]
+                    - columnheader "Estado" [ref=e108]
+                    - columnheader "Acciones" [ref=e109]
+                - rowgroup [ref=e110]:
+                  - row "BP-1022 Cubierta 205/55 R16 2 Stock crítico Reponer" [ref=e111]:
+                    - cell "BP-1022" [ref=e112]
+                    - cell "Cubierta 205/55 R16" [ref=e113]
+                    - cell "2" [ref=e114]
+                    - cell "Stock crítico" [ref=e115]
+                    - cell "Reponer" [ref=e116]:
+                      - button "Reponer" [ref=e117]
+                  - row "BP-5044 Amortiguador Trasero 5 Reponer pronto Reponer" [ref=e118]:
+                    - cell "BP-5044" [ref=e119]
+                    - cell "Amortiguador Trasero" [ref=e120]
+                    - cell "5" [ref=e121]
+                    - cell "Reponer pronto" [ref=e122]
+                    - cell "Reponer" [ref=e123]:
+                      - button "Reponer" [ref=e124]
+                  - row "BP-9012 Batería Moura 12V 75Ah 3 Reponer pronto Reponer" [ref=e125]:
+                    - cell "BP-9012" [ref=e126]
+                    - cell "Batería Moura 12V 75Ah" [ref=e127]
+                    - cell "3" [ref=e128]
+                    - cell "Reponer pronto" [ref=e129]
+                    - cell "Reponer" [ref=e130]:
+                      - button "Reponer" [ref=e131]
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]:
+                  - generic [ref=e135]:
+                    - generic [ref=e136]: schedule
+                    - text: Cobranzas
+                  - heading "Cuotas y pagos" [level=2] [ref=e137]
+                - generic [ref=e138]:
+                  - generic [ref=e139]: 0 venc. / 0 próx.
+                  - generic [ref=e140]:
+                    - button "Vencidas" [pressed] [ref=e141]
+                    - button "Próximas" [ref=e142]
+              - table [ref=e147]:
+                - rowgroup [ref=e148]:
+                  - row "Cliente Concepto Vencimiento Monto Estado Acciones" [ref=e149]:
+                    - columnheader "Cliente" [ref=e150]
+                    - columnheader "Concepto" [ref=e151]
+                    - columnheader "Vencimiento" [ref=e152]
+                    - columnheader "Monto" [ref=e153]
+                    - columnheader "Estado" [ref=e154]
+                    - columnheader "Acciones" [ref=e155]
+                - rowgroup
+          - complementary [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - generic [ref=e159]: bolt
+                - heading "Accesos rápidos" [level=2] [ref=e160]
+              - generic [ref=e161]:
+                - link "add_shopping_cart Nueva Venta" [ref=e162] [cursor=pointer]:
+                  - /url: /Venta/Create
+                  - generic [ref=e163]: add_shopping_cart
+                  - generic [ref=e164]: Nueva Venta
+                - link "person_add Nuevo Cliente" [ref=e165] [cursor=pointer]:
+                  - /url: /Cliente/Create
+                  - generic [ref=e166]: person_add
+                  - generic [ref=e167]: Nuevo Cliente
+                - link "receipt_long Reportes" [ref=e168] [cursor=pointer]:
+                  - /url: /Reporte
+                  - generic [ref=e169]: receipt_long
+                  - generic [ref=e170]: Reportes
+                - link "box_edit Catálogo" [ref=e171] [cursor=pointer]:
+                  - /url: /Catalogo
+                  - generic [ref=e172]: box_edit
+                  - generic [ref=e173]: Catálogo
+                - link "point_of_sale Caja" [ref=e174] [cursor=pointer]:
+                  - /url: /Caja
+                  - generic [ref=e175]: point_of_sale
+                  - generic [ref=e176]: Caja
+                - link "credit_card Créditos" [ref=e177] [cursor=pointer]:
+                  - /url: /Credito
+                  - generic [ref=e178]: credit_card
+                  - generic [ref=e179]: Créditos
+            - generic [ref=e180]:
+              - generic [ref=e182]:
+                - generic [ref=e183]: monitoring
+                - heading "Actividad reciente" [level=2] [ref=e184]
+              - generic [ref=e185]:
+                - generic [ref=e188]:
+                  - paragraph [ref=e189]: "Venta registrada #8821 por $12.500"
+                  - paragraph [ref=e190]: Hace 15 minutos
+                - generic [ref=e193]:
+                  - paragraph [ref=e194]: Cliente nuevo Marcos Solari
+                  - paragraph [ref=e195]: Hace 2 horas
+                - generic [ref=e198]:
+                  - paragraph [ref=e199]: Stock bajo Batería Moura SKU-9012
+                  - paragraph [ref=e200]: Hace 4 horas
+            - generic [ref=e201]:
+              - generic [ref=e202]:
+                - generic [ref=e203]:
+                  - generic [ref=e204]: note_stack
+                  - heading "Notas rápidas" [level=2] [ref=e205]
+                - button "add Guardar" [ref=e206]:
+                  - generic [ref=e207]: add
+                  - text: Guardar
+              - generic [ref=e208]:
+                - textbox "Escribí un recordatorio..." [ref=e209]
+                - button "save Guardar" [ref=e211]:
+                  - generic [ref=e212]: save
+                  - text: Guardar
+  - button "bug_report" [ref=e213]:
+    - generic [ref=e214]: bug_report
+  - complementary [ref=e215]:
+    - generic [ref=e216]:
+      - generic [ref=e217]:
+        - generic [ref=e218]: assignment
+        - heading [level=2] [ref=e219]: Incidentes
+      - generic [ref=e220]:
+        - button [ref=e221]:
+          - generic [ref=e222]: add
+          - text: Nuevo
+        - button [ref=e223]:
+          - generic [ref=e224]: close
+    - generic [ref=e225]:
+      - generic [ref=e226]:
+        - textbox [ref=e227]:
+          - /placeholder: Buscar...
+        - combobox [ref=e228] [cursor=pointer]
+        - combobox [ref=e229] [cursor=pointer]
+        - button [ref=e230]:
+          - generic [ref=e231]: filter_list
+      - list [ref=e232]

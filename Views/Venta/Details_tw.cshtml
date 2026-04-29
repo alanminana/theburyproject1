@@ -534,6 +534,25 @@
                             </a>
                         }
 
+                        @* Contrato — requerido antes de confirmar en Crédito Personal *@
+                        @if (puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null)
+                        {
+                            <a asp-controller="ContratoVentaCredito" asp-action="Preparar"
+                               asp-route-ventaId="@Model.Id"
+                               class="btn-erp-warning btn-erp-block no-underline">
+                                <span class="material-symbols-outlined text-sm">contract</span> Generar contrato
+                            </a>
+                        }
+                        else if (puedeOperarVentas && contratoVentaCredito != null)
+                        {
+                            <a asp-controller="ContratoVentaCredito" asp-action="Ver"
+                               asp-route-ventaId="@Model.Id"
+                               target="_blank" rel="noopener"
+                               class="btn-erp-secondary btn-erp-block no-underline">
+                                <span class="material-symbols-outlined text-sm">print</span> Ver / imprimir contrato
+                            </a>
+                        }
+
                         @* Confirmar *@
                         @if (puedeOperarVentas && Model.PuedeConfirmar)
                         {

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TheBuryProject</title>
     <meta name="description" content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
+    <link rel="icon" type="image/png" href="~/ico/bury.png" asp-append-version="true" />
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,12 +55,13 @@
 
     var canCreateTicket = User.TienePermiso("tickets", "create");
     var canViewTickets  = User.TienePermiso("tickets", "view");
+    var canViewConfiguracion = User.TienePermiso("configuracion", "view");
 
     // Visibilidad de secciones
     var showOperaciones = canViewVentas || canViewClientes;
     var showLogistica   = canViewInventario || canViewProveedores || canViewCaja;
     var showReportes    = canViewReportes;
-    var showSistemas    = canViewSeguridad || canViewTickets;
+    var showSistemas    = canViewSeguridad || canViewTickets || canViewConfiguracion;
 }
 
 <div class="flex h-screen overflow-hidden">
@@ -71,8 +73,8 @@
 
         <!-- Brand -->
         <a asp-controller="Home" asp-action="Index" class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
-            <div class="size-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
-                <span class="material-symbols-outlined">rocket_launch</span>
+            <div class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-800 flex items-center justify-center">
+                <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain" />
             </div>
             <div class="flex flex-col sidebar-label">
                 <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
@@ -171,6 +173,14 @@
                             <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index">
                                 <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
                                 <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
+                            </a>
+                        }
+                        @if (canViewConfiguracion)
+                        {
+                            <a class="@NavClass(IsActive("PlantillaContratoCredito"))"
+                               asp-controller="PlantillaContratoCredito" asp-action="Index">
+                                <span class="material-symbols-outlined text-lg shrink-0">contract</span>
+                                <p class="@NavFont(IsActive("PlantillaContratoCredito")) sidebar-label">Plantillas contrato</p>
                             </a>
                         }
                     </div>

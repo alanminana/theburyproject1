@@ -116,6 +116,7 @@ namespace TheBuryProject.Data
                 await RolesPermisosSeeder.SeedAsync(context, roleManager);
                 await SucursalesSeeder.SeedAsync(context, logger);
                 await EnsureRoleMetadataAsync(context, roleManager, logger);
+                await EnsurePlantillaContratoDefaultAsync(context, logger);
                 logger.LogInformation("Roles, módulos, permisos y sucursales inicializados exitosamente");
 
                 // Crear usuario administrador si no existe (lee credenciales desde configuración/secret)
@@ -298,6 +299,78 @@ namespace TheBuryProject.Data
                     logger.LogInformation("Sucursal base sincronizada para usuario administrador {Email}", adminEmail);
                 }
             }
+        }
+
+        private static async Task EnsurePlantillaContratoDefaultAsync(AppDbContext context, ILogger logger)
+        {
+            var existe = await context.PlantillasContratoCredito.AnyAsync();
+            if (existe)
+                return;
+
+            context.PlantillasContratoCredito.Add(new Models.Entities.PlantillaContratoCredito
+            {
+                Nombre                      = "Plantilla base",
+                Activa                      = true,
+                NombreVendedor              = "Nombre del vendedor / comercio",
+                DomicilioVendedor           = "Domicilio del vendedor",
+                DniVendedor                 = null,
+                CuitVendedor                = null,
+                CiudadFirma                 = "Ciudad",
+                Jurisdiccion                = "Provincia",
+                InteresMoraDiarioPorcentaje = 0.05m,
+                VigenteDesde                = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                VigenteHasta                = null,
+                CreatedBy                   = "sistema",
+                TextoContrato = @"CONTRATO DE COMPRAVENTA A CRÉDITO PERSONAL
+
+En {{COMPRADOR_LOCALIDAD}}, el día {{FECHA_OPERACION}}, entre:
+
+VENDEDOR: {{VENDEDOR_NOMBRE}}, con domicilio en {{VENDEDOR_DOMICILIO}}, CUIT {{VENDEDOR_CUIT}} (en adelante ""el Vendedor""),
+
+y
+
+COMPRADOR: {{COMPRADOR_NOMBRE}}, DNI {{COMPRADOR_DNI}}, con domicilio en {{COMPRADOR_DOMICILIO}}, localidad {{COMPRADOR_LOCALIDAD}}, teléfono {{COMPRADOR_TELEFONO}} (en adelante ""el Comprador""),
+
+se conviene el siguiente contrato de compraventa a crédito:
+
+CLÁUSULA 1 — OBJETO
+El Vendedor vende al Comprador los siguientes bienes:
+
+{{PRODUCTOS_DETALLE}}
+
+Precio total de contado: {{PRECIO_TOTAL}}
+
+CLÁUSULA 2 — PRECIO Y CONDICIONES DE PAGO
+El Comprador abonará el precio en {{CANTIDAD_CUOTAS}} cuotas mensuales de {{VALOR_CUOTA}} cada una.
+Total a pagar: {{SALDO_FINANCIADO}}
+
+Plan de cuotas:
+{{PLAN_CUOTAS}}
+
+CLÁUSULA 3 — INTERÉS POR MORA
+El atraso en el pago de cualquier cuota devengará un interés punitorio del {{INTERES_MORA}}% diario sobre el capital adeudado.
+
+CLÁUSULA 4 — JURISDICCIÓN
+Las partes se someten a la jurisdicción de los tribunales ordinarios de {{VENDEDOR_DOMICILIO}}.
+
+Número de contrato: {{NUMERO_CONTRATO}}
+Emitido el: {{FECHA_HORA_EMISION}}
+Operador: {{USUARIO_GENERACION}}",
+                TextoPagare = @"PAGARÉ N° {{NUMERO_PAGARE}}
+
+Monto: {{SALDO_FINANCIADO}}
+En {{CANTIDAD_CUOTAS}} cuotas de {{VALOR_CUOTA}}
+
+Yo, {{COMPRADOR_NOMBRE}}, DNI {{COMPRADOR_DNI}}, domiciliado en {{COMPRADOR_DOMICILIO}},
+
+DEBO Y PAGARÉ a la orden de {{VENDEDOR_NOMBRE}} la suma indicada en las fechas establecidas en el plan de cuotas.
+
+Fecha de emisión: {{FECHA_HORA_EMISION}}
+Lugar de pago: {{VENDEDOR_DOMICILIO}}"
+            });
+
+            await context.SaveChangesAsync();
+            logger.LogInformation("Plantilla de contrato base creada");
         }
 
         /// <summary>

@@ -473,7 +473,9 @@ namespace TheBuryProject.Services
                 }
                 else
                 {
-                    query = query.Where(d => d.Venta.Estado != EstadoVenta.Cancelada);
+                    query = query.Where(d =>
+                        d.Venta.Estado == EstadoVenta.Facturada ||
+                        d.Venta.Estado == EstadoVenta.Entregada);
                 }
 
                 if (filtro.ProductoId.HasValue)
@@ -523,10 +525,27 @@ namespace TheBuryProject.Services
                     })
                     .ToListAsync();
 
+                var resumenPorVendedor = items
+                    .GroupBy(i => i.VendedorUserId)
+                    .Select(g => new ComisionVendedorResumenViewModel
+                    {
+                        VendedorUserId = g.Key,
+                        VendedorNombre = g.First().VendedorNombre,
+                        TotalVendido = g.Sum(i => i.PrecioFinalItem),
+                        TotalComision = g.Sum(i => i.ComisionMonto),
+                        CantidadVentas = g.Select(i => i.VentaId).Distinct().Count(),
+                        CantidadProductosVendidos = g.Sum(i => i.Cantidad),
+                        PromedioComisionPorcentaje = g.Any() ? g.Average(i => i.ComisionPorcentajeAplicada) : 0m,
+                        Items = g.OrderByDescending(i => i.FechaVenta).ThenByDescending(i => i.VentaId).ToList()
+                    })
+                    .OrderByDescending(r => r.TotalComision)
+                    .ToList();
+
                 return new ComisionVendedorReporteViewModel
                 {
                     Filtros = filtro,
                     Items = items,
+                    ResumenPorVendedor = resumenPorVendedor,
                     TotalVendido = items.Sum(i => i.PrecioFinalItem),
                     TotalComision = items.Sum(i => i.ComisionMonto),
                     CantidadVentas = items.Select(i => i.VentaId).Distinct().Count(),

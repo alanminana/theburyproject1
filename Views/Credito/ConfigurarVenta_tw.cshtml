@@ -358,7 +358,20 @@
                                     El contrato de venta es un requisito obligatorio. Debe generarse antes de confirmar la operación.
                                 </p>
 
-                                @if (Model.PuedeGenerarContrato)
+                                @if (!Model.PlantillaActivaDisponible)
+                                {
+                                    <div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+                                        <p class="flex items-start gap-2">
+                                            <span class="material-symbols-outlined text-sm mt-0.5 shrink-0">error</span>
+                                            <span>
+                                                No hay ninguna plantilla de contrato activa y vigente.
+                                                <a asp-controller="PlantillaContratoCredito" asp-action="Index"
+                                                   class="underline hover:text-rose-200">Configurá una plantilla</a> antes de generar contratos.
+                                            </span>
+                                        </p>
+                                    </div>
+                                }
+                                else if (Model.PuedeGenerarContrato)
                                 {
                                     <button type="submit"
                                             id="btn-generar-contrato"

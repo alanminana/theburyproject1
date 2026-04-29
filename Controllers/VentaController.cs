@@ -214,6 +214,12 @@ namespace TheBuryProject.Controllers
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
 
+                var puedeDelegar = _currentUser.IsInRole(Roles.SuperAdmin) ||
+                                   _currentUser.IsInRole(Roles.Administrador) ||
+                                   _currentUser.IsInRole(Roles.Gerente);
+                if (puedeDelegar && string.IsNullOrWhiteSpace(viewModel.VendedorUserId))
+                    ModelState.AddModelError("VendedorUserId", "Debe seleccionar un vendedor.");
+
                 _logger.LogInformation(
                     "Create POST: TipoPago={TipoPago} AplicarExcepcion={Excepcion} Motivo={Motivo}",
                     viewModel.TipoPago,
@@ -304,6 +310,12 @@ namespace TheBuryProject.Controllers
                 }
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+
+                var puedeDelegar = _currentUser.IsInRole(Roles.SuperAdmin) ||
+                                   _currentUser.IsInRole(Roles.Administrador) ||
+                                   _currentUser.IsInRole(Roles.Gerente);
+                if (puedeDelegar && string.IsNullOrWhiteSpace(viewModel.VendedorUserId))
+                    ModelState.AddModelError("VendedorUserId", "Debe seleccionar un vendedor.");
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -750,6 +762,17 @@ namespace TheBuryProject.Controllers
                             "ConfigurarVenta",
                             "Credito",
                             new { id = venta.CreditoId.Value, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl });
+                    }
+
+                    // REGLA 3.5: Crédito configurado → contrato obligatorio antes de confirmar
+                    var contratoGenerado = await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(id);
+                    if (!contratoGenerado)
+                    {
+                        _logger.LogInformation(
+                            "Confirmar(POST) venta {Id}: contrato no generado, redirigiendo a Preparar",
+                            id);
+                        TempData["Warning"] = "Debe generar e imprimir el contrato antes de confirmar la operación con Crédito Personal.";
+                        return RedirectToAction("Preparar", "ContratoVentaCredito", new { ventaId = id });
                     }
 
                     // REGLA 4: Financiación configurada → confirmar y generar cuotas

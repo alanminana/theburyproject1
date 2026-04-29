@@ -40,7 +40,7 @@
             <div>
                 <h1 class="text-2xl font-bold text-slate-100">Comisiones por vendedor</h1>
                 <p class="mt-1 max-w-3xl text-sm text-slate-400">
-                    Consulta ventas por producto usando el porcentaje y monto de comisión guardados en cada detalle.
+                    Resumen agrupado por vendedor. Hacé clic en una fila para ver el detalle de ventas.
                 </p>
             </div>
         </div>
@@ -160,80 +160,124 @@
     <section class="card-erp-panel">
         <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
             <h2 class="font-semibold text-slate-100 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary text-xl">receipt_long</span>
-                Detalle de comisiones
-                <span class="ml-auto text-xs font-normal text-slate-400">@Model.Items.Count registros</span>
+                <span class="material-symbols-outlined text-primary text-xl">group</span>
+                Resumen por vendedor
+                <span class="ml-auto text-xs font-normal text-slate-400">@Model.ResumenPorVendedor.Count vendedor(es)</span>
             </h2>
         </div>
 
-        @if (Model.Items.Any())
+        @if (Model.ResumenPorVendedor.Any())
         {
-            <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 92rem;">
-                <p data-oc-scroll-hint hidden class="px-6 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-400 lg:hidden">
-                    Deslizá la tabla para revisar pago, estado y comisión
-                </p>
-                <div data-oc-scroll-shell class="relative">
-                    <div data-oc-scroll-fade="left" hidden class="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                    <div data-oc-scroll-fade="right" hidden class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
-                    <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Detalle de comisiones por vendedor">
-                        <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
-                            <thead>
-                                <tr class="border-b border-slate-800 bg-slate-800/50">
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Fecha</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">N° venta</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Vendedor</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Producto</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Cant.</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Precio unit.</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Final ítem</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Pago</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Estado</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión %</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión $</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-800">
-                                @foreach (var item in Model.Items)
-                                {
-                                    <tr class="hover:bg-slate-800/50 transition-colors">
-                                        <td class="px-4 py-3 text-sm text-slate-400">@item.FechaVenta.ToString("dd/MM/yyyy")</td>
-                                        <td class="px-4 py-3 font-mono text-xs">
-                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@item.VentaId"
-                                               class="text-primary hover:underline">@item.NumeroVenta</a>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-slate-100">@item.VendedorNombre</td>
-                                        <td class="px-4 py-3 text-sm text-slate-300">@item.ClienteNombre</td>
-                                        <td class="px-4 py-3 text-sm text-slate-100">@item.ProductoNombre</td>
-                                        <td class="px-4 py-3 text-right text-sm text-slate-300">@item.Cantidad</td>
-                                        <td class="px-4 py-3 text-right text-sm text-slate-300">$@item.PrecioUnitario.ToString("N2")</td>
-                                        <td class="px-4 py-3 text-right text-sm font-medium text-slate-100">$@item.PrecioFinalItem.ToString("N2")</td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium @TipoPagoBadge(item.TipoPago)">
-                                                @item.TipoPagoDescripcion
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex rounded-full border px-2 py-1 text-xs font-medium @EstadoBadge(item.EstadoVenta)">
-                                                @item.EstadoVentaDescripcion
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-sm text-slate-300">@item.ComisionPorcentajeAplicada.ToString("N2")%</td>
-                                        <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@item.ComisionMonto.ToString("N2")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                            <tfoot>
-                                <tr class="border-t border-slate-700 bg-slate-800/70">
-                                    <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-slate-300">Totales</td>
-                                    <td class="px-4 py-3 text-right text-sm font-semibold text-slate-100">$@Model.TotalVendido.ToString("N2")</td>
-                                    <td colspan="3"></td>
-                                    <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@Model.TotalComision.ToString("N2")</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400 w-8"></th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Vendedor</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Ventas</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Productos</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Total vendido</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión %</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Total comisión</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.ResumenPorVendedor.Count; i++)
+                        {
+                            var v = Model.ResumenPorVendedor[i];
+                            var detailId = $"vendor-detail-{i}";
+                            <tr class="border-b border-slate-800 hover:bg-slate-800/60 cursor-pointer transition-colors select-none"
+                                onclick="toggleVendorDetail('@detailId', this)">
+                                <td class="px-4 py-3 text-center">
+                                    <span class="material-symbols-outlined text-slate-400 text-base align-middle" data-toggle-icon="@detailId">expand_more</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm font-medium text-slate-100">@v.VendedorNombre</span>
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm text-slate-300">@v.CantidadVentas</td>
+                                <td class="px-4 py-3 text-right text-sm text-slate-300">@v.CantidadProductosVendidos</td>
+                                <td class="px-4 py-3 text-right text-sm font-medium text-slate-100">$@v.TotalVendido.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right text-sm text-slate-300">@v.PromedioComisionPorcentaje.ToString("N2")%</td>
+                                <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@v.TotalComision.ToString("N2")</td>
+                            </tr>
+                            <tr id="@detailId" hidden class="bg-slate-900/60">
+                                <td colspan="7" class="p-0">
+                                    <div class="border-t border-slate-800 px-6 py-4">
+                                        <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-sm">receipt_long</span>
+                                            Detalle de ventas — @v.VendedorNombre
+                                            <span class="font-normal">(@v.Items.Count registros)</span>
+                                        </p>
+                                        <div class="overflow-x-auto rounded-lg border border-slate-800">
+                                            <table class="w-full text-left border-collapse text-sm" style="min-width: 72rem;">
+                                                <thead>
+                                                    <tr class="border-b border-slate-800 bg-slate-800/70">
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Fecha</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">N° venta</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Producto</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Cant.</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Precio unit.</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Final ítem</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Pago</th>
+                                                        <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Estado</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión %</th>
+                                                        <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Comisión $</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-800">
+                                                    @foreach (var item in v.Items)
+                                                    {
+                                                        <tr class="hover:bg-slate-800/40 transition-colors">
+                                                            <td class="px-3 py-2 text-slate-400">@item.FechaVenta.ToString("dd/MM/yyyy")</td>
+                                                            <td class="px-3 py-2 font-mono text-xs">
+                                                                <a asp-controller="Venta" asp-action="Details" asp-route-id="@item.VentaId"
+                                                                   class="text-primary hover:underline" onclick="event.stopPropagation()">@item.NumeroVenta</a>
+                                                            </td>
+                                                            <td class="px-3 py-2 text-slate-300">@item.ClienteNombre</td>
+                                                            <td class="px-3 py-2 text-slate-100">@item.ProductoNombre</td>
+                                                            <td class="px-3 py-2 text-right text-slate-300">@item.Cantidad</td>
+                                                            <td class="px-3 py-2 text-right text-slate-300">$@item.PrecioUnitario.ToString("N2")</td>
+                                                            <td class="px-3 py-2 text-right font-medium text-slate-100">$@item.PrecioFinalItem.ToString("N2")</td>
+                                                            <td class="px-3 py-2">
+                                                                <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium @TipoPagoBadge(item.TipoPago)">
+                                                                    @item.TipoPagoDescripcion
+                                                                </span>
+                                                            </td>
+                                                            <td class="px-3 py-2">
+                                                                <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-medium @EstadoBadge(item.EstadoVenta)">
+                                                                    @item.EstadoVentaDescripcion
+                                                                </span>
+                                                            </td>
+                                                            <td class="px-3 py-2 text-right text-slate-300">@item.ComisionPorcentajeAplicada.ToString("N2")%</td>
+                                                            <td class="px-3 py-2 text-right font-semibold text-emerald-400">$@item.ComisionMonto.ToString("N2")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr class="border-t border-slate-700 bg-slate-800/70">
+                                                        <td colspan="6" class="px-3 py-2 text-right text-xs font-semibold text-slate-300">Subtotales</td>
+                                                        <td class="px-3 py-2 text-right text-xs font-semibold text-slate-100">$@v.TotalVendido.ToString("N2")</td>
+                                                        <td colspan="3"></td>
+                                                        <td class="px-3 py-2 text-right text-xs font-semibold text-emerald-400">$@v.TotalComision.ToString("N2")</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t border-slate-700 bg-slate-800/70">
+                            <td colspan="4" class="px-4 py-3 text-right text-sm font-semibold text-slate-300">Totales</td>
+                            <td class="px-4 py-3 text-right text-sm font-semibold text-slate-100">$@Model.TotalVendido.ToString("N2")</td>
+                            <td></td>
+                            <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-400">$@Model.TotalComision.ToString("N2")</td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         }
         else
@@ -251,5 +295,14 @@
 }
 
 @section Scripts {
-    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script>
+        function toggleVendorDetail(detailId, row) {
+            const detail = document.getElementById(detailId);
+            const icon = document.querySelector(`[data-toggle-icon="${detailId}"]`);
+            const isHidden = detail.hidden;
+            detail.hidden = !isHidden;
+            icon.textContent = isHidden ? 'expand_less' : 'expand_more';
+            row.classList.toggle('bg-slate-800/40', isHidden);
+        }
+    </script>
 }

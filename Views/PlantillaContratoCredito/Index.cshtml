@@ -1,0 +1,198 @@
+@model IEnumerable<TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel>
+@{
+    ViewData["Title"] = "Plantillas de contrato";
+    var hoy = DateTime.Today;
+}
+
+<div class="space-y-6">
+
+    <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+        <ol class="inline-flex flex-wrap items-center gap-y-1">
+            <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+            <li><span class="mx-2 text-slate-400">/</span></li>
+            <li class="text-slate-100">Plantillas de contrato crédito</li>
+        </ol>
+    </nav>
+
+    @if (TempData["Success"] is string ok)
+    {
+        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+            <span class="material-symbols-outlined align-middle text-sm">check_circle</span>
+            @ok
+        </div>
+    }
+    @if (TempData["Error"] is string err)
+    {
+        <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+            <span class="material-symbols-outlined align-middle text-sm">error</span>
+            @err
+        </div>
+    }
+
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-white">Plantillas de contrato de crédito personal</h1>
+            <p class="text-sm text-slate-400 mt-1">Gestioná los textos y parámetros legales usados al generar contratos.</p>
+        </div>
+        @if (User.TienePermiso("configuracion", "update"))
+        {
+            <a asp-action="Create" class="btn-erp-primary no-underline flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">add</span>
+                Nueva plantilla
+            </a>
+        }
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="card-erp-panel-padded flex flex-col items-center gap-4 py-12 text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-600">contract</span>
+            <div>
+                <p class="text-slate-300 font-semibold">Sin plantillas configuradas</p>
+                <p class="text-sm text-slate-500 mt-1">
+                    No hay ninguna plantilla de contrato. Sin una plantilla activa no es posible generar contratos de venta con crédito personal.
+                </p>
+            </div>
+            @if (User.TienePermiso("configuracion", "update"))
+            {
+                <a asp-action="Create" class="btn-erp-primary no-underline flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">add</span>
+                    Crear primera plantilla
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="space-y-3">
+            @foreach (var p in Model)
+            {
+                var esVigente = p.Activa && p.VigenteDesde.Date <= hoy && (!p.VigenteHasta.HasValue || p.VigenteHasta.Value.Date >= hoy);
+                <div class="card-erp-panel-padded">
+                    <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                <h2 class="text-base font-bold text-white">@p.Nombre</h2>
+                                @if (esVigente)
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                                        <span class="material-symbols-outlined text-[11px]">check_circle</span> Activa y vigente
+                                    </span>
+                                }
+                                else if (p.Activa)
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
+                                        <span class="material-symbols-outlined text-[11px]">schedule</span> Activa (fuera de vigencia)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
+                                        Inactiva
+                                    </span>
+                                }
+                            </div>
+                            <dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-400 sm:grid-cols-3">
+                                <div>
+                                    <dt class="text-slate-500">Vendedor</dt>
+                                    <dd class="text-slate-300">@p.NombreVendedor</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Ciudad de firma</dt>
+                                    <dd class="text-slate-300">@p.CiudadFirma</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Interés mora diario</dt>
+                                    <dd class="text-slate-300">@p.InteresMoraDiarioPorcentaje.ToString("F4")%</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Vigente desde</dt>
+                                    <dd class="text-slate-300">@p.VigenteDesde.ToString("dd/MM/yyyy")</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-slate-500">Vigente hasta</dt>
+                                    <dd class="text-slate-300">@(p.VigenteHasta.HasValue ? p.VigenteHasta.Value.ToString("dd/MM/yyyy") : "Sin límite")</dd>
+                                </div>
+                                @if (p.UpdatedBy != null)
+                                {
+                                    <div>
+                                        <dt class="text-slate-500">Modificada por</dt>
+                                        <dd class="text-slate-300">@p.UpdatedBy</dd>
+                                    </div>
+                                }
+                            </dl>
+                        </div>
+                        @if (User.TienePermiso("configuracion", "update"))
+                        {
+                            <div class="flex flex-col gap-2 shrink-0">
+                                <a asp-action="Edit" asp-route-id="@p.Id"
+                                   class="btn-erp-secondary no-underline text-center text-sm">
+                                    <span class="material-symbols-outlined text-sm">edit</span>
+                                    Editar
+                                </a>
+                                <form asp-action="ToggleActiva" asp-route-id="@p.Id" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit"
+                                            class="@(p.Activa ? "btn-erp-ghost" : "btn-erp-warning") w-full text-sm"
+                                            onclick="return confirm('@(p.Activa ? "¿Desactivar esta plantilla?" : "¿Activar esta plantilla?")')">
+                                        <span class="material-symbols-outlined text-sm">@(p.Activa ? "toggle_off" : "toggle_on")</span>
+                                        @(p.Activa ? "Desactivar" : "Activar")
+                                    </button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="card-erp-panel-padded">
+            <details>
+                <summary class="cursor-pointer text-sm font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">help</span>
+                    Variables disponibles para el texto del contrato
+                </summary>
+                <div class="mt-3 grid grid-cols-1 gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach (var variable in new[]
+                    {
+                        ("{{VENDEDOR_NOMBRE}}", "Nombre del vendedor"),
+                        ("{{VENDEDOR_DOMICILIO}}", "Domicilio del vendedor"),
+                        ("{{VENDEDOR_DNI}}", "DNI del vendedor"),
+                        ("{{VENDEDOR_CUIT}}", "CUIT del vendedor"),
+                        ("{{COMPRADOR_NOMBRE}}", "Nombre completo del comprador"),
+                        ("{{COMPRADOR_DNI}}", "DNI del comprador"),
+                        ("{{COMPRADOR_CUIL}}", "CUIL del comprador"),
+                        ("{{COMPRADOR_DOMICILIO}}", "Domicilio del comprador"),
+                        ("{{COMPRADOR_LOCALIDAD}}", "Localidad del comprador"),
+                        ("{{COMPRADOR_TELEFONO}}", "Teléfono del comprador"),
+                        ("{{GARANTE_NOMBRE}}", "Nombre completo del garante"),
+                        ("{{GARANTE_DNI}}", "DNI del garante"),
+                        ("{{GARANTE_DOMICILIO}}", "Domicilio del garante"),
+                        ("{{GARANTE_RELACION}}", "Relación del garante con el comprador"),
+                        ("{{NUMERO_CONTRATO}}", "Número del contrato"),
+                        ("{{NUMERO_PAGARE}}", "Número del pagaré"),
+                        ("{{FECHA_OPERACION}}", "Fecha de la venta"),
+                        ("{{FECHA_HORA_EMISION}}", "Fecha y hora de emisión del contrato"),
+                        ("{{PRODUCTOS_DETALLE}}", "Lista de productos de la venta"),
+                        ("{{PRECIO_TOTAL}}", "Total de la venta"),
+                        ("{{SALDO_FINANCIADO}}", "Monto financiado / total a pagar"),
+                        ("{{CANTIDAD_CUOTAS}}", "Cantidad de cuotas"),
+                        ("{{VALOR_CUOTA}}", "Valor de cada cuota"),
+                        ("{{PLAN_CUOTAS}}", "Plan completo de cuotas con vencimientos"),
+                        ("{{INTERES_MORA}}", "Interés diario por mora (%)"),
+                        ("{{USUARIO_GENERACION}}", "Usuario que generó el contrato"),
+                        ("{{SUCURSAL}}", "Sucursal"),
+                        ("{{CAJA}}", "Caja")
+                    })
+                    {
+                        <div class="flex flex-col rounded-lg bg-slate-800/60 px-3 py-2">
+                            <code class="text-amber-300 font-mono">@variable.Item1</code>
+                            <span class="text-slate-400 mt-0.5">@variable.Item2</span>
+                        </div>
+                    }
+                </div>
+            </details>
+        </div>
+    }
+
+</div>

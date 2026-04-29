@@ -386,6 +386,55 @@ public class ValidacionVentaServiceTests : IDisposable
         Assert.True(result.PuedeProceeder);
     }
 
+    [Fact]
+    public async Task ValidarConfirmacion_CreditoConfigurado_CupoInsuficiente_PuedeProceeder()
+    {
+        // Crédito ya configurado → la re-evaluación de cupo no debe bloquear la confirmación
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Configurado);
+        var venta = await SeedVentaAsync(cliente.Id, tipoPago: TipoPago.CreditoPersonal,
+            creditoId: credito.Id, total: 500m);
+        _stubAptitud.ResultadoAptitud = new AptitudCrediticiaViewModel
+        {
+            Estado = EstadoCrediticioCliente.NoApto,
+            ConfiguracionCompleta = true,
+            Motivo = "Cupo insuficiente",
+            Detalles = new List<AptitudDetalleItem>
+            {
+                new() { Categoria = "Cupo", Descripcion = "Cupo insuficiente. Disponible: $0", EsBloqueo = true }
+            }
+        };
+
+        var result = await _service.ValidarConfirmacionVentaAsync(venta.Id);
+
+        Assert.True(result.PuedeProceeder);
+    }
+
+    [Fact]
+    public async Task ValidarConfirmacion_CreditoConfigurado_MoraBloqueante_SigueBloquendo()
+    {
+        // Mora bloqueante sí debe seguir impidiendo la confirmación aunque el crédito esté configurado
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Configurado);
+        var venta = await SeedVentaAsync(cliente.Id, tipoPago: TipoPago.CreditoPersonal,
+            creditoId: credito.Id, total: 500m);
+        _stubAptitud.ResultadoAptitud = new AptitudCrediticiaViewModel
+        {
+            Estado = EstadoCrediticioCliente.NoApto,
+            ConfiguracionCompleta = true,
+            Motivo = "Mora activa",
+            Detalles = new List<AptitudDetalleItem>
+            {
+                new() { Categoria = "Mora", Descripcion = "Mora vencida > 90 días", EsBloqueo = true }
+            }
+        };
+
+        var result = await _service.ValidarConfirmacionVentaAsync(venta.Id);
+
+        Assert.False(result.PuedeProceeder);
+        Assert.Contains(result.RequisitosPendientes, r => r.Tipo == TipoRequisitoPendiente.ClienteNoApto);
+    }
+
     // =========================================================================
     // ClientePuedeRecibirCreditoAsync
     // =========================================================================

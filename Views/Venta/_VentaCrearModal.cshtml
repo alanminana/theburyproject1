@@ -583,30 +583,12 @@
                                         </div>
                                     </div>
 
-                                    <div id="panel-contrato-venta" class="hidden">
-                                        <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-                                            <p class="mb-2 flex items-center gap-2 text-xs font-bold text-amber-300">
-                                                <span class="material-symbols-outlined text-sm">contract</span>
-                                                Documentación contractual
-                                            </p>
-                                            <p class="mb-1 text-[11px] font-semibold text-amber-200">Contrato de venta obligatorio</p>
-                                            <p class="mb-2 text-[11px] text-slate-400">
-                                                Este requisito es obligatorio para ventas con Crédito Personal y no puede omitirse.
-                                            </p>
-                                            <p class="mb-2 text-[11px] text-slate-400">
-                                                El contrato se generará después de guardar la venta y configurar el plan de cuotas.
-                                            </p>
-                                            <p class="text-[11px] text-amber-300/80">
-                                                La operación no podrá confirmarse ni facturarse hasta generar el contrato.
-                                            </p>
-                                        </div>
-                                    </div>
 
                                     @if (puedeExcepcion)
                                     {
-                                        <div class="border-t border-slate-700/60 pt-4">
-                                            <input type="hidden" name="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
-                                            <div id="panel-excepcion-inactiva">
+                                        <div id="panel-excepcion-crediticia" class="hidden border-t border-slate-700/60 pt-4">
+                                            <input type="hidden" name="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" value="false" />
+                                            <div id="panel-excepcion-inactiva" class="hidden">
                                                 <button type="button" id="btn-aplicar-excepcion"
                                                         class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 py-3 text-xs font-bold text-orange-400 transition-all hover:border-orange-400/50 hover:bg-orange-500/20">
                                                     <span class="material-symbols-outlined text-sm">shield_question</span>
@@ -617,10 +599,10 @@
                                                 <div class="space-y-3 rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
                                                     <p class="flex items-center gap-2 text-xs font-bold text-orange-300">
                                                         <span class="material-symbols-outlined text-sm">shield_question</span>
-                                                        Confirmar excepción documental
+                                                        Confirmar excepción autorizada
                                                     </p>
                                                     <p class="text-[11px] text-slate-400">
-                                                        Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio para continuar.
+                                                        Se omitirán requisitos de documentación y límite de crédito no configurado. Ingresá el motivo obligatorio para continuar.
                                                     </p>
                                                     <div>
                                                         <label class="vm-label" for="txt-excepcion-documental">
@@ -665,6 +647,7 @@
                                         <label class="vm-label" for="VendedorUserId">
                                             <span class="material-symbols-outlined text-[13px]">badge</span>
                                             Vendedor asignado
+                                            <span class="vm-required">*</span>
                                         </label>
                                         <select name="VendedorUserId" id="VendedorUserId" asp-items="vendedores" class="vm-select">
                                             <option value="">Seleccione vendedor…</option>

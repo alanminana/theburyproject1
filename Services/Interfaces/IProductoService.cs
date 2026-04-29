@@ -55,6 +55,9 @@ namespace TheBuryProject.Services.Interfaces
         // Stock
         Task<Producto> ActualizarStockAsync(int id, decimal cantidad);
 
+        // Comisión
+        Task<Producto> ActualizarComisionAsync(int id, decimal porcentaje);
+
         // Validaciones
         Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null);
     }

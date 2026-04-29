@@ -584,7 +584,56 @@ namespace TheBuryProject.Services
                 return new ValidacionVentaResult(); // Puede proceder
             }
 
+            // Si el crédito ya está configurado/generado/activo, la aptitud fue evaluada
+            // al configurar. En confirmación sólo corresponde verificar mora y documentación,
+            // no volver a bloquear por cupo (que ya fue comprometido en la configuración).
+            if (venta.CreditoId.HasValue)
+            {
+                var credito = await _context.Creditos
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == venta.CreditoId.Value && !c.IsDeleted);
+
+                if (credito != null && (
+                    credito.Estado == EstadoCredito.Configurado ||
+                    credito.Estado == EstadoCredito.Generado   ||
+                    credito.Estado == EstadoCredito.Activo))
+                {
+                    return await ValidarSinCupoAsync(venta.ClienteId);
+                }
+            }
+
             return await ValidarVentaCreditoPersonalAsync(venta.ClienteId, venta.Total, venta.CreditoId);
+        }
+
+        // Evaluación sin cupo: sólo mora bloqueante y documentación.
+        // Para el paso de confirmación, donde el cupo ya fue comprometido.
+        private async Task<ValidacionVentaResult> ValidarSinCupoAsync(int clienteId)
+        {
+            var aptitud = await _aptitudService.EvaluarAptitudSinGuardarAsync(clienteId);
+            var resultado = new ValidacionVentaResult();
+
+            foreach (var detalle in aptitud.Detalles.Where(d => d.EsBloqueo && d.Categoria != "Cupo"))
+            {
+                var tipo = detalle.Categoria switch
+                {
+                    "Documentación" => TipoRequisitoPendiente.DocumentacionFaltante,
+                    _               => TipoRequisitoPendiente.ClienteNoApto
+                };
+                resultado.RequisitosPendientes.Add(new RequisitoPendiente
+                {
+                    Tipo             = tipo,
+                    Descripcion      = detalle.Descripcion,
+                    AccionRequerida  = "Revisar"
+                });
+            }
+
+            if (resultado.RequisitosPendientes.Any())
+            {
+                resultado.NoViable          = true;
+                resultado.PendienteRequisitos = true;
+            }
+
+            return resultado;
         }
 
         public async Task<bool> ClientePuedeRecibirCreditoAsync(int clienteId, decimal montoSolicitado)

@@ -1,0 +1,543 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+    - main [ref=e40]:
+      - generic [ref=e42]:
+        - button "notifications" [ref=e43]:
+          - generic [ref=e44]: notifications
+        - button "search" [ref=e46]:
+          - generic [ref=e47]: search
+        - button "Panel de incidentes" [ref=e48]:
+          - generic [ref=e49]: assignment
+        - button "help" [ref=e51]:
+          - generic [ref=e52]: help
+      - generic [ref=e53]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - generic [ref=e58]: Ventas
+              - generic [ref=e59]:
+                - generic [ref=e60]: today
+                - text: Hoy
+              - generic [ref=e61]:
+                - generic [ref=e62]: receipt_long
+                - text: 8 operaciones
+              - generic [ref=e63]:
+                - generic [ref=e64]: payments
+                - text: $1.936
+            - generic [ref=e65]:
+              - button "percent Recargo/Descuento" [ref=e66] [cursor=pointer]:
+                - generic [ref=e67]: percent
+                - text: Recargo/Descuento
+              - link "assignment_return Devoluciones" [ref=e68] [cursor=pointer]:
+                - /url: /Devolucion?tab=devoluciones
+                - generic [ref=e69]: assignment_return
+                - text: Devoluciones
+              - button "add Nueva Venta" [ref=e70] [cursor=pointer]:
+                - generic [ref=e71]: add
+                - text: Nueva Venta
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - heading "Listado principal de ventas" [level=2] [ref=e75]
+              - paragraph [ref=e76]: Consultá estado, autorización, forma de pago y acciones disponibles sobre cada operación.
+            - generic [ref=e78]:
+              - generic [ref=e79]: table_rows
+              - text: 9 registros
+          - generic [ref=e81]:
+            - generic [ref=e82]:
+              - generic [ref=e83]: Buscar venta
+              - generic [ref=e84]:
+                - generic [ref=e85]: search
+                - textbox "Número de venta" [ref=e86]:
+                  - /placeholder: "Número #V-..."
+            - generic [ref=e87]:
+              - generic [ref=e88]: Desde
+              - textbox "Fecha desde" [ref=e89]
+            - generic [ref=e90]:
+              - generic [ref=e91]: Hasta
+              - textbox "Fecha hasta" [ref=e92]
+            - generic [ref=e93]:
+              - generic [ref=e94]: Estado
+              - combobox "Estado de venta" [ref=e95] [cursor=pointer]:
+                - option "Todos" [selected]
+                - option "Cotización"
+                - option "Presupuesto"
+                - option "Confirmada"
+                - option "Facturada"
+                - option "Entregada"
+                - option "Cancelada"
+                - option "Pend. Requisitos"
+                - option "Pend. Financiación"
+            - generic [ref=e96]:
+              - generic [ref=e97]: Pago
+              - combobox "Tipo de pago" [ref=e98] [cursor=pointer]:
+                - option "Todos" [selected]
+                - option "Efectivo"
+                - option "Transferencia"
+                - option "Tarjeta Débito"
+                - option "Tarjeta Crédito"
+                - option "Cheque"
+                - option "Crédito Personal"
+                - option "MercadoPago"
+                - option "Cuenta Corriente"
+            - generic [ref=e99]:
+              - generic [ref=e100]: Autorización
+              - combobox "Estado de autorización" [ref=e101] [cursor=pointer]:
+                - option "Todas" [selected]
+                - option "No Requiere"
+                - option "Pendiente"
+                - option "Autorizada"
+                - option "Rechazada"
+            - button "filter_list" [ref=e103]:
+              - generic [ref=e104]: filter_list
+          - region "Listado principal de ventas" [ref=e107]:
+            - table [ref=e108]:
+              - rowgroup [ref=e109]:
+                - row "Número Fecha Cliente Estado Autorización Tipo de Pago Total Acciones" [ref=e110]:
+                  - columnheader "Número" [ref=e111]
+                  - columnheader "Fecha" [ref=e112]
+                  - columnheader "Cliente" [ref=e113]
+                  - columnheader "Estado" [ref=e114]
+                  - columnheader "Autorización" [ref=e115]
+                  - columnheader "Tipo de Pago" [ref=e116]
+                  - columnheader "Total" [ref=e117]
+                  - columnheader "Acciones" [ref=e118]
+              - rowgroup [ref=e119]:
+                - 'row "VTA-202604-000009 28 abr 2026 cosme, fulanito - DNI: 32543423 Facturada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e120]':
+                  - cell "VTA-202604-000009" [ref=e121]
+                  - cell "28 abr 2026" [ref=e122]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e123]'
+                  - cell "Facturada" [ref=e124]:
+                    - generic [ref=e125]: Facturada
+                  - cell "No Requiere" [ref=e126]:
+                    - generic [ref=e127]: No Requiere
+                  - cell "Crédito" [ref=e129]
+                  - cell "$242,00" [ref=e130]
+                  - cell "visibility Devolver producto block" [ref=e131]:
+                    - generic [ref=e132]:
+                      - link "visibility" [ref=e133] [cursor=pointer]:
+                        - /url: /Venta/Details/14
+                        - generic [ref=e134]: visibility
+                      - button "Devolver producto" [ref=e135] [cursor=pointer]:
+                        - generic [ref=e136]: assignment_return
+                      - link "block" [ref=e137] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/14
+                        - generic [ref=e138]: block
+                - 'row "VTA-202604-000008 28 abr 2026 cosme, fulanito - DNI: 32543423 Facturada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e139]':
+                  - cell "VTA-202604-000008" [ref=e140]
+                  - cell "28 abr 2026" [ref=e141]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e142]'
+                  - cell "Facturada" [ref=e143]:
+                    - generic [ref=e144]: Facturada
+                  - cell "No Requiere" [ref=e145]:
+                    - generic [ref=e146]: No Requiere
+                  - cell "Crédito" [ref=e148]
+                  - cell "$242,00" [ref=e149]
+                  - cell "visibility Devolver producto block" [ref=e150]:
+                    - generic [ref=e151]:
+                      - link "visibility" [ref=e152] [cursor=pointer]:
+                        - /url: /Venta/Details/13
+                        - generic [ref=e153]: visibility
+                      - button "Devolver producto" [ref=e154] [cursor=pointer]:
+                        - generic [ref=e155]: assignment_return
+                      - link "block" [ref=e156] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/13
+                        - generic [ref=e157]: block
+                - 'row "VTA-202604-000007 28 abr 2026 cosme, fulanito - DNI: 32543423 Facturada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e158]':
+                  - cell "VTA-202604-000007" [ref=e159]
+                  - cell "28 abr 2026" [ref=e160]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e161]'
+                  - cell "Facturada" [ref=e162]:
+                    - generic [ref=e163]: Facturada
+                  - cell "No Requiere" [ref=e164]:
+                    - generic [ref=e165]: No Requiere
+                  - cell "Crédito" [ref=e167]
+                  - cell "$242,00" [ref=e168]
+                  - cell "visibility Devolver producto block" [ref=e169]:
+                    - generic [ref=e170]:
+                      - link "visibility" [ref=e171] [cursor=pointer]:
+                        - /url: /Venta/Details/12
+                        - generic [ref=e172]: visibility
+                      - button "Devolver producto" [ref=e173] [cursor=pointer]:
+                        - generic [ref=e174]: assignment_return
+                      - link "block" [ref=e175] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/12
+                        - generic [ref=e176]: block
+                - 'row "VTA-202604-000006 28 abr 2026 cosme, fulanito - DNI: 32543423 Presupuesto No Requiere Cta. Corriente $242,00 visibility assignment_return block" [ref=e177]':
+                  - cell "VTA-202604-000006" [ref=e178]
+                  - cell "28 abr 2026" [ref=e179]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e180]'
+                  - cell "Presupuesto" [ref=e181]:
+                    - generic [ref=e182]: Presupuesto
+                  - cell "No Requiere" [ref=e183]:
+                    - generic [ref=e184]: No Requiere
+                  - cell "Cta. Corriente" [ref=e186]
+                  - cell "$242,00" [ref=e187]
+                  - cell "visibility assignment_return block" [ref=e188]:
+                    - generic [ref=e189]:
+                      - link "visibility" [ref=e190] [cursor=pointer]:
+                        - /url: /Venta/Details/11
+                        - generic [ref=e191]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e192] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/11
+                        - generic [ref=e193]: block
+                - 'row "VTA-202604-000005 28 abr 2026 cosme, fulanito - DNI: 32543423 Presupuesto No Requiere Crédito $242,00 visibility assignment_return block" [ref=e194]':
+                  - cell "VTA-202604-000005" [ref=e195]
+                  - cell "28 abr 2026" [ref=e196]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e197]'
+                  - cell "Presupuesto" [ref=e198]:
+                    - generic [ref=e199]: Presupuesto
+                  - cell "No Requiere" [ref=e200]:
+                    - generic [ref=e201]: No Requiere
+                  - cell "Crédito" [ref=e203]
+                  - cell "$242,00" [ref=e204]
+                  - cell "visibility assignment_return block" [ref=e205]:
+                    - generic [ref=e206]:
+                      - link "visibility" [ref=e207] [cursor=pointer]:
+                        - /url: /Venta/Details/10
+                        - generic [ref=e208]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - link "block" [ref=e209] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/10
+                        - generic [ref=e210]: block
+                - 'row "VTA-202604-000004 28 abr 2026 cosme, fulanito - DNI: 32543423 Confirmada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e211]':
+                  - cell "VTA-202604-000004" [ref=e212]
+                  - cell "28 abr 2026" [ref=e213]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e214]'
+                  - cell "Confirmada" [ref=e215]:
+                    - generic [ref=e216]: Confirmada
+                  - cell "No Requiere" [ref=e217]:
+                    - generic [ref=e218]: No Requiere
+                  - cell "Crédito" [ref=e220]
+                  - cell "$242,00" [ref=e221]
+                  - cell "visibility Devolver producto block" [ref=e222]:
+                    - generic [ref=e223]:
+                      - link "visibility" [ref=e224] [cursor=pointer]:
+                        - /url: /Venta/Details/9
+                        - generic [ref=e225]: visibility
+                      - button "Devolver producto" [ref=e226] [cursor=pointer]:
+                        - generic [ref=e227]: assignment_return
+                      - link "block" [ref=e228] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/9
+                        - generic [ref=e229]: block
+                - 'row "VTA-202604-000003 28 abr 2026 cosme, fulanito - DNI: 32543423 Confirmada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e230]':
+                  - cell "VTA-202604-000003" [ref=e231]
+                  - cell "28 abr 2026" [ref=e232]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e233]'
+                  - cell "Confirmada" [ref=e234]:
+                    - generic [ref=e235]: Confirmada
+                  - cell "No Requiere" [ref=e236]:
+                    - generic [ref=e237]: No Requiere
+                  - cell "Crédito" [ref=e239]
+                  - cell "$242,00" [ref=e240]
+                  - cell "visibility Devolver producto block" [ref=e241]:
+                    - generic [ref=e242]:
+                      - link "visibility" [ref=e243] [cursor=pointer]:
+                        - /url: /Venta/Details/8
+                        - generic [ref=e244]: visibility
+                      - button "Devolver producto" [ref=e245] [cursor=pointer]:
+                        - generic [ref=e246]: assignment_return
+                      - link "block" [ref=e247] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/8
+                        - generic [ref=e248]: block
+                - 'row "VTA-202604-000002 28 abr 2026 cosme, fulanito - DNI: 32543423 Confirmada No Requiere Crédito $242,00 visibility Devolver producto block" [ref=e249]':
+                  - cell "VTA-202604-000002" [ref=e250]
+                  - cell "28 abr 2026" [ref=e251]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e252]'
+                  - cell "Confirmada" [ref=e253]:
+                    - generic [ref=e254]: Confirmada
+                  - cell "No Requiere" [ref=e255]:
+                    - generic [ref=e256]: No Requiere
+                  - cell "Crédito" [ref=e258]
+                  - cell "$242,00" [ref=e259]
+                  - cell "visibility Devolver producto block" [ref=e260]:
+                    - generic [ref=e261]:
+                      - link "visibility" [ref=e262] [cursor=pointer]:
+                        - /url: /Venta/Details/7
+                        - generic [ref=e263]: visibility
+                      - button "Devolver producto" [ref=e264] [cursor=pointer]:
+                        - generic [ref=e265]: assignment_return
+                      - link "block" [ref=e266] [cursor=pointer]:
+                        - /url: /Venta/Cancelar/7
+                        - generic [ref=e267]: block
+                - 'row "VTA-202604-000001 27 abr 2026 cosme, fulanito - DNI: 32543423 Cancelada No Requiere Crédito $242,00 visibility assignment_return block" [ref=e268]':
+                  - cell "VTA-202604-000001" [ref=e269]
+                  - cell "27 abr 2026" [ref=e270]
+                  - 'cell "cosme, fulanito - DNI: 32543423" [ref=e271]'
+                  - cell "Cancelada" [ref=e272]:
+                    - generic [ref=e273]: Cancelada
+                  - cell "No Requiere" [ref=e274]:
+                    - generic [ref=e275]: No Requiere
+                  - cell "Crédito" [ref=e277]
+                  - cell "$242,00" [ref=e278]
+                  - cell "visibility assignment_return block" [ref=e279]:
+                    - generic [ref=e280]:
+                      - link "visibility" [ref=e281] [cursor=pointer]:
+                        - /url: /Venta/Details/6
+                        - generic [ref=e282]: visibility
+                      - generic "Disponible solo para ventas confirmadas, facturadas o entregadas":
+                        - generic: assignment_return
+                      - generic "La venta no puede anularse en este estado":
+                        - generic: block
+          - generic [ref=e284]:
+            - paragraph [ref=e285]: Mostrando 9 resultados
+            - paragraph [ref=e286]: La última columna concentra seguimiento y acciones disponibles por operación.
+        - dialog "Nueva Venta" [ref=e307]:
+          - generic [ref=e310]:
+            - generic [ref=e311]:
+              - generic [ref=e312]:
+                - generic [ref=e314]: point_of_sale
+                - generic [ref=e315]:
+                  - heading "Nueva Venta" [level=2] [ref=e316]
+                  - paragraph [ref=e317]: Completá todos los campos y confirmá la transacción
+              - button "Cerrar modal" [ref=e318]:
+                - generic [ref=e319]: close
+            - generic [ref=e322]:
+              - generic [ref=e323]:
+                - generic [ref=e324]:
+                  - generic [ref=e325]:
+                    - generic [ref=e326]: "1"
+                    - generic [ref=e327]:
+                      - heading "Datos generales" [level=3] [ref=e328]
+                      - paragraph [ref=e329]: Cliente, fecha y forma de cobro
+                  - generic [ref=e330]:
+                    - generic [ref=e332]:
+                      - generic [ref=e333]: person_search
+                      - text: Buscar cliente
+                      - generic [ref=e334]: "*"
+                    - generic [ref=e450]:
+                      - generic [ref=e451]:
+                        - generic [ref=e453]: person
+                        - generic [ref=e454]:
+                          - paragraph [ref=e455]: fulanito cosme
+                          - paragraph [ref=e456]: "DNI: 32543423"
+                      - button "Cambiar cliente" [ref=e457] [cursor=pointer]
+                    - generic [ref=e337]:
+                      - generic [ref=e338]:
+                        - generic [ref=e339]: calendar_today
+                        - text: Fecha de operación
+                      - textbox "calendar_today Fecha de operación" [ref=e340] [cursor=pointer]: 2026-04-28
+                    - generic [ref=e341]:
+                      - generic [ref=e342]:
+                        - generic [ref=e343]: payments
+                        - text: Forma de pago
+                        - generic [ref=e344]: "*"
+                      - combobox "payments Forma de pago *" [ref=e345] [cursor=pointer]:
+                        - option "Efectivo" [selected]
+                        - option "Transferencia"
+                        - option "Tarjeta Débito"
+                        - option "Tarjeta Crédito"
+                        - option "Cheque"
+                        - option "Crédito Personal"
+                        - option "Mercado Pago"
+                        - option "Cuenta Corriente"
+                        - option "Tarjeta"
+                - generic [ref=e346]:
+                  - generic [ref=e347]:
+                    - generic [ref=e348]: "2"
+                    - generic [ref=e349]:
+                      - generic [ref=e350]:
+                        - heading "Selección de productos" [level=3] [ref=e351]
+                        - paragraph [ref=e352]: Buscá y agregá artículos al detalle
+                      - generic [ref=e353]:
+                        - generic [ref=e458]: shopping_bag
+                        - text: 0 productos
+                  - generic [ref=e355]:
+                    - generic [ref=e356]:
+                      - generic [ref=e357]:
+                        - generic [ref=e358]: category
+                        - text: Categoría
+                      - combobox "category Categoría" [ref=e359] [cursor=pointer]:
+                        - option "Todas las categorías" [selected]
+                        - option "Electrónica"
+                    - generic [ref=e360]:
+                      - generic [ref=e361]:
+                        - generic [ref=e362]: label
+                        - text: Marca
+                      - combobox "label Marca" [ref=e363] [cursor=pointer]:
+                        - option "Todas las marcas" [selected]
+                        - option "Samsung"
+                    - generic [ref=e364]:
+                      - generic [ref=e365]:
+                        - generic [ref=e366]: attach_money
+                        - text: Precio
+                      - generic [ref=e367]:
+                        - spinbutton "Precio mínimo" [ref=e368]
+                        - spinbutton "Precio máximo" [ref=e369]
+                    - generic [ref=e371] [cursor=pointer]:
+                      - checkbox "Solo con stock disponible" [checked] [ref=e372]
+                      - generic [ref=e373]: Solo con stock disponible
+                  - generic [ref=e375]:
+                    - generic [ref=e376]:
+                      - generic [ref=e377]: inventory_2
+                      - text: Buscar producto
+                    - generic [ref=e378]:
+                      - generic: search
+                      - textbox "Buscar producto por código o nombre" [ref=e379]:
+                        - /placeholder: Escriba código o nombre del producto…
+                  - generic [ref=e380]:
+                    - region "Detalle de productos" [ref=e382]:
+                      - table [ref=e383]:
+                        - rowgroup [ref=e384]:
+                          - row "Cód. Producto Cant. Unitario Desc. Subtotal" [ref=e385]:
+                            - columnheader "Cód." [ref=e386]
+                            - columnheader "Producto" [ref=e387]
+                            - columnheader "Cant." [ref=e388]
+                            - columnheader "Unitario" [ref=e389]
+                            - columnheader "Desc." [ref=e390]
+                            - columnheader "Subtotal" [ref=e391]
+                            - columnheader [ref=e392]
+                        - rowgroup
+                    - generic [ref=e393]:
+                      - generic [ref=e394]: shopping_cart
+                      - paragraph [ref=e395]: Ningún producto agregado todavía
+                      - paragraph [ref=e396]:
+                        - text: Buscá un artículo arriba y hacé click en
+                        - strong [ref=e397]: Añadir
+                - generic [ref=e399]:
+                  - generic [ref=e400]: "3"
+                  - generic [ref=e401]:
+                    - heading "Detalle de cobro" [level=3] [ref=e402]
+                    - paragraph [ref=e403]: Campos adaptados según la forma de pago
+              - generic [ref=e404]:
+                - generic [ref=e405]:
+                  - generic [ref=e406]:
+                    - generic [ref=e407]: "5"
+                    - generic [ref=e408]:
+                      - heading "Vendedor y observaciones" [level=3] [ref=e409]
+                      - paragraph [ref=e410]: Trazabilidad interna
+                  - generic [ref=e411]:
+                    - generic [ref=e412]:
+                      - generic [ref=e413]: badge
+                      - text: Vendedor asignado
+                      - generic [ref=e414]: "*"
+                    - combobox "badge Vendedor asignado *" [ref=e415] [cursor=pointer]:
+                      - option "Seleccione vendedor…" [selected]
+                      - option "vendedor"
+                  - generic [ref=e416]:
+                    - generic [ref=e417]:
+                      - generic [ref=e418]: notes
+                      - text: Observaciones internas
+                    - textbox "notes Observaciones internas" [ref=e419]:
+                      - /placeholder: Notas internas sobre esta operación…
+                - generic [ref=e420]:
+                  - generic [ref=e421]:
+                    - generic [ref=e422]:
+                      - paragraph [ref=e423]: Cierre
+                      - heading "Resumen de totales" [level=3] [ref=e424]
+                    - generic [ref=e425]:
+                      - generic [ref=e426]: receipt_long
+                      - text: Tiempo real
+                  - generic [ref=e427]:
+                    - generic [ref=e428]:
+                      - generic [ref=e429]: Subtotal Neto
+                      - generic [ref=e430]: $ 0,00
+                    - generic [ref=e431]:
+                      - generic [ref=e432]: Descuento (0%)
+                      - generic [ref=e433]: "-$ 0,00"
+                    - generic [ref=e434]:
+                      - generic [ref=e435]: IVA (21%)
+                      - generic [ref=e436]: $ 0,00
+                    - generic [ref=e438]:
+                      - generic [ref=e439]: TOTAL FINAL
+                      - generic [ref=e440]:
+                        - generic [ref=e441]: $ 0,00
+                        - text: ARS pesos argentinos
+                  - button "point_of_sale Confirmar Transacción" [ref=e442] [cursor=pointer]:
+                    - generic [ref=e443]: point_of_sale
+                    - text: Confirmar Transacción
+                  - paragraph [ref=e444]: Al confirmar se registrará la operación en el sistema.
+  - button "bug_report" [ref=e287]:
+    - generic [ref=e288]: bug_report
+  - complementary [ref=e289]:
+    - generic [ref=e290]:
+      - generic [ref=e291]:
+        - generic [ref=e292]: assignment
+        - heading [level=2] [ref=e293]: Incidentes
+      - generic [ref=e294]:
+        - button [ref=e295]:
+          - generic [ref=e296]: add
+          - text: Nuevo
+        - button [ref=e297]:
+          - generic [ref=e298]: close
+    - generic [ref=e299]:
+      - generic [ref=e300]:
+        - textbox [ref=e301]:
+          - /placeholder: Buscar...
+        - combobox [ref=e302] [cursor=pointer]
+        - combobox [ref=e303] [cursor=pointer]
+        - button [ref=e304]:
+          - generic [ref=e305]: filter_list
+      - list [ref=e306]

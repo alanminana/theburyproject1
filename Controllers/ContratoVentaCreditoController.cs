@@ -23,18 +23,50 @@ namespace TheBuryProject.Controllers
             _logger = logger;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> Preparar(int ventaId)
+        {
+            ViewBag.VentaId = ventaId;
+            ViewBag.ContratoGenerado = await _contratoService.ExisteContratoGeneradoAsync(ventaId);
+            return View();
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Generar(int ventaId)
         {
+            var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";
+
             try
             {
                 await _contratoService.GenerarPdfAsync(ventaId, _currentUser.GetUsername());
-                return RedirectToAction(nameof(Ver), new { ventaId });
+
+                if (isAjax)
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        ventaId,
+                        verUrl = Url.Action(nameof(Ver), new { ventaId }),
+                        confirmarUrl = Url.Action("Confirmar", "Venta", new { id = ventaId })
+                    });
+                }
+
+                return RedirectToAction(nameof(Preparar), new { ventaId });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al generar contrato para venta {VentaId}", ventaId);
+
+                if (isAjax)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "Error al generar el contrato: " + ex.Message
+                    });
+                }
+
                 TempData["Error"] = "Error al generar el contrato: " + ex.Message;
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }

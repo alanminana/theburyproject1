@@ -1,0 +1,216 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e41]:
+        - generic [ref=e42]: chevron_left
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Editar plantilla — Plantilla base" [level=2] [ref=e46]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: Dolar Blue
+              - generic [ref=e51]: $1.245,00
+            - generic [ref=e52]:
+              - generic [ref=e53]: Tarjeta
+              - generic [ref=e54]: $1.482,50
+            - generic [ref=e55]:
+              - generic [ref=e56]: Oficial
+              - generic [ref=e57]: $942,00
+        - generic [ref=e58]:
+          - button "notifications" [ref=e59]:
+            - generic [ref=e60]: notifications
+          - button "search" [ref=e62]:
+            - generic [ref=e63]: search
+          - button "Panel de incidentes" [ref=e64]:
+            - generic [ref=e65]: assignment
+          - button "help" [ref=e67]:
+            - generic [ref=e68]: help
+      - generic [ref=e70]:
+        - navigation "Breadcrumb" [ref=e71]:
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Inicio" [ref=e74] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e75]: /
+            - listitem [ref=e76]:
+              - link "Plantillas de contrato" [ref=e77] [cursor=pointer]:
+                - /url: /PlantillaContratoCredito
+            - listitem [ref=e78]: /
+            - listitem [ref=e79]: Editar plantilla — Plantilla base
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - heading "Identificación" [level=2] [ref=e82]
+            - generic [ref=e83]:
+              - generic [ref=e84]: Nombre
+              - textbox "Nombre" [ref=e85]:
+                - /placeholder: "Ej: Contrato estándar 2025"
+                - text: Plantilla base
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - generic [ref=e88]: Vigente desde
+                - textbox "Vigente desde" [ref=e89]: 2025-01-01
+              - generic [ref=e90]:
+                - generic [ref=e91]: Vigente hasta
+                - textbox "Vigente hasta" [ref=e92]
+                - paragraph [ref=e93]: Dejá en blanco para vigencia indefinida.
+            - generic [ref=e94]:
+              - checkbox "Plantilla activa" [checked] [ref=e95]
+              - generic [ref=e96] [cursor=pointer]: Plantilla activa
+          - generic [ref=e97]:
+            - heading "Datos del vendedor" [level=2] [ref=e98]
+            - paragraph [ref=e99]: Estos datos se incrustan fijos en cada contrato generado con esta plantilla.
+            - generic [ref=e100]:
+              - generic [ref=e101]: Nombre del vendedor
+              - textbox "Nombre del vendedor" [ref=e102]:
+                - /placeholder: Razón social o nombre del vendedor
+                - text: Nombre del vendedor / comercio
+            - generic [ref=e103]:
+              - generic [ref=e104]: Domicilio del vendedor
+              - textbox "Domicilio del vendedor" [ref=e105]:
+                - /placeholder: Domicilio legal completo
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - generic [ref=e108]: DNI del vendedor
+                - textbox "DNI del vendedor" [ref=e109]:
+                  - /placeholder: Opcional
+              - generic [ref=e110]:
+                - generic [ref=e111]: CUIT del vendedor
+                - textbox "CUIT del vendedor" [ref=e112]:
+                  - /placeholder: XX-XXXXXXXX-X
+              - generic [ref=e113]:
+                - generic [ref=e114]: Ciudad de firma
+                - textbox "Ciudad de firma" [ref=e115]:
+                  - /placeholder: Ciudad donde se firma el contrato
+                  - text: Ciudad
+              - generic [ref=e116]:
+                - generic [ref=e117]: Jurisdicción
+                - textbox "Jurisdicción" [ref=e118]:
+                  - /placeholder: "Ej: Provincia de Córdoba"
+                  - text: Provincia
+            - generic [ref=e119]:
+              - generic [ref=e120]: Interés por mora diario (%)
+              - generic [ref=e121]:
+                - spinbutton "Interés por mora diario (%)" [ref=e122]: "0.0500"
+                - generic [ref=e123]: "% diario"
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - generic [ref=e126]:
+                - heading "Texto del contrato" [level=2] [ref=e127]
+                - paragraph [ref=e128]:
+                  - text: Usá variables como
+                  - code [ref=e129]: "{{COMPRADOR_NOMBRE}}"
+                  - text: para insertar datos dinámicos.
+              - link "Ver variables disponibles" [ref=e130] [cursor=pointer]:
+                - /url: /PlantillaContratoCredito
+            - generic [ref=e131]:
+              - generic [ref=e132]: Texto del contrato
+              - textbox "Texto del contrato" [ref=e133]:
+                - /placeholder: "En la ciudad de {{COMPRADOR_LOCALIDAD}}, el día {{FECHA_OPERACION}}, entre..."
+                - text: "CONTRATO DE COMPRAVENTA A CRÉDITO PERSONAL En {{COMPRADOR_LOCALIDAD}}, el día {{FECHA_OPERACION}}, entre: VENDEDOR: {{VENDEDOR_NOMBRE}}, con domicilio en {{VENDEDOR_DOMICILIO}}, CUIT {{VENDEDOR_CUIT}} (en adelante \"el Vendedor\"), y COMPRADOR: {{COMPRADOR_NOMBRE}}, DNI {{COMPRADOR_DNI}}, con domicilio en {{COMPRADOR_DOMICILIO}}, localidad {{COMPRADOR_LOCALIDAD}}, teléfono {{COMPRADOR_TELEFONO}} (en adelante \"el Comprador\"), se conviene el siguiente contrato de compraventa a crédito: CLÁUSULA 1 — OBJETO El Vendedor vende al Comprador los siguientes bienes: {{PRODUCTOS_DETALLE}} Precio total de contado: {{PRECIO_TOTAL}} CLÁUSULA 2 — PRECIO Y CONDICIONES DE PAGO El Comprador abonará el precio en {{CANTIDAD_CUOTAS}} cuotas mensuales de {{VALOR_CUOTA}} cada una. Total a pagar: {{SALDO_FINANCIADO}} Plan de cuotas: {{PLAN_CUOTAS}} CLÁUSULA 3 — INTERÉS POR MORA El atraso en el pago de cualquier cuota devengará un interés punitorio del {{INTERES_MORA}}% diario sobre el capital adeudado. CLÁUSULA 4 — JURISDICCIÓN Las partes se someten a la jurisdicción de los tribunales ordinarios de {{VENDEDOR_DOMICILIO}}. Número de contrato: {{NUMERO_CONTRATO}} Emitido el: {{FECHA_HORA_EMISION}} Operador: {{USUARIO_GENERACION}}"
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - heading "Texto del pagaré" [level=2] [ref=e136]
+              - paragraph [ref=e137]: Texto del instrumento de pago que acompaña al contrato.
+            - generic [ref=e138]:
+              - generic [ref=e139]: Texto del pagaré
+              - textbox "Texto del pagaré" [ref=e140]:
+                - /placeholder: "Debo y pagaré a {{VENDEDOR_NOMBRE}}..."
+                - text: "PAGARÉ N° {{NUMERO_PAGARE}} Monto: {{SALDO_FINANCIADO}} En {{CANTIDAD_CUOTAS}} cuotas de {{VALOR_CUOTA}} Yo, {{COMPRADOR_NOMBRE}}, DNI {{COMPRADOR_DNI}}, domiciliado en {{COMPRADOR_DOMICILIO}}, DEBO Y PAGARÉ a la orden de {{VENDEDOR_NOMBRE}} la suma indicada en las fechas establecidas en el plan de cuotas. Fecha de emisión: {{FECHA_HORA_EMISION}} Lugar de pago: {{VENDEDOR_DOMICILIO}}"
+          - generic [ref=e141]:
+            - button "save Guardar cambios" [ref=e142] [cursor=pointer]:
+              - generic [ref=e143]: save
+              - text: Guardar cambios
+            - link "Cancelar" [ref=e144] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+  - button "bug_report" [ref=e145]:
+    - generic [ref=e146]: bug_report
+  - complementary [ref=e147]:
+    - generic [ref=e148]:
+      - generic [ref=e149]:
+        - generic [ref=e150]: assignment
+        - heading [level=2] [ref=e151]: Incidentes
+      - generic [ref=e152]:
+        - button [ref=e153]:
+          - generic [ref=e154]: add
+          - text: Nuevo
+        - button [ref=e155]:
+          - generic [ref=e156]: close
+    - generic [ref=e157]:
+      - generic [ref=e158]:
+        - textbox [ref=e159]:
+          - /placeholder: Buscar...
+        - combobox [ref=e160] [cursor=pointer]
+        - combobox [ref=e161] [cursor=pointer]
+        - button [ref=e162]:
+          - generic [ref=e163]: filter_list
+      - list [ref=e164]

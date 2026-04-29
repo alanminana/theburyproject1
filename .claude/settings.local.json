@@ -28,7 +28,10 @@
       "Bash(dotnet build *)",
       "mcp__plugin_playwright_playwright__browser_select_option",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5187/)",
-      "mcp__plugin_playwright_playwright__browser_close"
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "PowerShell(Stop-Process -Id 24064 -Force)"
     ],
     "deny": [],
     "additionalDirectories": [

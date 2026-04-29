@@ -1,0 +1,149 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e37]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e39]:
+        - generic [ref=e40]: chevron_left
+    - main [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - heading "Generar contrato" [level=2] [ref=e44]
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]: Dolar Blue
+              - generic [ref=e49]: $1.245,00
+            - generic [ref=e50]:
+              - generic [ref=e51]: Tarjeta
+              - generic [ref=e52]: $1.482,50
+            - generic [ref=e53]:
+              - generic [ref=e54]: Oficial
+              - generic [ref=e55]: $942,00
+        - generic [ref=e56]:
+          - button "notifications" [ref=e57]:
+            - generic [ref=e58]: notifications
+          - button "search" [ref=e60]:
+            - generic [ref=e61]: search
+          - button "Panel de incidentes" [ref=e62]:
+            - generic [ref=e63]: assignment
+          - button "help" [ref=e65]:
+            - generic [ref=e66]: help
+      - generic [ref=e68]:
+        - navigation "Breadcrumb" [ref=e69]:
+          - list [ref=e70]:
+            - listitem [ref=e71]:
+              - link "Inicio" [ref=e72] [cursor=pointer]:
+                - /url: /
+            - listitem [ref=e73]: /
+            - listitem [ref=e74]:
+              - 'link "Venta #1" [ref=e75] [cursor=pointer]':
+                - /url: /Venta/Details/1
+            - listitem [ref=e76]: /
+            - listitem [ref=e77]: Generar contrato
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: contract
+            - generic [ref=e81]:
+              - paragraph [ref=e82]: Requerido antes de confirmar
+              - heading "Documentación contractual" [level=1] [ref=e83]
+              - paragraph [ref=e84]: Para confirmar esta venta con Crédito Personal es obligatorio generar e imprimir el contrato y el pagaré.
+          - list [ref=e85]:
+            - listitem [ref=e86]:
+              - generic [ref=e87]: looks_one
+              - text: Generá el contrato usando el botón de abajo.
+            - listitem [ref=e88]:
+              - generic [ref=e89]: looks_two
+              - text: El PDF se abrirá para imprimir. Imprimí y firmá antes de continuar.
+            - listitem [ref=e90]:
+              - generic [ref=e91]: looks_3
+              - text: Una vez impreso, volvé y confirmá la operación.
+          - button "print Generar e imprimir contrato" [ref=e93] [cursor=pointer]:
+            - generic [ref=e94]: print
+            - text: Generar e imprimir contrato
+          - link "Volver a la venta" [ref=e95] [cursor=pointer]:
+            - /url: /Venta/Details/1
+  - button "bug_report" [ref=e96]:
+    - generic [ref=e97]: bug_report
+  - complementary [ref=e98]:
+    - generic [ref=e99]:
+      - generic [ref=e100]:
+        - generic [ref=e101]: assignment
+        - heading [level=2] [ref=e102]: Incidentes
+      - generic [ref=e103]:
+        - button [ref=e104]:
+          - generic [ref=e105]: add
+          - text: Nuevo
+        - button [ref=e106]:
+          - generic [ref=e107]: close
+    - generic [ref=e108]:
+      - generic [ref=e109]:
+        - textbox [ref=e110]:
+          - /placeholder: Buscar...
+        - combobox [ref=e111] [cursor=pointer]
+        - combobox [ref=e112] [cursor=pointer]
+        - button [ref=e113]:
+          - generic [ref=e114]: filter_list
+      - list [ref=e115]

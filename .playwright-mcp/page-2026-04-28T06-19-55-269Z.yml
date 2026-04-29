@@ -1,0 +1,222 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+      - button "Colapsar/expandir sidebar" [ref=e41]:
+        - generic [ref=e42]: chevron_left
+    - main [ref=e43]:
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Módulo de Cajas" [level=2] [ref=e46]
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - generic [ref=e50]: Dolar Blue
+              - generic [ref=e51]: $1.245,00
+            - generic [ref=e52]:
+              - generic [ref=e53]: Tarjeta
+              - generic [ref=e54]: $1.482,50
+            - generic [ref=e55]:
+              - generic [ref=e56]: Oficial
+              - generic [ref=e57]: $942,00
+        - generic [ref=e58]:
+          - button "notifications" [ref=e59]:
+            - generic [ref=e60]: notifications
+          - button "search" [ref=e62]:
+            - generic [ref=e63]: search
+          - button "Panel de incidentes" [ref=e64]:
+            - generic [ref=e65]: assignment
+          - button "help" [ref=e67]:
+            - generic [ref=e68]: help
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - heading "Módulo de Cajas" [level=1] [ref=e73]
+          - link "history Historial de cierres" [ref=e74] [cursor=pointer]:
+            - /url: /Caja/Historial
+            - generic [ref=e75]: history
+            - text: Historial de cierres
+          - button "add_circle Nueva caja" [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]: add_circle
+            - text: Nueva caja
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - generic [ref=e82]: sensors
+                - heading "Cajas actualmente abiertas" [level=2] [ref=e83]
+                - generic [ref=e84]: En vivo
+              - paragraph [ref=e85]: Turnos en curso con accesos rápidos para registrar movimientos, revisar actividad y cerrar caja.
+            - generic [ref=e86]:
+              - generic [ref=e87]: monitoring
+              - text: 1 apertura visible
+          - region "Tabla de cajas abiertas" [ref=e90]:
+            - table [ref=e91]:
+              - rowgroup [ref=e92]:
+                - row "Caja / Código Usuario Apertura Fecha / Hora Fondo inicial Movimientos Saldo en caja info Acciones" [ref=e93]:
+                  - columnheader "Caja / Código" [ref=e94]
+                  - columnheader "Usuario Apertura" [ref=e95]
+                  - columnheader "Fecha / Hora" [ref=e96]
+                  - columnheader "Fondo inicial" [ref=e97]
+                  - columnheader "Movimientos" [ref=e98]
+                  - columnheader "Saldo en caja info" [ref=e99]:
+                    - generic [ref=e100]:
+                      - text: Saldo en caja
+                      - 'generic "Efectivo físico esperado: fondo inicial + ingresos (efectivo, tarjeta, cheque, cobros de cuota) − egresos. No incluye ventas a crédito personal ni cuenta corriente." [ref=e101]': info
+                  - columnheader "Acciones" [ref=e102]
+              - rowgroup [ref=e103]:
+                - row "admin caja1 person admin 28/04/2026 00:09 hs $ 0,00 0 movimientos $ 0,00 Solo efectivo físico list_alt add_card lock" [ref=e104]:
+                  - cell "admin caja1" [ref=e105]:
+                    - generic [ref=e106]:
+                      - generic [ref=e107]: admin
+                      - generic [ref=e108]: caja1
+                  - cell "person admin" [ref=e109]:
+                    - generic [ref=e110]:
+                      - generic [ref=e112]: person
+                      - generic [ref=e113]: admin
+                  - cell "28/04/2026 00:09 hs" [ref=e114]:
+                    - generic [ref=e115]:
+                      - generic [ref=e116]: 28/04/2026
+                      - generic [ref=e117]: 00:09 hs
+                  - cell "$ 0,00" [ref=e118]
+                  - cell "0 movimientos" [ref=e119]:
+                    - generic [ref=e121]: 0 movimientos
+                  - cell "$ 0,00 Solo efectivo físico" [ref=e122]:
+                    - generic [ref=e123]:
+                      - generic [ref=e124]: $ 0,00
+                      - generic [ref=e125]: Solo efectivo físico
+                  - cell "list_alt add_card lock" [ref=e126]:
+                    - generic [ref=e127]:
+                      - link "list_alt" [ref=e128] [cursor=pointer]:
+                        - /url: /Caja/DetallesApertura/1
+                        - generic [ref=e129]: list_alt
+                      - link "add_card" [ref=e130] [cursor=pointer]:
+                        - /url: /Caja/RegistrarMovimiento?aperturaId=1
+                        - generic [ref=e131]: add_card
+                      - link "lock" [ref=e132] [cursor=pointer]:
+                        - /url: /Caja/Cerrar?aperturaId=1
+                        - generic [ref=e133]: lock
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - generic [ref=e137]:
+                - generic [ref=e138]: point_of_sale
+                - heading "Maestro de Cajas Activas" [level=2] [ref=e139]
+              - paragraph [ref=e140]: Terminales disponibles para apertura, con acceso a la apertura activa o a su gestión administrativa.
+            - generic [ref=e141]:
+              - generic [ref=e142]: inventory_2
+              - text: 1 activas · 0 listas para abrir
+          - region "Tabla del maestro de cajas activas" [ref=e145]:
+            - table [ref=e146]:
+              - rowgroup [ref=e147]:
+                - row "Código Nombre de Caja Sucursal / Ubicación Estado Gestión" [ref=e148]:
+                  - columnheader "Código" [ref=e149]
+                  - columnheader "Nombre de Caja" [ref=e150]
+                  - columnheader "Sucursal / Ubicación" [ref=e151]
+                  - columnheader "Estado" [ref=e152]
+                  - columnheader "Gestión" [ref=e153]
+              - rowgroup [ref=e154]:
+                - row "caja1 admin test si Abierta open_in_new edit" [ref=e155]:
+                  - cell "caja1" [ref=e156]
+                  - cell "admin" [ref=e157]
+                  - cell "test si" [ref=e158]:
+                    - generic [ref=e159]:
+                      - generic [ref=e160]: test
+                      - generic [ref=e161]: si
+                  - cell "Abierta" [ref=e162]:
+                    - generic [ref=e165]: Abierta
+                  - cell "open_in_new edit" [ref=e166]:
+                    - generic [ref=e167]:
+                      - link "open_in_new" [ref=e168] [cursor=pointer]:
+                        - /url: /Caja/DetallesApertura/1
+                        - generic [ref=e169]: open_in_new
+                      - button "edit" [ref=e170]:
+                        - generic [ref=e171]: edit
+  - button "bug_report" [ref=e172]:
+    - generic [ref=e173]: bug_report
+  - complementary [ref=e174]:
+    - generic [ref=e175]:
+      - generic [ref=e176]:
+        - generic [ref=e177]: assignment
+        - heading [level=2] [ref=e178]: Incidentes
+      - generic [ref=e179]:
+        - button [ref=e180]:
+          - generic [ref=e181]: add
+          - text: Nuevo
+        - button [ref=e182]:
+          - generic [ref=e183]: close
+    - generic [ref=e184]:
+      - generic [ref=e185]:
+        - textbox [ref=e186]:
+          - /placeholder: Buscar...
+        - combobox [ref=e187] [cursor=pointer]
+        - combobox [ref=e188] [cursor=pointer]
+        - button [ref=e189]:
+          - generic [ref=e190]: filter_list
+      - list [ref=e191]

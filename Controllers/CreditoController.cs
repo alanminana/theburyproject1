@@ -293,6 +293,22 @@ namespace TheBuryProject.Controllers
             };
         }
 
+        // GET: Credito/PanelCliente/5
+        [HttpGet]
+        public async Task<IActionResult> PanelCliente(int id)
+        {
+            if (id <= 0)
+                return BadRequest();
+
+            var creditos = await _creditoService.GetByClienteIdAsync(id);
+            var grupo = AgruparCreditosPorCliente(creditos).FirstOrDefault();
+
+            if (grupo == null)
+                return NotFound();
+
+            return PartialView("_PanelClientePartial", grupo);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         #endregion
@@ -445,7 +461,8 @@ namespace TheBuryProject.Controllers
                 FechaPrimeraCuota = credito.FechaPrimeraCuota,
                 CreditoEstaConfigurado = credito.Estado == EstadoCredito.Configurado,
                 ContratoGenerado = ventaId.HasValue &&
-                    await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(ventaId.Value)
+                    await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(ventaId.Value),
+                PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync()
             };
 
             // Pasar datos del cliente a la vista para JS
@@ -607,13 +624,8 @@ namespace TheBuryProject.Controllers
 
             if (modelo.VentaId.HasValue)
             {
-                TempData["Success"] = "Crédito configurado. Genere el Contrato de Venta antes de confirmar.";
-                return RedirectToAction(nameof(ConfigurarVenta), new
-                {
-                    id = modelo.CreditoId,
-                    ventaId = modelo.VentaId.Value,
-                    returnUrl = Url.GetSafeReturnUrl(returnUrl)
-                });
+                TempData["Success"] = "Crédito configurado. Generá el contrato para continuar.";
+                return RedirectToAction("Preparar", "ContratoVentaCredito", new { ventaId = modelo.VentaId.Value });
             }
 
             TempData["Success"] = "Crédito configurado y listo para confirmación.";
@@ -684,6 +696,7 @@ namespace TheBuryProject.Controllers
         {
             modelo.ContratoGenerado = modelo.VentaId.HasValue &&
                 await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
+            modelo.PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync();
             ViewBag.PerfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
             return View("ConfigurarVenta_tw", modelo);
         }

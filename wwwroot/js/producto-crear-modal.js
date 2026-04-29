@@ -74,8 +74,6 @@ const ProductoModal = (() => {
         // Restablecer precio final
         const precioFinal = el('modal-precioFinal');
         if (precioFinal) precioFinal.value = '0.00';
-        const comision = el('modal-comisionPorcentaje');
-        if (comision) comision.value = '0';
 
         // Ocultar errores
         hideValidation();
@@ -359,6 +357,160 @@ const ProductoModal = (() => {
         updateCaracteristicasUi();
     }
 
+    // ── Inserción en DOM tras alta exitosa ──────────────────
+    function mkEl(tag, cls) {
+        var el = document.createElement(tag);
+        if (cls) el.className = cls;
+        return el;
+    }
+
+    function onProductoCreado(entity) {
+        if (!entity) return;
+
+        var tbody = document.getElementById('productos-tbody');
+        if (!tbody) return;
+
+        var emptyRow = tbody.querySelector('tr td[colspan]');
+        if (emptyRow) emptyRow.closest('tr').remove();
+
+        var precio = parseFloat(entity.precioVenta || 0)
+            .toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        var searchData = [
+            entity.codigo || '', entity.nombre || '',
+            entity.descripcion || '', entity.categoriaNombre || '', entity.marcaNombre || ''
+        ].join(' ').toLowerCase().trim();
+
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-white/5 transition-colors';
+        tr.setAttribute('data-catalogo-producto-id', entity.id);
+        tr.setAttribute('data-producto-codigo', entity.codigo || '');
+        tr.setAttribute('data-producto-nombre', entity.nombre || '');
+        tr.setAttribute('data-search', searchData);
+
+        // td: checkbox
+        var tdChk = mkEl('td', 'w-10 px-3 py-4');
+        var chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.className = 'chk-producto rounded border-slate-600 text-primary focus:ring-primary cursor-pointer';
+        chk.value = entity.id;
+        chk.setAttribute('aria-label', 'Seleccionar ' + (entity.nombre || ''));
+        tdChk.appendChild(chk);
+
+        // td: codigo
+        var tdCodigo = mkEl('td', 'px-6 py-4 text-sm font-mono text-slate-400');
+        tdCodigo.textContent = entity.codigo || '';
+
+        // td: nombre + descripcion
+        var tdNombre = mkEl('td', 'px-6 py-4');
+        var divFlex = mkEl('div', 'flex items-center gap-3');
+        var divIcon = mkEl('div', 'w-10 h-10 rounded bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0');
+        var iconSpan = mkEl('span', 'material-symbols-outlined text-slate-400 text-lg');
+        iconSpan.textContent = 'package_2';
+        divIcon.appendChild(iconSpan);
+        var divText = mkEl('div');
+        var spanNombre = mkEl('span', 'text-sm font-semibold text-white');
+        spanNombre.textContent = entity.nombre || '';
+        divText.appendChild(spanNombre);
+        if (entity.descripcion) {
+            var pDesc = mkEl('p', 'text-[10px] text-slate-400 truncate max-w-[200px]');
+            pDesc.textContent = entity.descripcion;
+            divText.appendChild(pDesc);
+        }
+        divFlex.appendChild(divIcon);
+        divFlex.appendChild(divText);
+        tdNombre.appendChild(divFlex);
+
+        // td: categoria
+        var tdCat = mkEl('td', 'px-6 py-4 text-sm text-slate-300');
+        tdCat.textContent = entity.categoriaNombre || '—';
+
+        // td: marca
+        var tdMarca = mkEl('td', 'px-6 py-4 text-sm text-slate-300');
+        tdMarca.textContent = entity.marcaNombre || '—';
+
+        // td: stock (siempre Agotado para un producto nuevo)
+        var tdStock = mkEl('td', 'px-6 py-4 text-center');
+        var spanStock = mkEl('span', 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30');
+        spanStock.textContent = 'Agotado';
+        tdStock.appendChild(spanStock);
+
+        // td: precio
+        var tdPrecio = mkEl('td', 'px-6 py-4');
+        var pPrecio = mkEl('p', 'text-sm font-bold text-white');
+        pPrecio.textContent = '$ ' + precio;
+        var pComision = mkEl('p', 'text-[10px] text-slate-400');
+        pComision.textContent = 'Comisión vendedor: ';
+        var spanComision = mkEl('span');
+        spanComision.setAttribute('data-producto-comision', '');
+        spanComision.textContent = 'Sin comisión';
+        pComision.appendChild(spanComision);
+        tdPrecio.appendChild(pPrecio);
+        tdPrecio.appendChild(pComision);
+
+        // td: acciones — atributos de usuario via setAttribute, íconos via textContent
+        var tdAcc = mkEl('td', 'px-6 py-4 text-right');
+        var divBtns = mkEl('div', 'flex flex-wrap justify-end gap-2');
+
+        function mkActionBtn(cls, title, attrs, iconText, labelText) {
+            var btn = mkEl('button', cls);
+            btn.type = 'button';
+            btn.title = title;
+            for (var k in attrs) btn.setAttribute(k, attrs[k]);
+            var ico = mkEl('span', 'material-symbols-outlined');
+            ico.textContent = iconText;
+            var lbl = mkEl('span');
+            lbl.textContent = labelText;
+            btn.appendChild(ico);
+            btn.appendChild(lbl);
+            return btn;
+        }
+
+        divBtns.appendChild(mkActionBtn(
+            'row-action row-action--primary', 'Historial de precio',
+            { 'data-catalogo-modal-open': 'historial-precio', 'data-catalogo-producto-id': entity.id },
+            'history', 'Historial'
+        ));
+        divBtns.appendChild(mkActionBtn(
+            'row-action row-action--primary', 'Comisión vendedor: 0.00%',
+            { 'data-comision-producto-id': entity.id, 'data-comision-producto-nombre': entity.nombre || '', 'data-comision-porcentaje': '0' },
+            'percent', 'Comisión'
+        ));
+        divBtns.appendChild(mkActionBtn(
+            'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white',
+            'Editar', { 'data-prod-edit-id': entity.id },
+            'edit', 'Editar'
+        ));
+        divBtns.appendChild(mkActionBtn(
+            'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400',
+            'Eliminar', { 'data-prod-delete-id': entity.id, 'data-prod-delete-nombre': entity.nombre || '' },
+            'delete', 'Eliminar'
+        ));
+
+        tdAcc.appendChild(divBtns);
+
+        tr.appendChild(tdChk);
+        tr.appendChild(tdCodigo);
+        tr.appendChild(tdNombre);
+        tr.appendChild(tdCat);
+        tr.appendChild(tdMarca);
+        tr.appendChild(tdStock);
+        tr.appendChild(tdPrecio);
+        tr.appendChild(tdAcc);
+        tbody.appendChild(tr);
+
+        var countBadge  = document.getElementById('productos-visible-count');
+        var footerCount = document.getElementById('productos-footer-count');
+        if (countBadge)  countBadge.textContent  = parseInt(countBadge.textContent  || '0', 10) + 1;
+        if (footerCount) footerCount.textContent = parseInt(footerCount.textContent || '0', 10) + 1;
+
+        if (typeof CatalogoModule !== 'undefined') {
+            var selApi = CatalogoModule.getProductSelectionApi();
+            if (selApi && typeof selApi.refreshUi === 'function') selApi.refreshUi();
+            CatalogoModule.requestScrollRefresh();
+        }
+    }
+
     // ── Envío AJAX ──────────────────────────────────────────
     function initSubmit() {
         const form = el('form-nuevo-producto');
@@ -393,8 +545,9 @@ const ProductoModal = (() => {
 
                 if (result.success) {
                     close();
+                    onProductoCreado(result.entity);
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
-                        detail: { message: 'Producto creado exitosamente. Aplicá o refrescá los filtros para verlo en la lista.', type: 'success' }
+                        detail: { message: 'Producto creado exitosamente.', type: 'success' }
                     }));
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
@@ -422,11 +575,6 @@ const ProductoModal = (() => {
 
         const venta = parseFloat(fd.get('PrecioVenta'));
         if (isNaN(venta) || venta < 0) errors.push('El precio de venta es obligatorio');
-
-        const comision = parseFloat(fd.get('ComisionPorcentaje') || '0');
-        if (isNaN(comision) || comision < 0 || comision > 100) {
-            errors.push('La comisión vendedor debe estar entre 0 y 100');
-        }
 
         return errors;
     }

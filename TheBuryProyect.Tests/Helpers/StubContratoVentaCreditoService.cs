@@ -28,6 +28,9 @@ public sealed class StubContratoVentaCreditoService : IContratoVentaCreditoServi
     public Task<bool> ExisteContratoGeneradoAsync(int ventaId)
         => Task.FromResult(_existeContratoGenerado);
 
+    public Task<bool> ExistePlantillaActivaAsync()
+        => Task.FromResult(true);
+
     public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId)
         => Task.FromResult<ContratoVentaCredito?>(null);
 

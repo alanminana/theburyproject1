@@ -393,6 +393,31 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<Producto> ActualizarComisionAsync(int id, decimal porcentaje)
+        {
+            if (porcentaje < 0 || porcentaje > 100)
+                throw new InvalidOperationException("El porcentaje de comisión debe estar entre 0 y 100.");
+
+            try
+            {
+                var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+                if (producto == null)
+                    throw new InvalidOperationException($"No se encontró el producto con ID {id}");
+
+                producto.ComisionPorcentaje = porcentaje;
+                producto.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Comisión actualizada para producto {Id}: {Porcentaje}%", id, porcentaje);
+                return producto;
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                _logger.LogError(ex, "Error al actualizar comisión para producto {Id}", id);
+                throw;
+            }
+        }
+
         #endregion
 
         #region Eliminar / Stock

@@ -174,6 +174,9 @@ namespace TheBuryProject.Services
             return File.Exists(ResolverRutaContrato(contrato.RutaArchivo!));
         }
 
+        public async Task<bool> ExistePlantillaActivaAsync()
+            => await ObtenerPlantillaActivaAsync() != null;
+
         public async Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId)
         {
             return await _context.ContratosVentaCredito
@@ -571,38 +574,98 @@ namespace TheBuryProject.Services
                 snapshot.Credito.PlanCuotas.Select(c =>
                     $"Cuota {c.NumeroCuota}: vence {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C2}"));
 
+            var saldoFinanciado = snapshot.Credito.TotalAPagar - (snapshot.Credito.TotalAPagar - snapshot.Credito.MontoCuota * snapshot.Credito.CantidadCuotas);
+            var vendedorNombre   = snapshot.Vendedor.Nombre;
+            var vendedorDom      = snapshot.Vendedor.Domicilio;
+            var vendedorDni      = snapshot.Vendedor.DNI ?? string.Empty;
+            var vendedorCuit     = snapshot.Vendedor.CUIT ?? string.Empty;
+            var compradorNombre  = snapshot.Comprador.NombreCompleto;
+            var compradorDni     = snapshot.Comprador.DNI;
+            var compradorCuil    = snapshot.Comprador.CUITCUIL ?? string.Empty;
+            var compradorDom     = snapshot.Comprador.Domicilio;
+            var compradorLocal   = snapshot.Comprador.Localidad;
+            var compradorTel     = snapshot.Comprador.Telefono;
+            var garanteNombre    = snapshot.Garante?.NombreCompleto ?? string.Empty;
+            var garanteDni       = snapshot.Garante?.DNI ?? string.Empty;
+            var garanteDom       = snapshot.Garante?.Domicilio ?? string.Empty;
+            var garanteRelacion  = snapshot.Garante?.Relacion ?? string.Empty;
+            var ventaNumero      = snapshot.Venta.Numero;
+            var ventaFecha       = snapshot.Venta.Fecha.ToString("dd/MM/yyyy");
+            var ventaTotal       = snapshot.Venta.Total.ToString("C2");
+            var creditoNumero    = snapshot.Credito.Numero;
+            var cantCuotas       = snapshot.Credito.CantidadCuotas.ToString();
+            var montoCuota       = snapshot.Credito.MontoCuota.ToString("C2");
+            var totalPagar       = snapshot.Credito.TotalAPagar.ToString("C2");
+            var fechaPrimera     = snapshot.Credito.FechaPrimeraCuota.ToString("dd/MM/yyyy");
+            var contratoNum      = snapshot.Contrato.Numero;
+            var pagareNum        = snapshot.Contrato.NumeroPagare;
+            var fechaEmision     = snapshot.Contrato.FechaEmision.ToString("dd/MM/yyyy HH:mm");
+            var usuario          = snapshot.UsuarioGeneracion;
+            var sucursal         = snapshot.Sucursal ?? string.Empty;
+            var caja             = snapshot.Caja ?? string.Empty;
+
             return new Dictionary<string, string>
             {
-                ["{{Vendedor.Nombre}}"] = snapshot.Vendedor.Nombre,
-                ["{{Vendedor.Domicilio}}"] = snapshot.Vendedor.Domicilio,
-                ["{{Vendedor.DNI}}"] = snapshot.Vendedor.DNI ?? string.Empty,
-                ["{{Vendedor.CUIT}}"] = snapshot.Vendedor.CUIT ?? string.Empty,
-                ["{{Comprador.NombreCompleto}}"] = snapshot.Comprador.NombreCompleto,
-                ["{{Comprador.DNI}}"] = snapshot.Comprador.DNI,
-                ["{{Comprador.CUITCUIL}}"] = snapshot.Comprador.CUITCUIL ?? string.Empty,
-                ["{{Comprador.Domicilio}}"] = snapshot.Comprador.Domicilio,
-                ["{{Comprador.Localidad}}"] = snapshot.Comprador.Localidad,
-                ["{{Comprador.Telefono}}"] = snapshot.Comprador.Telefono,
-                ["{{Garante.NombreCompleto}}"] = snapshot.Garante?.NombreCompleto ?? string.Empty,
-                ["{{Garante.DNI}}"] = snapshot.Garante?.DNI ?? string.Empty,
-                ["{{Garante.Domicilio}}"] = snapshot.Garante?.Domicilio ?? string.Empty,
-                ["{{Garante.Relacion}}"] = snapshot.Garante?.Relacion ?? string.Empty,
-                ["{{Venta.Numero}}"] = snapshot.Venta.Numero,
-                ["{{Venta.Fecha}}"] = snapshot.Venta.Fecha.ToString("dd/MM/yyyy"),
-                ["{{Venta.Total}}"] = snapshot.Venta.Total.ToString("C2"),
-                ["{{Venta.Productos}}"] = productos,
-                ["{{Credito.Numero}}"] = snapshot.Credito.Numero,
-                ["{{Credito.CantidadCuotas}}"] = snapshot.Credito.CantidadCuotas.ToString(),
-                ["{{Credito.MontoCuota}}"] = snapshot.Credito.MontoCuota.ToString("C2"),
-                ["{{Credito.TotalAPagar}}"] = snapshot.Credito.TotalAPagar.ToString("C2"),
-                ["{{Credito.FechaPrimeraCuota}}"] = snapshot.Credito.FechaPrimeraCuota.ToString("dd/MM/yyyy"),
-                ["{{Credito.PlanCuotas}}"] = planCuotas,
-                ["{{Contrato.Numero}}"] = snapshot.Contrato.Numero,
-                ["{{Pagare.Numero}}"] = snapshot.Contrato.NumeroPagare,
-                ["{{Contrato.FechaEmision}}"] = snapshot.Contrato.FechaEmision.ToString("dd/MM/yyyy HH:mm"),
-                ["{{UsuarioGeneracion}}"] = snapshot.UsuarioGeneracion,
-                ["{{Sucursal}}"] = snapshot.Sucursal ?? string.Empty,
-                ["{{Caja}}"] = snapshot.Caja ?? string.Empty
+                // Formato legacy (compatibilidad con plantillas existentes)
+                ["{{Vendedor.Nombre}}"]          = vendedorNombre,
+                ["{{Vendedor.Domicilio}}"]        = vendedorDom,
+                ["{{Vendedor.DNI}}"]              = vendedorDni,
+                ["{{Vendedor.CUIT}}"]             = vendedorCuit,
+                ["{{Comprador.NombreCompleto}}"]  = compradorNombre,
+                ["{{Comprador.DNI}}"]             = compradorDni,
+                ["{{Comprador.CUITCUIL}}"]        = compradorCuil,
+                ["{{Comprador.Domicilio}}"]       = compradorDom,
+                ["{{Comprador.Localidad}}"]       = compradorLocal,
+                ["{{Comprador.Telefono}}"]        = compradorTel,
+                ["{{Garante.NombreCompleto}}"]    = garanteNombre,
+                ["{{Garante.DNI}}"]               = garanteDni,
+                ["{{Garante.Domicilio}}"]         = garanteDom,
+                ["{{Garante.Relacion}}"]          = garanteRelacion,
+                ["{{Venta.Numero}}"]              = ventaNumero,
+                ["{{Venta.Fecha}}"]               = ventaFecha,
+                ["{{Venta.Total}}"]               = ventaTotal,
+                ["{{Venta.Productos}}"]           = productos,
+                ["{{Credito.Numero}}"]            = creditoNumero,
+                ["{{Credito.CantidadCuotas}}"]    = cantCuotas,
+                ["{{Credito.MontoCuota}}"]        = montoCuota,
+                ["{{Credito.TotalAPagar}}"]       = totalPagar,
+                ["{{Credito.FechaPrimeraCuota}}"] = fechaPrimera,
+                ["{{Credito.PlanCuotas}}"]        = planCuotas,
+                ["{{Contrato.Numero}}"]           = contratoNum,
+                ["{{Pagare.Numero}}"]             = pagareNum,
+                ["{{Contrato.FechaEmision}}"]     = fechaEmision,
+                ["{{UsuarioGeneracion}}"]         = usuario,
+                ["{{Sucursal}}"]                  = sucursal,
+                ["{{Caja}}"]                      = caja,
+                // Formato nuevo con nombres de variable MAYÚSCULAS
+                ["{{VENDEDOR_NOMBRE}}"]           = vendedorNombre,
+                ["{{VENDEDOR_DOMICILIO}}"]        = vendedorDom,
+                ["{{VENDEDOR_DNI}}"]              = vendedorDni,
+                ["{{VENDEDOR_CUIT}}"]             = vendedorCuit,
+                ["{{COMPRADOR_NOMBRE}}"]          = compradorNombre,
+                ["{{COMPRADOR_DNI}}"]             = compradorDni,
+                ["{{COMPRADOR_CUIL}}"]            = compradorCuil,
+                ["{{COMPRADOR_DOMICILIO}}"]       = compradorDom,
+                ["{{COMPRADOR_LOCALIDAD}}"]       = compradorLocal,
+                ["{{COMPRADOR_TELEFONO}}"]        = compradorTel,
+                ["{{GARANTE_NOMBRE}}"]            = garanteNombre,
+                ["{{GARANTE_DNI}}"]               = garanteDni,
+                ["{{GARANTE_DOMICILIO}}"]         = garanteDom,
+                ["{{GARANTE_RELACION}}"]          = garanteRelacion,
+                ["{{NUMERO_CONTRATO}}"]           = contratoNum,
+                ["{{NUMERO_PAGARE}}"]             = pagareNum,
+                ["{{FECHA_OPERACION}}"]           = ventaFecha,
+                ["{{FECHA_HORA_EMISION}}"]        = fechaEmision,
+                ["{{PRODUCTOS_DETALLE}}"]         = productos,
+                ["{{PRECIO_TOTAL}}"]              = ventaTotal,
+                ["{{SALDO_FINANCIADO}}"]          = saldoFinanciado.ToString("C2"),
+                ["{{CANTIDAD_CUOTAS}}"]           = cantCuotas,
+                ["{{VALOR_CUOTA}}"]               = montoCuota,
+                ["{{PLAN_CUOTAS}}"]               = planCuotas,
+                ["{{INTERES_MORA}}"]              = snapshot.Vendedor.InteresMoraDiarioPorcentaje.ToString("F4"),
+                ["{{USUARIO_GENERACION}}"]        = usuario,
+                ["{{SUCURSAL}}"]                  = sucursal,
+                ["{{CAJA}}"]                      = caja,
             };
         }
 

@@ -314,13 +314,6 @@
             hideValidation();
             clearErrors();
 
-            var fd = new FormData(form);
-            var comision = parseFloat(fd.get('ComisionPorcentaje') || '0');
-            if (isNaN(comision) || comision < 0 || comision > 100) {
-                handleServerErrors({ ComisionPorcentaje: ['La comisión vendedor debe estar entre 0 y 100'] });
-                return;
-            }
-
             var btn = el('btn-guardar-producto-edit');
             var origHTML = btn.innerHTML;
             btn.disabled = true;

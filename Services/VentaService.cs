@@ -196,11 +196,12 @@ namespace TheBuryProject.Services
                             validacion.NoViable = false;
                             validacion.PendienteRequisitos = false;
                             validacion.RequisitosPendientes = validacion.RequisitosPendientes
-                                .Where(r => r.Tipo != TipoRequisitoPendiente.DocumentacionFaltante)
+                                .Where(r => r.Tipo != TipoRequisitoPendiente.DocumentacionFaltante
+                                         && r.Tipo != TipoRequisitoPendiente.SinLimiteCredito)
                                 .ToList();
 
                             _logger.LogWarning(
-                                "CreateAsync venta por excepción documental autorizada. Cliente:{ClienteId} Usuario:{Usuario}",
+                                "CreateAsync venta por excepción autorizada. Cliente:{ClienteId} Usuario:{Usuario}",
                                 viewModel.ClienteId,
                                 currentUserName);
                         }
@@ -444,14 +445,35 @@ namespace TheBuryProject.Services
             }
 
             var tipos = validacion.RequisitosPendientes.Select(r => r.Tipo.ToString()).ToList();
-            _logger.LogWarning("Excepción documental: RequisitosPendientes tipos=[{Tipos}]", string.Join(", ", tipos));
+            _logger.LogWarning("Excepción: RequisitosPendientes tipos=[{Tipos}]", string.Join(", ", tipos));
 
-            var soloDocsFaltantes = validacion.RequisitosPendientes.Any()
-                                    && validacion.RequisitosPendientes.All(r =>
-                                        r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
+            // Tipos bypassables: documentación faltante (cualquier usuario autorizado) y sin límite de crédito
+            // (solo ventas.authorize, ya que implica una decisión crediticia)
+            var tiposPermitidos = new HashSet<TipoRequisitoPendiente>
+            {
+                TipoRequisitoPendiente.DocumentacionFaltante,
+                TipoRequisitoPendiente.SinLimiteCredito
+            };
 
-            _logger.LogWarning("Excepción documental: SoloDocsFaltantes={Resultado}", soloDocsFaltantes);
-            return soloDocsFaltantes;
+            var todosPermitidos = validacion.RequisitosPendientes.Any()
+                                  && validacion.RequisitosPendientes.All(r => tiposPermitidos.Contains(r.Tipo));
+
+            _logger.LogWarning("Excepción: TodosPermitidos={Resultado}", todosPermitidos);
+
+            if (!todosPermitidos)
+                return false;
+
+            // SinLimiteCredito es una decisión crediticia: requiere ventas.authorize
+            var tieneSinLimite = validacion.RequisitosPendientes.Any(r =>
+                r.Tipo == TipoRequisitoPendiente.SinLimiteCredito);
+
+            if (tieneSinLimite && !tieneAutorizar)
+            {
+                _logger.LogWarning("Excepción: SinLimiteCredito requiere ventas.authorize — usuario no lo tiene");
+                return false;
+            }
+
+            return true;
         }
 
         private static void AplicarAuditoriaExcepcionDocumentalEnCreate(

@@ -298,6 +298,15 @@
                                             <span class="material-symbols-outlined">history</span>
                                             <span class="row-action__label">Historial</span>
                                         </button>
+                                        <button type="button"
+                                                data-comision-producto-id="@p.ProductoId"
+                                                data-comision-producto-nombre="@p.Nombre"
+                                                data-comision-porcentaje="@p.ComisionPorcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                class="row-action row-action--primary"
+                                                title="Comisión vendedor: @p.ComisionPorcentaje.ToString("N2")%">
+                                            <span class="material-symbols-outlined">percent</span>
+                                            <span class="row-action__label">Comisión</span>
+                                        </button>
                                         <button type="button" data-prod-edit-id="@p.ProductoId"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">
                                             <span class="material-symbols-outlined text-base">edit</span>
@@ -797,13 +806,6 @@
                             </select>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Comisión vendedor (%)</label>
-                            <input name="ComisionPorcentaje" id="modal-comisionPorcentaje" type="number" min="0" max="100" step="0.01" value="0"
-                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
-                            <p class="text-xs text-slate-400">Porcentaje que gana el vendedor al vender este producto.</p>
-                            <span data-valmsg-for="ComisionPorcentaje" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio Final (IVA)</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-2 text-primary font-bold">$</span>
@@ -1036,12 +1038,7 @@
                                 <option value="0">0%</option>
                             </select>
                         </div>
-                        <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Comisión vendedor (%)</label>
-                            <input id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" type="number" min="0" max="100" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
-                            <p class="text-xs text-slate-400">Porcentaje que gana el vendedor al vender este producto.</p>
-                            <span data-valmsg-for="ComisionPorcentaje" class="text-xs text-red-500 hidden"></span>
-                        </div>
+                        <input type="hidden" id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" value="0" />
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-300">Precio Final</label>
                             <div class="relative">
@@ -1535,6 +1532,68 @@
                         class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
                     <span class="material-symbols-outlined text-[18px]">save</span>
                     Guardar Cambios
+                </button>
+            </footer>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL: Asignar Comisión Vendedor
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="modal-comision-vendedor" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-comision-modal-close></div>
+    <div class="relative w-full max-w-md flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl">
+
+        <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
+            <div>
+                <div class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300 mb-2">
+                    <span class="material-symbols-outlined text-sm">percent</span>
+                    Comisión vendedor
+                </div>
+                <h2 class="text-lg font-bold text-white" id="comision-modal-nombre">—</h2>
+            </div>
+            <button type="button" data-comision-modal-close
+                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+
+        <form id="form-comision-vendedor" method="post" action="@Url.Action("ActualizarComisionVendedor", "Producto")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="comision-modal-productoId" name="productoId" value="" />
+
+            <div class="p-6 space-y-4">
+                <div id="comision-modal-validation" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                    <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
+                    <p id="comision-modal-validation-text" class="text-xs text-red-400/80 self-center"></p>
+                </div>
+                <div id="comision-modal-success" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex gap-3">
+                    <span class="material-symbols-outlined text-emerald-500 shrink-0">check_circle</span>
+                    <p id="comision-modal-success-text" class="text-xs text-emerald-400/80 self-center"></p>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="comision-modal-porcentaje" class="text-sm font-medium text-slate-300">Porcentaje de comisión</label>
+                    <div class="relative">
+                        <input id="comision-modal-porcentaje" name="porcentajeComision" type="number"
+                               min="0" max="100" step="0.01"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-primary outline-none text-white" />
+                        <span class="absolute right-3 top-2 text-slate-400 font-bold select-none">%</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Ingresá 0 para sin comisión. Máximo 100.</p>
+                </div>
+            </div>
+
+            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+                <button type="button" data-comision-modal-close
+                        class="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-guardar-comision"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar
                 </button>
             </footer>
         </form>
@@ -2176,4 +2235,5 @@
     <script src="~/js/precio-aumento-modal.js" asp-append-version="true"></script>
     <script src="~/js/historial-precio-modal.js" asp-append-version="true"></script>
     <script src="~/js/movimientos-inventario-modal.js" asp-append-version="true"></script>
+    <script src="~/js/producto-comision-modal.js" asp-append-version="true"></script>
 }

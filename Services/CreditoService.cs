@@ -1319,6 +1319,16 @@ namespace TheBuryProject.Services
                             cmd.VentaId.Value);
                     }
                 }
+
+                var contratoExistente = await _context.ContratosVentaCredito
+                    .FirstOrDefaultAsync(c => c.VentaId == cmd.VentaId.Value);
+                if (contratoExistente != null)
+                {
+                    contratoExistente.IsDeleted = true;
+                    _logger.LogWarning(
+                        "Contrato {NumeroContrato} invalidado por re-configuración del crédito {CreditoId} (venta {VentaId})",
+                        contratoExistente.NumeroContrato, cmd.CreditoId, cmd.VentaId.Value);
+                }
             }
 
             await _context.SaveChangesAsync();

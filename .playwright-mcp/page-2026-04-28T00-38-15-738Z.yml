@@ -1,0 +1,202 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e37]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+    - main [ref=e38]:
+      - generic [ref=e40]:
+        - button "notifications" [ref=e41]:
+          - generic [ref=e42]: notifications
+        - button "search" [ref=e44]:
+          - generic [ref=e45]: search
+        - button "Panel de incidentes" [ref=e46]:
+          - generic [ref=e47]: assignment
+        - button "help" [ref=e49]:
+          - generic [ref=e50]: help
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e56]: Ventas
+            - generic [ref=e57]:
+              - generic [ref=e58]: today
+              - text: Hoy
+            - generic [ref=e59]:
+              - generic [ref=e60]: receipt_long
+              - text: 0 operaciones
+            - generic [ref=e61]:
+              - generic [ref=e62]: payments
+              - text: $0
+          - generic [ref=e63]:
+            - button "percent Recargo/Descuento" [ref=e64] [cursor=pointer]:
+              - generic [ref=e65]: percent
+              - text: Recargo/Descuento
+            - link "assignment_return Devoluciones" [ref=e66] [cursor=pointer]:
+              - /url: /Devolucion?tab=devoluciones
+              - generic [ref=e67]: assignment_return
+              - text: Devoluciones
+            - button "add Nueva Venta" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]: add
+              - text: Nueva Venta
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - heading "Listado principal de ventas" [level=2] [ref=e73]
+            - paragraph [ref=e74]: Consultá estado, autorización, forma de pago y acciones disponibles sobre cada operación.
+          - generic [ref=e76]:
+            - generic [ref=e77]: table_rows
+            - text: 0 registros
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - generic [ref=e81]: Buscar venta
+            - generic [ref=e82]:
+              - generic [ref=e83]: search
+              - textbox "Número de venta" [ref=e84]:
+                - /placeholder: "Número #V-..."
+          - generic [ref=e85]:
+            - generic [ref=e86]: Desde
+            - textbox "Fecha desde" [ref=e87]
+          - generic [ref=e88]:
+            - generic [ref=e89]: Hasta
+            - textbox "Fecha hasta" [ref=e90]
+          - generic [ref=e91]:
+            - generic [ref=e92]: Estado
+            - combobox "Estado de venta" [ref=e93] [cursor=pointer]:
+              - option "Todos" [selected]
+              - option "Cotización"
+              - option "Presupuesto"
+              - option "Confirmada"
+              - option "Facturada"
+              - option "Entregada"
+              - option "Cancelada"
+              - option "Pend. Requisitos"
+              - option "Pend. Financiación"
+          - generic [ref=e94]:
+            - generic [ref=e95]: Pago
+            - combobox "Tipo de pago" [ref=e96] [cursor=pointer]:
+              - option "Todos" [selected]
+              - option "Efectivo"
+              - option "Transferencia"
+              - option "Tarjeta Débito"
+              - option "Tarjeta Crédito"
+              - option "Cheque"
+              - option "Crédito Personal"
+              - option "MercadoPago"
+              - option "Cuenta Corriente"
+          - generic [ref=e97]:
+            - generic [ref=e98]: Autorización
+            - combobox "Estado de autorización" [ref=e99] [cursor=pointer]:
+              - option "Todas" [selected]
+              - option "No Requiere"
+              - option "Pendiente"
+              - option "Autorizada"
+              - option "Rechazada"
+          - button "filter_list" [ref=e101]:
+            - generic [ref=e102]: filter_list
+        - region "Listado principal de ventas" [ref=e105]:
+          - table [ref=e106]:
+            - rowgroup [ref=e107]:
+              - row "Número Fecha Cliente Estado Autorización Tipo de Pago Total Acciones" [ref=e108]:
+                - columnheader "Número" [ref=e109]
+                - columnheader "Fecha" [ref=e110]
+                - columnheader "Cliente" [ref=e111]
+                - columnheader "Estado" [ref=e112]
+                - columnheader "Autorización" [ref=e113]
+                - columnheader "Tipo de Pago" [ref=e114]
+                - columnheader "Total" [ref=e115]
+                - columnheader "Acciones" [ref=e116]
+            - rowgroup
+        - generic [ref=e117]:
+          - generic [ref=e119]: search_off
+          - heading "No se encontraron ventas" [level=3] [ref=e120]
+          - paragraph [ref=e121]: No hay ventas que coincidan con los filtros aplicados.
+          - link "filter_alt_off Limpiar filtros" [ref=e122] [cursor=pointer]:
+            - /url: /Venta
+            - generic [ref=e123]: filter_alt_off
+            - text: Limpiar filtros
+        - generic [ref=e125]:
+          - paragraph [ref=e126]: Mostrando 0 resultados
+          - paragraph [ref=e127]: La última columna concentra seguimiento y acciones disponibles por operación.
+  - button "bug_report" [ref=e128]:
+    - generic [ref=e129]: bug_report
+  - complementary [ref=e130]:
+    - generic [ref=e131]:
+      - generic [ref=e132]:
+        - generic [ref=e133]: assignment
+        - heading [level=2] [ref=e134]: Incidentes
+      - generic [ref=e135]:
+        - button [ref=e136]:
+          - generic [ref=e137]: add
+          - text: Nuevo
+        - button [ref=e138]:
+          - generic [ref=e139]: close
+    - generic [ref=e140]:
+      - generic [ref=e141]:
+        - textbox [ref=e142]:
+          - /placeholder: Buscar...
+        - combobox [ref=e143] [cursor=pointer]
+        - combobox [ref=e144] [cursor=pointer]
+        - button [ref=e145]:
+          - generic [ref=e146]: filter_list
+      - list [ref=e147]

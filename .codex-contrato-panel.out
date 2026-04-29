@@ -1,0 +1,32 @@
+Using launch settings from D:\theburyproject1\Properties\launchSettings.json...
+warn: Program[0]
+      Usuarios de prueba creados - ⚠️ SOLO PARA DESARROLLO
+warn: LuckyPennySoftware.AutoMapper.License[0]
+      You do not have a valid license key for the Lucky Penny software AutoMapper. This is allowed for development and testing scenarios. If you are running in production you are required to have a licensed version. Please visit https://luckypennysoftware.com to obtain a valid license.
+warn: TheBuryProject.Services.DocumentoVencidoBackgroundService[0]
+      Modo DEBUG: Esperando m�ximo 30 segundos en lugar de 434 minutos
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5187
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: D:\theburyproject1
+fail: TheBuryProject.Services.VentaService[0]
+      ConfirmarVentaCreditoAsync error venta 10
+      System.InvalidOperationException: Stock insuficiente para: televisor samsung 40 pulgadas (necesita: 1, disponible: 0,00)
+         at TheBuryProject.Services.Validators.VentaValidator.ValidarStock(Venta venta) in D:\theburyproject1\Services\Validators\VentaValidator.cs:line 80
+         at TheBuryProject.Services.VentaService.ConfirmarVentaCreditoAsync(Int32 id) in D:\theburyproject1\Services\VentaService.cs:line 837
+fail: TheBuryProject.Services.VentaService[0]
+      Error al confirmar venta con crédito 10
+      System.InvalidOperationException: Stock insuficiente para: televisor samsung 40 pulgadas (necesita: 1, disponible: 0,00)
+         at TheBuryProject.Services.Validators.VentaValidator.ValidarStock(Venta venta) in D:\theburyproject1\Services\Validators\VentaValidator.cs:line 80
+         at TheBuryProject.Services.VentaService.ConfirmarVentaCreditoAsync(Int32 id) in D:\theburyproject1\Services\VentaService.cs:line 837
+fail: TheBuryProject.Controllers.VentaController[0]
+      Error al confirmar venta: 10
+      System.InvalidOperationException: Stock insuficiente para: televisor samsung 40 pulgadas (necesita: 1, disponible: 0,00)
+         at TheBuryProject.Services.Validators.VentaValidator.ValidarStock(Venta venta) in D:\theburyproject1\Services\Validators\VentaValidator.cs:line 80
+         at TheBuryProject.Services.VentaService.ConfirmarVentaCreditoAsync(Int32 id) in D:\theburyproject1\Services\VentaService.cs:line 837
+         at TheBuryProject.Services.VentaService.ConfirmarVentaCreditoAsync(Int32 id) in D:\theburyproject1\Services\VentaService.cs:line 887
+         at TheBuryProject.Controllers.VentaController.Confirmar(Int32 id, Boolean aplicarExcepcionDocumental, String motivoExcepcionDocumental) in D:\theburyproject1\Controllers\VentaController.cs:line 837

@@ -1,0 +1,260 @@
+@using TheBuryProject.Models.Enums
+@model TheBuryProject.ViewModels.CreditoClienteIndexViewModel
+
+@{
+    var clienteNombre = Model.Cliente.NombreCompleto;
+    if (string.IsNullOrWhiteSpace(clienteNombre))
+        clienteNombre = $"Cliente #{Model.Cliente.Id}";
+
+    var proximoVencimientoTexto = Model.ProximoVencimiento.HasValue
+        ? Model.ProximoVencimiento.Value.ToString("dd/MM/yyyy")
+        : "Sin vencimientos";
+}
+
+<header class="flex shrink-0 flex-col gap-5 border-b border-slate-800 bg-[#161d2c]/80 px-6 py-5 backdrop-blur-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+            <nav class="mb-1 flex items-center gap-2 text-xs font-medium text-slate-400">
+                <span>Créditos</span>
+                <span class="material-symbols-outlined text-xs">chevron_right</span>
+                <span class="text-slate-100">Gestión cliente</span>
+            </nav>
+            <h2 id="credito-cliente-panel-title" class="truncate text-2xl font-black tracking-tight text-slate-50">@clienteNombre</h2>
+            <p class="mt-1 text-sm text-slate-400">Documento @Model.Documento</p>
+        </div>
+        <button type="button"
+                class="inline-flex size-10 items-center justify-center rounded-lg border border-slate-700 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                title="Cerrar panel"
+                data-credito-cliente-panel-close>
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Créditos</p>
+            <p class="mt-1 text-xl font-black text-white">@Model.CantidadCreditos</p>
+        </article>
+        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo total</p>
+            <p class="mt-1 text-xl font-black text-white">$ @Model.SaldoPendienteTotal.ToString("N0")</p>
+        </article>
+        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Cuotas vencidas</p>
+            <p class="mt-1 text-xl font-black @(Model.CuotasVencidas > 0 ? "text-red-400" : "text-emerald-400")">@Model.CuotasVencidas</p>
+        </article>
+        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Próximo vencimiento</p>
+            <p class="mt-1 text-xl font-black text-white">@proximoVencimientoTexto</p>
+        </article>
+    </div>
+</header>
+
+<div class="flex-1 space-y-4 overflow-y-auto px-6 py-6" data-credito-cliente-panel-scroll>
+    <div class="flex items-center justify-between gap-3">
+        <div>
+            <h3 class="text-lg font-black text-white">Créditos del cliente</h3>
+            <p class="text-sm text-slate-400">Cartera completa del cliente.</p>
+        </div>
+        <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary-on-dark">
+            @Model.Creditos.Count crédito@(Model.Creditos.Count == 1 ? "" : "s")
+        </span>
+    </div>
+
+    @foreach (var credito in Model.Creditos)
+    {
+        var cuotasCredito = credito.Cuotas ?? new List<TheBuryProject.ViewModels.CuotaViewModel>();
+        var cantidadCuotasCredito = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
+        var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
+        var estadoCreditoClass = "bg-slate-800 text-slate-300";
+
+        switch (credito.Estado)
+        {
+            case EstadoCredito.Activo:
+            case EstadoCredito.Generado:
+                estadoCreditoClass = "bg-emerald-500/10 text-emerald-400";
+                break;
+            case EstadoCredito.Finalizado:
+                estadoCreditoClass = "bg-sky-500/10 text-sky-400";
+                break;
+            case EstadoCredito.Rechazado:
+            case EstadoCredito.Cancelado:
+                estadoCreditoClass = "bg-red-500/10 text-red-400";
+                break;
+            case EstadoCredito.Solicitado:
+            case EstadoCredito.Aprobado:
+            case EstadoCredito.PendienteConfiguracion:
+            case EstadoCredito.Configurado:
+                estadoCreditoClass = "bg-amber-500/10 text-amber-400";
+                break;
+        }
+
+        <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-black/10" data-credito-cliente-credit>
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h4 class="text-base font-black text-white">@numeroCredito</h4>
+                        <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide @estadoCreditoClass">@credito.Estado</span>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-400">Fecha alta @credito.FechaSolicitud.ToString("dd/MM/yyyy")</p>
+                </div>
+                <dl class="grid w-full grid-cols-2 gap-3 text-sm xl:w-auto xl:grid-cols-4">
+                    <div class="rounded-lg bg-slate-950/50 p-3">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Monto original</dt>
+                        <dd class="mt-1 font-bold text-white">$ @credito.MontoSolicitado.ToString("N0")</dd>
+                    </div>
+                    <div class="rounded-lg bg-slate-950/50 p-3">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saldo pendiente</dt>
+                        <dd class="mt-1 font-bold @(credito.SaldoPendiente > 0 ? "text-red-400" : "text-emerald-400")">$ @credito.SaldoPendiente.ToString("N0")</dd>
+                    </div>
+                    <div class="rounded-lg bg-slate-950/50 p-3">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estado</dt>
+                        <dd class="mt-1 font-bold text-white">@credito.Estado</dd>
+                    </div>
+                    <div class="rounded-lg bg-slate-950/50 p-3">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cuotas</dt>
+                        <dd class="mt-1 font-bold text-white">@cantidadCuotasCredito</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-3 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="text-sm text-slate-400">
+                    @cantidadCuotasCredito cuota@(cantidadCuotasCredito == 1 ? "" : "s") registrada@(cantidadCuotasCredito == 1 ? "" : "s")
+                </div>
+                <button type="button"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                        data-credito-credit-toggle
+                        data-credito-credit-expanded="false"
+                        aria-expanded="false">
+                    <span class="material-symbols-outlined text-base" data-credito-credit-toggle-icon>expand_more</span>
+                    <span data-credito-credit-toggle-label>Ver cuotas</span>
+                </button>
+            </div>
+
+            <div class="mt-3 hidden overflow-hidden rounded-lg border border-slate-800" data-credito-cuotas-container></div>
+
+            <template data-credito-cuotas-template>
+                @if (cuotasCredito.Any())
+                {
+                    <div class="max-h-80 overflow-y-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="sticky top-0 bg-slate-950 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                <tr>
+                                    <th class="w-12 px-4 py-3">
+                                        <span class="sr-only">Seleccionar</span>
+                                    </th>
+                                    <th class="px-4 py-3">Cuota</th>
+                                    <th class="px-4 py-3">Vencimiento</th>
+                                    <th class="px-4 py-3 text-right">Saldo</th>
+                                    <th class="px-4 py-3 text-right">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                @foreach (var cuota in cuotasCredito.OrderBy(c => c.NumeroCuota))
+                                {
+                                    var estadoCuotaClass = cuota.Estado switch
+                                    {
+                                        EstadoCuota.Pagada => "bg-emerald-500/10 text-emerald-400",
+                                        EstadoCuota.Vencida => "bg-red-500/10 text-red-400",
+                                        EstadoCuota.Parcial => "bg-amber-500/10 text-amber-400",
+                                        EstadoCuota.Cancelada => "bg-slate-700 text-slate-300",
+                                        _ => "bg-slate-800 text-slate-300"
+                                    };
+
+                                    var cuotaSaldoPendiente = cuota.SaldoPendiente;
+                                    var cuotaMora = cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio : 0;
+                                    var cuotaSubtotal = cuotaSaldoPendiente - cuotaMora;
+                                    if (cuotaSubtotal < 0) cuotaSubtotal = 0;
+
+                                    var cuotaPagable = cuota.Estado != EstadoCuota.Pagada
+                                        && cuota.Estado != EstadoCuota.Cancelada
+                                        && cuotaSaldoPendiente > 0;
+                                    var cuotaRowClass = cuotaPagable ? "hover:bg-slate-800/40" : "opacity-60";
+
+                                    <tr class="@cuotaRowClass" data-credito-cliente-cuota>
+                                        <td class="px-4 py-3">
+                                            <input type="checkbox"
+                                                   class="size-4 rounded border-slate-600 bg-slate-950 text-primary focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
+                                                   data-credito-cuota-selector
+                                                   data-credito-id="@credito.Id"
+                                                   data-cuota-id="@cuota.Id"
+                                                   data-cuota-subtotal="@cuotaSubtotal.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-cuota-mora="@cuotaMora.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-cuota-total="@cuotaSaldoPendiente.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   aria-label="Seleccionar cuota #@cuota.NumeroCuota de @numeroCredito"
+                                                   disabled="@(!cuotaPagable)" />
+                                        </td>
+                                        <td class="px-4 py-3 font-semibold text-white">#@cuota.NumeroCuota</td>
+                                        <td class="px-4 py-3 text-slate-300">@cuota.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-white">$ @cuotaSaldoPendiente.ToString("N2")</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide @estadoCuotaClass">@cuota.Estado</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="px-4 py-6 text-sm text-slate-400">
+                        Este crédito todavía no tiene cuotas registradas.
+                    </div>
+                }
+            </template>
+        </article>
+    }
+</div>
+
+<footer class="sticky bottom-0 z-10 shrink-0 border-t border-slate-800 bg-[#161d2c]/95 px-6 py-4 shadow-[0_-12px_30px_rgba(0,0,0,0.25)] backdrop-blur-sm" data-credito-pago-resumen>
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-5 xl:flex xl:items-center xl:gap-5">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cuotas seleccionadas</p>
+                <p class="mt-1 text-lg font-black text-white" data-credito-resumen-cuotas>0</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Créditos involucrados</p>
+                <p class="mt-1 text-lg font-black text-white" data-credito-resumen-creditos>0</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
+                <p class="mt-1 text-lg font-black text-white" data-credito-resumen-subtotal>$ 0,00</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mora total</p>
+                <p class="mt-1 text-lg font-black text-amber-400" data-credito-resumen-mora>$ 0,00</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total final</p>
+                <p class="mt-1 text-xl font-black text-primary-on-dark" data-credito-resumen-total>$ 0,00</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div class="min-w-44">
+                <label for="credito-pago-medio-@Model.Cliente.Id" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Medio de pago</label>
+                <select id="credito-pago-medio-@Model.Cliente.Id"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        data-credito-medio-pago>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta Débito">Tarjeta Débito</option>
+                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                    <option value="Cheque">Cheque</option>
+                </select>
+            </div>
+            <p class="hidden text-xs font-semibold text-amber-400" role="status" aria-live="polite" data-credito-pago-status data-credito-pago-pendiente></p>
+            <button type="button"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
+                    data-credito-registrar-pago-multiple
+                    data-credito-pago-url="@Url.Action("RegistrarPagoMultiple", "Credito")"
+                    disabled>
+                <span class="material-symbols-outlined text-base" data-credito-registrar-pago-icon>payments</span>
+                <span data-credito-registrar-pago-label>Registrar pago</span>
+            </button>
+        </div>
+    </div>
+</footer>

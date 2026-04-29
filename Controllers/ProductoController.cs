@@ -205,11 +205,23 @@ namespace TheBuryProject.Controllers
                 var producto = _mapper.Map<Producto>(viewModel);
                 await _productoService.CreateAsync(producto);
 
+                var productoCreado = await _productoService.GetByIdAsync(producto.Id);
+
                 return Json(new
                 {
                     success = true,
                     message = "Producto creado exitosamente",
-                    entity  = new { id = producto.Id }
+                    entity = new
+                    {
+                        id                 = producto.Id,
+                        codigo             = productoCreado?.Codigo             ?? producto.Codigo,
+                        nombre             = productoCreado?.Nombre             ?? producto.Nombre,
+                        descripcion        = productoCreado?.Descripcion        ?? producto.Descripcion,
+                        categoriaNombre    = productoCreado?.Categoria?.Nombre  ?? "—",
+                        marcaNombre        = productoCreado?.Marca?.Nombre      ?? "—",
+                        precioVenta        = productoCreado?.PrecioVenta        ?? viewModel.PrecioVenta,
+                        comisionPorcentaje = 0m
+                    }
                 });
             }
             catch (InvalidOperationException ex)
@@ -476,6 +488,31 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al actualizar producto {Id} vía AJAX", id);
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar el producto. Intentá nuevamente." } } } });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> ActualizarComisionVendedor(int productoId, string porcentajeComision)
+        {
+            var rawNormalizado = (porcentajeComision ?? "").Trim().Replace(',', '.');
+            if (!decimal.TryParse(rawNormalizado, NumberStyles.Number, CultureInfo.InvariantCulture, out var porcentaje))
+                return Json(new { success = false, message = "El porcentaje ingresado no es válido." });
+
+            try
+            {
+                var producto = await _productoService.ActualizarComisionAsync(productoId, porcentaje);
+                return Json(new { success = true, message = "Comisión actualizada exitosamente.", comisionPorcentaje = producto.ComisionPorcentaje });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar comisión del producto {Id}", productoId);
+                return Json(new { success = false, message = "Error al actualizar la comisión. Intentá nuevamente." });
             }
         }
 

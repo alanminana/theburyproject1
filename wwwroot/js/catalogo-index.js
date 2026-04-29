@@ -5,7 +5,6 @@
     'use strict';
 
     var input       = document.getElementById('catalogo-search-input');
-    var rows        = Array.from(document.querySelectorAll('#productos-tbody tr[data-search]'));
     var emptyRow    = document.getElementById('productos-search-empty');
     var termSpan    = document.getElementById('productos-search-term');
     var countBadge  = document.getElementById('productos-visible-count');
@@ -15,12 +14,13 @@
     var selStock      = document.getElementById('catalogo-select-stock');
     var selListaPrec  = document.getElementById('catalogo-select-listaprecio');
 
-    if (!input || !rows.length) return;
+    if (!input) return;
 
     var timer;
 
     function applySearch() {
         var term = input.value.trim().toLowerCase();
+        var rows = Array.from(document.querySelectorAll('#productos-tbody tr[data-search]'));
         var visible = 0;
 
         rows.forEach(function (row) {

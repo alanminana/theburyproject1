@@ -1,0 +1,285 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "rocket_launch TheBuryProject SISTEMA GESTIÓN" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: rocket_launch
+        - generic:
+          - heading "TheBuryProject" [level=1]
+          - paragraph: SISTEMA GESTIÓN
+      - navigation [ref=e7]:
+        - generic [ref=e8]:
+          - paragraph: Operaciones
+          - generic [ref=e9]:
+            - link "shopping_bag Ventas" [ref=e10] [cursor=pointer]:
+              - /url: /Venta
+              - generic [ref=e11]: shopping_bag
+              - paragraph: Ventas
+            - link "group Clientes" [ref=e12] [cursor=pointer]:
+              - /url: /Cliente
+              - generic [ref=e13]: group
+              - paragraph: Clientes
+        - generic [ref=e14]:
+          - paragraph: Logística
+          - generic [ref=e15]:
+            - link "inventory_2 Inventario" [ref=e16] [cursor=pointer]:
+              - /url: /Catalogo
+              - generic [ref=e17]: inventory_2
+              - paragraph: Inventario
+            - link "local_shipping Proveedores" [ref=e18] [cursor=pointer]:
+              - /url: /Proveedor
+              - generic [ref=e19]: local_shipping
+              - paragraph: Proveedores
+            - link "point_of_sale Cajas" [ref=e20] [cursor=pointer]:
+              - /url: /Caja
+              - generic [ref=e21]: point_of_sale
+              - paragraph: Cajas
+        - generic [ref=e22]:
+          - paragraph: Reportes
+          - generic [ref=e23]:
+            - link "leaderboard Reportes" [ref=e24] [cursor=pointer]:
+              - /url: /Reporte
+              - generic [ref=e25]: leaderboard
+              - paragraph: Reportes
+            - link "payments Comisiones vendedores" [ref=e26] [cursor=pointer]:
+              - /url: /Reporte/ComisionesVendedores
+              - generic [ref=e27]: payments
+              - paragraph: Comisiones vendedores
+        - generic [ref=e28]:
+          - paragraph: Sistemas
+          - generic [ref=e29]:
+            - link "security Seguridad" [ref=e30] [cursor=pointer]:
+              - /url: /Seguridad
+              - generic [ref=e31]: security
+              - paragraph: Seguridad
+            - link "bug_report Tickets" [ref=e32] [cursor=pointer]:
+              - /url: /Ticket
+              - generic [ref=e33]: bug_report
+              - paragraph: Tickets
+            - link "contract Plantillas contrato" [ref=e34] [cursor=pointer]:
+              - /url: /PlantillaContratoCredito
+              - generic [ref=e35]: contract
+              - paragraph: Plantillas contrato
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e39]: account_circle
+          - generic:
+            - paragraph: admin
+            - paragraph: SuperAdmin
+        - generic:
+          - button "logout Cerrar sesión":
+            - generic: logout
+            - text: Cerrar sesión
+    - main [ref=e40]:
+      - generic [ref=e42]:
+        - button "notifications" [ref=e43]:
+          - generic [ref=e44]: notifications
+        - button "search" [ref=e46]:
+          - generic [ref=e47]: search
+        - button "Panel de incidentes" [ref=e48]:
+          - generic [ref=e49]: assignment
+        - button "help" [ref=e51]:
+          - generic [ref=e52]: help
+      - generic [ref=e54]:
+        - status [ref=e55]:
+          - generic [ref=e56]: warning
+          - text: Debe generar e imprimir el contrato antes de confirmar la operación con Crédito Personal.
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - generic [ref=e61]:
+                  - generic [ref=e62]: Ventas
+                  - generic [ref=e63]: /
+                  - generic [ref=e64]: Venta en curso
+                - generic [ref=e65]:
+                  - heading "Nueva Venta" [level=1] [ref=e66]
+                  - paragraph [ref=e67]: Armá la venta, verificá elegibilidad crediticia y cerrá la operación sin salir de la pantalla.
+                - generic [ref=e68]:
+                  - generic [ref=e69]:
+                    - generic [ref=e70]: verified_user
+                    - text: Sistema operativo
+                  - generic [ref=e71]:
+                    - generic [ref=e72]: credit_score
+                    - text: Validación crediticia en línea
+                  - generic [ref=e73]:
+                    - generic [ref=e74]: inventory_2
+                    - text: Stock y precios al momento
+              - generic [ref=e75]:
+                - link "Cancelar" [ref=e76] [cursor=pointer]:
+                  - /url: /Venta
+                - button "Guardar Operación" [ref=e77]
+            - generic [ref=e78]:
+              - article [ref=e79]:
+                - paragraph [ref=e80]: Cliente
+                - paragraph [ref=e81]: Sin seleccionar
+                - paragraph [ref=e82]: Buscá un cliente para iniciar la operación.
+              - article [ref=e83]:
+                - paragraph [ref=e84]: Detalle
+                - paragraph [ref=e85]: 0 productos
+                - paragraph [ref=e86]: Sumá artículos y ajustá cantidades o descuentos antes de confirmar.
+              - article [ref=e87]:
+                - paragraph [ref=e88]: Total estimado
+                - paragraph [ref=e89]: $ 0,00
+                - paragraph [ref=e90]: Incluye IVA y descuentos recalculados en tiempo real.
+              - article [ref=e91]:
+                - paragraph [ref=e92]: Cobro
+                - paragraph [ref=e93]: Efectivo
+                - paragraph [ref=e94]: El detalle cambia automáticamente según la forma de pago elegida.
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]:
+                - generic [ref=e98]:
+                  - generic [ref=e99]:
+                    - generic [ref=e100]: "1"
+                    - generic [ref=e101]:
+                      - heading "Datos generales" [level=2] [ref=e102]
+                      - paragraph [ref=e103]: Seleccioná el cliente, la fecha y el medio de cobro antes de armar el detalle.
+                  - generic [ref=e104]:
+                    - generic [ref=e105]: person
+                    - text: Cliente + contexto
+                - generic [ref=e106]:
+                  - generic [ref=e107]:
+                    - generic [ref=e108]: Buscar Cliente
+                    - generic [ref=e109]:
+                      - generic [ref=e110]: search
+                      - textbox "Nombre, CUIT o DNI del cliente..." [ref=e111]
+                  - generic [ref=e112]:
+                    - generic [ref=e113]: Fecha de Operación
+                    - textbox [ref=e114]: 2026-04-28
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: Forma de Pago
+                    - combobox [ref=e117]:
+                      - option "Efectivo" [selected]
+                      - option "Transferencia"
+                      - option "Tarjeta Débito"
+                      - option "Tarjeta Crédito"
+                      - option "Cheque"
+                      - option "Crédito Personal"
+                      - option "Mercado Pago"
+                      - option "Cuenta Corriente"
+                      - option "Tarjeta"
+              - generic [ref=e118]:
+                - generic [ref=e119]:
+                  - generic [ref=e120]:
+                    - generic [ref=e121]: "2"
+                    - generic [ref=e122]:
+                      - heading "Selección de productos" [level=2] [ref=e123]
+                      - paragraph [ref=e124]: Buscá artículos, afiná por filtros y revisá el detalle antes de pasar al cobro.
+                  - generic [ref=e125]:
+                    - generic [ref=e126]: shopping_bag
+                    - text: 0 productos
+                - generic [ref=e127]:
+                  - combobox [ref=e128] [cursor=pointer]:
+                    - 'option "Categoría: Todas" [selected]'
+                    - option "Electrónica"
+                  - combobox [ref=e129] [cursor=pointer]:
+                    - 'option "Marca: Todas" [selected]'
+                    - option "Samsung"
+                  - generic [ref=e130]:
+                    - spinbutton [ref=e131] [cursor=pointer]
+                    - spinbutton [ref=e132] [cursor=pointer]
+                  - generic [ref=e133] [cursor=pointer]:
+                    - checkbox "Solo con stock" [checked] [ref=e134]
+                    - generic [ref=e135]: Solo con stock
+                - generic [ref=e137]:
+                  - generic: search
+                  - textbox "Escriba código o nombre del producto..." [ref=e138]
+                - generic [ref=e139]:
+                  - region "Detalle de productos de la venta" [ref=e141]:
+                    - table [ref=e142]:
+                      - rowgroup [ref=e143]:
+                        - row "Cód. Producto Cant. Unitario Desc. Subtotal" [ref=e144]:
+                          - columnheader "Cód." [ref=e145]
+                          - columnheader "Producto" [ref=e146]
+                          - columnheader "Cant." [ref=e147]
+                          - columnheader "Unitario" [ref=e148]
+                          - columnheader "Desc." [ref=e149]
+                          - columnheader "Subtotal" [ref=e150]
+                          - columnheader [ref=e151]
+                      - rowgroup
+                  - generic [ref=e152]:
+                    - generic [ref=e153]: shopping_cart
+                    - paragraph [ref=e154]: No hay productos agregados. Buscá y añadí productos arriba.
+              - generic [ref=e156]:
+                - generic [ref=e157]:
+                  - generic [ref=e158]: "3"
+                  - generic [ref=e159]:
+                    - heading "Detalle de cobro" [level=2] [ref=e160]
+                    - paragraph [ref=e161]: La pantalla adapta los campos requeridos según la forma de pago elegida.
+                - generic [ref=e162]:
+                  - generic [ref=e163]: payments
+                  - text: Dinámico por medio
+            - generic [ref=e164]:
+              - generic [ref=e165]:
+                - generic [ref=e166]:
+                  - generic [ref=e167]: "5"
+                  - generic [ref=e168]:
+                    - heading "Vendedor y observaciones" [level=2] [ref=e169]
+                    - paragraph [ref=e170]: Trazabilidad interna y responsable asignado.
+                - generic [ref=e171]:
+                  - generic [ref=e172]: Vendedor
+                  - combobox [ref=e173]:
+                    - option "Seleccione vendedor..." [selected]
+                    - option "vendedor"
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Observaciones
+                  - textbox "Notas internas sobre la venta..." [ref=e176]
+              - generic [ref=e177]:
+                - generic [ref=e178]:
+                  - generic [ref=e179]:
+                    - paragraph [ref=e180]: Cierre
+                    - heading "Resumen de totales" [level=2] [ref=e181]
+                    - paragraph [ref=e182]: Subtotal, descuentos, IVA y confirmación.
+                  - generic [ref=e183]:
+                    - generic [ref=e184]: receipt_long
+                    - text: Tiempo real
+                - generic [ref=e185]:
+                  - generic [ref=e186]:
+                    - generic [ref=e187]: Subtotal Neto
+                    - generic [ref=e188]: $ 0,00
+                  - generic [ref=e189]:
+                    - generic [ref=e190]: Descuento Global (0%)
+                    - generic [ref=e191]: "-$ 0,00"
+                  - generic [ref=e192]:
+                    - generic [ref=e193]: IVA (21%)
+                    - generic [ref=e194]: $ 0,00
+                  - generic [ref=e196]:
+                    - generic [ref=e197]: TOTAL FINAL
+                    - generic [ref=e198]:
+                      - generic [ref=e199]: $ 0,00
+                      - text: ARS pesos argentinos
+                - button "point_of_sale Confirmar Transacción" [ref=e200]:
+                  - generic [ref=e201]: point_of_sale
+                  - text: Confirmar Transacción
+                - paragraph [ref=e202]: Al confirmar, se generará la factura correspondiente.
+              - generic [ref=e203]:
+                - link "description Guardar como Cotización" [ref=e204] [cursor=pointer]:
+                  - /url: /Venta/Cotizar
+                  - generic [ref=e205]: description
+                  - text: Guardar como Cotización
+                - button "print Imprimir Borrador" [ref=e206] [cursor=pointer]:
+                  - generic [ref=e207]: print
+                  - text: Imprimir Borrador
+  - button "bug_report" [ref=e208]:
+    - generic [ref=e209]: bug_report
+  - complementary [ref=e210]:
+    - generic [ref=e211]:
+      - generic [ref=e212]:
+        - generic [ref=e213]: assignment
+        - heading [level=2] [ref=e214]: Incidentes
+      - generic [ref=e215]:
+        - button [ref=e216]:
+          - generic [ref=e217]: add
+          - text: Nuevo
+        - button [ref=e218]:
+          - generic [ref=e219]: close
+    - generic [ref=e220]:
+      - generic [ref=e221]:
+        - textbox [ref=e222]:
+          - /placeholder: Buscar...
+        - combobox [ref=e223] [cursor=pointer]
+        - combobox [ref=e224] [cursor=pointer]
+        - button [ref=e225]:
+          - generic [ref=e226]: filter_list
+      - list [ref=e227]
