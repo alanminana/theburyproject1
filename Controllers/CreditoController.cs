@@ -30,6 +30,7 @@ namespace TheBuryProject.Controllers
 
         private readonly ICurrentUserService _currentUser;
         private readonly CreditoViewBagBuilder _viewBagBuilder;
+        private readonly IClienteAptitudService? _aptitudService;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
@@ -155,7 +156,8 @@ namespace TheBuryProject.Controllers
             ICreditoDisponibleService creditoDisponibleService,
             ICurrentUserService currentUser,
             CreditoViewBagBuilder viewBagBuilder,
-            IContratoVentaCreditoService contratoVentaCreditoService)
+            IContratoVentaCreditoService contratoVentaCreditoService,
+            IClienteAptitudService? aptitudService = null)
         {
             _creditoService = creditoService;
             _evaluacionService = evaluacionService;
@@ -168,6 +170,7 @@ namespace TheBuryProject.Controllers
             _currentUser = currentUser;
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
+            _aptitudService = aptitudService;
         }
 
         #region Index / Detalle / Simular
@@ -428,6 +431,14 @@ namespace TheBuryProject.Controllers
             decimal montoVenta = credito.MontoAprobado > 0 ? credito.MontoAprobado : credito.MontoSolicitado;
 
             var tasaMensualConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+            if (tasaMensualConfig == null)
+            {
+                TempData["Error"] = "La tasa de interés de Crédito Personal no está configurada. " +
+                    "Configure el valor en Administración → Tipos de Pago antes de continuar.";
+                if (ventaId.HasValue)
+                    return RedirectToAction("Details", "Venta", new { id = ventaId });
+                return RedirectToAction("Details", new { id });
+            }
 
             if (ventaId.HasValue)
             {
@@ -440,7 +451,7 @@ namespace TheBuryProject.Controllers
 
             // Resolver parámetros de crédito del cliente (Personalizado > Perfil > Global)
             var parametrosCliente = await _configuracionPagoService
-                .ObtenerParametrosCreditoClienteAsync(credito.ClienteId, tasaMensualConfig);
+                .ObtenerParametrosCreditoClienteAsync(credito.ClienteId, tasaMensualConfig.Value);
 
             var modelo = new ConfiguracionCreditoVentaViewModel
             {
@@ -477,7 +488,7 @@ namespace TheBuryProject.Controllers
                 GastosPersonalizados = parametrosCliente.GastosPersonalizados,
                 CuotasMaximas = parametrosCliente.CuotasMaximas,
                 CuotasMinimas = parametrosCliente.CuotasMinimas,
-                TasaGlobal = tasaMensualConfig,
+                TasaGlobal = tasaMensualConfig.Value,
                 GastosGlobales = 0,
                 TienePerfilPreferido = parametrosCliente.PerfilPreferidoId.HasValue,
                 PerfilPreferidoId = parametrosCliente.PerfilPreferidoId,
@@ -528,7 +539,16 @@ namespace TheBuryProject.Controllers
             if (modelo.MetodoCalculo == MetodoCalculoCredito.UsarCliente)
             {
                 var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal);
+                if (tasaGlobal == null)
+                {
+                    ModelState.AddModelError(string.Empty,
+                        "La tasa de interés de Crédito Personal no está configurada. " +
+                        "Configure el valor en Administración → Tipos de Pago.");
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                    return await RetornarVistaConPerfilesAsync(modelo);
+                }
+
+                var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal.Value);
 
                 if (!parametros.TieneConfiguracionPersonalizada)
                 {
@@ -543,18 +563,26 @@ namespace TheBuryProject.Controllers
             // Normalizar campos opcionales a valores por defecto
             var anticipo = modelo.Anticipo ?? 0m;
             var gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
-            
+
             // Obtener tasa según fuente de configuración
             var tasaMensual = modelo.TasaMensual;
 
             if (!tasaMensual.HasValue || modelo.FuenteConfiguracion != FuenteConfiguracionCredito.Manual)
             {
                 var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+                if (tasaGlobal == null)
+                {
+                    ModelState.AddModelError(string.Empty,
+                        "La tasa de interés de Crédito Personal no está configurada. " +
+                        "Configure el valor en Administración → Tipos de Pago.");
+                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                    return await RetornarVistaConPerfilesAsync(modelo);
+                }
 
                 if (modelo.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
                 {
                     // Usar parámetros ya resueltos por el service (cadena: personalizado > perfil > global)
-                    var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal);
+                    var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal.Value);
                     tasaMensual = parametros.TasaMensual;
                     gastosAdministrativos = modelo.GastosAdministrativos ?? parametros.GastosAdministrativos;
                     _logger.LogInformation(
@@ -563,7 +591,7 @@ namespace TheBuryProject.Controllers
                 }
                 else
                 {
-                    tasaMensual = tasaGlobal;
+                    tasaMensual = tasaGlobal.Value;
                     gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
                     _logger.LogInformation(
                         "Crédito {CreditoId}: Usando configuración global - Tasa: {Tasa}%",
@@ -647,8 +675,20 @@ namespace TheBuryProject.Controllers
             try
             {
                 var anticipoVal = anticipo ?? 0m;
-                var tasaVal = tasaMensual ?? await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
                 var gastosVal = gastosAdministrativos ?? 0m;
+
+                decimal tasaVal;
+                if (tasaMensual.HasValue)
+                {
+                    tasaVal = tasaMensual.Value;
+                }
+                else
+                {
+                    var tasaConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+                    if (tasaConfig == null)
+                        return BadRequest(new { error = "La tasa de interés de Crédito Personal no está configurada. Configure el valor en Administración → Tipos de Pago." });
+                    tasaVal = tasaConfig.Value;
+                }
 
                 if (totalVenta <= 0)
                     return BadRequest(new { error = "El monto total de la venta debe ser mayor a cero." });
@@ -663,7 +703,19 @@ namespace TheBuryProject.Controllers
 
                 var fecha = DateTime.TryParse(fechaPrimeraCuota, out var parsed) ? parsed : DateTime.Today.AddMonths(1);
 
-                var plan = _financialService.SimularPlanCredito(totalVenta, anticipoVal, cuotas, tasaVal, gastosVal, fecha);
+                var semaforo = _aptitudService != null
+                    ? await _aptitudService.GetSemaforoFinancieroAsync()
+                    : new SemaforoFinancieroViewModel();
+
+                var plan = _financialService.SimularPlanCredito(
+                    totalVenta,
+                    anticipoVal,
+                    cuotas,
+                    tasaVal,
+                    gastosVal,
+                    fecha,
+                    semaforo.RatioVerdeMax,
+                    semaforo.RatioAmarilloMax);
 
                 return Json(new
                 {

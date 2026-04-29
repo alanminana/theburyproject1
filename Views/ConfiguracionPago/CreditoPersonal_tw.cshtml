@@ -210,6 +210,158 @@
             </div>
         </section>
 
+        @{
+            var sc = Model.ScoringThresholds ?? new ScoringThresholdsViewModel();
+        }
+        <section class="card-erp-panel-padded">
+            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span class="material-symbols-outlined text-primary">rule</span>
+                <h2 class="text-xl font-bold text-white">Umbrales de evaluación crediticia</h2>
+            </div>
+            <p class="mb-6 text-sm text-slate-400">
+                Estos valores controlan el motor de scoring que determina si un cliente es Aprobado, Requiere Análisis o Rechazado.
+                Los cambios aplican a nuevas evaluaciones; las evaluaciones ya registradas no se retroactivan.
+            </p>
+
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-sm font-semibold text-slate-300">
+                        Puntaje de riesgo mínimo (0–10)
+                    </label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoMinimo" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Por debajo → rechazo directo, sin importar el puntaje total.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoMedio" class="text-sm font-semibold text-slate-300">
+                        Puntaje de riesgo medio (0–10)
+                    </label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoMedio" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Desde este valor → resultado "Bueno" (+20 pts). Debe ser mayor al mínimo.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMedio" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoExcelente" class="text-sm font-semibold text-slate-300">
+                        Puntaje de riesgo excelente (0–10)
+                    </label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoExcelente" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Desde este valor → resultado "Excelente" (+30 pts). Debe ser mayor al medio.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoExcelente" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="text-sm font-semibold text-slate-300">
+                        Umbral cuota/ingreso bajo (0.01–0.99)
+                    </label>
+                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Por debajo → capacidad "Excelente" (+25 pts). Debe ser menor a la relación máxima.</p>
+                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-sm font-semibold text-slate-300">
+                        Relación cuota/ingreso máxima (0.01–0.99)
+                    </label>
+                    <input asp-for="ScoringThresholds.RelacionCuotaIngresoMax" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Ej: 0.35 = cuota no mayor al 35 % del sueldo para ser "aceptable".</p>
+                    <span asp-validation-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="text-sm font-semibold text-slate-300">
+                        Umbral cuota/ingreso alto (0.01–0.99)
+                    </label>
+                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Por encima → capacidad "Insuficiente" (−15 pts). Debe ser mayor a la relación máxima.</p>
+                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.MontoRequiereGarante" class="text-sm font-semibold text-slate-300">
+                        Monto que exige garante ($)
+                    </label>
+                    <input asp-for="ScoringThresholds.MontoRequiereGarante" type="number" step="1000" min="1"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Solicitudes iguales o mayores a este monto requieren garante obligatorio.</p>
+                    <span asp-validation-for="ScoringThresholds.MontoRequiereGarante" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="text-sm font-semibold text-slate-300">
+                        Puntaje mínimo para Aprobado (0–100)
+                    </label>
+                    <input asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" type="number" step="1" min="1" max="100"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Puntaje total igual o mayor → Aprobado. Debe ser mayor al umbral de análisis.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="text-sm font-semibold text-slate-300">
+                        Puntaje mínimo para Análisis (0–99)
+                    </label>
+                    <input asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" type="number" step="1" min="0" max="99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Puntaje entre este valor y el de aprobación → Requiere Análisis. Por debajo → Rechazado.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="text-xs text-red-500"></span>
+                </div>
+            </div>
+        </section>
+
+        @{
+            var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
+        }
+        <section class="card-erp-panel-padded">
+            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
+                <span class="material-symbols-outlined text-primary">traffic</span>
+                <h2 class="text-xl font-bold text-white">Semáforo de simulación financiera</h2>
+            </div>
+            <p class="mb-6 text-sm text-slate-400">
+                Estos ratios se calculan como cuota / monto financiado. Solo afectan la simulación visual del plan; no modifican la aprobación crediticia.
+            </p>
+
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="SemaforoFinanciero.RatioVerdeMax" class="text-sm font-semibold text-slate-300">
+                        Ratio máximo verde
+                    </label>
+                    <input asp-for="SemaforoFinanciero.RatioVerdeMax" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Ej: 0.08 clasifica como verde si la cuota es hasta el 8 % del monto financiado.</p>
+                    <span asp-validation-for="SemaforoFinanciero.RatioVerdeMax" class="text-xs text-red-500"></span>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label asp-for="SemaforoFinanciero.RatioAmarilloMax" class="text-sm font-semibold text-slate-300">
+                        Ratio máximo amarillo
+                    </label>
+                    <input asp-for="SemaforoFinanciero.RatioAmarilloMax" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)"
+                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                    <p class="text-xs text-slate-500">Por encima de este ratio, la simulación se muestra en rojo.</p>
+                    <span asp-validation-for="SemaforoFinanciero.RatioAmarilloMax" class="text-xs text-red-500"></span>
+                </div>
+            </div>
+        </section>
+
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">Cancelar</a>
             @if (puedeEditar)

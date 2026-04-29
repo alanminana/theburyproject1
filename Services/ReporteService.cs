@@ -17,9 +17,6 @@ namespace TheBuryProject.Services
         #region Constructor y dependencias
 
         // Umbrales de margen para clasificación de productos
-        private const decimal UmbralMargenBajo = 20m;
-        private const decimal UmbralMargenAlto = 35m;
-
         // Tramos de antigüedad de mora (días)
         private const int TramoMora30Dias = 30;
         private const int TramoMora60Dias = 60;
@@ -27,13 +24,16 @@ namespace TheBuryProject.Services
 
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
+        private readonly IConfiguracionRentabilidadService? _configuracionRentabilidadService;
 
         public ReporteService(
             AppDbContext context,
-            ILogger<ReporteService> logger)
+            ILogger<ReporteService> logger,
+            IConfiguracionRentabilidadService? configuracionRentabilidadService = null)
         {
             _context = context;
             _logger = logger;
+            _configuracionRentabilidadService = configuracionRentabilidadService;
         }
 
         #endregion
@@ -174,6 +174,10 @@ namespace TheBuryProject.Services
         {
             try
             {
+                var configRentabilidad = _configuracionRentabilidadService != null
+                    ? await _configuracionRentabilidadService.GetConfiguracionAsync()
+                    : new ConfiguracionRentabilidad();
+
                 var query = _context.Productos
                     .Include(p => p.Categoria)
                     .Include(p => p.Marca)
@@ -243,8 +247,10 @@ namespace TheBuryProject.Services
                         ? productosMargen.Average(p => p.MargenPorcentaje)
                         : 0,
                     GananciaTotalPotencial = productosMargen.Sum(p => p.GananciaPotencial),
-                    ProductosConMargenBajo = productosMargen.Count(p => p.MargenPorcentaje < UmbralMargenBajo),
-                    ProductosConMargenAlto = productosMargen.Count(p => p.MargenPorcentaje >= UmbralMargenAlto)
+                    ProductosConMargenBajo = productosMargen.Count(p => p.MargenPorcentaje < configRentabilidad.MargenBajoMax),
+                    ProductosConMargenAlto = productosMargen.Count(p => p.MargenPorcentaje >= configRentabilidad.MargenAltoMin),
+                    MargenBajoMax = configRentabilidad.MargenBajoMax,
+                    MargenAltoMin = configRentabilidad.MargenAltoMin
                 };
             }
             catch (Exception ex)

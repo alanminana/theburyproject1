@@ -96,6 +96,7 @@ builder.Services.AddScoped<IMoraService, MoraService>();
 builder.Services.AddScoped<IEvaluacionCreditoService, EvaluacionCreditoService>();
 builder.Services.AddScoped<IDocumentoClienteService, DocumentoClienteService>();
 builder.Services.AddScoped<IAlertaStockService, AlertaStockService>();
+builder.Services.AddScoped<IConfiguracionRentabilidadService, ConfiguracionRentabilidadService>();
 builder.Services.AddScoped<IReporteService, ReporteService>();
 builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<IDevolucionService, DevolucionService>();

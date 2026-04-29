@@ -374,31 +374,73 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // =========================================================================
-    // ObtenerTasaInteresMensualCreditoPersonalAsync — auto-create si no existe
+    // ObtenerTasaInteresMensualCreditoPersonalAsync
     // =========================================================================
 
     // -------------------------------------------------------------------------
-    // 17. Sin configuración existente → crea con tasa 0 y la devuelve
+    // 17. Sin configuración existente → retorna null, NO crea registro en DB
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerTasa_SinConfig_CreaRegistroYRetornaCero()
+    public async Task ObtenerTasa_SinConfig_RetornaNull_SinCrearRegistro()
     {
         var result = await _service.ObtenerTasaInteresMensualCreditoPersonalAsync();
 
-        Assert.Equal(0m, result);
+        Assert.Null(result);
 
         var enDb = await _context.ConfiguracionesPago
             .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
-        Assert.NotNull(enDb);
+        Assert.Null(enDb);
     }
 
     // -------------------------------------------------------------------------
-    // 18. Con configuración existente → devuelve tasa registrada
+    // 18. Con configuración con tasa NULL → retorna null
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerTasa_ConConfig_RetornaTasaRegistrada()
+    public async Task ObtenerTasa_TasaNull_RetornaNull()
+    {
+        _context.ConfiguracionesPago.Add(new ConfiguracionPago
+        {
+            TipoPago = TipoPago.CreditoPersonal,
+            Nombre = "CreditoPersonal",
+            Activo = true,
+            TasaInteresMensualCreditoPersonal = null
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+        Assert.Null(result);
+    }
+
+    // -------------------------------------------------------------------------
+    // 19. Con configuración con tasa 0 → retorna null
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerTasa_TasaCero_RetornaNull()
+    {
+        _context.ConfiguracionesPago.Add(new ConfiguracionPago
+        {
+            TipoPago = TipoPago.CreditoPersonal,
+            Nombre = "CreditoPersonal",
+            Activo = true,
+            TasaInteresMensualCreditoPersonal = 0m
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+        Assert.Null(result);
+    }
+
+    // -------------------------------------------------------------------------
+    // 20. Con configuración con tasa válida → retorna tasa registrada
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerTasa_TasaValida_RetornaTasa()
     {
         _context.ConfiguracionesPago.Add(new ConfiguracionPago
         {
@@ -419,7 +461,7 @@ public class ConfiguracionPagoServiceTests : IDisposable
     // =========================================================================
 
     // -------------------------------------------------------------------------
-    // 19. Actualiza defaults globales cuando existe ConfiguracionPago CreditoPersonal
+    // 21. Actualiza defaults globales cuando existe ConfiguracionPago CreditoPersonal
     // -------------------------------------------------------------------------
 
     [Fact]

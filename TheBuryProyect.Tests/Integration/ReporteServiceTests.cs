@@ -448,6 +448,80 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(resultado.Productos.Sum(p => p.GananciaPotencial), resultado.GananciaTotalPotencial);
     }
 
+    [Fact]
+    public async Task GenerarReporteMargenes_Defaults_ConservanClasificacionActual()
+    {
+        await SeedProductoAsync(precioCompra: 81m, precioVenta: 100m); // 19% bajo
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m); // 35% alto
+        await SeedProductoAsync(precioCompra: 70m, precioVenta: 100m); // 30% normal
+
+        var resultado = await _service.GenerarReporteMargenesAsync();
+
+        Assert.Equal(20m, resultado.MargenBajoMax);
+        Assert.Equal(35m, resultado.MargenAltoMin);
+        Assert.Equal(1, resultado.ProductosConMargenBajo);
+        Assert.Equal(1, resultado.ProductosConMargenAlto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMargenes_MargenExacto20_NoCuentaComoBajo()
+    {
+        await SeedProductoAsync(precioCompra: 80m, precioVenta: 100m);
+
+        var resultado = await _service.GenerarReporteMargenesAsync();
+
+        Assert.Equal(0, resultado.ProductosConMargenBajo);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMargenes_MargenExacto35_CuentaComoAlto()
+    {
+        await SeedProductoAsync(precioCompra: 65m, precioVenta: 100m);
+
+        var resultado = await _service.GenerarReporteMargenesAsync();
+
+        Assert.Equal(1, resultado.ProductosConMargenAlto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMargenes_ConfigPersonalizada_CambiaConteos()
+    {
+        var configuracionService = new ConfiguracionRentabilidadService(_context);
+        await configuracionService.SaveConfiguracionAsync(margenBajoMax: 25m, margenAltoMin: 40m);
+        var service = new ReporteService(_context, NullLogger<ReporteService>.Instance, configuracionService);
+
+        await SeedProductoAsync(precioCompra: 76m, precioVenta: 100m); // 24%
+        await SeedProductoAsync(precioCompra: 62m, precioVenta: 100m); // 38%
+        await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m); // 40%
+
+        var resultado = await service.GenerarReporteMargenesAsync();
+
+        Assert.Equal(25m, resultado.MargenBajoMax);
+        Assert.Equal(40m, resultado.MargenAltoMin);
+        Assert.Equal(1, resultado.ProductosConMargenBajo);
+        Assert.Equal(1, resultado.ProductosConMargenAlto);
+    }
+
+    [Fact]
+    public async Task ConfiguracionRentabilidad_SinFila_RetornaDefaults()
+    {
+        var configuracionService = new ConfiguracionRentabilidadService(_context);
+
+        var config = await configuracionService.GetConfiguracionAsync();
+
+        Assert.Equal(20m, config.MargenBajoMax);
+        Assert.Equal(35m, config.MargenAltoMin);
+    }
+
+    [Fact]
+    public async Task ConfiguracionRentabilidad_MargenBajoMayorOIgualAlto_LanzaExcepcion()
+    {
+        var configuracionService = new ConfiguracionRentabilidadService(_context);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            configuracionService.SaveConfiguracionAsync(margenBajoMax: 35m, margenAltoMin: 35m));
+    }
+
     // -------------------------------------------------------------------------
     // ObtenerVentasAgrupadasAsync
     // -------------------------------------------------------------------------

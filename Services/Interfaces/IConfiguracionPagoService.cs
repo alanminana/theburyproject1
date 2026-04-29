@@ -9,7 +9,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<ConfiguracionPagoViewModel>> GetAllAsync();
         Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id);
         Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago);
-        Task<decimal> ObtenerTasaInteresMensualCreditoPersonalAsync();
+        /// <summary>
+        /// Retorna la tasa mensual de crédito personal configurada.
+        /// Retorna null si no existe configuración o si la tasa es 0 o no está definida:
+        /// en esos casos la operación debe bloquearse en el caller.
+        /// </summary>
+        Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync();
         Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel);
         Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel);
         Task<bool> DeleteAsync(int id);

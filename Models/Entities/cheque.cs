@@ -5,7 +5,8 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Representa un cheque emitido como pago a proveedor
+    /// Representa un cheque emitido por la empresa para pagos a proveedores o compras,
+    /// con ciclo de vida y estados propios de tesoreria.
     /// </summary>
     public class Cheque  : AuditableEntity
     {

@@ -317,8 +317,10 @@ namespace TheBuryProject.Services
             if (!credito.FechaPrimeraCuota.HasValue)
                 result.Errores.Add("El crédito debe tener fecha de primera cuota.");
 
-            if (credito.TasaInteres < 0)
-                result.Errores.Add("La tasa del crédito no puede ser negativa.");
+            if (credito.TasaInteres <= 0)
+                result.Errores.Add(
+                    "La tasa del crédito es 0% o negativa. " +
+                    "Configure la tasa en Administración → Tipos de Pago antes de generar el contrato.");
         }
 
         private static void ValidarGaranteSiCorresponde(Credito credito, ContratoVentaCreditoValidacionResult result)

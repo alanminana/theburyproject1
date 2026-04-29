@@ -98,12 +98,12 @@
                 <p class="mt-1 text-2xl font-bold text-emerald-400">$@Model.GananciaTotalPotencial.ToString("N2")</p>
             </div>
             <div class="card-erp-metric card-erp-metric-warning">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen bajo (&lt;20%)</p>
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen bajo (&lt;@Model.MargenBajoMax.ToString("N0")%)</p>
                 <p class="mt-1 text-2xl font-bold text-amber-400">@Model.ProductosConMargenBajo</p>
                 <p class="text-xs text-slate-500 mt-1">productos</p>
             </div>
             <div class="card-erp-metric card-erp-metric-success">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen alto (&gt;35%)</p>
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Margen alto (&ge;@Model.MargenAltoMin.ToString("N0")%)</p>
                 <p class="mt-1 text-2xl font-bold text-emerald-400">@Model.ProductosConMargenAlto</p>
                 <p class="text-xs text-slate-500 mt-1">productos</p>
             </div>

@@ -67,6 +67,7 @@ namespace TheBuryProject.Data
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
         public DbSet<AlertaMora> AlertasMora { get; set; }
         public DbSet<ConfiguracionCredito> ConfiguracionesCredito { get; set; }
+        public DbSet<ConfiguracionRentabilidad> ConfiguracionesRentabilidad { get; set; }
         public DbSet<LogMora> LogsMora { get; set; }
         public DbSet<AlertaCobranza> AlertasCobranza { get; set; }
         public DbSet<HistorialContacto> HistorialContactos { get; set; }
@@ -1406,6 +1407,31 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoMoraParaNoApto).HasPrecision(18, 2);
                 entity.Property(e => e.MontoMoraParaRequerirAutorizacion).HasPrecision(18, 2);
                 entity.Property(e => e.PorcentajeCupoMinimoRequerido).HasPrecision(5, 2);
+                entity.Property(e => e.PuntajeRiesgoMinimo).HasPrecision(5, 2);
+                entity.Property(e => e.PuntajeRiesgoMedio).HasPrecision(5, 2);
+                entity.Property(e => e.PuntajeRiesgoExcelente).HasPrecision(5, 2);
+                entity.Property(e => e.RelacionCuotaIngresoMax).HasPrecision(5, 4);
+                entity.Property(e => e.UmbralCuotaIngresoBajo).HasPrecision(5, 4);
+                entity.Property(e => e.UmbralCuotaIngresoAlto).HasPrecision(5, 4);
+                entity.Property(e => e.MontoRequiereGarante).HasPrecision(18, 2);
+                entity.Property(e => e.PuntajeMinimoParaAprobacion).HasPrecision(5, 2);
+                entity.Property(e => e.PuntajeMinimoParaAnalisis).HasPrecision(5, 2);
+                entity.Property(e => e.SemaforoFinancieroRatioVerdeMax).HasPrecision(5, 4);
+                entity.Property(e => e.SemaforoFinancieroRatioAmarilloMax).HasPrecision(5, 4);
+            });
+
+            modelBuilder.Entity<ConfiguracionRentabilidad>(entity =>
+            {
+                entity.ToTable("ConfiguracionesRentabilidad");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.MargenBajoMax)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(20m);
+
+                entity.Property(e => e.MargenAltoMin)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(35m);
             });
 
             // =======================

@@ -829,9 +829,10 @@ namespace TheBuryProject.Services
                     credito.Estado = EstadoCredito.Configurado;
                 }
 
-                if (credito.TasaInteres < 0m)
+                if (credito.TasaInteres <= 0m)
                     throw new InvalidOperationException(
-                        "La tasa de interes mensual de Credito Personal no puede ser negativa.");
+                        "La tasa de interés de Crédito Personal no está configurada. " +
+                        "Configure el valor en Administración → Tipos de Pago antes de confirmar la venta.");
 
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);

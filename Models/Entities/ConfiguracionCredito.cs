@@ -133,6 +133,75 @@ namespace TheBuryProject.Models.Entities
 
         #endregion
 
+        #region Scoring
+
+        /// <summary>
+        /// Puntaje de riesgo mínimo (escala 0-10) para no ser rechazado por regla crítica.
+        /// </summary>
+        public decimal PuntajeRiesgoMinimo { get; set; } = 3.0m;
+
+        /// <summary>
+        /// Puntaje de riesgo (escala 0-10) a partir del cual el resultado es "Bueno" (banda media).
+        /// Debe ser mayor que PuntajeRiesgoMinimo y menor que PuntajeRiesgoExcelente.
+        /// </summary>
+        public decimal PuntajeRiesgoMedio { get; set; } = 5.0m;
+
+        /// <summary>
+        /// Puntaje de riesgo (escala 0-10) a partir del cual el resultado es "Excelente" (banda alta).
+        /// Debe ser mayor que PuntajeRiesgoMedio.
+        /// </summary>
+        public decimal PuntajeRiesgoExcelente { get; set; } = 7.0m;
+
+        /// <summary>
+        /// Relación cuota/ingreso máxima aceptable. Ej: 0.35 = 35%.
+        /// Debe ser mayor que UmbralCuotaIngresoBajo y menor que UmbralCuotaIngresoAlto.
+        /// </summary>
+        public decimal RelacionCuotaIngresoMax { get; set; } = 0.35m;
+
+        /// <summary>
+        /// Umbral de relación cuota/ingreso por debajo del cual la capacidad de pago es "Excelente".
+        /// Debe ser menor que RelacionCuotaIngresoMax.
+        /// </summary>
+        public decimal UmbralCuotaIngresoBajo { get; set; } = 0.25m;
+
+        /// <summary>
+        /// Umbral de relación cuota/ingreso por encima del cual la capacidad de pago es "Insuficiente".
+        /// Debe ser mayor que RelacionCuotaIngresoMax.
+        /// </summary>
+        public decimal UmbralCuotaIngresoAlto { get; set; } = 0.45m;
+
+        /// <summary>
+        /// Monto solicitado a partir del cual se requiere garante.
+        /// </summary>
+        public decimal MontoRequiereGarante { get; set; } = 500_000m;
+
+        /// <summary>
+        /// Puntaje mínimo para resultado Aprobado (escala 0-100).
+        /// </summary>
+        public decimal PuntajeMinimoParaAprobacion { get; set; } = 70m;
+
+        /// <summary>
+        /// Puntaje mínimo para resultado RequiereAnalisis; por debajo → Rechazado (escala 0-100).
+        /// </summary>
+        public decimal PuntajeMinimoParaAnalisis { get; set; } = 50m;
+
+        #endregion
+
+        #region Semáforo financiero
+
+        /// <summary>
+        /// Ratio máximo cuota/monto financiado para clasificar la simulación financiera como verde.
+        /// </summary>
+        public decimal SemaforoFinancieroRatioVerdeMax { get; set; } = 0.08m;
+
+        /// <summary>
+        /// Ratio máximo cuota/monto financiado para clasificar la simulación financiera como amarilla.
+        /// Por encima de este valor la simulación se clasifica como roja.
+        /// </summary>
+        public decimal SemaforoFinancieroRatioAmarilloMax { get; set; } = 0.15m;
+
+        #endregion
+
         #region Metadata
 
         /// <summary>

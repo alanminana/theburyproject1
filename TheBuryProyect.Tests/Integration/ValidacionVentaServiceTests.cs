@@ -561,4 +561,16 @@ internal sealed class StubClienteAptitudService : IClienteAptitudService
 
     public Task<decimal> GetCreditoUtilizadoAsync(int clienteId)
         => Task.FromResult(0m);
+
+    public Task<ScoringThresholdsViewModel> GetScoringThresholdsAsync()
+        => Task.FromResult(new ScoringThresholdsViewModel());
+
+    public Task UpdateScoringThresholdsAsync(ScoringThresholdsViewModel model)
+        => Task.CompletedTask;
+
+    public Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync()
+        => Task.FromResult(new SemaforoFinancieroViewModel());
+
+    public Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model)
+        => Task.CompletedTask;
 }

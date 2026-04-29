@@ -14,13 +14,16 @@ namespace TheBuryProject.Controllers
     public class ConfiguracionPagoController : Controller
     {
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly IClienteAptitudService _aptitudService;
         private readonly ILogger<ConfiguracionPagoController> _logger;
 
         public ConfiguracionPagoController(
             IConfiguracionPagoService configuracionPagoService,
+            IClienteAptitudService aptitudService,
             ILogger<ConfiguracionPagoController> logger)
         {
             _configuracionPagoService = configuracionPagoService;
+            _aptitudService = aptitudService;
             _logger = logger;
         }
 
@@ -403,6 +406,46 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError("DefaultsGlobales.MaxCuotas", "El máximo global debe ser mayor o igual al mínimo.");
             }
 
+            if (config.ScoringThresholds != null)
+            {
+                var sc = config.ScoringThresholds;
+
+                if (sc.PuntajeMinimoParaAprobacion <= sc.PuntajeMinimoParaAnalisis)
+                    ModelState.AddModelError(
+                        "ScoringThresholds.PuntajeMinimoParaAprobacion",
+                        "El umbral de aprobación debe ser mayor al umbral de análisis.");
+
+                if (sc.PuntajeRiesgoMinimo >= sc.PuntajeRiesgoMedio)
+                    ModelState.AddModelError(
+                        "ScoringThresholds.PuntajeRiesgoMedio",
+                        "El puntaje de riesgo medio debe ser mayor al mínimo.");
+
+                if (sc.PuntajeRiesgoMedio >= sc.PuntajeRiesgoExcelente)
+                    ModelState.AddModelError(
+                        "ScoringThresholds.PuntajeRiesgoExcelente",
+                        "El puntaje de riesgo excelente debe ser mayor al medio.");
+
+                if (sc.UmbralCuotaIngresoBajo >= sc.RelacionCuotaIngresoMax)
+                    ModelState.AddModelError(
+                        "ScoringThresholds.RelacionCuotaIngresoMax",
+                        "La relación cuota/ingreso máxima debe ser mayor al umbral bajo.");
+
+                if (sc.RelacionCuotaIngresoMax >= sc.UmbralCuotaIngresoAlto)
+                    ModelState.AddModelError(
+                        "ScoringThresholds.UmbralCuotaIngresoAlto",
+                        "El umbral alto de cuota/ingreso debe ser mayor a la relación máxima.");
+            }
+
+            if (config.SemaforoFinanciero != null)
+            {
+                var sf = config.SemaforoFinanciero;
+
+                if (sf.RatioVerdeMax >= sf.RatioAmarilloMax)
+                    ModelState.AddModelError(
+                        "SemaforoFinanciero.RatioAmarilloMax",
+                        "El ratio máximo amarillo debe ser mayor al ratio máximo verde.");
+            }
+
             config.Perfiles = (config.Perfiles ?? new List<PerfilCreditoViewModel>())
                 .Where(p => p.Id > 0 || !string.IsNullOrWhiteSpace(p.Nombre))
                 .ToList();
@@ -448,7 +491,14 @@ namespace TheBuryProject.Controllers
             }
 
             await _configuracionPagoService.GuardarCreditoPersonalAsync(config);
+
+            if (config.ScoringThresholds != null)
+                await _aptitudService.UpdateScoringThresholdsAsync(config.ScoringThresholds);
+
             TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
+
+            if (config.SemaforoFinanciero != null)
+                await _aptitudService.UpdateSemaforoFinancieroAsync(config.SemaforoFinanciero);
 
             var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             if (!string.IsNullOrWhiteSpace(safeReturnUrl))
@@ -498,13 +548,13 @@ namespace TheBuryProject.Controllers
 
         private async Task<CreditoPersonalConfigViewModel> ConstruirCreditoPersonalConfigAsync()
         {
-            await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-
             var configuraciones = await _configuracionPagoService.GetAllAsync();
             var creditoPersonal = configuraciones
                 .FirstOrDefault(c => c.TipoPago == TipoPago.CreditoPersonal);
 
             var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
+            var scoring  = await _aptitudService.GetScoringThresholdsAsync();
+            var semaforo = await _aptitudService.GetSemaforoFinancieroAsync();
 
             return new CreditoPersonalConfigViewModel
             {
@@ -515,7 +565,9 @@ namespace TheBuryProject.Controllers
                     MinCuotas = creditoPersonal?.MinCuotasDefaultCreditoPersonal ?? 1,
                     MaxCuotas = creditoPersonal?.MaxCuotasDefaultCreditoPersonal ?? 24
                 },
-                Perfiles = perfiles
+                Perfiles = perfiles,
+                ScoringThresholds = scoring,
+                SemaforoFinanciero = semaforo
             };
         }
 

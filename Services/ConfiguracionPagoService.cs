@@ -57,35 +57,30 @@ namespace TheBuryProject.Services
             return configuracion == null ? null : _mapper.Map<ConfiguracionPagoViewModel>(configuracion);
         }
 
-        public async Task<decimal> ObtenerTasaInteresMensualCreditoPersonalAsync()
+        public async Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync()
         {
             var configuracion = await _context.ConfiguracionesPago
                 .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal && !c.IsDeleted);
 
             if (configuracion == null)
             {
-                configuracion = new ConfiguracionPago
-                {
-                    TipoPago = TipoPago.CreditoPersonal,
-                    Nombre = TipoPago.CreditoPersonal.ToString(),
-                    Activo = true,
-                    TasaInteresMensualCreditoPersonal = 0m
-                };
-
-                _context.ConfiguracionesPago.Add(configuracion);
-                await _context.SaveChangesAsync();
-
                 _logger.LogWarning(
-                    "ConfiguracionPago CreditoPersonal no existia. Se creo con tasa 0.");
+                    "No existe ConfiguracionPago para CreditoPersonal. " +
+                    "Configure la tasa en Administración → Tipos de Pago.");
+                return null;
             }
 
-            if (!configuracion.TasaInteresMensualCreditoPersonal.HasValue)
+            if (!configuracion.TasaInteresMensualCreditoPersonal.HasValue ||
+                configuracion.TasaInteresMensualCreditoPersonal.Value == 0m)
             {
                 _logger.LogWarning(
-                    "ConfiguracionPago CreditoPersonal sin tasa definida. Se usa 0.");
+                    "ConfiguracionPago CreditoPersonal tiene tasa {Tasa}. " +
+                    "Configure un valor mayor a 0 en Administración → Tipos de Pago.",
+                    configuracion.TasaInteresMensualCreditoPersonal);
+                return null;
             }
 
-            return configuracion.TasaInteresMensualCreditoPersonal ?? 0m;
+            return configuracion.TasaInteresMensualCreditoPersonal.Value;
         }
 
         public async Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel)

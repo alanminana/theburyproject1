@@ -560,6 +560,84 @@ namespace TheBuryProject.Services
             return config;
         }
 
+        public async Task<ScoringThresholdsViewModel> GetScoringThresholdsAsync()
+        {
+            var config = await _context.Set<ConfiguracionCredito>()
+                .AsNoTracking()
+                .OrderByDescending(c => c.Id)
+                .FirstOrDefaultAsync(c => !c.IsDeleted);
+
+            if (config == null)
+                return new ScoringThresholdsViewModel();
+
+            return new ScoringThresholdsViewModel
+            {
+                PuntajeRiesgoMinimo         = config.PuntajeRiesgoMinimo,
+                PuntajeRiesgoMedio          = config.PuntajeRiesgoMedio,
+                PuntajeRiesgoExcelente      = config.PuntajeRiesgoExcelente,
+                RelacionCuotaIngresoMax     = config.RelacionCuotaIngresoMax,
+                UmbralCuotaIngresoBajo      = config.UmbralCuotaIngresoBajo,
+                UmbralCuotaIngresoAlto      = config.UmbralCuotaIngresoAlto,
+                MontoRequiereGarante        = config.MontoRequiereGarante,
+                PuntajeMinimoParaAprobacion = config.PuntajeMinimoParaAprobacion,
+                PuntajeMinimoParaAnalisis   = config.PuntajeMinimoParaAnalisis
+            };
+        }
+
+        public async Task UpdateScoringThresholdsAsync(ScoringThresholdsViewModel model)
+        {
+            var config = await GetConfiguracionAsync();
+
+            config.PuntajeRiesgoMinimo         = model.PuntajeRiesgoMinimo;
+            config.PuntajeRiesgoMedio          = model.PuntajeRiesgoMedio;
+            config.PuntajeRiesgoExcelente      = model.PuntajeRiesgoExcelente;
+            config.RelacionCuotaIngresoMax     = model.RelacionCuotaIngresoMax;
+            config.UmbralCuotaIngresoBajo      = model.UmbralCuotaIngresoBajo;
+            config.UmbralCuotaIngresoAlto      = model.UmbralCuotaIngresoAlto;
+            config.MontoRequiereGarante        = model.MontoRequiereGarante;
+            config.PuntajeMinimoParaAprobacion = model.PuntajeMinimoParaAprobacion;
+            config.PuntajeMinimoParaAnalisis   = model.PuntajeMinimoParaAnalisis;
+            config.FechaUltimaModificacion     = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Umbrales de scoring actualizados: RiesgoMin={R}, RiesgoMedio={Rm}, RiesgoExc={Re}, CuotaBajo={Cb}, CuotaMax={C}, CuotaAlto={Ca}, Garante={G}, Aprobacion={A}, Analisis={An}",
+                model.PuntajeRiesgoMinimo, model.PuntajeRiesgoMedio, model.PuntajeRiesgoExcelente,
+                model.UmbralCuotaIngresoBajo, model.RelacionCuotaIngresoMax, model.UmbralCuotaIngresoAlto,
+                model.MontoRequiereGarante, model.PuntajeMinimoParaAprobacion, model.PuntajeMinimoParaAnalisis);
+        }
+
+        public async Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync()
+        {
+            var config = await _context.Set<ConfiguracionCredito>()
+                .AsNoTracking()
+                .OrderByDescending(c => c.Id)
+                .FirstOrDefaultAsync(c => !c.IsDeleted);
+
+            if (config == null)
+                return new SemaforoFinancieroViewModel();
+
+            return new SemaforoFinancieroViewModel
+            {
+                RatioVerdeMax = config.SemaforoFinancieroRatioVerdeMax,
+                RatioAmarilloMax = config.SemaforoFinancieroRatioAmarilloMax
+            };
+        }
+
+        public async Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model)
+        {
+            var config = await GetConfiguracionAsync();
+
+            config.SemaforoFinancieroRatioVerdeMax = model.RatioVerdeMax;
+            config.SemaforoFinancieroRatioAmarilloMax = model.RatioAmarilloMax;
+            config.FechaUltimaModificacion = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Umbrales de semáforo financiero actualizados: VerdeMax={VerdeMax}, AmarilloMax={AmarilloMax}",
+                model.RatioVerdeMax, model.RatioAmarilloMax);
+        }
+
         public async Task<(bool EstaConfigurando, string? Mensaje)> VerificarConfiguracionAsync()
         {
             var config = await GetConfiguracionAsync();

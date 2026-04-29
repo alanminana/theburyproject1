@@ -1286,4 +1286,168 @@ public class ClienteAptitudServiceTests
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    // M. GetScoringThresholdsAsync / UpdateScoringThresholdsAsync
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetScoringThresholds_SinConfigEnDB_RetornaDefaults()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var service = BuildService(ctx);
+            var result = await service.GetScoringThresholdsAsync();
+
+            Assert.Equal(3.0m,      result.PuntajeRiesgoMinimo);
+            Assert.Equal(5.0m,      result.PuntajeRiesgoMedio);
+            Assert.Equal(7.0m,      result.PuntajeRiesgoExcelente);
+            Assert.Equal(0.25m,     result.UmbralCuotaIngresoBajo);
+            Assert.Equal(0.35m,     result.RelacionCuotaIngresoMax);
+            Assert.Equal(0.45m,     result.UmbralCuotaIngresoAlto);
+            Assert.Equal(500_000m,  result.MontoRequiereGarante);
+            Assert.Equal(70m,       result.PuntajeMinimoParaAprobacion);
+            Assert.Equal(50m,       result.PuntajeMinimoParaAnalisis);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateScoringThresholds_PersisteLosValoresYGetLosDevuelve()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+
+            var nuevos = new ScoringThresholdsViewModel
+            {
+                PuntajeRiesgoMinimo         = 2.0m,
+                PuntajeRiesgoMedio          = 4.5m,
+                PuntajeRiesgoExcelente      = 8.0m,
+                UmbralCuotaIngresoBajo      = 0.20m,
+                RelacionCuotaIngresoMax     = 0.40m,
+                UmbralCuotaIngresoAlto      = 0.50m,
+                MontoRequiereGarante        = 750_000m,
+                PuntajeMinimoParaAprobacion = 80m,
+                PuntajeMinimoParaAnalisis   = 60m
+            };
+            await service.UpdateScoringThresholdsAsync(nuevos);
+
+            var recuperado = await service.GetScoringThresholdsAsync();
+
+            Assert.Equal(2.0m,      recuperado.PuntajeRiesgoMinimo);
+            Assert.Equal(4.5m,      recuperado.PuntajeRiesgoMedio);
+            Assert.Equal(8.0m,      recuperado.PuntajeRiesgoExcelente);
+            Assert.Equal(0.20m,     recuperado.UmbralCuotaIngresoBajo);
+            Assert.Equal(0.40m,     recuperado.RelacionCuotaIngresoMax);
+            Assert.Equal(0.50m,     recuperado.UmbralCuotaIngresoAlto);
+            Assert.Equal(750_000m,  recuperado.MontoRequiereGarante);
+            Assert.Equal(80m,       recuperado.PuntajeMinimoParaAprobacion);
+            Assert.Equal(60m,       recuperado.PuntajeMinimoParaAnalisis);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateScoringThresholds_NoAfectaCamposAptitud()
+    {
+        // Guardar umbrales scoring NO debe sobreescribir ValidarDocumentacion ni ValidarMora
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            config.ValidarMora = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateScoringThresholdsAsync(new ScoringThresholdsViewModel
+            {
+                PuntajeRiesgoMinimo         = 4.0m,
+                PuntajeRiesgoMedio          = 5.5m,
+                PuntajeRiesgoExcelente      = 7.5m,
+                UmbralCuotaIngresoBajo      = 0.22m,
+                RelacionCuotaIngresoMax     = 0.30m,
+                UmbralCuotaIngresoAlto      = 0.42m,
+                MontoRequiereGarante        = 300_000m,
+                PuntajeMinimoParaAprobacion = 75m,
+                PuntajeMinimoParaAnalisis   = 55m
+            });
+
+            var configActualizada = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.True(configActualizada.ValidarDocumentacion);
+            Assert.True(configActualizada.ValidarMora);
+        }
+    }
+    [Fact]
+    public async Task GetSemaforoFinanciero_SinConfigEnDB_RetornaDefaults()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var service = BuildService(ctx);
+            var result = await service.GetSemaforoFinancieroAsync();
+
+            Assert.Equal(0.08m, result.RatioVerdeMax);
+            Assert.Equal(0.15m, result.RatioAmarilloMax);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateSemaforoFinanciero_PersisteLosValoresYGetLosDevuelve()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateSemaforoFinancieroAsync(new SemaforoFinancieroViewModel
+            {
+                RatioVerdeMax = 0.10m,
+                RatioAmarilloMax = 0.18m
+            });
+
+            var recuperado = await service.GetSemaforoFinancieroAsync();
+
+            Assert.Equal(0.10m, recuperado.RatioVerdeMax);
+            Assert.Equal(0.18m, recuperado.RatioAmarilloMax);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateSemaforoFinanciero_NoAfectaScoringThresholds()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.PuntajeRiesgoMedio = 6.0m;
+            config.PuntajeRiesgoExcelente = 8.0m;
+            config.UmbralCuotaIngresoBajo = 0.22m;
+            config.RelacionCuotaIngresoMax = 0.33m;
+            config.UmbralCuotaIngresoAlto = 0.44m;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            await service.UpdateSemaforoFinancieroAsync(new SemaforoFinancieroViewModel
+            {
+                RatioVerdeMax = 0.09m,
+                RatioAmarilloMax = 0.16m
+            });
+
+            var configActualizada = await ctx.Set<ConfiguracionCredito>().FirstAsync();
+            Assert.Equal(6.0m, configActualizada.PuntajeRiesgoMedio);
+            Assert.Equal(8.0m, configActualizada.PuntajeRiesgoExcelente);
+            Assert.Equal(0.22m, configActualizada.UmbralCuotaIngresoBajo);
+            Assert.Equal(0.33m, configActualizada.RelacionCuotaIngresoMax);
+            Assert.Equal(0.44m, configActualizada.UmbralCuotaIngresoAlto);
+        }
+    }
 }

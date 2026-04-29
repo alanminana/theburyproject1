@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html class="dark" lang="es">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - TheBuryProject</title>
-    <meta name="description" content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
+    <meta name="description"
+          content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
     <link rel="icon" type="image/png" href="~/ico/bury.png" asp-append-version="true" />
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet" />
 
     <!-- Material Symbols Outlined -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          rel="stylesheet" />
 
     <!-- Tailwind CSS v4 -->
     <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
@@ -26,332 +30,346 @@
 </head>
 
 <body class="text-slate-100 font-display" style="background-color:#101622;">
-@{
-    string? currentController = ViewContext.RouteData.Values["controller"]?.ToString();
-    string? currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    @{
+        string? currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        string? currentAction = ViewContext.RouteData.Values["action"]?.ToString();
 
-    bool IsActive(string controller, string? action = null) =>
-        string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) &&
-        (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
+        bool IsActive(string controller, string? action = null) =>
+            string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) &&
+            (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
 
-    string NavClass(bool active) => active
-        ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary-on-dark"
-        : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer";
+        string NavClass(bool active) => active
+            ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary-on-dark"
+            : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer";
 
-    string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
+        string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
 
-    // Permisos de navegación — solo módulos con entrada propia en el nav
-    var canViewDashboard     = User.TienePermiso("dashboard",     "view");
-    var canViewNotifications = User.TienePermiso("notificaciones","view");
-    var canViewVentas        = User.TienePermiso("ventas",        "view");
-    var canViewClientes      = User.TienePermiso("clientes",      "view");
-    var canViewInventario    = User.TienePermiso("cotizaciones",  "view");
-    var canViewProveedores   = User.TienePermiso("proveedores",   "view");
-    var canViewCaja          = User.TienePermiso("caja",          "view");
-    var canViewReportes      = User.TienePermiso("reportes",      "view");
-    var canViewSeguridad     = User.TieneCualquierPermiso(
-                                   ("usuarios", "view"), ("roles", "view"),
-                                   ("usuarios", "update"), ("roles", "create"));
+        // Permisos de navegación — solo módulos con entrada propia en el nav
+        var canViewDashboard = User.TienePermiso("dashboard", "view");
+        var canViewNotifications = User.TienePermiso("notificaciones", "view");
+        var canViewVentas = User.TienePermiso("ventas", "view");
+        var canViewClientes = User.TienePermiso("clientes", "view");
+        var canViewInventario = User.TienePermiso("cotizaciones", "view");
+        var canViewProveedores = User.TienePermiso("proveedores", "view");
+        var canViewCaja = User.TienePermiso("caja", "view");
+        var canViewReportes = User.TienePermiso("reportes", "view");
+        var canViewSeguridad = User.TieneCualquierPermiso(
+                                       ("usuarios", "view"), ("roles", "view"),
+                                       ("usuarios", "update"), ("roles", "create"));
 
-    var canCreateTicket = User.TienePermiso("tickets", "create");
-    var canViewTickets  = User.TienePermiso("tickets", "view");
-    var canViewConfiguracion = User.TienePermiso("configuracion", "view");
+        var canCreateTicket = User.TienePermiso("tickets", "create");
+        var canViewTickets = User.TienePermiso("tickets", "view");
+        var canViewConfiguracion = User.TienePermiso("configuracion", "view");
 
-    // Visibilidad de secciones
-    var showOperaciones = canViewVentas || canViewClientes;
-    var showLogistica   = canViewInventario || canViewProveedores || canViewCaja;
-    var showReportes    = canViewReportes;
-    var showSistemas    = canViewSeguridad || canViewTickets || canViewConfiguracion;
-}
+        // Visibilidad de secciones
+        var showOperaciones = canViewVentas || canViewClientes;
+        var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
+        var showReportes = canViewReportes;
+        var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
+    }
 
-<div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen overflow-hidden">
 
-    <!-- Sidebar -->
-    <aside id="sidebar"
-           class="w-64 shrink-0 border-r border-slate-800 flex flex-col transition-[width] duration-300 ease-in-out"
-           style="background-color:#101622;">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+               class="w-64 shrink-0 border-r border-slate-800 flex flex-col transition-[width] duration-300 ease-in-out"
+               style="background-color:#101622;">
 
-        <!-- Brand -->
-        <a asp-controller="Home" asp-action="Index" class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
-            <div class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-800 flex items-center justify-center">
-                <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain" />
-            </div>
-            <div class="flex flex-col sidebar-label">
-                <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
-                <p class="text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
-            </div>
-        </a>
-
-        <!-- Nav -->
-        <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
-
-            @if (showOperaciones)
-            {
-                <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Operaciones</p>
-                    <div class="space-y-1">
-                        @if (canViewVentas)
-                        {
-                            <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
-                                <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
-                            </a>
-                        }
-                        @if (canViewClientes)
-                        {
-                            <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">group</span>
-                                <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
-                            </a>
-                        }
-                    </div>
+            <!-- Brand -->
+            <a asp-controller="Home" asp-action="Index"
+                   class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
+                <div
+                    class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-800 flex items-center justify-center">
+                    <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain" />
                 </div>
-            }
-
-            @if (showLogistica)
-            {
-                <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Logística</p>
-                    <div class="space-y-1">
-                        @if (canViewInventario)
-                        {
-                            <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
-                                <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
-                            </a>
-                        }
-                        @if (canViewProveedores)
-                        {
-                            <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
-                                <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
-                            </a>
-                        }
-                        @if (canViewCaja)
-                        {
-                            <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">point_of_sale</span>
-                                <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
-                            </a>
-                        }
-                    </div>
+                <div class="flex flex-col sidebar-label">
+                    <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
+                    <p class="text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
                 </div>
-            }
+            </a>
 
-            @if (showReportes)
-            {
-                <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Reportes</p>
-                    <div class="space-y-1">
-                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index">
-                            <span class="material-symbols-outlined text-lg shrink-0">leaderboard</span>
-                            <p class="@NavFont(IsActive("Reporte", "Index")) sidebar-label">Reportes</p>
-                        </a>
-                        <a class="@NavClass(IsActive("Reporte", "ComisionesVendedores"))" asp-controller="Reporte" asp-action="ComisionesVendedores">
+            <!-- Nav -->
+            <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
+
+                @if (showOperaciones)
+                {
+                    <div>
+                        <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                            Operaciones</p>
+                            <div class="space-y-1">
+                                @if (canViewVentas)
+                                {
+                                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
+                                        <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
+                                        <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
+                                    </a>
+                                }
+                                @if (canViewClientes)
+                                {
+                                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
+                                        <span class="material-symbols-outlined text-lg shrink-0">group</span>
+                                        <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (showLogistica)
+                    {
+                        <div>
+                            <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                                Logística</p>
+                                <div class="space-y-1">
+                                    @if (canViewInventario)
+                                    {
+                                        <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
+                                            <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
+                                            <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
+                                        </a>
+                                    }
+                                    @if (canViewProveedores)
+                                    {
+                                        <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
+                                            <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
+                                            <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
+                                        </a>
+                                    }
+                                    @if (canViewCaja)
+                                    {
+                                        <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
+                                            <span class="material-symbols-outlined text-lg shrink-0">point_of_sale</span>
+                                            <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (showReportes)
+                        {
+                            <div>
+                                <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                                    Reportes</p>
+                                    <div class="space-y-1">
+                                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index">
+                                            <span class="material-symbols-outlined text-lg shrink-0">leaderboard</span>
+                                            <p class="@NavFont(IsActive("Reporte", "Index")) sidebar-label">Reportes</p>
+                                        </a>
+                                        <!-- App CSS <a class="@NavClass(IsActive("Reporte", "ComisionesVendedores"))" asp-controller="Reporte" asp-action="ComisionesVendedores">
                             <span class="material-symbols-outlined text-lg shrink-0">payments</span>
                             <p class="@NavFont(IsActive("Reporte", "ComisionesVendedores")) sidebar-label">Comisiones vendedores</p>
-                        </a>
-                    </div>
-                </div>
-            }
+                        </a>-->
+                                    </div>
+                                </div>
+                            }
 
-            @if (showSistemas)
-            {
-                <div>
-                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">Sistemas</p>
-                    <div class="space-y-1">
-                        @if (canViewSeguridad)
-                        {
-                            <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
-                               asp-controller="Seguridad" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">security</span>
-                                <p class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">Seguridad</p>
-                            </a>
-                        }
-                        @if (canViewTickets)
-                        {
-                            <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
-                                <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
-                            </a>
-                        }
-                        @if (canViewConfiguracion)
-                        {
-                            <a class="@NavClass(IsActive("PlantillaContratoCredito"))"
-                               asp-controller="PlantillaContratoCredito" asp-action="Index">
-                                <span class="material-symbols-outlined text-lg shrink-0">contract</span>
-                                <p class="@NavFont(IsActive("PlantillaContratoCredito")) sidebar-label">Plantillas contrato</p>
-                            </a>
-                        }
-                    </div>
-                </div>
-            }
+                            @if (showSistemas)
+                            {
+                                <div>
+                                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                                        Sistemas</p>
+                                        <div class="space-y-1">
+                                            @if (canViewSeguridad)
+                                            {
+                                                <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
+                                                       asp-controller="Seguridad" asp-action="Index">
+                                                    <span class="material-symbols-outlined text-lg shrink-0">security</span>
+                                                    <p
+                                                        class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">
+                                                        Seguridad</p>
+                                                    </a>
+                                                }
+                                                @if (canViewTickets)
+                                                {
+                                                    <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index">
+                                                        <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
+                                                        <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
+                                                    </a>
+                                                }
+                                                @if (canViewConfiguracion)
+                                                {
+                                                    <a class="@NavClass(IsActive("PlantillaContratoCredito"))"
+                                                           asp-controller="PlantillaContratoCredito" asp-action="Index">
+                                                        <span class="material-symbols-outlined text-lg shrink-0">contract</span>
+                                                        <p class="@NavFont(IsActive("PlantillaContratoCredito")) sidebar-label">Plantillas contrato
+                                                        </p>
+                                                    </a>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
 
-        </nav>
+                                </nav>
 
-        <!-- User info (bottom) -->
-        <div class="p-4 border-t border-slate-800">
-            @{
-                var userRoles = User.Claims
-                    .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
-                    .Select(c => c.Value)
-                    .ToList();
-                var roleDisplay = userRoles.Any() ? string.Join(", ", userRoles) : "Usuario";
-            }
-            <div class="flex items-center gap-3 p-2 overflow-hidden">
-                <div class="size-8 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-slate-400 text-lg">account_circle</span>
-                </div>
-                <div class="flex flex-col sidebar-label min-w-0">
-                    <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">@(User.Identity?.Name ?? "?")</p>
-                    <p class="text-[10px] text-slate-400 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
-                </div>
-            </div>
-            <form method="post" asp-area="Identity" asp-page="/Account/Logout"
-                  asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
-                  class="sidebar-label mt-1">
-                <button type="submit"
-                        class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
-                    <span class="material-symbols-outlined text-base">logout</span>
-                    Cerrar sesión
-                </button>
-            </form>
-        </div>
+                                <!-- User info (bottom) -->
+                                <div class="p-4 border-t border-slate-800">
+                                    @{
+                                        var userRoles = User.Claims
+                                            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+                                            .Select(c => c.Value)
+                                            .ToList();
+                                        var roleDisplay = userRoles.Any() ? string.Join(", ", userRoles) : "Usuario";
+                                    }
+                                    <div class="flex items-center gap-3 p-2 overflow-hidden">
+                                        <div
+                                            class="size-8 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-slate-400 text-lg">account_circle</span>
+                                        </div>
+                                        <div class="flex flex-col sidebar-label min-w-0">
+                                            <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">
+                                                @(User.Identity?.Name ?? "?")</p>
+                                                <p class="text-[10px] text-slate-400 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
+                                            </div>
+                                        </div>
+                                        <form method="post" asp-area="Identity" asp-page="/Account/Logout"
+                                              asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
+                                              class="sidebar-label mt-1">
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
+                                                <span class="material-symbols-outlined text-base">logout</span>
+                                                Cerrar sesión
+                                            </button>
+                                        </form>
+                                    </div>
 
-        <!-- Collapse toggle (desktop) -->
-        <div class="hidden lg:flex p-3 border-t border-slate-800 justify-center">
-            <button id="collapseSidebar" type="button"
-                    class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                    aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
-                <span class="material-symbols-outlined text-lg transition-transform duration-300" id="collapseIcon">chevron_left</span>
-            </button>
-        </div>
-    </aside>
+                                    <!-- Collapse toggle (desktop) -->
+                                    <div class="hidden lg:flex p-3 border-t border-slate-800 justify-center">
+                                        <button id="collapseSidebar" type="button"
+                                                class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                                                aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
+                                            <span class="material-symbols-outlined text-lg transition-transform duration-300"
+                                                  id="collapseIcon">chevron_left</span>
+                                        </button>
+                                    </div>
+                                </aside>
 
-    <!-- Overlay mobile -->
-    <div id="sidebarOverlay"
-         class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"
-         aria-hidden="true"></div>
+                                <!-- Overlay mobile -->
+                                <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" aria-hidden="true"></div>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col overflow-hidden">
+                                <!-- Main Content -->
+                                <main class="flex-1 flex flex-col overflow-hidden">
 
-        <!-- Header / Top Bar -->
-        <header class="h-16 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8" style="background-color:#101622;">
+                                    <!-- Header / Top Bar -->
+                                    <header class="h-16 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8"
+                                            style="background-color:#101622;">
 
-            <div class="flex items-center gap-6">
-                <!-- Mobile toggle -->
-                <button id="toggleSidebar" type="button"
-                        class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
-                        aria-label="Abrir/cerrar menú">
-                    <span class="material-symbols-outlined icon-size-22">menu</span>
-                </button>
+                                        <div class="flex items-center gap-6">
+                                            <!-- Mobile toggle -->
+                                            <button id="toggleSidebar" type="button" class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
+                                                    aria-label="Abrir/cerrar menú">
+                                                <span class="material-symbols-outlined icon-size-22">menu</span>
+                                            </button>
 
-                <!-- Page Title -->
-                <h2 class="text-lg font-bold text-white hidden lg:block">@ViewData["Title"]</h2>
-                <div class="h-6 w-px bg-slate-700 hidden lg:block"></div>
+                                            <!-- Page Title -->
+                                            <h2 class="text-lg font-bold text-white hidden lg:block">@ViewData["Title"]</h2>
+                                            <div class="h-6 w-px bg-slate-700 hidden lg:block"></div>
 
-                <!-- Cotizaciones -->
-                <div class="flex gap-3 hidden lg:flex">
-                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Dolar Blue</span>
-                        <span class="text-xs font-bold text-emerald-400">$1.245,00</span>
-                    </div>
-                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Tarjeta</span>
-                        <span class="text-xs font-bold text-primary-on-dark">$1.482,50</span>
-                    </div>
-                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Oficial</span>
-                        <span class="text-xs font-bold text-slate-300">$942,00</span>
-                    </div>
-                </div>
-            </div>
+                                            <!-- Cotizaciones -->
+                                            <div class="flex gap-3 hidden lg:flex">
+                                                <div
+                                                    class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Dolar
+                                                        Blue</span>
+                                                        <span class="text-xs font-bold text-emerald-400">$1.245,00</span>
+                                                    </div>
+                                                    <div
+                                                        class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Tarjeta</span>
+                                                        <span class="text-xs font-bold text-primary-on-dark">$1.482,50</span>
+                                                    </div>
+                                                    <div
+                                                        class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Oficial</span>
+                                                        <span class="text-xs font-bold text-slate-300">$942,00</span>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-            <div class="flex items-center gap-4">
-                <!-- Notifications -->
-                @if (canViewNotifications)
-                {
-                    <button class="p-2 text-slate-400 hover:text-white transition-colors relative">
-                        <span class="material-symbols-outlined">notifications</span>
-                        <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"></span>
-                    </button>
-                }
-                <!-- Search -->
-                <button class="p-2 text-slate-400 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined">search</span>
-                </button>
-                @if (canViewTickets)
-                {
-                    <button id="btn-open-ticket-panel"
-                            type="button"
-                            class="p-2 text-slate-400 hover:text-white transition-colors"
-                            title="Incidentes"
-                            aria-label="Panel de incidentes">
-                        <span class="material-symbols-outlined">assignment</span>
-                    </button>
-                }
-                <div class="h-8 w-px bg-slate-700"></div>
-                <!-- Help -->
-                <button class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
-                    <span class="material-symbols-outlined">help</span>
-                </button>
-            </div>
-        </header>
+                                            <div class="flex items-center gap-4">
+                                                <!-- Notifications -->
+                                                @if (canViewNotifications)
+                                                {
+                                                    <button class="p-2 text-slate-400 hover:text-white transition-colors relative">
+                                                        <span class="material-symbols-outlined">notifications</span>
+                                                        <span
+                                                        class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"></span>
+                                                    </button>
+                                                }
+                                                <!-- Search -->
+                                                <button class="p-2 text-slate-400 hover:text-white transition-colors">
+                                                    <span class="material-symbols-outlined">search</span>
+                                                </button>
+                                                @if (canViewTickets)
+                                                {
+                                                    <button id="btn-open-ticket-panel" type="button"
+                                                            class="p-2 text-slate-400 hover:text-white transition-colors" title="Incidentes"
+                                                            aria-label="Panel de incidentes">
+                                                        <span class="material-symbols-outlined">assignment</span>
+                                                    </button>
+                                                }
+                                                <div class="h-8 w-px bg-slate-700"></div>
+                                                <!-- Help -->
+                                                <button
+                                                    class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
+                                                    <span class="material-symbols-outlined">help</span>
+                                                </button>
+                                            </div>
+                                        </header>
 
-        <!-- Page Content -->
-        <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8" style="background-color:#101622;">
-            @RenderBody()
-        </div>
-    </main>
-</div>
+                                        <!-- Page Content -->
+                                        <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8" style="background-color:#101622;">
+                                            @RenderBody()
+                                        </div>
+                                    </main>
+                                </div>
 
-<!-- Botón flotante para reportar incidencias -->
-@if (canCreateTicket)
-{
-    <button type="button"
-            data-open-ticket-modal
-            class="fixed bottom-6 right-6 z-40 flex items-center gap-2
-                   bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
-                   text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
-            title="Reportar una incidencia o mejora">
-        <span class="material-symbols-outlined text-base text-amber-400">bug_report</span>
-        <span class="hidden sm:inline">Reportar incidencia</span>
-    </button>
-}
+                                <!-- Botón flotante para reportar incidencias -->
+                                @if (canCreateTicket)
+                                {
+                                    <button type="button" data-open-ticket-modal class="fixed bottom-6 right-6 z-40 flex items-center gap-2
+                                        bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
+                                        text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
+                                            title="Reportar una incidencia o mejora">
+                                        <span class="material-symbols-outlined text-base text-amber-400">bug_report</span>
+                                        <span class="hidden sm:inline">Reportar incidencia</span>
+                                    </button>
+                                }
 
-<!-- ========= MODALS ========= -->
-@await RenderSectionAsync("Modals", required: false)
-<partial name="_ConfirmModal" />
-@if (canCreateTicket)
-{
-    <partial name="_TicketModal" />
-}
-@if (canViewTickets)
-{
-    <partial name="_TicketPanel" />
-}
+                                <!-- ========= MODALS ========= -->
+                                @await RenderSectionAsync("Modals", required: false)
+                                <partial name="_ConfirmModal" />
+                                @if (canCreateTicket)
+                                {
+                                    <partial name="_TicketModal" />
+                                }
+                                @if (canViewTickets)
+                                {
+                                    <partial name="_TicketPanel" />
+                                }
 
-<!-- Vendor JS -->
-<script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
+                                <!-- Vendor JS -->
+                                <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
 
-<!-- App JS -->
-<script src="~/js/shared-ui.js" asp-append-version="true"></script>
-@if (canViewNotifications)
-{
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous"></script>
-    <script src="~/js/notificaciones.js" asp-append-version="true"></script>
-}
-<script src="~/js/layout.js" asp-append-version="true"></script>
-@if (canCreateTicket)
-{
-    <script src="~/js/ticket-modal.js" asp-append-version="true"></script>
-}
-@if (canViewTickets)
-{
-    <script src="~/js/ticket-panel.js" asp-append-version="true"></script>
-}
+                                <!-- App JS -->
+                                <script src="~/js/shared-ui.js" asp-append-version="true"></script>
+                                @if (canViewNotifications)
+                                {
+                                    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"
+                                            crossorigin="anonymous"></script>
+                                    <script src="~/js/notificaciones.js" asp-append-version="true"></script>
+                                }
+                                <script src="~/js/layout.js" asp-append-version="true"></script>
+                                @if (canCreateTicket)
+                                {
+                                    <script src="~/js/ticket-modal.js" asp-append-version="true"></script>
+                                }
+                                @if (canViewTickets)
+                                {
+                                    <script src="~/js/ticket-panel.js" asp-append-version="true"></script>
+                                }
 
-@await RenderSectionAsync("Scripts", required: false)
-</body>
-</html>
+                                @await RenderSectionAsync("Scripts", required: false)
+                            </body>
+
+                        </html>

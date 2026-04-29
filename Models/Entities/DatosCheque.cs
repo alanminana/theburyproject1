@@ -4,7 +4,8 @@ using TheBuryProject.Models.Base;
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Datos espec�ficos del cheque asociado a una venta
+    /// Representa los datos o snapshot del cheque recibido como medio de pago en una venta,
+    /// asociado a Venta y sin ciclo de vida de tesoreria.
     /// </summary>
     public class DatosCheque  : AuditableEntity
     {

@@ -64,7 +64,9 @@ file sealed class StubFinancialServiceConfig : IFinancialCalculationService
     public decimal CalcularCFTEADesdeTasa(decimal tasaMensual) => throw new NotImplementedException();
     public SimulacionPlanCreditoDto SimularPlanCredito(
         decimal totalVenta, decimal anticipo, int cuotas, decimal tasaMensual,
-        decimal gastosAdministrativos, DateTime fechaPrimeraCuota) => throw new NotImplementedException();
+        decimal gastosAdministrativos, DateTime fechaPrimeraCuota,
+        decimal semaforoRatioVerdeMax = 0.08m,
+        decimal semaforoRatioAmarilloMax = 0.15m) => throw new NotImplementedException();
 }
 
 file sealed class StubCreditoDisponibleServiceConfig : ICreditoDisponibleService

@@ -102,6 +102,8 @@ namespace TheBuryProject.ViewModels
         public decimal GananciaTotalPotencial { get; set; }
         public int ProductosConMargenBajo { get; set; }
         public int ProductosConMargenAlto { get; set; }
+        public decimal MargenBajoMax { get; set; } = 20m;
+        public decimal MargenAltoMin { get; set; } = 35m;
     }
 
     /// <summary>

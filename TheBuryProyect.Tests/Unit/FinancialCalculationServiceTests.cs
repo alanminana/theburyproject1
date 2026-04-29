@@ -317,4 +317,40 @@ public class FinancialCalculationServiceTests
         Assert.True(resultado.MostrarMsgIngreso);
         Assert.True(resultado.MostrarMsgAntiguedad);
     }
+    [Fact]
+    public void SimularPlan_RatioExactoVerdeMax_SemaforoVerde()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 10, 0m, 0m, FechaPrimera, 0.10m, 0.15m);
+
+        Assert.Equal("verde", resultado.SemaforoEstado);
+        Assert.False(resultado.MostrarMsgIngreso);
+    }
+
+    [Fact]
+    public void SimularPlan_RatioExactoAmarilloMax_SemaforoAmarillo()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 10, 0m, 0m, FechaPrimera, 0.08m, 0.10m);
+
+        Assert.Equal("amarillo", resultado.SemaforoEstado);
+        Assert.True(resultado.MostrarMsgIngreso);
+        Assert.False(resultado.MostrarMsgAntiguedad);
+    }
+
+    [Fact]
+    public void SimularPlan_RatioMayorAAmarilloMax_SemaforoRojo()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 10, 0m, 0m, FechaPrimera, 0.05m, 0.09m);
+
+        Assert.Equal("rojo", resultado.SemaforoEstado);
+        Assert.True(resultado.MostrarMsgIngreso);
+        Assert.True(resultado.MostrarMsgAntiguedad);
+    }
+
+    [Fact]
+    public void SimularPlan_UmbralesPersonalizados_CambianClasificacion()
+    {
+        var resultado = _sut.SimularPlanCredito(10_000m, 0m, 10, 0m, 0m, FechaPrimera, 0.12m, 0.20m);
+
+        Assert.Equal("verde", resultado.SemaforoEstado);
+    }
 }

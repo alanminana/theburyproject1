@@ -99,7 +99,9 @@ namespace TheBuryProject.Services
             int cuotas,
             decimal tasaMensual,
             decimal gastosAdministrativos,
-            DateTime fechaPrimeraCuota)
+            DateTime fechaPrimeraCuota,
+            decimal semaforoRatioVerdeMax = 0.08m,
+            decimal semaforoRatioAmarilloMax = 0.15m)
         {
             var montoFinanciado = ComputeFinancedAmount(totalVenta, anticipo);
             var tasaDecimal = tasaMensual / 100;
@@ -107,7 +109,11 @@ namespace TheBuryProject.Services
             var interesTotal = CalcularInteresTotal(montoFinanciado, tasaDecimal, cuotas);
             var totalCuotas = cuota * cuotas;
 
-            var (estado, mensaje, mostrarIngreso, mostrarAntiguedad) = CalcularSemaforo(cuota, montoFinanciado);
+            var (estado, mensaje, mostrarIngreso, mostrarAntiguedad) = CalcularSemaforo(
+                cuota,
+                montoFinanciado,
+                semaforoRatioVerdeMax,
+                semaforoRatioAmarilloMax);
 
             return new SimulacionPlanCreditoDto
             {
@@ -127,17 +133,21 @@ namespace TheBuryProject.Services
         }
 
         private static (string Estado, string Mensaje, bool MostrarIngreso, bool MostrarAntiguedad)
-            CalcularSemaforo(decimal cuota, decimal montoFinanciado)
+            CalcularSemaforo(
+                decimal cuota,
+                decimal montoFinanciado,
+                decimal ratioVerdeMax,
+                decimal ratioAmarilloMax)
         {
             if (montoFinanciado <= 0 || cuota <= 0)
                 return ("sinDatos", "Completa los datos para precalificar.", false, false);
 
             var ratio = cuota / montoFinanciado;
 
-            if (ratio <= 0.08m)
+            if (ratio <= ratioVerdeMax)
                 return ("verde", "Condiciones preliminares saludables.", false, false);
 
-            if (ratio <= 0.15m)
+            if (ratio <= ratioAmarilloMax)
                 return ("amarillo", "Revisar ingresos declarados.", true, false);
 
             return ("rojo", "Las condiciones requieren ajustes.", true, true);

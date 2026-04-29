@@ -506,6 +506,83 @@ public class EvaluacionCreditoServiceTests : IDisposable
         Assert.Equal(2, resultado.Count);
     }
 
+    // -------------------------------------------------------------------------
+    // GetConfiguracionAsync — lee valores desde DB (no usa defaults hardcodeados)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task EvaluarSolicitud_ConfiguracionEnDB_UsaUmbralPersonalizadoDeRiesgo()
+    {
+        // El scoring evalúa riesgo en tres bandas por orden:
+        //   >= PuntajeRiesgoExcelente (7.0, hardcoded) → Cumple, Peso=30
+        //   >= PuntajeRiesgoMedio     (5.0, hardcoded) → Cumple, Peso=20
+        //   >= _config.PuntajeRiesgoMinimo (DB)        → Cumple, Peso=10
+        //   else                                        → no Cumple, EsCritica
+        //
+        // Para ejercitar el path de DB: usamos puntaje=4.0 (cae en la tercera banda).
+        // Con el default (PuntajeRiesgoMinimo=3.0) pasaría (4.0 >= 3.0 → Peso=10).
+        // Con DB configurado en 4.5 falla (4.0 < 4.5 → EsCritica → Rechazado).
+        _context.ConfiguracionesCredito.Add(new ConfiguracionCredito
+        {
+            PuntajeRiesgoMinimo = 4.5m
+        });
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAprobable(puntajeRiesgo: 4.0m, sueldo: 100_000m);
+        await SeedDocumentosCompletos(cliente.Id);
+
+        var result = await _service.EvaluarSolicitudAsync(cliente.Id, montoSolicitado: 10_000m);
+
+        Assert.Equal(ResultadoEvaluacion.Rechazado, result.Resultado);
+        var reglaRiesgo = result.Reglas.Single(r => r.Nombre == "Puntaje de Riesgo");
+        Assert.True(reglaRiesgo.EsCritica);
+        Assert.False(reglaRiesgo.Cumple);
+    }
+
+    [Fact]
+    public async Task EvaluarSolicitud_ConfiguracionEnDB_UsaPuntajeRiesgoExcelentePersonalizado()
+    {
+        _context.ConfiguracionesCredito.Add(new ConfiguracionCredito
+        {
+            PuntajeRiesgoMinimo = 3.0m,
+            PuntajeRiesgoMedio = 5.0m,
+            PuntajeRiesgoExcelente = 9.0m
+        });
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAprobable(puntajeRiesgo: 8.0m, sueldo: 100_000m);
+        await SeedDocumentosCompletos(cliente.Id);
+
+        var result = await _service.EvaluarSolicitudAsync(cliente.Id, montoSolicitado: 10_000m);
+
+        var reglaRiesgo = result.Reglas.Single(r => r.Nombre == "Puntaje de Riesgo");
+        Assert.True(reglaRiesgo.Cumple);
+        Assert.Equal(20, reglaRiesgo.Peso);
+        Assert.Contains("Bueno", reglaRiesgo.Detalle);
+    }
+
+    [Fact]
+    public async Task EvaluarSolicitud_ConfiguracionEnDB_UsaUmbralCuotaIngresoBajoPersonalizado()
+    {
+        _context.ConfiguracionesCredito.Add(new ConfiguracionCredito
+        {
+            RelacionCuotaIngresoMax = 0.35m,
+            UmbralCuotaIngresoBajo = 0.15m,
+            UmbralCuotaIngresoAlto = 0.45m
+        });
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAprobable(puntajeRiesgo: 8.0m, sueldo: 100_000m);
+        await SeedDocumentosCompletos(cliente.Id);
+
+        var result = await _service.EvaluarSolicitudAsync(cliente.Id, montoSolicitado: 200_000m);
+
+        var reglaCapacidad = result.Reglas.Single(r => r.Nombre == "Capacidad de Pago");
+        Assert.True(reglaCapacidad.Cumple);
+        Assert.Equal(15, reglaCapacidad.Peso);
+        Assert.Contains("Aceptable", reglaCapacidad.Detalle);
+    }
+
     [Fact]
     public async Task GetEvaluacionesByClienteId_OrdenDescendente_PorFecha()
     {

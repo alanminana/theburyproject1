@@ -27,14 +27,6 @@ namespace TheBuryProject.Services
         // la relación cuota/ingreso sin conocer la tasa y plazo definitivos.
         private const decimal RatioCuotaEstimada = 0.10m;
 
-        // Umbrales de relación cuota/ingreso para clasificación de capacidad de pago.
-        private const decimal UmbralCuotaIngresoBajo = 0.25m;
-        private const decimal UmbralCuotaIngresoAlto = 0.45m;
-
-        // Umbrales de puntaje de riesgo para clasificación cualitativa (escala 0-10).
-        private const decimal PuntajeRiesgoExcelente = 7.0m;
-        private const decimal PuntajeRiesgoMedio = 5.0m;
-
         public EvaluacionCreditoService(
             AppDbContext context,
             IMapper mapper,
@@ -155,11 +147,11 @@ namespace TheBuryProject.Services
         {
             var regla = new ReglaEvaluacionViewModel { Nombre = "Puntaje de Riesgo" };
 
-            if (puntajeRiesgo >= PuntajeRiesgoExcelente)
+            if (puntajeRiesgo >= _config!.PuntajeRiesgoExcelente)
                 (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) =
                     (true, 30, $"Excelente: {puntajeRiesgo}/10", false);
-            else if (puntajeRiesgo >= PuntajeRiesgoMedio)
-                (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) = 
+            else if (puntajeRiesgo >= _config!.PuntajeRiesgoMedio)
+                (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) =
                     (true, 20, $"Bueno: {puntajeRiesgo}/10", false);
             else if (puntajeRiesgo >= _config!.PuntajeRiesgoMinimo)
                 (regla.Cumple, regla.Peso, regla.Detalle, regla.EsCritica) = 
@@ -247,13 +239,13 @@ namespace TheBuryProject.Services
             decimal cuotaEstimada = montoSolicitado * RatioCuotaEstimada;
             decimal relacionCuotaIngreso = CalcularRelacionCuotaIngreso(cuotaEstimada, cliente.Sueldo.Value);
 
-            if (relacionCuotaIngreso <= UmbralCuotaIngresoBajo)
+            if (relacionCuotaIngreso <= _config!.UmbralCuotaIngresoBajo)
                 (regla.Cumple, regla.Peso, regla.Detalle) =
                     (true, 25, $"Excelente: {relacionCuotaIngreso:P0} del sueldo");
             else if (relacionCuotaIngreso <= _config!.RelacionCuotaIngresoMax)
                 (regla.Cumple, regla.Peso, regla.Detalle) =
                     (true, 15, $"Aceptable: {relacionCuotaIngreso:P0} del sueldo");
-            else if (relacionCuotaIngreso <= UmbralCuotaIngresoAlto)
+            else if (relacionCuotaIngreso <= _config!.UmbralCuotaIngresoAlto)
                 (regla.Cumple, regla.Peso, regla.Detalle) =
                     (false, 0, $"Ajustada: {relacionCuotaIngreso:P0} del sueldo");
             else
@@ -473,7 +465,29 @@ namespace TheBuryProject.Services
 
         private async Task<ConfiguracionEvaluacionViewModel> GetConfiguracionAsync()
         {
-            return new ConfiguracionEvaluacionViewModel();
+            var config = await _context.ConfiguracionesCredito
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => !c.IsDeleted);
+
+            if (config == null)
+            {
+                _logger.LogWarning("No existe ConfiguracionCredito en base de datos. Usando valores por defecto de scoring. Configure los umbrales en Administración → Crédito.");
+                return new ConfiguracionEvaluacionViewModel();
+            }
+
+            return new ConfiguracionEvaluacionViewModel
+            {
+                Id                          = config.Id,
+                PuntajeRiesgoMinimo         = config.PuntajeRiesgoMinimo,
+                PuntajeRiesgoMedio          = config.PuntajeRiesgoMedio,
+                PuntajeRiesgoExcelente      = config.PuntajeRiesgoExcelente,
+                RelacionCuotaIngresoMax     = config.RelacionCuotaIngresoMax,
+                UmbralCuotaIngresoBajo      = config.UmbralCuotaIngresoBajo,
+                UmbralCuotaIngresoAlto      = config.UmbralCuotaIngresoAlto,
+                MontoRequiereGarante        = config.MontoRequiereGarante,
+                PuntajeMinimoParaAprobacion = config.PuntajeMinimoParaAprobacion,
+                PuntajeMinimoParaAnalisis   = config.PuntajeMinimoParaAnalisis
+            };
         }
 
         #endregion

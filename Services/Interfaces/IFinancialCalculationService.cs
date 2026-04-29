@@ -55,6 +55,8 @@ namespace TheBuryProject.Services.Interfaces
             int cuotas,
             decimal tasaMensual,
             decimal gastosAdministrativos,
-            DateTime fechaPrimeraCuota);
+            DateTime fechaPrimeraCuota,
+            decimal semaforoRatioVerdeMax = 0.08m,
+            decimal semaforoRatioAmarilloMax = 0.15m);
     }
 }

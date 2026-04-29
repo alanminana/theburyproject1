@@ -238,7 +238,9 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.IsDeleted, opt => opt.Ignore())
                 .ForMember(dest => dest.RowVersion, opt => opt.Ignore())
                 .ForMember(dest => dest.Producto, opt => opt.Ignore())
-                .ForMember(dest => dest.Venta, opt => opt.Ignore());
+                .ForMember(dest => dest.Venta, opt => opt.Ignore())
+                .ForMember(dest => dest.ComisionPorcentajeAplicada, opt => opt.Ignore())
+                .ForMember(dest => dest.ComisionMonto, opt => opt.Ignore());
 
             CreateMap<Factura, FacturaViewModel>();
 

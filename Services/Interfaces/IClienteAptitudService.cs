@@ -74,6 +74,28 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<(bool EstaConfigurando, string? Mensaje)> VerificarConfiguracionAsync();
 
+        /// <summary>
+        /// Obtiene los umbrales de scoring configurados en DB.
+        /// Retorna defaults seguros si no existe fila.
+        /// </summary>
+        Task<ScoringThresholdsViewModel> GetScoringThresholdsAsync();
+
+        /// <summary>
+        /// Persiste los umbrales de scoring en ConfiguracionCredito.
+        /// No toca campos de aptitud (documentación, mora, límites).
+        /// </summary>
+        Task UpdateScoringThresholdsAsync(ScoringThresholdsViewModel model);
+
+        /// <summary>
+        /// Obtiene los umbrales del semáforo financiero de simulación.
+        /// </summary>
+        Task<SemaforoFinancieroViewModel> GetSemaforoFinancieroAsync();
+
+        /// <summary>
+        /// Persiste los umbrales del semáforo financiero sin tocar scoring ni aptitud.
+        /// </summary>
+        Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model);
+
         #endregion
 
         #region Gestión de Límite de Crédito
