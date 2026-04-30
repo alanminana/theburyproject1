@@ -23,8 +23,6 @@
     let debounceTimer = null;
     let detalleScrollAffordance = null;
 
-    const IVA_RATE = parseFloat(document.getElementById('hdn-iva-rate')?.value || '0.21');
-
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
         Efectivo: '0',
@@ -510,11 +508,9 @@
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
             actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total);
         } catch {
-            // Fallback: client-side calculation
-            const subtotal = detalles.reduce((acc, d) => acc + d.subtotal, 0);
-            const iva = subtotal * IVA_RATE;
-            const total = subtotal + iva;
-            actualizarTotalesUI(subtotal, 0, iva, total);
+            // Fallback visual only: do not infer IVA in the UI.
+            const total = detalles.reduce((acc, d) => acc + d.subtotal, 0);
+            actualizarTotalesUI(total, 0, 0, total);
         }
 
         // Update credit availability notice

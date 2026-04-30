@@ -796,7 +796,21 @@
                             <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">IVA Aplicable</label>
+                            <label class="text-sm font-medium text-slate-300">Alícuota IVA</label>
+                            <select name="AlicuotaIVAId" id="modal-alicuotaIVAId"
+                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
+                                <option value="">— Sin alícuota —</option>
+                                @if (ViewBag.AlicuotasIVADatos != null)
+                                {
+                                    foreach (var a in ViewBag.AlicuotasIVADatos)
+                                    {
+                                        <option value="@a.id" data-porcentaje="@a.porcentaje">@a.texto</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-300">% IVA (fallback)</label>
                             <select name="PorcentajeIVA" id="modal-porcentajeIVA"
                                     class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
                                 <option value="21" selected>21%</option>
@@ -1030,7 +1044,20 @@
                             <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">IVA</label>
+                            <label class="text-sm font-medium text-slate-300">Alícuota IVA</label>
+                            <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                                <option value="">— Sin alícuota —</option>
+                                @if (ViewBag.AlicuotasIVADatos != null)
+                                {
+                                    foreach (var a in ViewBag.AlicuotasIVADatos)
+                                    {
+                                        <option value="@a.id" data-porcentaje="@a.porcentaje">@a.texto</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-300">% IVA (fallback)</label>
                             <select id="prod-edit-porcentajeIVA" name="PorcentajeIVA" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                 <option value="21">21%</option>
                                 <option value="10.5">10.5%</option>
@@ -1212,6 +1239,20 @@
                             </select>
                             <p class="text-xs text-slate-400 italic">Selecciona una categoría superior si esta es una subcategoría</p>
                         </div>
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
+                            <select name="AlicuotaIVAId" id="cat-modal-alicuotaIVAId" class="catalogo-input">
+                                <option value="">Sin alícuota por defecto</option>
+                                @if (ViewBag.AlicuotasIVADatos != null)
+                                {
+                                    @foreach (var a in ViewBag.AlicuotasIVADatos)
+                                    {
+                                        <option value="@a.id">@a.texto</option>
+                                    }
+                                }
+                            </select>
+                            <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1316,6 +1357,20 @@
                             <select name="ParentId" id="cat-edit-parentId" class="catalogo-input">
                                 <option value="">Ninguna (Categoría Principal)</option>
                             </select>
+                        </div>
+                        <div class="flex flex-col gap-2 md:col-span-2">
+                            <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
+                            <select name="AlicuotaIVAId" id="cat-edit-alicuotaIVAId" class="catalogo-input">
+                                <option value="">Sin alícuota por defecto</option>
+                                @if (ViewBag.AlicuotasIVADatos != null)
+                                {
+                                    @foreach (var a in ViewBag.AlicuotasIVADatos)
+                                    {
+                                        <option value="@a.id">@a.texto</option>
+                                    }
+                                }
+                            </select>
+                            <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
                         </div>
                         <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
                             <div>
@@ -2093,8 +2148,9 @@
                 <h3 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
                     <span class="material-symbols-outlined">filter_list</span>
                     Filtros de Búsqueda
+                    <span id="mov-filtros-badge" class="hidden inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white"></span>
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-sm font-medium text-slate-400">Rango de Fechas</label>
                         <div class="flex items-center gap-2">
@@ -2130,6 +2186,18 @@
                             <option>Showroom Principal</option>
                         </select>
                     </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-sm font-medium text-slate-400">Fuente de Costo</label>
+                        <select id="mov-fuente-costo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
+                            <option value="">Todas las fuentes</option>
+                            <option value="VentaDetalleSnapshot">Venta</option>
+                            <option value="OrdenCompraDetalle">Orden de compra</option>
+                            <option value="ProductoActual">Costo actual del producto</option>
+                            <option value="AjusteManual">Ajuste manual</option>
+                            <option value="Legacy">Histórico migrado</option>
+                            <option value="NoInformado">No informado</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
                     <button type="button" id="btn-mov-limpiar" class="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white transition-colors">Limpiar</button>
@@ -2139,7 +2207,7 @@
 
             <!-- Actions Bar -->
             <div class="flex justify-between items-center px-2">
-                <p class="text-sm text-slate-400">Mostrando <span class="font-bold text-white" id="mov-count-showing">0</span> de <span class="font-bold text-white" id="mov-count-total">0</span> movimientos</p>
+                <p class="text-sm text-slate-400">Mostrando <span class="font-bold text-white" id="mov-count-showing">0</span> de <span class="font-bold text-white" id="mov-count-total">0</span> movimientos<span id="mov-count-context" class="hidden text-slate-500"></span></p>
                 <div class="flex gap-2">
                     <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-800 text-xs font-bold hover:bg-slate-800 transition-colors">
                         <span class="material-symbols-outlined text-sm">picture_as_pdf</span> PDF
@@ -2152,13 +2220,16 @@
 
             <!-- Movements Table -->
             <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
-                <table class="w-full text-left border-collapse">
+                <table class="min-w-[1180px] w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
+                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
+                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
+                            <th class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
                             <th class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
@@ -2168,7 +2239,7 @@
                     <tbody id="mov-tbody" class="divide-y divide-slate-800">
                         <!-- Rows populated by JS or empty state -->
                         <tr id="mov-empty-state">
-                            <td colspan="8" class="py-16 text-center">
+                            <td colspan="11" class="py-16 text-center">
                                 <div class="flex flex-col items-center gap-2 opacity-40">
                                     <span class="material-symbols-outlined text-4xl">swap_vert</span>
                                     <p class="text-slate-400 text-base">No hay movimientos para mostrar</p>

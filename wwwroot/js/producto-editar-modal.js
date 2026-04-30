@@ -33,6 +33,13 @@
 
     // ── Populate ────────────────────────────────────────────────
 
+    function syncAlicuotaToIVA(alicuotaSel, ivaSelect) {
+        if (!alicuotaSel || !alicuotaSel.value || !ivaSelect) return;
+        var opt = alicuotaSel.options[alicuotaSel.selectedIndex];
+        var pct = opt && opt.getAttribute('data-porcentaje');
+        if (pct !== null && pct !== '') ivaSelect.value = String(pct);
+    }
+
     function populate(data) {
         el('prod-edit-id').value          = data.id;
         el('prod-edit-rowversion').value  = data.rowVersion || '';
@@ -46,9 +53,15 @@
         el('prod-edit-stockMinimo').value  = data.stockMinimo || 0;
         el('prod-edit-activo').checked     = !!data.activo;
 
-        // IVA
-        var ivaSelect = el('prod-edit-porcentajeIVA');
-        if (ivaSelect) ivaSelect.value = String(data.porcentajeIVA ?? 21);
+        // IVA: alícuota primero, luego fallback a porcentajeIVA
+        var alicuotaSel = el('prod-edit-alicuotaIVAId');
+        var ivaSelect   = el('prod-edit-porcentajeIVA');
+        if (alicuotaSel) alicuotaSel.value = data.alicuotaIVAId != null ? String(data.alicuotaIVAId) : '';
+        if (alicuotaSel && alicuotaSel.value) {
+            syncAlicuotaToIVA(alicuotaSel, ivaSelect);
+        } else if (ivaSelect) {
+            ivaSelect.value = String(data.porcentajeIVA ?? 21);
+        }
         calcularPrecioFinal();
 
         // Categoría
@@ -400,6 +413,15 @@
         if (marcaSel) {
             marcaSel.addEventListener('change', function () {
                 loadSubmarcas(this.value, null, null);
+            });
+        }
+
+        // Alícuota IVA → sincroniza porcentajeIVA y recalcula
+        var alicuotaSel = el('prod-edit-alicuotaIVAId');
+        if (alicuotaSel) {
+            alicuotaSel.addEventListener('change', function () {
+                syncAlicuotaToIVA(this, el('prod-edit-porcentajeIVA'));
+                calcularPrecioFinal();
             });
         }
 

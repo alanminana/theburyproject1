@@ -110,7 +110,9 @@ public class DevolucionServiceTests : IDisposable
                     Cantidad = cantidad,
                     PrecioUnitario = 50m,
                     Descuento = 0m,
-                    Subtotal = cantidad * 50m
+                    Subtotal = cantidad * 50m,
+                    CostoUnitarioAlMomento = 17.50m,
+                    CostoTotalAlMomento = cantidad * 17.50m
                 }
             }
         };
@@ -452,6 +454,13 @@ public class DevolucionServiceTests : IDisposable
         _context.ChangeTracker.Clear();
         var productoBd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(12m, productoBd.StockActual);
+
+        var movimiento = await _context.MovimientosStock
+            .AsNoTracking()
+            .SingleAsync(m => m.ProductoId == producto.Id && m.Referencia == $"DEV-{dev.NumeroDevolucion}");
+        Assert.Equal(17.50m, movimiento.CostoUnitarioAlMomento);
+        Assert.Equal(35.00m, movimiento.CostoTotalAlMomento);
+        Assert.Equal("VentaDetalleSnapshot", movimiento.FuenteCosto);
     }
 
     [Fact]

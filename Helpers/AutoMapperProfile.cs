@@ -14,7 +14,8 @@ namespace TheBuryProject.Helpers
             // Categoria
             // =======================
             CreateMap<Categoria, CategoriaViewModel>()
-                .ForMember(d => d.ParentNombre, o => o.MapFrom(s => s.Parent != null && !s.Parent.IsDeleted ? s.Parent.Nombre : null));
+                .ForMember(d => d.ParentNombre, o => o.MapFrom(s => s.Parent != null && !s.Parent.IsDeleted ? s.Parent.Nombre : null))
+                .ForMember(d => d.AlicuotaIVANombre, o => o.MapFrom(s => s.AlicuotaIVA != null && !s.AlicuotaIVA.IsDeleted ? s.AlicuotaIVA.Nombre : null));
 
             // =======================
             // Marca
@@ -27,10 +28,12 @@ namespace TheBuryProject.Helpers
             // =======================
             CreateMap<Producto, ProductoViewModel>()
                 .ForMember(d => d.CategoriaNombre, o => o.MapFrom(s => s.Categoria != null ? s.Categoria.Nombre : null))
-                .ForMember(d => d.MarcaNombre, o => o.MapFrom(s => s.Marca != null ? s.Marca.Nombre : null));
+                .ForMember(d => d.MarcaNombre, o => o.MapFrom(s => s.Marca != null ? s.Marca.Nombre : null))
+                .ForMember(d => d.AlicuotaIVANombre, o => o.MapFrom(s => s.AlicuotaIVA != null && !s.AlicuotaIVA.IsDeleted ? s.AlicuotaIVA.Nombre : null));
 
             CreateMap<ProductoViewModel, Producto>()
                 .ForMember(d => d.Categoria, o => o.Ignore())
+                .ForMember(d => d.AlicuotaIVA, o => o.Ignore())
                 .ForMember(d => d.Marca, o => o.Ignore())
                 .ForMember(d => d.CreatedAt, o => o.Ignore())
                 .ForMember(d => d.CreatedBy, o => o.Ignore())
@@ -240,7 +243,20 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.Producto, opt => opt.Ignore())
                 .ForMember(dest => dest.Venta, opt => opt.Ignore())
                 .ForMember(dest => dest.ComisionPorcentajeAplicada, opt => opt.Ignore())
-                .ForMember(dest => dest.ComisionMonto, opt => opt.Ignore());
+                .ForMember(dest => dest.ComisionMonto, opt => opt.Ignore())
+                .ForMember(dest => dest.PorcentajeIVA, opt => opt.Ignore())
+                .ForMember(dest => dest.AlicuotaIVAId, opt => opt.Ignore())
+                .ForMember(dest => dest.AlicuotaIVANombre, opt => opt.Ignore())
+                .ForMember(dest => dest.PrecioUnitarioNeto, opt => opt.Ignore())
+                .ForMember(dest => dest.IVAUnitario, opt => opt.Ignore())
+                .ForMember(dest => dest.SubtotalNeto, opt => opt.Ignore())
+                .ForMember(dest => dest.SubtotalIVA, opt => opt.Ignore())
+                .ForMember(dest => dest.DescuentoGeneralProrrateado, opt => opt.Ignore())
+                .ForMember(dest => dest.SubtotalFinalNeto, opt => opt.Ignore())
+                .ForMember(dest => dest.SubtotalFinalIVA, opt => opt.Ignore())
+                .ForMember(dest => dest.SubtotalFinal, opt => opt.Ignore())
+                .ForMember(dest => dest.CostoUnitarioAlMomento, opt => opt.Ignore())
+                .ForMember(dest => dest.CostoTotalAlMomento, opt => opt.Ignore());
 
             CreateMap<Factura, FacturaViewModel>();
 

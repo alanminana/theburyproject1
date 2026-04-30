@@ -122,7 +122,6 @@ namespace TheBuryProject.Controllers
                 if (aperturaActiva != null)
                 {
                     await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
-                    ViewBag.IvaRate = VentaConstants.IVA_RATE;
                     // Restaurar TiposPago/Estados sobreescritos por CargarViewBags
                     ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
                     ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
@@ -192,7 +191,6 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> Cotizar()
         {
             await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
-            ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Cotizacion));
         }
 
@@ -266,7 +264,6 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al crear venta");
                 ModelState.AddModelError("", "Error al crear la venta: " + ex.Message);
                 await CargarViewBags(viewModel.ClienteId, vendedorUserIdSeleccionado: viewModel.VendedorUserId);
-                ViewBag.IvaRate = VentaConstants.IVA_RATE;
                 return View("Create_tw", viewModel);
             }
         }
@@ -285,7 +282,6 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
-            ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Presupuesto));
         }
 
@@ -412,7 +408,6 @@ namespace TheBuryProject.Controllers
                     venta.ClienteId,
                     venta.Detalles.Select(d => d.ProductoId).Distinct(),
                     venta.VendedorUserId);
-                ViewBag.IvaRate = VentaConstants.IVA_RATE;
                 var ventaJson = JsonSerializer.Serialize(venta, new JsonSerializerOptions
                 {
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -484,7 +479,6 @@ namespace TheBuryProject.Controllers
                         viewModel.ClienteId,
                         viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
                         viewModel.VendedorUserId);
-                    ViewBag.IvaRate = VentaConstants.IVA_RATE;
                     return View("Edit_tw", viewModel);
                 }
 
@@ -1347,7 +1341,6 @@ namespace TheBuryProject.Controllers
                 viewModel.ClienteId,
                 viewModel.Detalles.Select(d => d.ProductoId).Distinct(),
                 viewModel.VendedorUserId);
-            ViewBag.IvaRate = VentaConstants.IVA_RATE;
             return View("Create_tw", viewModel);
         }
 

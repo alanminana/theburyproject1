@@ -31,6 +31,15 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Stock Nuevo")]
         public decimal StockNuevo { get; set; }
 
+        [Display(Name = "Costo unitario")]
+        public decimal CostoUnitarioAlMomento { get; set; }
+
+        [Display(Name = "Costo total")]
+        public decimal CostoTotalAlMomento { get; set; }
+
+        [Display(Name = "Fuente costo")]
+        public string FuenteCosto { get; set; } = "NoInformado";
+
         [Display(Name = "Referencia")]
         public string? Referencia { get; set; }
 

@@ -7,7 +7,6 @@
     var marcas               = ViewBag.MarcasFiltro     as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var vendedores           = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
-    var ivaRate              = (decimal)(ViewBag.IvaRate ?? 0.21m);
     var puedeExcepcion       = User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create");
 }
 
@@ -60,7 +59,6 @@
                 <form id="venta-form" method="post" action="/Venta/CreateAjax" novalidate>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="Estado" value="@((int)EstadoVenta.Presupuesto)" />
-                    <input type="hidden" id="hdn-iva-rate" value="@ivaRate" />
 
                     <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:items-start">
 
@@ -707,7 +705,7 @@
                                         <span id="total-descuento" class="font-semibold text-slate-200">-$0,00</span>
                                     </div>
                                     <div class="flex justify-between text-sm">
-                                        <span class="text-slate-400">IVA (21%)</span>
+                                        <span class="text-slate-400">IVA total</span>
                                         <span id="total-iva" class="font-semibold text-slate-200">$0,00</span>
                                     </div>
                                     <div class="border-t border-slate-700/50 pt-3">

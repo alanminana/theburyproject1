@@ -44,7 +44,9 @@ namespace TheBuryProject.Services
                     .AsNoTracking()
                     .Where(p => !p.IsDeleted)
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Marca)
+                    .Include(p => p.AlicuotaIVA)
                     .Include(p => p.Caracteristicas.Where(c => !c.IsDeleted))
                     .OrderBy(p => p.Nombre)
                     .ToListAsync();
@@ -63,7 +65,9 @@ namespace TheBuryProject.Services
                 return await _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Marca)
+                    .Include(p => p.AlicuotaIVA)
                     .Include(p => p.Caracteristicas.Where(c => !c.IsDeleted))
                     .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
             }
@@ -81,7 +85,9 @@ namespace TheBuryProject.Services
                 return await _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Marca)
+                    .Include(p => p.AlicuotaIVA)
                     .Where(p => p.CategoriaId == categoriaId && !p.IsDeleted)
                     .OrderBy(p => p.Nombre)
                     .ToListAsync();
@@ -100,7 +106,9 @@ namespace TheBuryProject.Services
                 return await _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Marca)
+                    .Include(p => p.AlicuotaIVA)
                     .Where(p => p.MarcaId == marcaId && !p.IsDeleted)
                     .OrderBy(p => p.Nombre)
                     .ToListAsync();
@@ -119,7 +127,9 @@ namespace TheBuryProject.Services
                 return await _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Marca)
+                    .Include(p => p.AlicuotaIVA)
                     .Where(p => p.StockActual <= p.StockMinimo && !p.IsDeleted)
                     .OrderBy(p => p.Nombre)
                     .ToListAsync();
@@ -149,9 +159,11 @@ namespace TheBuryProject.Services
                 var query = _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                     .Include(p => p.Subcategoria)
                     .Include(p => p.Marca)
                     .Include(p => p.Submarca)
+                    .Include(p => p.AlicuotaIVA)
                     .Include(p => p.Caracteristicas.Where(c => !c.IsDeleted))
                     .Where(p => !p.IsDeleted)
                     .AsQueryable();
@@ -254,6 +266,9 @@ namespace TheBuryProject.Services
                 if (await ExistsCodigoAsync(producto.Codigo))
                     throw new InvalidOperationException($"Ya existe un producto con el código '{producto.Codigo}'");
 
+                if (producto.AlicuotaIVAId.HasValue)
+                    await AsegurarAlicuotaIVAActivaAsync(producto.AlicuotaIVAId.Value);
+
                 producto.CreatedAt = DateTime.UtcNow;
                 producto.Caracteristicas = NormalizarCaracteristicas(producto.Caracteristicas)
                     .Select(c => new ProductoCaracteristica
@@ -280,6 +295,9 @@ namespace TheBuryProject.Services
                         Cantidad = producto.StockActual,
                         StockAnterior = 0,
                         StockNuevo = producto.StockActual,
+                        CostoUnitarioAlMomento = Math.Round(producto.PrecioCompra, 2, MidpointRounding.AwayFromZero),
+                        CostoTotalAlMomento = Math.Round(producto.PrecioCompra * Math.Abs(producto.StockActual), 2, MidpointRounding.AwayFromZero),
+                        FuenteCosto = "ProductoActual",
                         Referencia = "Stock inicial",
                         Motivo = "Stock inicial al crear producto",
                         CreatedAt = DateTime.UtcNow,
@@ -318,6 +336,9 @@ namespace TheBuryProject.Services
                 if (await ExistsCodigoAsync(producto.Codigo, producto.Id))
                     throw new InvalidOperationException($"Ya existe otro producto con el código '{producto.Codigo}'");
 
+                if (producto.AlicuotaIVAId.HasValue)
+                    await AsegurarAlicuotaIVAActivaAsync(producto.AlicuotaIVAId.Value);
+
                 var preciosCambiaron =
                     existing.PrecioCompra != producto.PrecioCompra ||
                     existing.PrecioVenta != producto.PrecioVenta;
@@ -354,6 +375,8 @@ namespace TheBuryProject.Services
                 existing.MarcaId = producto.MarcaId;
                 existing.PrecioCompra = producto.PrecioCompra;
                 existing.PrecioVenta = producto.PrecioVenta;
+                existing.PorcentajeIVA = producto.PorcentajeIVA;
+                existing.AlicuotaIVAId = producto.AlicuotaIVAId;
                 existing.ComisionPorcentaje = producto.ComisionPorcentaje;
                 existing.RequiereNumeroSerie = producto.RequiereNumeroSerie;
                 existing.StockMinimo = producto.StockMinimo;
@@ -497,6 +520,9 @@ namespace TheBuryProject.Services
                     Cantidad = cantidadAbs,
                     StockAnterior = stockAnterior,
                     StockNuevo = nuevoStock,
+                    CostoUnitarioAlMomento = Math.Round(producto.PrecioCompra, 2, MidpointRounding.AwayFromZero),
+                    CostoTotalAlMomento = Math.Round(producto.PrecioCompra * Math.Abs(cantidadAbs), 2, MidpointRounding.AwayFromZero),
+                    FuenteCosto = "AjusteManual",
                     Referencia = "ProductoService.ActualizarStockAsync",
                     Motivo = "Actualización de stock (delta)",
                     CreatedAt = DateTime.UtcNow,
@@ -571,6 +597,9 @@ namespace TheBuryProject.Services
                     producto.Codigo, producto.PrecioVenta, producto.PrecioCompra);
             }
 
+            if (producto.PorcentajeIVA < 0 || producto.PorcentajeIVA > 100)
+                throw new InvalidOperationException("El porcentaje de IVA debe estar entre 0 y 100");
+
             if (producto.ComisionPorcentaje < 0 || producto.ComisionPorcentaje > 100)
                 throw new InvalidOperationException("La comisión vendedor debe estar entre 0 y 100");
 
@@ -579,6 +608,15 @@ namespace TheBuryProject.Services
 
             if (producto.StockMinimo < 0)
                 throw new InvalidOperationException("El stock mínimo no puede ser negativo");
+        }
+
+        private async Task AsegurarAlicuotaIVAActivaAsync(int alicuotaIVAId)
+        {
+            var existe = await _context.AlicuotasIVA
+                .AnyAsync(a => a.Id == alicuotaIVAId && a.Activa && !a.IsDeleted);
+
+            if (!existe)
+                throw new InvalidOperationException("La alícuota de IVA seleccionada no existe o no está activa");
         }
 
         private static IEnumerable<ProductoCaracteristica> NormalizarCaracteristicas(IEnumerable<ProductoCaracteristica>? caracteristicas)

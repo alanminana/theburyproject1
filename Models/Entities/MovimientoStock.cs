@@ -13,6 +13,9 @@ namespace TheBuryProject.Models.Entities
         public decimal Cantidad { get; set; }
         public decimal StockAnterior { get; set; }
         public decimal StockNuevo { get; set; }
+        public decimal CostoUnitarioAlMomento { get; set; }
+        public decimal CostoTotalAlMomento { get; set; }
+        public string FuenteCosto { get; set; } = "NoInformado";
         public string? Referencia { get; set; }
         public int? OrdenCompraId { get; set; }
         public string? Motivo { get; set; }

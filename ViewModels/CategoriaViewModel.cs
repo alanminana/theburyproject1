@@ -29,6 +29,11 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Control de Serie por Defecto")]
         public bool ControlSerieDefault { get; set; }
 
+        [Display(Name = "Alícuota IVA por defecto")]
+        public int? AlicuotaIVAId { get; set; }
+
+        public string? AlicuotaIVANombre { get; set; }
+
         // Para el dropdown de categorías padre
         [Display(Name = "Nombre Categoría Padre")]
         public string? ParentNombre { get; set; }

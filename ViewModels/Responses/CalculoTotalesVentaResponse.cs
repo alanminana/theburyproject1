@@ -9,5 +9,32 @@ namespace TheBuryProject.ViewModels.Responses
         public decimal IVA { get; set; }
 
         public decimal Total { get; set; }
+
+        public List<DetalleCalculoTotalesVentaResponse> Detalles { get; set; } = new();
+    }
+
+    public class DetalleCalculoTotalesVentaResponse
+    {
+        public int ProductoId { get; set; }
+
+        public decimal PorcentajeIVA { get; set; }
+
+        public int? AlicuotaIVAId { get; set; }
+
+        public string? AlicuotaIVANombre { get; set; }
+
+        public decimal SubtotalNeto { get; set; }
+
+        public decimal SubtotalIVA { get; set; }
+
+        public decimal Subtotal { get; set; }
+
+        public decimal DescuentoGeneralProrrateado { get; set; }
+
+        public decimal SubtotalFinalNeto { get; set; }
+
+        public decimal SubtotalFinalIVA { get; set; }
+
+        public decimal SubtotalFinal { get; set; }
     }
 }

@@ -33,6 +33,7 @@ namespace TheBuryProject.Services
                     .AsNoTracking()
                     .Where(c => !c.IsDeleted)
                     .Include(c => c.Parent)
+                    .Include(c => c.AlicuotaIVA)
                     .OrderBy(c => c.Nombre)
                     .ToListAsync();
             }
@@ -51,6 +52,7 @@ namespace TheBuryProject.Services
                     .AsNoTracking()
                     .Include(c => c.Parent)
                     .Include(c => c.Children)
+                    .Include(c => c.AlicuotaIVA)
                     .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
             }
             catch (Exception ex)
@@ -87,6 +89,9 @@ namespace TheBuryProject.Services
 
                 if (await ExistsCodigoAsync(categoria.Codigo))
                     throw new InvalidOperationException($"Ya existe una categoría con el código {categoria.Codigo}");
+
+                if (categoria.AlicuotaIVAId.HasValue)
+                    await AsegurarAlicuotaIVAActivaAsync(categoria.AlicuotaIVAId.Value);
 
                 // Validar que el ParentId exista si se especifica
                 if (categoria.ParentId.HasValue &&
@@ -136,6 +141,9 @@ namespace TheBuryProject.Services
                 if (await ExistsCodigoAsync(categoria.Codigo, categoria.Id))
                     throw new InvalidOperationException($"Ya existe otra categoría con el código {categoria.Codigo}");
 
+                if (categoria.AlicuotaIVAId.HasValue)
+                    await AsegurarAlicuotaIVAActivaAsync(categoria.AlicuotaIVAId.Value);
+
                 // Validar que el ParentId exista si se especifica
                 if (categoria.ParentId.HasValue &&
                     !await _context.Categorias.AnyAsync(c => c.Id == categoria.ParentId.Value && !c.IsDeleted))
@@ -164,6 +172,7 @@ namespace TheBuryProject.Services
                 existing.Descripcion = categoria.Descripcion;
                 existing.ParentId = categoria.ParentId;
                 existing.ControlSerieDefault = categoria.ControlSerieDefault;
+                existing.AlicuotaIVAId = categoria.AlicuotaIVAId;
                 existing.Activo = categoria.Activo;
 
                 await _context.SaveChangesAsync();
@@ -321,6 +330,15 @@ namespace TheBuryProject.Services
             }
 
             return false;
+        }
+
+        private async Task AsegurarAlicuotaIVAActivaAsync(int alicuotaIVAId)
+        {
+            var existe = await _context.AlicuotasIVA
+                .AnyAsync(a => a.Id == alicuotaIVAId && a.Activa && !a.IsDeleted);
+
+            if (!existe)
+                throw new InvalidOperationException("La alícuota de IVA seleccionada no existe o no está activa");
         }
 
         public async Task<IEnumerable<Categoria>> GetChildrenAsync(int parentId)

@@ -95,11 +95,12 @@ namespace TheBuryProject.Services
             // Productos: fetch raw para evitar multiplicación no traducible
             var productosRaw = await _context.Productos
                 .Where(p => !p.IsDeleted)
-                .Select(p => new { p.StockActual, p.PrecioVenta, p.StockMinimo })
+                .Select(p => new { p.StockActual, p.PrecioVenta, p.PrecioCompra, p.StockMinimo })
                 .ToListAsync();
             var productosTotales   = productosRaw.Count;
             var productosStockBajo = productosRaw.Count(p => p.StockActual < p.StockMinimo);
-            var valorStock         = productosRaw.Sum(p => p.StockActual * p.PrecioVenta);
+            var valorStockPrecioVenta = productosRaw.Sum(p => p.StockActual * p.PrecioVenta);
+            var valorStockCostoActual = productosRaw.Sum(p => p.StockActual * p.PrecioCompra);
 
             var ventasUlt7      = await GetVentasUltimos7DiasAsync();
             var ventasUlt12     = await GetVentasUltimos12MesesAsync();
@@ -138,7 +139,9 @@ namespace TheBuryProject.Services
 
                 ProductosTotales     = productosTotales,
                 ProductosStockBajo   = productosStockBajo,
-                ValorTotalStock      = valorStock,
+                ValorStockPrecioVenta = valorStockPrecioVenta,
+                ValorStockCostoActual = valorStockCostoActual,
+                ValorTotalStock       = valorStockPrecioVenta,
 
                 VentasUltimos7Dias      = ventasUlt7,
                 VentasUltimos12Meses    = ventasUlt12,
@@ -297,7 +300,7 @@ namespace TheBuryProject.Services
                              vd.Venta != null &&
                              !vd.Venta.IsDeleted &&
                              vd.Venta.FechaVenta >= inicioMes)
-                .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal })
+                .Select(vd => new { vd.ProductoId, vd.Producto!.Nombre, vd.Cantidad, vd.Subtotal, vd.SubtotalFinal })
                 .ToListAsync();
 
             return raw
@@ -307,7 +310,7 @@ namespace TheBuryProject.Services
                     ProductoId = g.Key.ProductoId,
                     ProductoNombre = g.Key.Nombre,
                     Cantidad = g.Sum(vd => vd.Cantidad),
-                    TotalVendido = g.Sum(vd => vd.Subtotal)
+                    TotalVendido = g.Sum(vd => vd.SubtotalFinal > 0m ? vd.SubtotalFinal : vd.Subtotal)
                 })
                 .OrderByDescending(p => p.Cantidad)
                 .Take(10)

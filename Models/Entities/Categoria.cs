@@ -40,6 +40,11 @@ namespace TheBuryProject.Models.Entities
         public bool ControlSerieDefault { get; set; } = false;
 
         /// <summary>
+        /// Alícuota de IVA por defecto para productos de esta categoría.
+        /// </summary>
+        public int? AlicuotaIVAId { get; set; }
+
+        /// <summary>
         /// Categor�a padre (navegaci�n)
         /// </summary>
         public virtual Categoria? Parent { get; set; }
@@ -47,6 +52,11 @@ namespace TheBuryProject.Models.Entities
         /// Indica si la marca est� activa
         /// </summary>
         public bool Activo { get; set; } = true;
+
+        /// <summary>
+        /// Alícuota de IVA configurable de la categoría.
+        /// </summary>
+        public virtual AlicuotaIVA? AlicuotaIVA { get; set; }
         /// <summary>
         /// Categor�as hijas (navegaci�n)
         /// </summary>

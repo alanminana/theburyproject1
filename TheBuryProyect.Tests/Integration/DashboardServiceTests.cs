@@ -123,6 +123,38 @@ public class DashboardServiceTests : IDisposable
         return credito;
     }
 
+    private async Task<VentaDetalle> SeedVentaConDetalleAsync(
+        int clienteId, int productoId, int cantidad,
+        decimal subtotal, decimal subtotalFinal = 0m,
+        DateTime? fechaVenta = null)
+    {
+        var fecha = fechaVenta ?? DateTime.Today;
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = clienteId,
+            Estado = EstadoVenta.Confirmada,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = fecha,
+            Subtotal = subtotal,
+            Total = subtotalFinal > 0m ? subtotalFinal : subtotal,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = productoId,
+                    Cantidad = cantidad,
+                    PrecioUnitario = subtotal / cantidad,
+                    Subtotal = subtotal,
+                    SubtotalFinal = subtotalFinal
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return venta.Detalles.First();
+    }
+
     private int _cuotaCounter = 1;
     private async Task<Cuota> SeedCuotaAsync(int creditoId, EstadoCuota estado,
         DateTime fechaVencimiento, decimal montoTotal = 100m,
@@ -167,6 +199,8 @@ public class DashboardServiceTests : IDisposable
         Assert.Equal(0m, resultado.MontoVencidoTotal);
         Assert.Equal(0, resultado.ProductosTotales);
         Assert.Equal(0, resultado.ProductosStockBajo);
+        Assert.Equal(0m, resultado.ValorStockPrecioVenta);
+        Assert.Equal(0m, resultado.ValorStockCostoActual);
         Assert.Equal(0m, resultado.ValorTotalStock);
     }
 
@@ -295,15 +329,19 @@ public class DashboardServiceTests : IDisposable
     public async Task GetDashboard_ConProductos_KPIsProductos()
     {
         // stock > minimo → no bajo
-        await SeedProductoAsync(precioVenta: 100m, stockActual: 10m, stockMinimo: 5m);
+        await SeedProductoAsync(precioCompra: 40m, precioVenta: 100m, stockActual: 10m, stockMinimo: 5m);
         // stock < minimo → stock bajo
-        await SeedProductoAsync(precioVenta: 200m, stockActual: 2m, stockMinimo: 5m);
+        await SeedProductoAsync(precioCompra: 120m, precioVenta: 200m, stockActual: 2m, stockMinimo: 5m);
 
         var resultado = await _service.GetDashboardDataAsync();
 
         Assert.Equal(2, resultado.ProductosTotales);
         Assert.Equal(1, resultado.ProductosStockBajo);
-        // ValorTotalStock = (100 * 10) + (200 * 2) = 1000 + 400 = 1400
+        // ValorStockPrecioVenta = (100 * 10) + (200 * 2) = 1000 + 400 = 1400
+        Assert.Equal(1400m, resultado.ValorStockPrecioVenta);
+        // ValorStockCostoActual = (40 * 10) + (120 * 2) = 400 + 240 = 640
+        Assert.Equal(640m, resultado.ValorStockCostoActual);
+        // Alias temporal para compatibilidad: mantiene la semantica previa de precio de venta.
         Assert.Equal(1400m, resultado.ValorTotalStock);
     }
 
@@ -340,5 +378,37 @@ public class DashboardServiceTests : IDisposable
         var hoy = resultado.VentasUltimos7Dias.FirstOrDefault(v => v.Fecha == DateTime.Today);
         Assert.NotNull(hoy);
         Assert.Equal(50m, hoy!.Total);
+    }
+
+    // -------------------------------------------------------------------------
+    // ProductosMasVendidos — SubtotalFinal con fallback
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetDashboard_ProductosMasVendidos_UsaSubtotalFinalCuandoExiste()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Subtotal=200, SubtotalFinal=180 → TotalVendido debe ser 180
+        await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 2, subtotal: 200m, subtotalFinal: 180m);
+
+        var resultado = await _service.GetDashboardDataAsync();
+
+        Assert.Single(resultado.ProductosMasVendidos);
+        Assert.Equal(180m, resultado.ProductosMasVendidos[0].TotalVendido);
+    }
+
+    [Fact]
+    public async Task GetDashboard_ProductosMasVendidos_FallbackASubtotalSiSubtotalFinalEsCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Subtotal=200, SubtotalFinal=0 → TotalVendido debe caer en Subtotal=200
+        await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 2, subtotal: 200m, subtotalFinal: 0m);
+
+        var resultado = await _service.GetDashboardDataAsync();
+
+        Assert.Single(resultado.ProductosMasVendidos);
+        Assert.Equal(200m, resultado.ProductosMasVendidos[0].TotalVendido);
     }
 }

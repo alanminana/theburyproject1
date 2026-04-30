@@ -56,6 +56,7 @@ namespace TheBuryProject.ViewModels
         public string TipoPagoDescripcion => TipoPago.ToString();
         public decimal Subtotal { get; set; }
         public decimal Descuento { get; set; }
+        public decimal IVA { get; set; }
         public decimal Total { get; set; }
         public decimal Costo { get; set; }
         public decimal Ganancia { get; set; }

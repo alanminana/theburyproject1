@@ -286,8 +286,9 @@ const ProductoModal = (() => {
 
     // ── Cálculo IVA ─────────────────────────────────────────
     function initPrecioCalc() {
-        const precioVenta = el('modal-precioVenta');
-        const ivaSelect = el('modal-porcentajeIVA');
+        const precioVenta  = el('modal-precioVenta');
+        const alicuotaSel  = el('modal-alicuotaIVAId');
+        const ivaSelect    = el('modal-porcentajeIVA');
 
         const calc = () => {
             const venta = parseFloat(precioVenta?.value) || 0;
@@ -296,6 +297,17 @@ const ProductoModal = (() => {
             const precioFinal = el('modal-precioFinal');
             if (precioFinal) precioFinal.value = final_.toFixed(2);
         };
+
+        if (alicuotaSel) {
+            alicuotaSel.addEventListener('change', function () {
+                if (this.value) {
+                    const opt = this.options[this.selectedIndex];
+                    const pct = opt && opt.getAttribute('data-porcentaje');
+                    if (pct !== null && pct !== '' && ivaSelect) ivaSelect.value = String(pct);
+                }
+                calc();
+            });
+        }
 
         if (precioVenta) precioVenta.addEventListener('input', calc);
         if (ivaSelect) ivaSelect.addEventListener('change', calc);

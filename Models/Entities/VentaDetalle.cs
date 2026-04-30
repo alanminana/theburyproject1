@@ -27,6 +27,44 @@ namespace TheBuryProject.Models.Entities
         public decimal Subtotal { get; set; }
 
         [Column(TypeName = "decimal(5,2)")]
+        public decimal PorcentajeIVA { get; set; }
+
+        public int? AlicuotaIVAId { get; set; }
+
+        [StringLength(100)]
+        public string? AlicuotaIVANombre { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PrecioUnitarioNeto { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal IVAUnitario { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SubtotalNeto { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SubtotalIVA { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DescuentoGeneralProrrateado { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SubtotalFinalNeto { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SubtotalFinalIVA { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal SubtotalFinal { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal CostoUnitarioAlMomento { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal CostoTotalAlMomento { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
         public decimal ComisionPorcentajeAplicada { get; set; } = 0m;
 
         [Column(TypeName = "decimal(18,2)")]

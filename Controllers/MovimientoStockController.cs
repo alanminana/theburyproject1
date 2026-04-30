@@ -115,6 +115,9 @@ namespace TheBuryProject.Controllers
                         productoNombre = m.ProductoNombre,
                         productoCodigo = m.ProductoCodigo,
                         cantidad = m.Cantidad,
+                        costoUnitarioAlMomento = m.CostoUnitarioAlMomento,
+                        costoTotalAlMomento = m.CostoTotalAlMomento,
+                        fuenteCosto = m.FuenteCosto,
                         referencia = m.Referencia,
                         usuario = m.CreatedBy,
                         stockNuevo = m.StockNuevo

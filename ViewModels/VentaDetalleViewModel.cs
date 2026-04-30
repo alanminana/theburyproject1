@@ -35,6 +35,55 @@ namespace TheBuryProject.ViewModels
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal Subtotal { get; set; }
 
+        [Display(Name = "IVA")]
+        [DisplayFormat(DataFormatString = "{0:N2}%")]
+        public decimal PorcentajeIVA { get; set; }
+
+        public int? AlicuotaIVAId { get; set; }
+
+        [Display(Name = "Alícuota IVA")]
+        public string? AlicuotaIVANombre { get; set; }
+
+        [Display(Name = "Precio Unitario Neto")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal PrecioUnitarioNeto { get; set; }
+
+        [Display(Name = "IVA Unitario")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal IVAUnitario { get; set; }
+
+        [Display(Name = "Subtotal Neto")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal SubtotalNeto { get; set; }
+
+        [Display(Name = "IVA Línea")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal SubtotalIVA { get; set; }
+
+        [Display(Name = "Descuento General Prorrateado")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal DescuentoGeneralProrrateado { get; set; }
+
+        [Display(Name = "Subtotal Final Neto")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal SubtotalFinalNeto { get; set; }
+
+        [Display(Name = "IVA Final Línea")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal SubtotalFinalIVA { get; set; }
+
+        [Display(Name = "Subtotal Final")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal SubtotalFinal { get; set; }
+
+        [Display(Name = "Costo Unitario al Momento")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal CostoUnitarioAlMomento { get; set; }
+
+        [Display(Name = "Costo Total al Momento")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal CostoTotalAlMomento { get; set; }
+
         [Display(Name = "Observaciones")]
         [StringLength(200)]
         public string? Observaciones { get; set; }

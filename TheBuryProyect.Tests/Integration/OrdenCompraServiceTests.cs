@@ -390,6 +390,13 @@ public class OrdenCompraServiceTests : IDisposable
 
         var stockBd = (await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id)).StockActual;
         Assert.Equal(10m, stockBd);
+
+        var movimiento = await _context.Set<MovimientoStock>()
+            .AsNoTracking()
+            .SingleAsync(m => m.OrdenCompraId == orden.Id && m.ProductoId == producto.Id);
+        Assert.Equal(100m, movimiento.CostoUnitarioAlMomento);
+        Assert.Equal(1_000m, movimiento.CostoTotalAlMomento);
+        Assert.Equal("OrdenCompraDetalle", movimiento.FuenteCosto);
     }
 
     [Fact]

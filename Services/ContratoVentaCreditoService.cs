@@ -475,7 +475,7 @@ namespace TheBuryProject.Services
                             Cantidad = d.Cantidad,
                             PrecioUnitario = d.PrecioUnitario,
                             Descuento = d.Descuento,
-                            Subtotal = d.Subtotal
+                            Subtotal = ObtenerSubtotalVisibleContrato(d)
                         })
                         .ToList()
                 },
@@ -498,6 +498,13 @@ namespace TheBuryProject.Services
                 Sucursal = datos.Venta.VendedorUser?.Sucursal,
                 Caja = datos.Venta.AperturaCaja?.Caja?.Nombre
             };
+        }
+
+        private static decimal ObtenerSubtotalVisibleContrato(VentaDetalle detalle)
+        {
+            return detalle.SubtotalFinal > 0m
+                ? detalle.SubtotalFinal
+                : detalle.Subtotal;
         }
 
         private async Task<string> GenerarNumeroContratoAsync()

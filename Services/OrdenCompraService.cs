@@ -374,6 +374,7 @@ namespace TheBuryProject.Services
             bool todosRecibidos = true;
 
             var entradas = new List<(int productoId, decimal cantidad, string? referencia)>();
+            var costos = new List<MovimientoStockCostoLinea>();
             var referencia = $"Orden de Compra {orden.Numero}";
 
             foreach (var recepcion in detallesRecepcion)
@@ -399,6 +400,12 @@ namespace TheBuryProject.Services
 
                 // Stock + movimiento centralizado (batch, respeta auditoría, validaciones y transacción)
                 entradas.Add((detalle.ProductoId, recepcion.CantidadARecepcionar, referencia));
+                costos.Add(new MovimientoStockCostoLinea(
+                    detalle.ProductoId,
+                    recepcion.CantidadARecepcionar,
+                    referencia,
+                    detalle.PrecioUnitario,
+                    "OrdenCompraDetalle"));
 
                 if (detalle.CantidadRecibida < cantidadSolicitada)
                     todosRecibidos = false;
@@ -408,7 +415,8 @@ namespace TheBuryProject.Services
                 entradas,
                 "Recepción de mercadería",
                 usuario,
-                ordenCompraId: orden.Id);
+                ordenCompraId: orden.Id,
+                costos: costos);
 
             if (todosRecibidos)
             {

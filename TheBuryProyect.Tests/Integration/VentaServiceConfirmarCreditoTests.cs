@@ -68,7 +68,8 @@ file sealed class StubMovimientoStockService : IMovimientoStockService
     public Task<List<MovimientoStock>> RegistrarSalidasAsync(
         List<(int productoId, decimal cantidad, string? referencia)> salidas,
         string motivo,
-        string? usuarioActual = null)
+        string? usuarioActual = null,
+        IReadOnlyList<MovimientoStockCostoLinea>? costos = null)
         => Task.FromResult(new List<MovimientoStock>());
 
     public Task<IEnumerable<MovimientoStock>> GetAllAsync() => throw new NotImplementedException();
@@ -80,7 +81,7 @@ file sealed class StubMovimientoStockService : IMovimientoStockService
     public Task<IEnumerable<MovimientoStock>> SearchAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc") => throw new NotImplementedException();
     public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
     public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
-    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
+    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null, IReadOnlyList<MovimientoStockCostoLinea>? costos = null) => throw new NotImplementedException();
     public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }
@@ -623,5 +624,202 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         Assert.True(result);
         var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
         Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests — crédito personal con descuento general prorrateado
+    // Documentan que GenerarCuotasCreditoAsync usa credito.MontoAprobado
+    // (derivado de venta.Total final) y nunca VentaDetalle.Subtotal bruto.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Siembra una venta donde VentaDetalle.Subtotal (bruto pre-descuento) difiere de
+    /// VentaDetalle.SubtotalFinal (post-descuento general prorrateado).
+    /// Venta.Total refleja el importe final, que es la base del crédito.
+    /// </summary>
+    private async Task<(Venta venta, Credito credito)> SeedVentaConfirmableConDescuentoGeneral(
+        decimal subtotalBruto,
+        decimal totalFinal,
+        decimal montoAprobado,
+        int cantidadCuotas,
+        decimal tasaInteres = 3m)  // > 0 requerido por el guard de ConfirmarVentaCreditoAsync
+    {
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+
+        var categoria = new Categoria { Nombre = $"CatDesc{suffix}" };
+        var marca = new Marca { Nombre = $"MarcaDesc{suffix}" };
+        _context.Categorias.Add(categoria);
+        _context.Marcas.Add(marca);
+        await _context.SaveChangesAsync();
+
+        var cliente = new Cliente
+        {
+            Nombre = "Test",
+            Apellido = "Descuento",
+            NumeroDocumento = $"5{suffix}",
+            NivelRiesgo = NivelRiesgoCredito.AprobadoTotal,
+            IsDeleted = false
+        };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+
+        var producto = new Producto
+        {
+            Codigo = $"PRODD{suffix}",
+            Nombre = $"ProductoDesc {suffix}",
+            PrecioVenta = subtotalBruto,
+            StockActual = 10,
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            IsDeleted = false
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var credito = new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = $"CREDD{suffix}",
+            Estado = EstadoCredito.Configurado,
+            TasaInteres = tasaInteres,
+            MontoSolicitado = montoAprobado,
+            MontoAprobado = montoAprobado,
+            SaldoPendiente = montoAprobado,
+            CantidadCuotas = cantidadCuotas,
+            MontoCuota = 0m,
+            TotalAPagar = 0m,
+            FechaPrimeraCuota = DateTime.UtcNow.AddMonths(1),
+            IsDeleted = false
+        };
+        _context.Creditos.Add(credito);
+        await _context.SaveChangesAsync();
+
+        // Venta.Total = totalFinal (ya post-prorrateo: Sum(SubtotalFinal))
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            CreditoId = credito.Id,
+            Numero = $"VTAD{suffix}",
+            Estado = EstadoVenta.Presupuesto,
+            TipoPago = TipoPago.CreditoPersonal,
+            Total = totalFinal,
+            AperturaCajaId = null,
+            FechaConfiguracionCredito = DateTime.UtcNow,
+            IsDeleted = false
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        // Detalle con Subtotal bruto (pre-descuento) ≠ SubtotalFinal (post-descuento).
+        // GenerarCuotasCreditoAsync nunca lee estas columnas: usa credito.MontoAprobado.
+        var detalle = new VentaDetalle
+        {
+            VentaId = venta.Id,
+            ProductoId = producto.Id,
+            Cantidad = 1,
+            PrecioUnitario = subtotalBruto,
+            Subtotal = subtotalBruto,        // importe bruto pre-descuento
+            SubtotalFinal = totalFinal,      // importe final post-prorrateo
+            IsDeleted = false
+        };
+        _context.VentaDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+
+        return (venta, credito);
+    }
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_ConDescuentoGeneral_CuotasCalculadasSobreTotalFinalNoSubtotalBruto()
+    {
+        // Arrange
+        // VentaDetalle.Subtotal = 1.000 (bruto pre-descuento) ← valor incorrecto si hubiera bug
+        // VentaDetalle.SubtotalFinal = Venta.Total = MontoAprobado = 900 (final post-descuento)
+        // GenerarCuotasCreditoAsync usa credito.MontoAprobado, nunca VentaDetalle.Subtotal.
+        // Si hubiera regresión usando el bruto, SaldoPendiente sería 1.000 en lugar de 900.
+        const decimal subtotalBruto = 1_000m;
+        const decimal totalFinal = 900m;
+        const int cuotas = 3;
+
+        var (venta, credito) = await SeedVentaConfirmableConDescuentoGeneral(
+            subtotalBruto: subtotalBruto,
+            totalFinal: totalFinal,
+            montoAprobado: totalFinal,   // sin anticipo: financia el total final completo
+            cantidadCuotas: cuotas);
+
+        // Act
+        var result = await _service.ConfirmarVentaCreditoAsync(venta.Id);
+
+        // Assert
+        Assert.True(result);
+
+        var creditoActualizado = await _context.Creditos.FindAsync(credito.Id);
+        Assert.NotNull(creditoActualizado);
+
+        // SaldoPendiente = montoFinanciado = credito.MontoAprobado (asignación directa, sin FP)
+        // Debe ser 900 (totalFinal), NO 1.000 (subtotalBruto)
+        Assert.Equal(totalFinal, creditoActualizado!.SaldoPendiente);
+        Assert.NotEqual(subtotalBruto, creditoActualizado.SaldoPendiente);
+
+        // Las cuotas generadas suman TotalAPagar (calculado sobre 900 + interés, no sobre 1.000)
+        // SumAsync sobre decimal no es compatible con el proveedor SQLite de tests;
+        // se materializa primero y se suma en memoria.
+        var montosCuotas = await _context.Cuotas
+            .Where(c => c.CreditoId == credito.Id)
+            .Select(c => c.MontoTotal)
+            .ToListAsync();
+        var totalCuotas = montosCuotas.Sum();
+        Assert.Equal(creditoActualizado.TotalAPagar, totalCuotas);
+        Assert.True(totalCuotas > totalFinal,     "Las cuotas incluyen interés sobre 900");
+        Assert.True(totalCuotas < subtotalBruto,  "Las cuotas NO se calcularon sobre el subtotal bruto 1.000");
+    }
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_ConDescuentoGeneralYAnticipo_CuotasYAnticipoSobreTotalFinal()
+    {
+        // Arrange
+        // VentaDetalle.Subtotal = 1.000 (bruto pre-descuento)
+        // Venta.Total = 900 (final post-descuento)
+        // MontoAprobado = 720 → anticipo = 900 - 720 = 180
+        // Las cuotas deben calcularse sobre 720, no sobre 1.000 ni sobre 900
+        const decimal subtotalBruto = 1_000m;
+        const decimal totalFinal = 900m;
+        const decimal montoAprobado = 720m;
+        const int cuotas = 3;
+
+        var (venta, credito) = await SeedVentaConfirmableConDescuentoGeneral(
+            subtotalBruto: subtotalBruto,
+            totalFinal: totalFinal,
+            montoAprobado: montoAprobado,
+            cantidadCuotas: cuotas);
+
+        // Act
+        var result = await _service.ConfirmarVentaCreditoAsync(venta.Id);
+
+        // Assert
+        Assert.True(result);
+
+        var creditoActualizado = await _context.Creditos.FindAsync(credito.Id);
+        Assert.NotNull(creditoActualizado);
+
+        // SaldoPendiente = montoFinanciado = 720 (MontoAprobado)
+        // No debe ser 1.000 (subtotalBruto) ni 900 (totalFinal sin descontar el anticipo)
+        Assert.Equal(montoAprobado, creditoActualizado!.SaldoPendiente);
+        Assert.NotEqual(subtotalBruto, creditoActualizado.SaldoPendiente);
+        Assert.NotEqual(totalFinal, creditoActualizado.SaldoPendiente);
+
+        // Anticipo = venta.Total - credito.MontoAprobado = 900 - 720 = 180
+        // El stub de caja acepta el movimiento sin excepción; verificamos que la venta confirmó
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+
+        // Cuotas generadas suman TotalAPagar (sobre 720 + interés, no sobre 1.000 ni 900)
+        var montosCuotas = await _context.Cuotas
+            .Where(c => c.CreditoId == credito.Id)
+            .Select(c => c.MontoTotal)
+            .ToListAsync();
+        var totalCuotas = montosCuotas.Sum();
+        Assert.Equal(creditoActualizado.TotalAPagar, totalCuotas);
+        Assert.True(totalCuotas > montoAprobado,   "Las cuotas incluyen interés sobre 720");
+        Assert.True(totalCuotas < subtotalBruto,   "Las cuotas NO se calcularon sobre el subtotal bruto 1.000");
     }
 }

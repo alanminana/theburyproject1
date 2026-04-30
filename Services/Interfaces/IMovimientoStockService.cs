@@ -3,6 +3,13 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services.Interfaces
 {
+    public sealed record MovimientoStockCostoLinea(
+        int ProductoId,
+        decimal Cantidad,
+        string? Referencia,
+        decimal CostoUnitario,
+        string? FuenteCosto);
+
     /// <summary>
     /// Servicio centralizado para gestión de movimientos y stock.
     /// </summary>
@@ -47,7 +54,8 @@ namespace TheBuryProject.Services.Interfaces
             List<(int productoId, decimal cantidad, string? referencia)> entradas,
             string motivo,
             string? usuarioActual = null,
-            int? ordenCompraId = null);
+            int? ordenCompraId = null,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos = null);
 
         /// <summary>
         /// Registrar múltiples salidas de stock en un solo SaveChanges.
@@ -56,7 +64,8 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<MovimientoStock>> RegistrarSalidasAsync(
             List<(int productoId, decimal cantidad, string? referencia)> salidas,
             string motivo,
-            string? usuarioActual = null);
+            string? usuarioActual = null,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos = null);
 
         /// <summary>
         /// Validar disponibilidad de stock.

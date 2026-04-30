@@ -111,7 +111,7 @@
                 <span class="material-symbols-outlined text-primary text-base">info</span>
                 <p class="text-xs text-slate-300">Ingresá el Precio de Venta <strong>sin IVA</strong>. El sistema calculará el precio final automáticamente.</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="space-y-1">
                     <label asp-for="PrecioCompra" class="text-sm font-semibold text-slate-300"></label>
                     <div class="relative">
@@ -129,7 +129,20 @@
                     <span asp-validation-for="PrecioVenta" class="text-xs text-red-400"></span>
                 </div>
                 <div class="space-y-1">
-                    <label asp-for="PorcentajeIVA" class="text-sm font-semibold text-slate-300"></label>
+                    <label asp-for="AlicuotaIVAId" class="text-sm font-semibold text-slate-300">Alícuota IVA</label>
+                    <select asp-for="AlicuotaIVAId" id="edit-alicuotaIVAId" class="catalogo-input">
+                        <option value="">— Sin alícuota (usar % manual) —</option>
+                        @if (ViewBag.AlicuotasIVADatos != null)
+                        {
+                            foreach (var a in ViewBag.AlicuotasIVADatos)
+                            {
+                                <option value="@a.Id" data-porcentaje="@a.Porcentaje">@a.Texto</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="PorcentajeIVA" class="text-sm font-semibold text-slate-300">% IVA (fallback)</label>
                     <select asp-for="PorcentajeIVA" id="edit-porcentajeIVA" class="catalogo-input">
                         <option value="21">21%</option>
                         <option value="10.5">10.5%</option>
@@ -226,21 +239,5 @@
 </div>
 
 @section Scripts {
-    <script>
-        (function () {
-            var precioVenta  = document.getElementById('edit-precioVenta');
-            var porcentajeIVA = document.getElementById('edit-porcentajeIVA');
-            var precioFinal  = document.getElementById('edit-precioFinal');
-
-            function calcular() {
-                var pv  = parseFloat(precioVenta.value) || 0;
-                var iva = parseFloat(porcentajeIVA.value) || 0;
-                precioFinal.value = (pv * (1 + iva / 100)).toFixed(2).replace('.', ',');
-            }
-
-            precioVenta.addEventListener('input', calcular);
-            porcentajeIVA.addEventListener('change', calcular);
-            calcular();
-        })();
-    </script>
+    <script src="~/js/producto-edit-form.js" asp-append-version="true"></script>
 }

@@ -6,13 +6,8 @@ namespace TheBuryProject.Models.Constants
     public static class VentaConstants
     {
         /// <summary>
-        /// Tasa de IVA (21%)
-        /// </summary>
-        public const decimal IVA_RATE = 0.21m;
-        
-        /// <summary>
-        /// Divisor para calcular base imponible desde precio con IVA (1 + 0.21 = 1.21)
-        /// Uso: precioConIVA / IVA_DIVISOR = precioSinIVA
+        /// Divisor legacy para calcular base imponible desde precio con IVA 21%.
+        /// Uso: precioConIVA / IVA_DIVISOR = precioSinIVA.
         /// </summary>
         public const decimal IVA_DIVISOR = 1.21m;
         

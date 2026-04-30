@@ -412,6 +412,82 @@ public class CategoriaServiceTests : IDisposable
     }
 
     // =========================================================================
+    // AlicuotaIVA
+    // =========================================================================
+
+    private async Task<AlicuotaIVA> SeedAlicuotaAsync(bool activa = true)
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+        var ali = new AlicuotaIVA
+        {
+            Codigo = "IVA_" + suffix,
+            Nombre = "IVA-" + suffix,
+            Porcentaje = 21m,
+            Activa = activa,
+            EsPredeterminada = false
+        };
+        _context.AlicuotasIVA.Add(ali);
+        await _context.SaveChangesAsync();
+        await _context.Entry(ali).ReloadAsync();
+        return ali;
+    }
+
+    [Fact]
+    public async Task Create_ConAlicuotaIVAActiva_PersistAlicuotaIVAId()
+    {
+        var alicuota = await SeedAlicuotaAsync();
+        var cat = new Categoria { Codigo = "CAT-ALI1", Nombre = "Con Alícuota", AlicuotaIVAId = alicuota.Id, Activo = true };
+
+        var resultado = await _service.CreateAsync(cat);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Categorias.FirstAsync(c => c.Id == resultado.Id);
+        Assert.Equal(alicuota.Id, bd.AlicuotaIVAId);
+    }
+
+    [Fact]
+    public async Task Update_AlicuotaIVAId_CambiaAlicuota()
+    {
+        var alicuota = await SeedAlicuotaAsync();
+        var cat = await SeedCategoriaAsync();
+
+        cat.AlicuotaIVAId = alicuota.Id;
+        var resultado = await _service.UpdateAsync(cat);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Categorias.FirstAsync(c => c.Id == cat.Id);
+        Assert.Equal(alicuota.Id, bd.AlicuotaIVAId);
+    }
+
+    [Fact]
+    public async Task Update_AlicuotaIVANull_LimpiaPreviaAsignacion()
+    {
+        var alicuota = await SeedAlicuotaAsync();
+        var cat = await SeedCategoriaAsync();
+        cat.AlicuotaIVAId = alicuota.Id;
+        _context.Categorias.Update(cat);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        cat = await _context.Categorias.FirstAsync(c => c.Id == cat.Id);
+
+        cat.AlicuotaIVAId = null;
+        await _service.UpdateAsync(cat);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Categorias.FirstAsync(c => c.Id == cat.Id);
+        Assert.Null(bd.AlicuotaIVAId);
+    }
+
+    [Fact]
+    public async Task Create_ConAlicuotaIVAInactiva_LanzaExcepcion()
+    {
+        var inactiva = await SeedAlicuotaAsync(activa: false);
+        var cat = new Categoria { Codigo = "CAT-INV", Nombre = "Inválida", AlicuotaIVAId = inactiva.Id, Activo = true };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateAsync(cat));
+    }
+
+    // =========================================================================
     // GetAllAsync
     // =========================================================================
 

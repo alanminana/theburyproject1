@@ -26,12 +26,16 @@
     const filtroHasta = document.getElementById('mov-fecha-hasta');
     const filtroTipo = document.getElementById('mov-tipo');
     const filtroProducto = document.getElementById('mov-producto');
+    const filtroFuente = document.getElementById('mov-fuente-costo');
+    const filtrosBadge = document.getElementById('mov-filtros-badge');
+    const movCountContext = document.getElementById('mov-count-context');
     const btnBuscar = document.getElementById('btn-mov-buscar');
     const btnLimpiar = document.getElementById('btn-mov-limpiar');
     const selectPageSize = document.getElementById('mov-page-size');
     const paginationDiv = document.getElementById('mov-pagination');
 
     let allItems = [];
+    let displayItems = [];
     let currentPage = 1;
     let pageSize = 25;
 
@@ -88,17 +92,56 @@
         }
     }
 
+    /* ── Active filters ── */
+    function getActiveFiltersCount() {
+        let count = 0;
+        if (filtroDesde && filtroDesde.value) count++;
+        if (filtroHasta && filtroHasta.value) count++;
+        if (filtroTipo && filtroTipo.value) count++;
+        if (filtroProducto && filtroProducto.value.trim()) count++;
+        if (filtroFuente && filtroFuente.value) count++;
+        return count;
+    }
+
+    function updateFilterBadge() {
+        if (!filtrosBadge) return;
+        const count = getActiveFiltersCount();
+        if (count > 0) {
+            filtrosBadge.textContent = count === 1 ? '1 filtro activo' : `${count} filtros activos`;
+            filtrosBadge.classList.remove('hidden');
+        } else {
+            filtrosBadge.classList.add('hidden');
+        }
+    }
+
     /* ── Render ── */
     function renderPage() {
+        updateFilterBadge();
+        const fuenteFilter = filtroFuente ? filtroFuente.value : '';
+        displayItems = fuenteFilter
+            ? allItems.filter(m => (m.fuenteCosto || 'NoInformado') === fuenteFilter)
+            : allItems;
+
         const start = (currentPage - 1) * pageSize;
-        const pageItems = allItems.slice(start, start + pageSize);
+        const pageItems = displayItems.slice(start, start + pageSize);
         countShowing.textContent = pageItems.length;
+        countTotal.textContent = displayItems.length;
+
+        if (movCountContext) {
+            const clientFiltered = (filtroFuente && filtroFuente.value) && displayItems.length < allItems.length;
+            if (clientFiltered) {
+                movCountContext.textContent = ` · ${allItems.length} en el período`;
+                movCountContext.classList.remove('hidden');
+            } else {
+                movCountContext.classList.add('hidden');
+            }
+        }
 
         tbody.innerHTML = '';
 
         if (!pageItems.length) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="8" class="py-16 text-center">
+            tr.innerHTML = `<td colspan="11" class="py-16 text-center">
                 <div class="flex flex-col items-center gap-2 opacity-40">
                     <span class="material-symbols-outlined text-4xl">swap_vert</span>
                     <p class="text-slate-500 dark:text-slate-400 text-base">No hay movimientos para mostrar</p>
@@ -141,6 +184,17 @@
                     <span class="text-sm font-bold ${cantColor}">${signo}${m.cantidad}</span>
                 </td>
                 <td class="px-4 py-4">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">${formatMoney(m.costoUnitarioAlMomento)}</span>
+                </td>
+                <td class="px-4 py-4">
+                    <span class="text-sm font-semibold text-slate-900 dark:text-white">${formatMoney(m.costoTotalAlMomento)}</span>
+                </td>
+                <td class="px-4 py-4">
+                    <span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300 cursor-help"
+                          title="Origen usado para valuar el costo del movimiento."
+                          data-fuente-costo="${esc(m.fuenteCosto || 'NoInformado')}">${esc(fuenteCostoLabel(m.fuenteCosto))}</span>
+                </td>
+                <td class="px-4 py-4">
                     <span class="text-sm text-slate-600 dark:text-slate-400">${esc(m.referencia || '-')}</span>
                 </td>
                 <td class="px-4 py-4">
@@ -161,6 +215,19 @@
         renderPagination();
     }
 
+    const FUENTE_COSTO_LABELS = {
+        'VentaDetalleSnapshot': 'Venta',
+        'OrdenCompraDetalle': 'Orden de compra',
+        'ProductoActual': 'Costo actual del producto',
+        'AjusteManual': 'Ajuste manual',
+        'Legacy': 'Histórico migrado',
+        'NoInformado': 'No informado'
+    };
+
+    function fuenteCostoLabel(value) {
+        return FUENTE_COSTO_LABELS[value] || value || 'No informado';
+    }
+
     function tipoBadge(tipo) {
         switch (tipo) {
             case 'Entrada':
@@ -174,11 +241,16 @@
         }
     }
 
+    function formatMoney(value) {
+        const amount = Number(value || 0);
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
+    }
+
     function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
     /* ── Pagination ── */
     function renderPagination() {
-        const totalPages = Math.max(1, Math.ceil(allItems.length / pageSize));
+        const totalPages = Math.max(1, Math.ceil(displayItems.length / pageSize));
         paginationDiv.innerHTML = '';
 
         const prevBtn = pageBtn('chevron_left', currentPage > 1, () => { currentPage--; renderPage(); });
@@ -247,8 +319,16 @@
         filtroHasta.value = '';
         filtroTipo.value = '';
         filtroProducto.value = '';
+        if (filtroFuente) filtroFuente.value = '';
         fetchMovimientos();
     });
+
+    if (filtroFuente) {
+        filtroFuente.addEventListener('change', () => {
+            currentPage = 1;
+            renderPage();
+        });
+    }
 
     selectPageSize.addEventListener('change', () => {
         pageSize = parseInt(selectPageSize.value) || 25;

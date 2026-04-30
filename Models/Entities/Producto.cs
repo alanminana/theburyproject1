@@ -74,6 +74,11 @@ namespace TheBuryProject.Models.Entities
         public decimal PorcentajeIVA { get; set; } = 21m;
 
         /// <summary>
+        /// Alícuota de IVA configurable. Si está informada y activa, tiene prioridad sobre PorcentajeIVA.
+        /// </summary>
+        public int? AlicuotaIVAId { get; set; }
+
+        /// <summary>
         /// Porcentaje de comisión que gana el vendedor al vender este producto.
         /// Ejemplo: 8 representa 8%.
         /// </summary>
@@ -127,6 +132,11 @@ namespace TheBuryProject.Models.Entities
         /// Submarca del producto (opcional)
         /// </summary>
         public virtual Marca? Submarca { get; set; }
+
+        /// <summary>
+        /// Alícuota de IVA configurable del producto.
+        /// </summary>
+        public virtual AlicuotaIVA? AlicuotaIVA { get; set; }
 
         /// <summary>
         /// Características variables del producto (ej: color, pulgadas, capacidad)

@@ -28,6 +28,7 @@ namespace TheBuryProject.Data
         public DbSet<Categoria> Categorias { get; set; }
         public DbSet<Marca> Marcas { get; set; }
         public DbSet<Producto> Productos { get; set; }
+        public DbSet<AlicuotaIVA> AlicuotasIVA { get; set; }
         public DbSet<ProductoCaracteristica> ProductosCaracteristicas { get; set; }
         public DbSet<PrecioHistorico> PreciosHistoricos { get; set; }
 
@@ -216,6 +217,40 @@ namespace TheBuryProject.Data
             });
 
             // =======================
+            // Alicuotas IVA
+            // =======================
+            modelBuilder.Entity<AlicuotaIVA>(entity =>
+            {
+                entity.ToTable("AlicuotasIVA");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Codigo)
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.Nombre)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Porcentaje)
+                    .HasPrecision(5, 2);
+
+                entity.Property(e => e.Activa)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.EsPredeterminada)
+                    .HasDefaultValue(false);
+
+                entity.HasIndex(e => e.Codigo)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+
+                entity.HasIndex(e => e.Activa);
+                entity.HasIndex(e => e.EsPredeterminada);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // =======================
             // Configuración de Categoria
             // =======================
             modelBuilder.Entity<Categoria>(entity =>
@@ -242,6 +277,11 @@ namespace TheBuryProject.Data
                     .WithMany(e => e.Children)
                     .HasForeignKey(e => e.ParentId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.AlicuotaIVA)
+                    .WithMany()
+                    .HasForeignKey(e => e.AlicuotaIVAId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // =======================
@@ -285,6 +325,7 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PrecioCompra).HasPrecision(18, 2);
                 entity.Property(e => e.PrecioVenta).HasPrecision(18, 2);
+                entity.Property(e => e.PorcentajeIVA).HasPrecision(5, 2);
                 entity.Property(e => e.ComisionPorcentaje)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);
@@ -303,6 +344,11 @@ namespace TheBuryProject.Data
                     .WithOne(c => c.Producto)
                     .HasForeignKey(c => c.ProductoId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.AlicuotaIVA)
+                    .WithMany()
+                    .HasForeignKey(e => e.AlicuotaIVAId)
+                    .OnDelete(DeleteBehavior.SetNull);
 
                 // SIN: entity.HasQueryFilter(e => !e.IsDeleted);
             });
@@ -521,6 +567,15 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.Cantidad).HasPrecision(18, 2);
                 entity.Property(e => e.StockAnterior).HasPrecision(18, 2);
                 entity.Property(e => e.StockNuevo).HasPrecision(18, 2);
+                entity.Property(e => e.CostoUnitarioAlMomento)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.CostoTotalAlMomento)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.FuenteCosto)
+                    .HasMaxLength(50)
+                    .HasDefaultValue("NoInformado");
             });
 
             // =======================
@@ -863,6 +918,41 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.PrecioUnitario).HasPrecision(18, 2);
                 entity.Property(e => e.Descuento).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.PorcentajeIVA)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.AlicuotaIVANombre)
+                    .HasMaxLength(100);
+                entity.Property(e => e.PrecioUnitarioNeto)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.IVAUnitario)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.SubtotalNeto)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.SubtotalIVA)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.DescuentoGeneralProrrateado)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.SubtotalFinalNeto)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.SubtotalFinalIVA)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.SubtotalFinal)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.CostoUnitarioAlMomento)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+                entity.Property(e => e.CostoTotalAlMomento)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
                 entity.Property(e => e.ComisionPorcentajeAplicada)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);
@@ -1917,6 +2007,57 @@ namespace TheBuryProject.Data
         private void SeedData(ModelBuilder modelBuilder)
         {
             var seedUtc = SeedCreatedAtUtc;
+
+            modelBuilder.Entity<AlicuotaIVA>().HasData(
+                new AlicuotaIVA
+                {
+                    Id = 1,
+                    Codigo = "IVA_21",
+                    Nombre = "IVA 21%",
+                    Porcentaje = 21m,
+                    Activa = true,
+                    EsPredeterminada = true,
+                    CreatedAt = seedUtc,
+                    CreatedBy = "System",
+                    IsDeleted = false
+                },
+                new AlicuotaIVA
+                {
+                    Id = 2,
+                    Codigo = "IVA_10_5",
+                    Nombre = "IVA 10.5%",
+                    Porcentaje = 10.5m,
+                    Activa = true,
+                    EsPredeterminada = false,
+                    CreatedAt = seedUtc,
+                    CreatedBy = "System",
+                    IsDeleted = false
+                },
+                new AlicuotaIVA
+                {
+                    Id = 3,
+                    Codigo = "IVA_27",
+                    Nombre = "IVA 27%",
+                    Porcentaje = 27m,
+                    Activa = true,
+                    EsPredeterminada = false,
+                    CreatedAt = seedUtc,
+                    CreatedBy = "System",
+                    IsDeleted = false
+                },
+                new AlicuotaIVA
+                {
+                    Id = 4,
+                    Codigo = "IVA_EXENTO",
+                    Nombre = "Exento 0%",
+                    Porcentaje = 0m,
+                    Activa = true,
+                    EsPredeterminada = false,
+                    CreatedAt = seedUtc,
+                    CreatedBy = "System",
+                    IsDeleted = false
+                }
+            );
 
             modelBuilder.Entity<Categoria>().HasData(
                 new Categoria

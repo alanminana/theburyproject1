@@ -109,7 +109,10 @@ public class ReporteServiceTests : IDisposable
         string? vendedorUserId = null,
         string? vendedorNombre = null,
         decimal comisionPorcentaje = 0m,
-        decimal comisionMonto = 0m)
+        decimal comisionMonto = 0m,
+        decimal subtotalFinal = 0m,
+        decimal costoUnitarioAlMomento = 0m,
+        decimal costoTotalAlMomento = 0m)
     {
         var total = precioUnitario * cantidad;
         var venta = new Venta
@@ -132,6 +135,9 @@ public class ReporteServiceTests : IDisposable
                     PrecioUnitario = precioUnitario,
                     Descuento = 0m,
                     Subtotal = total,
+                    SubtotalFinal = subtotalFinal,
+                    CostoUnitarioAlMomento = costoUnitarioAlMomento,
+                    CostoTotalAlMomento = costoTotalAlMomento,
                     ComisionPorcentajeAplicada = comisionPorcentaje,
                     ComisionMonto = comisionMonto
                 }
@@ -174,6 +180,44 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(20m, item.Costo);    // 2 × PrecioCompra(10)
         Assert.Equal(80m, item.Ganancia); // 100 - 20
         Assert.Equal(80m, resultado.TotalGanancia);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_CambioPrecioCompraPosterior_NoCambiaGananciaSnapshot()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 50m,
+            cantidad: 2,
+            costoUnitarioAlMomento: 10m,
+            costoTotalAlMomento: 20m);
+
+        producto.PrecioCompra = 40m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.Ventas);
+        Assert.Equal(20m, item.Costo);
+        Assert.Equal(80m, item.Ganancia);
+        Assert.Equal(80m, resultado.TotalGanancia);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_LegacySinSnapshot_UsaPrecioCompraActualComoFallback()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 15m, precioVenta: 50m);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 50m, cantidad: 2);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.Ventas);
+        Assert.Equal(30m, item.Costo);
+        Assert.Equal(70m, item.Ganancia);
     }
 
     [Fact]
@@ -675,6 +719,123 @@ public class ReporteServiceTests : IDisposable
             "dia");
 
         Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_Categoria_UsaSubtotalFinalCuandoExiste()
+    {
+        var cliente = await SeedClienteAsync();
+        // PrecioCompra=30, PrecioVenta=100, cantidad=2, Subtotal=200, SubtotalFinal=180 (descuento general)
+        var producto = await SeedProductoAsync(precioCompra: 30m, precioVenta: 100m);
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2, fecha: hoy, subtotalFinal: 180m);
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(hoy.AddDays(-1), hoy.AddDays(1), "categoria");
+
+        Assert.Single(resultado);
+        Assert.Equal(180m, resultado[0].Monto);
+        Assert.Equal(120m, resultado[0].Ganancia); // 180 - 2*30
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_Categoria_UsaCostoSnapshot()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 30m, precioVenta: 100m);
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 2,
+            fecha: hoy,
+            subtotalFinal: 180m,
+            costoUnitarioAlMomento: 30m,
+            costoTotalAlMomento: 60m);
+
+        producto.PrecioCompra = 90m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(hoy.AddDays(-1), hoy.AddDays(1), "categoria");
+
+        Assert.Single(resultado);
+        Assert.Equal(180m, resultado[0].Monto);
+        Assert.Equal(120m, resultado[0].Ganancia);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_Categoria_FallbackASubtotalSiSubtotalFinalEsCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 30m, precioVenta: 100m);
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2, fecha: hoy); // subtotalFinal=0
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(hoy.AddDays(-1), hoy.AddDays(1), "categoria");
+
+        Assert.Single(resultado);
+        Assert.Equal(200m, resultado[0].Monto);    // cae en Subtotal=200
+        Assert.Equal(140m, resultado[0].Ganancia); // 200 - 2*30
+    }
+
+    // =========================================================================
+    // ObtenerProductosMasVendidosAsync (vía GenerarReporteVentasAsync)
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerProductosMasVendidos_UsaSubtotalFinalCuandoExiste()
+    {
+        var cliente = await SeedClienteAsync();
+        // PrecioCompra=50, Subtotal=200, SubtotalFinal=180 → MontoTotal=180, Ganancia=180-50*2=80
+        var producto = await SeedProductoAsync(precioCompra: 50m, precioVenta: 100m);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2, subtotalFinal: 180m);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        Assert.Single(resultado.ProductosMasVendidos);
+        var item = resultado.ProductosMasVendidos[0];
+        Assert.Equal(180m, item.MontoTotal);
+        Assert.Equal(80m, item.GananciaTotal);   // 180 - 50*2
+    }
+
+    [Fact]
+    public async Task ObtenerProductosMasVendidos_UsaCostoSnapshot()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 20m, precioVenta: 100m);
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 2,
+            subtotalFinal: 180m,
+            costoUnitarioAlMomento: 20m,
+            costoTotalAlMomento: 40m);
+
+        producto.PrecioCompra = 70m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.ProductosMasVendidos);
+        Assert.Equal(180m, item.MontoTotal);
+        Assert.Equal(140m, item.GananciaTotal);
+    }
+
+    [Fact]
+    public async Task ObtenerProductosMasVendidos_FallbackASubtotalSiSubtotalFinalEsCero()
+    {
+        var cliente = await SeedClienteAsync();
+        // PrecioCompra=50, Subtotal=200, SubtotalFinal=0 → fallback a Subtotal=200, Ganancia=200-50*2=100
+        var producto = await SeedProductoAsync(precioCompra: 50m, precioVenta: 100m);
+        await SeedVentaAsync(cliente.Id, producto.Id, precioUnitario: 100m, cantidad: 2); // subtotalFinal=0
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        Assert.Single(resultado.ProductosMasVendidos);
+        var item = resultado.ProductosMasVendidos[0];
+        Assert.Equal(200m, item.MontoTotal);
+        Assert.Equal(100m, item.GananciaTotal);  // 200 - 50*2
     }
 
     // =========================================================================

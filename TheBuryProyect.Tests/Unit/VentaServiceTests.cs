@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -147,7 +148,7 @@ file static class VentaServiceFactory
 
 public class VentaService_CalcularTotalesPreview
 {
-    // Ratio IVA_DIVISOR = 1.21m (constante en VentaConstants)
+    // Ratio legacy 21% usado por el método sync de compatibilidad.
     private const decimal IVA_DIVISOR = 1.21m;
 
     private static VentaService BuildService()
@@ -156,8 +157,8 @@ public class VentaService_CalcularTotalesPreview
         return VentaServiceFactory.Create(ctx);
     }
 
-    private static DetalleCalculoVentaRequest Item(decimal precio, decimal cantidad = 1, decimal descuento = 0) =>
-        new() { ProductoId = 1, PrecioUnitario = precio, Cantidad = cantidad, Descuento = descuento };
+    private static DetalleCalculoVentaRequest Item(decimal precio, decimal cantidad = 1, decimal descuento = 0, int productoId = 1) =>
+        new() { ProductoId = productoId, PrecioUnitario = precio, Cantidad = cantidad, Descuento = descuento };
 
     [Fact]
     public void SinDetalles_DevuelveTotalesEnCero()
@@ -179,7 +180,7 @@ public class VentaService_CalcularTotalesPreview
             new List<DetalleCalculoVentaRequest> { Item(1210m) },
             descuentoGeneral: 0, descuentoEsPorcentaje: false);
 
-        Assert.Equal(1210m, result.Subtotal);
+        Assert.Equal(1000m, result.Subtotal);
         Assert.Equal(1210m, result.Total);
     }
 
@@ -191,8 +192,8 @@ public class VentaService_CalcularTotalesPreview
             new List<DetalleCalculoVentaRequest> { Item(1210m) },
             descuentoGeneral: 0, descuentoEsPorcentaje: false);
 
-        var baseEsperada = result.Total / IVA_DIVISOR;
-        var ivaEsperado = result.Total - baseEsperada;
+        var baseEsperada = Math.Round(result.Total / IVA_DIVISOR, 2, MidpointRounding.AwayFromZero);
+        var ivaEsperado = Math.Round(result.Total - baseEsperada, 2, MidpointRounding.AwayFromZero);
 
         Assert.Equal(ivaEsperado, result.IVA);
         // IVA debería ser ~21% del precio sin IVA (210 sobre 1000)
@@ -208,7 +209,7 @@ public class VentaService_CalcularTotalesPreview
             new List<DetalleCalculoVentaRequest> { Item(1000m, cantidad: 2, descuento: 100m) },
             descuentoGeneral: 0, descuentoEsPorcentaje: false);
 
-        Assert.Equal(1900m, result.Subtotal);
+        Assert.Equal(1570.25m, result.Subtotal);
         Assert.Equal(1900m, result.Total);
     }
 
@@ -220,7 +221,7 @@ public class VentaService_CalcularTotalesPreview
             new List<DetalleCalculoVentaRequest> { Item(1000m), Item(500m) },
             descuentoGeneral: 200m, descuentoEsPorcentaje: false);
 
-        Assert.Equal(1500m, result.Subtotal);
+        Assert.Equal(1074.38m, result.Subtotal);
         Assert.Equal(200m, result.DescuentoGeneralAplicado);
         Assert.Equal(1300m, result.Total);
     }
@@ -234,7 +235,7 @@ public class VentaService_CalcularTotalesPreview
             new List<DetalleCalculoVentaRequest> { Item(1000m) },
             descuentoGeneral: 10m, descuentoEsPorcentaje: true);
 
-        Assert.Equal(1000m, result.Subtotal);
+        Assert.Equal(743.80m, result.Subtotal);
         Assert.Equal(100m, result.DescuentoGeneralAplicado);
         Assert.Equal(900m, result.Total);
     }
@@ -276,8 +277,237 @@ public class VentaService_CalcularTotalesPreview
         };
         var result = svc.CalcularTotalesPreview(items, 0, false);
 
-        Assert.Equal(850m, result.Subtotal);
+        Assert.Equal(702.48m, result.Subtotal);
         Assert.Equal(850m, result.Total);
+    }
+
+    [Fact]
+    public async Task Async_ProductoIva21_CalculaNetoIvaYTotal()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var producto = await SeedProductoAsync(ctx, "P21", 21m);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest> { Item(1210m, productoId: producto.Id) },
+                0,
+                false);
+
+            Assert.Equal(1000m, result.Subtotal);
+            Assert.Equal(210m, result.IVA);
+            Assert.Equal(1210m, result.Total);
+            Assert.Single(result.Detalles);
+            Assert.Equal(21m, result.Detalles[0].PorcentajeIVA);
+            Assert.Equal(1000m, result.Detalles[0].SubtotalNeto);
+            Assert.Equal(210m, result.Detalles[0].SubtotalIVA);
+        }
+    }
+
+    [Fact]
+    public async Task Async_ProductoIva105DesdeAlicuota_CalculaNetoIvaYTotal()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var alicuota = await SeedAlicuotaAsync(ctx, "IVA105", "IVA 10.5", 10.5m);
+            var producto = await SeedProductoAsync(ctx, "P105", 21m, alicuotaIVAId: alicuota.Id);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest> { Item(110.50m, productoId: producto.Id) },
+                0,
+                false);
+
+            Assert.Equal(100m, result.Subtotal);
+            Assert.Equal(10.50m, result.IVA);
+            Assert.Equal(110.50m, result.Total);
+            Assert.Equal(10.5m, result.Detalles[0].PorcentajeIVA);
+            Assert.Equal(alicuota.Id, result.Detalles[0].AlicuotaIVAId);
+            Assert.Equal("IVA 10.5", result.Detalles[0].AlicuotaIVANombre);
+        }
+    }
+
+    [Fact]
+    public async Task Async_ProductoIva0_DejaNetoIgualFinal()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var producto = await SeedProductoAsync(ctx, "P0", 0m);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest> { Item(100m, productoId: producto.Id) },
+                0,
+                false);
+
+            Assert.Equal(100m, result.Subtotal);
+            Assert.Equal(0m, result.IVA);
+            Assert.Equal(100m, result.Total);
+            Assert.Equal(0m, result.Detalles[0].PorcentajeIVA);
+            Assert.Equal(100m, result.Detalles[0].SubtotalNeto);
+            Assert.Equal(0m, result.Detalles[0].SubtotalIVA);
+        }
+    }
+
+    [Fact]
+    public async Task Async_ProductosMixtos_SumaConIvaRealPorProducto()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var producto21 = await SeedProductoAsync(ctx, "P21M", 21m);
+            var alicuota = await SeedAlicuotaAsync(ctx, "IVA105M", "IVA 10.5", 10.5m);
+            var producto105 = await SeedProductoAsync(ctx, "P105M", 21m, alicuotaIVAId: alicuota.Id);
+            var producto0 = await SeedProductoAsync(ctx, "P0M", 0m);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest>
+                {
+                    Item(1210m, productoId: producto21.Id),
+                    Item(110.50m, productoId: producto105.Id),
+                    Item(100m, productoId: producto0.Id)
+                },
+                0,
+                false);
+
+            Assert.Equal(1200m, result.Subtotal);
+            Assert.Equal(220.50m, result.IVA);
+            Assert.Equal(1420.50m, result.Total);
+            Assert.Equal(3, result.Detalles.Count);
+        }
+    }
+
+    [Fact]
+    public async Task Async_SinProductoId_UsaFallbackLegacy21()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest> { Item(121m, productoId: 0) },
+                0,
+                false);
+
+            Assert.Equal(100m, result.Subtotal);
+            Assert.Equal(21m, result.IVA);
+            Assert.Equal(121m, result.Total);
+            Assert.Equal(21m, result.Detalles[0].PorcentajeIVA);
+            Assert.Equal("IVA 21% (legacy)", result.Detalles[0].AlicuotaIVANombre);
+        }
+    }
+
+    [Fact]
+    public async Task Async_ResponseJson_MantieneCamposActualesYAditivos()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var producto = await SeedProductoAsync(ctx, "PJSON", 21m);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest> { Item(121m, productoId: producto.Id) },
+                0,
+                false);
+
+            var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+            Assert.Contains("\"subtotal\":100", json);
+            Assert.Contains("\"descuentoGeneralAplicado\":0", json);
+            Assert.Contains("\"iva\":21", json);
+            Assert.Contains("\"total\":121", json);
+            Assert.Contains("\"detalles\"", json);
+        }
+    }
+
+    [Fact]
+    public async Task Async_DescuentoGeneral_DevuelveFinalesProrrateadosPorLinea()
+    {
+        var (ctx, conn) = VentaServiceFactory.CreateDb();
+        await using (ctx) using (conn)
+        {
+            var producto21 = await SeedProductoAsync(ctx, "P21PRE", 21m);
+            var producto0 = await SeedProductoAsync(ctx, "P0PRE", 0m);
+            var svc = VentaServiceFactory.Create(ctx);
+
+            var result = await svc.CalcularTotalesPreviewAsync(
+                new List<DetalleCalculoVentaRequest>
+                {
+                    Item(121m, productoId: producto21.Id),
+                    Item(100m, productoId: producto0.Id)
+                },
+                22.10m,
+                false);
+
+            Assert.Equal(180m, result.Subtotal);
+            Assert.Equal(18.90m, result.IVA);
+            Assert.Equal(198.90m, result.Total);
+            Assert.Equal(result.Subtotal, result.Detalles.Sum(d => d.SubtotalFinalNeto));
+            Assert.Equal(result.IVA, result.Detalles.Sum(d => d.SubtotalFinalIVA));
+            Assert.Equal(result.Total, result.Detalles.Sum(d => d.SubtotalFinal));
+            Assert.Equal(22.10m, result.Detalles.Sum(d => d.DescuentoGeneralProrrateado));
+        }
+    }
+
+    private static async Task<Producto> SeedProductoAsync(AppDbContext ctx, string codigo, decimal porcentajeIVA, int? alicuotaIVAId = null)
+    {
+        var categoria = new Categoria
+        {
+            Codigo = "CAT-" + codigo,
+            Nombre = "Categoria " + codigo,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        var marca = new Marca
+        {
+            Codigo = "M-" + codigo,
+            Nombre = "Marca " + codigo,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        ctx.Categorias.Add(categoria);
+        ctx.Marcas.Add(marca);
+        await ctx.SaveChangesAsync();
+
+        var producto = new Producto
+        {
+            Codigo = codigo,
+            Nombre = "Producto " + codigo,
+            PrecioVenta = 100m,
+            PorcentajeIVA = porcentajeIVA,
+            AlicuotaIVAId = alicuotaIVAId,
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            StockActual = 10,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+
+        ctx.Productos.Add(producto);
+        await ctx.SaveChangesAsync();
+        return producto;
+    }
+
+    private static async Task<AlicuotaIVA> SeedAlicuotaAsync(AppDbContext ctx, string codigo, string nombre, decimal porcentaje)
+    {
+        var alicuota = new AlicuotaIVA
+        {
+            Codigo = codigo,
+            Nombre = nombre,
+            Porcentaje = porcentaje,
+            Activa = true,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        ctx.AlicuotasIVA.Add(alicuota);
+        await ctx.SaveChangesAsync();
+        return alicuota;
     }
 }
 
@@ -423,8 +653,6 @@ public class VentaService_CalcularCreditoPersonallAsync
 
 public class VentaService_GetTotalVentaAsync
 {
-    private const decimal IVA_RATE = 0.21m;
-
     private static (AppDbContext ctx, SqliteConnection conn) CreateDb()
         => VentaServiceFactory.CreateDb();
 
@@ -524,8 +752,7 @@ public class VentaService_GetTotalVentaAsync
             var svc = VentaServiceFactory.Create(ctx);
             var result = await svc.GetTotalVentaAsync(ventaId);
 
-            // subtotal = 2000, descuento = 0, iva = 2000 * 0.21 = 420, total = 2420
-            Assert.Equal(2_000m + 2_000m * IVA_RATE, result);
+            Assert.Equal(2_000m, result);
         }
     }
 

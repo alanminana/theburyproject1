@@ -389,15 +389,34 @@ public class DevolucionService : IDevolucionService
 
             // Procesar stock según acción recomendada en cada detalle
             var referencia = $"DEV-{devolucion.NumeroDevolucion}";
+            var costosVentaPorProducto = await ObtenerCostosVentaPorProductoAsync(devolucion.VentaId);
 
             var reintegros = devolucion.Detalles
                 .Where(d => d.AccionRecomendada == AccionProducto.ReintegrarStock)
                 .Select(d => (d.ProductoId, (decimal)d.Cantidad, (string?)referencia))
                 .ToList();
+            var costosReintegros = devolucion.Detalles
+                .Where(d => d.AccionRecomendada == AccionProducto.ReintegrarStock)
+                .Select(d => new MovimientoStockCostoLinea(
+                    d.ProductoId,
+                    d.Cantidad,
+                    referencia,
+                    costosVentaPorProducto.GetValueOrDefault(d.ProductoId),
+                    "VentaDetalleSnapshot"))
+                .ToList();
 
             var cuarentenas = devolucion.Detalles
                 .Where(d => d.AccionRecomendada == AccionProducto.Cuarentena)
                 .Select(d => (d.ProductoId, (decimal)d.Cantidad, (string?)referencia))
+                .ToList();
+            var costosCuarentenas = devolucion.Detalles
+                .Where(d => d.AccionRecomendada == AccionProducto.Cuarentena)
+                .Select(d => new MovimientoStockCostoLinea(
+                    d.ProductoId,
+                    d.Cantidad,
+                    referencia,
+                    costosVentaPorProducto.GetValueOrDefault(d.ProductoId),
+                    "VentaDetalleSnapshot"))
                 .ToList();
 
             if (reintegros.Count > 0)
@@ -405,7 +424,8 @@ public class DevolucionService : IDevolucionService
                 await _movimientoStockService.RegistrarEntradasAsync(
                     reintegros,
                     $"Reintegro por devolución {devolucion.NumeroDevolucion}",
-                    usuario);
+                    usuario,
+                    costos: costosReintegros);
             }
 
             if (cuarentenas.Count > 0)
@@ -413,7 +433,8 @@ public class DevolucionService : IDevolucionService
                 await _movimientoStockService.RegistrarEntradasAsync(
                     cuarentenas,
                     $"En cuarentena por devolución {devolucion.NumeroDevolucion}",
-                    usuario);
+                    usuario,
+                    costos: costosCuarentenas);
             }
 
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero && devolucion.RegistrarEgresoCaja)
@@ -478,6 +499,41 @@ public class DevolucionService : IDevolucionService
         if (venta == null) return int.MaxValue;
 
         return (DateTime.UtcNow - venta.FechaVenta).Days;
+    }
+
+    private async Task<Dictionary<int, decimal>> ObtenerCostosVentaPorProductoAsync(int ventaId)
+    {
+        var detalles = await _context.VentaDetalles
+            .AsNoTracking()
+            .Where(d => d.VentaId == ventaId && !d.IsDeleted)
+            .Select(d => new
+            {
+                d.ProductoId,
+                d.Cantidad,
+                d.CostoUnitarioAlMomento,
+                d.CostoTotalAlMomento
+            })
+            .ToListAsync();
+
+        return detalles
+            .GroupBy(d => d.ProductoId)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var cantidad = g.Sum(d => d.Cantidad);
+                    if (cantidad <= 0)
+                        return 0m;
+
+                    var totalCosto = g.Sum(d =>
+                        d.CostoTotalAlMomento > 0m
+                            ? d.CostoTotalAlMomento
+                            : d.CostoUnitarioAlMomento * d.Cantidad);
+
+                    return totalCosto > 0m
+                        ? Math.Round(totalCosto / cantidad, 2, MidpointRounding.AwayFromZero)
+                        : 0m;
+                });
     }
 
     #endregion

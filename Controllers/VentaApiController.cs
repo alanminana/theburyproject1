@@ -254,7 +254,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpPost]
-        public IActionResult CalcularTotalesVenta([FromBody] CalcularTotalesVentaRequest request)
+        public async Task<IActionResult> CalcularTotalesVenta([FromBody] CalcularTotalesVentaRequest request)
         {
             try
             {
@@ -263,7 +263,7 @@ namespace TheBuryProject.Controllers
                     return BadRequest(new { error = "Debe especificar al menos un detalle para calcular los totales" });
                 }
 
-                var totales = _ventaService.CalcularTotalesPreview(
+                var totales = await _ventaService.CalcularTotalesPreviewAsync(
                     request.Detalles,
                     request.DescuentoGeneral,
                     request.DescuentoEsPorcentaje);

@@ -1490,6 +1490,11 @@ namespace TheBuryProject.Services
             return CalcularTotalesInterno(detalles, descuentoGeneral, descuentoEsPorcentaje);
         }
 
+        public async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
+        {
+            return await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
+        }
+
         #endregion
 
         #region Métodos Auxiliares - Cheques
@@ -1647,29 +1652,18 @@ namespace TheBuryProject.Services
         {
             var detallesList = venta.Detalles.Where(d => !d.IsDeleted).ToList();
 
-            var detalleRequests = detallesList
-                .Select(d => new DetalleCalculoVentaRequest
-                {
-                    ProductoId = d.ProductoId,
-                    Cantidad = d.Cantidad,
-                    PrecioUnitario = d.PrecioUnitario,
-                    Descuento = d.Descuento
-                })
-                .ToList();
-
-            var resultado = CalcularTotalesInterno(detalleRequests, venta.Descuento, false);
-
-            for (var i = 0; i < detallesList.Count; i++)
+            foreach (var detalle in detallesList)
             {
-                var detalle = detallesList[i];
-                var request = detalleRequests[i];
-                var subtotalDetalle = Math.Max(0, (request.PrecioUnitario * request.Cantidad) - request.Descuento);
+                var subtotalDetalle = Math.Max(0, (detalle.PrecioUnitario * detalle.Cantidad) - detalle.Descuento);
                 detalle.Subtotal = subtotalDetalle;
+                AplicarSnapshotIvaMontos(detalle);
             }
 
-            venta.Subtotal = resultado.Subtotal;
-            venta.IVA = resultado.IVA;
-            venta.Total = resultado.Total;
+            AplicarProrrateoDescuentoGeneral(detallesList, venta.Descuento);
+
+            venta.Subtotal = detallesList.Sum(d => d.SubtotalFinalNeto);
+            venta.IVA = detallesList.Sum(d => d.SubtotalFinalIVA);
+            venta.Total = detallesList.Sum(d => d.SubtotalFinal);
         }
 
         private async Task CalcularComisionesAsync(Venta venta)
@@ -1701,8 +1695,9 @@ namespace TheBuryProject.Services
 
         private CalculoTotalesVentaResponse CalcularTotalesInterno(IEnumerable<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
         {
-            // IMPORTANTE: Los precios unitarios YA INCLUYEN IVA
-            // Se calcula el subtotal con IVA incluido
+            // Legacy sync fallback: no debe usarse como fuente fiscal para UI/API de venta.
+            // El endpoint activo usa CalcularTotalesPreviewAsync y resuelve IVA por producto.
+            // Se conserva para compatibilidad interna y pruebas históricas sin acceso async.
             var subtotalConIVA = detalles
                 .Select(d => Math.Max(0, (d.PrecioUnitario * d.Cantidad) - d.Descuento))
                 .Sum();
@@ -1711,22 +1706,273 @@ namespace TheBuryProject.Services
                 ? subtotalConIVA * (descuentoGeneral / 100)
                 : descuentoGeneral;
 
-            // El total ya incluye IVA (precio final con descuentos aplicados)
             var total = Math.Max(0, subtotalConIVA - descuentoCalculado);
-            
-            // Descomponer el IVA para mostrarlo por separado
-            // Base imponible = Total / 1.21
-            var subtotalSinIVA = total / VentaConstants.IVA_DIVISOR;
-            var iva = total - subtotalSinIVA;
+
+            var subtotalSinIVA = RedondearMoneda(total / VentaConstants.IVA_DIVISOR);
+            var iva = RedondearMoneda(total - subtotalSinIVA);
 
             return new CalculoTotalesVentaResponse
             {
-                Subtotal = subtotalConIVA,  // Subtotal con IVA incluido
+                Subtotal = subtotalSinIVA,
                 DescuentoGeneralAplicado = descuentoCalculado,
-                IVA = iva,  // IVA desglosado (informativo)
-                Total = total  // Total final (ya incluye IVA)
+                IVA = iva,
+                Total = total
             };
         }
+
+        private async Task<CalculoTotalesVentaResponse> CalcularTotalesInternoAsync(IEnumerable<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
+        {
+            var detallesList = detalles.ToList();
+            var productoIds = detallesList
+                .Where(d => d.ProductoId > 0)
+                .Select(d => d.ProductoId)
+                .Distinct()
+                .ToList();
+
+            var productos = productoIds.Count == 0
+                ? new Dictionary<int, Producto>()
+                : await _context.Productos
+                    .AsNoTracking()
+                    .Include(p => p.AlicuotaIVA)
+                    .Include(p => p.Categoria)
+                        .ThenInclude(c => c.AlicuotaIVA)
+                    .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted)
+                    .ToDictionaryAsync(p => p.Id);
+
+            var detallesCalculados = new List<DetalleCalculoTotalesVentaResponse>();
+
+            foreach (var detalle in detallesList)
+            {
+                var subtotalFinal = RedondearMoneda(Math.Max(0, (detalle.PrecioUnitario * detalle.Cantidad) - detalle.Descuento));
+                var ivaSnapshot = ResolverSnapshotIvaPreview(detalle.ProductoId, productos);
+                var subtotalNeto = subtotalFinal;
+                var subtotalIva = 0m;
+
+                if (ivaSnapshot.Porcentaje > 0m)
+                {
+                    var divisor = 1m + (ivaSnapshot.Porcentaje / 100m);
+                    subtotalNeto = RedondearMoneda(subtotalFinal / divisor);
+                    subtotalIva = RedondearMoneda(subtotalFinal - subtotalNeto);
+                }
+
+                detallesCalculados.Add(new DetalleCalculoTotalesVentaResponse
+                {
+                    ProductoId = detalle.ProductoId,
+                    PorcentajeIVA = ivaSnapshot.Porcentaje,
+                    AlicuotaIVAId = ivaSnapshot.AlicuotaId,
+                    AlicuotaIVANombre = ivaSnapshot.AlicuotaNombre,
+                    SubtotalNeto = subtotalNeto,
+                    SubtotalIVA = subtotalIva,
+                    Subtotal = subtotalFinal
+                });
+            }
+
+            var total = detallesCalculados.Sum(d => d.Subtotal);
+            var descuentoCalculado = descuentoEsPorcentaje
+                ? RedondearMoneda(total * (descuentoGeneral / 100m))
+                : RedondearMoneda(descuentoGeneral);
+
+            descuentoCalculado = AplicarProrrateoDescuentoGeneral(detallesCalculados, descuentoCalculado);
+
+            return new CalculoTotalesVentaResponse
+            {
+                Subtotal = detallesCalculados.Sum(d => d.SubtotalFinalNeto),
+                DescuentoGeneralAplicado = descuentoCalculado,
+                IVA = detallesCalculados.Sum(d => d.SubtotalFinalIVA),
+                Total = detallesCalculados.Sum(d => d.SubtotalFinal),
+                Detalles = detallesCalculados
+            };
+        }
+
+        private (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre) ResolverSnapshotIvaPreview(
+            int productoId,
+            IReadOnlyDictionary<int, Producto> productos)
+        {
+            if (productoId <= 0 || !productos.TryGetValue(productoId, out var producto))
+            {
+                _logger.LogWarning(
+                    "Preview de totales de venta usando IVA legacy 21%. ProductoId:{ProductoId} no informado o no encontrado.",
+                    productoId);
+                return (ProductoIvaResolver.PorcentajeDefault, null, "IVA 21% (legacy)");
+            }
+
+            return CrearSnapshotIva(producto);
+        }
+
+        private static void AplicarSnapshotIvaMontos(VentaDetalle detalle)
+        {
+            var porcentaje = TieneSnapshotIva(detalle)
+                ? detalle.PorcentajeIVA
+                : ProductoIvaResolver.PorcentajeDefault;
+
+            detalle.PorcentajeIVA = porcentaje;
+
+            var precioFinal = RedondearMoneda(detalle.PrecioUnitario);
+            var subtotalFinal = RedondearMoneda(detalle.Subtotal);
+
+            if (porcentaje <= 0m)
+            {
+                detalle.PrecioUnitarioNeto = precioFinal;
+                detalle.IVAUnitario = 0m;
+                detalle.SubtotalNeto = subtotalFinal;
+                detalle.SubtotalIVA = 0m;
+                return;
+            }
+
+            var divisor = 1m + (porcentaje / 100m);
+            detalle.PrecioUnitarioNeto = RedondearMoneda(precioFinal / divisor);
+            detalle.IVAUnitario = RedondearMoneda(precioFinal - detalle.PrecioUnitarioNeto);
+            detalle.SubtotalNeto = RedondearMoneda(subtotalFinal / divisor);
+            detalle.SubtotalIVA = RedondearMoneda(subtotalFinal - detalle.SubtotalNeto);
+        }
+
+        private static decimal AplicarProrrateoDescuentoGeneral(List<VentaDetalle> detalles, decimal descuentoGeneral)
+        {
+            var totalBruto = detalles.Sum(d => d.Subtotal);
+            var descuento = totalBruto > 0m
+                ? RedondearMoneda(Math.Min(Math.Max(0m, descuentoGeneral), totalBruto))
+                : 0m;
+
+            if (descuento <= 0m || totalBruto <= 0m)
+            {
+                foreach (var detalle in detalles)
+                {
+                    detalle.DescuentoGeneralProrrateado = 0m;
+                    detalle.SubtotalFinalNeto = detalle.SubtotalNeto;
+                    detalle.SubtotalFinalIVA = detalle.SubtotalIVA;
+                    detalle.SubtotalFinal = detalle.Subtotal;
+                }
+
+                return 0m;
+            }
+
+            foreach (var detalle in detalles)
+            {
+                detalle.DescuentoGeneralProrrateado = RedondearMoneda(descuento * detalle.Subtotal / totalBruto);
+            }
+
+            AjustarDiferenciaProrrateo(
+                detalles,
+                descuento,
+                d => d.Subtotal,
+                d => d.DescuentoGeneralProrrateado,
+                (d, value) => d.DescuentoGeneralProrrateado = value);
+
+            foreach (var detalle in detalles)
+            {
+                detalle.SubtotalFinal = RedondearMoneda(Math.Max(0m, detalle.Subtotal - detalle.DescuentoGeneralProrrateado));
+                AplicarMontosFinalesIva(detalle);
+            }
+
+            return descuento;
+        }
+
+        private static decimal AplicarProrrateoDescuentoGeneral(List<DetalleCalculoTotalesVentaResponse> detalles, decimal descuentoGeneral)
+        {
+            var totalBruto = detalles.Sum(d => d.Subtotal);
+            var descuento = totalBruto > 0m
+                ? RedondearMoneda(Math.Min(Math.Max(0m, descuentoGeneral), totalBruto))
+                : 0m;
+
+            if (descuento <= 0m || totalBruto <= 0m)
+            {
+                foreach (var detalle in detalles)
+                {
+                    detalle.DescuentoGeneralProrrateado = 0m;
+                    detalle.SubtotalFinalNeto = detalle.SubtotalNeto;
+                    detalle.SubtotalFinalIVA = detalle.SubtotalIVA;
+                    detalle.SubtotalFinal = detalle.Subtotal;
+                }
+
+                return 0m;
+            }
+
+            foreach (var detalle in detalles)
+            {
+                detalle.DescuentoGeneralProrrateado = RedondearMoneda(descuento * detalle.Subtotal / totalBruto);
+            }
+
+            AjustarDiferenciaProrrateo(
+                detalles,
+                descuento,
+                d => d.Subtotal,
+                d => d.DescuentoGeneralProrrateado,
+                (d, value) => d.DescuentoGeneralProrrateado = value);
+
+            foreach (var detalle in detalles)
+            {
+                detalle.SubtotalFinal = RedondearMoneda(Math.Max(0m, detalle.Subtotal - detalle.DescuentoGeneralProrrateado));
+                AplicarMontosFinalesIva(detalle);
+            }
+
+            return descuento;
+        }
+
+        private static void AplicarMontosFinalesIva(VentaDetalle detalle)
+        {
+            if (detalle.PorcentajeIVA <= 0m)
+            {
+                detalle.SubtotalFinalNeto = detalle.SubtotalFinal;
+                detalle.SubtotalFinalIVA = 0m;
+                return;
+            }
+
+            var divisor = 1m + (detalle.PorcentajeIVA / 100m);
+            detalle.SubtotalFinalNeto = RedondearMoneda(detalle.SubtotalFinal / divisor);
+            detalle.SubtotalFinalIVA = RedondearMoneda(detalle.SubtotalFinal - detalle.SubtotalFinalNeto);
+        }
+
+        private static void AplicarMontosFinalesIva(DetalleCalculoTotalesVentaResponse detalle)
+        {
+            if (detalle.PorcentajeIVA <= 0m)
+            {
+                detalle.SubtotalFinalNeto = detalle.SubtotalFinal;
+                detalle.SubtotalFinalIVA = 0m;
+                return;
+            }
+
+            var divisor = 1m + (detalle.PorcentajeIVA / 100m);
+            detalle.SubtotalFinalNeto = RedondearMoneda(detalle.SubtotalFinal / divisor);
+            detalle.SubtotalFinalIVA = RedondearMoneda(detalle.SubtotalFinal - detalle.SubtotalFinalNeto);
+        }
+
+        private static void AjustarDiferenciaProrrateo<T>(
+            List<T> detalles,
+            decimal descuento,
+            Func<T, decimal> subtotalSelector,
+            Func<T, decimal> descuentoSelector,
+            Action<T, decimal> setDescuento)
+        {
+            if (detalles.Count == 0)
+            {
+                return;
+            }
+
+            var diferencia = RedondearMoneda(descuento - detalles.Sum(descuentoSelector));
+            if (diferencia == 0m)
+            {
+                return;
+            }
+
+            var ajuste = detalles
+                .OrderByDescending(subtotalSelector)
+                .First();
+
+            setDescuento(ajuste, RedondearMoneda(descuentoSelector(ajuste) + diferencia));
+        }
+
+        private static bool TieneSnapshotIva(VentaDetalle detalle)
+        {
+            return detalle.PorcentajeIVA > 0m
+                   || detalle.PrecioUnitarioNeto > 0m
+                   || detalle.SubtotalNeto > 0m
+                   || detalle.SubtotalIVA > 0m
+                   || detalle.AlicuotaIVAId.HasValue
+                   || !string.IsNullOrWhiteSpace(detalle.AlicuotaIVANombre);
+        }
+
+        private static decimal RedondearMoneda(decimal value) =>
+            Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
         private void ActualizarDatosVenta(Venta venta, VentaViewModel viewModel)
         {
@@ -1789,11 +2035,21 @@ namespace TheBuryProject.Services
                 .Where(d => !d.IsDeleted)
                 .Select(d => (d.ProductoId, (decimal)d.Cantidad, (string?)referencia))
                 .ToList();
+            var costos = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => new MovimientoStockCostoLinea(
+                    d.ProductoId,
+                    d.Cantidad,
+                    referencia,
+                    d.CostoUnitarioAlMomento,
+                    "VentaDetalleSnapshot"))
+                .ToList();
 
             await _movimientoStockService.RegistrarSalidasAsync(
                 salidas,
                 motivo,
-                usuario);
+                usuario,
+                costos);
         }
 
         private async Task DevolverStock(Venta venta, string motivo)
@@ -1806,11 +2062,21 @@ namespace TheBuryProject.Services
                 .Where(d => !d.IsDeleted)
                 .Select(d => (d.ProductoId, (decimal)d.Cantidad, (string?)referencia))
                 .ToList();
+            var costos = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => new MovimientoStockCostoLinea(
+                    d.ProductoId,
+                    d.Cantidad,
+                    referencia,
+                    d.CostoUnitarioAlMomento,
+                    "VentaDetalleSnapshot"))
+                .ToList();
 
             await _movimientoStockService.RegistrarEntradasAsync(
                 entradas,
                 motivo,
-                usuario);
+                usuario,
+                costos: costos);
         }
 
         private async Task AplicarPrecioVigenteADetallesAsync(Venta venta)
@@ -1853,18 +2119,21 @@ namespace TheBuryProject.Services
 
             var productos = await _context.Productos
                 .AsNoTracking()
+                .Include(p => p.AlicuotaIVA)
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                 .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted)
-                .Select(p => new { p.Id, p.PrecioVenta })
-                .ToDictionaryAsync(p => p.Id, p => p.PrecioVenta);
+                .ToDictionaryAsync(p => p.Id);
 
             var cache = new Dictionary<int, decimal>();
+            var ivaCache = new Dictionary<int, (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre)>();
 
             foreach (var detalle in detalles)
             {
                 if (!cache.TryGetValue(detalle.ProductoId, out var precioUnitario))
                 {
-                    productos.TryGetValue(detalle.ProductoId, out var fallbackPrecioVenta);
-                    precioUnitario = fallbackPrecioVenta;
+                    productos.TryGetValue(detalle.ProductoId, out var producto);
+                    precioUnitario = producto?.PrecioVenta ?? 0m;
 
                     if (preciosListaPorProductoId.TryGetValue(detalle.ProductoId, out var precioLista))
                         precioUnitario = precioLista;
@@ -1873,7 +2142,39 @@ namespace TheBuryProject.Services
                 }
 
                 detalle.PrecioUnitario = precioUnitario;
+
+                if (!ivaCache.TryGetValue(detalle.ProductoId, out var ivaSnapshot))
+                {
+                    productos.TryGetValue(detalle.ProductoId, out var producto);
+                    ivaSnapshot = CrearSnapshotIva(producto);
+                    ivaCache[detalle.ProductoId] = ivaSnapshot;
+                }
+
+                detalle.PorcentajeIVA = ivaSnapshot.Porcentaje;
+                detalle.AlicuotaIVAId = ivaSnapshot.AlicuotaId;
+                detalle.AlicuotaIVANombre = ivaSnapshot.AlicuotaNombre;
+
+                productos.TryGetValue(detalle.ProductoId, out var productoCosto);
+                var costoUnitario = RedondearMoneda(productoCosto?.PrecioCompra ?? 0m);
+                detalle.CostoUnitarioAlMomento = costoUnitario;
+                detalle.CostoTotalAlMomento = RedondearMoneda(costoUnitario * detalle.Cantidad);
             }
+        }
+
+        private static (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre) CrearSnapshotIva(Producto? producto)
+        {
+            if (producto == null)
+                return (ProductoIvaResolver.PorcentajeDefault, null, "IVA 21% (legacy)");
+
+            var porcentaje = ProductoIvaResolver.ResolverPorcentajeIVAProducto(producto);
+
+            if (producto.AlicuotaIVA is { Activa: true, IsDeleted: false })
+                return (porcentaje, producto.AlicuotaIVAId, producto.AlicuotaIVA.Nombre);
+
+            if (producto.Categoria?.AlicuotaIVA is { Activa: true, IsDeleted: false })
+                return (porcentaje, producto.Categoria.AlicuotaIVAId, producto.Categoria.AlicuotaIVA.Nombre);
+
+            return (porcentaje, null, $"IVA {porcentaje:0.##}%");
         }
 
         private async Task RestaurarCreditoPersonall(Venta venta)
@@ -2196,8 +2497,7 @@ namespace TheBuryProject.Services
                     : Math.Max(0, (d.Cantidad * d.PrecioUnitario) - d.Descuento));
 
             var subtotalConDescuento = subtotal - venta.Descuento;
-            var iva = venta.IVA > 0 ? venta.IVA : subtotalConDescuento * VentaConstants.IVA_RATE;
-            return subtotalConDescuento + iva;
+            return Math.Max(0m, subtotalConDescuento);
         }
 
         #endregion

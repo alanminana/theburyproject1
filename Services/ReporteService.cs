@@ -105,7 +105,7 @@ namespace TheBuryProject.Services
                         .Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
                         .ToList();
 
-                    var costo = detallesValidos.Sum(d => d.Cantidad * d.Producto!.PrecioCompra);
+                    var costo = detallesValidos.Sum(CalcularCostoTotalDetalle);
                     var ganancia = v.Total - costo;
 
                     return new VentaReporteItemViewModel
@@ -120,6 +120,7 @@ namespace TheBuryProject.Services
                         TipoPago = v.TipoPago,
                         Subtotal = v.Subtotal,
                         Descuento = v.Descuento,
+                        IVA = v.IVA,
                         Total = v.Total,
                         Costo = costo,
                         Ganancia = ganancia,
@@ -412,9 +413,9 @@ namespace TheBuryProject.Services
                         .Select(g => new VentasAgrupadasViewModel
                         {
                             Etiqueta = g.Key,
-                            Monto = g.Sum(d => d.PrecioUnitario * d.Cantidad),
+                            Monto = g.Sum(d => d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal),
                             Cantidad = (int)g.Sum(d => d.Cantidad),
-                            Ganancia = g.Sum(d => (d.PrecioUnitario - d.Producto!.PrecioCompra) * d.Cantidad)
+                            Ganancia = g.Sum(d => (d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal) - CalcularCostoTotalDetalle(d))
                         })
                         .OrderByDescending(v => v.Monto)
                         .ToList(),
@@ -434,7 +435,19 @@ namespace TheBuryProject.Services
 
         internal static decimal CalcularCostoDetalles(IEnumerable<VentaDetalle> detalles) =>
             detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)
-                    .Sum(d => d.Cantidad * d.Producto!.PrecioCompra);
+                    .Sum(CalcularCostoTotalDetalle);
+
+        internal static decimal CalcularCostoTotalDetalle(VentaDetalle detalle)
+        {
+            if (detalle.CostoTotalAlMomento > 0m)
+                return detalle.CostoTotalAlMomento;
+
+            var costoUnitario = detalle.CostoUnitarioAlMomento > 0m
+                ? detalle.CostoUnitarioAlMomento
+                : detalle.Producto?.PrecioCompra ?? 0m;
+
+            return costoUnitario * detalle.Cantidad;
+        }
 
         public async Task<ComisionVendedorReporteViewModel> GenerarReporteComisionesVendedoresAsync(
             ComisionVendedorFilterViewModel filtro)
@@ -599,7 +612,10 @@ namespace TheBuryProject.Services
                     CategoriaNombre = vd.Producto.Categoria.Nombre,
                     vd.Producto.PrecioCompra,
                     vd.Cantidad,
-                    vd.PrecioUnitario
+                    vd.Subtotal,
+                    vd.SubtotalFinal,
+                    vd.CostoUnitarioAlMomento,
+                    vd.CostoTotalAlMomento
                 })
                 .ToListAsync();
 
@@ -609,22 +625,35 @@ namespace TheBuryProject.Services
                     vd.ProductoId,
                     vd.Codigo,
                     vd.Nombre,
-                    vd.CategoriaNombre,
-                    vd.PrecioCompra
+                    vd.CategoriaNombre
                 })
-                .Select(g => new ProductoMasVendidoViewModel
+                .Select(g =>
                 {
-                    ProductoId = g.Key.ProductoId,
-                    ProductoCodigo = g.Key.Codigo,
-                    ProductoNombre = g.Key.Nombre,
-                    CategoriaNombre = g.Key.CategoriaNombre,
-                    CantidadVendida = (int)g.Sum(vd => vd.Cantidad),
-                    MontoTotal = g.Sum(vd => vd.PrecioUnitario * vd.Cantidad),
-                    GananciaTotal = g.Sum(vd => (vd.PrecioUnitario - g.Key.PrecioCompra) * vd.Cantidad),
-                    MargenPromedio = g.Any(vd => vd.PrecioUnitario > 0)
-                        ? g.Where(vd => vd.PrecioUnitario > 0)
-                           .Average(vd => ((vd.PrecioUnitario - g.Key.PrecioCompra) / vd.PrecioUnitario) * 100)
-                        : 0
+                    var cantidad = g.Sum(vd => vd.Cantidad);
+                    var montoTotal = g.Sum(vd => vd.SubtotalFinal > 0m ? vd.SubtotalFinal : vd.Subtotal);
+                    var costoTotal = g.Sum(vd =>
+                    {
+                        if (vd.CostoTotalAlMomento > 0m)
+                            return vd.CostoTotalAlMomento;
+
+                        var costoUnitario = vd.CostoUnitarioAlMomento > 0m
+                            ? vd.CostoUnitarioAlMomento
+                            : vd.PrecioCompra;
+
+                        return costoUnitario * vd.Cantidad;
+                    });
+                    var gananciaTotal = montoTotal - costoTotal;
+                    return new ProductoMasVendidoViewModel
+                    {
+                        ProductoId = g.Key.ProductoId,
+                        ProductoCodigo = g.Key.Codigo,
+                        ProductoNombre = g.Key.Nombre,
+                        CategoriaNombre = g.Key.CategoriaNombre,
+                        CantidadVendida = (int)cantidad,
+                        MontoTotal = montoTotal,
+                        GananciaTotal = gananciaTotal,
+                        MargenPromedio = montoTotal > 0m ? (gananciaTotal / montoTotal) * 100 : 0
+                    };
                 })
                 .OrderByDescending(p => p.CantidadVendida)
                 .Take(10)
@@ -695,14 +724,15 @@ namespace TheBuryProject.Services
                 worksheet.Cell(1, 3).Value = "Cliente";
                 worksheet.Cell(1, 4).Value = "Vendedor";
                 worksheet.Cell(1, 5).Value = "Tipo Pago";
-                worksheet.Cell(1, 6).Value = "Subtotal";
-                worksheet.Cell(1, 7).Value = "Descuento";
-                worksheet.Cell(1, 8).Value = "Total";
-                worksheet.Cell(1, 9).Value = "Ganancia";
-                worksheet.Cell(1, 10).Value = "Margen %";
+                worksheet.Cell(1, 6).Value = "Subtotal Neto";
+                worksheet.Cell(1, 7).Value = "Dto. (%)";
+                worksheet.Cell(1, 8).Value = "IVA";
+                worksheet.Cell(1, 9).Value = "Total";
+                worksheet.Cell(1, 10).Value = "Ganancia";
+                worksheet.Cell(1, 11).Value = "Margen %";
 
                 // Estilo de encabezados
-                var headerRange = worksheet.Range("A1:J1");
+                var headerRange = worksheet.Range("A1:K1");
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
 
@@ -717,9 +747,10 @@ namespace TheBuryProject.Services
                     worksheet.Cell(row, 5).Value = venta.TipoPagoDescripcion;
                     worksheet.Cell(row, 6).Value = venta.Subtotal;
                     worksheet.Cell(row, 7).Value = venta.Descuento;
-                    worksheet.Cell(row, 8).Value = venta.Total;
-                    worksheet.Cell(row, 9).Value = venta.Ganancia;
-                    worksheet.Cell(row, 10).Value = venta.MargenPorcentaje;
+                    worksheet.Cell(row, 8).Value = venta.IVA;
+                    worksheet.Cell(row, 9).Value = venta.Total;
+                    worksheet.Cell(row, 10).Value = venta.Ganancia;
+                    worksheet.Cell(row, 11).Value = venta.MargenPorcentaje;
                     row++;
                 }
 
@@ -728,13 +759,16 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, 5).Style.Font.Bold = true;
                 worksheet.Cell(row, 6).Value = reporte.Ventas.Sum(v => v.Subtotal);
                 worksheet.Cell(row, 7).Value = reporte.Ventas.Sum(v => v.Descuento);
-                worksheet.Cell(row, 8).Value = reporte.TotalVentas;
-                worksheet.Cell(row, 9).Value = reporte.TotalGanancia;
-                worksheet.Cell(row, 10).Value = reporte.MargenPromedio;
+                worksheet.Cell(row, 8).Value = reporte.Ventas.Sum(v => v.IVA);
+                worksheet.Cell(row, 9).Value = reporte.TotalVentas;
+                worksheet.Cell(row, 10).Value = reporte.TotalGanancia;
+                worksheet.Cell(row, 11).Value = reporte.MargenPromedio;
 
-                // Formatear como moneda
-                worksheet.Range($"F2:I{row}").Style.NumberFormat.Format = "$#,##0.00";
-                worksheet.Range($"J2:J{row}").Style.NumberFormat.Format = "0.00";
+                // Formatear columnas monetarias y porcentuales
+                worksheet.Range($"F2:F{row}").Style.NumberFormat.Format = "$#,##0.00";  // Subtotal Neto
+                worksheet.Range($"G2:G{row}").Style.NumberFormat.Format = "0.00";        // Dto. (%)
+                worksheet.Range($"H2:J{row}").Style.NumberFormat.Format = "$#,##0.00";  // IVA, Total, Ganancia
+                worksheet.Range($"K2:K{row}").Style.NumberFormat.Format = "0.00";        // Margen %
 
                 // Ajustar ancho de columnas
                 worksheet.Columns().AdjustToContents();

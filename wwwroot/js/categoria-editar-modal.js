@@ -58,6 +58,9 @@
             if (sel) sel.value = data.parentId;
         }
 
+        var alicuotaSel = el('cat-edit-alicuotaIVAId');
+        if (alicuotaSel) alicuotaSel.value = data.alicuotaIVAId != null ? String(data.alicuotaIVAId) : '';
+
         el(FORM_ID).action = '/Categoria/EditAjax/' + data.id;
     }
 

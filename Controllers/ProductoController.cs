@@ -2,7 +2,9 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
@@ -19,17 +21,20 @@ namespace TheBuryProject.Controllers
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
+        private readonly AppDbContext _context;
 
         public ProductoController(
             IProductoService productoService,
             ICatalogLookupService catalogLookupService,
             ILogger<ProductoController> logger,
-            IMapper mapper)
+            IMapper mapper,
+            AppDbContext context)
         {
             _productoService = productoService;
             _catalogLookupService = catalogLookupService;
             _logger = logger;
             _mapper = mapper;
+            _context = context;
         }
 
         #region CRUD
@@ -120,6 +125,39 @@ namespace TheBuryProject.Controllers
                 ViewBag.Categorias = categoriasSelectList;
                 ViewBag.Marcas = marcasSelectList;
             }
+
+            await CargarAlicuotasIVAAsync();
+        }
+
+        private async Task CargarAlicuotasIVAAsync(int? alicuotaSeleccionada = null)
+        {
+            var raw = await _context.AlicuotasIVA
+                .AsNoTracking()
+                .Where(a => a.Activa && !a.IsDeleted)
+                .OrderByDescending(a => a.EsPredeterminada)
+                .ThenBy(a => a.Porcentaje)
+                .Select(a => new
+                {
+                    a.Id,
+                    a.Porcentaje,
+                    Texto = a.EsPredeterminada
+                        ? $"{a.Nombre} (predeterminada)"
+                        : a.Nombre
+                })
+                .ToListAsync();
+
+            // Porcentaje se convierte a string con cultura invariante para que
+            // data-porcentaje en HTML siempre use punto como separador decimal,
+            // independientemente de la cultura del servidor (ej: es-AR usa coma).
+            var alicuotas = raw.Select(a => new
+            {
+                a.Id,
+                Porcentaje = a.Porcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                a.Texto
+            }).ToList();
+
+            ViewBag.AlicuotasIVA = new SelectList(alicuotas, "Id", "Texto", alicuotaSeleccionada);
+            ViewBag.AlicuotasIVADatos = alicuotas;
         }
         // GET: Producto/Create
         public async Task<IActionResult> Create()
@@ -145,10 +183,12 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("Codigo", "Ya existe un producto con este código");
                         await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Create_tw", viewModel);
                     }
 
                     // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
+                    viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
                     viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                     var producto = _mapper.Map<Producto>(viewModel);
@@ -170,6 +210,7 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+            await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Create_tw", viewModel);
         }
 
@@ -201,6 +242,7 @@ namespace TheBuryProject.Controllers
                     return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe un producto con este código" } } } });
                 }
 
+                viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
                 viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
                 var producto = _mapper.Map<Producto>(viewModel);
                 await _productoService.CreateAsync(producto);
@@ -254,6 +296,7 @@ namespace TheBuryProject.Controllers
                 viewModel.PrecioVenta = QuitarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                 await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+                await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                 return View("Edit_tw", viewModel);
             }
             catch (Exception ex)
@@ -286,6 +329,7 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
                         await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Edit_tw", viewModel);
                     }
 
@@ -294,10 +338,12 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("Codigo", "Ya existe otro producto con este código");
                         await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Edit_tw", viewModel);
                     }
 
                     // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
+                    viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
                     viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                     var producto = _mapper.Map<Producto>(viewModel);
@@ -320,6 +366,7 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
+            await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Edit_tw", viewModel);
         }
 
@@ -412,6 +459,7 @@ namespace TheBuryProject.Controllers
                     precioCompra = vm.PrecioCompra,
                     precioVenta = precioSinIVA,
                     porcentajeIVA = vm.PorcentajeIVA,
+                    alicuotaIVAId = vm.AlicuotaIVAId,
                     comisionPorcentaje = vm.ComisionPorcentaje,
                     stockActual = vm.StockActual,
                     stockMinimo = vm.StockMinimo,
@@ -452,6 +500,7 @@ namespace TheBuryProject.Controllers
                 if (await _productoService.ExistsCodigoAsync(viewModel.Codigo, id))
                     return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe otro producto con este código." } } } });
 
+                viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
                 viewModel.PrecioVenta = AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
 
                 var producto = _mapper.Map<Producto>(viewModel);
@@ -552,11 +601,28 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        private static decimal AplicarIVA(decimal precio, decimal porcentajeIVA)
-            => precio * (1 + porcentajeIVA / 100m);
+        internal static decimal AplicarIVA(decimal precio, decimal porcentajeIVA)
+            => Math.Round(precio * (1 + porcentajeIVA / 100m), 2, MidpointRounding.AwayFromZero);
 
-        private static decimal QuitarIVA(decimal precio, decimal porcentajeIVA)
+        internal static decimal QuitarIVA(decimal precio, decimal porcentajeIVA)
             => porcentajeIVA > 0 ? Math.Round(precio / (1 + porcentajeIVA / 100m), 2) : precio;
+
+        private async Task<decimal> ResolverPorcentajeIVAAsync(ProductoViewModel viewModel)
+        {
+            if (viewModel.AlicuotaIVAId.HasValue)
+            {
+                var porcentaje = await _context.AlicuotasIVA
+                    .AsNoTracking()
+                    .Where(a => a.Id == viewModel.AlicuotaIVAId.Value && a.Activa && !a.IsDeleted)
+                    .Select(a => (decimal?)a.Porcentaje)
+                    .FirstOrDefaultAsync();
+
+                if (porcentaje.HasValue)
+                    return porcentaje.Value;
+            }
+
+            return viewModel.PorcentajeIVA;
+        }
 
         private void NormalizarComisionPorcentaje(ProductoViewModel viewModel)
         {

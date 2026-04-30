@@ -58,13 +58,20 @@ file sealed class StubCajaServiceEfectivo : ICajaService
     public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
 }
 
-file sealed class StubMovimientoStockEfectivo : IMovimientoStockService
+sealed class StubMovimientoStockEfectivo : IMovimientoStockService
 {
+    public IReadOnlyList<MovimientoStockCostoLinea>? UltimosCostosSalidas { get; private set; }
+    public IReadOnlyList<MovimientoStockCostoLinea>? UltimosCostosEntradas { get; private set; }
+
     public Task<List<MovimientoStock>> RegistrarSalidasAsync(
         List<(int productoId, decimal cantidad, string? referencia)> salidas,
         string motivo,
-        string? usuarioActual = null)
-        => Task.FromResult(new List<MovimientoStock>());
+        string? usuarioActual = null,
+        IReadOnlyList<MovimientoStockCostoLinea>? costos = null)
+    {
+        UltimosCostosSalidas = costos;
+        return Task.FromResult(new List<MovimientoStock>());
+    }
 
     public Task<IEnumerable<MovimientoStock>> GetAllAsync() => throw new NotImplementedException();
     public Task<MovimientoStock?> GetByIdAsync(int id) => throw new NotImplementedException();
@@ -75,7 +82,11 @@ file sealed class StubMovimientoStockEfectivo : IMovimientoStockService
     public Task<IEnumerable<MovimientoStock>> SearchAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc") => throw new NotImplementedException();
     public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
     public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
-    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
+    public Task<List<MovimientoStock>> RegistrarEntradasAsync(List<(int productoId, decimal cantidad, string? referencia)> entradas, string motivo, string? usuarioActual = null, int? ordenCompraId = null, IReadOnlyList<MovimientoStockCostoLinea>? costos = null)
+    {
+        UltimosCostosEntradas = costos;
+        return Task.FromResult(new List<MovimientoStock>());
+    }
     public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }
@@ -152,6 +163,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     private readonly AppDbContext _context;
     private readonly VentaService _service;
     private readonly AperturaCaja _apertura;
+    private readonly StubMovimientoStockEfectivo _movimientoStock;
 
     private static int _counter = 200;
 
@@ -174,12 +186,14 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
+        _movimientoStock = new StubMovimientoStockEfectivo();
+
         _service = new VentaService(
             _context,
             mapper,
             NullLogger<VentaService>.Instance,
             new StubAlertaStockEfectivo(),
-            new StubMovimientoStockEfectivo(),
+            _movimientoStock,
             new FinancialCalculationService(),
             new VentaValidator(),
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
@@ -321,6 +335,42 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVenta_Efectivo_PasaCostoSnapshotAMovimientoStock()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(cantidad: 2);
+        var detalle = await _context.VentaDetalles.SingleAsync(d => d.VentaId == venta.Id && !d.IsDeleted);
+        detalle.CostoUnitarioAlMomento = 123.45m;
+        detalle.CostoTotalAlMomento = 246.90m;
+        await _context.SaveChangesAsync();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var costo = Assert.Single(_movimientoStock.UltimosCostosSalidas!);
+        Assert.Equal(producto.Id, costo.ProductoId);
+        Assert.Equal(2m, costo.Cantidad);
+        Assert.Equal(123.45m, costo.CostoUnitario);
+        Assert.Equal("VentaDetalleSnapshot", costo.FuenteCosto);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_Efectivo_PasaCostoSnapshotAMovimientoStock()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(estado: EstadoVenta.Confirmada, cantidad: 2);
+        var detalle = await _context.VentaDetalles.SingleAsync(d => d.VentaId == venta.Id && !d.IsDeleted);
+        detalle.CostoUnitarioAlMomento = 98.76m;
+        detalle.CostoTotalAlMomento = 197.52m;
+        await _context.SaveChangesAsync();
+
+        await _service.CancelarVentaAsync(venta.Id, "Test");
+
+        var costo = Assert.Single(_movimientoStock.UltimosCostosEntradas!);
+        Assert.Equal(producto.Id, costo.ProductoId);
+        Assert.Equal(2m, costo.Cantidad);
+        Assert.Equal(98.76m, costo.CostoUnitario);
+        Assert.Equal("VentaDetalleSnapshot", costo.FuenteCosto);
+    }
+
+    [Fact]
     public async Task ConfirmarVenta_DesdePendienteRequisitos_TransicionaAConfirmada()
     {
         // PendienteRequisitos también es estado válido para confirmar (ValidarEstadoParaConfirmacion)
@@ -348,6 +398,44 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     // -------------------------------------------------------------------------
     // Tests — guards
     // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConfirmarVenta_Efectivo_NoRecalculaNiAlteraSnapshotIva()
+    {
+        var (venta, _) = await SeedVentaEfectivo();
+        var detalle = await _context.VentaDetalles.SingleAsync(d => d.VentaId == venta.Id && !d.IsDeleted);
+
+        detalle.PorcentajeIVA = 10.5m;
+        detalle.AlicuotaIVAId = 123;
+        detalle.AlicuotaIVANombre = "IVA 10.5 snapshot";
+        detalle.PrecioUnitarioNeto = 904.98m;
+        detalle.IVAUnitario = 95.02m;
+        detalle.SubtotalNeto = 904.98m;
+        detalle.SubtotalIVA = 95.02m;
+        detalle.DescuentoGeneralProrrateado = 12.34m;
+        detalle.SubtotalFinalNeto = 893.81m;
+        detalle.SubtotalFinalIVA = 93.85m;
+        detalle.SubtotalFinal = 987.66m;
+        await _context.SaveChangesAsync();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var detalleConfirmado = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => d.VentaId == venta.Id && !d.IsDeleted);
+
+        Assert.Equal(10.5m, detalleConfirmado.PorcentajeIVA);
+        Assert.Equal(123, detalleConfirmado.AlicuotaIVAId);
+        Assert.Equal("IVA 10.5 snapshot", detalleConfirmado.AlicuotaIVANombre);
+        Assert.Equal(904.98m, detalleConfirmado.PrecioUnitarioNeto);
+        Assert.Equal(95.02m, detalleConfirmado.IVAUnitario);
+        Assert.Equal(904.98m, detalleConfirmado.SubtotalNeto);
+        Assert.Equal(95.02m, detalleConfirmado.SubtotalIVA);
+        Assert.Equal(12.34m, detalleConfirmado.DescuentoGeneralProrrateado);
+        Assert.Equal(893.81m, detalleConfirmado.SubtotalFinalNeto);
+        Assert.Equal(93.85m, detalleConfirmado.SubtotalFinalIVA);
+        Assert.Equal(987.66m, detalleConfirmado.SubtotalFinal);
+    }
 
     [Fact]
     public async Task ConfirmarVenta_VentaInexistente_RetornaFalse()

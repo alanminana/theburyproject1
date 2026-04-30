@@ -10,6 +10,9 @@ namespace TheBuryProject.Services
     {
         /// <summary>Cantidad máxima permitida por movimiento de stock.</summary>
         private const decimal MaxCantidadMovimiento = 999999.99m;
+        private const string FuenteCostoProductoActual = "ProductoActual";
+        private const string FuenteCostoAjusteManual = "AjusteManual";
+        private const string FuenteCostoNoInformado = "NoInformado";
 
         private readonly AppDbContext _context;
         private readonly ILogger<MovimientoStockService> _logger;
@@ -140,6 +143,16 @@ namespace TheBuryProject.Services
             if (string.IsNullOrWhiteSpace(movimiento.CreatedBy))
                 movimiento.CreatedBy = "Sistema";
 
+            Producto? producto = null;
+            if (movimiento.CostoUnitarioAlMomento <= 0m || movimiento.CostoTotalAlMomento <= 0m)
+            {
+                producto = await _context.Productos
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == movimiento.ProductoId && !p.IsDeleted);
+            }
+
+            CompletarCostoMovimiento(movimiento, producto, FuenteCostoProductoActual);
+
             _context.MovimientosStock.Add(movimiento);
             await _context.SaveChangesAsync();
 
@@ -237,6 +250,8 @@ namespace TheBuryProject.Services
                     CreatedBy = string.IsNullOrWhiteSpace(usuarioActual) ? "Sistema" : usuarioActual
                 };
 
+                CompletarCostoMovimiento(movimiento, producto, FuenteCostoAjusteManual);
+
                 _context.MovimientosStock.Add(movimiento);
                 await _context.SaveChangesAsync();
 
@@ -269,7 +284,8 @@ namespace TheBuryProject.Services
             List<(int productoId, decimal cantidad, string? referencia)> entradas,
             string motivo,
             string? usuarioActual = null,
-            int? ordenCompraId = null)
+            int? ordenCompraId = null,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos = null)
         {
             if (entradas == null || entradas.Count == 0)
                 return new List<MovimientoStock>();
@@ -308,8 +324,9 @@ namespace TheBuryProject.Services
 
                 var movimientos = new List<MovimientoStock>(entradas.Count);
 
-                foreach (var (productoId, cantidad, referencia) in entradas)
+                for (var i = 0; i < entradas.Count; i++)
                 {
+                    var (productoId, cantidad, referencia) = entradas[i];
                     if (cantidad <= 0)
                         continue;
 
@@ -337,6 +354,9 @@ namespace TheBuryProject.Services
                         CreatedAt = ahora,
                         CreatedBy = usuario
                     };
+
+                    AplicarCostoInformado(movimiento, costos, i);
+                    CompletarCostoMovimiento(movimiento, producto, FuenteCostoProductoActual);
 
                     movimientos.Add(movimiento);
                 }
@@ -375,7 +395,8 @@ namespace TheBuryProject.Services
         public async Task<List<MovimientoStock>> RegistrarSalidasAsync(
             List<(int productoId, decimal cantidad, string? referencia)> salidas,
             string motivo,
-            string? usuarioActual = null)
+            string? usuarioActual = null,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos = null)
         {
             if (salidas == null || salidas.Count == 0)
                 return new List<MovimientoStock>();
@@ -423,8 +444,9 @@ namespace TheBuryProject.Services
 
                 var movimientos = new List<MovimientoStock>(salidas.Count);
 
-                foreach (var (productoId, cantidad, referencia) in salidas)
+                for (var i = 0; i < salidas.Count; i++)
                 {
+                    var (productoId, cantidad, referencia) = salidas[i];
                     if (cantidad <= 0)
                         continue;
 
@@ -451,6 +473,9 @@ namespace TheBuryProject.Services
                         CreatedAt = ahora,
                         CreatedBy = usuario
                     };
+
+                    AplicarCostoInformado(movimiento, costos, i);
+                    CompletarCostoMovimiento(movimiento, producto, FuenteCostoProductoActual);
 
                     movimientos.Add(movimiento);
                 }
@@ -503,6 +528,66 @@ namespace TheBuryProject.Services
                 return (false, $"La cantidad no puede exceder {MaxCantidadMovimiento}");
 
             return (true, "Cantidad válida");
+        }
+
+        private static void CompletarCostoMovimiento(
+            MovimientoStock movimiento,
+            Producto? producto,
+            string fuenteFallback)
+        {
+            if (movimiento.CostoUnitarioAlMomento > 0m)
+            {
+                movimiento.CostoUnitarioAlMomento = RedondearMoneda(movimiento.CostoUnitarioAlMomento);
+
+                if (movimiento.CostoTotalAlMomento <= 0m)
+                {
+                    movimiento.CostoTotalAlMomento = RedondearMoneda(
+                        movimiento.CostoUnitarioAlMomento * Math.Abs(movimiento.Cantidad));
+                }
+                else
+                {
+                    movimiento.CostoTotalAlMomento = RedondearMoneda(movimiento.CostoTotalAlMomento);
+                }
+
+                if (string.IsNullOrWhiteSpace(movimiento.FuenteCosto))
+                    movimiento.FuenteCosto = FuenteCostoNoInformado;
+
+                return;
+            }
+
+            if (producto?.PrecioCompra > 0m)
+            {
+                movimiento.CostoUnitarioAlMomento = RedondearMoneda(producto.PrecioCompra);
+                movimiento.CostoTotalAlMomento = RedondearMoneda(producto.PrecioCompra * Math.Abs(movimiento.Cantidad));
+                movimiento.FuenteCosto = fuenteFallback;
+                return;
+            }
+
+            movimiento.CostoUnitarioAlMomento = 0m;
+            movimiento.CostoTotalAlMomento = 0m;
+            movimiento.FuenteCosto = FuenteCostoNoInformado;
+        }
+
+        private static decimal RedondearMoneda(decimal value) =>
+            Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+        private static void AplicarCostoInformado(
+            MovimientoStock movimiento,
+            IReadOnlyList<MovimientoStockCostoLinea>? costos,
+            int index)
+        {
+            if (costos == null || index >= costos.Count)
+                return;
+
+            var costo = costos[index];
+            if (costo.ProductoId != movimiento.ProductoId || costo.Cantidad != movimiento.Cantidad)
+                return;
+
+            if (costo.CostoUnitario > 0m)
+                movimiento.CostoUnitarioAlMomento = costo.CostoUnitario;
+
+            if (!string.IsNullOrWhiteSpace(costo.FuenteCosto))
+                movimiento.FuenteCosto = costo.FuenteCosto!;
         }
 
         /// <summary>

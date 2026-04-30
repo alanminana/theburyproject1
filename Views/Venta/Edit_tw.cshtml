@@ -12,7 +12,6 @@
     var marcas = ViewBag.MarcasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var vendedores = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
-    var ivaRate = (decimal)(ViewBag.IvaRate ?? 0.21m);
     var esCotizacion = Model.Estado == EstadoVenta.Cotizacion;
     var estadoOperacionLabel = esCotizacion ? "Cotización" : "Venta";
 }
@@ -70,7 +69,6 @@
     <input type="hidden" asp-for="Id" />
     <input type="hidden" asp-for="Estado" />
     <input type="hidden" asp-for="RowVersion" />
-    <input type="hidden" id="hdn-iva-rate" value="@ivaRate" />
 
     <!-- Header Section -->
     <section class="venta-hero-section sm:p-8">
@@ -706,7 +704,7 @@
                         <span id="total-descuento" class="font-medium">-$0,00</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="opacity-70">IVA (21%)</span>
+                        <span class="opacity-70">IVA total</span>
                         <span id="total-iva" class="font-medium">$0,00</span>
                     </div>
                     <div class="pt-3 border-t border-white/20">

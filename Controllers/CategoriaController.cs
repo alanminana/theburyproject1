@@ -2,6 +2,8 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models;
@@ -17,15 +19,18 @@ namespace TheBuryProject.Controllers
     public class CategoriaController : Controller
     {
         private readonly ICategoriaService _categoriaService;
+        private readonly AppDbContext _context;
         private readonly ILogger<CategoriaController> _logger;
         private readonly IMapper _mapper;
 
         public CategoriaController(
             ICategoriaService categoriaService,
+            AppDbContext context,
             ILogger<CategoriaController> logger,
             IMapper mapper)
         {
             _categoriaService = categoriaService;
+            _context = context;
             _logger = logger;
             _mapper = mapper;
         }
@@ -77,6 +82,7 @@ namespace TheBuryProject.Controllers
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
             await CargarCategoriasParaDropdown();
+            await CargarAlicuotasIVAAsync();
             return View("Create_tw", new CategoriaViewModel
             {
                 Activo = true
@@ -98,6 +104,7 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("Codigo", "Ya existe una categoría con este código");
                         await CargarCategoriasParaDropdown(viewModel.ParentId);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Create_tw", viewModel);
                     }
 
@@ -108,6 +115,7 @@ namespace TheBuryProject.Controllers
                         Descripcion = viewModel.Descripcion,
                         ParentId = viewModel.ParentId,
                         ControlSerieDefault = viewModel.ControlSerieDefault,
+                        AlicuotaIVAId = viewModel.AlicuotaIVAId,
                         Activo = viewModel.Activo
                     };
 
@@ -123,6 +131,7 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarCategoriasParaDropdown(viewModel.ParentId);
+            await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Create_tw", viewModel);
         }
 
@@ -193,11 +202,13 @@ namespace TheBuryProject.Controllers
                     Descripcion = categoria.Descripcion,
                     ParentId = categoria.ParentId,
                     ControlSerieDefault = categoria.ControlSerieDefault,
+                    AlicuotaIVAId = categoria.AlicuotaIVAId,
                     Activo = categoria.Activo,
                     RowVersion = categoria.RowVersion
                 };
 
                 await CargarCategoriasParaDropdown(viewModel.ParentId, id.Value);
+                await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                 return View("Edit_tw", viewModel);
             }
             catch (Exception ex)
@@ -229,6 +240,7 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
                         await CargarCategoriasParaDropdown(viewModel.ParentId, id);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Edit_tw", viewModel);
                     }
 
@@ -237,6 +249,7 @@ namespace TheBuryProject.Controllers
                     {
                         ModelState.AddModelError("Codigo", "Ya existe otra categoría con este código");
                         await CargarCategoriasParaDropdown(viewModel.ParentId, id);
+                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                         return View("Edit_tw", viewModel);
                     }
 
@@ -248,6 +261,7 @@ namespace TheBuryProject.Controllers
                         Descripcion = viewModel.Descripcion,
                         ParentId = viewModel.ParentId,
                         ControlSerieDefault = viewModel.ControlSerieDefault,
+                        AlicuotaIVAId = viewModel.AlicuotaIVAId,
                         Activo = viewModel.Activo,
                         RowVersion = rowVersion
                     };
@@ -269,6 +283,7 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarCategoriasParaDropdown(viewModel.ParentId, id);
+            await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Edit_tw", viewModel);
         }
 
@@ -367,6 +382,26 @@ namespace TheBuryProject.Controllers
             );
         }
 
+        private async Task CargarAlicuotasIVAAsync(int? selectedId = null)
+        {
+            var raw = await _context.AlicuotasIVA
+                .AsNoTracking()
+                .Where(a => a.Activa && !a.IsDeleted)
+                .OrderByDescending(a => a.EsPredeterminada)
+                .ThenBy(a => a.Porcentaje)
+                .Select(a => new { a.Id, a.Porcentaje, Texto = a.EsPredeterminada ? $"{a.Nombre} (predeterminada)" : a.Nombre })
+                .ToListAsync();
+
+            var alicuotas = raw.Select(a => new {
+                a.Id,
+                Porcentaje = a.Porcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                a.Texto
+            }).ToList();
+
+            ViewBag.AlicuotasIVA = new SelectList(alicuotas, "Id", "Texto", selectedId);
+            ViewBag.AlicuotasIVADatos = alicuotas;
+        }
+
         /// <summary>
         /// Crea una categoría vía AJAX (desde el modal del catálogo).
         /// </summary>
@@ -399,6 +434,7 @@ namespace TheBuryProject.Controllers
                     Descripcion = viewModel.Descripcion,
                     ParentId = viewModel.ParentId,
                     ControlSerieDefault = viewModel.ControlSerieDefault,
+                    AlicuotaIVAId = viewModel.AlicuotaIVAId,
                     Activo = viewModel.Activo
                 };
 
@@ -442,6 +478,7 @@ namespace TheBuryProject.Controllers
                     nombre = categoria.Nombre,
                     descripcion = categoria.Descripcion ?? string.Empty,
                     parentId = (object?)categoria.ParentId,
+                    alicuotaIVAId = (object?)categoria.AlicuotaIVAId,
                     controlSerieDefault = categoria.ControlSerieDefault,
                     activo = categoria.Activo,
                     rowVersion = categoria.RowVersion != null ? Convert.ToBase64String(categoria.RowVersion) : string.Empty
@@ -485,6 +522,7 @@ namespace TheBuryProject.Controllers
                     Descripcion = viewModel.Descripcion,
                     ParentId = viewModel.ParentId,
                     ControlSerieDefault = viewModel.ControlSerieDefault,
+                    AlicuotaIVAId = viewModel.AlicuotaIVAId,
                     Activo = viewModel.Activo,
                     RowVersion = viewModel.RowVersion
                 };

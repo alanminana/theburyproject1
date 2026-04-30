@@ -315,4 +315,107 @@ public class MappingProfileTests
         Assert.Equal(5, vm.DiasGracia);
         Assert.Equal(5, vm.DiasGraciaMora);
     }
+
+    [Fact]
+    public void Map_MovimientoStock_IncluyeCostoYFuente()
+    {
+        var entity = new MovimientoStock
+        {
+            ProductoId = 1,
+            Producto = new Producto { Codigo = "P1", Nombre = "Producto" },
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 2m,
+            StockAnterior = 3m,
+            StockNuevo = 5m,
+            CostoUnitarioAlMomento = 12.34m,
+            CostoTotalAlMomento = 24.68m,
+            FuenteCosto = "OrdenCompraDetalle"
+        };
+
+        var vm = _mapper.Map<MovimientoStockViewModel>(entity);
+
+        Assert.Equal(12.34m, vm.CostoUnitarioAlMomento);
+        Assert.Equal(24.68m, vm.CostoTotalAlMomento);
+        Assert.Equal("OrdenCompraDetalle", vm.FuenteCosto);
+    }
+
+    [Fact]
+    public void Map_VentaDetalle_IncluyeSnapshotsIvaSoloLectura()
+    {
+        var entity = new VentaDetalle
+        {
+            Producto = new Producto { Codigo = "P1", Nombre = "Producto" },
+            PorcentajeIVA = 10.5m,
+            AlicuotaIVAId = 2,
+            AlicuotaIVANombre = "IVA 10.5%",
+            PrecioUnitarioNeto = 100m,
+            IVAUnitario = 10.5m,
+            SubtotalNeto = 200m,
+            SubtotalIVA = 21m,
+            Subtotal = 221m,
+            DescuentoGeneralProrrateado = 11m,
+            SubtotalFinalNeto = 190m,
+            SubtotalFinalIVA = 20m,
+            SubtotalFinal = 210m,
+            CostoUnitarioAlMomento = 70m,
+            CostoTotalAlMomento = 140m
+        };
+
+        var vm = _mapper.Map<VentaDetalleViewModel>(entity);
+
+        Assert.Equal(10.5m, vm.PorcentajeIVA);
+        Assert.Equal(2, vm.AlicuotaIVAId);
+        Assert.Equal("IVA 10.5%", vm.AlicuotaIVANombre);
+        Assert.Equal(100m, vm.PrecioUnitarioNeto);
+        Assert.Equal(10.5m, vm.IVAUnitario);
+        Assert.Equal(200m, vm.SubtotalNeto);
+        Assert.Equal(21m, vm.SubtotalIVA);
+        Assert.Equal(11m, vm.DescuentoGeneralProrrateado);
+        Assert.Equal(190m, vm.SubtotalFinalNeto);
+        Assert.Equal(20m, vm.SubtotalFinalIVA);
+        Assert.Equal(210m, vm.SubtotalFinal);
+        Assert.Equal(70m, vm.CostoUnitarioAlMomento);
+        Assert.Equal(140m, vm.CostoTotalAlMomento);
+    }
+
+    [Fact]
+    public void Map_VentaDetalleViewModel_NoPermitePisarSnapshotsIva()
+    {
+        var vm = new VentaDetalleViewModel
+        {
+            ProductoId = 1,
+            Cantidad = 1,
+            PrecioUnitario = 121m,
+            Subtotal = 121m,
+            PorcentajeIVA = 10.5m,
+            AlicuotaIVAId = 2,
+            AlicuotaIVANombre = "IVA 10.5%",
+            PrecioUnitarioNeto = 100m,
+            IVAUnitario = 10.5m,
+            SubtotalNeto = 100m,
+            SubtotalIVA = 10.5m,
+            DescuentoGeneralProrrateado = 11m,
+            SubtotalFinalNeto = 90m,
+            SubtotalFinalIVA = 9.5m,
+            SubtotalFinal = 99.5m,
+            CostoUnitarioAlMomento = 70m,
+            CostoTotalAlMomento = 70m
+        };
+
+        var entity = _mapper.Map<VentaDetalle>(vm);
+
+        Assert.Equal(0m, entity.PorcentajeIVA);
+        Assert.Null(entity.AlicuotaIVAId);
+        Assert.Null(entity.AlicuotaIVANombre);
+        Assert.Equal(0m, entity.PrecioUnitarioNeto);
+        Assert.Equal(0m, entity.IVAUnitario);
+        Assert.Equal(0m, entity.SubtotalNeto);
+        Assert.Equal(0m, entity.SubtotalIVA);
+        Assert.Equal(0m, entity.DescuentoGeneralProrrateado);
+        Assert.Equal(0m, entity.SubtotalFinalNeto);
+        Assert.Equal(0m, entity.SubtotalFinalIVA);
+        Assert.Equal(0m, entity.SubtotalFinal);
+        Assert.Equal(0m, entity.CostoUnitarioAlMomento);
+        Assert.Equal(0m, entity.CostoTotalAlMomento);
+    }
 }

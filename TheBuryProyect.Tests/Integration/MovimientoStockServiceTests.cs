@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -47,7 +48,7 @@ public class MovimientoStockServiceTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<Producto> SeedProductoAsync(decimal stockActual = 100m)
+    private async Task<Producto> SeedProductoAsync(decimal stockActual = 100m, decimal precioCompra = 10m)
     {
         var codigo = Guid.NewGuid().ToString("N")[..10];
 
@@ -75,7 +76,7 @@ public class MovimientoStockServiceTests : IDisposable
             Nombre = "Prod-" + codigo,
             CategoriaId = categoria.Id,
             MarcaId = marca.Id,
-            PrecioCompra = 10m,
+            PrecioCompra = precioCompra,
             PrecioVenta = 15m,
             PorcentajeIVA = 21m,
             StockActual = stockActual,
@@ -169,6 +170,23 @@ public class MovimientoStockServiceTests : IDisposable
         var stockBd = (await _context.Set<Producto>()
             .FirstAsync(p => p.Id == producto.Id)).StockActual;
         Assert.Equal(150m, stockBd);
+    }
+
+    [Fact]
+    public async Task RegistrarAjuste_GuardaCostoFallbackYFuenteAjusteManual()
+    {
+        var producto = await SeedProductoAsync(stockActual: 100m, precioCompra: 12.34m);
+
+        var mov = await _service.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Entrada, 3m,
+            referencia: null, motivo: "Ajuste");
+
+        Assert.Equal(12.34m, mov.CostoUnitarioAlMomento);
+        Assert.Equal(37.02m, mov.CostoTotalAlMomento);
+        Assert.Equal("AjusteManual", mov.FuenteCosto);
+        Assert.Equal(3m, mov.Cantidad);
+        Assert.Equal(100m, mov.StockAnterior);
+        Assert.Equal(103m, mov.StockNuevo);
     }
 
     // -------------------------------------------------------------------------
@@ -316,6 +334,41 @@ public class MovimientoStockServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RegistrarEntradas_GuardaCostoFallbackDesdeProducto()
+    {
+        var producto = await SeedProductoAsync(stockActual: 5m, precioCompra: 7.25m);
+
+        var movimientos = await _service.RegistrarEntradasAsync(
+            new List<(int, decimal, string?)> { (producto.Id, 4m, "E1") },
+            "Entrada");
+
+        var mov = Assert.Single(movimientos);
+        Assert.Equal(7.25m, mov.CostoUnitarioAlMomento);
+        Assert.Equal(29.00m, mov.CostoTotalAlMomento);
+        Assert.Equal("ProductoActual", mov.FuenteCosto);
+        Assert.Equal(5m, mov.StockAnterior);
+        Assert.Equal(9m, mov.StockNuevo);
+    }
+
+    [Fact]
+    public async Task RegistrarEntradas_CostoInformadoCero_UsaFallbackProductoActual()
+    {
+        var producto = await SeedProductoAsync(stockActual: 5m, precioCompra: 11.11m);
+        var entradas = new List<(int, decimal, string?)> { (producto.Id, 2m, "E1") };
+        var costos = new List<MovimientoStockCostoLinea>
+        {
+            new(producto.Id, 2m, "E1", 0m, "OrdenCompraDetalle")
+        };
+
+        var movimientos = await _service.RegistrarEntradasAsync(entradas, "Entrada", costos: costos);
+
+        var mov = Assert.Single(movimientos);
+        Assert.Equal(11.11m, mov.CostoUnitarioAlMomento);
+        Assert.Equal(22.22m, mov.CostoTotalAlMomento);
+        Assert.Equal("ProductoActual", mov.FuenteCosto);
+    }
+
+    [Fact]
     public async Task RegistrarEntradas_ProductoNoExiste_LanzaExcepcion()
     {
         var entradas = new List<(int, decimal, string?)> { (99999, 10m, null) };
@@ -366,6 +419,23 @@ public class MovimientoStockServiceTests : IDisposable
         var stock2 = (await _context.Set<Producto>().FirstAsync(p => p.Id == p2.Id)).StockActual;
         Assert.Equal(60m, stock1);
         Assert.Equal(50m, stock2);
+    }
+
+    [Fact]
+    public async Task RegistrarSalidas_GuardaCostoFallbackDesdeProducto()
+    {
+        var producto = await SeedProductoAsync(stockActual: 10m, precioCompra: 8.50m);
+
+        var movimientos = await _service.RegistrarSalidasAsync(
+            new List<(int, decimal, string?)> { (producto.Id, 4m, "S1") },
+            "Salida");
+
+        var mov = Assert.Single(movimientos);
+        Assert.Equal(8.50m, mov.CostoUnitarioAlMomento);
+        Assert.Equal(34.00m, mov.CostoTotalAlMomento);
+        Assert.Equal("ProductoActual", mov.FuenteCosto);
+        Assert.Equal(10m, mov.StockAnterior);
+        Assert.Equal(6m, mov.StockNuevo);
     }
 
     [Fact]
@@ -572,6 +642,31 @@ public class MovimientoStockServiceTests : IDisposable
         // CreateAsync no modifica stock directamente (a diferencia de RegistrarAjusteAsync)
         var productoBd = await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(50m, productoBd.StockActual); // sin cambio
+    }
+
+    [Fact]
+    public async Task Create_RespetaCostoInformadoYCalculaTotal()
+    {
+        var producto = await SeedProductoAsync(stockActual: 50m, precioCompra: 10m);
+
+        var movimiento = new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 3m,
+            CostoUnitarioAlMomento = 22.22m,
+            FuenteCosto = "OrdenCompraDetalle",
+            Motivo = "Recepcion manual"
+        };
+
+        var resultado = await _service.CreateAsync(movimiento);
+
+        Assert.Equal(22.22m, resultado.CostoUnitarioAlMomento);
+        Assert.Equal(66.66m, resultado.CostoTotalAlMomento);
+        Assert.Equal("OrdenCompraDetalle", resultado.FuenteCosto);
+
+        var productoBd = await _context.Set<Producto>().FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(50m, productoBd.StockActual);
     }
 
     // =========================================================================

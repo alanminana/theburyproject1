@@ -39,6 +39,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto);
 
         CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
+        Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
 
         /// <summary>
         /// Resuelve el total efectivo de una venta: usa venta.Total si es válido,

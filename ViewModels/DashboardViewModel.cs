@@ -31,6 +31,8 @@ namespace TheBuryProject.ViewModels
         // KPIs de Stock
         public int ProductosTotales { get; set; }
         public int ProductosStockBajo { get; set; }
+        public decimal ValorStockPrecioVenta { get; set; }
+        public decimal ValorStockCostoActual { get; set; }
         public decimal ValorTotalStock { get; set; }
 
         // Datos para gráficos
