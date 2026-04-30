@@ -87,6 +87,15 @@ public class UsuarioDetalleViewModel
     public bool LockoutEnabled { get; set; }
     public DateTimeOffset? LockoutEnd { get; set; }
     public bool Activo { get; set; }
+    public string? Nombre { get; set; }
+    public string? Apellido { get; set; }
+    public string? Telefono { get; set; }
+    public string? Sucursal { get; set; }
+    public DateTime FechaCreacion { get; set; }
+    public DateTime? UltimoAcceso { get; set; }
+    public DateTime? FechaDesactivacion { get; set; }
+    public string? DesactivadoPor { get; set; }
+    public string? MotivoDesactivacion { get; set; }
     public List<string> Roles { get; set; } = new();
     public List<string> Permisos { get; set; } = new();
 }

@@ -93,9 +93,18 @@ public class UsuariosController : Controller
                 EmailConfirmed = user.EmailConfirmed,
                 LockoutEnabled = user.LockoutEnabled,
                 LockoutEnd = user.LockoutEnd,
+                Activo = user.Activo,
+                Nombre = user.Nombre,
+                Apellido = user.Apellido,
+                Telefono = user.Telefono,
+                Sucursal = user.Sucursal,
+                FechaCreacion = user.FechaCreacion,
+                UltimoAcceso = user.UltimoAcceso,
+                FechaDesactivacion = user.FechaDesactivacion,
+                DesactivadoPor = user.DesactivadoPor,
+                MotivoDesactivacion = user.MotivoDesactivacion,
                 Roles = roles.ToList(),
                 Permisos = permisos,
-                Activo = user.Activo
             };
 
             return View("Details_tw", viewModel);
@@ -104,7 +113,7 @@ public class UsuariosController : Controller
         {
             _logger.LogError(ex, "Error al obtener detalles del usuario {UserId}", id);
             TempData["Error"] = "Error al cargar los detalles del usuario";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
         }
     }
 
@@ -312,7 +321,7 @@ public class UsuariosController : Controller
         {
             _logger.LogError(ex, "Error al cargar formulario de desactivación para usuario {UserId}", id);
             TempData["Error"] = "Error al cargar el formulario de desactivación";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
         }
     }
 
@@ -330,7 +339,7 @@ public class UsuariosController : Controller
             if (user == null)
             {
                 TempData["Error"] = "Usuario no encontrado";
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
             }
 
             // Soft delete: marcar como inactivo en lugar de eliminar
@@ -375,7 +384,7 @@ public class UsuariosController : Controller
             if (user == null)
             {
                 TempData["Error"] = "Usuario no encontrado";
-                return RedirectToAction(nameof(Index));
+                return RedirectToAction("Index", "Seguridad", new { tab = "usuarios" });
             }
 
             if (user.Activo)
@@ -701,6 +710,7 @@ public class UsuariosController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "usuarios", Accion = "update")]
     public async Task<IActionResult> BulkAction(string ids, string accion, string? rol, int? sucursalId, string? returnUrl)
     {
         if (string.IsNullOrWhiteSpace(ids))

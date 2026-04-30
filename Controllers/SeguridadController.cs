@@ -29,6 +29,15 @@ public class SeguridadController : Controller
         new("resetpass", "ResetPass", false, ["resetpassword", "resetpass"])
     ];
 
+    // Ordered list of tabs with the minimum permission required to view each one.
+    private static readonly (string Tab, string Modulo, string Accion)[] TabPermissions =
+    [
+        ("usuarios",    "usuarios", "view"),
+        ("roles",       "roles",    "view"),
+        ("permisos-rol","roles",    "view"),
+        ("auditoria",   "roles",    "view")
+    ];
+
     private readonly IRolService _rolService;
     private readonly IUsuarioService _usuarioService;
     private readonly ISeguridadAuditoriaService _seguridadAuditoria;
@@ -64,7 +73,10 @@ public class SeguridadController : Controller
         DateOnly? desde = null,
         DateOnly? hasta = null)
     {
-        var activeTab = NormalizeTab(tab);
+        var activeTab = ResolvePermittedTab(NormalizeTab(tab));
+        if (string.IsNullOrEmpty(activeTab))
+            return Forbid();
+
         var roles = await _rolService.GetAllRolesAsync();
         var roleMetadata = await _rolService.GetAllRoleMetadataAsync();
         var stats = await _rolService.GetRoleAggregateStatsAsync();
@@ -752,6 +764,23 @@ public class SeguridadController : Controller
             "auditoria" => "auditoria",
             _ => "usuarios"
         };
+    }
+
+    // Returns the tab the current user may actually view.
+    // If the requested tab is permitted, returns it as-is.
+    // Otherwise falls back to the first permitted tab in TabPermissions order.
+    // Returns empty string when the user holds no security-module permission.
+    private string ResolvePermittedTab(string normalizedTab)
+    {
+        var permitted = TabPermissions
+            .Where(t => User.TienePermiso(t.Modulo, t.Accion))
+            .Select(t => t.Tab)
+            .ToList();
+
+        if (permitted.Count == 0)
+            return string.Empty;
+
+        return permitted.Contains(normalizedTab) ? normalizedTab : permitted[0];
     }
 
     private async Task<SeguridadUsuariosTabViewModel> BuildUsuariosTabViewModelAsync(bool mostrarInactivos)

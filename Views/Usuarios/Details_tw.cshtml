@@ -105,6 +105,45 @@
                     <p class="font-semibold text-white mt-1">@Model.UserName</p>
                 </div>
                 <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Nombre</p>
+                    <p class="font-semibold text-white mt-1">
+                        @if (!string.IsNullOrWhiteSpace(Model.Nombre) || !string.IsNullOrWhiteSpace(Model.Apellido))
+                        {
+                            @($"{Model.Nombre} {Model.Apellido}".Trim())
+                        }
+                        else
+                        {
+                            <span class="text-slate-500 italic">No informado</span>
+                        }
+                    </p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Teléfono</p>
+                    <p class="font-semibold text-white mt-1">
+                        @if (!string.IsNullOrWhiteSpace(Model.Telefono))
+                        {
+                            @Model.Telefono
+                        }
+                        else
+                        {
+                            <span class="text-slate-500 italic">No informado</span>
+                        }
+                    </p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sucursal</p>
+                    <p class="font-semibold text-white mt-1">
+                        @if (!string.IsNullOrWhiteSpace(Model.Sucursal))
+                        {
+                            @Model.Sucursal
+                        }
+                        else
+                        {
+                            <span class="text-slate-500 italic">Sin sucursal</span>
+                        }
+                    </p>
+                </div>
+                <div>
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Email confirmado</p>
                     @if (Model.EmailConfirmed)
                     {
@@ -131,6 +170,67 @@
                         @(isLocked ? $"Bloqueado hasta {Model.LockoutEnd:dd/MM/yyyy HH:mm}" : "No bloqueado")
                     </p>
                 </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Creado</p>
+                    <p class="font-semibold text-white mt-1">@Model.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</p>
+                </div>
+                <div>
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Último acceso</p>
+                    <p class="font-semibold text-white mt-1">
+                        @if (Model.UltimoAcceso.HasValue)
+                        {
+                            @Model.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")
+                        }
+                        else
+                        {
+                            <span class="text-slate-500 italic">Nunca</span>
+                        }
+                    </p>
+                </div>
+                @if (!Model.Activo)
+                {
+                    <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-4">
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Fecha de desactivaci&oacute;n</p>
+                            <p class="font-semibold text-white mt-1">
+                                @if (Model.FechaDesactivacion.HasValue)
+                                {
+                                    @Model.FechaDesactivacion.Value.ToString("dd/MM/yyyy HH:mm")
+                                }
+                                else
+                                {
+                                    <span class="text-slate-500 italic">No informado</span>
+                                }
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Desactivado por</p>
+                            <p class="font-semibold text-white mt-1">
+                                @if (!string.IsNullOrWhiteSpace(Model.DesactivadoPor))
+                                {
+                                    @Model.DesactivadoPor
+                                }
+                                else
+                                {
+                                    <span class="text-slate-500 italic">No informado</span>
+                                }
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Motivo de desactivaci&oacute;n</p>
+                            <p class="font-semibold text-white mt-1">
+                                @if (!string.IsNullOrWhiteSpace(Model.MotivoDesactivacion))
+                                {
+                                    @Model.MotivoDesactivacion
+                                }
+                                else
+                                {
+                                    <span class="text-slate-500 italic">Sin motivo registrado</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                }
             </div>
         </section>
 
