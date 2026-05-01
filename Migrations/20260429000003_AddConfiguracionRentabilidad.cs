@@ -34,6 +34,7 @@ namespace TheBuryProject.Migrations
             migrationBuilder.InsertData(
                 table: "ConfiguracionesRentabilidad",
                 columns: new[] { "MargenBajoMax", "MargenAltoMin", "CreatedAt", "IsDeleted" },
+                columnTypes: new[] { "decimal(5,2)", "decimal(5,2)", "datetime2", "bit" },
                 values: new object[] { 20m, 35m, new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), false });
         }
 

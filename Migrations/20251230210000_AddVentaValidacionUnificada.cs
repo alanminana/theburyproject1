@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProject.Data;
 
 #nullable disable
 
 namespace TheBuryProject.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20251230210000_AddVentaValidacionUnificada")]
     public partial class AddVentaValidacionUnificada : Migration
     {
         /// <inheritdoc />

@@ -1,11 +1,15 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TheBuryProject.Data;
 
 #nullable disable
 
 namespace TheBuryProject.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20251230200000_AddClienteAptitudCredito")]
     public partial class AddClienteAptitudCredito : Migration
     {
         /// <inheritdoc />
