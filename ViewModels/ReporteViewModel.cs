@@ -206,6 +206,47 @@ namespace TheBuryProject.ViewModels
         public decimal Ganancia { get; set; }
     }
 
+    public class ReporteMovimientosValorizadosFiltroViewModel
+    {
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+        public int? ProductoId { get; set; }
+        public TipoMovimiento? Tipo { get; set; }
+        public string? FuenteCosto { get; set; }
+        public string? Texto { get; set; }
+    }
+
+    public class ReporteMovimientoValorizadoItemViewModel
+    {
+        public int Id { get; set; }
+        public DateTime Fecha { get; set; }
+        public TipoMovimiento Tipo { get; set; }
+        public string TipoDescripcion => Tipo.ToString();
+        public int ProductoId { get; set; }
+        public string ProductoCodigo { get; set; } = string.Empty;
+        public string ProductoNombre { get; set; } = string.Empty;
+        public decimal Cantidad { get; set; }
+        public decimal CostoUnitarioAlMomento { get; set; }
+        public decimal CostoTotalAlMomento { get; set; }
+        public decimal ImpactoValorizado { get; set; }
+        public string FuenteCosto { get; set; } = "NoInformado";
+        public string? Referencia { get; set; }
+        public string? Motivo { get; set; }
+        public string? CreatedBy { get; set; }
+    }
+
+    public class ReporteMovimientosValorizadosViewModel
+    {
+        public ReporteMovimientosValorizadosFiltroViewModel Filtros { get; set; } = new();
+        public List<ReporteMovimientoValorizadoItemViewModel> Items { get; set; } = new();
+        public int CantidadMovimientos { get; set; }
+        public decimal EntradasValorizadas { get; set; }
+        public decimal SalidasValorizadas { get; set; }
+        public decimal AjustesValorizadosNetos { get; set; }
+        public decimal NetoValorizado { get; set; }
+        public int MovimientosSinCostoInformado { get; set; }
+    }
+
     public class ComisionVendedorFilterViewModel
     {
         public string? VendedorUserId { get; set; }

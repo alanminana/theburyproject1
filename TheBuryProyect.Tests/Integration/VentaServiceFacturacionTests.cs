@@ -175,7 +175,11 @@ public class VentaServiceFacturacionTests : IDisposable
 
     private async Task<Venta> SeedVentaConfirmada(
         TipoPago tipoPago = TipoPago.Efectivo,
-        EstadoVenta estado = EstadoVenta.Confirmada)
+        EstadoVenta estado = EstadoVenta.Confirmada,
+        decimal subtotal = 0m,
+        decimal iva = 0m,
+        decimal total = 2_000m,
+        decimal descuento = 0m)
     {
         var suffix = Interlocked.Increment(ref _counter).ToString();
 
@@ -194,7 +198,10 @@ public class VentaServiceFacturacionTests : IDisposable
             Numero = $"VF{suffix}",
             Estado = estado,
             TipoPago = tipoPago,
-            Total = 2_000m,
+            Subtotal = subtotal,
+            IVA = iva,
+            Total = total,
+            Descuento = descuento,
             RequiereAutorizacion = false,
             EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere,
             IsDeleted = false
@@ -301,6 +308,50 @@ public class VentaServiceFacturacionTests : IDisposable
         var factura = await _context.Facturas.FirstOrDefaultAsync(f => f.VentaId == venta.Id);
         Assert.NotNull(factura);
         Assert.False(string.IsNullOrWhiteSpace(factura!.Numero));
+    }
+
+    [Fact]
+    public async Task Facturar_TotalesManipulados_PersisteTotalesDeVenta()
+    {
+        var venta = await SeedVentaConfirmada(subtotal: 1_652.89m, iva: 347.11m, total: 2_000m);
+        var facturaVm = new FacturaViewModel
+        {
+            Tipo = TipoFactura.B,
+            FechaEmision = DateTime.UtcNow,
+            Subtotal = 1m,
+            IVA = 2m,
+            Total = 3m
+        };
+
+        await _service.FacturarVentaAsync(venta.Id, facturaVm);
+
+        var factura = await _context.Facturas.SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(venta.Subtotal, factura.Subtotal);
+        Assert.Equal(venta.IVA, factura.IVA);
+        Assert.Equal(venta.Total, factura.Total);
+    }
+
+    [Fact]
+    public async Task Facturar_DescuentoGeneralProrrateado_FacturaTotalCoincideConVentaTotal()
+    {
+        var venta = await SeedVentaConfirmada(
+            subtotal: 743.80m,
+            iva: 156.20m,
+            total: 900m,
+            descuento: 100m);
+        var facturaVm = new FacturaViewModel
+        {
+            Tipo = TipoFactura.B,
+            FechaEmision = DateTime.UtcNow,
+            Subtotal = 826.45m,
+            IVA = 173.55m,
+            Total = 1_000m
+        };
+
+        await _service.FacturarVentaAsync(venta.Id, facturaVm);
+
+        var factura = await _context.Facturas.SingleAsync(f => f.VentaId == venta.Id);
+        Assert.Equal(venta.Total, factura.Total);
     }
 
     [Fact]

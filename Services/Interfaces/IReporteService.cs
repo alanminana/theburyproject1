@@ -3,27 +3,27 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Services.Interfaces
 {
     /// <summary>
-    /// Interfaz para el servicio de reportes
+    /// Interfaz para el servicio de reportes.
     /// </summary>
     public interface IReporteService
     {
         /// <summary>
-        /// Genera reporte de ventas con filtros
+        /// Genera reporte de ventas con filtros.
         /// </summary>
         Task<ReporteVentasResultadoViewModel> GenerarReporteVentasAsync(ReporteVentasFiltroViewModel filtro);
 
         /// <summary>
-        /// Genera reporte de márgenes de productos
+        /// Genera reporte de margenes de productos.
         /// </summary>
         Task<ReporteMargenesViewModel> GenerarReporteMargenesAsync(int? categoriaId = null, int? marcaId = null);
 
         /// <summary>
-        /// Genera reporte de morosidad de créditos
+        /// Genera reporte de morosidad de creditos.
         /// </summary>
         Task<ReporteMorosidadViewModel> GenerarReporteMorosidadAsync();
 
         /// <summary>
-        /// Obtiene datos para gráfico de ventas agrupadas
+        /// Obtiene datos para grafico de ventas agrupadas.
         /// </summary>
         Task<List<VentasAgrupadasViewModel>> ObtenerVentasAgrupadasAsync(
             DateTime fechaDesde,
@@ -36,27 +36,38 @@ namespace TheBuryProject.Services.Interfaces
         Task<ComisionVendedorReporteViewModel> GenerarReporteComisionesVendedoresAsync(ComisionVendedorFilterViewModel filtro);
 
         /// <summary>
-        /// Exporta reporte de ventas a Excel
+        /// Genera reporte de movimientos de stock valorizados usando snapshots historicos de MovimientoStock.
+        /// </summary>
+        Task<ReporteMovimientosValorizadosViewModel> GenerarReporteMovimientosValorizadosAsync(
+            ReporteMovimientosValorizadosFiltroViewModel filtro);
+
+        /// <summary>
+        /// Exporta reporte de ventas a Excel.
         /// </summary>
         Task<byte[]> ExportarVentasExcelAsync(ReporteVentasFiltroViewModel filtro);
 
         /// <summary>
-        /// Exporta reporte de márgenes a Excel
+        /// Exporta reporte de margenes a Excel.
         /// </summary>
         Task<byte[]> ExportarMargenesExcelAsync(int? categoriaId = null, int? marcaId = null);
 
         /// <summary>
-        /// Exporta reporte de morosidad a Excel
+        /// Exporta reporte de morosidad a Excel.
         /// </summary>
         Task<byte[]> ExportarMorosidadExcelAsync();
 
         /// <summary>
-        /// Genera PDF del reporte de ventas
+        /// Exporta reporte de movimientos valorizados a Excel.
+        /// </summary>
+        Task<byte[]> ExportarMovimientosValorizadosExcelAsync(ReporteMovimientosValorizadosFiltroViewModel filtro);
+
+        /// <summary>
+        /// Genera PDF del reporte de ventas.
         /// </summary>
         Task<byte[]> GenerarVentasPdfAsync(ReporteVentasFiltroViewModel filtro);
 
         /// <summary>
-        /// Genera PDF del reporte de morosidad
+        /// Genera PDF del reporte de morosidad.
         /// </summary>
         Task<byte[]> GenerarMorosidadPdfAsync();
     }

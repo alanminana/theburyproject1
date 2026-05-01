@@ -89,6 +89,46 @@
                     </div>
                 </section>
 
+                @if (Model.ResumenAlicuotas.Any())
+                {
+                    <section class="mt-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl">
+                        <div class="mb-5 flex items-center gap-3 border-b border-slate-800 pb-4">
+                            <span class="material-symbols-outlined text-primary">percent</span>
+                            <div>
+                                <h2 class="text-base font-black text-white">Resumen por al&iacute;cuota</h2>
+                                <p class="text-xs text-slate-400">Base imponible e IVA tomados de los importes finales de la venta.</p>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-slate-800 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                        <th class="py-3 pr-4 text-left">Al&iacute;cuota</th>
+                                        <th class="px-4 py-3 text-right">Base imponible</th>
+                                        <th class="px-4 py-3 text-right">IVA</th>
+                                        <th class="py-3 pl-4 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    @foreach (var item in Model.ResumenAlicuotas)
+                                    {
+                                        <tr>
+                                            <td class="py-3 pr-4">
+                                                <p class="font-bold text-white">@item.AlicuotaIVANombre</p>
+                                                <p class="text-[11px] text-slate-500">@item.PorcentajeIVA.ToString("0.##")%</p>
+                                            </td>
+                                            <td class="px-4 py-3 text-right font-semibold text-slate-200">@item.BaseImponible.ToString("C2")</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-slate-200">@item.IVA.ToString("C2")</td>
+                                            <td class="py-3 pl-4 text-right font-black text-white">@item.Total.ToString("C2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                }
+
                 <section class="mt-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow-xl">
                     <div class="mb-5 flex items-center gap-3 border-b border-slate-800 pb-4">
                         <span class="material-symbols-outlined text-primary">edit_document</span>

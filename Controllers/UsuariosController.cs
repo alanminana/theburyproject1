@@ -169,12 +169,11 @@ public class UsuariosController : Controller
                 return Json(new { success = false, errors = new[] { "La sucursal seleccionada no existe o está inactiva." } });
             }
 
-            // Verificar duplicados
-            if (await _userManager.FindByNameAsync(model.UserName) != null)
-                return Json(new { success = false, errors = new[] { $"El nombre de usuario '{model.UserName}' ya está en uso." } });
-
-            if (await _userManager.FindByEmailAsync(model.Email) != null)
-                return Json(new { success = false, errors = new[] { $"El email '{model.Email}' ya está en uso." } });
+            var unicidadErrors = await _usuarioService.ValidarUnicidadUsuarioAsync(string.Empty, model.UserName, model.Email);
+            if (unicidadErrors.Any())
+            {
+                return Json(new { success = false, errors = new[] { unicidadErrors[0].Mensaje } });
+            }
 
             var user = new ApplicationUser
             {

@@ -146,6 +146,48 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        // GET: Reporte/MovimientosValorizados
+        [HttpGet]
+        [PermisoRequerido(Modulo = "reportes", Accion = "stock")]
+        public async Task<IActionResult> MovimientosValorizados()
+        {
+            await CargarFiltrosMovimientosValorizadosAsync();
+
+            var filtro = new ReporteMovimientosValorizadosFiltroViewModel
+            {
+                FechaDesde = DateTime.Today.AddMonths(-1),
+                FechaHasta = DateTime.Today
+            };
+
+            var resultado = new ReporteMovimientosValorizadosViewModel
+            {
+                Filtros = filtro
+            };
+
+            return View("MovimientosValorizados_tw", resultado);
+        }
+
+        // POST: Reporte/MovimientosValorizados
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "reportes", Accion = "stock")]
+        public async Task<IActionResult> MovimientosValorizados(ReporteMovimientosValorizadosFiltroViewModel filtro)
+        {
+            try
+            {
+                await CargarFiltrosMovimientosValorizadosAsync();
+                var resultado = await _reporteService.GenerarReporteMovimientosValorizadosAsync(filtro);
+
+                return View("MovimientosValorizados_tw", resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de movimientos valorizados");
+                TempData["Error"] = "Error al generar el reporte de movimientos valorizados";
+                return RedirectToAction(nameof(MovimientosValorizados));
+            }
+        }
+
         // GET: Reporte/VentasAgrupadas
         [HttpGet]
         public async Task<IActionResult> VentasAgrupadas(DateTime? fechaDesde, DateTime? fechaHasta, string agruparPor = "dia")
@@ -190,6 +232,14 @@ namespace TheBuryProject.Controllers
                 () => _reporteService.ExportarMorosidadExcelAsync(),
                 "ReporteMorosidad",
                 nameof(Morosidad));
+
+        // GET: Reporte/ExportarMovimientosValorizadosExcel
+        [PermisoRequerido(Modulo = "reportes", Accion = "export")]
+        public async Task<IActionResult> ExportarMovimientosValorizadosExcel([FromQuery] ReporteMovimientosValorizadosFiltroViewModel filtro)
+            => await ExportarExcel(
+                () => _reporteService.ExportarMovimientosValorizadosExcelAsync(filtro),
+                "ReporteMovimientosValorizados",
+                nameof(MovimientosValorizados));
 
         // GET: Reporte/ExportarVentasPdf
         public async Task<IActionResult> ExportarVentasPdf([FromQuery] ReporteVentasFiltroViewModel filtro)
@@ -286,6 +336,27 @@ namespace TheBuryProject.Controllers
 
             reporte.TiposPago = EnumHelper.GetSelectList<TipoPago>(reporte.Filtros.TipoPago);
             reporte.EstadosVenta = EnumHelper.GetSelectList<EstadoVenta>(reporte.Filtros.EstadoVenta);
+        }
+
+        private async Task CargarFiltrosMovimientosValorizadosAsync()
+        {
+            var productos = await _productoService.GetAllAsync();
+
+            ViewBag.Productos = new SelectList(
+                productos.OrderBy(p => p.Nombre),
+                "Id",
+                "Nombre");
+
+            ViewBag.TiposMovimiento = EnumHelper.GetSelectList<TipoMovimiento>();
+            ViewBag.FuentesCosto = new SelectList(new[]
+            {
+                "VentaDetalleSnapshot",
+                "OrdenCompraDetalle",
+                "ProductoActual",
+                "AjusteManual",
+                "Legacy",
+                "NoInformado"
+            });
         }
 
         #endregion

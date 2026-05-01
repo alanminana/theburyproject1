@@ -627,6 +627,36 @@ public class VentaServicePrecioTests
     }
 
     [Fact]
+    public async Task CreateAsync_ConDescuentoGeneral_CalculaComisionSobreSubtotalFinal()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.PrecioVenta = 100m;
+            producto.PorcentajeIVA = 0m;
+            producto.ComisionPorcentaje = 10m;
+            await ctx.SaveChangesAsync();
+
+            var model = BuildViewModel(cliente.Id, producto.Id);
+            model.Descuento = 20m;
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+
+            await svc.CreateAsync(model);
+
+            var detalle = await ctx.VentaDetalles
+                .AsNoTracking()
+                .SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(100m, detalle.Subtotal);
+            Assert.Equal(20m, detalle.DescuentoGeneralProrrateado);
+            Assert.Equal(80m, detalle.SubtotalFinal);
+            Assert.Equal(10m, detalle.ComisionPorcentajeAplicada);
+            Assert.Equal(8m, detalle.ComisionMonto);
+        }
+    }
+
+    [Fact]
     public async Task CreateAsync_CambiarComisionDelProducto_NoAlteraSnapshotDelDetalle()
     {
         var (ctx, conn) = CreateDb();

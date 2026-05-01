@@ -152,7 +152,7 @@ public class DocumentoValidationHelperTests
         var (isValid, fullPath, _) = DocumentoValidationHelper.NormalizePath(basePath, "test.pdf");
 
         Assert.True(isValid);
-        Assert.True(fullPath.StartsWith(Path.GetFullPath(basePath), StringComparison.OrdinalIgnoreCase));
+        Assert.StartsWith(Path.GetFullPath(basePath), fullPath, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith("test.pdf", fullPath);
     }
 

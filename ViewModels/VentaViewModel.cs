@@ -93,6 +93,8 @@ namespace TheBuryProject.ViewModels
 
         public List<FacturaViewModel> Facturas { get; set; } = new List<FacturaViewModel>();
 
+        public List<FacturaAlicuotaResumenViewModel> ResumenAlicuotasFactura { get; set; } = new();
+
         // Datos adicionales según tipo de pago
         public DatosTarjetaViewModel? DatosTarjeta { get; set; }
         public DatosChequeViewModel? DatosCheque { get; set; }

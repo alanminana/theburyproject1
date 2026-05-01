@@ -502,6 +502,35 @@
                                 </div>
                             }
                         </div>
+                        @if (tieneFactura && Model.ResumenAlicuotasFactura.Any())
+                        {
+                            <div class="mt-5 overflow-x-auto rounded-lg border border-slate-800">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="bg-slate-800/50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                            <th class="px-4 py-3 text-left">Al&iacute;cuota</th>
+                                            <th class="px-4 py-3 text-right">Base imponible</th>
+                                            <th class="px-4 py-3 text-right">IVA</th>
+                                            <th class="px-4 py-3 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var item in Model.ResumenAlicuotasFactura)
+                                        {
+                                            <tr>
+                                                <td class="px-4 py-3">
+                                                    <p class="font-bold text-white">@item.AlicuotaIVANombre</p>
+                                                    <p class="text-[11px] text-slate-500">@item.PorcentajeIVA.ToString("0.##")%</p>
+                                                </td>
+                                                <td class="px-4 py-3 text-right font-semibold text-slate-200">@item.BaseImponible.ToString("C2")</td>
+                                                <td class="px-4 py-3 text-right font-semibold text-slate-200">@item.IVA.ToString("C2")</td>
+                                                <td class="px-4 py-3 text-right font-black text-white">@item.Total.ToString("C2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                     </section>
                 }
 
@@ -598,12 +627,15 @@
                         }
 
                         @* Imprimir Factura *@
-                        @if (tieneFactura)
+                        @if (tieneFactura && facturaActiva != null)
                         {
-                            <button type="button" data-venta-action="print"
-                                    class="btn-erp-secondary btn-erp-block">
+                            <a asp-action="ComprobanteFactura"
+                               asp-route-facturaId="@facturaActiva.Id"
+                               target="_blank"
+                               rel="noopener"
+                               class="btn-erp-secondary btn-erp-block no-underline">
                                 <span class="material-symbols-outlined text-sm">print</span> Imprimir Factura
-                            </button>
+                            </a>
                         }
 
                         @* Autorizar *@

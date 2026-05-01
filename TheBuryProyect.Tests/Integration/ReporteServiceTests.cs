@@ -148,6 +148,38 @@ public class ReporteServiceTests : IDisposable
         return venta;
     }
 
+    private async Task<MovimientoStock> SeedMovimientoStockAsync(
+        int productoId,
+        TipoMovimiento tipo,
+        decimal cantidad,
+        decimal costoUnitario,
+        decimal costoTotal,
+        string fuenteCosto,
+        DateTime? fecha = null,
+        string? referencia = null,
+        string? motivo = null)
+    {
+        var movimiento = new MovimientoStock
+        {
+            ProductoId = productoId,
+            Tipo = tipo,
+            Cantidad = cantidad,
+            StockAnterior = 10m,
+            StockNuevo = 10m + cantidad,
+            CostoUnitarioAlMomento = costoUnitario,
+            CostoTotalAlMomento = costoTotal,
+            FuenteCosto = fuenteCosto,
+            Referencia = referencia,
+            Motivo = motivo,
+            CreatedAt = fecha ?? DateTime.UtcNow,
+            CreatedBy = "test"
+        };
+
+        _context.MovimientosStock.Add(movimiento);
+        await _context.SaveChangesAsync();
+        return movimiento;
+    }
+
     // -------------------------------------------------------------------------
     // GenerarReporteVentasAsync
     // -------------------------------------------------------------------------
@@ -839,6 +871,118 @@ public class ReporteServiceTests : IDisposable
     }
 
     // =========================================================================
+    // GenerarReporteMovimientosValorizadosAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task GenerarReporteMovimientosValorizados_UsaCostoTotalAlMomento()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 10m);
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Entrada, 2m, 123m, 246m, "OrdenCompraDetalle");
+
+        var resultado = await _service.GenerarReporteMovimientosValorizadosAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel());
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal(246m, item.CostoTotalAlMomento);
+        Assert.Equal(246m, item.ImpactoValorizado);
+        Assert.Equal(246m, resultado.EntradasValorizadas);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMovimientosValorizados_CambioPrecioCompraPosterior_NoAfectaReporte()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 10m);
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Salida, 2m, 30m, 60m, "VentaDetalleSnapshot");
+
+        producto.PrecioCompra = 999m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteMovimientosValorizadosAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel());
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal(60m, item.CostoTotalAlMomento);
+        Assert.Equal(-60m, item.ImpactoValorizado);
+        Assert.Equal(-60m, resultado.NetoValorizado);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMovimientosValorizados_FiltraPorFechaProductoTipoYFuente()
+    {
+        var productoIncluido = await SeedProductoAsync();
+        var productoExcluido = await SeedProductoAsync();
+        var hoy = DateTime.UtcNow.Date;
+
+        var esperado = await SeedMovimientoStockAsync(
+            productoIncluido.Id,
+            TipoMovimiento.Entrada,
+            1m,
+            10m,
+            10m,
+            "OrdenCompraDetalle",
+            fecha: hoy,
+            referencia: "OC-OK");
+
+        await SeedMovimientoStockAsync(productoIncluido.Id, TipoMovimiento.Salida, 1m, 10m, 10m, "VentaDetalleSnapshot", fecha: hoy);
+        await SeedMovimientoStockAsync(productoExcluido.Id, TipoMovimiento.Entrada, 1m, 10m, 10m, "OrdenCompraDetalle", fecha: hoy);
+        await SeedMovimientoStockAsync(productoIncluido.Id, TipoMovimiento.Entrada, 1m, 10m, 10m, "OrdenCompraDetalle", fecha: hoy.AddDays(-10));
+
+        var resultado = await _service.GenerarReporteMovimientosValorizadosAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel
+            {
+                FechaDesde = hoy.AddDays(-1),
+                FechaHasta = hoy,
+                ProductoId = productoIncluido.Id,
+                Tipo = TipoMovimiento.Entrada,
+                FuenteCosto = "OrdenCompraDetalle"
+            });
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal(esperado.Id, item.Id);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMovimientosValorizados_FiltraPorTextoEnReferenciaMotivoYProducto()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedMovimientoStockAsync(
+            producto.Id,
+            TipoMovimiento.Entrada,
+            1m,
+            10m,
+            10m,
+            "AjusteManual",
+            referencia: "AJ-123",
+            motivo: "Inventario anual");
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Entrada, 1m, 10m, 10m, "AjusteManual", referencia: "OTRO");
+
+        var resultado = await _service.GenerarReporteMovimientosValorizadosAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel { Texto = "Inventario" });
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal("Inventario anual", item.Motivo);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMovimientosValorizados_CalculaSignosCorrectamente()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Entrada, 1m, 100m, 100m, "OrdenCompraDetalle");
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Salida, 1m, 40m, 40m, "VentaDetalleSnapshot");
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Ajuste, 2m, 10m, 20m, "AjusteManual");
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Ajuste, -3m, 10m, 30m, "AjusteManual");
+
+        var resultado = await _service.GenerarReporteMovimientosValorizadosAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel());
+
+        Assert.Equal(100m, resultado.EntradasValorizadas);
+        Assert.Equal(40m, resultado.SalidasValorizadas);
+        Assert.Equal(-10m, resultado.AjustesValorizadosNetos);
+        Assert.Equal(50m, resultado.NetoValorizado);
+    }
+
+    // =========================================================================
     // GenerarReporteMorosidadAsync
     // =========================================================================
 
@@ -1005,6 +1149,20 @@ public class ReporteServiceTests : IDisposable
 
         Assert.NotNull(resultado);
         Assert.True(resultado.Length > 0);
+    }
+
+    [Fact]
+    public async Task ExportarMovimientosValorizadosExcel_ConMovimientos_RetornaArchivoValido()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedMovimientoStockAsync(producto.Id, TipoMovimiento.Entrada, 1m, 10m, 10m, "OrdenCompraDetalle");
+
+        var resultado = await _service.ExportarMovimientosValorizadosExcelAsync(
+            new ReporteMovimientosValorizadosFiltroViewModel());
+
+        Assert.True(resultado.Length > 0);
+        Assert.Equal(0x50, resultado[0]);
+        Assert.Equal(0x4B, resultado[1]);
     }
 
     [Fact]

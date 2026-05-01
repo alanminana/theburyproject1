@@ -11,7 +11,7 @@
             <span class="material-symbols-outlined text-primary text-2xl">bar_chart</span>
             <div>
                 <p class="font-semibold text-slate-100">Ventas</p>
-                <p class="text-xs text-slate-400 mt-1">Resumen de ventas por período, tipo de pago y vendedor.</p>
+                <p class="text-xs text-slate-400 mt-1">Resumen de ventas por perÃ­odo, tipo de pago y vendedor.</p>
             </div>
         </a>
 
@@ -19,8 +19,8 @@
            class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
             <span class="material-symbols-outlined text-primary text-2xl">trending_up</span>
             <div>
-                <p class="font-semibold text-slate-100">Márgenes</p>
-                <p class="text-xs text-slate-400 mt-1">Análisis de márgenes por producto y categoría.</p>
+                <p class="font-semibold text-slate-100">MÃ¡rgenes</p>
+                <p class="text-xs text-slate-400 mt-1">AnÃ¡lisis de mÃ¡rgenes por producto y categorÃ­a.</p>
             </div>
         </a>
 
@@ -29,7 +29,7 @@
             <span class="material-symbols-outlined text-primary text-2xl">account_balance_wallet</span>
             <div>
                 <p class="font-semibold text-slate-100">Morosidad</p>
-                <p class="text-xs text-slate-400 mt-1">Estado de cuotas vencidas y créditos en mora.</p>
+                <p class="text-xs text-slate-400 mt-1">Estado de cuotas vencidas y crÃ©ditos en mora.</p>
             </div>
         </a>
 
@@ -38,7 +38,16 @@
             <span class="material-symbols-outlined text-primary text-2xl">payments</span>
             <div>
                 <p class="font-semibold text-slate-100">Comisiones</p>
-                <p class="text-xs text-slate-400 mt-1">Detalle de comisiones por vendedor, producto y período.</p>
+                <p class="text-xs text-slate-400 mt-1">Detalle de comisiones por vendedor, producto y perÃ­odo.</p>
+            </div>
+        </a>
+
+        <a asp-action="MovimientosValorizados"
+           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
+            <span class="material-symbols-outlined text-primary text-2xl">swap_vert</span>
+            <div>
+                <p class="font-semibold text-slate-100">Movimientos valorizados</p>
+                <p class="text-xs text-slate-400 mt-1">Costos historicos por movimiento. No representa valor de inventario actual.</p>
             </div>
         </a>
     </div>

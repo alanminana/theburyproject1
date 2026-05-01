@@ -299,7 +299,8 @@ public class CreditoServiceConsultasTests : IDisposable
 
         var resultado = await _service.SimularCreditoAsync(modelo);
 
-        Assert.True(resultado.PlanPagos![0].SaldoCapital < modelo.MontoSolicitado);
+        Assert.NotNull(resultado.PlanPagos);
+        Assert.True(resultado.PlanPagos[0].SaldoCapital < modelo.MontoSolicitado);
     }
 
     [Fact]
@@ -314,7 +315,8 @@ public class CreditoServiceConsultasTests : IDisposable
 
         var resultado = await _service.SimularCreditoAsync(modelo);
 
-        var ultimaCuota = resultado.PlanPagos!.Last();
+        Assert.NotNull(resultado.PlanPagos);
+        var ultimaCuota = resultado.PlanPagos.Last();
         Assert.Equal(0m, ultimaCuota.SaldoCapital);
     }
 
@@ -404,6 +406,7 @@ public class CreditoServiceConsultasTests : IDisposable
 
         _context.ChangeTracker.Clear();
         var cuota = await _context.Cuotas.FirstAsync(c => c.CreditoId == credito.Id);
+        Assert.NotNull(cuota.Observaciones);
         Assert.Contains("[ADELANTO]", cuota.Observaciones);
     }
 
@@ -662,7 +665,8 @@ public class CreditoServiceConsultasTests : IDisposable
         var resultado = await _service.GetByIdAsync(credito.Id);
 
         Assert.NotNull(resultado);
-        Assert.Equal(3, resultado!.Cuotas.Count);
+        Assert.NotNull(resultado!.Cuotas);
+        Assert.Equal(3, resultado.Cuotas.Count);
         Assert.Equal(1, resultado.Cuotas[0].NumeroCuota);
         Assert.Equal(2, resultado.Cuotas[1].NumeroCuota);
         Assert.Equal(3, resultado.Cuotas[2].NumeroCuota);

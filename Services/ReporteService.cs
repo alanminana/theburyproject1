@@ -582,6 +582,142 @@ namespace TheBuryProject.Services
         }
 
         // Métodos auxiliares privados
+        public async Task<ReporteMovimientosValorizadosViewModel> GenerarReporteMovimientosValorizadosAsync(
+            ReporteMovimientosValorizadosFiltroViewModel filtro)
+        {
+            try
+            {
+                var query = _context.MovimientosStock
+                    .AsNoTracking()
+                    .Include(m => m.Producto)
+                    .Where(m => !m.IsDeleted && m.Producto != null)
+                    .AsQueryable();
+
+                if (filtro.FechaDesde.HasValue)
+                {
+                    var desde = filtro.FechaDesde.Value.Date;
+                    query = query.Where(m => m.CreatedAt >= desde);
+                }
+
+                if (filtro.FechaHasta.HasValue)
+                {
+                    var hastaExclusivo = filtro.FechaHasta.Value.Date.AddDays(1);
+                    query = query.Where(m => m.CreatedAt < hastaExclusivo);
+                }
+
+                if (filtro.ProductoId.HasValue)
+                    query = query.Where(m => m.ProductoId == filtro.ProductoId.Value);
+
+                if (filtro.Tipo.HasValue)
+                    query = query.Where(m => m.Tipo == filtro.Tipo.Value);
+
+                if (!string.IsNullOrWhiteSpace(filtro.FuenteCosto))
+                {
+                    var fuente = filtro.FuenteCosto.Trim();
+                    query = query.Where(m => m.FuenteCosto == fuente);
+                }
+
+                if (!string.IsNullOrWhiteSpace(filtro.Texto))
+                {
+                    var texto = filtro.Texto.Trim();
+                    query = query.Where(m =>
+                        m.Producto.Nombre.Contains(texto) ||
+                        m.Producto.Codigo.Contains(texto) ||
+                        (m.Referencia != null && m.Referencia.Contains(texto)) ||
+                        (m.Motivo != null && m.Motivo.Contains(texto)));
+                }
+
+                var movimientos = await query
+                    .OrderByDescending(m => m.CreatedAt)
+                    .ThenByDescending(m => m.Id)
+                    .Select(m => new
+                    {
+                        m.Id,
+                        Fecha = m.CreatedAt,
+                        m.Tipo,
+                        m.ProductoId,
+                        ProductoCodigo = m.Producto.Codigo,
+                        ProductoNombre = m.Producto.Nombre,
+                        m.Cantidad,
+                        m.CostoUnitarioAlMomento,
+                        m.CostoTotalAlMomento,
+                        m.FuenteCosto,
+                        m.Referencia,
+                        m.Motivo,
+                        m.CreatedBy
+                    })
+                    .ToListAsync();
+
+                var items = movimientos.Select(m =>
+                {
+                    var impacto = CalcularImpactoValorizado(
+                        m.Tipo,
+                        m.Cantidad,
+                        m.CostoTotalAlMomento);
+
+                    return new ReporteMovimientoValorizadoItemViewModel
+                    {
+                        Id = m.Id,
+                        Fecha = m.Fecha,
+                        Tipo = m.Tipo,
+                        ProductoId = m.ProductoId,
+                        ProductoCodigo = m.ProductoCodigo ?? string.Empty,
+                        ProductoNombre = m.ProductoNombre ?? string.Empty,
+                        Cantidad = m.Cantidad,
+                        CostoUnitarioAlMomento = m.CostoUnitarioAlMomento,
+                        CostoTotalAlMomento = m.CostoTotalAlMomento,
+                        ImpactoValorizado = impacto,
+                        FuenteCosto = string.IsNullOrWhiteSpace(m.FuenteCosto) ? "NoInformado" : m.FuenteCosto,
+                        Referencia = m.Referencia,
+                        Motivo = m.Motivo,
+                        CreatedBy = m.CreatedBy
+                    };
+                }).ToList();
+
+                return new ReporteMovimientosValorizadosViewModel
+                {
+                    Filtros = filtro,
+                    Items = items,
+                    CantidadMovimientos = items.Count,
+                    EntradasValorizadas = items
+                        .Where(i => i.Tipo == TipoMovimiento.Entrada)
+                        .Sum(i => i.CostoTotalAlMomento),
+                    SalidasValorizadas = items
+                        .Where(i => i.Tipo == TipoMovimiento.Salida)
+                        .Sum(i => i.CostoTotalAlMomento),
+                    AjustesValorizadosNetos = items
+                        .Where(i => i.Tipo == TipoMovimiento.Ajuste)
+                        .Sum(i => i.ImpactoValorizado),
+                    NetoValorizado = items.Sum(i => i.ImpactoValorizado),
+                    MovimientosSinCostoInformado = items.Count(i =>
+                        i.CostoTotalAlMomento <= 0m ||
+                        string.Equals(i.FuenteCosto, "NoInformado", StringComparison.OrdinalIgnoreCase))
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de movimientos valorizados");
+                throw;
+            }
+        }
+
+        internal static decimal CalcularImpactoValorizado(
+            TipoMovimiento tipo,
+            decimal cantidad,
+            decimal costoTotalAlMomento)
+        {
+            var costoAbs = Math.Abs(costoTotalAlMomento);
+
+            return tipo switch
+            {
+                TipoMovimiento.Entrada => costoAbs,
+                TipoMovimiento.Salida => -costoAbs,
+                TipoMovimiento.Ajuste when cantidad > 0m => costoAbs,
+                TipoMovimiento.Ajuste when cantidad < 0m => -costoAbs,
+                _ => 0m
+            };
+        }
+
         private async Task<List<ProductoMasVendidoViewModel>> ObtenerProductosMasVendidosAsync(ReporteVentasFiltroViewModel filtro)
         {
             var query = _context.VentaDetalles
@@ -837,6 +973,71 @@ namespace TheBuryProject.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al exportar márgenes a Excel");
+                throw;
+            }
+        }
+
+        public async Task<byte[]> ExportarMovimientosValorizadosExcelAsync(
+            ReporteMovimientosValorizadosFiltroViewModel filtro)
+        {
+            try
+            {
+                var reporte = await GenerarReporteMovimientosValorizadosAsync(filtro);
+
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add("Movimientos valorizados");
+
+                worksheet.Cell(1, 1).Value = "Fecha";
+                worksheet.Cell(1, 2).Value = "Tipo";
+                worksheet.Cell(1, 3).Value = "Codigo";
+                worksheet.Cell(1, 4).Value = "Producto";
+                worksheet.Cell(1, 5).Value = "Cantidad";
+                worksheet.Cell(1, 6).Value = "Costo unitario";
+                worksheet.Cell(1, 7).Value = "Costo total";
+                worksheet.Cell(1, 8).Value = "Impacto valorizado";
+                worksheet.Cell(1, 9).Value = "Fuente costo";
+                worksheet.Cell(1, 10).Value = "Referencia";
+                worksheet.Cell(1, 11).Value = "Motivo";
+                worksheet.Cell(1, 12).Value = "Usuario";
+
+                var headerRange = worksheet.Range("A1:L1");
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+
+                var row = 2;
+                foreach (var item in reporte.Items)
+                {
+                    worksheet.Cell(row, 1).Value = item.Fecha;
+                    worksheet.Cell(row, 2).Value = item.TipoDescripcion;
+                    worksheet.Cell(row, 3).Value = item.ProductoCodigo;
+                    worksheet.Cell(row, 4).Value = item.ProductoNombre;
+                    worksheet.Cell(row, 5).Value = item.Cantidad;
+                    worksheet.Cell(row, 6).Value = item.CostoUnitarioAlMomento;
+                    worksheet.Cell(row, 7).Value = item.CostoTotalAlMomento;
+                    worksheet.Cell(row, 8).Value = item.ImpactoValorizado;
+                    worksheet.Cell(row, 9).Value = item.FuenteCosto;
+                    worksheet.Cell(row, 10).Value = item.Referencia ?? string.Empty;
+                    worksheet.Cell(row, 11).Value = item.Motivo ?? string.Empty;
+                    worksheet.Cell(row, 12).Value = item.CreatedBy ?? string.Empty;
+                    row++;
+                }
+
+                worksheet.Cell(row, 4).Value = "TOTALES:";
+                worksheet.Cell(row, 4).Style.Font.Bold = true;
+                worksheet.Cell(row, 7).Value = reporte.Items.Sum(i => i.CostoTotalAlMomento);
+                worksheet.Cell(row, 8).Value = reporte.NetoValorizado;
+
+                worksheet.Range($"A2:A{row}").Style.DateFormat.Format = "dd/mm/yyyy hh:mm";
+                worksheet.Range($"F2:H{row}").Style.NumberFormat.Format = "$#,##0.00";
+                worksheet.Columns().AdjustToContents();
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                return stream.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al exportar movimientos valorizados a Excel");
                 throw;
             }
         }

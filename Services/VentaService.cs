@@ -100,7 +100,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Credito)
-                .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
+                .Include(v => v.Detalles.Where(d => !d.IsDeleted)).ThenInclude(d => d.Producto)
                 .Include(v => v.Facturas)
                 .Include(v => v.DatosTarjeta).ThenInclude(dt => dt!.ConfiguracionTarjeta)
                 .Include(v => v.DatosCheque)
@@ -118,6 +118,11 @@ namespace TheBuryProject.Services
             }
 
             var viewModel = _mapper.Map<VentaViewModel>(venta);
+
+            if (viewModel.Facturas.Any(f => !f.Anulada))
+            {
+                viewModel.ResumenAlicuotasFactura = FacturaAlicuotaResumenBuilder.Build(viewModel.Detalles);
+            }
 
             // Mapear estado del crédito para control de flujo en la vista
             if (venta.Credito != null)
@@ -1008,6 +1013,9 @@ namespace TheBuryProject.Services
             var factura = _mapper.Map<Factura>(facturaViewModel);
             factura.VentaId = venta.Id;
             factura.Numero = await _numberGenerator.GenerarNumeroFacturaAsync(factura.Tipo);
+            factura.Subtotal = venta.Subtotal;
+            factura.IVA = venta.IVA;
+            factura.Total = venta.Total;
 
             _context.Facturas.Add(factura);
 
@@ -1684,10 +1692,11 @@ namespace TheBuryProject.Services
             foreach (var detalle in detalles)
             {
                 comisionesPorProductoId.TryGetValue(detalle.ProductoId, out var porcentaje);
+                var baseComision = detalle.SubtotalFinal > 0m ? detalle.SubtotalFinal : detalle.Subtotal;
 
                 detalle.ComisionPorcentajeAplicada = porcentaje;
                 detalle.ComisionMonto = Math.Round(
-                    detalle.Subtotal * porcentaje / 100m,
+                    baseComision * porcentaje / 100m,
                     2,
                     MidpointRounding.AwayFromZero);
             }

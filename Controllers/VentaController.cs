@@ -2,8 +2,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -37,6 +39,7 @@ namespace TheBuryProject.Controllers
         private readonly ICajaService _cajaService;
         private readonly VentaViewBagBuilder _viewBagBuilder;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
+        private readonly AppDbContext _context;
 
         #region Helpers de caja
 
@@ -75,7 +78,8 @@ namespace TheBuryProject.Controllers
             ICurrentUserService currentUser,
             ICajaService cajaService,
             VentaViewBagBuilder viewBagBuilder,
-            IContratoVentaCreditoService contratoVentaCreditoService)
+            IContratoVentaCreditoService contratoVentaCreditoService,
+            AppDbContext context)
         {
             _ventaService = ventaService;
             _logger = logger;
@@ -89,6 +93,7 @@ namespace TheBuryProject.Controllers
             _cajaService = cajaService;
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
+            _context = context;
         }
 
         #endregion
@@ -1159,7 +1164,8 @@ namespace TheBuryProject.Controllers
                     Tipo = TipoFactura.B,
                     Subtotal = venta.Subtotal,
                     IVA = venta.IVA,
-                    Total = venta.Total
+                    Total = venta.Total,
+                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
                 };
 
                 ViewBag.Venta = venta;
@@ -1263,6 +1269,27 @@ namespace TheBuryProject.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ComprobanteFactura(int facturaId)
+        {
+            var factura = await _context.Facturas
+                .AsNoTracking()
+                .Include(f => f.Venta)
+                    .ThenInclude(v => v.Cliente)
+                .Include(f => f.Venta)
+                    .ThenInclude(v => v.Detalles.Where(d => !d.IsDeleted))
+                    .ThenInclude(d => d.Producto)
+                .FirstOrDefaultAsync(f => f.Id == facturaId && !f.IsDeleted);
+
+            if (factura == null)
+            {
+                return NotFound();
+            }
+
+            var viewModel = FacturaComprobanteBuilder.Build(factura);
+            return View("ComprobanteFactura_tw", viewModel);
         }
 
         #endregion

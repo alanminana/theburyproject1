@@ -1,0 +1,226 @@
+@model TheBuryProject.ViewModels.ReporteMovimientosValorizadosViewModel
+@using TheBuryProject.Models.Enums
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Movimientos valorizados";
+    var f = Model?.Filtros ?? new TheBuryProject.ViewModels.ReporteMovimientosValorizadosFiltroViewModel();
+    var productos = ViewBag.Productos as SelectList ?? new SelectList(Enumerable.Empty<object>());
+    var tipos = ViewBag.TiposMovimiento as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var fuentes = ViewBag.FuentesCosto as SelectList ?? new SelectList(Enumerable.Empty<object>());
+
+    string ImpactoColor(decimal value) => value switch
+    {
+        > 0 => "text-emerald-400",
+        < 0 => "text-rose-400",
+        _ => "text-slate-400"
+    };
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Movimientos valorizados</h1>
+            <p class="text-sm text-slate-400">Costos historicos de movimientos del periodo. No representa valor de inventario actual.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3 text-sm text-amber-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">warning</span>@TempData["Warning"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                Filtros
+            </h2>
+        </div>
+        <div class="px-6 py-5">
+            <form asp-action="MovimientosValorizados" method="post">
+                @Html.AntiForgeryToken()
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Desde</label>
+                        <input type="date" name="FechaDesde" value="@f.FechaDesde?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Hasta</label>
+                        <input type="date" name="FechaHasta" value="@f.FechaHasta?.ToString("yyyy-MM-dd")"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Producto</label>
+                        <select name="ProductoId"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            @foreach (var item in productos)
+                            {
+                                <option value="@item.Value" selected="@(f.ProductoId?.ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Tipo</label>
+                        <select name="Tipo"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todos</option>
+                            @foreach (var item in tipos)
+                            {
+                                <option value="@item.Value" selected="@(f.Tipo.HasValue && ((int)f.Tipo.Value).ToString() == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Fuente costo</label>
+                        <select name="FuenteCosto"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Todas</option>
+                            @foreach (var item in fuentes)
+                            {
+                                <option value="@item.Value" selected="@(f.FuenteCosto == item.Value ? "selected" : null)">@item.Text</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-400">Texto</label>
+                        <input type="search" name="Texto" value="@f.Texto" placeholder="Producto, referencia o motivo"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                </div>
+
+                <div class="mt-5 flex flex-wrap justify-end gap-2">
+                    <a asp-action="MovimientosValorizados"
+                       class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800">
+                        <span class="material-symbols-outlined text-base">restart_alt</span>
+                        Limpiar
+                    </a>
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-base">search</span>
+                        Generar reporte
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model != null && Model.Items.Any())
+    {
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Movimientos</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">@Model.CantidadMovimientos</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-success">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Entradas</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-400">$@Model.EntradasValorizadas.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Salidas</p>
+                <p class="mt-1 text-2xl font-bold text-rose-400">$@Model.SalidasValorizadas.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Ajustes netos</p>
+                <p class="mt-1 text-2xl font-bold @ImpactoColor(Model.AjustesValorizadosNetos)">$@Model.AjustesValorizadosNetos.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Neto valorizado</p>
+                <p class="mt-1 text-2xl font-bold @ImpactoColor(Model.NetoValorizado)">$@Model.NetoValorizado.ToString("N2")</p>
+            </div>
+            <div class="card-erp-metric card-erp-metric-warning">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Sin costo</p>
+                <p class="mt-1 text-2xl font-bold text-amber-400">@Model.MovimientosSinCostoInformado</p>
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <a asp-action="ExportarMovimientosValorizadosExcel"
+               asp-route-FechaDesde="@f.FechaDesde?.ToString("yyyy-MM-dd")"
+               asp-route-FechaHasta="@f.FechaHasta?.ToString("yyyy-MM-dd")"
+               asp-route-ProductoId="@f.ProductoId"
+               asp-route-Tipo="@f.Tipo"
+               asp-route-FuenteCosto="@f.FuenteCosto"
+               asp-route-Texto="@f.Texto"
+               class="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900/20 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-900/40 transition-colors">
+                <span class="material-symbols-outlined text-base">download</span>
+                Exportar Excel
+            </a>
+        </div>
+
+        <section class="card-erp-panel">
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">swap_vert</span>
+                    Detalle de movimientos
+                    <span class="ml-auto text-xs font-normal text-slate-400">@Model.Items.Count registros</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" style="min-width: 72rem;">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-800/50">
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Fecha</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Producto</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Cantidad</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Costo unit.</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Costo total</th>
+                            <th class="px-4 py-3 text-right font-medium text-slate-400">Impacto</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Fuente</th>
+                            <th class="px-4 py-3 text-left font-medium text-slate-400">Referencia / motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="px-4 py-3 text-slate-400">@item.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-slate-100">@item.TipoDescripcion</td>
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-100">@item.ProductoNombre</p>
+                                    <p class="font-mono text-xs text-slate-500">@item.ProductoCodigo</p>
+                                </td>
+                                <td class="px-4 py-3 text-right text-slate-300">@item.Cantidad.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right text-slate-300">$@item.CostoUnitarioAlMomento.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right text-slate-100">$@item.CostoTotalAlMomento.ToString("N2")</td>
+                                <td class="px-4 py-3 text-right font-semibold @ImpactoColor(item.ImpactoValorizado)">$@item.ImpactoValorizado.ToString("N2")</td>
+                                <td class="px-4 py-3 text-slate-400">@item.FuenteCosto</td>
+                                <td class="px-4 py-3 text-slate-400">
+                                    <span>@(item.Referencia ?? "-")</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Motivo))
+                                    {
+                                        <span class="block text-xs text-slate-500">@item.Motivo</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="rounded-xl border border-slate-800 bg-slate-800/50 px-6 py-12 text-center text-sm text-slate-400">
+            <span class="material-symbols-outlined text-4xl block mb-3">swap_vert</span>
+            Selecciona los filtros y genera el reporte para ver movimientos valorizados.
+        </div>
+    }
+</div>
