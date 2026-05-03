@@ -55,50 +55,6 @@ file sealed class StubCajaService : ICajaService
 }
 
 // ---------------------------------------------------------------------------
-// Stub de IPrecioService — configurable por test
-// ---------------------------------------------------------------------------
-
-file sealed class StubPrecioServiceP : IPrecioService
-{
-    private readonly ListaPrecio? _lista;
-    public StubPrecioServiceP(ListaPrecio? lista) => _lista = lista;
-    public Task<ListaPrecio?> GetListaPredeterminadaAsync() => Task.FromResult(_lista);
-    public Task<List<ListaPrecio>> GetAllListasAsync(bool soloActivas = true) => throw new NotImplementedException();
-    public Task<ListaPrecio?> GetListaByIdAsync(int id) => throw new NotImplementedException();
-    public Task<ListaPrecio> CreateListaAsync(ListaPrecio lista) => throw new NotImplementedException();
-    public Task<ListaPrecio> UpdateListaAsync(ListaPrecio lista, byte[] rowVersion) => throw new NotImplementedException();
-    public Task<bool> DeleteListaAsync(int id, byte[] rowVersion) => throw new NotImplementedException();
-    public Task<ProductoPrecioLista?> GetPrecioVigenteAsync(int productoId, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<Dictionary<int, ProductoPrecioLista>> GetPreciosVigentesBatchAsync(IEnumerable<int> productoIds, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<List<ProductoPrecioLista>> GetPreciosProductoAsync(int productoId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<List<ProductoPrecioLista>> GetHistorialPreciosAsync(int productoId, int listaId) => throw new NotImplementedException();
-    public Task<ProductoPrecioLista> SetPrecioManualAsync(int productoId, int listaId, decimal precio, decimal costo, DateTime? vigenciaDesde = null, string? notas = null) => throw new NotImplementedException();
-    public Task<decimal> CalcularPrecioAutomaticoAsync(int productoId, int listaId, decimal costo) => throw new NotImplementedException();
-    public Task<ResultadoAplicacionPrecios> AplicarCambioPrecioDirectoAsync(AplicarCambioPrecioDirectoViewModel model) => throw new NotImplementedException();
-    public Task<List<CambioPrecioEvento>> GetCambioPrecioEventosAsync(int take = 200) => throw new NotImplementedException();
-    public Task<List<CambioPrecioDetalle>> GetCambiosPrecioProductoAsync(int productoId, int take = 50) => throw new NotImplementedException();
-    public Task<Dictionary<int, UltimoCambioProductoResumen>> GetUltimoCambioPorProductosAsync(IEnumerable<int> productoIds) => throw new NotImplementedException();
-    public Task<CambioPrecioEvento?> GetCambioPrecioEventoAsync(int eventoId) => throw new NotImplementedException();
-    public Task<(bool Exitoso, string Mensaje, int? EventoReversionId)> RevertirCambioPrecioEventoAsync(int eventoId) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> SimularCambioMasivoAsync(string nombre, TipoCambio tipoCambio, TipoAplicacion tipoAplicacion, decimal valorCambio, List<int> listasIds, List<int>? categoriaIds = null, List<int>? marcaIds = null, List<int>? productoIds = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch?> GetSimulacionAsync(int batchId) => throw new NotImplementedException();
-    public Task<List<PriceChangeItem>> GetItemsSimulacionAsync(int batchId, int skip = 0, int take = 50) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> AprobarBatchAsync(int batchId, string aprobadoPor, byte[] rowVersion, string? notas = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> RechazarBatchAsync(int batchId, string rechazadoPor, byte[] rowVersion, string motivo) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> CancelarBatchAsync(int batchId, string canceladoPor, byte[] rowVersion, string? motivo = null) => throw new NotImplementedException();
-    public Task<bool> RequiereAutorizacionAsync(int batchId) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> AplicarBatchAsync(int batchId, string aplicadoPor, byte[] rowVersion, DateTime? fechaVigencia = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> RevertirBatchAsync(int batchId, string revertidoPor, byte[] rowVersion, string motivo) => throw new NotImplementedException();
-    public Task<List<PriceChangeBatch>> GetBatchesAsync(EstadoBatch? estado = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, int skip = 0, int take = 50) => throw new NotImplementedException();
-    public Task<Dictionary<string, object>> GetEstadisticasBatchAsync(int batchId) => throw new NotImplementedException();
-    public Task<byte[]> ExportarHistorialPreciosAsync(List<int> productoIds, DateTime fechaDesde, DateTime fechaHasta) => throw new NotImplementedException();
-    public Task<(bool esValido, string? mensaje)> ValidarMargenMinimoAsync(decimal precio, decimal costo, int listaId) => throw new NotImplementedException();
-    public decimal CalcularMargen(decimal precio, decimal costo) => throw new NotImplementedException();
-    public decimal AplicarRedondeo(decimal precio, string? reglaRedondeo = null) => throw new NotImplementedException();
-    public Task<List<int>> GetBatchIdsByProductoAsync(int productoId) => throw new NotImplementedException();
-}
-
-// ---------------------------------------------------------------------------
 // Stub de ICurrentUserService
 // ---------------------------------------------------------------------------
 
@@ -125,7 +81,7 @@ file sealed class StubCurrentUserServiceP : ICurrentUserService
 /// Dependencias resueltas:
 ///   - IMapper real (MappingProfile)
 ///   - ICajaService stub (ObtenerAperturaActivaParaUsuarioAsync devuelve AperturaCaja { Id=1 })
-///   - IPrecioService stub (GetListaPredeterminadaAsync configurable por test)
+///   - IPrecioVigenteResolver real sobre SQLite :memory:
 ///   - ICurrentUserService stub (GetUsername = "testuser", IsAuthenticated = true)
 ///   - SQLite :memory: con EnsureCreated()
 ///   - TipoPago = Efectivo (evita bloque CreditoPersonal y CapturarSnapshotLimiteCreditoAsync)
@@ -149,8 +105,7 @@ public class VentaServicePrecioTests
 
             var mapper = CreateMapper();
             var cajaStub = new StubCajaService(apertura);
-            var precioStub = new StubPrecioServiceP(null);
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
+            var svc = BuildService(ctx, mapper, cajaStub);
 
             await svc.CreateAsync(BuildViewModel(
                 cliente.Id,
@@ -322,8 +277,7 @@ public class VentaServicePrecioTests
     private static VentaService BuildService(
         AppDbContext ctx,
         IMapper mapper,
-        ICajaService cajaService,
-        IPrecioService precioService)
+        ICajaService cajaService)
     {
         var logger = NullLogger<VentaService>.Instance;
         var validator = new VentaValidator();
@@ -339,12 +293,13 @@ public class VentaServicePrecioTests
             financialService,
             validator,
             numberGenerator,
-            precioService,
+            new PrecioVigenteResolver(ctx),
             CreateCurrentUserService(),
             null!,                  // IValidacionVentaService — solo para CreditoPersonal
             cajaService,
             null!,                  // ICreditoDisponibleService — solo para CreditoPersonal
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     private static VentaViewModel BuildViewModel(int clienteId, int productoId) => new()
@@ -418,9 +373,7 @@ public class VentaServicePrecioTests
 
             var mapper = CreateMapper();
             var cajaStub = new StubCajaService(apertura);
-            var precioStub = new StubPrecioServiceP(new ListaPrecio { Id = lista.Id });
-
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
+            var svc = BuildService(ctx, mapper, cajaStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -432,6 +385,59 @@ public class VentaServicePrecioTests
 
             Assert.Single(detalles);
             Assert.Equal(PrecioLista, detalles[0].PrecioUnitario);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_ConListaVigente_TrataPrecioListaComoFinalConIvaIncluido()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
+            producto.PrecioVenta = 999m;
+            producto.PorcentajeIVA = 21m;
+
+            var lista = new ListaPrecio
+            {
+                Nombre = "Lista Default",
+                Codigo = "LPDEFIVA",
+                Tipo = TipoListaPrecio.Contado,
+                Activa = true,
+                EsPredeterminada = true,
+                Orden = 1,
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            };
+            ctx.ListasPrecios.Add(lista);
+            await ctx.SaveChangesAsync();
+
+            ctx.ProductosPrecios.Add(new ProductoPrecioLista
+            {
+                ProductoId = producto.Id,
+                ListaId = lista.Id,
+                Precio = 1210m,
+                Costo = CostoFallback,
+                VigenciaDesde = DateTime.UtcNow.AddDays(-1),
+                EsVigente = true,
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            });
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
+
+            await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
+
+            var venta = await ctx.Ventas.AsNoTracking().SingleAsync();
+            var detalle = await ctx.VentaDetalles.AsNoTracking().SingleAsync(d => !d.IsDeleted);
+
+            Assert.Equal(1210m, detalle.PrecioUnitario);
+            Assert.Equal(1000m, detalle.PrecioUnitarioNeto);
+            Assert.Equal(210m, detalle.IVAUnitario);
+            Assert.Equal(1000m, venta.Subtotal);
+            Assert.Equal(210m, venta.IVA);
+            Assert.Equal(1210m, venta.Total);
         }
     }
 
@@ -474,9 +480,7 @@ public class VentaServicePrecioTests
 
             var mapper = CreateMapper();
             var cajaStub = new StubCajaService(apertura);
-            var precioStub = new StubPrecioServiceP(new ListaPrecio { Id = lista.Id });
-
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
+            var svc = BuildService(ctx, mapper, cajaStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -506,9 +510,8 @@ public class VentaServicePrecioTests
 
             var mapper = CreateMapper();
             var cajaStub = new StubCajaService(apertura);
-            var precioStub = new StubPrecioServiceP(null); // sin lista
 
-            var svc = BuildService(ctx, mapper, cajaStub, precioStub);
+            var svc = BuildService(ctx, mapper, cajaStub);
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -532,7 +535,7 @@ public class VentaServicePrecioTests
             producto.ComisionPorcentaje = 8m;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -556,7 +559,7 @@ public class VentaServicePrecioTests
             var productoB = await CrearProductoAsync(ctx, productoA, "P002", precioVenta: 400m, comisionPorcentaje: 3.5m);
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
             {
@@ -585,7 +588,7 @@ public class VentaServicePrecioTests
         await using (ctx) using (conn)
         {
             var (apertura, producto, cliente) = await SeedBaseAsync(ctx);
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -609,7 +612,7 @@ public class VentaServicePrecioTests
             producto.ComisionPorcentaje = 10m;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
             {
@@ -640,7 +643,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, producto.Id);
             model.Descuento = 20m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -666,7 +669,7 @@ public class VentaServicePrecioTests
             producto.ComisionPorcentaje = 8m;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -693,7 +696,7 @@ public class VentaServicePrecioTests
             producto.PorcentajeIVA = 21m;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -729,7 +732,7 @@ public class VentaServicePrecioTests
             producto.AlicuotaIVAId = alicuota.Id;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -760,7 +763,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, producto.Id);
             model.Descuento = 121m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -791,7 +794,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, producto.Id);
             model.Descuento = 10.50m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -821,7 +824,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, producto.Id);
             model.Descuento = 20m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -859,7 +862,7 @@ public class VentaServicePrecioTests
                 Detalle(producto0.Id, cantidad: 1, descuento: 0m)
             });
             model.Descuento = 142.05m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -888,7 +891,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, new[] { Detalle(producto.Id, cantidad: 2, descuento: 21m) });
             model.Descuento = 100m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -917,7 +920,7 @@ public class VentaServicePrecioTests
 
             var model = BuildViewModel(cliente.Id, producto.Id);
             model.Descuento = 200m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -950,7 +953,7 @@ public class VentaServicePrecioTests
                 Detalle(productoC.Id, cantidad: 1, descuento: 0m)
             });
             model.Descuento = 0.01m;
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(model);
 
@@ -974,7 +977,7 @@ public class VentaServicePrecioTests
             producto.PorcentajeIVA = 0m;
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto.Id));
 
@@ -1004,7 +1007,7 @@ public class VentaServicePrecioTests
             var producto0 = await CrearProductoAsync(ctx, producto21, "P000", 100m, 0m, porcentajeIVA: 0m);
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
             {
@@ -1035,7 +1038,7 @@ public class VentaServicePrecioTests
             var producto105 = await CrearProductoAsync(ctx, producto21, "P105U", 110.50m, 0m, alicuotaIVAId: alicuota105.Id);
             await ctx.SaveChangesAsync();
 
-            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura), new StubPrecioServiceP(null));
+            var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
             await svc.CreateAsync(BuildViewModel(cliente.Id, producto21.Id));
 
@@ -1078,3 +1081,7 @@ public class VentaServicePrecioTests
         }
     }
 }
+
+
+
+

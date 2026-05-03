@@ -155,12 +155,13 @@ public class VentaServiceFacturacionTests : IDisposable
             null!,   // IFinancialCalculationService
             new VentaValidator(),
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
-            null!,   // IPrecioService
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserFacturacion(),
             null!,   // IValidacionVentaService
             cajaService,
             null!,   // ICreditoDisponibleService
-            new StubContratoVentaCreditoService(existeContratoGenerado));
+            new StubContratoVentaCreditoService(existeContratoGenerado),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

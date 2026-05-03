@@ -164,19 +164,25 @@ public class CreditoServiceConsultasTests : IDisposable
         return cliente;
     }
 
-    private async Task<Credito> SeedCreditoAsync(int clienteId, decimal tasaInteres = 3m)
+    private async Task<Credito> SeedCreditoAsync(
+        int clienteId,
+        decimal tasaInteres = 3m,
+        EstadoCredito estado = EstadoCredito.Aprobado,
+        decimal saldoPendiente = 12_000m,
+        DateTime? fechaAprobacion = null)
     {
         var credito = new Credito
         {
             Numero = Guid.NewGuid().ToString("N")[..10],
             ClienteId = clienteId,
-            Estado = EstadoCredito.Aprobado,
+            Estado = estado,
             MontoSolicitado = 12_000m,
             MontoAprobado = 12_000m,
-            SaldoPendiente = 12_000m,
+            SaldoPendiente = saldoPendiente,
             TasaInteres = tasaInteres,
             CantidadCuotas = 3,
-            FechaSolicitud = DateTime.UtcNow
+            FechaSolicitud = DateTime.UtcNow,
+            FechaAprobacion = fechaAprobacion
         };
         _context.Creditos.Add(credito);
         await _context.SaveChangesAsync();
@@ -699,6 +705,110 @@ public class CreditoServiceConsultasTests : IDisposable
 
         Assert.Equal(2, resultado.Count);
         Assert.All(resultado, c => Assert.Equal(cliente1.Id, c.ClienteId));
+    }
+
+    [Fact]
+    public async Task GetCreditosDisponiblesParaVenta_ClienteConCreditosDisponibles_RetornaActivosYAprobadosOrdenadosPorFechaAprobacion()
+    {
+        var cliente = await SeedClienteAsync();
+        var anterior = await SeedCreditoAsync(
+            cliente.Id,
+            estado: EstadoCredito.Activo,
+            saldoPendiente: 5_000m,
+            fechaAprobacion: new DateTime(2026, 1, 1));
+        var posterior = await SeedCreditoAsync(
+            cliente.Id,
+            estado: EstadoCredito.Aprobado,
+            saldoPendiente: 8_000m,
+            fechaAprobacion: new DateTime(2026, 2, 1));
+
+        var resultado = await _service.GetCreditosDisponiblesParaVentaAsync(cliente.Id);
+
+        Assert.Equal(2, resultado.Count);
+        Assert.Equal(posterior.Id, resultado[0].Id);
+        Assert.Equal(anterior.Id, resultado[1].Id);
+        Assert.All(resultado, c => Assert.True(c.Disponible));
+    }
+
+    [Fact]
+    public async Task GetCreditosDisponiblesParaVenta_CreditosSinSaldoNoAparecen()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Activo, saldoPendiente: 0m);
+        var disponible = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Activo, saldoPendiente: 1_000m);
+
+        var resultado = await _service.GetCreditosDisponiblesParaVentaAsync(cliente.Id);
+
+        var unico = Assert.Single(resultado);
+        Assert.Equal(disponible.Id, unico.Id);
+    }
+
+    [Fact]
+    public async Task GetCreditosDisponiblesParaVenta_CreditosNoDisponiblesNoAparecen()
+    {
+        var cliente = await SeedClienteAsync();
+        await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Cancelado, saldoPendiente: 5_000m);
+        await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Rechazado, saldoPendiente: 5_000m);
+        await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Finalizado, saldoPendiente: 5_000m);
+        var disponible = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Aprobado, saldoPendiente: 5_000m);
+
+        var resultado = await _service.GetCreditosDisponiblesParaVentaAsync(cliente.Id);
+
+        var unico = Assert.Single(resultado);
+        Assert.Equal(disponible.Id, unico.Id);
+    }
+
+    [Fact]
+    public async Task GetCreditoParaVenta_Inexistente_RetornaNull()
+    {
+        var resultado = await _service.GetCreditoParaVentaAsync(99_999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditoParaVenta_NoDisponible_RetornaResultadoMarcadoNoDisponible()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Cancelado, saldoPendiente: 5_000m);
+
+        var resultado = await _service.GetCreditoParaVentaAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado!.Id);
+        Assert.Equal(EstadoCredito.Cancelado, resultado.Estado);
+        Assert.False(resultado.Disponible);
+    }
+
+    [Fact]
+    public async Task GetCreditoParaVenta_Disponible_RetornaDatosCorrectos()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, tasaInteres: 4m, estado: EstadoCredito.Aprobado, saldoPendiente: 7_500m);
+
+        var resultado = await _service.GetCreditoParaVentaAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(credito.Id, resultado!.Id);
+        Assert.Equal(credito.Numero, resultado.Numero);
+        Assert.Equal(12_000m, resultado.MontoAprobado);
+        Assert.Equal(7_500m, resultado.SaldoPendiente);
+        Assert.Equal(4m, resultado.TasaInteres);
+        Assert.Equal(EstadoCredito.Aprobado, resultado.Estado);
+        Assert.True(resultado.Disponible);
+    }
+
+    [Fact]
+    public async Task GetCreditoParaVenta_ActivoSinSaldo_ConservaComportamientoLegacyDisponible()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado: EstadoCredito.Activo, saldoPendiente: 0m);
+
+        var resultado = await _service.GetCreditoParaVentaAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0m, resultado!.SaldoPendiente);
+        Assert.True(resultado.Disponible);
     }
 
     // =========================================================================

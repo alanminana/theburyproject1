@@ -49,6 +49,8 @@
         el('prod-edit-precioCompra').value = data.precioCompra || 0;
         el('prod-edit-precioVenta').value  = data.precioVenta || 0;
         el('prod-edit-comisionPorcentaje').value = data.comisionPorcentaje || 0;
+        var maxCuotasEl = el('prod-edit-maxCuotasSinInteres');
+        if (maxCuotasEl) maxCuotasEl.value = data.maxCuotasSinInteresPermitidas != null ? String(data.maxCuotasSinInteresPermitidas) : '';
         el('prod-edit-stockActual').value  = data.stockActual || 0;
         el('prod-edit-stockMinimo').value  = data.stockMinimo || 0;
         el('prod-edit-activo').checked     = !!data.activo;
@@ -75,6 +77,8 @@
 
         var form = el(FORM_ID);
         if (form) form.action = '/Producto/EditAjax/' + data.id;
+
+        renderContextoPrecio(data);
     }
 
     function populateCategoriaSelect(categoriaId, subcategoriaId, subcategoriaNombre) {
@@ -224,6 +228,30 @@
         if (fin) fin.value = (pv * (1 + iva / 100)).toFixed(2).replace('.', ',');
     }
 
+    // ── Contexto de precio vigente ──────────────────────────────
+
+    function renderContextoPrecio(data) {
+        var texto = el('prod-edit-precio-contexto-texto');
+        if (!texto) return;
+        while (texto.firstChild) texto.removeChild(texto.firstChild);
+        if (data.tienePrecioLista) {
+            var precio = Number(data.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            var lista = data.listaPrecioActualNombre || 'lista';
+            texto.appendChild(document.createTextNode('Precio vigente actual: '));
+            var strong = document.createElement('strong');
+            strong.className = 'text-primary font-bold';
+            strong.textContent = '$ ' + precio;
+            texto.appendChild(strong);
+            texto.appendChild(document.createTextNode(' por lista '));
+            var em = document.createElement('em');
+            em.textContent = lista;
+            texto.appendChild(em);
+            texto.appendChild(document.createTextNode('. Este formulario modifica solo el precio base/fallback.'));
+        } else {
+            texto.textContent = 'La venta usa este precio base/fallback.';
+        }
+    }
+
     // ── Actualizar fila en tabla ────────────────────────────────
 
     function updateRow(entity) {
@@ -255,10 +283,50 @@
         if (tds[3]) tds[3].textContent = entity.categoriaNombre || '—';
         // td[4] = Marca
         if (tds[4]) tds[4].textContent = entity.marcaNombre || '—';
-        // td[6] = Precio
+        // td[6] = Precio vigente + base/fallback + comisión
         if (tds[6]) {
             var priceEl = tds[6].querySelector('.font-bold');
-            if (priceEl) priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (priceEl) {
+                priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            var labelEl = tds[6].querySelector('[data-prod-precio-label]');
+            var baseLabelEl = tds[6].querySelector('[data-prod-precio-base-label]');
+            if (entity.tienePrecioLista) {
+                var baseFormatted = Number(entity.precioBase || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                var listaNombre = entity.listaPrecioActualNombre || '';
+                if (labelEl) {
+                    labelEl.textContent = 'Vigente por lista: ' + listaNombre;
+                }
+                if (baseLabelEl) {
+                    baseLabelEl.textContent = 'Base/fallback: $ ' + baseFormatted;
+                } else if (labelEl) {
+                    var newBase = document.createElement('p');
+                    newBase.setAttribute('data-prod-precio-base-label', '');
+                    newBase.className = 'text-[10px] text-slate-500';
+                    newBase.textContent = 'Base/fallback: $ ' + baseFormatted;
+                    labelEl.insertAdjacentElement('afterend', newBase);
+                }
+            } else {
+                if (labelEl) labelEl.textContent = 'Base/fallback';
+                if (baseLabelEl) baseLabelEl.remove();
+            }
+            var margenEl = tds[6].querySelector('[data-prod-margen]');
+            var margen = Number(entity.margenPorcentaje || 0);
+            if (margen > 0) {
+                var margenText = '+' + margen.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '% margen';
+                if (margenEl) {
+                    margenEl.textContent = margenText;
+                } else {
+                    var newMargen = document.createElement('p');
+                    newMargen.setAttribute('data-prod-margen', '');
+                    newMargen.className = 'text-[10px] text-emerald-400';
+                    newMargen.textContent = margenText;
+                    var commParent = tds[6].querySelector('[data-producto-comision]')?.closest('p');
+                    if (commParent) commParent.insertAdjacentElement('beforebegin', newMargen);
+                }
+            } else if (margenEl) {
+                margenEl.remove();
+            }
             var commissionEl = tds[6].querySelector('[data-producto-comision]');
             if (commissionEl) {
                 var commission = Number(entity.comisionPorcentaje || 0);

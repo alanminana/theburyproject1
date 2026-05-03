@@ -243,6 +243,38 @@ public class PrecioServiceBatchTests : IDisposable
         Assert.Equal(0, batch.CantidadProductos);
     }
 
+    [Fact]
+    public async Task Simular_ProductoSinPrecioEnLista_NoActualizaPrecioBaseProducto()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+        var lista = await SeedListaAsync();
+
+        var batch = await _service.SimularCambioMasivoAsync(
+            nombre: "Sin precio lista",
+            tipoCambio: TipoCambio.PorcentajeSobrePrecioActual,
+            tipoAplicacion: TipoAplicacion.Aumento,
+            valorCambio: 10m,
+            listasIds: new List<int> { lista.Id },
+            productoIds: new List<int> { prod.Id });
+
+        await _context.Entry(batch).ReloadAsync();
+        var aprobado = await _service.AprobarBatchAsync(batch.Id, "sup", batch.RowVersion!);
+        await _context.Entry(aprobado).ReloadAsync();
+
+        var aplicado = await _service.AplicarBatchAsync(aprobado.Id, "admin", aprobado.RowVersion!);
+
+        _context.ChangeTracker.Clear();
+        var prodBd = await _context.Productos.SingleAsync(p => p.Id == prod.Id);
+        var preciosLista = await _context.ProductosPrecios
+            .Where(p => p.ProductoId == prod.Id && p.ListaId == lista.Id)
+            .ToListAsync();
+
+        Assert.Equal(EstadoBatch.Aplicado, aplicado.Estado);
+        Assert.Equal(0, aplicado.CantidadProductos);
+        Assert.Equal(100m, prodBd.PrecioVenta);
+        Assert.Empty(preciosLista);
+    }
+
     // -------------------------------------------------------------------------
     // AprobarBatchAsync
     // -------------------------------------------------------------------------

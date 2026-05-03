@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260502082719_AddDatosTarjetaMaxCuotasSnapshot")]
+    partial class AddDatosTarjetaMaxCuotasSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -215,7 +218,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ModuloId");
 
-                    b.ToTable("AccionesModulo", (string)null);
+                    b.ToTable("AccionesModulo");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.AcuerdoPago", b =>
@@ -801,7 +804,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("CajaId");
 
-                    b.ToTable("AperturasCaja", (string)null);
+                    b.ToTable("AperturasCaja");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ApplicationUser", b =>
@@ -974,7 +977,7 @@ namespace TheBuryProject.Migrations
                         .IsUnique()
                         .HasFilter("IsDeleted = 0");
 
-                    b.ToTable("Cajas", (string)null);
+                    b.ToTable("Cajas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.CambioPrecioDetalle", b =>
@@ -1173,7 +1176,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Categorias", (string)null);
+                    b.ToTable("Categorias");
 
                     b.HasData(
                         new
@@ -1286,7 +1289,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ProveedorId");
 
-                    b.ToTable("Cheques", (string)null);
+                    b.ToTable("Cheques");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.CierreCaja", b =>
@@ -1380,7 +1383,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("TieneDiferencia");
 
-                    b.ToTable("CierresCaja", (string)null);
+                    b.ToTable("CierresCaja");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.Cliente", b =>
@@ -1613,7 +1616,7 @@ namespace TheBuryProject.Migrations
                         .IsUnique()
                         .HasFilter("IsDeleted = 0");
 
-                    b.ToTable("Clientes", (string)null);
+                    b.ToTable("Clientes");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ClienteCreditoConfiguracion", b =>
@@ -2567,7 +2570,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("PerfilCreditoAplicadoId");
 
-                    b.ToTable("Creditos", (string)null);
+                    b.ToTable("Creditos");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.Cuota", b =>
@@ -2651,7 +2654,7 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("CreditoId", "NumeroCuota")
                         .IsUnique();
 
-                    b.ToTable("Cuotas", (string)null);
+                    b.ToTable("Cuotas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.CuotaAcuerdo", b =>
@@ -2996,7 +2999,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("VentaId");
 
-                    b.ToTable("Devoluciones", (string)null);
+                    b.ToTable("Devoluciones");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.DevolucionDetalle", b =>
@@ -3167,7 +3170,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("TipoDocumento");
 
-                    b.ToTable("DocumentosCliente", (string)null);
+                    b.ToTable("DocumentosCliente");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.EvaluacionCredito", b =>
@@ -3423,7 +3426,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("GaranteClienteId");
 
-                    b.ToTable("Garantes", (string)null);
+                    b.ToTable("Garantes");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.Garantia", b =>
@@ -3500,7 +3503,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("VentaDetalleId");
 
-                    b.ToTable("Garantias", (string)null);
+                    b.ToTable("Garantias");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.HistorialContacto", b =>
@@ -3823,7 +3826,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Marcas", (string)null);
+                    b.ToTable("Marcas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ModuloSistema", b =>
@@ -3885,7 +3888,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ModulosSistema", (string)null);
+                    b.ToTable("ModulosSistema");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.MovimientoCaja", b =>
@@ -3963,7 +3966,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("Tipo");
 
-                    b.ToTable("MovimientosCaja", (string)null);
+                    b.ToTable("MovimientosCaja");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.MovimientoStock", b =>
@@ -4047,7 +4050,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ProductoId");
 
-                    b.ToTable("MovimientosStock", (string)null);
+                    b.ToTable("MovimientosStock");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.NotaCredito", b =>
@@ -4211,7 +4214,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("UsuarioDestino");
 
-                    b.ToTable("Notificaciones", (string)null);
+                    b.ToTable("Notificaciones");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.OrdenCompra", b =>
@@ -4291,7 +4294,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("ProveedorId");
 
-                    b.ToTable("OrdenesCompra", (string)null);
+                    b.ToTable("OrdenesCompra");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.OrdenCompraDetalle", b =>
@@ -4651,7 +4654,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("UsuarioModificacion");
 
-                    b.ToTable("PreciosHistoricos", (string)null);
+                    b.ToTable("PreciosHistoricos");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.PriceChangeBatch", b =>
@@ -5018,7 +5021,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("SubmarcaId");
 
-                    b.ToTable("Productos", (string)null);
+                    b.ToTable("Productos");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCaracteristica", b =>
@@ -5253,7 +5256,7 @@ namespace TheBuryProject.Migrations
                         .IsUnique()
                         .HasFilter("IsDeleted = 0");
 
-                    b.ToTable("Proveedores", (string)null);
+                    b.ToTable("Proveedores");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProveedorCategoria", b =>
@@ -5298,7 +5301,7 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("ProveedorId", "CategoriaId")
                         .IsUnique();
 
-                    b.ToTable("ProveedorCategorias", (string)null);
+                    b.ToTable("ProveedorCategorias");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProveedorMarca", b =>
@@ -5343,7 +5346,7 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("ProveedorId", "MarcaId")
                         .IsUnique();
 
-                    b.ToTable("ProveedorMarcas", (string)null);
+                    b.ToTable("ProveedorMarcas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProveedorProducto", b =>
@@ -5388,7 +5391,7 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("ProveedorId", "ProductoId")
                         .IsUnique();
 
-                    b.ToTable("ProveedorProductos", (string)null);
+                    b.ToTable("ProveedorProductos");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.PuntajeCreditoLimite", b =>
@@ -5684,7 +5687,7 @@ namespace TheBuryProject.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("RolPermisos", (string)null);
+                    b.ToTable("RolPermisos");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.SeguridadEventoAuditoria", b =>

@@ -8,6 +8,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Requests;
 
@@ -170,6 +171,69 @@ namespace TheBuryProject.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener créditos del cliente: {ClienteId}", clienteId);
+                throw;
+            }
+        }
+
+        public async Task<List<CreditoVentaResultado>> GetCreditosDisponiblesParaVentaAsync(int clienteId)
+        {
+            try
+            {
+                return await _context.Creditos
+                    .AsNoTracking()
+                    .Where(c => c.ClienteId == clienteId &&
+                                !c.IsDeleted &&
+                                c.Cliente != null &&
+                                !c.Cliente.IsDeleted &&
+                                (c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Aprobado) &&
+                                c.SaldoPendiente > 0)
+                    .OrderByDescending(c => c.FechaAprobacion ?? DateTime.MinValue)
+                    .Select(c => new CreditoVentaResultado
+                    {
+                        Id = c.Id,
+                        Numero = c.Numero,
+                        MontoAprobado = c.MontoAprobado,
+                        SaldoPendiente = c.SaldoPendiente,
+                        TasaInteres = c.TasaInteres,
+                        Estado = c.Estado,
+                        Disponible = true
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener créditos disponibles para venta del cliente: {ClienteId}", clienteId);
+                throw;
+            }
+        }
+
+        public async Task<CreditoVentaResultado?> GetCreditoParaVentaAsync(int creditoId)
+        {
+            try
+            {
+                var credito = await _context.Creditos
+                    .AsNoTracking()
+                    .Where(c => c.Id == creditoId &&
+                                !c.IsDeleted &&
+                                c.Cliente != null &&
+                                !c.Cliente.IsDeleted)
+                    .Select(c => new CreditoVentaResultado
+                    {
+                        Id = c.Id,
+                        Numero = c.Numero,
+                        MontoAprobado = c.MontoAprobado,
+                        SaldoPendiente = c.SaldoPendiente,
+                        TasaInteres = c.TasaInteres,
+                        Estado = c.Estado,
+                        Disponible = c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Aprobado
+                    })
+                    .FirstOrDefaultAsync();
+
+                return credito;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener crédito para venta: {CreditoId}", creditoId);
                 throw;
             }
         }

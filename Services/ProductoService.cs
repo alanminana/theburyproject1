@@ -3,6 +3,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
@@ -18,20 +19,20 @@ namespace TheBuryProject.Services
         private readonly ILogger<ProductoService> _logger;
         private readonly IPrecioHistoricoService _precioHistoricoService;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IPrecioService _precioService;
+        private readonly IPrecioVigenteResolver _precioVigenteResolver;
 
         public ProductoService(
             AppDbContext context,
             ILogger<ProductoService> logger,
             IPrecioHistoricoService precioHistoricoService,
             ICurrentUserService currentUserService,
-            IPrecioService precioService)
+            IPrecioVigenteResolver precioVigenteResolver)
         {
             _context = context;
             _logger = logger;
             _precioHistoricoService = precioHistoricoService;
             _currentUserService = currentUserService;
-            _precioService = precioService;
+            _precioVigenteResolver = precioVigenteResolver;
         }
 
         #region CRUD Básico
@@ -378,6 +379,7 @@ namespace TheBuryProject.Services
                 existing.PorcentajeIVA = producto.PorcentajeIVA;
                 existing.AlicuotaIVAId = producto.AlicuotaIVAId;
                 existing.ComisionPorcentaje = producto.ComisionPorcentaje;
+                existing.MaxCuotasSinInteresPermitidas = producto.MaxCuotasSinInteresPermitidas;
                 existing.RequiereNumeroSerie = producto.RequiereNumeroSerie;
                 existing.StockMinimo = producto.StockMinimo;
 
@@ -694,19 +696,15 @@ namespace TheBuryProject.Services
                     orderBy: "nombre"))
                 .ToList();
 
-            var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-            var preciosBatch = listaPredeterminada != null
-                ? await _precioService.GetPreciosVigentesBatchAsync(
-                    productos.Select(p => p.Id), listaPredeterminada.Id)
-                : new Dictionary<int, ProductoPrecioLista>();
+            var preciosVigentes = await ResolverPreciosVigentesAsync(productos);
 
             var resultado = new List<ProductoVentaDto>(productos.Count);
 
             foreach (var producto in productos)
             {
-                var precioVenta = producto.PrecioVenta;
-                if (preciosBatch.TryGetValue(producto.Id, out var vigente))
-                    precioVenta = vigente.Precio;
+                var precioVenta = preciosVigentes.TryGetValue(producto.Id, out var precioVigente)
+                    ? precioVigente
+                    : producto.PrecioVenta;
 
                 if (soloConStock && producto.StockActual <= 0) continue;
                 if (precioMin.HasValue && precioVenta < precioMin.Value) continue;
@@ -742,6 +740,37 @@ namespace TheBuryProject.Services
             }
 
             return resultado.Take(limite);
+        }
+
+        public async Task<ProductoPrecioVentaResultado?> ObtenerPrecioVigenteParaVentaAsync(int productoId)
+        {
+            var producto = await GetByIdAsync(productoId);
+            if (producto == null || !producto.Activo)
+                return null;
+
+            var precioVigente = await _precioVigenteResolver.ResolverAsync(producto.Id);
+            var precioVenta = precioVigente?.PrecioFinalConIva ?? producto.PrecioVenta;
+
+            return new ProductoPrecioVentaResultado
+            {
+                ProductoId = producto.Id,
+                PrecioVenta = precioVenta,
+                FuentePrecio = precioVigente?.FuentePrecio ?? FuentePrecioVigente.ProductoPrecioBase,
+                ListaId = precioVigente?.ListaId,
+                Codigo = producto.Codigo,
+                Nombre = producto.Nombre,
+                StockActual = producto.StockActual
+            };
+        }
+
+        private async Task<Dictionary<int, decimal>> ResolverPreciosVigentesAsync(IEnumerable<Producto> productos)
+        {
+            var productosList = productos.ToList();
+            var precios = await _precioVigenteResolver.ResolverBatchAsync(productosList.Select(p => p.Id));
+
+            return precios.ToDictionary(
+                p => p.Key,
+                p => p.Value.PrecioFinalConIva);
         }
 
         #endregion

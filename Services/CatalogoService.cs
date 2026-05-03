@@ -1,6 +1,7 @@
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
@@ -16,6 +17,7 @@ namespace TheBuryProject.Services
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly IProductoService _productoService;
         private readonly IPrecioService _precioService;
+        private readonly IPrecioVigenteResolver _precioVigenteResolver;
         private readonly ILogger<CatalogoService> _logger;
         private readonly ICurrentUserService _currentUserService;
 
@@ -23,12 +25,14 @@ namespace TheBuryProject.Services
             ICatalogLookupService catalogLookupService,
             IProductoService productoService,
             IPrecioService precioService,
+            IPrecioVigenteResolver precioVigenteResolver,
             ILogger<CatalogoService> logger,
             ICurrentUserService currentUserService)
         {
             _catalogLookupService = catalogLookupService;
             _productoService = productoService;
             _precioService = precioService;
+            _precioVigenteResolver = precioVigenteResolver;
             _logger = logger;
             _currentUserService = currentUserService;
         }
@@ -64,15 +68,20 @@ namespace TheBuryProject.Services
 
             // 5. Obtener precios de todos los productos en batch (una sola query)
             var productoIds = productos.Select(p => p.Id).ToList();
-            var preciosBatch = listaActual != null
-                ? await _precioService.GetPreciosVigentesBatchAsync(productoIds, listaActual.Id)
-                : new Dictionary<int, ProductoPrecioLista>();
+            var listaPrecioIdParaResolver = filtros.ListaPrecioId.HasValue
+                ? listaActual?.Id
+                : null;
+            var preciosBatch = await _precioVigenteResolver.ResolverBatchAsync(
+                productoIds,
+                listaPrecioIdParaResolver);
 
             var filas = productos
                 .Select(producto =>
                 {
-                    preciosBatch.TryGetValue(producto.Id, out var precioLista);
-                    return CrearFilaCatalogo(producto, precioLista);
+                    preciosBatch.TryGetValue(producto.Id, out var precioVigente);
+                    var esDeLista = precioVigente?.FuentePrecio == FuentePrecioVigente.ProductoPrecioLista
+                        && precioVigente?.EsFallbackProductoBase == false;
+                    return CrearFilaCatalogo(producto, precioVigente, esDeLista ? listaActual?.Nombre : null);
                 })
                 .ToList();
 
@@ -128,26 +137,31 @@ namespace TheBuryProject.Services
             if (producto == null)
                 return null;
 
-            // Si no se especifica lista, usar la predeterminada
-            if (listaPrecioId == null)
+            var precioVigente = await _precioVigenteResolver.ResolverAsync(producto.Id, listaPrecioId);
+
+            string? listaNombre = null;
+            if (precioVigente?.FuentePrecio == FuentePrecioVigente.ProductoPrecioLista
+                && !precioVigente.EsFallbackProductoBase
+                && precioVigente.ListaId.HasValue)
             {
-                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-                listaPrecioId = listaPredeterminada?.Id;
+                var lista = await _precioService.GetListaByIdAsync(precioVigente.ListaId.Value);
+                listaNombre = lista?.Nombre;
             }
 
-            ProductoPrecioLista? precioListaUnico = null;
-            if (listaPrecioId.HasValue)
-                precioListaUnico = await _precioService.GetPrecioVigenteAsync(producto.Id, listaPrecioId.Value);
-
-            return CrearFilaCatalogo(producto, precioListaUnico);
+            return CrearFilaCatalogo(producto, precioVigente, listaNombre);
         }
 
         /// <summary>
         /// Crea una fila del catálogo a partir de un producto y su precio ya resuelto (puede ser null).
         /// </summary>
-        private static FilaCatalogo CrearFilaCatalogo(Producto producto, ProductoPrecioLista? precioLista)
+        private static FilaCatalogo CrearFilaCatalogo(
+            Producto producto,
+            PrecioVigenteResultado? precioVigente,
+            string? listaNombre = null)
         {
-            var precioActual = precioLista?.Precio ?? producto.PrecioVenta;
+            var precioActual = precioVigente?.PrecioFinalConIva ?? producto.PrecioVenta;
+            var tienePrecioLista = precioVigente?.FuentePrecio == FuentePrecioVigente.ProductoPrecioLista
+                && !precioVigente.EsFallbackProductoBase;
 
             var margen = producto.PrecioCompra > 0
                 ? Math.Round((precioActual - producto.PrecioCompra) / producto.PrecioCompra * 100, 2)
@@ -175,7 +189,8 @@ namespace TheBuryProject.Services
                 Costo = producto.PrecioCompra,
                 PrecioActual = precioActual,
                 PrecioBase = producto.PrecioVenta,
-                TienePrecioLista = precioLista != null,
+                TienePrecioLista = tienePrecioLista,
+                ListaPrecioActualNombre = tienePrecioLista ? listaNombre : null,
                 MargenPorcentaje = margen,
                 ComisionPorcentaje = producto.ComisionPorcentaje,
 

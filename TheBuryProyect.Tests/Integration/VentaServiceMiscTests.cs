@@ -53,12 +53,13 @@ public class VentaServiceMiscTests : IDisposable
             new FinancialCalculationService(),
             new VentaValidator(),
             numberGenerator,
-            null!,
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserMisc(),
             null!,
             null!,
             null!,
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

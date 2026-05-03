@@ -70,6 +70,7 @@
     const selectTarjeta = $('#select-tarjeta');
     const selectCuotasTarjeta = $('#select-cuotas-tarjeta');
     const panelTarjetaResumen = $('#panel-tarjeta-resumen');
+    const panelAvisoCuotasSinInteres = $('#panel-aviso-cuotas-sin-interes');
 
     const panelAvisoCredito = $('#panel-aviso-credito');
 
@@ -494,6 +495,7 @@
         }
 
         try {
+            const tarjetaId = parseInt(selectTarjeta?.value) || null;
             const body = {
                 detalles: detalles.map(d => ({
                     productoId: d.productoId,
@@ -502,11 +504,13 @@
                     descuento: d.descuento
                 })),
                 descuentoGeneral: 0,
-                descuentoEsPorcentaje: true
+                descuentoEsPorcentaje: true,
+                tarjetaId: tarjetaId
             };
 
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
             actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total);
+            aplicarLimiteCuotasSinInteres(result.maxCuotasSinInteresEfectivo ?? null, result.cuotasSinInteresLimitadasPorProducto ?? false);
         } catch {
             // Fallback visual only: do not infer IVA in the UI.
             const total = detalles.reduce((acc, d) => acc + d.subtotal, 0);
@@ -515,6 +519,29 @@
 
         // Update credit availability notice
         actualizarAvisoCredito();
+    }
+
+    function aplicarLimiteCuotasSinInteres(maxEfectivo, limitadoPorProducto) {
+        if (maxEfectivo == null) {
+            if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
+            return;
+        }
+
+        if (selectCuotasTarjeta) {
+            for (let i = selectCuotasTarjeta.options.length - 1; i >= 0; i--) {
+                if (parseInt(selectCuotasTarjeta.options[i].value) > maxEfectivo) {
+                    selectCuotasTarjeta.remove(i);
+                }
+            }
+            if (parseInt(selectCuotasTarjeta.value) > maxEfectivo) {
+                selectCuotasTarjeta.value = maxEfectivo;
+                calcularCuotasTarjeta();
+            }
+        }
+
+        if (panelAvisoCuotasSinInteres) {
+            limitadoPorProducto ? show(panelAvisoCuotasSinInteres) : hide(panelAvisoCuotasSinInteres);
+        }
     }
 
     function actualizarTotalesUI(subtotal, descuento, iva, total) {
@@ -570,12 +597,16 @@
 
     selectTarjeta?.addEventListener('change', async function () {
         const tarjetaId = parseInt(this.value);
-        if (!tarjetaId) { hide(panelTarjetaResumen); return; }
+        if (!tarjetaId) {
+            hide(panelTarjetaResumen);
+            if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
+            return;
+        }
 
         const info = tarjetaInfoCache.find(t => t.id === tarjetaId);
+        while (selectCuotasTarjeta.options.length) selectCuotasTarjeta.remove(0);
         if (info && info.permiteCuotas) {
             const maxCuotas = info.cantidadMaximaCuotas || 12;
-            selectCuotasTarjeta.innerHTML = '';
             for (let i = 1; i <= maxCuotas; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
@@ -583,9 +614,14 @@
                 selectCuotasTarjeta.appendChild(opt);
             }
         } else {
-            selectCuotasTarjeta.innerHTML = '<option value="1">1 Pago</option>';
+            const opt = document.createElement('option');
+            opt.value = '1';
+            opt.textContent = '1 Pago';
+            selectCuotasTarjeta.appendChild(opt);
         }
 
+        // Refresh totals with the new tarjetaId so the effective cuotas limit is applied
+        await recalcularTotales();
         calcularCuotasTarjeta();
     });
 

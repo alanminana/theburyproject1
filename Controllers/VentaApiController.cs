@@ -4,7 +4,6 @@ using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels.Requests;
 using TheBuryProject.ViewModels;
@@ -20,7 +19,6 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly ICreditoService _creditoService;
         private readonly IVentaService _ventaService;
-        private readonly IPrecioService _precioService;
         private readonly IClienteService _clienteService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IValidacionVentaService _validacionVentaService;
@@ -30,7 +28,6 @@ namespace TheBuryProject.Controllers
             IProductoService productoService,
             ICreditoService creditoService,
             IVentaService ventaService,
-            IPrecioService precioService,
             IClienteService clienteService,
             IConfiguracionPagoService configuracionPagoService,
             IValidacionVentaService validacionVentaService,
@@ -39,7 +36,6 @@ namespace TheBuryProject.Controllers
             _productoService = productoService;
             _creditoService = creditoService;
             _ventaService = ventaService;
-            _precioService = precioService;
             _clienteService = clienteService;
             _configuracionPagoService = configuracionPagoService;
             _validacionVentaService = validacionVentaService;
@@ -96,28 +92,21 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var producto = await _productoService.GetByIdAsync(id);
-                if (producto == null || !producto.Activo)
+                if (id <= 0)
+                    return BadRequest(new { error = "El identificador de producto debe ser válido" });
+
+                var precioProducto = await _productoService.ObtenerPrecioVigenteParaVentaAsync(id);
+                if (precioProducto == null)
                 {
                     return NotFound(new { error = "Producto no encontrado" });
                 }
 
-                decimal precioVenta = producto.PrecioVenta;
-
-                var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
-                if (listaPredeterminada != null)
-                {
-                    var vigente = await _precioService.GetPrecioVigenteAsync(producto.Id, listaPredeterminada.Id);
-                    if (vigente != null)
-                        precioVenta = vigente.Precio;
-                }
-
                 return Ok(new
                 {
-                    precioVenta,
-                    stockActual = producto.StockActual,
-                    codigo = producto.Codigo,
-                    nombre = producto.Nombre
+                    precioVenta = precioProducto.PrecioVenta,
+                    stockActual = precioProducto.StockActual,
+                    codigo = precioProducto.Codigo,
+                    nombre = precioProducto.Nombre
                 });
             }
             catch (Exception ex)
@@ -163,10 +152,10 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var creditos = (await _creditoService.GetByClienteIdAsync(clienteId))
-                    .Where(c => (c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Aprobado)
-                                && c.SaldoPendiente > 0)
-                    .OrderByDescending(c => c.FechaAprobacion ?? DateTime.MinValue)
+                if (clienteId <= 0)
+                    return BadRequest(new { error = "El identificador de cliente debe ser válido" });
+
+                var creditos = (await _creditoService.GetCreditosDisponiblesParaVentaAsync(clienteId))
                     .Select(c => new
                     {
                         id = c.Id,
@@ -197,16 +186,19 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                if (creditoId <= 0)
+                    return BadRequest(new { error = "El identificador de crédito debe ser válido" });
+
                 _logger.LogInformation("Obteniendo información del crédito {CreditoId}", creditoId);
 
-                var credito = await _creditoService.GetByIdAsync(creditoId);
+                var credito = await _creditoService.GetCreditoParaVentaAsync(creditoId);
 
                 if (credito == null)
                 {
                     return NotFound(new { error = "Crédito no encontrado" });
                 }
 
-                if (credito.Estado != EstadoCredito.Activo && credito.Estado != EstadoCredito.Aprobado)
+                if (!credito.Disponible)
                 {
                     _logger.LogWarning(
                         "El crédito {Numero} existe pero está en estado {Estado}",
@@ -237,6 +229,11 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                if (tarjetaId <= 0 || monto <= 0 || cuotas <= 0)
+                {
+                    return BadRequest(new { error = "Los parámetros para calcular cuotas deben ser válidos" });
+                }
+
                 var resultado = await _ventaService.CalcularCuotasTarjetaAsync(tarjetaId, monto, cuotas);
 
                 return Ok(new
@@ -258,7 +255,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                if (!ModelState.IsValid || request.Detalles.Count == 0)
+                if (request == null || !ModelState.IsValid || request.Detalles.Count == 0)
                 {
                     return BadRequest(new { error = "Debe especificar al menos un detalle para calcular los totales" });
                 }
@@ -267,6 +264,18 @@ namespace TheBuryProject.Controllers
                     request.Detalles,
                     request.DescuentoGeneral,
                     request.DescuentoEsPorcentaje);
+
+                if (request.TarjetaId.HasValue)
+                {
+                    var productoIds = request.Detalles.Select(d => d.ProductoId);
+                    var maxResult = await _configuracionPagoService.ObtenerMaxCuotasSinInteresEfectivoAsync(
+                        request.TarjetaId.Value, productoIds);
+                    if (maxResult != null)
+                    {
+                        totales.MaxCuotasSinInteresEfectivo = maxResult.MaxCuotas;
+                        totales.CuotasSinInteresLimitadasPorProducto = maxResult.LimitadoPorProducto;
+                    }
+                }
 
                 return Ok(totales);
             }
@@ -286,19 +295,19 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var tarjetas = await _configuracionPagoService.GetTarjetasActivasAsync();
+                var tarjetas = await _configuracionPagoService.GetTarjetasActivasParaVentaAsync();
 
                 var resultado = tarjetas.Select(t => new
                 {
                     id = t.Id,
-                    nombre = t.NombreTarjeta,
-                    tipo = t.TipoTarjeta,
+                    nombre = t.Nombre,
+                    tipo = t.Tipo,
                     permiteCuotas = t.PermiteCuotas,
                     cantidadMaximaCuotas = t.CantidadMaximaCuotas,
                     tipoCuota = t.TipoCuota,
-                    tasaInteres = t.TasaInteresesMensual,
-                    tieneRecargo = t.TieneRecargoDebito,
-                    porcentajeRecargo = t.PorcentajeRecargoDebito
+                    tasaInteres = t.TasaInteres,
+                    tieneRecargo = t.TieneRecargo,
+                    porcentajeRecargo = t.PorcentajeRecargo
                 });
 
                 return Ok(resultado);

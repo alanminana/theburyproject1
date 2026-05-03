@@ -130,12 +130,13 @@ public class VentaServiceGuardsTests
             financialService,
             validator,
             numberGenerator,
-            null!,                  // IPrecioService — no se alcanza en estos tests
+            new PrecioVigenteResolver(ctx),
             currentUserService,
             null!,                  // IValidacionVentaService
             cajaService,
             null!,                  // ICreditoDisponibleService
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     private static VentaViewModel MinimalViewModel() => new()

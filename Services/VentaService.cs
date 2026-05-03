@@ -22,7 +22,7 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<VentaService> _logger;
-        private readonly IPrecioService _precioService;
+        private readonly IPrecioVigenteResolver _precioVigenteResolver;
         private readonly IAlertaStockService _alertaStockService;
         private readonly IMovimientoStockService _movimientoStockService;
         private readonly IFinancialCalculationService _financialService;
@@ -33,6 +33,7 @@ namespace TheBuryProject.Services
         private readonly ICajaService _cajaService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
+        private readonly IConfiguracionPagoService _configuracionPagoService;
 
         public VentaService(
             AppDbContext context,
@@ -43,12 +44,13 @@ namespace TheBuryProject.Services
             IFinancialCalculationService financialService,
             IVentaValidator validator,
             VentaNumberGenerator numberGenerator,
-            IPrecioService precioService,
+            IPrecioVigenteResolver precioVigenteResolver,
             ICurrentUserService currentUserService,
             IValidacionVentaService validacionVentaService,
             ICajaService cajaService,
             ICreditoDisponibleService creditoDisponibleService,
-            IContratoVentaCreditoService contratoVentaCreditoService)
+            IContratoVentaCreditoService contratoVentaCreditoService,
+            IConfiguracionPagoService configuracionPagoService)
         {
             _context = context;
             _mapper = mapper;
@@ -58,12 +60,13 @@ namespace TheBuryProject.Services
             _financialService = financialService;
             _validator = validator;
             _numberGenerator = numberGenerator;
-            _precioService = precioService;
+            _precioVigenteResolver = precioVigenteResolver;
             _currentUserService = currentUserService;
             _validacionVentaService = validacionVentaService;
             _cajaService = cajaService;
             _creditoDisponibleService = creditoDisponibleService;
             _contratoVentaCreditoService = contratoVentaCreditoService;
+            _configuracionPagoService = configuracionPagoService;
         }
 
         #region Consultas
@@ -702,6 +705,8 @@ namespace TheBuryProject.Services
 
                 venta.AperturaCajaId = aperturaActiva.Id;
 
+                await ValidarYSnapshotearCuotasSinInteresAsync(venta);
+
                 await DescontarStockYRegistrarMovimientos(venta);
 
                 // E4: Procesar crédito personal solo si hay datos JSON y la venta está autorizada
@@ -1076,6 +1081,34 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException(
                     "Debe generar e imprimir el Contrato de Venta antes de continuar.");
             }
+        }
+
+        private async Task ValidarYSnapshotearCuotasSinInteresAsync(Venta venta)
+        {
+            var datos = venta.DatosTarjeta;
+            if (datos?.TipoCuota != TipoCuotaTarjeta.SinInteres
+                || !datos.ConfiguracionTarjetaId.HasValue
+                || !datos.CantidadCuotas.HasValue)
+                return;
+
+            var productoIds = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => d.ProductoId);
+
+            var maxResult = await _configuracionPagoService.ObtenerMaxCuotasSinInteresEfectivoAsync(
+                datos.ConfiguracionTarjetaId.Value, productoIds);
+
+            if (maxResult == null)
+                return;
+
+            if (datos.CantidadCuotas.Value > maxResult.MaxCuotas)
+                throw new InvalidOperationException(
+                    $"Las cuotas seleccionadas ({datos.CantidadCuotas.Value}) superan el " +
+                    $"maximo permitido para esta tarjeta y los productos del carrito ({maxResult.MaxCuotas} cuotas sin interes).");
+
+            datos.MaxCuotasSinInteresEfectivoAplicado = maxResult.LimitadoPorProducto
+                ? maxResult.MaxCuotas
+                : null;
         }
 
         public async Task<int?> AnularFacturaAsync(int facturaId, string motivo)
@@ -1635,6 +1668,7 @@ namespace TheBuryProject.Services
         {
             return await _context.Ventas
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
+                .Include(v => v.DatosTarjeta)
                 .Include(v => v.Credito)
                 .Include(v => v.Cliente)
                 .Include(v => v.VentaCreditoCuotas)
@@ -2097,34 +2131,12 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            var listaPredeterminada = await _precioService.GetListaPredeterminadaAsync();
             var productoIds = detalles.Select(d => d.ProductoId).Distinct().ToList();
+            var preciosVigentes = await _precioVigenteResolver.ResolverBatchAsync(productoIds);
             _logger.LogDebug(
-                "AplicarPrecioVigenteADetallesAsync venta {Id} productos:{Productos} ListaId:{ListaId}",
+                "AplicarPrecioVigenteADetallesAsync venta {Id} productos:{Productos}",
                 venta.Id,
-                productoIds.Count,
-                listaPredeterminada?.Id);
-
-            var preciosListaPorProductoId = new Dictionary<int, decimal>();
-            if (listaPredeterminada != null && productoIds.Count > 0)
-            {
-                var fecha = DateTime.UtcNow;
-
-                var precios = await _context.ProductosPrecios
-                    .AsNoTracking()
-                    .Where(p => productoIds.Contains(p.ProductoId)
-                             && p.ListaId == listaPredeterminada.Id
-                             && p.VigenciaDesde <= fecha
-                             && (p.VigenciaHasta == null || p.VigenciaHasta >= fecha)
-                             && p.EsVigente
-                             && !p.IsDeleted)
-                    .Select(p => new { p.ProductoId, p.Precio })
-                    .ToListAsync();
-
-                // Defensive: si por datos sucios hubiese duplicados, priorizar el último leído.
-                foreach (var p in precios)
-                    preciosListaPorProductoId[p.ProductoId] = p.Precio;
-            }
+                productoIds.Count);
 
             var productos = await _context.Productos
                 .AsNoTracking()
@@ -2141,12 +2153,9 @@ namespace TheBuryProject.Services
             {
                 if (!cache.TryGetValue(detalle.ProductoId, out var precioUnitario))
                 {
-                    productos.TryGetValue(detalle.ProductoId, out var producto);
-                    precioUnitario = producto?.PrecioVenta ?? 0m;
-
-                    if (preciosListaPorProductoId.TryGetValue(detalle.ProductoId, out var precioLista))
-                        precioUnitario = precioLista;
-
+                    precioUnitario = preciosVigentes.TryGetValue(detalle.ProductoId, out var precioVigente)
+                        ? precioVigente.PrecioFinalConIva
+                        : productos.GetValueOrDefault(detalle.ProductoId)?.PrecioVenta ?? 0m;
                     cache[detalle.ProductoId] = precioUnitario;
                 }
 

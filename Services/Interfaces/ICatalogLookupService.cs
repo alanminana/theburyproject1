@@ -1,4 +1,5 @@
 ﻿using TheBuryProject.Models.Entities;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -20,5 +21,16 @@ namespace TheBuryProject.Services.Interfaces
         /// Obtiene las submarcas (hijas) de una marca padre
         /// </summary>
         Task<IEnumerable<Marca>> GetSubmarcasAsync(int marcaId);
+
+        /// <summary>
+        /// Obtiene las alícuotas de IVA activas para poblar dropdowns de formulario.
+        /// Ordenadas por predeterminada primero, luego por porcentaje ascendente.
+        /// </summary>
+        Task<List<AlicuotaIVAFormItem>> ObtenerAlicuotasIVAParaFormAsync();
+
+        /// <summary>
+        /// Devuelve el porcentaje de una alícuota activa y no eliminada, o null si no existe.
+        /// </summary>
+        Task<decimal?> ObtenerPorcentajeAlicuotaAsync(int alicuotaIVAId);
     }
 }

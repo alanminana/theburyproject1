@@ -66,12 +66,13 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             new FinancialCalculationService(),
             new VentaValidator(),
             numberGenerator,
-            null!,
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserDelUpd(),
             null!,
             null!,
             null!,
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

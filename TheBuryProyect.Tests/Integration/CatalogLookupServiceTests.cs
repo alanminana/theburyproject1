@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -36,9 +37,9 @@ public class CatalogLookupServiceTests : IDisposable
         var precioHistorico = new PrecioHistoricoService(_context, NullLogger<PrecioHistoricoService>.Instance);
         var stubUser = new StubCurrentUserServiceLookup();
         var productoService = new ProductoService(_context, NullLogger<ProductoService>.Instance, precioHistorico, stubUser,
-            new TheBuryProject.Tests.Infrastructure.StubPrecioService());
+            new PrecioVigenteResolver(_context));
 
-        _service = new CatalogLookupService(categoriaService, marcaService, productoService);
+        _service = new CatalogLookupService(categoriaService, marcaService, productoService, _context);
     }
 
     public void Dispose()
@@ -185,6 +186,68 @@ public class CatalogLookupServiceTests : IDisposable
         var resultado = await _service.GetSubmarcasAsync(padre.Id);
 
         Assert.Equal(2, resultado.Count());
+    }
+
+    // =========================================================================
+    // ObtenerAlicuotasIVAParaFormAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerAlicuotasIVAParaForm_DevuelveSoloActivas()
+    {
+        var code1 = Guid.NewGuid().ToString("N")[..8];
+        var code2 = Guid.NewGuid().ToString("N")[..8];
+        var activa = new AlicuotaIVA { Codigo = code1, Nombre = "IVA21-" + code1, Porcentaje = 21m, Activa = true };
+        var inactiva = new AlicuotaIVA { Codigo = code2, Nombre = "IVA10-" + code2, Porcentaje = 10m, Activa = false };
+        _context.AlicuotasIVA.AddRange(activa, inactiva);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerAlicuotasIVAParaFormAsync();
+
+        Assert.Contains(resultado, a => a.Id == activa.Id);
+        Assert.DoesNotContain(resultado, a => a.Id == inactiva.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerAlicuotasIVAParaForm_PredeterminadaPrimero()
+    {
+        var code1 = Guid.NewGuid().ToString("N")[..8];
+        var code2 = Guid.NewGuid().ToString("N")[..8];
+        var regular = new AlicuotaIVA { Codigo = code1, Nombre = "IVA21-" + code1, Porcentaje = 21m, Activa = true, EsPredeterminada = false };
+        var predeterminada = new AlicuotaIVA { Codigo = code2, Nombre = "IVA10-" + code2, Porcentaje = 10m, Activa = true, EsPredeterminada = true };
+        _context.AlicuotasIVA.AddRange(regular, predeterminada);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerAlicuotasIVAParaFormAsync();
+
+        var idxPredeterminada = resultado.FindIndex(a => a.Id == predeterminada.Id);
+        var idxRegular = resultado.FindIndex(a => a.Id == regular.Id);
+        Assert.True(idxPredeterminada < idxRegular, "La predeterminada debe aparecer antes que la regular");
+    }
+
+    // =========================================================================
+    // ObtenerPorcentajeAlicuotaAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ObtenerPorcentajeAlicuota_IdValido_DevuelvePorcentaje()
+    {
+        var code = Guid.NewGuid().ToString("N")[..8];
+        var alicuota = new AlicuotaIVA { Codigo = code, Nombre = "IVA21-" + code, Porcentaje = 21m, Activa = true };
+        _context.AlicuotasIVA.Add(alicuota);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerPorcentajeAlicuotaAsync(alicuota.Id);
+
+        Assert.Equal(21m, resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerPorcentajeAlicuota_IdInvalido_DevuelveNull()
+    {
+        var resultado = await _service.ObtenerPorcentajeAlicuotaAsync(int.MaxValue);
+
+        Assert.Null(resultado);
     }
 }
 

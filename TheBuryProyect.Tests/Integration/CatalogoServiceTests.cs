@@ -50,15 +50,16 @@ public class CatalogoServiceTests : IDisposable
         _marcaService = new MarcaService(_context, NullLogger<MarcaService>.Instance);
         var precioHistorico = new PrecioHistoricoService(_context, NullLogger<PrecioHistoricoService>.Instance);
         _productoService = new ProductoService(_context, NullLogger<ProductoService>.Instance, precioHistorico, stubUser,
-            new TheBuryProject.Tests.Infrastructure.StubPrecioService());
+            new PrecioVigenteResolver(_context));
         _precioService = new PrecioService(_context, NullLogger<PrecioService>.Instance, stubUser, config);
 
-        var catalogLookup = new CatalogLookupService(_categoriaService, _marcaService, _productoService);
+        var catalogLookup = new CatalogLookupService(_categoriaService, _marcaService, _productoService, _context);
 
         _service = new CatalogoService(
             catalogLookup,
             _productoService,
             _precioService,
+            new PrecioVigenteResolver(_context),
             NullLogger<CatalogoService>.Instance,
             stubUser);
     }
@@ -104,12 +105,12 @@ public class CatalogoServiceTests : IDisposable
         return prod;
     }
 
-    private async Task<ListaPrecio> SeedListaAsync(bool esPredeterminada = false)
+    private async Task<ListaPrecio> SeedListaAsync(bool esPredeterminada = false, string? nombre = null)
     {
         var code = Guid.NewGuid().ToString("N")[..8];
         var lista = new ListaPrecio
         {
-            Nombre = "Lista-" + code, Codigo = code,
+            Nombre = nombre ?? "Lista-" + code, Codigo = code,
             Tipo = TipoListaPrecio.Contado,
             Activa = true, EsPredeterminada = esPredeterminada,
             Orden = 1, ReglaRedondeo = "ninguno"
@@ -178,6 +179,32 @@ public class CatalogoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ObtenerFila_ConPrecioLista_SeteaListaPrecioActualNombre()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true, nombre: "Contado VIP");
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 120m);
+
+        var fila = await _service.ObtenerFilaAsync(prod.Id);
+
+        Assert.NotNull(fila);
+        Assert.True(fila!.TienePrecioLista);
+        Assert.Equal("Contado VIP", fila.ListaPrecioActualNombre);
+    }
+
+    [Fact]
+    public async Task ObtenerFila_SinPrecioLista_ListaPrecioActualNombreEsNull()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+
+        var fila = await _service.ObtenerFilaAsync(prod.Id);
+
+        Assert.NotNull(fila);
+        Assert.False(fila!.TienePrecioLista);
+        Assert.Null(fila.ListaPrecioActualNombre);
+    }
+
+    [Fact]
     public async Task ObtenerFila_CalculaMargenConPrecioBase()
     {
         // sin precio lista → usa PrecioVenta, margen = (100-60)/60*100 = 66.67%
@@ -187,6 +214,37 @@ public class CatalogoServiceTests : IDisposable
 
         Assert.NotNull(fila);
         Assert.Equal(Math.Round((100m - 60m) / 60m * 100m, 2), fila!.MargenPorcentaje);
+    }
+
+    [Fact]
+    public async Task ObtenerFila_MargenConPrecioCompraCero_EsCero()
+    {
+        // PrecioCompra = 0 → división por cero evitada → margen = 0
+        var prod = await SeedProductoAsync(precioCompra: 0m, precioVenta: 100m);
+
+        var fila = await _service.ObtenerFilaAsync(prod.Id);
+
+        Assert.NotNull(fila);
+        Assert.Equal(0m, fila!.MargenPorcentaje);
+    }
+
+    [Fact]
+    public async Task ObtenerFila_CalculaMargenConPrecioLista()
+    {
+        // margen = (precioLista - costo) / costo * 100, no sobre PrecioBase
+        var prod = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 150m);
+
+        var fila = await _service.ObtenerFilaAsync(prod.Id);
+
+        Assert.NotNull(fila);
+        Assert.True(fila!.TienePrecioLista);
+        Assert.Equal(150m, fila.PrecioActual);
+        // (150 - 60) / 60 * 100 = 150%
+        Assert.Equal(Math.Round((150m - 60m) / 60m * 100m, 2), fila.MargenPorcentaje);
+        // no es el margen de PrecioBase: (100 - 60) / 60 * 100 = 66.67%
+        Assert.NotEqual(Math.Round((100m - 60m) / 60m * 100m, 2), fila.MargenPorcentaje);
     }
 
     [Fact]
@@ -316,6 +374,50 @@ public class CatalogoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ObtenerCatalogo_MezclaProductosConYSinPrecioLista_ResuelvePorProducto()
+    {
+        var prodConLista = await SeedProductoAsync(precioVenta: 100m);
+        var prodSinLista = await SeedProductoAsync(precioVenta: 80m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioVigenteAsync(prodConLista.Id, lista.Id, precio: 150m);
+
+        var resultado = await _service.ObtenerCatalogoAsync(new FiltrosCatalogo());
+
+        var filaConLista = resultado.Filas.Single(f => f.ProductoId == prodConLista.Id);
+        var filaSinLista = resultado.Filas.Single(f => f.ProductoId == prodSinLista.Id);
+
+        Assert.Equal(150m, filaConLista.PrecioActual);
+        Assert.True(filaConLista.TienePrecioLista);
+        Assert.Equal(80m, filaSinLista.PrecioActual);
+        Assert.False(filaSinLista.TienePrecioLista);
+    }
+
+    [Fact]
+    public async Task BuscarParaVentaAsync_ConListaPredeterminada_UsaMismoPrecioEfectivoQueCatalogo()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 175m);
+
+        var precioHistorico = new PrecioHistoricoService(_context, NullLogger<PrecioHistoricoService>.Instance);
+        var productoServiceConPrecios = new ProductoService(
+            _context,
+            NullLogger<ProductoService>.Instance,
+            precioHistorico,
+            new StubCurrentUserServiceCatalogo(),
+            new PrecioVigenteResolver(_context));
+
+        var catalogo = await _service.ObtenerCatalogoAsync(new FiltrosCatalogo());
+        var filaCatalogo = Assert.Single(catalogo.Filas.Where(f => f.ProductoId == prod.Id));
+
+        var productosVenta = await productoServiceConPrecios.BuscarParaVentaAsync(prod.Codigo, soloConStock: false);
+        var productoVenta = Assert.Single(productosVenta);
+
+        Assert.Equal(175m, filaCatalogo.PrecioActual);
+        Assert.Equal(filaCatalogo.PrecioActual, productoVenta.PrecioVenta);
+    }
+
+    [Fact]
     public async Task ObtenerCatalogo_IncluyCategoriasMarcasEnDropdowns()
     {
         await SeedProductoAsync(); // crea cat + marca internamente
@@ -326,6 +428,35 @@ public class CatalogoServiceTests : IDisposable
         Assert.True(resultado.TotalMarcas >= 1);
         Assert.NotEmpty(resultado.Categorias);
         Assert.NotEmpty(resultado.Marcas);
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogo_ConListaPredeterminada_SeteaListaPrecioActualNombre()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true, nombre: "Lista Contado");
+        await SeedPrecioVigenteAsync(prod.Id, lista.Id, precio: 120m);
+
+        var resultado = await _service.ObtenerCatalogoAsync(new FiltrosCatalogo());
+
+        var fila = resultado.Filas.FirstOrDefault(f => f.ProductoId == prod.Id);
+        Assert.NotNull(fila);
+        Assert.True(fila!.TienePrecioLista);
+        Assert.Equal("Lista Contado", fila.ListaPrecioActualNombre);
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogo_SinListaPredeterminada_ListaPrecioActualNombreEsNull()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 80m);
+        // sin lista predeterminada ni precios de lista → precio base, sin nombre de lista
+
+        var resultado = await _service.ObtenerCatalogoAsync(new FiltrosCatalogo());
+
+        var fila = resultado.Filas.FirstOrDefault(f => f.ProductoId == prod.Id);
+        Assert.NotNull(fila);
+        Assert.False(fila!.TienePrecioLista);
+        Assert.Null(fila.ListaPrecioActualNombre);
     }
 
     // -------------------------------------------------------------------------

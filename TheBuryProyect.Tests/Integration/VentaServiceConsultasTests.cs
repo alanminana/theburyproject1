@@ -68,12 +68,13 @@ public class VentaServiceConsultasTests : IDisposable
             new FinancialCalculationService(),
             new VentaValidator(),
             numberGenerator,
-            null!,
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserConsultas(),
             null!,
             null!,
             null!,
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

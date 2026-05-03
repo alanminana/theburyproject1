@@ -24,6 +24,7 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones);
         Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync();
+        Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync();
         Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id);
         Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento);
         Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto);
@@ -58,5 +59,15 @@ namespace TheBuryProject.Services.Interfaces
             MetodoCalculoCredito metodo,
             int? perfilId,
             int? clienteId);
+
+        /// <summary>
+        /// Calcula el máximo efectivo de cuotas sin interés para una tarjeta y un conjunto de productos.
+        /// Devuelve null si la tarjeta no existe, no está activa, o no es TipoCuota.SinInteres.
+        /// El resultado es min(tarjeta.CantidadMaximaCuotas, min(productos.MaxCuotasSinInteresPermitidas)).
+        /// Productos sin restricción (null) no participan en el mínimo.
+        /// </summary>
+        Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
+            int tarjetaId,
+            IEnumerable<int> productoIds);
     }
 }

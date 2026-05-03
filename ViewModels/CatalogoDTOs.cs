@@ -124,6 +124,12 @@ namespace TheBuryProject.ViewModels
         public bool TienePrecioLista { get; set; }
 
         /// <summary>
+        /// Nombre de la lista de precios que define el precio vigente.
+        /// Null si el precio es el base/fallback del producto.
+        /// </summary>
+        public string? ListaPrecioActualNombre { get; set; }
+
+        /// <summary>
         /// Margen de ganancia en porcentaje
         /// </summary>
         public decimal MargenPorcentaje { get; set; }
@@ -561,4 +567,6 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public int? CambioPrecioEventoId { get; set; }
     }
+
+    public record AlicuotaIVAFormItem(int Id, string Porcentaje, string Texto);
 }

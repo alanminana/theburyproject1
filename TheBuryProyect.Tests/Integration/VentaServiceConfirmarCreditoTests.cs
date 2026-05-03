@@ -214,12 +214,13 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             new FinancialCalculationService(),
             new VentaValidator(),
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
-            null!,                                          // IPrecioService — no se llama en Confirmar
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserServiceConfirmar(),
             new StubValidacionVentaServiceConfirmar(),
             new StubCajaServiceConfirmar(_apertura),
             new StubCreditoDisponibleServiceConfirmar(),
-            new StubContratoVentaCreditoService(existeContratoGenerado));
+            new StubContratoVentaCreditoService(existeContratoGenerado),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

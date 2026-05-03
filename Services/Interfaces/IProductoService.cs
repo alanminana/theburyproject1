@@ -1,4 +1,5 @@
 ﻿using TheBuryProject.Models.Entities;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
@@ -51,6 +52,12 @@ namespace TheBuryProject.Services.Interfaces
             bool soloConStock = true,
             decimal? precioMin = null,
             decimal? precioMax = null);
+
+        /// <summary>
+        /// Obtiene el precio efectivo de venta de un producto activo, usando precio vigente
+        /// de lista cuando existe y PrecioVenta del producto como fallback.
+        /// </summary>
+        Task<ProductoPrecioVentaResultado?> ObtenerPrecioVigenteParaVentaAsync(int productoId);
 
         // Stock
         Task<Producto> ActualizarStockAsync(int id, decimal cantidad);

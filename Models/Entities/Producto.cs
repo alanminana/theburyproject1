@@ -85,6 +85,13 @@ namespace TheBuryProject.Models.Entities
         public decimal ComisionPorcentaje { get; set; } = 0m;
 
         /// <summary>
+        /// Máximo de cuotas sin interés permitidas para este producto.
+        /// Null = sin restricción; se usa el máximo configurado en la tarjeta.
+        /// Solo aplica cuando la tarjeta tiene TipoCuota.SinInteres.
+        /// </summary>
+        public int? MaxCuotasSinInteresPermitidas { get; set; }
+
+        /// <summary>
         /// Indica si el producto requiere n�mero de serie para control individual
         /// </summary>
         public bool RequiereNumeroSerie { get; set; } = false;

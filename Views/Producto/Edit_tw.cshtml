@@ -109,7 +109,7 @@
             </div>
             <div class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3">
                 <span class="material-symbols-outlined text-primary text-base">info</span>
-                <p class="text-xs text-slate-300">Ingresá el Precio de Venta <strong>sin IVA</strong>. El sistema calculará el precio final automáticamente.</p>
+                <p class="text-xs text-slate-300">Este valor se usa como base/fallback. Si el producto tiene precio vigente en una lista, la venta usará el precio de lista.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="space-y-1">
@@ -121,7 +121,7 @@
                     <span asp-validation-for="PrecioCompra" class="text-xs text-red-400"></span>
                 </div>
                 <div class="space-y-1">
-                    <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Venta sin IVA</label>
+                    <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Precio base sin IVA</label>
                     <div class="relative">
                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                         <input asp-for="PrecioVenta" id="edit-precioVenta" type="number" step="0.01" min="0" class="catalogo-input pl-7" />
@@ -157,7 +157,7 @@
                     <span asp-validation-for="ComisionPorcentaje" class="text-xs text-red-400"></span>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-sm font-semibold text-slate-300">Precio Final (con IVA)</label>
+                    <label class="text-sm font-semibold text-slate-300">Precio base final con IVA</label>
                     <div class="relative">
                         <span class="absolute left-3 top-2 text-primary font-bold">$</span>
                         <input id="edit-precioFinal" type="text" readonly class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
@@ -194,6 +194,23 @@
                         <input asp-for="Activo" type="checkbox" value="true" class="sr-only peer" />
                         <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                     </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Condiciones comerciales -->
+        <div class="card-erp-panel p-6 space-y-6">
+            <div class="flex items-center gap-2 pb-4 border-b border-slate-800">
+                <span class="material-symbols-outlined text-primary">credit_card</span>
+                <h2 class="text-lg font-bold text-white">Condiciones Comerciales</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-1">
+                    <label asp-for="MaxCuotasSinInteresPermitidas" class="text-sm font-semibold text-slate-300"></label>
+                    <input asp-for="MaxCuotasSinInteresPermitidas" type="number" min="1" max="60" step="1"
+                           class="catalogo-input" placeholder="Sin restricción" />
+                    <p class="text-xs text-slate-400">Vacío = usa el máximo configurado en la tarjeta. Solo aplica a tarjetas sin interés.</p>
+                    <span asp-validation-for="MaxCuotasSinInteresPermitidas" class="text-xs text-red-400"></span>
                 </div>
             </div>
         </div>

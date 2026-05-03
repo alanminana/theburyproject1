@@ -179,12 +179,13 @@ public class VentaServiceCreditoPersonalTests
             financialService,
             validator,
             numberGenerator,
-            null!,                   // IPrecioService — Detalles vacío, no se llama
+            new PrecioVigenteResolver(ctx),
             new StubCurrentUserServiceCP(),
             validacionVentaService,
             cajaService,
             null!,                   // ICreditoDisponibleService
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     private static VentaViewModel CreditoPersonalViewModel() => new()

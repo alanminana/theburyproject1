@@ -76,6 +76,10 @@ namespace TheBuryProject.ViewModels
         [Range(0, 100, ErrorMessage = "La comisión vendedor debe estar entre 0 y 100")]
         public decimal ComisionPorcentaje { get; set; } = 0m;
 
+        [Display(Name = "Máx. cuotas sin interés")]
+        [Range(1, 60, ErrorMessage = "El máximo de cuotas debe estar entre 1 y 60")]
+        public int? MaxCuotasSinInteresPermitidas { get; set; }
+
         [Display(Name = "Stock Mínimo")]
         [Range(0, double.MaxValue, ErrorMessage = "El stock mínimo debe ser mayor o igual a 0")]
         public decimal StockMinimo { get; set; } = 0;

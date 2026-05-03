@@ -6,6 +6,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -41,7 +42,7 @@ public class ProductoServiceTests : IDisposable
             NullLogger<ProductoService>.Instance,
             new StubPrecioHistoricoServiceProd(),
             new StubCurrentUserServiceProd(),
-            new TheBuryProject.Tests.Infrastructure.StubPrecioService());
+            new PrecioVigenteResolver(_context));
     }
 
     public void Dispose()
@@ -90,6 +91,69 @@ public class ProductoServiceTests : IDisposable
         await _context.SaveChangesAsync();
         await _context.Entry(producto).ReloadAsync();
         return producto;
+    }
+
+    private async Task<ListaPrecio> SeedListaAsync(bool esPredeterminada = true)
+    {
+        var codigo = Guid.NewGuid().ToString("N")[..8];
+        var lista = new ListaPrecio
+        {
+            Codigo = codigo,
+            Nombre = "Lista-" + codigo,
+            Tipo = TipoListaPrecio.Contado,
+            Activa = true,
+            EsPredeterminada = esPredeterminada,
+            Orden = 1
+        };
+
+        _context.ListasPrecios.Add(lista);
+        await _context.SaveChangesAsync();
+        return lista;
+    }
+
+    private async Task<ProductoPrecioLista> SeedPrecioListaAsync(
+        int productoId,
+        int listaId,
+        decimal precio,
+        decimal costo)
+    {
+        var precioLista = new ProductoPrecioLista
+        {
+            ProductoId = productoId,
+            ListaId = listaId,
+            Precio = precio,
+            Costo = costo,
+            MargenValor = precio - costo,
+            MargenPorcentaje = costo > 0 ? ((precio - costo) / costo) * 100 : 0,
+            VigenciaDesde = DateTime.UtcNow.AddDays(-1),
+            EsVigente = true,
+            EsManual = true,
+            CreadoPor = "test"
+        };
+
+        _context.ProductosPrecios.Add(precioLista);
+        await _context.SaveChangesAsync();
+        return precioLista;
+    }
+
+    private ProductoService BuildServiceConResolver()
+    {
+        return new ProductoService(
+            _context,
+            NullLogger<ProductoService>.Instance,
+            new StubPrecioHistoricoServiceProd(),
+            new StubCurrentUserServiceProd(),
+            new PrecioVigenteResolver(_context));
+    }
+
+    private ProductoService BuildServiceConResolver(IPrecioVigenteResolver resolver)
+    {
+        return new ProductoService(
+            _context,
+            NullLogger<ProductoService>.Instance,
+            new StubPrecioHistoricoServiceProd(),
+            new StubCurrentUserServiceProd(),
+            resolver);
     }
 
     private Producto BuildProducto(int categoriaId, int marcaId,
@@ -716,6 +780,92 @@ public class ProductoServiceTests : IDisposable
         Assert.All(resultado, p => Assert.True(p.Activo));
     }
 
+    [Fact]
+    public async Task ObtenerPrecioVigenteParaVentaAsync_ProductoInexistente_DevuelveNull()
+    {
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.ObtenerPrecioVigenteParaVentaAsync(99_999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ObtenerPrecioVigenteParaVentaAsync_ConListaPredeterminadaVigente_UsaPrecioLista()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioListaAsync(producto.Id, lista.Id, precio: 150m, costo: 60m);
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.ObtenerPrecioVigenteParaVentaAsync(producto.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(producto.Id, resultado!.ProductoId);
+        Assert.Equal(150m, resultado.PrecioVenta);
+        Assert.Equal(FuentePrecioVigente.ProductoPrecioLista, resultado.FuentePrecio);
+        Assert.Equal(producto.Codigo, resultado.Codigo);
+        Assert.Equal(producto.Nombre, resultado.Nombre);
+        Assert.Equal(producto.StockActual, resultado.StockActual);
+    }
+
+    [Fact]
+    public async Task ObtenerPrecioVigenteParaVentaAsync_SinPrecioListaVigente_UsaPrecioVentaProducto()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        await SeedListaAsync(esPredeterminada: true);
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.ObtenerPrecioVigenteParaVentaAsync(producto.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(producto.Id, resultado!.ProductoId);
+        Assert.Equal(100m, resultado.PrecioVenta);
+        Assert.Equal(FuentePrecioVigente.ProductoPrecioBase, resultado.FuentePrecio);
+    }
+
+    [Fact]
+    public async Task BuscarParaVentaAsync_ConResolverYListaPredeterminadaVigente_UsaPrecioLista()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioListaAsync(producto.Id, lista.Id, precio: 150m, costo: 60m);
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.BuscarParaVentaAsync(producto.Codigo, soloConStock: false);
+
+        var dto = Assert.Single(resultado);
+        Assert.Equal(producto.Id, dto.Id);
+        Assert.Equal(150m, dto.PrecioVenta);
+    }
+
+    [Fact]
+    public async Task BuscarParaVentaAsync_ConResolverSinPrecioListaVigente_UsaPrecioVentaProducto()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        await SeedListaAsync(esPredeterminada: true);
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.BuscarParaVentaAsync(producto.Codigo, soloConStock: false);
+
+        var dto = Assert.Single(resultado);
+        Assert.Equal(producto.Id, dto.Id);
+        Assert.Equal(100m, dto.PrecioVenta);
+    }
+
+    [Fact]
+    public async Task BuscarParaVentaAsync_SiResolverBatchOmiteProducto_UsaPrecioVentaProducto()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 77m);
+        var service = BuildServiceConResolver(new ResolverBatchVacio());
+
+        var resultado = await service.BuscarParaVentaAsync(producto.Codigo, soloConStock: false);
+
+        var dto = Assert.Single(resultado);
+        Assert.Equal(producto.Id, dto.Id);
+        Assert.Equal(77m, dto.PrecioVenta);
+    }
+
     // =========================================================================
     // SearchIdsAsync
     // =========================================================================
@@ -901,11 +1051,139 @@ public class ProductoServiceTests : IDisposable
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Null(bd.AlicuotaIVAId);
     }
+
+    // -------------------------------------------------------------------------
+    // MaxCuotasSinInteresPermitidas
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ConMaxCuotas_Persiste()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.MaxCuotasSinInteresPermitidas = 6;
+
+        var resultado = await _service.CreateAsync(producto);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == resultado.Id);
+        Assert.Equal(6, bd.MaxCuotasSinInteresPermitidas);
+    }
+
+    [Fact]
+    public async Task Create_SinMaxCuotas_PersistNull()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var producto = BuildProducto(cat.Id, marca.Id);
+
+        var resultado = await _service.CreateAsync(producto);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == resultado.Id);
+        Assert.Null(bd.MaxCuotasSinInteresPermitidas);
+    }
+
+    [Fact]
+    public async Task Update_MaxCuotasNuevo_Persiste()
+    {
+        var producto = await SeedProductoAsync();
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            PorcentajeIVA = producto.PorcentajeIVA,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = producto.Activo,
+            MaxCuotasSinInteresPermitidas = 12,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(12, bd.MaxCuotasSinInteresPermitidas);
+    }
+
+    [Fact]
+    public async Task Update_MaxCuotasANull_BorraRestriccion()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var codigo = Guid.NewGuid().ToString("N")[..8];
+        var productoConRestriccion = new Producto
+        {
+            Codigo = codigo,
+            Nombre = "Prod-" + codigo,
+            CategoriaId = cat.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 10m,
+            PrecioVenta = 50m,
+            PorcentajeIVA = 21m,
+            StockActual = 0m,
+            StockMinimo = 5m,
+            Activo = true,
+            MaxCuotasSinInteresPermitidas = 6
+        };
+        _context.Productos.Add(productoConRestriccion);
+        await _context.SaveChangesAsync();
+        await _context.Entry(productoConRestriccion).ReloadAsync();
+
+        var update = new Producto
+        {
+            Id = productoConRestriccion.Id,
+            Codigo = productoConRestriccion.Codigo,
+            Nombre = productoConRestriccion.Nombre,
+            CategoriaId = productoConRestriccion.CategoriaId,
+            MarcaId = productoConRestriccion.MarcaId,
+            PrecioCompra = productoConRestriccion.PrecioCompra,
+            PrecioVenta = productoConRestriccion.PrecioVenta,
+            PorcentajeIVA = productoConRestriccion.PorcentajeIVA,
+            StockActual = productoConRestriccion.StockActual,
+            StockMinimo = productoConRestriccion.StockMinimo,
+            Activo = productoConRestriccion.Activo,
+            MaxCuotasSinInteresPermitidas = null,
+            RowVersion = productoConRestriccion.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == productoConRestriccion.Id);
+        Assert.Null(bd.MaxCuotasSinInteresPermitidas);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Stubs
 // ---------------------------------------------------------------------------
+file sealed class ResolverBatchVacio : IPrecioVigenteResolver
+{
+    public Task<PrecioVigenteResultado?> ResolverAsync(
+        int productoId,
+        int? listaId = null,
+        DateTime? fecha = null)
+    {
+        return Task.FromResult<PrecioVigenteResultado?>(null);
+    }
+
+    public Task<IReadOnlyDictionary<int, PrecioVigenteResultado>> ResolverBatchAsync(
+        IEnumerable<int> productoIds,
+        int? listaId = null,
+        DateTime? fecha = null,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IReadOnlyDictionary<int, PrecioVigenteResultado>>(
+            new Dictionary<int, PrecioVigenteResultado>());
+    }
+}
+
 file sealed class StubCurrentUserServiceProd : ICurrentUserService
 {
     public string GetUsername() => "testuser";

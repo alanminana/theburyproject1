@@ -59,12 +59,13 @@ public class VentaServiceExcepcionDocumentalTests : IDisposable
             null!,   // IFinancialCalculationService
             new VentaValidator(),
             null!,   // VentaNumberGenerator
-            null!,   // IPrecioService
+            new PrecioVigenteResolver(_context),
             null!,   // ICurrentUserService
             null!,   // IValidacionVentaService
             null!,   // ICajaService
             null!,   // ICreditoDisponibleService
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

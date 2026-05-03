@@ -197,12 +197,13 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             new FinancialCalculationService(),
             new VentaValidator(),
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
-            null!,                                       // IPrecioService — no se llama en Confirmar
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserEfectivo(),
             new StubValidacionVentaEfectivo(),
             new StubCajaServiceEfectivo(_apertura),
             new StubCreditoDisponibleEfectivo(),
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()
@@ -479,5 +480,206 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             () => _service.ConfirmarVentaAsync(venta.Id));
 
         Assert.Contains("autorización", ex.Message);
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests — cuotas sin interes enforcement (Fase 5.0.4)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaSinInteres_CuotasExceden_LanzaInvalidOperation()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        producto.MaxCuotasSinInteresPermitidas = 3;
+        await _context.SaveChangesAsync();
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
+
+        var service = CreateServiceConConfiguracionPago();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("3 cuotas sin interes", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaSinInteres_CuotasPermitidas_Confirma()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        producto.MaxCuotasSinInteresPermitidas = 3;
+        await _context.SaveChangesAsync();
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 3);
+
+        var service = CreateServiceConConfiguracionPago();
+        var result = await service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaSinInteres_SinRestriccionProducto_Confirma()
+    {
+        // Producto sin MaxCuotasSinInteresPermitidas → no hay restriccion por producto
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 6);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
+
+        var service = CreateServiceConConfiguracionPago();
+        var result = await service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaConInteres_IgnoraRestriccionProducto()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        producto.MaxCuotasSinInteresPermitidas = 1;
+        await _context.SaveChangesAsync();
+        var tarjeta = await SeedTarjetaConInteres(maxCuotas: 12);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
+
+        var service = CreateServiceConConfiguracionPago();
+        var result = await service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaSinInteres_SnapshotGuardadoCuandoLimitadoPorProducto()
+    {
+        var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        producto.MaxCuotasSinInteresPermitidas = 3;
+        await _context.SaveChangesAsync();
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 3);
+
+        var service = CreateServiceConConfiguracionPago();
+        await service.ConfirmarVentaAsync(venta.Id);
+
+        var datos = await _context.DatosTarjeta.FirstAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(3, datos.MaxCuotasSinInteresEfectivoAplicado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaSinInteres_SnapshotNullSinLimitePorProducto()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 6);
+        await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 4);
+
+        var service = CreateServiceConConfiguracionPago();
+        await service.ConfirmarVentaAsync(venta.Id);
+
+        var datos = await _context.DatosTarjeta.FirstAsync(d => d.VentaId == venta.Id);
+        Assert.Null(datos.MaxCuotasSinInteresEfectivoAplicado);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers — cuotas sin interes
+    // -------------------------------------------------------------------------
+
+    private VentaService CreateServiceConConfiguracionPago()
+    {
+        var mapper = new MapperConfiguration(
+                cfg => cfg.AddProfile<MappingProfile>(),
+                NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        var configuracionPago = new ConfiguracionPagoService(
+            _context,
+            mapper,
+            NullLogger<ConfiguracionPagoService>.Instance);
+
+        return new VentaService(
+            _context,
+            mapper,
+            NullLogger<VentaService>.Instance,
+            new StubAlertaStockEfectivo(),
+            _movimientoStock,
+            new FinancialCalculationService(),
+            new VentaValidator(),
+            new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
+            new PrecioVigenteResolver(_context),
+            new StubCurrentUserEfectivo(),
+            new StubValidacionVentaEfectivo(),
+            new StubCajaServiceEfectivo(_apertura),
+            new StubCreditoDisponibleEfectivo(),
+            new StubContratoVentaCreditoService(),
+            configuracionPago);
+    }
+
+    private async Task<int> SeedConfigPagoTarjeta()
+    {
+        var config = new ConfiguracionPago
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Nombre = "Tarjeta Credito",
+            Activo = true
+        };
+        _context.ConfiguracionesPago.Add(config);
+        await _context.SaveChangesAsync();
+        return config.Id;
+    }
+
+    private async Task<ConfiguracionTarjeta> SeedTarjetaSinInteres(int maxCuotas)
+    {
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+        var configPagoId = await SeedConfigPagoTarjeta();
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = configPagoId,
+            NombreTarjeta = $"TarjetaSI{suffix}",
+            TipoTarjeta = TipoTarjeta.Credito,
+            TipoCuota = TipoCuotaTarjeta.SinInteres,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = maxCuotas,
+            Activa = true,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+        return tarjeta;
+    }
+
+    private async Task<ConfiguracionTarjeta> SeedTarjetaConInteres(int maxCuotas)
+    {
+        var suffix = Interlocked.Increment(ref _counter).ToString();
+        var configPagoId = await SeedConfigPagoTarjeta();
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = configPagoId,
+            NombreTarjeta = $"TarjetaCI{suffix}",
+            TipoTarjeta = TipoTarjeta.Credito,
+            TipoCuota = TipoCuotaTarjeta.ConInteres,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = maxCuotas,
+            TasaInteresesMensual = 3m,
+            Activa = true,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+        return tarjeta;
+    }
+
+    private async Task SeedDatosTarjeta(Venta venta, ConfiguracionTarjeta tarjeta, int cantidadCuotas)
+    {
+        var datos = new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = tarjeta.TipoTarjeta,
+            TipoCuota = tarjeta.TipoCuota,
+            CantidadCuotas = cantidadCuotas,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        _context.DatosTarjeta.Add(datos);
+        await _context.SaveChangesAsync();
     }
 }

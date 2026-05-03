@@ -84,6 +84,47 @@ public class ReporteServiceTests : IDisposable
         return producto;
     }
 
+    private async Task<ListaPrecio> SeedListaAsync(bool esPredeterminada = true)
+    {
+        var codigo = Guid.NewGuid().ToString("N")[..8];
+        var lista = new ListaPrecio
+        {
+            Codigo = codigo,
+            Nombre = "Lista-" + codigo,
+            Tipo = TipoListaPrecio.Contado,
+            Activa = true,
+            EsPredeterminada = esPredeterminada,
+            Orden = 1
+        };
+        _context.ListasPrecios.Add(lista);
+        await _context.SaveChangesAsync();
+        return lista;
+    }
+
+    private async Task<ProductoPrecioLista> SeedPrecioListaAsync(
+        int productoId,
+        int listaId,
+        decimal precio,
+        decimal costo)
+    {
+        var precioLista = new ProductoPrecioLista
+        {
+            ProductoId = productoId,
+            ListaId = listaId,
+            Precio = precio,
+            Costo = costo,
+            MargenValor = precio - costo,
+            MargenPorcentaje = costo > 0 ? ((precio - costo) / costo) * 100 : 0,
+            VigenciaDesde = DateTime.UtcNow.AddDays(-1),
+            EsVigente = true,
+            EsManual = true,
+            CreadoPor = "test"
+        };
+        _context.ProductosPrecios.Add(precioLista);
+        await _context.SaveChangesAsync();
+        return precioLista;
+    }
+
     private async Task<ApplicationUser> SeedUsuarioAsync(string id, string userName)
     {
         var usuario = new ApplicationUser
@@ -494,6 +535,21 @@ public class ReporteServiceTests : IDisposable
         var item = resultado.Productos[0];
         Assert.Equal(40m, item.Ganancia);     // 50 - 10
         Assert.Equal(80m, item.MargenPorcentaje); // (40/50)*100
+    }
+
+    [Fact]
+    public async Task GenerarReporteMargenes_ConPrecioListaVigente_UsaPrecioVentaBaseDelProducto()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        var lista = await SeedListaAsync(esPredeterminada: true);
+        await SeedPrecioListaAsync(producto.Id, lista.Id, precio: 120m, costo: 10m);
+
+        var resultado = await _service.GenerarReporteMargenesAsync();
+
+        var item = Assert.Single(resultado.Productos);
+        Assert.Equal(50m, item.PrecioVenta);
+        Assert.Equal(40m, item.Ganancia);
+        Assert.Equal(80m, item.MargenPorcentaje);
     }
 
     [Fact]

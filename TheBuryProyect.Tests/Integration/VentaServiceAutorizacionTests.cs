@@ -56,12 +56,13 @@ public class VentaServiceAutorizacionTests : IDisposable
             new FinancialCalculationService(),
             validator,
             numberGenerator,
-            null!,   // IPrecioService
+            new PrecioVigenteResolver(_context),
             new StubCurrentUserServiceVenta(),
             null!,   // IValidacionVentaService
             null!,   // ICajaService
             null!,   // ICreditoDisponibleService
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()

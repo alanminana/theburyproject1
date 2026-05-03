@@ -3,6 +3,7 @@ using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Requests;
 using TheBuryProject.ViewModels.Responses;
@@ -69,6 +70,8 @@ file sealed class StubCreditoServiceDoc : ICreditoService
     public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
     public Task<CreditoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();
+    public Task<List<CreditoVentaResultado>> GetCreditosDisponiblesParaVentaAsync(int clienteId) => throw new NotImplementedException();
+    public Task<CreditoVentaResultado?> GetCreditoParaVentaAsync(int creditoId) => throw new NotImplementedException();
     public Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
     public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
     public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();

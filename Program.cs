@@ -89,6 +89,7 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ISeguridadAuditoriaService, SeguridadAuditoriaService>();
 
 builder.Services.AddScoped<IPrecioService, PrecioService>();
+builder.Services.AddScoped<IPrecioVigenteResolver, PrecioVigenteResolver>();
 
 builder.Services.AddScoped<IChequeService, ChequeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();

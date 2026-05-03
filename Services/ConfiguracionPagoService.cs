@@ -235,6 +235,24 @@ namespace TheBuryProject.Services
             return _mapper.Map<List<ConfiguracionTarjetaViewModel>>(tarjetas);
         }
 
+        public async Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync()
+        {
+            var tarjetas = await GetTarjetasActivasAsync();
+
+            return tarjetas.Select(t => new TarjetaActivaVentaResultado
+            {
+                Id = t.Id,
+                Nombre = t.NombreTarjeta,
+                Tipo = t.TipoTarjeta,
+                PermiteCuotas = t.PermiteCuotas,
+                CantidadMaximaCuotas = t.CantidadMaximaCuotas,
+                TipoCuota = t.TipoCuota,
+                TasaInteres = t.TasaInteresesMensual,
+                TieneRecargo = t.TieneRecargoDebito,
+                PorcentajeRecargo = t.PorcentajeRecargoDebito
+            }).ToList();
+        }
+
         public async Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id)
         {
             var tarjeta = await _context.ConfiguracionesTarjeta
@@ -440,6 +458,62 @@ namespace TheBuryProject.Services
 
             var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(metodo, perfil, cliente);
             return (min, max, desc, perfil?.Nombre);
+        }
+
+        public async Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
+            int tarjetaId,
+            IEnumerable<int> productoIds)
+        {
+            var tarjeta = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tarjetaId && t.Activa && !t.IsDeleted);
+
+            if (tarjeta is null)
+                return null;
+
+            if (tarjeta.TipoCuota != TipoCuotaTarjeta.SinInteres)
+                return null;
+
+            if (!tarjeta.CantidadMaximaCuotas.HasValue)
+                return null;
+
+            var maxTarjeta = tarjeta.CantidadMaximaCuotas.Value;
+
+            var ids = productoIds.ToList();
+            int? limiteProductos = null;
+
+            if (ids.Count > 0)
+            {
+                var restricciones = await _context.Productos
+                    .AsNoTracking()
+                    .Where(p => ids.Contains(p.Id) && !p.IsDeleted && p.MaxCuotasSinInteresPermitidas.HasValue)
+                    .Select(p => p.MaxCuotasSinInteresPermitidas!.Value)
+                    .ToListAsync();
+
+                if (restricciones.Count > 0)
+                    limiteProductos = restricciones.Min();
+            }
+
+            int efectivo;
+            bool limitadoPorProducto;
+
+            if (limiteProductos.HasValue)
+            {
+                efectivo = Math.Min(maxTarjeta, limiteProductos.Value);
+                limitadoPorProducto = limiteProductos.Value < maxTarjeta;
+            }
+            else
+            {
+                efectivo = maxTarjeta;
+                limitadoPorProducto = false;
+            }
+
+            return new MaxCuotasSinInteresResultado
+            {
+                TarjetaId = tarjetaId,
+                MaxCuotas = Math.Max(1, efectivo),
+                LimitadoPorProducto = limitadoPorProducto
+            };
         }
     }
 }

@@ -18,54 +18,6 @@ namespace TheBuryProject.Tests.Unit;
 // ---------------------------------------------------------------------------
 
 /// <summary>
-/// Stub de IPrecioService que devuelve una lista predeterminada configurada en el test,
-/// o null si no se configura. Solo implementa GetListaPredeterminadaAsync (usado por
-/// AplicarPrecioVigenteADetallesAsync). El resto lanza NotImplementedException.
-/// </summary>
-file sealed class StubPrecioService : IPrecioService
-{
-    private readonly ListaPrecio? _lista;
-    public StubPrecioService(ListaPrecio? lista) => _lista = lista;
-
-    public Task<ListaPrecio?> GetListaPredeterminadaAsync() => Task.FromResult(_lista);
-
-    // Resto de la interfaz — no usado en estos tests
-    public Task<List<ListaPrecio>> GetAllListasAsync(bool soloActivas = true) => throw new NotImplementedException();
-    public Task<ListaPrecio?> GetListaByIdAsync(int id) => throw new NotImplementedException();
-    public Task<ListaPrecio> CreateListaAsync(ListaPrecio lista) => throw new NotImplementedException();
-    public Task<ListaPrecio> UpdateListaAsync(ListaPrecio lista, byte[] rowVersion) => throw new NotImplementedException();
-    public Task<bool> DeleteListaAsync(int id, byte[] rowVersion) => throw new NotImplementedException();
-    public Task<ProductoPrecioLista?> GetPrecioVigenteAsync(int productoId, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<Dictionary<int, ProductoPrecioLista>> GetPreciosVigentesBatchAsync(IEnumerable<int> productoIds, int listaId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<List<ProductoPrecioLista>> GetPreciosProductoAsync(int productoId, DateTime? fecha = null) => throw new NotImplementedException();
-    public Task<List<ProductoPrecioLista>> GetHistorialPreciosAsync(int productoId, int listaId) => throw new NotImplementedException();
-    public Task<ProductoPrecioLista> SetPrecioManualAsync(int productoId, int listaId, decimal precio, decimal costo, DateTime? vigenciaDesde = null, string? notas = null) => throw new NotImplementedException();
-    public Task<decimal> CalcularPrecioAutomaticoAsync(int productoId, int listaId, decimal costo) => throw new NotImplementedException();
-    public Task<ResultadoAplicacionPrecios> AplicarCambioPrecioDirectoAsync(AplicarCambioPrecioDirectoViewModel model) => throw new NotImplementedException();
-    public Task<List<CambioPrecioEvento>> GetCambioPrecioEventosAsync(int take = 200) => throw new NotImplementedException();
-    public Task<List<CambioPrecioDetalle>> GetCambiosPrecioProductoAsync(int productoId, int take = 50) => throw new NotImplementedException();
-    public Task<Dictionary<int, UltimoCambioProductoResumen>> GetUltimoCambioPorProductosAsync(IEnumerable<int> productoIds) => throw new NotImplementedException();
-    public Task<CambioPrecioEvento?> GetCambioPrecioEventoAsync(int eventoId) => throw new NotImplementedException();
-    public Task<(bool Exitoso, string Mensaje, int? EventoReversionId)> RevertirCambioPrecioEventoAsync(int eventoId) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> SimularCambioMasivoAsync(string nombre, TipoCambio tipoCambio, TipoAplicacion tipoAplicacion, decimal valorCambio, List<int> listasIds, List<int>? categoriaIds = null, List<int>? marcaIds = null, List<int>? productoIds = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch?> GetSimulacionAsync(int batchId) => throw new NotImplementedException();
-    public Task<List<PriceChangeItem>> GetItemsSimulacionAsync(int batchId, int skip = 0, int take = 50) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> AprobarBatchAsync(int batchId, string aprobadoPor, byte[] rowVersion, string? notas = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> RechazarBatchAsync(int batchId, string rechazadoPor, byte[] rowVersion, string motivo) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> CancelarBatchAsync(int batchId, string canceladoPor, byte[] rowVersion, string? motivo = null) => throw new NotImplementedException();
-    public Task<bool> RequiereAutorizacionAsync(int batchId) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> AplicarBatchAsync(int batchId, string aplicadoPor, byte[] rowVersion, DateTime? fechaVigencia = null) => throw new NotImplementedException();
-    public Task<PriceChangeBatch> RevertirBatchAsync(int batchId, string revertidoPor, byte[] rowVersion, string motivo) => throw new NotImplementedException();
-    public Task<List<PriceChangeBatch>> GetBatchesAsync(EstadoBatch? estado = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, int skip = 0, int take = 50) => throw new NotImplementedException();
-    public Task<Dictionary<string, object>> GetEstadisticasBatchAsync(int batchId) => throw new NotImplementedException();
-    public Task<byte[]> ExportarHistorialPreciosAsync(List<int> productoIds, DateTime fechaDesde, DateTime fechaHasta) => throw new NotImplementedException();
-    public Task<(bool esValido, string? mensaje)> ValidarMargenMinimoAsync(decimal precio, decimal costo, int listaId) => throw new NotImplementedException();
-    public decimal CalcularMargen(decimal precio, decimal costo) => throw new NotImplementedException();
-    public decimal AplicarRedondeo(decimal precio, string? reglaRedondeo = null) => throw new NotImplementedException();
-    public Task<List<int>> GetBatchIdsByProductoAsync(int productoId) => throw new NotImplementedException();
-}
-
-/// <summary>
 /// Stub de IVentaValidator que no hace nada (sin-op). Permite testear métodos que
 /// invocan el validator sin que fallen por estado de la venta.
 /// </summary>
@@ -99,10 +51,10 @@ file sealed class StubCurrentUserService : ICurrentUserService
 file static class VentaServiceFactory
 {
     /// <summary>
-    /// Crea VentaService con el contexto y precioService provistos.
+    /// Crea VentaService con el contexto provisto.
     /// Todas las demás dependencias son no-op o nulls seguros para los métodos del lote 1.
     /// </summary>
-    public static VentaService Create(AppDbContext ctx, IPrecioService? precioService = null)
+    public static VentaService Create(AppDbContext ctx)
     {
         var financialService = new FinancialCalculationService();
         var logger = NullLogger<VentaService>.Instance;
@@ -119,12 +71,13 @@ file static class VentaServiceFactory
             financialService,
             validator,
             numberGenerator,
-            precioService ?? new StubPrecioService(null),
+            new PrecioVigenteResolver(ctx),
             new StubCurrentUserService(),
             null!,                                          // IValidacionVentaService
             null!,                                          // ICajaService
             null!,
-            new StubContratoVentaCreditoService());
+            new StubContratoVentaCreditoService(),
+            new StubConfiguracionPagoServiceVenta());
     }
 
     private static (AppDbContext ctx, SqliteConnection conn) CreateContext()
@@ -792,3 +745,5 @@ public class VentaService_GetTotalVentaAsync
         }
     }
 }
+
+

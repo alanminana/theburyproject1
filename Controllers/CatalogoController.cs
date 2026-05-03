@@ -1,8 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Services.Interfaces;
@@ -18,20 +16,17 @@ namespace TheBuryProject.Controllers
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ILogger<CatalogoController> _logger;
         private readonly IMapper _mapper;
-        private readonly AppDbContext _context;
 
         public CatalogoController(
             ICatalogoService catalogoService,
             ICatalogLookupService catalogLookupService,
             ILogger<CatalogoController> logger,
-            IMapper mapper,
-            AppDbContext context)
+            IMapper mapper)
         {
             _catalogoService = catalogoService;
             _catalogLookupService = catalogLookupService;
             _logger = logger;
             _mapper = mapper;
-            _context = context;
         }
 
         #region Vistas — Index / Resumen / Historial / Detalle
@@ -77,18 +72,7 @@ namespace TheBuryProject.Controllers
                 viewModel.MarcasListado = _mapper.Map<List<MarcaViewModel>>(marcas);
 
                 // Alícuotas IVA para los modales de Producto
-                ViewBag.AlicuotasIVADatos = await _context.AlicuotasIVA
-                    .AsNoTracking()
-                    .Where(a => a.Activa && !a.IsDeleted)
-                    .OrderByDescending(a => a.EsPredeterminada)
-                    .ThenBy(a => a.Porcentaje)
-                    .Select(a => new
-                    {
-                        id = a.Id,
-                        porcentaje = a.Porcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        texto = a.EsPredeterminada ? $"{a.Nombre} (predeterminada)" : a.Nombre
-                    })
-                    .ToListAsync();
+                ViewBag.AlicuotasIVADatos = await _catalogLookupService.ObtenerAlicuotasIVAParaFormAsync();
 
                 return View("Index_tw", viewModel);
             }

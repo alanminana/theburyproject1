@@ -10,6 +10,8 @@ namespace TheBuryProject.ViewModels.Requests
         public decimal DescuentoGeneral { get; set; }
 
         public bool DescuentoEsPorcentaje { get; set; }
+
+        public int? TarjetaId { get; set; }
     }
 
     public class DetalleCalculoVentaRequest
