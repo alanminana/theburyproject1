@@ -131,6 +131,32 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task CalcularTotalesVenta_TarjetaSinRestriccion_DevuelveMaxTarjetaSinLimitacionProducto()
+    {
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            MaxCuotasResult = new MaxCuotasSinInteresResultado
+            {
+                TarjetaId = 5,
+                MaxCuotas = 12,
+                LimitadoPorProducto = false
+            }
+        };
+        var controller = CreateController(configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 5,
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 10, Cantidad = 1, PrecioUnitario = 200m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(12, json.RootElement.GetProperty("maxCuotasSinInteresEfectivo").GetInt32());
+        Assert.False(json.RootElement.GetProperty("cuotasSinInteresLimitadasPorProducto").GetBoolean());
+    }
+
+    [Fact]
     public async Task CalcularTotalesVenta_ConTarjetaConInteres_MaxCuotasEsNull()
     {
         // Stub returns null → tarjeta ConInteres or not found → no limit

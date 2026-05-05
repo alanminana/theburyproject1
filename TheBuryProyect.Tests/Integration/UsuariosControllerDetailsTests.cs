@@ -7,6 +7,7 @@ using TheBuryProject.Tests.Infrastructure;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Collection("HttpIntegration")]
 public class UsuariosControllerDetailsTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

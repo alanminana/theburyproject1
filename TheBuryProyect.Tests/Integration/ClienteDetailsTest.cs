@@ -11,6 +11,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Antes del fix llamaba EvaluarAptitudAsync(guardarResultado: true) desde ConstructDetalleViewModel,
 /// lo que actualizaba FechaUltimaEvaluacion en cada carga de la ficha.
 /// </summary>
+[Collection("HttpIntegration")]
 public class ClienteDetailsTest : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

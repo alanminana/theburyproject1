@@ -296,6 +296,126 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Null(updated.MaxCuotasSinInteresPermitidas);
     }
 
+    // CreateAjax
+
+    [Fact]
+    public async Task CreateAjax_ProductoValido_CreaProducto()
+    {
+        var (categoria, marca) = await SeedCategoriaYMarcaAsync();
+        var codigo = "P" + Guid.NewGuid().ToString("N")[..8];
+        var vm = new ProductoViewModel
+        {
+            Codigo = codigo,
+            Nombre = "Producto ajax valido",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 80m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            StockActual = 3m,
+            StockMinimo = 1m,
+            Activo = true,
+            MaxCuotasSinInteresPermitidas = 6
+        };
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(codigo, entity.GetProperty("codigo").GetString());
+        Assert.Equal("Producto ajax valido", entity.GetProperty("nombre").GetString());
+        Assert.Equal(121m, entity.GetProperty("precioVenta").GetDecimal());
+
+        var creado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Codigo == codigo);
+        Assert.Equal(121m, creado.PrecioVenta);
+        Assert.Equal(6, creado.MaxCuotasSinInteresPermitidas);
+    }
+
+    [Fact]
+    public async Task CreateAjax_CodigoDuplicado_DevuelveError()
+    {
+        var existente = await SeedProductoAsync();
+        var vm = new ProductoViewModel
+        {
+            Codigo = existente.Codigo,
+            Nombre = "Producto duplicado",
+            CategoriaId = existente.CategoriaId,
+            MarcaId = existente.MarcaId,
+            PrecioCompra = 50m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            StockActual = 1m,
+            Activo = true
+        };
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        var codigoErrors = doc.RootElement.GetProperty("errors").GetProperty("Codigo");
+        Assert.Contains("Ya existe un producto con este codigo", Normalize(codigoErrors[0].GetString()));
+        Assert.Equal(1, await _context.Productos.CountAsync(p => p.Codigo == existente.Codigo));
+    }
+
+    [Fact]
+    public async Task CreateAjax_ModelStateInvalido_DevuelveError()
+    {
+        var vm = new ProductoViewModel
+        {
+            Codigo = "",
+            Nombre = "",
+            PrecioCompra = 10m,
+            PrecioVenta = 20m,
+            PorcentajeIVA = 21m
+        };
+        _controller.ModelState.AddModelError(nameof(ProductoViewModel.Codigo), "El codigo es obligatorio");
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("errors").TryGetProperty(nameof(ProductoViewModel.Codigo), out var codigoErrors));
+        Assert.Equal("El codigo es obligatorio", codigoErrors[0].GetString());
+    }
+
+    // ActualizarComisionVendedor
+
+    [Fact]
+    public async Task ActualizarComisionVendedor_ValorValido_ActualizaComision()
+    {
+        var producto = await SeedProductoAsync();
+
+        var result = await _controller.ActualizarComisionVendedor(producto.Id, "12,5") as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal(12.5m, doc.RootElement.GetProperty("comisionPorcentaje").GetDecimal());
+
+        var actualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(12.5m, actualizado.ComisionPorcentaje);
+    }
+
+    [Fact]
+    public async Task ActualizarComisionVendedor_ValorInvalido_DevuelveError()
+    {
+        var producto = await SeedProductoAsync();
+
+        var result = await _controller.ActualizarComisionVendedor(producto.Id, "101") as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("El porcentaje de comision debe estar entre 0 y 100.", Normalize(doc.RootElement.GetProperty("message").GetString()));
+
+        var sinCambios = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(0m, sinCambios.ComisionPorcentaje);
+    }
+
     [Fact]
     public async Task EditAjax_ConPrecioLista_DevuelveMargenBasadoEnPrecioLista()
     {
@@ -341,7 +461,12 @@ public class ProductoControllerPrecioTests : IDisposable
         return JsonDocument.Parse(json);
     }
 
-    private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m, int? maxCuotas = null)
+    private static string? Normalize(string? value)
+        => value?
+            .Replace("ó", "o")
+            .Replace("í", "i");
+
+    private async Task<(Categoria Categoria, Marca Marca)> SeedCategoriaYMarcaAsync()
     {
         var code = Guid.NewGuid().ToString("N")[..8];
         var cat = new Categoria { Codigo = "C" + code, Nombre = "Cat-" + code, Activo = true };
@@ -349,6 +474,13 @@ public class ProductoControllerPrecioTests : IDisposable
         _context.Categorias.Add(cat);
         _context.Marcas.Add(marca);
         await _context.SaveChangesAsync();
+        return (cat, marca);
+    }
+
+    private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m, int? maxCuotas = null)
+    {
+        var (cat, marca) = await SeedCategoriaYMarcaAsync();
+        var code = Guid.NewGuid().ToString("N")[..8];
 
         var producto = new Producto
         {

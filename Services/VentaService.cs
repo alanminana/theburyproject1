@@ -1389,6 +1389,13 @@ namespace TheBuryProject.Services
             if (venta == null)
                 return false;
 
+            // Guard: evita duplicar recargo de débito o reemplazar snapshot silenciosamente
+            // en una segunda llamada (bug confirmado en Fase 6.2).
+            var yaExiste = await _context.DatosTarjeta
+                .AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted);
+            if (yaExiste)
+                return false;
+
             var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
             datosTarjetaEntity.VentaId = ventaId;
 
@@ -1545,6 +1552,11 @@ namespace TheBuryProject.Services
             var venta = await _context.Ventas
                 .FirstOrDefaultAsync(v => v.Id == ventaId && !v.IsDeleted);
             if (venta == null)
+                return false;
+
+            var yaExiste = await _context.DatosCheque
+                .AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted);
+            if (yaExiste)
                 return false;
 
             var datosChequeEntity = _mapper.Map<DatosCheque>(datosCheque);

@@ -7,6 +7,7 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Collection("HttpIntegration")]
 public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;

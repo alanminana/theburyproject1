@@ -13,6 +13,7 @@ namespace TheBuryProject.Tests.Integration;
 /// Antes del fix se consultaba _context.ListasPrecios directamente (sin pasar por IPrecioService)
 /// y la rama del fallback no existía — el request retornaba 400 si no se enviaban listas.
 /// </summary>
+[Collection("HttpIntegration")]
 public class CambiosPreciosAplicarRapidoTest : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
