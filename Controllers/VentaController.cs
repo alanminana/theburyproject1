@@ -1279,6 +1279,8 @@ namespace TheBuryProject.Controllers
                 .Include(f => f.Venta)
                     .ThenInclude(v => v.Cliente)
                 .Include(f => f.Venta)
+                    .ThenInclude(v => v.DatosTarjeta)
+                .Include(f => f.Venta)
                     .ThenInclude(v => v.Detalles.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Producto)
                 .FirstOrDefaultAsync(f => f.Id == facturaId && !f.IsDeleted);

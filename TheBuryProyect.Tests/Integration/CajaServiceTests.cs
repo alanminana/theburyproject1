@@ -1068,6 +1068,49 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(2, resultado.CantidadMovimientos);
     }
 
+    [Fact]
+    public async Task ObtenerDetallesApertura_DebitoConRecargo_MuestraDesgloseSinCambiarTotalCobrado()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+
+        var cliente = new Cliente
+        {
+            Nombre = "Cliente",
+            Apellido = "Debito",
+            NumeroDocumento = Guid.NewGuid().ToString("N")[..8]
+        };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            AperturaCajaId = apertura.Id,
+            Numero = "VD-REC",
+            Estado = EstadoVenta.Facturada,
+            TipoPago = TipoPago.TarjetaDebito,
+            Total = 105m,
+            DatosTarjeta = new DatosTarjeta
+            {
+                NombreTarjeta = "Maestro Debito",
+                TipoTarjeta = TipoTarjeta.Debito,
+                RecargoAplicado = 5m
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Equal(5m, resultado.TotalRecargoDebito);
+        var tarjeta = Assert.Single(resultado.TotalesPorTipoPago);
+        Assert.Equal("Tarjeta", tarjeta.TipoPago);
+        Assert.Equal(105m, tarjeta.Total);
+        Assert.Equal(5m, tarjeta.RecargoDebitoAplicado);
+        Assert.Equal(105m, Assert.Single(resultado.VentasDelTurno).Total);
+    }
+
     // =========================================================================
     // GenerarReporteCajaAsync
     // =========================================================================

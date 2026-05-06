@@ -927,6 +927,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
         var ventasDelTurno = await _context.Ventas
             .AsNoTracking()
             .Include(v => v.Cliente)
+            .Include(v => v.DatosTarjeta)
             .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)
             .OrderByDescending(v => v.FechaVenta)
             .ToListAsync();
@@ -950,6 +951,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
                     _ => g.Key.ToString()
                 },
                 Total = g.Sum(v => v.Total),
+                RecargoDebitoAplicado = g.Sum(ResolverRecargoDebitoAplicado),
                 Cantidad = g.Count(),
                 GeneraIngresoInmediato =
                     g.Key != TipoPago.CreditoPersonal &&
@@ -960,6 +962,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             {
                 TipoPago = g.Key,
                 Total = g.Sum(x => x.Total),
+                RecargoDebitoAplicado = g.Sum(x => x.RecargoDebitoAplicado),
                 Cantidad = g.Sum(x => x.Cantidad),
                 GeneraIngresoInmediato = g.All(x => x.GeneraIngresoInmediato)
             })
@@ -986,6 +989,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             SaldoActual = saldoActual,
             TotalIngresos = totalIngresos,
             TotalEgresos = totalEgresos,
+            TotalRecargoDebito = ventasDelTurno.Sum(ResolverRecargoDebitoAplicado),
             CantidadMovimientos = movimientos.Count,
             TotalesPorTipoPago = totalesPorTipoPago,
             ResumenRealPorMedioPago = resumenRealPorMedioPago
@@ -1114,6 +1118,15 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
                 .Sum(m => m.Monto);
 
             return (ingresos, egresos);
+        }
+
+        private static decimal ResolverRecargoDebitoAplicado(Venta venta)
+        {
+            if (venta.DatosTarjeta?.TipoTarjeta != TipoTarjeta.Debito)
+                return 0m;
+
+            var recargo = venta.DatosTarjeta.RecargoAplicado.GetValueOrDefault();
+            return recargo > 0m ? recargo : 0m;
         }
 
         // MovimientoCaja no tiene campo TipoPago. Se infiere desde Concepto y, como fallback,

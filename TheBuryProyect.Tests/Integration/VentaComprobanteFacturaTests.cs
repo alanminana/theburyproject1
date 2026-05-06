@@ -49,6 +49,44 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
+    public async Task ComprobanteFactura_DebitoConRecargo_MuestraRecargoYTotalFactura()
+    {
+        await _factory.SeedTestUserAsync();
+        var facturaId = await SeedFacturaAsync(
+            new[]
+            {
+                new DetalleSeed("P21R", "Producto con recargo", 1, 121m, 21m, "IVA 21%", 100m, 21m, 121m)
+            },
+            recargoDebito: 12.10m);
+        var client = _factory.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync($"/Venta/ComprobanteFactura?facturaId={facturaId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Recargo d", html);
+        Assert.Contains("12", html);
+        Assert.Contains("133", html);
+    }
+
+    [Fact]
+    public async Task ComprobanteFactura_SinRecargo_NoMuestraLineaRecargo()
+    {
+        await _factory.SeedTestUserAsync();
+        var facturaId = await SeedFacturaAsync(new[]
+        {
+            new DetalleSeed("P21S", "Producto sin recargo", 1, 121m, 21m, "IVA 21%", 100m, 21m, 121m)
+        });
+        var client = _factory.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync($"/Venta/ComprobanteFactura?facturaId={facturaId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("Recargo d", html);
+    }
+
+    [Fact]
     public async Task ComprobanteFactura_VentaMixta_MuestraResumenPorAlicuota()
     {
         await _factory.SeedTestUserAsync();
@@ -138,7 +176,30 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
         Assert.DoesNotContain("Base imponible", html);
     }
 
-    private async Task<int> SeedFacturaAsync(IReadOnlyCollection<DetalleSeed> detalles)
+    [Fact]
+    public async Task Details_DebitoConRecargo_MuestraRecargo()
+    {
+        await _factory.SeedTestUserAsync();
+        var ventaId = await SeedVentaDetailsAsync(
+            EstadoVenta.Confirmada,
+            incluirFactura: false,
+            facturaAnulada: false,
+            new[]
+            {
+                new DetalleSeed("DR21", "Detalle con recargo", 1, 121m, 21m, "IVA 21%", 100m, 21m, 121m)
+            },
+            recargoDebito: 12.10m);
+        var client = _factory.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync($"/Venta/Details/{ventaId}");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Recargo d", html);
+        Assert.Contains("133", html);
+    }
+
+    private async Task<int> SeedFacturaAsync(IReadOnlyCollection<DetalleSeed> detalles, decimal recargoDebito = 0m)
     {
         var suffix = Interlocked.Increment(ref _counter);
 
@@ -168,10 +229,10 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
             Numero = $"V-{suffix}",
             FechaVenta = new DateTime(2026, 4, 30, 10, 0, 0, DateTimeKind.Utc),
             Estado = EstadoVenta.Facturada,
-            TipoPago = TipoPago.Efectivo,
+            TipoPago = recargoDebito > 0m ? TipoPago.TarjetaDebito : TipoPago.Efectivo,
             Subtotal = detalles.Sum(d => d.SubtotalFinalNeto),
             IVA = detalles.Sum(d => d.SubtotalFinalIVA),
-            Total = detalles.Sum(d => d.SubtotalFinal),
+            Total = detalles.Sum(d => d.SubtotalFinal) + recargoDebito,
             EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere
         };
 
@@ -208,6 +269,18 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
         context.Ventas.Add(venta);
         await context.SaveChangesAsync();
 
+        if (recargoDebito > 0m)
+        {
+            context.DatosTarjeta.Add(new DatosTarjeta
+            {
+                VentaId = venta.Id,
+                NombreTarjeta = "Maestro Debito",
+                TipoTarjeta = TipoTarjeta.Debito,
+                RecargoAplicado = recargoDebito
+            });
+            await context.SaveChangesAsync();
+        }
+
         var factura = new Factura
         {
             VentaId = venta.Id,
@@ -228,7 +301,8 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
         EstadoVenta estado,
         bool incluirFactura,
         bool facturaAnulada,
-        IReadOnlyCollection<DetalleSeed> detalles)
+        IReadOnlyCollection<DetalleSeed> detalles,
+        decimal recargoDebito = 0m)
     {
         var suffix = Interlocked.Increment(ref _counter);
 
@@ -258,10 +332,10 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
             Numero = $"VD-{suffix}",
             FechaVenta = new DateTime(2026, 4, 30, 11, 0, 0, DateTimeKind.Utc),
             Estado = estado,
-            TipoPago = TipoPago.Efectivo,
+            TipoPago = recargoDebito > 0m ? TipoPago.TarjetaDebito : TipoPago.Efectivo,
             Subtotal = detalles.Sum(d => d.SubtotalFinalNeto),
             IVA = detalles.Sum(d => d.SubtotalFinalIVA),
-            Total = detalles.Sum(d => d.SubtotalFinal),
+            Total = detalles.Sum(d => d.SubtotalFinal) + recargoDebito,
             EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere
         };
 
@@ -297,6 +371,18 @@ public class VentaComprobanteFacturaTests : IClassFixture<CustomWebApplicationFa
 
         context.Ventas.Add(venta);
         await context.SaveChangesAsync();
+
+        if (recargoDebito > 0m)
+        {
+            context.DatosTarjeta.Add(new DatosTarjeta
+            {
+                VentaId = venta.Id,
+                NombreTarjeta = "Maestro Debito",
+                TipoTarjeta = TipoTarjeta.Debito,
+                RecargoAplicado = recargoDebito
+            });
+            await context.SaveChangesAsync();
+        }
 
         if (incluirFactura)
         {

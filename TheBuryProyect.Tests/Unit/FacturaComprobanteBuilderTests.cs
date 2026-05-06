@@ -68,4 +68,87 @@ public class FacturaComprobanteBuilderTests
             r.IVA == 15.62m &&
             r.Total == 90m);
     }
+
+    [Fact]
+    public void Build_DebitoConRecargo_UsaTotalPersistidoYNoCambiaResumenAlicuotas()
+    {
+        var factura = new Factura
+        {
+            Numero = "FC-REC",
+            Tipo = TipoFactura.B,
+            FechaEmision = new DateTime(2026, 5, 6),
+            Total = 133.10m,
+            Venta = new Venta
+            {
+                Numero = "V-REC",
+                TipoPago = TipoPago.TarjetaDebito,
+                Total = 133.10m,
+                DatosTarjeta = new DatosTarjeta
+                {
+                    TipoTarjeta = TipoTarjeta.Debito,
+                    NombreTarjeta = "Maestro",
+                    RecargoAplicado = 12.10m
+                },
+                Detalles = new List<VentaDetalle>
+                {
+                    new()
+                    {
+                        Producto = new Producto { Codigo = "P1", Nombre = "Producto 1" },
+                        Cantidad = 1,
+                        PrecioUnitario = 121m,
+                        Subtotal = 121m,
+                        PorcentajeIVA = 21m,
+                        AlicuotaIVANombre = "IVA 21%",
+                        SubtotalFinalNeto = 100m,
+                        SubtotalFinalIVA = 21m,
+                        SubtotalFinal = 121m
+                    }
+                }
+            }
+        };
+
+        var comprobante = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Equal(121m, comprobante.Totales.TotalProductos);
+        Assert.Equal(12.10m, comprobante.Totales.RecargoDebitoAplicado);
+        Assert.Equal(133.10m, comprobante.Totales.Total);
+        var resumen = Assert.Single(comprobante.ResumenAlicuotas);
+        Assert.Equal(121m, resumen.Total);
+    }
+
+    [Fact]
+    public void Build_SinRecargo_NoExponeRecargo()
+    {
+        var factura = new Factura
+        {
+            Numero = "FC-SIN",
+            Tipo = TipoFactura.B,
+            FechaEmision = new DateTime(2026, 5, 6),
+            Venta = new Venta
+            {
+                Numero = "V-SIN",
+                TipoPago = TipoPago.Efectivo,
+                Detalles = new List<VentaDetalle>
+                {
+                    new()
+                    {
+                        Producto = new Producto { Codigo = "P1", Nombre = "Producto 1" },
+                        Cantidad = 1,
+                        PrecioUnitario = 121m,
+                        Subtotal = 121m,
+                        PorcentajeIVA = 21m,
+                        AlicuotaIVANombre = "IVA 21%",
+                        SubtotalFinalNeto = 100m,
+                        SubtotalFinalIVA = 21m,
+                        SubtotalFinal = 121m
+                    }
+                }
+            }
+        };
+
+        var comprobante = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Equal(0m, comprobante.Totales.RecargoDebitoAplicado);
+        Assert.Equal(121m, comprobante.Totales.Total);
+    }
 }

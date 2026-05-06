@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -153,7 +154,8 @@ public class ReporteServiceTests : IDisposable
         decimal comisionMonto = 0m,
         decimal subtotalFinal = 0m,
         decimal costoUnitarioAlMomento = 0m,
-        decimal costoTotalAlMomento = 0m)
+        decimal costoTotalAlMomento = 0m,
+        decimal recargoDebitoAplicado = 0m)
     {
         var total = precioUnitario * cantidad;
         var venta = new Venta
@@ -166,7 +168,7 @@ public class ReporteServiceTests : IDisposable
             VendedorUserId = vendedorUserId,
             VendedorNombre = vendedorNombre,
             Subtotal = total,
-            Total = total,
+            Total = total + recargoDebitoAplicado,
             Detalles = new List<VentaDetalle>
             {
                 new()
@@ -186,6 +188,19 @@ public class ReporteServiceTests : IDisposable
         };
         _context.Ventas.Add(venta);
         await _context.SaveChangesAsync();
+
+        if (recargoDebitoAplicado > 0m)
+        {
+            _context.DatosTarjeta.Add(new DatosTarjeta
+            {
+                VentaId = venta.Id,
+                NombreTarjeta = "Maestro Debito",
+                TipoTarjeta = TipoTarjeta.Debito,
+                RecargoAplicado = recargoDebitoAplicado
+            });
+            await _context.SaveChangesAsync();
+        }
+
         return venta;
     }
 
@@ -252,6 +267,33 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(100m, item.Total);
         Assert.Equal(20m, item.Costo);    // 2 × PrecioCompra(10)
         Assert.Equal(80m, item.Ganancia); // 100 - 20
+        Assert.Equal(80m, resultado.TotalGanancia);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_DebitoConRecargo_ExponeRecargoSeparadoYNoLoMezclaEnGanancia()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 50m,
+            cantidad: 2,
+            tipoPago: TipoPago.TarjetaDebito,
+            costoTotalAlMomento: 20m,
+            recargoDebitoAplicado: 5m);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.Ventas);
+        Assert.Equal(100m, item.Subtotal);
+        Assert.Equal(0m, item.IVA);
+        Assert.Equal(5m, item.RecargoDebitoAplicado);
+        Assert.Equal(105m, item.Total);
+        Assert.Equal(80m, item.Ganancia);
+        Assert.Equal(5m, resultado.TotalRecargoDebito);
+        Assert.Equal(105m, resultado.TotalVentas);
         Assert.Equal(80m, resultado.TotalGanancia);
     }
 
@@ -1187,6 +1229,31 @@ public class ReporteServiceTests : IDisposable
         // Signature de ZIP/Office Open XML: PK magic bytes
         Assert.Equal(0x50, resultado[0]); // 'P'
         Assert.Equal(0x4B, resultado[1]); // 'K'
+    }
+
+    [Fact]
+    public async Task ExportarVentasExcel_DebitoConRecargo_IncluyeColumnaRecargoYTotalCobrado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 50m,
+            cantidad: 2,
+            tipoPago: TipoPago.TarjetaDebito,
+            costoTotalAlMomento: 20m,
+            recargoDebitoAplicado: 5m);
+
+        var bytes = await _service.ExportarVentasExcelAsync(new ReporteVentasFiltroViewModel());
+
+        using var stream = new MemoryStream(bytes);
+        using var workbook = new XLWorkbook(stream);
+        var worksheet = workbook.Worksheet("Ventas");
+        Assert.Equal("Recargo débito", worksheet.Cell(1, 9).GetString());
+        Assert.Equal(5m, worksheet.Cell(2, 9).GetValue<decimal>());
+        Assert.Equal(105m, worksheet.Cell(2, 10).GetValue<decimal>());
+        Assert.Equal(80m, worksheet.Cell(2, 11).GetValue<decimal>());
     }
 
     [Fact]

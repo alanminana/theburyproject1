@@ -7,6 +7,7 @@
     var ventas = Model.VentasDelTurno ?? new List<TheBuryProject.Models.Entities.Venta>();
     var ingresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).ToList();
     var egresos = movimientos.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).ToList();
+    var totalRecargoDebito = Model.TotalRecargoDebito;
     var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
     var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
     var puedeOperar = esAdmin || apertura.UsuarioApertura == currentUser;
@@ -196,8 +197,8 @@
     </div>
 
     <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. total mov.</p>
-        <p class="text-white text-xl font-black leading-tight">@Model.CantidadMovimientos</p>
+        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Recargo débito</p>
+        <p class="text-amber-400 text-xl font-black leading-tight">$@totalRecargoDebito.ToString("N2")</p>
     </div>
 
     <div class="col-span-2 flex flex-col gap-1 rounded-2xl p-4 bg-primary/10 border border-primary/30 shadow-sm xl:col-span-1">
@@ -261,6 +262,7 @@
                                     <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
                                     <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
                                     <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Recargo débito</th>
                                     <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
                                 </tr>
                             </thead>
@@ -278,6 +280,9 @@
                                         _ => v.TipoPago.ToString()
                                     };
                                     var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
+                                    var recargoDebito = v.DatosTarjeta?.TipoTarjeta == TipoTarjeta.Debito
+                                        ? v.DatosTarjeta.RecargoAplicado.GetValueOrDefault()
+                                        : 0m;
                                     var estadoLabel = v.Estado switch {
                                         EstadoVenta.Cotizacion => "Cotización",
                                         EstadoVenta.Presupuesto => "Presupuesto",
@@ -314,6 +319,9 @@
                                                   "bg-slate-100 text-slate-600 bg-slate-700 text-slate-300")">
                                                 @estadoLabel
                                             </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm font-semibold text-right text-amber-400">
+                                            $@recargoDebito.ToString("N2")
                                         </td>
                                         <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">
                                             $@v.Total.ToString("N2")

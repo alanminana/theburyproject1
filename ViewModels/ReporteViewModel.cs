@@ -29,6 +29,7 @@ namespace TheBuryProject.ViewModels
     {
         public List<VentaReporteItemViewModel> Ventas { get; set; } = new();
         public decimal TotalVentas { get; set; }
+        public decimal TotalRecargoDebito { get; set; }
         public decimal TotalCosto { get; set; }
         public decimal TotalGanancia { get; set; }
         public decimal MargenPromedio { get; set; }
@@ -57,7 +58,9 @@ namespace TheBuryProject.ViewModels
         public decimal Subtotal { get; set; }
         public decimal Descuento { get; set; }
         public decimal IVA { get; set; }
+        public decimal RecargoDebitoAplicado { get; set; }
         public decimal Total { get; set; }
+        public decimal TotalProductos => Total - RecargoDebitoAplicado;
         public decimal Costo { get; set; }
         public decimal Ganancia { get; set; }
         public decimal MargenPorcentaje { get; set; }

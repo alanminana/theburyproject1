@@ -343,6 +343,9 @@
                         <th class="number">Total</th>
                     </tr>
                 </thead>
+                <caption class="muted" style="caption-side: top; text-align: left; padding-bottom: 8px;">
+                    El resumen por al&iacute;cuotas corresponde s&oacute;lo a productos.
+                </caption>
                 <tbody>
                     @foreach (var item in Model.ResumenAlicuotas)
                     {
@@ -360,6 +363,10 @@
         <section class="totals">
             <div class="total-row"><span>Subtotal neto</span><strong>@Model.Totales.SubtotalNeto.ToString("C2")</strong></div>
             <div class="total-row"><span>IVA</span><strong>@Model.Totales.IVA.ToString("C2")</strong></div>
+            @if (Model.Totales.RecargoDebitoAplicado > 0)
+            {
+                <div class="total-row"><span>Recargo d&eacute;bito</span><strong>@Model.Totales.RecargoDebitoAplicado.ToString("C2")</strong></div>
+            }
             <div class="total-row"><span>Total</span><strong>@Model.Totales.Total.ToString("C2")</strong></div>
         </section>
 

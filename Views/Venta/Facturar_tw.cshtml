@@ -9,6 +9,7 @@
     var subtotal = venta?.Subtotal ?? Model.Subtotal;
     var iva = venta?.IVA ?? Model.IVA;
     var total = venta?.Total ?? Model.Total;
+    var recargoDebitoAplicado = venta?.RecargoDebitoAplicado ?? 0m;
 }
 
 <div class="fixed inset-0 z-[80] overflow-hidden bg-slate-950/80 backdrop-blur-sm" data-facturar-panel>
@@ -82,6 +83,13 @@
                             <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">IVA</p>
                             <p class="mt-2 text-base font-bold text-slate-100">@iva.ToString("C2")</p>
                         </div>
+                        @if (recargoDebitoAplicado > 0)
+                        {
+                            <div class="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Recargo d&eacute;bito</p>
+                                <p class="mt-2 text-base font-bold text-amber-300">@recargoDebitoAplicado.ToString("C2")</p>
+                            </div>
+                        }
                         <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
                             <p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">Total a facturar</p>
                             <p class="mt-2 text-xl font-black text-emerald-300">@total.ToString("C2")</p>
@@ -96,7 +104,7 @@
                             <span class="material-symbols-outlined text-primary">percent</span>
                             <div>
                                 <h2 class="text-base font-black text-white">Resumen por al&iacute;cuota</h2>
-                                <p class="text-xs text-slate-400">Base imponible e IVA tomados de los importes finales de la venta.</p>
+                                <p class="text-xs text-slate-400">Base imponible e IVA tomados s&oacute;lo de productos.</p>
                             </div>
                         </div>
 

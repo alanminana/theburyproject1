@@ -150,16 +150,17 @@
             <div class="card-erp-metric card-erp-metric-success">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia</p>
                 <p class="mt-1 text-2xl font-bold text-emerald-400">$@r.TotalGanancia.ToString("N2")</p>
-                <p class="text-xs text-slate-500 mt-1">Costo: $@r.TotalCosto.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Costo productos: $@r.TotalCosto.ToString("N2")</p>
             </div>
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Margen promedio</p>
                 <p class="mt-1 text-2xl font-bold text-slate-100">@r.MargenPromedio.ToString("N1")%</p>
-                <p class="text-xs text-slate-500 mt-1">@r.CantidadProductosVendidos productos vendidos</p>
+                <p class="text-xs text-slate-500 mt-1">Sobre productos, sin recargo débito</p>
             </div>
             <div class="card-erp-metric">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Ticket promedio</p>
-                <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TicketPromedio.ToString("N2")</p>
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Recargo débito</p>
+                <p class="mt-1 text-2xl font-bold text-amber-400">$@r.TotalRecargoDebito.ToString("N2")</p>
+                <p class="text-xs text-slate-500 mt-1">Separado del margen comercial</p>
             </div>
         </div>
 
@@ -230,6 +231,7 @@
                                 <th class="px-4 py-3 text-left font-medium text-slate-400">Cliente</th>
                                 <th class="px-4 py-3 text-left font-medium text-slate-400">Vendedor</th>
                                 <th class="px-4 py-3 text-left font-medium text-slate-400">Tipo pago</th>
+                                <th class="px-4 py-3 text-right font-medium text-slate-400">Recargo débito</th>
                                 <th class="px-4 py-3 text-right font-medium text-slate-400">Total</th>
                                 <th class="px-4 py-3 text-right font-medium text-slate-400">Ganancia</th>
                                 <th class="px-4 py-3 text-right font-medium text-slate-400">Margen</th>
@@ -247,6 +249,7 @@
                                     <td class="px-4 py-3 text-slate-100">@v.ClienteNombre</td>
                                     <td class="px-4 py-3 text-slate-400">@v.VendedorNombre</td>
                                     <td class="px-4 py-3 text-slate-400">@v.TipoPagoDescripcion</td>
+                                    <td class="px-4 py-3 text-right text-amber-400">$@v.RecargoDebitoAplicado.ToString("N2")</td>
                                     <td class="px-4 py-3 text-right font-medium text-slate-100">$@v.Total.ToString("N2")</td>
                                     <td class="px-4 py-3 text-right text-emerald-400">$@v.Ganancia.ToString("N2")</td>
                                     <td class="px-4 py-3 text-right text-slate-400">@v.MargenPorcentaje.ToString("N1")%</td>

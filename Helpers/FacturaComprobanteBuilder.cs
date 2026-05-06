@@ -18,7 +18,8 @@ namespace TheBuryProject.Helpers
 
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();
-            var totales = BuildTotales(factura, venta, lineas);
+            var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(venta);
+            var totales = BuildTotales(factura, venta, lineas, recargoDebitoAplicado);
 
             return new FacturaComprobanteViewModel
             {
@@ -137,15 +138,22 @@ namespace TheBuryProject.Helpers
         private static FacturaComprobanteTotalesViewModel BuildTotales(
             Factura factura,
             Venta venta,
-            IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas)
+            IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas,
+            decimal recargoDebitoAplicado)
         {
+            var totalProductos = lineas.Sum(l => l.Total);
+
             if (lineas.Count > 0)
             {
+                // El cargo financiero de debito no se prorratea ni integra IVA.
+                // Si productos + recargo difiere por redondeo, el total persistido de Factura/Venta es la autoridad.
                 return new FacturaComprobanteTotalesViewModel
                 {
                     SubtotalNeto = lineas.Sum(l => l.SubtotalNeto),
                     IVA = lineas.Sum(l => l.IVA),
-                    Total = lineas.Sum(l => l.Total)
+                    TotalProductos = totalProductos,
+                    RecargoDebitoAplicado = recargoDebitoAplicado,
+                    Total = ResolverTotalPersistido(factura, venta, totalProductos + recargoDebitoAplicado)
                 };
             }
 
@@ -155,6 +163,8 @@ namespace TheBuryProject.Helpers
                 {
                     SubtotalNeto = factura.Subtotal,
                     IVA = factura.IVA,
+                    TotalProductos = Math.Max(0m, factura.Total - recargoDebitoAplicado),
+                    RecargoDebitoAplicado = recargoDebitoAplicado,
                     Total = factura.Total
                 };
             }
@@ -163,8 +173,38 @@ namespace TheBuryProject.Helpers
             {
                 SubtotalNeto = venta.Subtotal,
                 IVA = venta.IVA,
+                TotalProductos = Math.Max(0m, venta.Total - recargoDebitoAplicado),
+                RecargoDebitoAplicado = recargoDebitoAplicado,
                 Total = venta.Total
             };
+        }
+
+        private static decimal ResolverRecargoDebitoAplicado(Venta venta)
+        {
+            if (venta.DatosTarjeta?.TipoTarjeta != Models.Enums.TipoTarjeta.Debito)
+            {
+                return 0m;
+            }
+
+            var recargoAplicado = venta.DatosTarjeta.RecargoAplicado.GetValueOrDefault();
+            return recargoAplicado > 0m
+                ? recargoAplicado
+                : 0m;
+        }
+
+        private static decimal ResolverTotalPersistido(Factura factura, Venta venta, decimal fallback)
+        {
+            if (factura.Total != 0m)
+            {
+                return factura.Total;
+            }
+
+            if (venta.Total != 0m)
+            {
+                return venta.Total;
+            }
+
+            return fallback;
         }
     }
 }

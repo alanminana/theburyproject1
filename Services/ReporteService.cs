@@ -48,6 +48,7 @@ namespace TheBuryProject.Services
                     .AsNoTracking()
                     .Include(v => v.Cliente)
                     .Include(v => v.VendedorUser)
+                    .Include(v => v.DatosTarjeta)
                     .Include(v => v.Detalles.Where(d =>
                         !d.IsDeleted &&
                         d.Producto != null &&
@@ -106,7 +107,9 @@ namespace TheBuryProject.Services
                         .ToList();
 
                     var costo = detallesValidos.Sum(CalcularCostoTotalDetalle);
-                    var ganancia = v.Total - costo;
+                    var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(v);
+                    var totalProductos = v.Total - recargoDebitoAplicado;
+                    var ganancia = totalProductos - costo;
 
                     return new VentaReporteItemViewModel
                     {
@@ -121,19 +124,22 @@ namespace TheBuryProject.Services
                         Subtotal = v.Subtotal,
                         Descuento = v.Descuento,
                         IVA = v.IVA,
+                        RecargoDebitoAplicado = recargoDebitoAplicado,
                         Total = v.Total,
                         Costo = costo,
                         Ganancia = ganancia,
-                        MargenPorcentaje = CalcularMargenPorcentaje(ganancia, v.Total),
+                        MargenPorcentaje = CalcularMargenPorcentaje(ganancia, totalProductos),
                         CantidadProductos = detallesValidos.Sum(d => (int)d.Cantidad)
                     };
                 }).ToList();
 
                 // Calcular estadísticas
                 var totalVentas = ventasItems.Sum(v => v.Total);
+                var totalRecargoDebito = ventasItems.Sum(v => v.RecargoDebitoAplicado);
                 var totalCosto = ventasItems.Sum(v => v.Costo);
-                var totalGanancia = totalVentas - totalCosto;
-                var margenPromedio = totalVentas > 0 ? (totalGanancia / totalVentas) * 100 : 0;
+                var totalProductos = ventasItems.Sum(v => v.TotalProductos);
+                var totalGanancia = ventasItems.Sum(v => v.Ganancia);
+                var margenPromedio = CalcularMargenPorcentaje(totalGanancia, totalProductos);
 
                 // Ventas por tipo de pago
                 var ventasPorTipoPago = ventasItems
@@ -153,6 +159,7 @@ namespace TheBuryProject.Services
                 {
                     Ventas = ventasItems,
                     TotalVentas = totalVentas,
+                    TotalRecargoDebito = totalRecargoDebito,
                     TotalCosto = totalCosto,
                     TotalGanancia = totalGanancia,
                     MargenPromedio = margenPromedio,
@@ -378,6 +385,7 @@ namespace TheBuryProject.Services
                         .ThenInclude(d => d.Producto)
                             .ThenInclude(p => p.Categoria)
                     .Where(v => !v.IsDeleted && v.FechaVenta >= fechaDesde && v.FechaVenta <= fechaHasta)
+                    .Include(v => v.DatosTarjeta)
                     .ToListAsync();
 
                 return agruparPor?.ToLower() switch
@@ -389,7 +397,7 @@ namespace TheBuryProject.Services
                             Etiqueta = g.Key.ToString("dd/MM/yyyy"),
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => v.Total - CalcularCostoDetalles(v.Detalles))
+                            Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
                         })
                         .OrderBy(v => v.Etiqueta)
                         .ToList(),
@@ -401,7 +409,7 @@ namespace TheBuryProject.Services
                             Etiqueta = $"{g.Key.Month:D2}/{g.Key.Year}",
                             Monto = g.Sum(v => v.Total),
                             Cantidad = g.Count(),
-                            Ganancia = g.Sum(v => v.Total - CalcularCostoDetalles(v.Detalles))
+                            Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
                         })
                         .OrderBy(v => v.Etiqueta)
                         .ToList(),
@@ -447,6 +455,15 @@ namespace TheBuryProject.Services
                 : detalle.Producto?.PrecioCompra ?? 0m;
 
             return costoUnitario * detalle.Cantidad;
+        }
+
+        internal static decimal ResolverRecargoDebitoAplicado(Venta venta)
+        {
+            if (venta.DatosTarjeta?.TipoTarjeta != TipoTarjeta.Debito)
+                return 0m;
+
+            var recargo = venta.DatosTarjeta.RecargoAplicado.GetValueOrDefault();
+            return recargo > 0m ? recargo : 0m;
         }
 
         public async Task<ComisionVendedorReporteViewModel> GenerarReporteComisionesVendedoresAsync(
@@ -863,12 +880,13 @@ namespace TheBuryProject.Services
                 worksheet.Cell(1, 6).Value = "Subtotal Neto";
                 worksheet.Cell(1, 7).Value = "Dto. (%)";
                 worksheet.Cell(1, 8).Value = "IVA";
-                worksheet.Cell(1, 9).Value = "Total";
-                worksheet.Cell(1, 10).Value = "Ganancia";
-                worksheet.Cell(1, 11).Value = "Margen %";
+                worksheet.Cell(1, 9).Value = "Recargo débito";
+                worksheet.Cell(1, 10).Value = "Total";
+                worksheet.Cell(1, 11).Value = "Ganancia";
+                worksheet.Cell(1, 12).Value = "Margen %";
 
                 // Estilo de encabezados
-                var headerRange = worksheet.Range("A1:K1");
+                var headerRange = worksheet.Range("A1:L1");
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
 
@@ -884,9 +902,10 @@ namespace TheBuryProject.Services
                     worksheet.Cell(row, 6).Value = venta.Subtotal;
                     worksheet.Cell(row, 7).Value = venta.Descuento;
                     worksheet.Cell(row, 8).Value = venta.IVA;
-                    worksheet.Cell(row, 9).Value = venta.Total;
-                    worksheet.Cell(row, 10).Value = venta.Ganancia;
-                    worksheet.Cell(row, 11).Value = venta.MargenPorcentaje;
+                    worksheet.Cell(row, 9).Value = venta.RecargoDebitoAplicado;
+                    worksheet.Cell(row, 10).Value = venta.Total;
+                    worksheet.Cell(row, 11).Value = venta.Ganancia;
+                    worksheet.Cell(row, 12).Value = venta.MargenPorcentaje;
                     row++;
                 }
 
@@ -896,15 +915,16 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, 6).Value = reporte.Ventas.Sum(v => v.Subtotal);
                 worksheet.Cell(row, 7).Value = reporte.Ventas.Sum(v => v.Descuento);
                 worksheet.Cell(row, 8).Value = reporte.Ventas.Sum(v => v.IVA);
-                worksheet.Cell(row, 9).Value = reporte.TotalVentas;
-                worksheet.Cell(row, 10).Value = reporte.TotalGanancia;
-                worksheet.Cell(row, 11).Value = reporte.MargenPromedio;
+                worksheet.Cell(row, 9).Value = reporte.TotalRecargoDebito;
+                worksheet.Cell(row, 10).Value = reporte.TotalVentas;
+                worksheet.Cell(row, 11).Value = reporte.TotalGanancia;
+                worksheet.Cell(row, 12).Value = reporte.MargenPromedio;
 
                 // Formatear columnas monetarias y porcentuales
                 worksheet.Range($"F2:F{row}").Style.NumberFormat.Format = "$#,##0.00";  // Subtotal Neto
                 worksheet.Range($"G2:G{row}").Style.NumberFormat.Format = "0.00";        // Dto. (%)
-                worksheet.Range($"H2:J{row}").Style.NumberFormat.Format = "$#,##0.00";  // IVA, Total, Ganancia
-                worksheet.Range($"K2:K{row}").Style.NumberFormat.Format = "0.00";        // Margen %
+                worksheet.Range($"H2:K{row}").Style.NumberFormat.Format = "$#,##0.00";  // IVA, Recargo, Total, Ganancia
+                worksheet.Range($"L2:L{row}").Style.NumberFormat.Format = "0.00";        // Margen %
 
                 // Ajustar ancho de columnas
                 worksheet.Columns().AdjustToContents();

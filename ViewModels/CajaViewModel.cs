@@ -189,6 +189,7 @@ public class TotalPorTipoPagoViewModel
 {
     public string TipoPago { get; set; } = string.Empty;
     public decimal Total { get; set; }
+    public decimal RecargoDebitoAplicado { get; set; }
     public int Cantidad { get; set; }
     public bool GeneraIngresoInmediato { get; set; }
 }
@@ -221,6 +222,7 @@ public class DetallesAperturaViewModel
     public decimal SaldoActual { get; set; }
     public decimal TotalIngresos { get; set; }
     public decimal TotalEgresos { get; set; }
+    public decimal TotalRecargoDebito { get; set; }
     public int CantidadMovimientos { get; set; }
     /// <summary>
     /// Ventas realizadas durante esta apertura, incluyendo las de crédito personal

@@ -56,6 +56,7 @@
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var cantidadUnidades = detalles.Sum(d => d.Cantidad);
+    var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
     var heroDescripcion = Model.Estado switch
     {
         EstadoVenta.Presupuesto => "Revisá el detalle, completá la configuración pendiente y prepará la aprobación o confirmación final.",
@@ -360,6 +361,13 @@
                                 <span class="text-slate-500">IVA</span>
                                 <span class="font-medium text-slate-300">@Model.IVA.ToString("C2")</span>
                             </div>
+                            @if (recargoDebitoAplicado > 0)
+                            {
+                                <div class="flex justify-between w-64 text-sm">
+                                    <span class="text-slate-500">Recargo d&eacute;bito</span>
+                                    <span class="font-medium text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
+                                </div>
+                            }
                             <div class="flex justify-between w-64 text-lg pt-2 border-t border-slate-700">
                                 <span class="font-bold text-white">Total</span>
                                 <span class="font-black text-primary">@Model.Total.ToString("C2")</span>
@@ -505,6 +513,9 @@
                         @if (tieneFactura && Model.ResumenAlicuotasFactura.Any())
                         {
                             <div class="mt-5 overflow-x-auto rounded-lg border border-slate-800">
+                                <p class="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400">
+                                    El resumen por al&iacute;cuotas corresponde s&oacute;lo a productos.
+                                </p>
                                 <table class="w-full text-sm">
                                     <thead>
                                         <tr class="bg-slate-800/50 text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -835,6 +846,13 @@
                             <span class="text-slate-400">IVA total</span>
                             <span class="text-slate-200">@Model.IVA.ToString("C2")</span>
                         </div>
+                        @if (recargoDebitoAplicado > 0)
+                        {
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-400">Recargo d&eacute;bito</span>
+                                <span class="text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
+                            </div>
+                        }
                         <div class="flex justify-between items-center pt-1">
                             <span class="text-slate-300 font-bold uppercase tracking-wider text-xs">Total</span>
                             <span class="text-2xl font-black text-white">@Model.Total.ToString("C2")</span>

@@ -100,6 +100,10 @@ namespace TheBuryProject.ViewModels
         public DatosChequeViewModel? DatosCheque { get; set; }
         public DatosCreditoPersonallViewModel? DatosCreditoPersonall { get; set; }
 
+        [Display(Name = "Recargo debito")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal RecargoDebitoAplicado { get; set; }
+
         // Datos de financiamiento
         [Display(Name = "Venta financiada")]
         public bool EsFinanciada { get; set; }

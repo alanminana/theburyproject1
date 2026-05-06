@@ -217,7 +217,13 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.ClienteDocumento, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroDocumento : string.Empty))
                 .ForMember(dest => dest.CreditoNumero, opt => opt.MapFrom(src => src.Credito != null ? src.Credito.Numero : null))
                 .ForMember(dest => dest.Detalles, opt => opt.MapFrom(src => src.Detalles != null ? src.Detalles.Where(d => !d.IsDeleted) : Enumerable.Empty<VentaDetalle>()))
-                .ForMember(dest => dest.Facturas, opt => opt.MapFrom(src => src.Facturas != null ? src.Facturas.Where(f => !f.IsDeleted) : Enumerable.Empty<Factura>()));
+                .ForMember(dest => dest.Facturas, opt => opt.MapFrom(src => src.Facturas != null ? src.Facturas.Where(f => !f.IsDeleted) : Enumerable.Empty<Factura>()))
+                .ForMember(dest => dest.RecargoDebitoAplicado, opt => opt.MapFrom(src =>
+                    src.DatosTarjeta != null &&
+                    src.DatosTarjeta.TipoTarjeta == TipoTarjeta.Debito &&
+                    src.DatosTarjeta.RecargoAplicado.HasValue
+                        ? src.DatosTarjeta.RecargoAplicado.Value
+                        : 0m));
 
             CreateMap<VentaViewModel, Venta>()
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
