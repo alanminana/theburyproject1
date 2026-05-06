@@ -1142,6 +1142,7 @@ namespace TheBuryProject.Services
                             col.Item().Row(row =>
                             {
                                 row.RelativeItem().Text($"Total Ventas: ${reporte.TotalVentas:N2}").Bold();
+                                row.RelativeItem().Text($"Total Recargo débito: ${reporte.TotalRecargoDebito:N2}").Bold();
                                 row.RelativeItem().Text($"Ganancia: ${reporte.TotalGanancia:N2}").Bold();
                                 row.RelativeItem().Text($"Margen: {reporte.MargenPromedio:N1}%").Bold();
                             });
@@ -1153,35 +1154,38 @@ namespace TheBuryProject.Services
                             {
                                 table.ColumnsDefinition(columns =>
                                 {
+                                    columns.ConstantColumn(55);
                                     columns.ConstantColumn(60);
-                                    columns.ConstantColumn(70);
                                     columns.RelativeColumn();
-                                    columns.ConstantColumn(80);
                                     columns.ConstantColumn(70);
-                                    columns.ConstantColumn(70);
-                                    columns.ConstantColumn(70);
+                                    columns.ConstantColumn(65);
+                                    columns.ConstantColumn(65);
+                                    columns.ConstantColumn(65);
+                                    columns.ConstantColumn(55);
                                 });
 
                                 table.Header(header =>
                                 {
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Nº Venta").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Fecha").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Cliente").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Tipo Pago").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Total").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Ganancia").Bold();
-                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(5).Text("Margen %").Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Nº Venta").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Fecha").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Cliente").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Tipo Pago").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Rec. débito").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Total").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Ganancia").FontSize(8).Bold();
+                                    header.Cell().Background(Colors.Grey.Lighten2).Padding(3).Text("Margen %").FontSize(8).Bold();
                                 });
 
                                 foreach (var venta in reporte.Ventas.Take(50)) // Limitar a 50 para PDF
                                 {
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(venta.NumeroVenta);
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(venta.FechaVenta.ToString("dd/MM/yy"));
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(venta.ClienteNombre);
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text(venta.TipoPagoDescripcion);
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text($"${venta.Total:N2}");
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text($"${venta.Ganancia:N2}");
-                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(5).Text($"{venta.MargenPorcentaje:N1}%");
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.NumeroVenta).FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.FechaVenta.ToString("dd/MM/yy")).FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.ClienteNombre).FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(venta.TipoPagoDescripcion).FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"${venta.RecargoDebitoAplicado:N2}").FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"${venta.Total:N2}").FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"${venta.Ganancia:N2}").FontSize(8);
+                                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text($"{venta.MargenPorcentaje:N1}%").FontSize(8);
                                 }
                             });
                         });

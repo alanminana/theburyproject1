@@ -1305,6 +1305,30 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerarVentasPdf_DebitoConRecargo_RetornaByteArrayNoVacio()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 50m,
+            cantidad: 2,
+            tipoPago: TipoPago.TarjetaDebito,
+            costoTotalAlMomento: 20m,
+            recargoDebitoAplicado: 5m);
+
+        var resultado = await _service.GenerarVentasPdfAsync(new ReporteVentasFiltroViewModel());
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length > 0);
+        Assert.Equal(0x25, resultado[0]);
+        Assert.Equal(0x50, resultado[1]);
+        Assert.Equal(0x44, resultado[2]);
+        Assert.Equal(0x46, resultado[3]);
+    }
+
+    [Fact]
     public async Task GenerarMorosidadPdf_SinMorosos_RetornaByteArrayNoVacio()
     {
         var resultado = await _service.GenerarMorosidadPdfAsync();
