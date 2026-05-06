@@ -109,6 +109,30 @@ public class VentaServiceMiscTests : IDisposable
         return v;
     }
 
+    private async Task<ConfiguracionTarjeta> SeedConfiguracionTarjetaDebitoAsync(decimal porcentajeRecargo)
+    {
+        var configPago = new ConfiguracionPago
+        {
+            TipoPago = TipoPago.TarjetaDebito,
+            Nombre = "Config Debito Misc"
+        };
+        _context.ConfiguracionesPago.Add(configPago);
+        await _context.SaveChangesAsync();
+
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = configPago.Id,
+            NombreTarjeta = "Maestro",
+            TipoTarjeta = TipoTarjeta.Debito,
+            Activa = true,
+            TieneRecargoDebito = true,
+            PorcentajeRecargoDebito = porcentajeRecargo
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+        return tarjeta;
+    }
+
     private async Task<Credito> SeedCreditoAsync(int clienteId, EstadoCredito estado = EstadoCredito.Activo)
     {
         var n = Interlocked.Increment(ref _counter);
@@ -246,12 +270,14 @@ public class VentaServiceMiscTests : IDisposable
     {
         var cliente = await SeedClienteAsync();
         var venta = await SeedVentaAsync(cliente.Id, total: 1000m);
+        var tarjeta = await SeedConfiguracionTarjetaDebitoAsync(5m);
 
         var vm = new DatosTarjetaViewModel
         {
+            ConfiguracionTarjetaId = tarjeta.Id,
             NombreTarjeta = "Maestro",
             TipoTarjeta = TipoTarjeta.Debito,
-            RecargoAplicado = 50m
+            RecargoAplicado = 999m
         };
 
         await _service.GuardarDatosTarjetaAsync(venta.Id, vm);

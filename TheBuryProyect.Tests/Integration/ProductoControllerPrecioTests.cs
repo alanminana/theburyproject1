@@ -226,6 +226,63 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Equal(117.8m, entity.GetProperty("margenPorcentaje").GetDecimal());
     }
 
+    [Theory]
+    [InlineData("12,5", 12.5)]
+    [InlineData("12.5", 12.5)]
+    [InlineData("", 0)]
+    [InlineData(null, 0)]
+    public async Task EditAjax_NormalizaComisionPorcentaje_DesdeRequestForm(string? rawComision, double esperado)
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(productoActualizado!);
+        SetComisionForm(rawComision, agregarErrorModelState: true);
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var esperadoDecimal = Convert.ToDecimal(esperado);
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(esperadoDecimal, entity.GetProperty("comisionPorcentaje").GetDecimal());
+
+        var actualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(esperadoDecimal, actualizado.ComisionPorcentaje);
+    }
+
+    [Fact]
+    public async Task EditAjax_ComisionPorcentajeInvalida_MantieneErrorModelState()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(productoActualizado!);
+        SetComisionForm("abc", agregarErrorModelState: true);
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("errors").TryGetProperty(nameof(ProductoViewModel.ComisionPorcentaje), out _));
+
+        var sinCambios = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(0m, sinCambios.ComisionPorcentaje);
+    }
+
+    [Fact]
+    public void ProductoViewModel_ComisionPorcentaje_UsaDecimalModelBinder()
+    {
+        var property = typeof(ProductoViewModel).GetProperty(nameof(ProductoViewModel.ComisionPorcentaje));
+        var attribute = property?.GetCustomAttributes(typeof(ModelBinderAttribute), inherit: false)
+            .Cast<ModelBinderAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(attribute);
+        Assert.Equal(typeof(DecimalModelBinder), attribute!.BinderType);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // MaxCuotasSinInteresPermitidas
     // ─────────────────────────────────────────────────────────────
@@ -382,6 +439,42 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Equal("El codigo es obligatorio", codigoErrors[0].GetString());
     }
 
+    [Theory]
+    [InlineData("12,5", 12.5)]
+    [InlineData("12.5", 12.5)]
+    [InlineData("", 0)]
+    [InlineData(null, 0)]
+    public async Task CreateAjax_NormalizaComisionPorcentaje_DesdeRequestForm(string? rawComision, double esperado)
+    {
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        SetComisionForm(rawComision, agregarErrorModelState: true);
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var esperadoDecimal = Convert.ToDecimal(esperado);
+        var creado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Codigo == vm.Codigo);
+        Assert.Equal(esperadoDecimal, creado.ComisionPorcentaje);
+    }
+
+    [Fact]
+    public async Task CreateAjax_ComisionPorcentajeInvalida_MantieneErrorModelState()
+    {
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        SetComisionForm("abc", agregarErrorModelState: true);
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("errors").TryGetProperty(nameof(ProductoViewModel.ComisionPorcentaje), out _));
+        Assert.False(await _context.Productos.AnyAsync(p => p.Codigo == vm.Codigo));
+    }
+
     // ActualizarComisionVendedor
 
     [Fact]
@@ -465,6 +558,54 @@ public class ProductoControllerPrecioTests : IDisposable
         => value?
             .Replace("ó", "o")
             .Replace("í", "i");
+
+    private void SetComisionForm(string? rawComision, bool agregarErrorModelState = false)
+    {
+        var form = new Dictionary<string, StringValues>();
+        if (rawComision is not null)
+            form[nameof(ProductoViewModel.ComisionPorcentaje)] = rawComision;
+
+        _controller.ControllerContext.HttpContext.Request.Form = new FormCollection(form);
+        _controller.ModelState.Clear();
+
+        if (agregarErrorModelState)
+            _controller.ModelState.AddModelError(nameof(ProductoViewModel.ComisionPorcentaje), "Comision invalida");
+    }
+
+    private async Task<ProductoViewModel> CrearProductoViewModelParaCrearAsync()
+    {
+        var (categoria, marca) = await SeedCategoriaYMarcaAsync();
+        return new ProductoViewModel
+        {
+            Codigo = "P" + Guid.NewGuid().ToString("N")[..8],
+            Nombre = "Producto ajax comision",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 80m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            StockActual = 3m,
+            StockMinimo = 1m,
+            Activo = true
+        };
+    }
+
+    private static ProductoViewModel CrearProductoViewModelParaEditar(Producto producto)
+        => new()
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = 60m,
+            PrecioVenta = 80m,
+            PorcentajeIVA = 21m,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = true,
+            RowVersion = producto.RowVersion
+        };
 
     private async Task<(Categoria Categoria, Marca Marca)> SeedCategoriaYMarcaAsync()
     {

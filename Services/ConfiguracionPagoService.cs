@@ -138,6 +138,8 @@ namespace TheBuryProject.Services
         {
             if (configuraciones.Count == 0) return;
 
+            ValidarConfiguracionesTarjetaModal(configuraciones);
+
             var ahora = DateTime.UtcNow;
             var idsExistentes = configuraciones
                 .Where(c => c.Id > 0)
@@ -180,6 +182,25 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+        }
+
+        private static void ValidarConfiguracionesTarjetaModal(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones)
+        {
+            foreach (var configuracion in configuraciones)
+            {
+                if (configuracion.ConfiguracionesTarjeta == null)
+                    continue;
+
+                foreach (var tarjeta in configuracion.ConfiguracionesTarjeta)
+                {
+                    if (tarjeta.PermiteCuotas &&
+                        tarjeta.TipoCuota == TipoCuotaTarjeta.ConInteres &&
+                        tarjeta.TasaInteresesMensual == null)
+                    {
+                        throw new InvalidOperationException("La tasa de interés mensual es requerida para tarjetas con cuotas con interés.");
+                    }
+                }
+            }
         }
 
         private static void ActualizarConfiguracionesTarjeta(

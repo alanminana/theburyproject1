@@ -111,7 +111,10 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         TipoTarjeta tipo,
         TipoCuotaTarjeta? tipoCuota = null,
         decimal? tasa = null,
-        string nombre = "Visa Test")
+        string nombre = "Visa Test",
+        bool activa = true,
+        bool tieneRecargoDebito = false,
+        decimal? porcentajeRecargoDebito = null)
     {
         var configPago = new ConfiguracionPago
         {
@@ -126,10 +129,14 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
             ConfiguracionPagoId = configPago.Id,
             NombreTarjeta = nombre,
             TipoTarjeta = tipo,
-            Activa = true,
+            Activa = activa,
             PermiteCuotas = tipo == TipoTarjeta.Credito,
             TipoCuota = tipoCuota,
-            TasaInteresesMensual = tasa
+            TasaInteresesMensual = tasa,
+            TieneRecargoDebito = tipo == TipoTarjeta.Debito && tieneRecargoDebito,
+            PorcentajeRecargoDebito = tipo == TipoTarjeta.Debito && tieneRecargoDebito
+                ? porcentajeRecargoDebito
+                : null
         };
         _context.ConfiguracionesTarjeta.Add(tarjeta);
         await _context.SaveChangesAsync();
@@ -215,12 +222,18 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     public async Task GuardarDatosTarjeta_TarjetaDebitoConRecargo_SumaRecargoAVentaTotal()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Debito,
+            nombre: "Maestro Debito",
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
 
         var vm = new DatosTarjetaViewModel
         {
+            ConfiguracionTarjetaId = tarjeta.Id,
             NombreTarjeta = "Maestro Débito",
             TipoTarjeta = TipoTarjeta.Debito,
-            RecargoAplicado = 500m
+            RecargoAplicado = 999m
         };
 
         var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
@@ -233,6 +246,8 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         Assert.Equal(10_500m, ventaActualizada.Total);
 
         var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(tarjeta.NombreTarjeta, datos.NombreTarjeta);
         Assert.Equal(500m, datos.RecargoAplicado);
         Assert.Equal(TipoTarjeta.Debito, datos.TipoTarjeta);
     }
@@ -266,12 +281,18 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     public async Task GuardarDatosTarjeta_SegundaLlamada_NoDuplicaRecargoYRetornaFalse()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Debito,
+            nombre: "Maestro Debito",
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
 
         var vm = new DatosTarjetaViewModel
         {
+            ConfiguracionTarjetaId = tarjeta.Id,
             NombreTarjeta = "Maestro Débito",
             TipoTarjeta = TipoTarjeta.Debito,
-            RecargoAplicado = 500m
+            RecargoAplicado = 999m
         };
 
         var primera = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
@@ -329,5 +350,31 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
         Assert.Equal(6, datos.CantidadCuotas);
         Assert.Equal(1_000m, datos.MontoCuota);  // 6000 / 6
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaInactiva_NoGuardaDatos()
+    {
+        var venta = await SeedVenta(total: 6_000m);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Credito,
+            TipoCuotaTarjeta.SinInteres,
+            nombre: "Visa Inactiva",
+            activa: false);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            CantidadCuotas = 6,
+            TipoCuota = TipoCuotaTarjeta.SinInteres
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no esta disponible", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
     }
 }

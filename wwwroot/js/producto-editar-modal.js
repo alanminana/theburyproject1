@@ -264,7 +264,19 @@
             var nameEl = tds[2].querySelector('.font-semibold');
             if (nameEl) nameEl.textContent = entity.nombre;
             var descEl = tds[2].querySelector('.text-\\[10px\\].text-slate-400');
-            if (descEl) descEl.textContent = entity.descripcion || '';
+            var descripcion = (entity.descripcion || '').trim();
+            if (descripcion) {
+                if (descEl) {
+                    descEl.textContent = descripcion;
+                } else if (nameEl) {
+                    descEl = document.createElement('p');
+                    descEl.className = 'text-[10px] text-slate-400 truncate max-w-[200px]';
+                    descEl.textContent = descripcion;
+                    nameEl.insertAdjacentElement('afterend', descEl);
+                }
+            } else if (descEl) {
+                descEl.remove();
+            }
             var inactivoBadge = tds[2].querySelector('.text-red-400');
             if (entity.activo) {
                 if (inactivoBadge) inactivoBadge.remove();
@@ -335,9 +347,25 @@
                     : 'Sin comisión';
             }
         }
+        var commissionBtn = currentRow.querySelector('[data-comision-producto-id]');
+        if (commissionBtn) {
+            var commissionValue = Number(entity.comisionPorcentaje || 0);
+            commissionBtn.setAttribute('data-comision-porcentaje', String(commissionValue));
+            commissionBtn.setAttribute('data-comision-producto-nombre', entity.nombre || '');
+            if (commissionBtn.hasAttribute('title')) {
+                commissionBtn.title = 'Comisión vendedor: ' + commissionValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+            }
+        }
         // data attributes en el tr
         currentRow.setAttribute('data-producto-codigo', entity.codigo);
         currentRow.setAttribute('data-producto-nombre', entity.nombre);
+        currentRow.setAttribute('data-search', [
+            entity.codigo || '',
+            entity.nombre || '',
+            entity.descripcion || '',
+            entity.categoriaNombre || '',
+            entity.marcaNombre || ''
+        ].join(' ').toLowerCase().trim());
     }
 
     // ── Validación ──────────────────────────────────────────────

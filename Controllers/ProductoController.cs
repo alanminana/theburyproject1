@@ -599,11 +599,15 @@ namespace TheBuryProject.Controllers
 
         private void NormalizarComisionPorcentaje(ProductoViewModel viewModel)
         {
-            var raw = Request.Form[nameof(ProductoViewModel.ComisionPorcentaje)].FirstOrDefault();
+            var fieldName = nameof(ProductoViewModel.ComisionPorcentaje);
+            if (!ModelState.TryGetValue(fieldName, out var entry) || entry.Errors.Count == 0)
+                return;
+
+            var raw = Request.Form[fieldName].FirstOrDefault();
             if (string.IsNullOrWhiteSpace(raw))
             {
                 viewModel.ComisionPorcentaje = 0m;
-                ModelState.Remove(nameof(ProductoViewModel.ComisionPorcentaje));
+                ModelState.Remove(fieldName);
                 return;
             }
 
@@ -611,7 +615,7 @@ namespace TheBuryProject.Controllers
             if (decimal.TryParse(normalizado, NumberStyles.Number, CultureInfo.InvariantCulture, out var valor))
             {
                 viewModel.ComisionPorcentaje = valor;
-                ModelState.Remove(nameof(ProductoViewModel.ComisionPorcentaje));
+                ModelState.Remove(fieldName);
             }
         }
 

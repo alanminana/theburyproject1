@@ -890,6 +890,129 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(8.5m, enDb.TasaInteresesMensual);
     }
 
+    [Fact]
+    public async Task GuardarConfiguracionesModal_ConInteresSinTasa_Rechaza()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var tarjeta = await SeedTarjetaAsync(config.Id, permiteCuotas: true, cantidadMaximaCuotas: 12,
+            tipoCuota: TipoCuotaTarjeta.ConInteres, tasaInteresesMensual: 4m);
+
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = config.Id,
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true,
+                ConfiguracionesTarjeta = new List<ConfiguracionTarjetaViewModel>
+                {
+                    new()
+                    {
+                        Id = tarjeta.Id,
+                        ConfiguracionPagoId = config.Id,
+                        NombreTarjeta = tarjeta.NombreTarjeta,
+                        TipoTarjeta = TipoTarjeta.Credito,
+                        Activa = true,
+                        PermiteCuotas = true,
+                        CantidadMaximaCuotas = 12,
+                        TipoCuota = TipoCuotaTarjeta.ConInteres,
+                        TasaInteresesMensual = null
+                    }
+                }
+            }
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarConfiguracionesModalAsync(vms));
+        Assert.Contains("tasa de interés mensual", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesTarjeta.FindAsync(tarjeta.Id);
+        Assert.Equal(4m, enDb!.TasaInteresesMensual);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_SinInteresConTasa_LimpiaTasa()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var tarjeta = await SeedTarjetaAsync(config.Id, permiteCuotas: true, cantidadMaximaCuotas: 12,
+            tipoCuota: TipoCuotaTarjeta.ConInteres, tasaInteresesMensual: 4m);
+
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = config.Id,
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true,
+                ConfiguracionesTarjeta = new List<ConfiguracionTarjetaViewModel>
+                {
+                    new()
+                    {
+                        Id = tarjeta.Id,
+                        ConfiguracionPagoId = config.Id,
+                        NombreTarjeta = tarjeta.NombreTarjeta,
+                        TipoTarjeta = TipoTarjeta.Credito,
+                        Activa = true,
+                        PermiteCuotas = true,
+                        CantidadMaximaCuotas = 12,
+                        TipoCuota = TipoCuotaTarjeta.SinInteres,
+                        TasaInteresesMensual = 9m
+                    }
+                }
+            }
+        };
+
+        await _service.GuardarConfiguracionesModalAsync(vms);
+
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesTarjeta.FindAsync(tarjeta.Id);
+        Assert.Equal(TipoCuotaTarjeta.SinInteres, enDb!.TipoCuota);
+        Assert.Null(enDb.TasaInteresesMensual);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_ConInteresConTasaValida_SiguePasando()
+    {
+        var config = await SeedConfigPago(TipoPago.Tarjeta);
+        var tarjeta = await SeedTarjetaAsync(config.Id);
+
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = config.Id,
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true,
+                ConfiguracionesTarjeta = new List<ConfiguracionTarjetaViewModel>
+                {
+                    new()
+                    {
+                        Id = tarjeta.Id,
+                        ConfiguracionPagoId = config.Id,
+                        NombreTarjeta = tarjeta.NombreTarjeta,
+                        TipoTarjeta = TipoTarjeta.Credito,
+                        Activa = true,
+                        PermiteCuotas = true,
+                        CantidadMaximaCuotas = 12,
+                        TipoCuota = TipoCuotaTarjeta.ConInteres,
+                        TasaInteresesMensual = 6.25m
+                    }
+                }
+            }
+        };
+
+        await _service.GuardarConfiguracionesModalAsync(vms);
+
+        _context.ChangeTracker.Clear();
+        var enDb = await _context.ConfiguracionesTarjeta.FindAsync(tarjeta.Id);
+        Assert.Equal(TipoCuotaTarjeta.ConInteres, enDb!.TipoCuota);
+        Assert.Equal(6.25m, enDb.TasaInteresesMensual);
+    }
+
     // =========================================================================
     // GetTarjetasActivasAsync / GetTarjetaByIdAsync
     // =========================================================================

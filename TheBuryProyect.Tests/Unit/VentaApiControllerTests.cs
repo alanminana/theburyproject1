@@ -175,6 +175,104 @@ public class VentaApiControllerTests
         Assert.False(json.RootElement.GetProperty("cuotasSinInteresLimitadasPorProducto").GetBoolean());
     }
 
+    [Fact]
+    public async Task CalcularTotalesVenta_TarjetaDebitoConRecargo_DevuelveRecargoYTotalFinal()
+    {
+        var ventaService = new StubVentaService
+        {
+            Totales = new CalculoTotalesVentaResponse { Subtotal = 826.45m, IVA = 173.55m, Total = 1_000m }
+        };
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            TarjetaById = new ConfiguracionTarjetaViewModel
+            {
+                Id = 9,
+                Activa = true,
+                TipoTarjeta = TipoTarjeta.Debito,
+                TieneRecargoDebito = true,
+                PorcentajeRecargoDebito = 5m
+            }
+        };
+        var controller = CreateController(ventaService: ventaService, configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 9,
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 1, Cantidad = 1, PrecioUnitario = 1_000m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(1_000m, json.RootElement.GetProperty("total").GetDecimal());
+        Assert.Equal(50m, json.RootElement.GetProperty("recargoDebitoAplicado").GetDecimal());
+        Assert.Equal(5m, json.RootElement.GetProperty("porcentajeRecargoDebitoAplicado").GetDecimal());
+        Assert.Equal(1_050m, json.RootElement.GetProperty("totalConRecargoDebito").GetDecimal());
+    }
+
+    [Fact]
+    public async Task CalcularTotalesVenta_TarjetaDebitoSinRecargo_NoDevuelveRecargo()
+    {
+        var ventaService = new StubVentaService
+        {
+            Totales = new CalculoTotalesVentaResponse { Total = 1_000m }
+        };
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            TarjetaById = new ConfiguracionTarjetaViewModel
+            {
+                Id = 10,
+                Activa = true,
+                TipoTarjeta = TipoTarjeta.Debito,
+                TieneRecargoDebito = false
+            }
+        };
+        var controller = CreateController(ventaService: ventaService, configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 10,
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 1, Cantidad = 1, PrecioUnitario = 1_000m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("recargoDebitoAplicado").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("porcentajeRecargoDebitoAplicado").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("totalConRecargoDebito").ValueKind);
+    }
+
+    [Fact]
+    public async Task CalcularTotalesVenta_TarjetaCreditoConRecargoDebitoConfigurado_NoAplicaRecargo()
+    {
+        var ventaService = new StubVentaService
+        {
+            Totales = new CalculoTotalesVentaResponse { Total = 1_000m }
+        };
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            TarjetaById = new ConfiguracionTarjetaViewModel
+            {
+                Id = 11,
+                Activa = true,
+                TipoTarjeta = TipoTarjeta.Credito,
+                TieneRecargoDebito = true,
+                PorcentajeRecargoDebito = 5m
+            }
+        };
+        var controller = CreateController(ventaService: ventaService, configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 11,
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 1, Cantidad = 1, PrecioUnitario = 1_000m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("recargoDebitoAplicado").ValueKind);
+        Assert.Equal(1_000m, json.RootElement.GetProperty("total").GetDecimal());
+    }
+
     [Theory]
     [InlineData(0, 100)]
     [InlineData(1, 0)]
@@ -365,6 +463,38 @@ public class VentaApiControllerTests
         Assert.Equal(110m, json.RootElement.GetProperty("montoCuota").GetDecimal());
         Assert.Equal(330m, json.RootElement.GetProperty("montoTotal").GetDecimal());
         Assert.Equal(30m, json.RootElement.GetProperty("interes").GetDecimal());
+    }
+
+    [Fact]
+    public async Task CalcularCuotasTarjeta_TarjetaNoDisponible_DevuelveBadRequest()
+    {
+        var ventaService = new StubVentaService
+        {
+            InvalidCardCalculationMessage = "La tarjeta seleccionada no está disponible"
+        };
+        var controller = CreateController(ventaService: ventaService);
+
+        var result = await controller.CalcularCuotasTarjeta(2, 300m, 3);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var json = ToJson(badRequest.Value);
+        Assert.Equal("La tarjeta seleccionada no está disponible", json.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task CalcularCuotasTarjeta_ConInteresSinTasa_DevuelveBadRequest()
+    {
+        var ventaService = new StubVentaService
+        {
+            InvalidCardCalculationMessage = "La tarjeta con interés no tiene tasa configurada"
+        };
+        var controller = CreateController(ventaService: ventaService);
+
+        var result = await controller.CalcularCuotasTarjeta(2, 300m, 3);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var json = ToJson(badRequest.Value);
+        Assert.Equal("La tarjeta con interés no tiene tasa configurada", json.RootElement.GetProperty("error").GetString());
     }
 
     [Theory]
@@ -683,6 +813,7 @@ public class VentaApiControllerTests
         public CalculoTotalesVentaResponse Totales { get; set; } = new();
         public DatosTarjetaViewModel Tarjeta { get; set; } = new() { MontoCuota = 0m, MontoTotalConInteres = 0m };
         public bool ThrowOnInvalidCardCalculation { get; set; }
+        public string? InvalidCardCalculationMessage { get; set; }
 
         public Task<List<VentaViewModel>> GetAllAsync(VentaFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<VentaViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
@@ -708,6 +839,9 @@ public class VentaApiControllerTests
             if (ThrowOnInvalidCardCalculation && (tarjetaId <= 0 || monto <= 0 || cuotas <= 0))
                 throw new InvalidOperationException("Parámetros inválidos");
 
+            if (!string.IsNullOrWhiteSpace(InvalidCardCalculationMessage))
+                throw new InvalidOperationException(InvalidCardCalculationMessage);
+
             return Task.FromResult(Tarjeta);
         }
         public Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(int creditoId, decimal montoAFinanciar, int cuotas, DateTime fechaPrimeraCuota) => throw new NotImplementedException();
@@ -721,6 +855,7 @@ public class VentaApiControllerTests
     private sealed class StubConfiguracionPagoService : IConfiguracionPagoService
     {
         public List<TarjetaActivaVentaResultado> Tarjetas { get; } = new();
+        public ConfiguracionTarjetaViewModel? TarjetaById { get; set; }
 
         public Task<List<ConfiguracionPagoViewModel>> GetAllAsync() => throw new NotImplementedException();
         public Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
@@ -732,7 +867,8 @@ public class VentaApiControllerTests
         public Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones) => throw new NotImplementedException();
         public Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync() => throw new NotImplementedException();
         public Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync() => Task.FromResult(Tarjetas);
-        public Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id) => throw new NotImplementedException();
+        public Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id) =>
+            Task.FromResult(TarjetaById?.Id == id ? TarjetaById : null);
         public Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento) => throw new NotImplementedException();
         public Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto) => throw new NotImplementedException();
         public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync() => throw new NotImplementedException();

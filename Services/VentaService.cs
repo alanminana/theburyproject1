@@ -1353,6 +1353,9 @@ namespace TheBuryProject.Services
             if (configuracion == null)
                 throw new InvalidOperationException("Configuración de tarjeta no encontrada");
 
+            if (!configuracion.Activa)
+                throw new InvalidOperationException("La tarjeta seleccionada no está disponible");
+
             var resultado = new DatosTarjetaViewModel
             {
                 ConfiguracionTarjetaId = tarjetaId,
@@ -1378,6 +1381,10 @@ namespace TheBuryProject.Services
                     monto, tasaDecimal, cuotas);
                 resultado.MontoTotalConInteres = resultado.MontoCuota.Value * cuotas;
             }
+            else if (configuracion.TipoCuota == TipoCuotaTarjeta.ConInteres)
+            {
+                throw new InvalidOperationException("La tarjeta con interés no tiene tasa configurada");
+            }
 
             return resultado;
         }
@@ -1396,10 +1403,33 @@ namespace TheBuryProject.Services
             if (yaExiste)
                 return false;
 
+            ConfiguracionTarjeta? configuracionTarjeta = null;
+            if (datosTarjeta.ConfiguracionTarjetaId.HasValue)
+            {
+                configuracionTarjeta = await _context.ConfiguracionesTarjeta
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == datosTarjeta.ConfiguracionTarjetaId.Value && !t.IsDeleted);
+
+                if (configuracionTarjeta == null)
+                    throw new InvalidOperationException("Configuracion de tarjeta no encontrada");
+
+                if (!configuracionTarjeta.Activa)
+                    throw new InvalidOperationException("La tarjeta seleccionada no esta disponible");
+            }
+
             var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
             datosTarjetaEntity.VentaId = ventaId;
 
-            if (datosTarjeta.TipoTarjeta == TipoTarjeta.Credito &&
+            var tipoTarjeta = configuracionTarjeta?.TipoTarjeta ?? datosTarjeta.TipoTarjeta;
+            if (configuracionTarjeta != null)
+            {
+                datosTarjetaEntity.ConfiguracionTarjetaId = configuracionTarjeta.Id;
+                datosTarjetaEntity.NombreTarjeta = configuracionTarjeta.NombreTarjeta;
+                datosTarjetaEntity.TipoTarjeta = configuracionTarjeta.TipoTarjeta;
+                datosTarjetaEntity.TipoCuota = configuracionTarjeta.TipoCuota;
+            }
+
+            if (tipoTarjeta == TipoTarjeta.Credito &&
                 datosTarjeta.CantidadCuotas.HasValue &&
                 datosTarjeta.ConfiguracionTarjetaId.HasValue)
             {
@@ -1414,9 +1444,19 @@ namespace TheBuryProject.Services
                 datosTarjetaEntity.MontoTotalConInteres = calculado.MontoTotalConInteres;
             }
 
-            if (datosTarjeta.TipoTarjeta == TipoTarjeta.Debito && datosTarjeta.RecargoAplicado.HasValue)
+            datosTarjetaEntity.RecargoAplicado = null;
+            if (tipoTarjeta == TipoTarjeta.Debito &&
+                configuracionTarjeta is
+                {
+                    TieneRecargoDebito: true,
+                    PorcentajeRecargoDebito: > 0m
+                })
             {
-                venta.Total += datosTarjeta.RecargoAplicado.Value;
+                var recargo = RedondearMoneda(
+                    venta.Total * (configuracionTarjeta.PorcentajeRecargoDebito.Value / 100m));
+
+                datosTarjetaEntity.RecargoAplicado = recargo;
+                venta.Total += recargo;
             }
 
             _context.DatosTarjeta.Add(datosTarjetaEntity);

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
+using Microsoft.AspNetCore.Mvc;
+using TheBuryProject.Helpers;
 
 namespace TheBuryProject.ViewModels
 {
@@ -73,6 +74,7 @@ namespace TheBuryProject.ViewModels
         public string? AlicuotaIVANombre { get; set; }
 
         [Display(Name = "Comisión vendedor (%)")]
+        [ModelBinder(typeof(DecimalModelBinder))]
         [Range(0, 100, ErrorMessage = "La comisión vendedor debe estar entre 0 y 100")]
         public decimal ComisionPorcentaje { get; set; } = 0m;
 

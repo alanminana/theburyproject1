@@ -509,7 +509,7 @@
             };
 
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
-            actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total);
+            actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total, result);
             aplicarLimiteCuotasSinInteres(result.maxCuotasSinInteresEfectivo ?? null, result.cuotasSinInteresLimitadasPorProducto ?? false);
         } catch {
             // Fallback visual only: do not infer IVA in the UI.
@@ -544,17 +544,27 @@
         }
     }
 
-    function actualizarTotalesUI(subtotal, descuento, iva, total) {
+    function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
+        const recargoDebito = backendResult?.recargoDebitoAplicado || 0;
+        const porcentajeRecargoDebito = backendResult?.porcentajeRecargoDebitoAplicado || 0;
+        const totalConRecargoDebito = backendResult?.totalConRecargoDebito;
+        const totalDisplay = totalConRecargoDebito ?? total;
+
         if (totalSubtotal) totalSubtotal.textContent = formatCurrency(subtotal);
         if (totalDescuento) totalDescuento.textContent = `-${formatCurrency(descuento)}`;
         if (totalIva) totalIva.textContent = formatCurrency(iva);
-        if (totalFinal) totalFinal.textContent = formatCurrency(total);
+        if (totalFinal) totalFinal.textContent = formatCurrency(totalDisplay);
 
         if (hdnSubtotal) hdnSubtotal.value = subtotal.toFixed(2);
         if (hdnDescuento) hdnDescuento.value = descuento.toFixed(2);
         if (hdnIva) hdnIva.value = iva.toFixed(2);
         if (hdnTotal) hdnTotal.value = total.toFixed(2);
-        actualizarResumenOperacion(total);
+        actualizarResumenOperacion(totalDisplay);
+
+        const tarjetaRecargo = $('#tarjeta-recargo');
+        if (tarjetaRecargo && recargoDebito > 0) {
+            tarjetaRecargo.textContent = `${formatCurrency(recargoDebito)} (${porcentajeRecargoDebito}%)`;
+        }
 
         // Actualizar aviso de crédito si corresponde
         if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {

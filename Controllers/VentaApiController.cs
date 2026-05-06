@@ -4,6 +4,7 @@ using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels.Requests;
 using TheBuryProject.ViewModels;
@@ -243,6 +244,11 @@ namespace TheBuryProject.Controllers
                     interes = resultado.MontoTotalConInteres - monto
                 });
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Configuración de tarjeta no disponible para calcular cuotas: {TarjetaId}", tarjetaId);
+                return BadRequest(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al calcular cuotas de tarjeta");
@@ -274,6 +280,23 @@ namespace TheBuryProject.Controllers
                     {
                         totales.MaxCuotasSinInteresEfectivo = maxResult.MaxCuotas;
                         totales.CuotasSinInteresLimitadasPorProducto = maxResult.LimitadoPorProducto;
+                    }
+
+                    var tarjeta = await _configuracionPagoService.GetTarjetaByIdAsync(request.TarjetaId.Value);
+                    if (tarjeta is
+                        {
+                            Activa: true,
+                            TipoTarjeta: TipoTarjeta.Debito,
+                            TieneRecargoDebito: true,
+                            PorcentajeRecargoDebito: > 0m
+                        })
+                    {
+                        var porcentaje = tarjeta.PorcentajeRecargoDebito.Value;
+                        var recargo = RedondearMoneda(totales.Total * (porcentaje / 100m));
+
+                        totales.PorcentajeRecargoDebitoAplicado = porcentaje;
+                        totales.RecargoDebitoAplicado = recargo;
+                        totales.TotalConRecargoDebito = totales.Total + recargo;
                     }
                 }
 
@@ -341,5 +364,8 @@ namespace TheBuryProject.Controllers
         }
 
         #endregion
+
+        private static decimal RedondearMoneda(decimal value) =>
+            Math.Round(value, 2, MidpointRounding.AwayFromZero);
     }
 }

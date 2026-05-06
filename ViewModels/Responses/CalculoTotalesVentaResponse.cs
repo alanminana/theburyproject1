@@ -10,6 +10,12 @@ namespace TheBuryProject.ViewModels.Responses
 
         public decimal Total { get; set; }
 
+        public decimal? RecargoDebitoAplicado { get; set; }
+
+        public decimal? PorcentajeRecargoDebitoAplicado { get; set; }
+
+        public decimal? TotalConRecargoDebito { get; set; }
+
         public List<DetalleCalculoTotalesVentaResponse> Detalles { get; set; } = new();
 
         public int? MaxCuotasSinInteresEfectivo { get; set; }

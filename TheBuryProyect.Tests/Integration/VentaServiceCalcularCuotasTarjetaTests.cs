@@ -73,7 +73,8 @@ public class VentaServiceCalcularCuotasTarjetaTests : IDisposable
         TipoCuotaTarjeta? tipoCuota,
         decimal? tasaInteresesMensual = null,
         int maxCuotas = 12,
-        string nombre = "Visa Test")
+        string nombre = "Visa Test",
+        bool activa = true)
     {
         var configPago = new ConfiguracionPago
         {
@@ -88,7 +89,7 @@ public class VentaServiceCalcularCuotasTarjetaTests : IDisposable
             ConfiguracionPagoId = configPago.Id,
             NombreTarjeta = nombre,
             TipoTarjeta = TipoTarjeta.Credito,
-            Activa = true,
+            Activa = activa,
             PermiteCuotas = true,
             CantidadMaximaCuotas = maxCuotas,
             TipoCuota = tipoCuota,
@@ -146,22 +147,18 @@ public class VentaServiceCalcularCuotasTarjetaTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 3. ConInteres sin tasa (null): el else-if no ejecuta → montos quedan null, sin excepción
-    //    Caracteriza el gap: tarjeta ConInteres mal configurada no lanza, silencia el error.
+    // 3. ConInteres sin tasa (null): falla explícitamente para evitar previews vacíos.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task CalcularCuotas_ConInteresSinTasa_NoLanzaExcepcionYMontosQuedanNull()
+    public async Task CalcularCuotas_ConInteresSinTasa_LanzaInvalidOperationException()
     {
         var tarjeta = await SeedTarjeta(TipoCuotaTarjeta.ConInteres, tasaInteresesMensual: null);
 
-        var resultado = await _service.CalcularCuotasTarjetaAsync(tarjeta.Id, monto: 12_000m, cuotas: 6);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CalcularCuotasTarjetaAsync(tarjeta.Id, monto: 12_000m, cuotas: 6));
 
-        Assert.Null(resultado.MontoCuota);
-        Assert.Null(resultado.MontoTotalConInteres);
-        Assert.Null(resultado.TasaInteres);
-        Assert.Equal(TipoCuotaTarjeta.ConInteres, resultado.TipoCuota);
-        Assert.Equal(tarjeta.Id, resultado.ConfiguracionTarjetaId);
+        Assert.Equal("La tarjeta con interés no tiene tasa configurada", ex.Message);
     }
 
     // -------------------------------------------------------------------------
@@ -175,6 +172,20 @@ public class VentaServiceCalcularCuotasTarjetaTests : IDisposable
             () => _service.CalcularCuotasTarjetaAsync(int.MaxValue, monto: 1_000m, cuotas: 3));
 
         Assert.Contains("no encontrada", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CalcularCuotas_TarjetaInactiva_LanzaInvalidOperationException()
+    {
+        var tarjeta = await SeedTarjeta(
+            TipoCuotaTarjeta.SinInteres,
+            nombre: "Visa Inactiva",
+            activa: false);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CalcularCuotasTarjetaAsync(tarjeta.Id, monto: 1_000m, cuotas: 3));
+
+        Assert.Contains("no está disponible", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // -------------------------------------------------------------------------
