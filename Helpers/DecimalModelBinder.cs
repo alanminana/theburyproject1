@@ -25,27 +25,11 @@ public class DecimalModelBinder : IModelBinder
             return Task.CompletedTask;
         }
 
-        // Normalizar: si tiene coma como decimal y punto como miles → "1.234,56" → "1234.56"
-        // Si tiene solo coma → "1,37" → "1.37"
-        // Si tiene solo punto → "1.37" → "1.37"  (invariant, no ambiguo)
-        string normalized = raw.Trim();
-
-        bool hasComma = normalized.Contains(',');
-        bool hasDot   = normalized.Contains('.');
-
-        if (hasComma && hasDot)
-        {
-            // Formato tipo "1.234,56": punto = miles, coma = decimal
-            normalized = normalized.Replace(".", "").Replace(",", ".");
-        }
-        else if (hasComma)
-        {
-            // Solo coma → separador decimal
-            normalized = normalized.Replace(",", ".");
-        }
-        // Solo punto o ninguno → ya es formato invariante
-
-        if (decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+        if (DecimalParsingHelper.TryParseFlexibleDecimal(
+                raw,
+                out var result,
+                NumberStyles.Any,
+                allowMixedSeparators: true))
         {
             bindingContext.Result = ModelBindingResult.Success(result);
         }

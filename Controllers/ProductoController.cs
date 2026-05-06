@@ -2,7 +2,6 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Globalization;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -529,8 +528,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
         public async Task<IActionResult> ActualizarComisionVendedor(int productoId, string porcentajeComision)
         {
-            var rawNormalizado = (porcentajeComision ?? "").Trim().Replace(',', '.');
-            if (!decimal.TryParse(rawNormalizado, NumberStyles.Number, CultureInfo.InvariantCulture, out var porcentaje))
+            if (!DecimalParsingHelper.TryParseFlexibleDecimal(porcentajeComision, out var porcentaje))
                 return Json(new { success = false, message = "El porcentaje ingresado no es válido." });
 
             try
@@ -611,8 +609,7 @@ namespace TheBuryProject.Controllers
                 return;
             }
 
-            var normalizado = raw.Trim().Replace(',', '.');
-            if (decimal.TryParse(normalizado, NumberStyles.Number, CultureInfo.InvariantCulture, out var valor))
+            if (DecimalParsingHelper.TryParseFlexibleDecimal(raw, out var valor))
             {
                 viewModel.ComisionPorcentaje = valor;
                 ModelState.Remove(fieldName);

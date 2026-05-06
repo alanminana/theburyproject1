@@ -477,24 +477,45 @@ public class ProductoControllerPrecioTests : IDisposable
 
     // ActualizarComisionVendedor
 
-    [Fact]
-    public async Task ActualizarComisionVendedor_ValorValido_ActualizaComision()
+    [Theory]
+    [InlineData("12,5", 12.5)]
+    [InlineData("12.5", 12.5)]
+    [InlineData("", 0)]
+    public async Task ActualizarComisionVendedor_ValorValido_ActualizaComision(string porcentajeComision, double esperado)
     {
         var producto = await SeedProductoAsync();
 
-        var result = await _controller.ActualizarComisionVendedor(producto.Id, "12,5") as JsonResult;
+        var result = await _controller.ActualizarComisionVendedor(producto.Id, porcentajeComision) as JsonResult;
 
         Assert.NotNull(result);
         var doc = ParseJson(result!.Value);
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
-        Assert.Equal(12.5m, doc.RootElement.GetProperty("comisionPorcentaje").GetDecimal());
+
+        var esperadoDecimal = Convert.ToDecimal(esperado);
+        Assert.Equal(esperadoDecimal, doc.RootElement.GetProperty("comisionPorcentaje").GetDecimal());
 
         var actualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
-        Assert.Equal(12.5m, actualizado.ComisionPorcentaje);
+        Assert.Equal(esperadoDecimal, actualizado.ComisionPorcentaje);
     }
 
     [Fact]
-    public async Task ActualizarComisionVendedor_ValorInvalido_DevuelveError()
+    public async Task ActualizarComisionVendedor_ValorInvalido_DevuelveErrorSinActualizar()
+    {
+        var producto = await SeedProductoAsync();
+
+        var result = await _controller.ActualizarComisionVendedor(producto.Id, "abc") as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("El porcentaje ingresado no es válido.", Normalize(doc.RootElement.GetProperty("message").GetString()));
+
+        var sinCambios = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(0m, sinCambios.ComisionPorcentaje);
+    }
+
+    [Fact]
+    public async Task ActualizarComisionVendedor_ValorFueraDeRango_DevuelveErrorSinActualizar()
     {
         var producto = await SeedProductoAsync();
 
