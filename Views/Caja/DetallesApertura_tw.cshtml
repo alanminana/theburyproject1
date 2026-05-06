@@ -33,6 +33,23 @@
             _ => concepto.ToString()
         };
     }
+
+    string FormatTipoPago(TipoPago tipoPago)
+    {
+        return tipoPago switch
+        {
+            TipoPago.Efectivo => "Efectivo",
+            TipoPago.Transferencia => "Transferencia",
+            TipoPago.TarjetaDebito => "Tarjeta Débito",
+            TipoPago.TarjetaCredito => "Tarjeta Crédito",
+            TipoPago.Cheque => "Cheque",
+            TipoPago.CreditoPersonal => "Crédito Personal",
+            TipoPago.MercadoPago => "Mercado Pago",
+            TipoPago.CuentaCorriente => "Cuenta Corriente",
+            TipoPago.Tarjeta => "Tarjeta",
+            _ => tipoPago.ToString()
+        };
+    }
 }
 
 <div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
@@ -428,6 +445,11 @@
                                 @foreach (var mov in movimientos.OrderByDescending(m => m.FechaMovimiento))
                                 {
                                     var esIngreso = mov.Tipo == TipoMovimientoCaja.Ingreso;
+                                    var medioPagoVisual = !string.IsNullOrWhiteSpace(mov.MedioPagoDetalle)
+                                        ? mov.MedioPagoDetalle
+                                        : mov.TipoPago.HasValue
+                                            ? FormatTipoPago(mov.TipoPago.Value)
+                                            : null;
                                     <tr class="hover:bg-slate-800/50 transition-colors" data-tipo="@(esIngreso ? "Ingreso" : "Egreso")">
                                         <td class="px-6 py-4 text-sm text-slate-400">@mov.FechaMovimiento.ToString("dd/MM/yyyy HH:mm")</td>
                                         <td class="px-6 py-4 text-sm">
@@ -440,7 +462,25 @@
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 bg-rose-500/10 text-rose-400 border border-rose-500/20">Egreso</span>
                                             }
                                         </td>
-                                        <td class="px-6 py-4 text-sm font-bold text-white" data-concepto="@FormatConcepto(mov.Concepto)">@FormatConcepto(mov.Concepto)</td>
+                                        <td class="px-6 py-4 text-sm" data-concepto="@FormatConcepto(mov.Concepto)">
+                                            <div class="flex flex-col gap-1">
+                                                <span class="font-bold text-white">@FormatConcepto(mov.Concepto)</span>
+                                                @if (!string.IsNullOrWhiteSpace(medioPagoVisual))
+                                                {
+                                                    <span class="inline-flex w-fit items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] font-bold text-sky-300">
+                                                        <span class="material-symbols-outlined text-[13px]">payments</span>
+                                                        @medioPagoVisual
+                                                    </span>
+                                                }
+                                                @if (mov.RecargoDebitoAplicado.GetValueOrDefault() > 0)
+                                                {
+                                                    <span class="inline-flex w-fit items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-300">
+                                                        <span class="material-symbols-outlined text-[13px]">add_card</span>
+                                                        Recargo débito: $@mov.RecargoDebitoAplicado.GetValueOrDefault().ToString("N2")
+                                                    </span>
+                                                }
+                                            </div>
+                                        </td>
                                         <td class="px-6 py-4 text-sm text-slate-400 truncate max-w-[200px]" title="@mov.Descripcion">@mov.Descripcion</td>
                                         <td class="px-6 py-4 text-sm font-mono text-slate-500">@(mov.Referencia ?? "—")</td>
                                         <td class="px-6 py-4 text-sm font-bold text-right @(esIngreso ? "text-emerald-500" : "text-rose-500")">
