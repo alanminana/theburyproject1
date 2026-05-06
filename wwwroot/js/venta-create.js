@@ -22,6 +22,8 @@
     let creditoCupoDisponible = null;
     let debounceTimer = null;
     let detalleScrollAffordance = null;
+    let reintentandoSubmitConDatosTarjeta = false;
+    let recargoDebitoPreview = null;
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
@@ -71,6 +73,8 @@
     const selectCuotasTarjeta = $('#select-cuotas-tarjeta');
     const panelTarjetaResumen = $('#panel-tarjeta-resumen');
     const panelAvisoCuotasSinInteres = $('#panel-aviso-cuotas-sin-interes');
+    const hdnTarjetaNombre = $('#hdn-tarjeta-nombre');
+    const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
 
     const panelAvisoCredito = $('#panel-aviso-credito');
 
@@ -105,6 +109,16 @@
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
+
+    function formatPercent(value) {
+        return new Intl.NumberFormat('es-AR', {
+            maximumFractionDigits: 2
+        }).format(Math.abs(Number(value) || 0));
+    }
+
+    function formatRecargoDebitoPreview(recargo) {
+        return `${formatCurrency(recargo.monto)} (${formatPercent(recargo.porcentaje)}%)`;
+    }
 
     function clearFeedback() {
         if (!feedbackSlot) return;
@@ -545,8 +559,8 @@
     }
 
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
-        const recargoDebito = backendResult?.recargoDebitoAplicado || 0;
-        const porcentajeRecargoDebito = backendResult?.porcentajeRecargoDebitoAplicado || 0;
+        const recargoDebito = Number(backendResult?.recargoDebitoAplicado) || 0;
+        const porcentajeRecargoDebito = Number(backendResult?.porcentajeRecargoDebitoAplicado) || 0;
         const totalConRecargoDebito = backendResult?.totalConRecargoDebito;
         const totalDisplay = totalConRecargoDebito ?? total;
 
@@ -563,7 +577,13 @@
 
         const tarjetaRecargo = $('#tarjeta-recargo');
         if (tarjetaRecargo && recargoDebito > 0) {
-            tarjetaRecargo.textContent = `${formatCurrency(recargoDebito)} (${porcentajeRecargoDebito}%)`;
+            recargoDebitoPreview = {
+                monto: recargoDebito,
+                porcentaje: porcentajeRecargoDebito
+            };
+            tarjetaRecargo.textContent = formatRecargoDebitoPreview(recargoDebitoPreview);
+        } else {
+            recargoDebitoPreview = null;
         }
 
         // Actualizar aviso de crédito si corresponde
@@ -575,12 +595,16 @@
     // ── 6. Payment Type Switch ────────────────────────────────────────
     selectTipoPago?.addEventListener('change', onTipoPagoChange);
 
+    function esTipoPagoTarjeta(tipoPago) {
+        return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito || tipoPago === TIPO_PAGO.Tarjeta;
+    }
+
     function onTipoPagoChange() {
         invalidarVerificacionCrediticia();
 
         const val = selectTipoPago.value;
 
-        const isTarjeta = val === TIPO_PAGO.TarjetaCredito || val === TIPO_PAGO.TarjetaDebito || val === TIPO_PAGO.Tarjeta;
+        const isTarjeta = esTipoPagoTarjeta(val);
         const isCheque = val === TIPO_PAGO.Cheque;
         const isCredito = val === TIPO_PAGO.CreditoPersonal;
 
@@ -593,6 +617,10 @@
         // Fetch card info if needed
         if (isTarjeta && tarjetaInfoCache.length === 0) {
             cargarTarjetasActivas();
+        } else if (isTarjeta) {
+            poblarDatosTarjetaSeleccionada();
+        } else {
+            limpiarDatosTarjetaSeleccionada();
         }
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
@@ -600,20 +628,56 @@
 
     // ── 7. Card Payment ───────────────────────────────────────────────
     async function cargarTarjetasActivas() {
+        if (tarjetaInfoCache.length > 0) {
+            return tarjetaInfoCache;
+        }
+
         try {
             tarjetaInfoCache = await fetchJson('/api/ventas/GetTarjetasActivas');
+            poblarDatosTarjetaSeleccionada();
         } catch { /* tarjetas already loaded from ViewBag */ }
+
+        return tarjetaInfoCache;
+    }
+
+    function limpiarDatosTarjetaSeleccionada() {
+        if (hdnTarjetaNombre) hdnTarjetaNombre.value = '';
+        if (hdnTarjetaTipo) hdnTarjetaTipo.value = '';
+    }
+
+    function poblarDatosTarjetaSeleccionada() {
+        const tarjetaId = parseInt(selectTarjeta?.value);
+        if (!tarjetaId) {
+            limpiarDatosTarjetaSeleccionada();
+            return null;
+        }
+
+        const info = tarjetaInfoCache.find(t => t.id === tarjetaId);
+        if (!info) {
+            limpiarDatosTarjetaSeleccionada();
+            return null;
+        }
+
+        if (hdnTarjetaNombre) hdnTarjetaNombre.value = info.nombre || '';
+        if (hdnTarjetaTipo) hdnTarjetaTipo.value = info.tipo ?? '';
+        return info;
     }
 
     selectTarjeta?.addEventListener('change', async function () {
         const tarjetaId = parseInt(this.value);
         if (!tarjetaId) {
+            limpiarDatosTarjetaSeleccionada();
             hide(panelTarjetaResumen);
             if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
             return;
         }
 
-        const info = tarjetaInfoCache.find(t => t.id === tarjetaId);
+        let info = poblarDatosTarjetaSeleccionada();
+        if (!info) {
+            await cargarTarjetasActivas();
+            info = poblarDatosTarjetaSeleccionada();
+        }
+
         while (selectCuotasTarjeta.options.length) selectCuotasTarjeta.remove(0);
         if (info && info.permiteCuotas) {
             const maxCuotas = info.cantidadMaximaCuotas || 12;
@@ -650,8 +714,12 @@
             $('#tarjeta-monto-cuota').textContent = formatCurrency(data.montoCuota);
             $('#tarjeta-total-interes').textContent = formatCurrency(data.montoTotal);
 
-            const recargo = total > 0 ? ((data.montoTotal - total) / total * 100).toFixed(1) : 0;
-            $('#tarjeta-recargo').textContent = `${recargo}%`;
+            if (recargoDebitoPreview?.monto > 0) {
+                $('#tarjeta-recargo').textContent = formatRecargoDebitoPreview(recargoDebitoPreview);
+            } else {
+                const recargo = total > 0 ? ((data.montoTotal - total) / total * 100).toFixed(1) : 0;
+                $('#tarjeta-recargo').textContent = `${recargo}%`;
+            }
 
             show(panelTarjetaResumen);
         } catch {
@@ -1082,7 +1150,27 @@
     // Guard on native form submit: if panel open but user bypasses via top submit button
     const ventaForm = document.getElementById('venta-form');
     if (ventaForm) {
-        ventaForm.addEventListener('submit', function (e) {
+        ventaForm.addEventListener('submit', async function (e) {
+            if (!reintentandoSubmitConDatosTarjeta &&
+                esTipoPagoTarjeta(selectTipoPago?.value) &&
+                parseInt(selectTarjeta?.value) &&
+                (!hdnTarjetaNombre?.value || !hdnTarjetaTipo?.value)) {
+                e.preventDefault();
+                await cargarTarjetasActivas();
+                const info = poblarDatosTarjetaSeleccionada();
+
+                if (!info) {
+                    showFeedback('No se pudo cargar la informaciÃ³n de la tarjeta seleccionada.', 'error');
+                    return;
+                }
+
+                reintentandoSubmitConDatosTarjeta = true;
+                ventaForm.requestSubmit();
+                return;
+            }
+
+            reintentandoSubmitConDatosTarjeta = false;
+
             const panelActivo = $('#panel-excepcion-activa');
             const panelVisible = panelActivo && !panelActivo.classList.contains('hidden');
             if (!panelVisible) return;
