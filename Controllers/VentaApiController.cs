@@ -148,6 +148,11 @@ namespace TheBuryProject.Controllers
 
         #region Crédito y cálculos
 
+        /// <summary>
+        /// Endpoint legacy conservado por compatibilidad. No tiene caller UI/JS/Razor visible
+        /// en el flujo actual, que usa PrevalidarCredito. No eliminar sin revisar logs
+        /// productivos y consumidores externos.
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetCreditosCliente(int clienteId)
         {
@@ -182,6 +187,11 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// Endpoint legacy conservado por compatibilidad. No tiene caller UI/JS/Razor visible
+        /// en el flujo actual, que usa PrevalidarCredito. No eliminar sin revisar logs
+        /// productivos y consumidores externos.
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetInfoCredito(int creditoId)
         {
