@@ -119,6 +119,42 @@ public class CajaServiceTests : IDisposable
             "testuser");
     }
 
+    private async Task<Venta> SeedVentaAsync(AperturaCaja apertura, TipoPago tipoPago, decimal total = 1_000m, decimal? recargoDebito = null)
+    {
+        var cliente = new Cliente
+        {
+            Nombre = "Cliente",
+            Apellido = "Caja",
+            NumeroDocumento = Guid.NewGuid().ToString("N")[..8]
+        };
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            AperturaCajaId = apertura.Id,
+            Numero = $"VTA-{Guid.NewGuid():N}"[..12],
+            Estado = EstadoVenta.Confirmada,
+            TipoPago = tipoPago,
+            Total = total
+        };
+
+        if (recargoDebito.HasValue)
+        {
+            venta.DatosTarjeta = new DatosTarjeta
+            {
+                NombreTarjeta = "Debito Test",
+                TipoTarjeta = TipoTarjeta.Debito,
+                RecargoAplicado = recargoDebito
+            };
+        }
+
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
     private MovimientoCajaViewModel BuildMovimiento(int aperturaId, TipoMovimientoCaja tipo, decimal monto) =>
         new()
         {
@@ -544,6 +580,66 @@ public class CajaServiceTests : IDisposable
             tipoPago: TipoPago.CuentaCorriente, usuario: "cajero1");
 
         Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoVentaAsync_Transferencia_PersisteTipoPagoYNoCuentaComoEfectivo()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.Transferencia, total: 1_500m);
+
+        var movimiento = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero1");
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(TipoPago.Transferencia, movimiento!.TipoPago);
+        Assert.Equal(venta.Id, movimiento.VentaId);
+        Assert.Equal(venta.Numero, movimiento.Referencia);
+        Assert.Equal(venta.Id, movimiento.ReferenciaId);
+        Assert.Equal("Transferencia", movimiento.MedioPagoDetalle);
+
+        var resumen = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+        Assert.DoesNotContain(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Efectivo" && r.TotalIngresos == venta.Total);
+        var transferencia = Assert.Single(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Transferencia");
+        Assert.Equal(venta.Total, transferencia.TotalIngresos);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoVentaAsync_MercadoPago_PersisteTipoPagoYNoCuentaComoEfectivo()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.MercadoPago, total: 2_500m);
+
+        var movimiento = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero1");
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(TipoPago.MercadoPago, movimiento!.TipoPago);
+        Assert.Equal(venta.Id, movimiento.VentaId);
+        Assert.Equal("MercadoPago", movimiento.MedioPagoDetalle);
+
+        var resumen = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+        Assert.DoesNotContain(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Efectivo" && r.TotalIngresos == venta.Total);
+        var mercadoPago = Assert.Single(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Mercado Pago");
+        Assert.Equal(venta.Total, mercadoPago.TotalIngresos);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoVentaAsync_TarjetaDebito_PersisteRecargoDebito()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.TarjetaDebito, total: 1_100m, recargoDebito: 100m);
+
+        var movimiento = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero1");
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(TipoPago.TarjetaDebito, movimiento!.TipoPago);
+        Assert.Equal(100m, movimiento.RecargoDebitoAplicado);
+        Assert.Equal("Tarjeta débito", movimiento.MedioPagoDetalle);
     }
 
     // -------------------------------------------------------------------------
@@ -1066,6 +1162,58 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(200m, resultado.TotalEgresos);
         Assert.Equal(1_300m, resultado.SaldoActual); // 1000 + 500 - 200
         Assert.Equal(2, resultado.CantidadMovimientos);
+    }
+
+    [Fact]
+    public async Task ResumenRealPorMedioPago_UsaTipoPagoEstructuradoPrimero()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = apertura.Id,
+            FechaMovimiento = DateTime.UtcNow,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.VentaEfectivo,
+            TipoPago = TipoPago.Transferencia,
+            Monto = 700m,
+            Descripcion = "Venta estructurada",
+            Usuario = "testuser",
+            Observaciones = "Pago: Efectivo"
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        var transferencia = Assert.Single(resultado.ResumenRealPorMedioPago, r => r.MedioPago == "Transferencia");
+        Assert.Equal(700m, transferencia.TotalIngresos);
+        Assert.DoesNotContain(resultado.ResumenRealPorMedioPago, r => r.MedioPago == "Efectivo" && r.TotalIngresos == 700m);
+    }
+
+    [Fact]
+    public async Task ResumenRealPorMedioPago_LegacySinTipoPago_UsaFallbackActual()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = apertura.Id,
+            FechaMovimiento = DateTime.UtcNow,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.VentaCheque,
+            Monto = 800m,
+            Descripcion = "Venta legacy",
+            Usuario = "testuser",
+            Observaciones = "Pago: Cheque"
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        var cheque = Assert.Single(resultado.ResumenRealPorMedioPago, r => r.MedioPago == "Cheque");
+        Assert.Equal(800m, cheque.TotalIngresos);
     }
 
     [Fact]

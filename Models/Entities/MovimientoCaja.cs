@@ -35,6 +35,16 @@ namespace TheBuryProject.Models.Entities
 
         public int? ReferenciaId { get; set; }
 
+        public TipoPago? TipoPago { get; set; }
+
+        public int? VentaId { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? RecargoDebitoAplicado { get; set; }
+
+        [StringLength(500)]
+        public string? MedioPagoDetalle { get; set; }
+
         [Required]
         [StringLength(50)]
         public string Usuario { get; set; } = string.Empty;
@@ -44,5 +54,6 @@ namespace TheBuryProject.Models.Entities
 
         // Navegaci�n
         public virtual AperturaCaja AperturaCaja { get; set; } = null!;
+        public virtual Venta? Venta { get; set; }
     }
 }

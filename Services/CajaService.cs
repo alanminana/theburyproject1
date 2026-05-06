@@ -514,19 +514,30 @@ namespace TheBuryProject.Services
                 AperturaCaja? apertura = null;
                 int? aperturaId = null;
                 string? vendedorUserId = null;
+                decimal? recargoDebitoAplicado = null;
 
                 if (ventaId > 0)
                 {
                     var ventaData = await _context.Ventas
                         .AsNoTracking()
                         .Where(v => v.Id == ventaId && !v.IsDeleted)
-                        .Select(v => new { v.AperturaCajaId, v.VendedorUserId })
+                        .Select(v => new
+                        {
+                            v.AperturaCajaId,
+                            v.VendedorUserId,
+                            RecargoDebitoAplicado = v.DatosTarjeta != null
+                                ? v.DatosTarjeta.RecargoAplicado
+                                : null
+                        })
                         .FirstOrDefaultAsync();
 
                     if (ventaData != null)
                     {
                         aperturaId = ventaData.AperturaCajaId;
                         vendedorUserId = ventaData.VendedorUserId;
+                        recargoDebitoAplicado = tipoPago == TipoPago.TarjetaDebito
+                            ? ventaData.RecargoDebitoAplicado
+                            : null;
                     }
                 }
 
@@ -579,10 +590,14 @@ namespace TheBuryProject.Services
                     FechaMovimiento = DateTime.UtcNow,
                     Tipo = TipoMovimientoCaja.Ingreso,
                     Concepto = concepto,
+                    TipoPago = tipoPago,
+                    VentaId = ventaId,
                     Monto = monto,
                     Descripcion = $"Venta {ventaNumero}",
                     Referencia = ventaNumero,
                     ReferenciaId = ventaId,
+                    RecargoDebitoAplicado = recargoDebitoAplicado,
+                    MedioPagoDetalle = ResolverMedioPagoDetalle(tipoPago),
                     Usuario = usuario,
                     Observaciones = $"Pago: {tipoPago}",
                     CreatedAt = DateTime.UtcNow
@@ -1129,10 +1144,45 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             return recargo > 0m ? recargo : 0m;
         }
 
-        // MovimientoCaja no tiene campo TipoPago. Se infiere desde Concepto y, como fallback,
-        // desde palabras clave en Observaciones. Documentado: gap arquitectónico pendiente.
+        private static string ResolverMedioPagoDetalle(TipoPago tipoPago)
+        {
+            return tipoPago switch
+            {
+                TipoPago.Efectivo => "Efectivo",
+                TipoPago.TarjetaDebito => "Tarjeta débito",
+                TipoPago.TarjetaCredito or TipoPago.Tarjeta => "Tarjeta crédito",
+                TipoPago.Cheque => "Cheque",
+                TipoPago.Transferencia => "Transferencia",
+                TipoPago.MercadoPago => "MercadoPago",
+                TipoPago.CreditoPersonal => "Crédito Personal",
+                TipoPago.CuentaCorriente => "Cuenta Corriente",
+                _ => tipoPago.ToString()
+            };
+        }
+
+        private static string ResolverMedioPagoDesdeTipoPago(TipoPago tipoPago)
+        {
+            return tipoPago switch
+            {
+                TipoPago.Efectivo => "Efectivo",
+                TipoPago.TarjetaDebito => "Tarjeta Débito",
+                TipoPago.TarjetaCredito or TipoPago.Tarjeta => "Tarjeta",
+                TipoPago.Cheque => "Cheque",
+                TipoPago.Transferencia => "Transferencia",
+                TipoPago.MercadoPago => "Mercado Pago",
+                TipoPago.CreditoPersonal => "Crédito Personal",
+                TipoPago.CuentaCorriente => "Cuenta Corriente",
+                _ => tipoPago.ToString()
+            };
+        }
+
+        // Para movimientos nuevos se usa TipoPago estructurado. Los movimientos previos
+        // conservan el fallback por Concepto/Observaciones.
         private static string ResolverMedioPagoMovimiento(MovimientoCaja mov)
         {
+            if (mov.TipoPago.HasValue)
+                return ResolverMedioPagoDesdeTipoPago(mov.TipoPago.Value);
+
             return mov.Concepto switch
             {
                 ConceptoMovimientoCaja.VentaEfectivo      => "Efectivo",

@@ -1570,9 +1570,17 @@ namespace TheBuryProject.Data
                     .HasForeignKey(e => e.AperturaCajaId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                entity.HasOne(e => e.Venta)
+                    .WithMany(v => v.MovimientosCaja)
+                    .HasForeignKey(e => e.VentaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasIndex(e => e.FechaMovimiento);
                 entity.HasIndex(e => e.Tipo);
                 entity.HasIndex(e => e.Concepto);
+                entity.HasIndex(e => e.AperturaCajaId);
+                entity.HasIndex(e => e.VentaId);
+                entity.HasIndex(e => new { e.AperturaCajaId, e.TipoPago });
             });
 
             // =======================

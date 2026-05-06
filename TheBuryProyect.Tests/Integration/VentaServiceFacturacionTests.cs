@@ -377,6 +377,34 @@ public class VentaServiceFacturacionTests : IDisposable
         Assert.False(_movimientoCajaRegistrado[0]);
     }
 
+    [Fact]
+    public async Task Facturacion_NoDuplicaMovimiento_SiExisteVentaId()
+    {
+        var venta = await SeedVentaConfirmada(tipoPago: TipoPago.Efectivo);
+        var apertura = await _context.AperturasCaja.FirstAsync();
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = apertura.Id,
+            FechaMovimiento = DateTime.UtcNow,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.VentaEfectivo,
+            TipoPago = TipoPago.Efectivo,
+            VentaId = venta.Id,
+            Referencia = venta.Numero,
+            ReferenciaId = venta.Id,
+            Monto = venta.Total,
+            Descripcion = $"Venta {venta.Numero}",
+            Usuario = "testuser",
+            Observaciones = "Pago: Efectivo"
+        });
+        await _context.SaveChangesAsync();
+        var facturaVm = new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+        await _service.FacturarVentaAsync(venta.Id, facturaVm);
+
+        Assert.False(_movimientoCajaRegistrado[0]);
+    }
+
     // -------------------------------------------------------------------------
     // Tests — AnularFacturaAsync: guards
     // -------------------------------------------------------------------------

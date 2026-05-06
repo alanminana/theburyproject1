@@ -1035,9 +1035,19 @@ namespace TheBuryProject.Services
                 venta.TipoPago != TipoPago.CuentaCorriente)
             {
                 var yaRegistrado = await _context.MovimientosCaja
-                    .AnyAsync(m => m.ReferenciaId == venta.Id
+                    .AnyAsync(m => m.VentaId == venta.Id
                                 && m.Tipo == TipoMovimientoCaja.Ingreso
                                 && !m.IsDeleted);
+
+                if (!yaRegistrado)
+                {
+                    yaRegistrado = await _context.MovimientosCaja
+                        .AnyAsync(m => m.VentaId == null
+                                    && m.ReferenciaId == venta.Id
+                                    && m.Tipo == TipoMovimientoCaja.Ingreso
+                                    && !m.IsDeleted);
+                }
+
                 if (!yaRegistrado)
                 {
                     var usuario = _currentUserService.GetUsername();
