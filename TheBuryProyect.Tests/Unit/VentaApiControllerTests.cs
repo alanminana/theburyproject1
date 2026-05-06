@@ -607,145 +607,6 @@ public class VentaApiControllerTests
         Assert.IsAssignableFrom<System.Collections.IEnumerable>(ok.Value);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public async Task GetCreditosCliente_ClienteIdInvalido_DevuelveBadRequest(int clienteId)
-    {
-        var controller = CreateController();
-
-        var result = await controller.GetCreditosCliente(clienteId);
-
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        var json = ToJson(badRequest.Value);
-        Assert.Equal("El identificador de cliente debe ser válido", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetCreditosCliente_DevuelveCamposLegacyDelSelector()
-    {
-        var creditoService = new StubCreditoService
-        {
-            CreditosVenta =
-            {
-                new CreditoVentaResultado
-                {
-                    Id = 11,
-                    Numero = "CR-11",
-                    MontoAprobado = 10_000m,
-                    SaldoPendiente = 4_000m,
-                    TasaInteres = 3m,
-                    Estado = EstadoCredito.Activo,
-                    Disponible = true
-                }
-            }
-        };
-        var controller = CreateController(creditoService: creditoService);
-
-        var result = await controller.GetCreditosCliente(5);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var json = ToJson(ok.Value);
-        var item = json.RootElement[0];
-        Assert.Equal(11, item.GetProperty("id").GetInt32());
-        Assert.Equal("CR-11", item.GetProperty("numero").GetString());
-        Assert.Equal(10_000m, item.GetProperty("montoAprobado").GetDecimal());
-        Assert.Equal(4_000m, item.GetProperty("saldoPendiente").GetDecimal());
-        Assert.Equal(3m, item.GetProperty("tasaInteres").GetDecimal());
-        Assert.Equal($"CR-11 - Saldo disponible: ${4_000m:N2}", item.GetProperty("detalle").GetString());
-    }
-
-    [Fact]
-    public async Task GetCreditosCliente_ClienteSinCreditos_DevuelveListaVacia()
-    {
-        var controller = CreateController(creditoService: new StubCreditoService());
-
-        var result = await controller.GetCreditosCliente(7);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var json = ToJson(ok.Value);
-        Assert.Equal(JsonValueKind.Array, json.RootElement.ValueKind);
-        Assert.Equal(0, json.RootElement.GetArrayLength());
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public async Task GetInfoCredito_CreditoIdInvalido_DevuelveBadRequest(int creditoId)
-    {
-        var controller = CreateController();
-
-        var result = await controller.GetInfoCredito(creditoId);
-
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        var json = ToJson(badRequest.Value);
-        Assert.Equal("El identificador de crédito debe ser válido", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetInfoCredito_Inexistente_DevuelveNotFound()
-    {
-        var controller = CreateController(creditoService: new StubCreditoService());
-
-        var result = await controller.GetInfoCredito(99);
-
-        var notFound = Assert.IsType<NotFoundObjectResult>(result);
-        var json = ToJson(notFound.Value);
-        Assert.Equal("Crédito no encontrado", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetInfoCredito_NoDisponible_DevuelveNotFoundConEstado()
-    {
-        var creditoService = new StubCreditoService
-        {
-            CreditoVenta = new CreditoVentaResultado
-            {
-                Id = 12,
-                Numero = "CR-12",
-                Estado = EstadoCredito.Cancelado,
-                Disponible = false
-            }
-        };
-        var controller = CreateController(creditoService: creditoService);
-
-        var result = await controller.GetInfoCredito(12);
-
-        var notFound = Assert.IsType<NotFoundObjectResult>(result);
-        var json = ToJson(notFound.Value);
-        Assert.Equal("El crédito está en estado Cancelado y no se puede usar", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetInfoCredito_Disponible_DevuelveCamposLegacy()
-    {
-        var creditoService = new StubCreditoService
-        {
-            CreditoVenta = new CreditoVentaResultado
-            {
-                Id = 13,
-                Numero = "CR-13",
-                MontoAprobado = 12_000m,
-                SaldoPendiente = 8_000m,
-                TasaInteres = 2.5m,
-                Estado = EstadoCredito.Aprobado,
-                Disponible = true
-            }
-        };
-        var controller = CreateController(creditoService: creditoService);
-
-        var result = await controller.GetInfoCredito(13);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var json = ToJson(ok.Value);
-        Assert.Equal(13, json.RootElement.GetProperty("id").GetInt32());
-        Assert.Equal("CR-13", json.RootElement.GetProperty("numero").GetString());
-        Assert.Equal(12_000m, json.RootElement.GetProperty("montoAprobado").GetDecimal());
-        Assert.Equal(8_000m, json.RootElement.GetProperty("saldoPendiente").GetDecimal());
-        Assert.Equal(2.5m, json.RootElement.GetProperty("tasaInteres").GetDecimal());
-        Assert.Equal(1, json.RootElement.GetProperty("estado").GetInt32());
-    }
-
     private static VentaApiController CreateController(
         IProductoService? productoService = null,
         ICreditoService? creditoService = null,
@@ -902,14 +763,9 @@ public class VentaApiControllerTests
 
     private sealed class StubCreditoService : ICreditoService
     {
-        public List<CreditoVentaResultado> CreditosVenta { get; } = new();
-        public CreditoVentaResultado? CreditoVenta { get; set; }
-
         public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<CreditoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
         public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();
-        public Task<List<CreditoVentaResultado>> GetCreditosDisponiblesParaVentaAsync(int clienteId) => Task.FromResult(CreditosVenta);
-        public Task<CreditoVentaResultado?> GetCreditoParaVentaAsync(int creditoId) => Task.FromResult(CreditoVenta);
         public Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();

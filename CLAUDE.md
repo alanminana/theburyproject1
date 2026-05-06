@@ -60,7 +60,6 @@ No expandir salvo necesidad transitoria justificada:
 - `Producto.PrecioVenta` como fuente principal
 - `DiagnosticoController` como referencia arquitectónica
 - `CreditoHelper`
-- `VentaApiController.GetCreditosCliente` y `VentaApiController.GetInfoCredito` como endpoints legacy de credito: conservados por compatibilidad, sin caller UI/JS/Razor visible; el flujo actual usa `PrevalidarCredito`. No eliminar sin revisar logs productivos y consumidores externos.
 - `ClienteValidationHelper` si solo aporta null checks triviales
 
 ---

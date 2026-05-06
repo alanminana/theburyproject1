@@ -11,8 +11,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null);
         Task<CreditoViewModel?> GetByIdAsync(int id);
         Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId);
-        Task<List<CreditoVentaResultado>> GetCreditosDisponiblesParaVentaAsync(int clienteId);
-        Task<CreditoVentaResultado?> GetCreditoParaVentaAsync(int creditoId);
         Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel);
         Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal);
         Task<bool> UpdateAsync(CreditoViewModel viewModel);
