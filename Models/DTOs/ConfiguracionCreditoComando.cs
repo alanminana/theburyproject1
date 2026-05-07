@@ -4,7 +4,7 @@ namespace TheBuryProject.Models.DTOs
 {
     /// <summary>
     /// Parámetros ya resueltos para configurar un crédito.
-    /// El controller valida y resuelve la fuente (Manual/PorCliente/Global/Perfil);
+    /// El servicio de configuraciÃ³n valida y resuelve la fuente (Manual/PorCliente/Global/Perfil);
     /// este comando contiene los valores finales a persistir.
     /// </summary>
     public class ConfiguracionCreditoComando

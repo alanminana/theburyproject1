@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Registrar Pago de Cuota";
     var returnUrl = ViewData["ReturnUrl"] as string;
-    var cuotasJson = ViewBag.CuotasJson as string ?? "{}";
+    var cuotasJson = Model.CuotasJson;
     var montoPagadoInvariant = Model.MontoPagado.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
     var totalAPagarInvariant = Model.TotalAPagar.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
@@ -210,7 +210,7 @@
                 <select id="select-cuota"
                         data-credito-cuota-select
                         class="credito-input">
-                    @foreach (var item in (ViewBag.Cuotas as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new()))
+                    @foreach (var item in Model.Cuotas)
                     {
                         <option value="@item.Value" selected="@(item.Value == Model.CuotaId.ToString() ? "selected" : null)">@item.Text</option>
                     }

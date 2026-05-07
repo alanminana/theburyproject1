@@ -70,7 +70,83 @@ public class ConfigurarVentaUiContractTests
         Assert.Contains("data-credito-restriccion-cuotas-producto", view);
     }
 
+    [Fact]
+    public void ConfigurarVentaJs_ConservaParametrosAjaxDeSimularPlanVenta()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.Contains("/Credito/SimularPlanVenta?", js);
+        Assert.Contains("totalVenta", js);
+        Assert.Contains("anticipo", js);
+        Assert.Contains("cuotas", js);
+        Assert.Contains("gastosAdministrativos", js);
+        Assert.Contains("fechaPrimeraCuota", js);
+        Assert.Contains("tasaMensual", js);
+    }
+
+    [Fact]
+    public void ConfigurarVentaJs_ConsumeNombresJsonDeSimularPlanVenta()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.Contains("data.cuotaEstimada", js);
+        Assert.Contains("data.tasaAplicada", js);
+        Assert.Contains("data.interesTotal", js);
+        Assert.Contains("data.montoFinanciado", js);
+        Assert.Contains("data.gastosAdministrativos", js);
+        Assert.Contains("data.totalPlan", js);
+        Assert.Contains("data.fechaPrimerPago", js);
+        Assert.Contains("data.semaforoEstado", js);
+        Assert.Contains("data.semaforoMensaje", js);
+        Assert.Contains("data.mostrarMsgIngreso", js);
+        Assert.Contains("data.mostrarMsgAntiguedad", js);
+    }
+
     // ── Tests de contrato del ViewModel ─────────────────────────────────────
+
+    [Fact]
+    public void ConfigurarVentaView_LeeClienteConfigYPerfilesDesdeViewModelTipado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "ConfigurarVenta_tw.cshtml"));
+
+        Assert.Contains("Model.ClienteConfigPersonalizada", view);
+        Assert.Contains("Model.PerfilesActivos", view);
+        Assert.DoesNotContain("ViewBag.ClienteConfigPersonalizada", view);
+        Assert.DoesNotContain("ViewBag.PerfilesActivos", view);
+    }
+
+    [Fact]
+    public void ConfigurarVentaView_ConservaScriptJsonClienteConfigParaJs()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "ConfigurarVenta_tw.cshtml"));
+
+        Assert.Contains("data-credito-json=\"cliente-config\"", view);
+        Assert.Contains("JsonNamingPolicy.CamelCase", view);
+        Assert.Contains("JsonSerializer.Serialize(clienteConfig", view);
+    }
+
+    [Fact]
+    public void PagarCuotaView_LeeCuotasYJsonDesdeViewModelTipado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "PagarCuota_tw.cshtml"));
+
+        Assert.Contains("Model.CuotasJson", view);
+        Assert.Contains("Model.Cuotas", view);
+        Assert.DoesNotContain("ViewBag.CuotasJson", view);
+        Assert.DoesNotContain("ViewBag.Cuotas", view);
+        Assert.Contains("data-credito-json=\"cuotas\"", view);
+    }
+
+    [Fact]
+    public void IndexView_LeeFilterYClientesDesdeViewModelTipado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "Index_tw.cshtml"));
+
+        Assert.Contains("@model CreditoIndexViewModel", view);
+        Assert.Contains("Model.Filter", view);
+        Assert.Contains("Model.Clientes", view);
+        Assert.DoesNotContain("ViewBag.Filter", view);
+    }
 
     [Fact]
     public void ViewModel_ExponeMaxCuotasBase_DefaultMaximoLibre()
@@ -207,6 +283,25 @@ public class ConfigurarVentaUiContractTests
         Assert.Equal(70_000m, vm.MontoFinanciado);
         Assert.Equal(6, vm.CantidadCuotas);
         Assert.Equal(4.5m, vm.TasaMensual);
+    }
+
+    [Fact]
+    public void ViewModel_ExponeClienteConfigPersonalizadaTipadaConDefaultsSeguros()
+    {
+        var vm = new ConfiguracionCreditoVentaViewModel();
+
+        Assert.NotNull(vm.ClienteConfigPersonalizada);
+        Assert.False(vm.ClienteConfigPersonalizada.TieneConfiguracionCliente);
+        Assert.Equal(120, vm.ClienteConfigPersonalizada.MaxCuotasBase);
+    }
+
+    [Fact]
+    public void ViewModel_ExponePerfilesActivosTipadosConListaVacia()
+    {
+        var vm = new ConfiguracionCreditoVentaViewModel();
+
+        Assert.NotNull(vm.PerfilesActivos);
+        Assert.Empty(vm.PerfilesActivos);
     }
 
     private static string FindRepoRoot()

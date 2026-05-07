@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.DTOs;
@@ -21,18 +20,19 @@ namespace TheBuryProject.Controllers
     {
         private readonly ICreditoService _creditoService;
         private readonly IEvaluacionCreditoService _evaluacionService;
-        private readonly IFinancialCalculationService _financialService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionMoraService _configuracionMoraService;
         private readonly IVentaService _ventaService;
         private readonly ILogger<CreditoController> _logger;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
-        private readonly ICondicionesPagoCarritoResolver? _condicionesPagoCarritoResolver;
+        private readonly ICreditoRangoProductoService? _creditoRangoProductoService;
+        private readonly ICreditoConfiguracionVentaService _creditoConfiguracionVentaService;
+        private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
+        private readonly ICreditoUiQueryService _creditoUiQueryService;
 
         private readonly ICurrentUserService _currentUser;
         private readonly CreditoViewBagBuilder _viewBagBuilder;
-        private readonly IClienteAptitudService? _aptitudService;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
@@ -40,111 +40,6 @@ namespace TheBuryProject.Controllers
             return safeReturnUrl != null
                 ? LocalRedirect(safeReturnUrl)
                 : RedirectToAction(nameof(Details), new { id = creditoId });
-        }
-
-        private static List<CuotaViewModel> ObtenerCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
-            (cuotas ?? Enumerable.Empty<CuotaViewModel>())
-                .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-                .OrderBy(c => c.NumeroCuota)
-                .ToList();
-
-        private static List<SelectListItem> ProyectarCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
-            ObtenerCuotasPendientes(cuotas)
-                .Select(c => new SelectListItem
-                {
-                    Value = c.Id.ToString(),
-                    Text = $"Cuota #{c.NumeroCuota} - Vto: {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C}"
-                })
-                .ToList();
-
-        private static string BuildCuotasJson(IEnumerable<CuotaViewModel>? cuotas)
-        {
-            var data = ObtenerCuotasPendientes(cuotas)
-                .ToDictionary(
-                    c => c.Id.ToString(),
-                    c => new
-                    {
-                        saldo        = c.SaldoPendiente,
-                        montoCuota   = c.MontoTotal,
-                        punitorio    = c.MontoPunitorio,
-                        numeroCuota  = c.NumeroCuota,
-                        vencimiento  = c.FechaVencimiento.ToString("dd/MM/yyyy"),
-                        estaVencida  = c.EstaVencida,
-                        diasAtraso   = c.DiasAtraso
-                    });
-            return System.Text.Json.JsonSerializer.Serialize(data);
-        }
-
-        private static List<CreditoClienteIndexViewModel> AgruparCreditosPorCliente(IEnumerable<CreditoViewModel> creditos)
-        {
-            return creditos
-                .Where(c => c.ClienteId > 0)
-                .GroupBy(c => c.ClienteId)
-                .Select(grupo =>
-                {
-                    var creditosCliente = grupo
-                        .OrderByDescending(c => c.FechaSolicitud)
-                        .ThenByDescending(c => c.Id)
-                        .ToList();
-
-                    var cliente = creditosCliente.First().Cliente;
-                    var cuotas = creditosCliente
-                        .SelectMany(c => c.Cuotas ?? Enumerable.Empty<CuotaViewModel>())
-                        .ToList();
-
-                    var cuotasVencidas = cuotas.Count(c => c.EstaVencida);
-
-                    return new CreditoClienteIndexViewModel
-                    {
-                        Cliente = cliente,
-                        Documento = !string.IsNullOrWhiteSpace(cliente.NumeroDocumento)
-                            ? cliente.NumeroDocumento
-                            : $"Cliente #{cliente.Id}",
-                        CantidadCreditos = creditosCliente.Count,
-                        SaldoPendienteTotal = creditosCliente.Sum(c => c.SaldoPendiente),
-                        CuotasVencidas = cuotasVencidas,
-                        ProximoVencimiento = ObtenerProximoVencimiento(cuotas),
-                        EstadoConsolidado = ResolverEstadoConsolidado(creditosCliente, cuotasVencidas),
-                        Creditos = creditosCliente
-                    };
-                })
-                .OrderByDescending(c => c.CuotasVencidas > 0)
-                .ThenBy(c => c.ProximoVencimiento ?? DateTime.MaxValue)
-                .ThenBy(c => c.Cliente.NombreCompleto)
-                .ToList();
-        }
-
-        private static DateTime? ObtenerProximoVencimiento(IEnumerable<CuotaViewModel> cuotas) =>
-            cuotas
-                .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-                .OrderBy(c => c.FechaVencimiento)
-                .Select(c => (DateTime?)c.FechaVencimiento)
-                .FirstOrDefault();
-
-        private static string ResolverEstadoConsolidado(IReadOnlyCollection<CreditoViewModel> creditos, int cuotasVencidas)
-        {
-            if (cuotasVencidas > 0)
-                return "En mora";
-
-            if (creditos.Any(c => c.Estado == EstadoCredito.Activo || c.Estado == EstadoCredito.Generado))
-                return "Activo";
-
-            if (creditos.Any(c => c.Estado == EstadoCredito.Solicitado || c.Estado == EstadoCredito.PendienteConfiguracion))
-                return "Pendiente";
-
-            if (creditos.Any(c => c.Estado == EstadoCredito.Aprobado || c.Estado == EstadoCredito.Configurado))
-                return "Aprobado";
-
-            if (creditos.All(c => c.Estado == EstadoCredito.Finalizado))
-                return "Finalizado";
-
-            if (creditos.All(c => c.Estado == EstadoCredito.Rechazado))
-                return "Rechazado";
-
-            if (creditos.All(c => c.Estado == EstadoCredito.Cancelado))
-                return "Cancelado";
-
-            return "Mixto";
         }
 
         public CreditoController(
@@ -160,11 +55,14 @@ namespace TheBuryProject.Controllers
             CreditoViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IClienteAptitudService? aptitudService = null,
-            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
+            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null,
+            ICreditoRangoProductoService? creditoRangoProductoService = null,
+            ICreditoConfiguracionVentaService? creditoConfiguracionVentaService = null,
+            ICreditoSimulacionVentaService? creditoSimulacionVentaService = null,
+            ICreditoUiQueryService? creditoUiQueryService = null)
         {
             _creditoService = creditoService;
             _evaluacionService = evaluacionService;
-            _financialService = financialService;
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
             _ventaService = ventaService;
@@ -173,8 +71,21 @@ namespace TheBuryProject.Controllers
             _currentUser = currentUser;
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
-            _aptitudService = aptitudService;
-            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
+            _creditoRangoProductoService = creditoRangoProductoService
+                ?? (condicionesPagoCarritoResolver is not null
+                    ? new CreditoRangoProductoService(condicionesPagoCarritoResolver)
+                    : null);
+            _creditoConfiguracionVentaService = creditoConfiguracionVentaService
+                ?? new CreditoConfiguracionVentaService(
+                    configuracionPagoService,
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<CreditoConfiguracionVentaService>.Instance,
+                    _creditoRangoProductoService);
+            _creditoSimulacionVentaService = creditoSimulacionVentaService
+                ?? new CreditoSimulacionVentaService(
+                    financialService,
+                    configuracionPagoService,
+                    aptitudService);
+            _creditoUiQueryService = creditoUiQueryService ?? new CreditoUiQueryService();
         }
 
         #region Index / Detalle / Simular
@@ -185,17 +96,23 @@ namespace TheBuryProject.Controllers
             try
             {
                 var creditos = await _creditoService.GetAllAsync(filter);
-                var clientes = AgruparCreditosPorCliente(creditos);
+                var clientes = _creditoUiQueryService.AgruparCreditosPorCliente(creditos);
 
-                ViewBag.Filter = filter;
-                return View("Index_tw", clientes);
+                return View("Index_tw", new CreditoIndexViewModel
+                {
+                    Filter = filter,
+                    Clientes = clientes
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al listar créditos");
                 TempData["Error"] = "Error al cargar los créditos";
-                ViewBag.Filter = filter;
-                return View("Index_tw", new List<CreditoClienteIndexViewModel>());
+                return View("Index_tw", new CreditoIndexViewModel
+                {
+                    Filter = filter,
+                    Clientes = new List<CreditoClienteIndexViewModel>()
+                });
             }
         }
 
@@ -308,7 +225,7 @@ namespace TheBuryProject.Controllers
                 return BadRequest();
 
             var creditos = await _creditoService.GetByClienteIdAsync(id);
-            var grupo = AgruparCreditosPorCliente(creditos).FirstOrDefault();
+            var grupo = _creditoUiQueryService.AgruparCreditosPorCliente(creditos).FirstOrDefault();
 
             if (grupo == null)
                 return NotFound();
@@ -485,7 +402,10 @@ namespace TheBuryProject.Controllers
                     modelo.MetodoCalculo!.Value,
                     modelo.PerfilCreditoSeleccionadoId,
                     modelo.ClienteId);
-            var rangoGet = await ResolverRangoCreditoProductoAsync(modelo, cuotasMinGet, cuotasMaxGet);
+            var venta = ventaId.HasValue
+                ? await _ventaService.GetByIdAsync(ventaId.Value)
+                : null;
+            var rangoGet = await ResolverRangoCreditoProductoAsync(venta, cuotasMinGet, cuotasMaxGet);
             if (rangoGet.Error is not null)
             {
                 TempData["Error"] = rangoGet.Error;
@@ -501,7 +421,7 @@ namespace TheBuryProject.Controllers
                 ? perfilesActivos.FirstOrDefault(p => p.Id == parametrosCliente.PerfilPreferidoId.Value)
                 : null;
 
-            ViewBag.ClienteConfigPersonalizada = new
+            modelo.ClienteConfigPersonalizada = new ClienteConfigCreditoVentaViewModel
             {
                 TieneTasaPersonalizada = parametrosCliente.TieneTasaPersonalizada,
                 TasaPersonalizada = parametrosCliente.TasaPersonalizada,
@@ -527,16 +447,16 @@ namespace TheBuryProject.Controllers
                 ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre
             };
 
-            ViewBag.PerfilesActivos = perfilesActivos
-                .Select(p => new
+            modelo.PerfilesActivos = perfilesActivos
+                .Select(p => new PerfilCreditoActivoViewModel
                 {
-                    p.Id,
-                    p.Nombre,
-                    p.Descripcion,
-                    p.TasaMensual,
-                    p.GastosAdministrativos,
-                    p.MinCuotas,
-                    p.MaxCuotas
+                    Id = p.Id,
+                    Nombre = p.Nombre,
+                    Descripcion = p.Descripcion,
+                    TasaMensual = p.TasaMensual,
+                    GastosAdministrativos = p.GastosAdministrativos,
+                    MinCuotas = p.MinCuotas,
+                    MaxCuotas = p.MaxCuotas
                 })
                 .ToList();
 
@@ -553,145 +473,24 @@ namespace TheBuryProject.Controllers
                 return View("ConfigurarVenta_tw", modelo);
             }
 
-            if (!modelo.MetodoCalculo.HasValue)
+            var venta = modelo.VentaId.HasValue
+                ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
+                : null;
+
+            var resultadoConfiguracion = await _creditoConfiguracionVentaService.ResolverAsync(modelo, venta);
+            if (resultadoConfiguracion.RangoEfectivo is not null)
             {
-                ModelState.AddModelError(nameof(modelo.MetodoCalculo),
-                    "Debe seleccionar un método de cálculo.");
+                AplicarRangoEfectivoAlModelo(modelo, resultadoConfiguracion.RangoEfectivo);
+            }
+
+            if (!resultadoConfiguracion.EsValido)
+            {
+                ModelState.AddModelError(resultadoConfiguracion.ErrorKey ?? string.Empty, resultadoConfiguracion.ErrorMessage ?? string.Empty);
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
 
-            if (modelo.MetodoCalculo == MetodoCalculoCredito.UsarCliente)
-            {
-                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                if (tasaGlobal == null)
-                {
-                    ModelState.AddModelError(string.Empty,
-                        "La tasa de interés de Crédito Personal no está configurada. " +
-                        "Configure el valor en Administración → Tipos de Pago.");
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    return await RetornarVistaConPerfilesAsync(modelo);
-                }
-
-                var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal.Value);
-
-                if (!parametros.TieneConfiguracionPersonalizada)
-                {
-                    ModelState.AddModelError(nameof(modelo.MetodoCalculo),
-                        "El cliente no tiene configuración de crédito personal. " +
-                        "Configure el cliente con valores personalizados o seleccione otro método.");
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    return await RetornarVistaConPerfilesAsync(modelo);
-                }
-            }
-
-            // Normalizar campos opcionales a valores por defecto
-            var anticipo = modelo.Anticipo ?? 0m;
-            var gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
-
-            // Obtener tasa según fuente de configuración
-            var tasaMensual = modelo.TasaMensual;
-
-            if (!tasaMensual.HasValue || modelo.FuenteConfiguracion != FuenteConfiguracionCredito.Manual)
-            {
-                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                if (tasaGlobal == null)
-                {
-                    ModelState.AddModelError(string.Empty,
-                        "La tasa de interés de Crédito Personal no está configurada. " +
-                        "Configure el valor en Administración → Tipos de Pago.");
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    return await RetornarVistaConPerfilesAsync(modelo);
-                }
-
-                if (modelo.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
-                {
-                    // Usar parámetros ya resueltos por el service (cadena: personalizado > perfil > global)
-                    var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(modelo.ClienteId, tasaGlobal.Value);
-                    tasaMensual = parametros.TasaMensual;
-                    gastosAdministrativos = modelo.GastosAdministrativos ?? parametros.GastosAdministrativos;
-                    _logger.LogInformation(
-                        "Crédito {CreditoId}: Usando configuración del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
-                        modelo.CreditoId, modelo.ClienteId, tasaMensual, gastosAdministrativos);
-                }
-                else
-                {
-                    tasaMensual = tasaGlobal.Value;
-                    gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
-                    _logger.LogInformation(
-                        "Crédito {CreditoId}: Usando configuración global - Tasa: {Tasa}%",
-                        modelo.CreditoId, tasaMensual);
-                }
-            }
-            else
-            {
-                // Manual: usar valores ingresados por el usuario
-                if (modelo.MetodoCalculo == MetodoCalculoCredito.Manual && (!tasaMensual.HasValue || tasaMensual.Value <= 0))
-                {
-                    ModelState.AddModelError(nameof(modelo.TasaMensual),
-                        "La tasa de interés debe ser mayor a 0% en modo Manual.");
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    return await RetornarVistaConPerfilesAsync(modelo);
-                }
-
-                _logger.LogInformation(
-                    "Crédito {CreditoId}: Configuración manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
-                    modelo.CreditoId, tasaMensual, gastosAdministrativos);
-            }
-
-            // Validar rangos de cuotas según método activo
-            var (cuotasMinPermitidas, cuotasMaxPermitidas, descripcionMetodo, perfilNombre) =
-                await _configuracionPagoService.ResolverRangoCuotasAsync(
-                    modelo.MetodoCalculo!.Value,
-                    modelo.PerfilCreditoSeleccionadoId,
-                    modelo.ClienteId);
-
-            var rangoEfectivo = await ResolverRangoCreditoProductoAsync(
-                modelo,
-                cuotasMinPermitidas,
-                cuotasMaxPermitidas);
-            AplicarRangoEfectivoAlModelo(modelo, rangoEfectivo);
-            if (rangoEfectivo.Error is not null)
-            {
-                ModelState.AddModelError(nameof(modelo.CantidadCuotas), rangoEfectivo.Error);
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                return await RetornarVistaConPerfilesAsync(modelo);
-            }
-
-            cuotasMinPermitidas = rangoEfectivo.Min;
-            cuotasMaxPermitidas = rangoEfectivo.Max;
-
-            if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
-            {
-                ModelState.AddModelError(nameof(modelo.CantidadCuotas),
-                    $"La cantidad de cuotas debe estar entre {cuotasMinPermitidas} y {cuotasMaxPermitidas} " +
-                    $"según el método '{descripcionMetodo}'.");
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                return await RetornarVistaConPerfilesAsync(modelo);
-            }
-
-            var comando = new ConfiguracionCreditoComando
-            {
-                CreditoId                    = modelo.CreditoId,
-                VentaId                      = modelo.VentaId,
-                Monto                        = modelo.Monto,
-                Anticipo                     = anticipo,
-                CantidadCuotas               = modelo.CantidadCuotas,
-                TasaMensual                  = tasaMensual ?? 0,
-                GastosAdministrativos        = gastosAdministrativos,
-                FechaPrimeraCuota            = modelo.FechaPrimeraCuota,
-                MetodoCalculo                = modelo.MetodoCalculo!.Value,
-                FuenteConfiguracion          = modelo.FuenteConfiguracion,
-                PerfilCreditoAplicadoId      = modelo.PerfilCreditoSeleccionadoId,
-                PerfilCreditoAplicadoNombre  = perfilNombre,
-                CuotasMinPermitidas          = cuotasMinPermitidas,
-                CuotasMaxPermitidas          = cuotasMaxPermitidas,
-                FuenteRestriccionCuotasSnap  = rangoEfectivo.ProductoIdRestrictivo.HasValue ? "Producto" : "Global",
-                ProductoIdRestrictivoSnap    = rangoEfectivo.ProductoIdRestrictivo,
-                MaxCuotasBaseSnap            = rangoEfectivo.MaxBase
-            };
-
-            await _creditoService.ConfigurarCreditoAsync(comando);
+            await _creditoService.ConfigurarCreditoAsync(resultadoConfiguracion.Comando!);
 
             if (modelo.VentaId.HasValue)
             {
@@ -717,64 +516,21 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var anticipoVal = anticipo ?? 0m;
-                var gastosVal = gastosAdministrativos ?? 0m;
-
-                decimal tasaVal;
-                if (tasaMensual.HasValue)
+                var resultado = await _creditoSimulacionVentaService.SimularAsync(new CreditoSimulacionVentaRequest
                 {
-                    tasaVal = tasaMensual.Value;
-                }
-                else
-                {
-                    var tasaConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                    if (tasaConfig == null)
-                        return BadRequest(new { error = "La tasa de interés de Crédito Personal no está configurada. Configure el valor en Administración → Tipos de Pago." });
-                    tasaVal = tasaConfig.Value;
-                }
-
-                if (totalVenta <= 0)
-                    return BadRequest(new { error = "El monto total de la venta debe ser mayor a cero." });
-                if (anticipoVal < 0)
-                    return BadRequest(new { error = "El anticipo no puede ser negativo." });
-                if (cuotas <= 0)
-                    return BadRequest(new { error = "Ingresá una cantidad de cuotas mayor a cero." });
-                if (tasaVal < 0)
-                    return BadRequest(new { error = "La tasa mensual no puede ser negativa." });
-                if (gastosVal < 0)
-                    return BadRequest(new { error = "Los gastos administrativos no pueden ser negativos." });
-
-                var fecha = DateTime.TryParse(fechaPrimeraCuota, out var parsed) ? parsed : DateTime.Today.AddMonths(1);
-
-                var semaforo = _aptitudService != null
-                    ? await _aptitudService.GetSemaforoFinancieroAsync()
-                    : new SemaforoFinancieroViewModel();
-
-                var plan = _financialService.SimularPlanCredito(
-                    totalVenta,
-                    anticipoVal,
-                    cuotas,
-                    tasaVal,
-                    gastosVal,
-                    fecha,
-                    semaforo.RatioVerdeMax,
-                    semaforo.RatioAmarilloMax);
-
-                return Json(new
-                {
-                    montoFinanciado       = plan.MontoFinanciado,
-                    cuotaEstimada         = plan.CuotaEstimada,
-                    tasaAplicada          = plan.TasaAplicada,
-                    interesTotal          = plan.InteresTotal,
-                    totalAPagar           = plan.TotalAPagar,
-                    gastosAdministrativos = plan.GastosAdministrativos,
-                    totalPlan             = plan.TotalPlan,
-                    fechaPrimerPago       = plan.FechaPrimerPago.ToString("yyyy-MM-dd"),
-                    semaforoEstado        = plan.SemaforoEstado,
-                    semaforoMensaje       = plan.SemaforoMensaje,
-                    mostrarMsgIngreso     = plan.MostrarMsgIngreso,
-                    mostrarMsgAntiguedad  = plan.MostrarMsgAntiguedad
+                    TotalVenta = totalVenta,
+                    Anticipo = anticipo,
+                    Cuotas = cuotas,
+                    GastosAdministrativos = gastosAdministrativos,
+                    FechaPrimeraCuota = fechaPrimeraCuota,
+                    TasaMensual = tasaMensual
                 });
+
+                if (!resultado.EsValido)
+                    return BadRequest(resultado.Error);
+
+                return Json(resultado.Plan);
+
             }
             catch (Exception ex)
             {
@@ -792,8 +548,19 @@ namespace TheBuryProject.Controllers
             modelo.ContratoGenerado = modelo.VentaId.HasValue &&
                 await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
             modelo.PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync();
-            ViewBag.PerfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
-            ViewBag.ClienteConfigPersonalizada = new
+            modelo.PerfilesActivos = (await _configuracionPagoService.GetPerfilesCreditoActivosAsync())
+                .Select(p => new PerfilCreditoActivoViewModel
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre,
+                    Descripcion = p.Descripcion,
+                    TasaMensual = p.TasaMensual,
+                    GastosAdministrativos = p.GastosAdministrativos,
+                    MinCuotas = p.MinCuotas,
+                    MaxCuotas = p.MaxCuotas
+                })
+                .ToList();
+            modelo.ClienteConfigPersonalizada = new ClienteConfigCreditoVentaViewModel
             {
                 MaxCuotasCreditoProducto = modelo.MaxCuotasCreditoProducto,
                 RestriccionCreditoProductoDescripcion = modelo.RestriccionCreditoProductoDescripcion,
@@ -804,96 +571,26 @@ namespace TheBuryProject.Controllers
             return View("ConfigurarVenta_tw", modelo);
         }
 
-        private sealed record RangoCreditoProductoResultado(
-            int Min,
-            int Max,
-            int MaxBase,
-            int? MaxProducto,
-            int? ProductoIdRestrictivo,
-            string? ProductoRestrictivoNombre,
-            string? DescripcionProducto,
-            string? Error);
-
-        private async Task<RangoCreditoProductoResultado> ResolverRangoCreditoProductoAsync(
-            ConfiguracionCreditoVentaViewModel modelo,
+        private async Task<CreditoRangoProductoResultado> ResolverRangoCreditoProductoAsync(
+            VentaViewModel? venta,
             int minBase,
             int maxBase)
         {
-            if (!modelo.VentaId.HasValue || _condicionesPagoCarritoResolver is null)
+            if (venta is null || _creditoRangoProductoService is null)
             {
-                return new RangoCreditoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
+                return new CreditoRangoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
             }
 
-            var venta = await _ventaService.GetByIdAsync(modelo.VentaId.Value);
-            var productoIds = venta?.Detalles
-                .Where(d => d.ProductoId > 0)
-                .Select(d => d.ProductoId)
-                .Distinct()
-                .ToArray() ?? Array.Empty<int>();
-
-            if (productoIds.Length == 0)
-            {
-                return new RangoCreditoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
-            }
-
-            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
-                productoIds,
+            return await _creditoRangoProductoService.ResolverAsync(
+                venta,
                 TipoPago.CreditoPersonal,
-                totalReferencia: venta!.Total,
-                maxCuotasCreditoGlobal: maxBase);
-
-            if (!resultado.Permitido)
-            {
-                var productos = DescribirProductos(venta.Detalles, resultado.ProductoIdsBloqueantes);
-                return new RangoCreditoProductoResultado(
-                    minBase,
-                    maxBase,
-                    maxBase,
-                    null,
-                    null,
-                    null,
-                    null,
-                    $"No se puede configurar crédito personal: {productos} bloquea el medio de pago.");
-            }
-
-            var maxEfectivo = resultado.MaxCuotasCredito.HasValue
-                ? Math.Min(maxBase, resultado.MaxCuotasCredito.Value)
-                : maxBase;
-            var maxProducto = resultado.ProductoIdsRestrictivos.Count > 0
-                ? resultado.MaxCuotasCredito
-                : null;
-            var productoIdRestrictivo = resultado.ProductoIdsRestrictivos.Count > 0
-                ? resultado.ProductoIdsRestrictivos[0]
-                : (int?)null;
-            var productoRestrictivoNombre = productoIdRestrictivo.HasValue
-                ? venta.Detalles
-                    .Where(d => d.ProductoId == productoIdRestrictivo.Value)
-                    .Select(d => d.ProductoNombre)
-                    .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
-                : null;
-            var descripcion = maxProducto.HasValue
-                ? $"Límite por producto: hasta {maxProducto.Value} cuotas."
-                : null;
-
-            if (minBase > maxEfectivo)
-            {
-                return new RangoCreditoProductoResultado(
-                    minBase,
-                    maxEfectivo,
-                    maxBase,
-                    maxProducto,
-                    productoIdRestrictivo,
-                    productoRestrictivoNombre,
-                    descripcion,
-                    $"El rango de cuotas de crédito personal queda inválido para esta venta: mínimo {minBase}, máximo efectivo {maxEfectivo}.");
-            }
-
-            return new RangoCreditoProductoResultado(minBase, maxEfectivo, maxBase, maxProducto, productoIdRestrictivo, productoRestrictivoNombre, descripcion, null);
+                minBase,
+                maxBase);
         }
 
         private static void AplicarRangoEfectivoAlModelo(
             ConfiguracionCreditoVentaViewModel modelo,
-            RangoCreditoProductoResultado rango)
+            CreditoRangoProductoResultado rango)
         {
             modelo.CuotasMinPermitidas = rango.Min;
             modelo.CuotasMaxPermitidas = rango.Max;
@@ -904,21 +601,10 @@ namespace TheBuryProject.Controllers
             modelo.RestriccionCreditoProductoDescripcion = rango.DescripcionProducto;
         }
 
-        private static string DescribirProductos(
-            IEnumerable<VentaDetalleViewModel> detalles,
-            IReadOnlyCollection<int> productoIds)
+        private void CargarCuotasPago(PagarCuotaViewModel modelo, IReadOnlyCollection<CuotaViewModel> cuotas)
         {
-            var nombres = detalles
-                .Where(d => productoIds.Contains(d.ProductoId))
-                .Select(d => string.IsNullOrWhiteSpace(d.ProductoNombre)
-                    ? $"Producto #{d.ProductoId}"
-                    : d.ProductoNombre!)
-                .Distinct()
-                .ToArray();
-
-            return nombres.Length == 0
-                ? "un producto del carrito"
-                : string.Join(", ", nombres);
+            modelo.Cuotas = _creditoUiQueryService.ProyectarCuotasPendientes(cuotas);
+            modelo.CuotasJson = _creditoUiQueryService.BuildCuotasJson(cuotas);
         }
 
         #endregion
@@ -1118,16 +804,13 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                var cuotasDisponibles = ObtenerCuotasPendientes(credito.Cuotas);
+                var cuotasDisponibles = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
 
                 if (!cuotasDisponibles.Any())
                 {
                     TempData["Warning"] = "No hay cuotas pendientes o vencidas para registrar pago.";
                     return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
-
-                ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasDisponibles);
-                ViewBag.CuotasJson = BuildCuotasJson(cuotasDisponibles);
 
                 var cuotaSeleccionada = cuotaId.HasValue
                     ? cuotasDisponibles.FirstOrDefault(c => c.Id == cuotaId.Value)
@@ -1158,6 +841,7 @@ namespace TheBuryProject.Controllers
                     DiasAtraso = diasAtraso,
                     FechaPago = DateTime.UtcNow
                 };
+                CargarCuotasPago(modelo, cuotasDisponibles);
 
                 return View("PagarCuota_tw", modelo);
             }
@@ -1187,9 +871,8 @@ namespace TheBuryProject.Controllers
                         return RedirectToAction(nameof(Index));
                     }
 
-                    var cuotasPendientes = ObtenerCuotasPendientes(credito.Cuotas);
-                    ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasPendientes);
-                    ViewBag.CuotasJson = BuildCuotasJson(cuotasPendientes);
+                    var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
+                    CargarCuotasPago(modelo, cuotasPendientes);
 
                     return View("PagarCuota_tw", modelo);
                 }
@@ -1215,9 +898,8 @@ namespace TheBuryProject.Controllers
             try
             {
                 var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
-                var cuotasPendientes = ObtenerCuotasPendientes(credito?.Cuotas);
-                ViewBag.Cuotas = ProyectarCuotasPendientes(cuotasPendientes);
-                ViewBag.CuotasJson = BuildCuotasJson(cuotasPendientes);
+                var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito?.Cuotas);
+                CargarCuotasPago(modelo, cuotasPendientes);
             }
             catch
             {

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Helpers;
 
 namespace TheBuryProject.ViewModels
@@ -54,5 +55,7 @@ namespace TheBuryProject.ViewModels
         public DateTime FechaVencimiento { get; set; }
         public bool EstaVencida { get; set; }
         public int DiasAtraso { get; set; }
+        public List<SelectListItem> Cuotas { get; set; } = new();
+        public string CuotasJson { get; set; } = "{}";
     }
 }

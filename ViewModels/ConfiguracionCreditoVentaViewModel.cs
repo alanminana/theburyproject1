@@ -83,6 +83,47 @@ namespace TheBuryProject.ViewModels
 
         public string? ProductoRestrictivoNombre { get; set; }
 
+        public ClienteConfigCreditoVentaViewModel ClienteConfigPersonalizada { get; set; } = new();
+
+        public List<PerfilCreditoActivoViewModel> PerfilesActivos { get; set; } = new();
+
         public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado && PlantillaActivaDisponible;
+    }
+
+    public class ClienteConfigCreditoVentaViewModel
+    {
+        public bool TieneTasaPersonalizada { get; set; }
+        public decimal? TasaPersonalizada { get; set; }
+        public decimal? GastosPersonalizados { get; set; }
+        public int? CuotasMaximas { get; set; }
+        public int? CuotasMinimas { get; set; }
+        public decimal TasaGlobal { get; set; }
+        public decimal GastosGlobales { get; set; }
+        public bool TienePerfilPreferido { get; set; }
+        public int? PerfilPreferidoId { get; set; }
+        public string? PerfilNombre { get; set; }
+        public decimal? PerfilTasa { get; set; }
+        public decimal? PerfilGastos { get; set; }
+        public int? PerfilMinCuotas { get; set; }
+        public int? PerfilMaxCuotas { get; set; }
+        public bool TieneConfiguracionCliente { get; set; }
+        public decimal? MontoMinimo { get; set; }
+        public decimal? MontoMaximo { get; set; }
+        public int? MaxCuotasCreditoProducto { get; set; }
+        public string? RestriccionCreditoProductoDescripcion { get; set; }
+        public int MaxCuotasBase { get; set; } = 120;
+        public int? ProductoIdRestrictivo { get; set; }
+        public string? ProductoRestrictivoNombre { get; set; }
+    }
+
+    public class PerfilCreditoActivoViewModel
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string? Descripcion { get; set; }
+        public decimal TasaMensual { get; set; }
+        public decimal GastosAdministrativos { get; set; }
+        public int MinCuotas { get; set; }
+        public int MaxCuotas { get; set; }
     }
 }

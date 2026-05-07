@@ -89,10 +89,181 @@ public class CreditoControllerSimularPlanVentaTests
         Assert.Contains("Cr", error);
     }
 
+    [Fact]
+    public async Task SimularPlanVenta_ConservaNombresJsonUsadosPorJs()
+    {
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: new RecordingFinancialCalculationService(),
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 1_000m,
+            cuotas: 6,
+            gastosAdministrativos: 250m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: 4.25m);
+
+        var json = Assert.IsType<JsonResult>(result);
+        Assert.NotNull(json.Value);
+        var value = json.Value!;
+
+        Assert.NotNull(value.GetType().GetProperty("montoFinanciado"));
+        Assert.NotNull(value.GetType().GetProperty("cuotaEstimada"));
+        Assert.NotNull(value.GetType().GetProperty("tasaAplicada"));
+        Assert.NotNull(value.GetType().GetProperty("interesTotal"));
+        Assert.NotNull(value.GetType().GetProperty("totalAPagar"));
+        Assert.NotNull(value.GetType().GetProperty("gastosAdministrativos"));
+        Assert.NotNull(value.GetType().GetProperty("totalPlan"));
+        Assert.NotNull(value.GetType().GetProperty("fechaPrimerPago"));
+        Assert.NotNull(value.GetType().GetProperty("semaforoEstado"));
+        Assert.NotNull(value.GetType().GetProperty("semaforoMensaje"));
+        Assert.NotNull(value.GetType().GetProperty("mostrarMsgIngreso"));
+        Assert.NotNull(value.GetType().GetProperty("mostrarMsgAntiguedad"));
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_FechaInvalida_UsaFallbackAlMesSiguiente()
+    {
+        var financial = new RecordingFinancialCalculationService();
+        var antes = DateTime.Today.AddMonths(1).Date;
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: financial,
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "fecha-invalida",
+            tasaMensual: 5m);
+        var despues = DateTime.Today.AddMonths(1).Date;
+
+        Assert.IsType<JsonResult>(result);
+        Assert.NotNull(financial.ReceivedFechaPrimeraCuota);
+        Assert.InRange(financial.ReceivedFechaPrimeraCuota!.Value.Date, antes, despues);
+    }
+
+    [Theory]
+    [InlineData(-1, 0, 5, "anticipo no puede ser negativo")]
+    [InlineData(0, -1, 5, "gastos administrativos no pueden ser negativos")]
+    [InlineData(0, 0, -1, "tasa mensual no puede ser negativa")]
+    public async Task SimularPlanVenta_RechazaValoresNegativos(decimal anticipo, decimal gastos, decimal tasa, string mensaje)
+    {
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: new RecordingFinancialCalculationService(),
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: anticipo,
+            cuotas: 6,
+            gastosAdministrativos: gastos,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: tasa);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var error = badRequest.Value!.GetType().GetProperty("error")?.GetValue(badRequest.Value)?.ToString();
+        Assert.Contains(mensaje, error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_TasaRequestTienePrioridadSobreTasaGlobal()
+    {
+        var financial = new RecordingFinancialCalculationService();
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(9m),
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: 3.5m);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(3.5m, financial.ReceivedTasaMensual);
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_SinTasaRequest_UsaTasaGlobal()
+    {
+        var financial = new RecordingFinancialCalculationService();
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(8m),
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: null);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(8m, financial.ReceivedTasaMensual);
+    }
+
     private sealed class RecordingFinancialCalculationService : IFinancialCalculationService
     {
         public decimal? ReceivedVerdeMax { get; private set; }
         public decimal? ReceivedAmarilloMax { get; private set; }
+        public decimal? ReceivedTasaMensual { get; private set; }
+        public DateTime? ReceivedFechaPrimeraCuota { get; private set; }
 
         public decimal CalcularCuotaSistemaFrances(decimal monto, decimal tasaMensual, int cuotas) => throw new NotImplementedException();
         public decimal CalcularTotalConInteres(decimal monto, decimal tasaMensual, int cuotas) => throw new NotImplementedException();
@@ -114,6 +285,8 @@ public class CreditoControllerSimularPlanVentaTests
         {
             ReceivedVerdeMax = semaforoRatioVerdeMax;
             ReceivedAmarilloMax = semaforoRatioAmarilloMax;
+            ReceivedTasaMensual = tasaMensual;
+            ReceivedFechaPrimeraCuota = fechaPrimeraCuota;
 
             return new SimulacionPlanCreditoDto
             {

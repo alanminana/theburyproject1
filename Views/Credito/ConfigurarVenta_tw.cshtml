@@ -6,8 +6,8 @@
     var puedeConfigurarCreditoPersonal = User.TienePermiso("configuraciones", "view");
 
     // Serializar datos del cliente para JS
-    var clienteConfig = ViewBag.ClienteConfigPersonalizada;
-    var perfilesActivos = ViewBag.PerfilesActivos as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+    var clienteConfig = Model.ClienteConfigPersonalizada;
+    var perfilesActivos = Model.PerfilesActivos;
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Model.VentaId.HasValue

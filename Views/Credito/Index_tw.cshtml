@@ -1,10 +1,10 @@
 @using TheBuryProject.Models.Enums
-@model List<CreditoClienteIndexViewModel>
+@model CreditoIndexViewModel
 @{
     ViewData["Title"] = "Gestión de Créditos";
     ViewData["MetaDescription"] = "Seguimiento de créditos, cuotas, moras y estado financiero de clientes en el ERP TheBuryProject.";
-    var filter = ViewBag.Filter as CreditoFilterViewModel ?? new CreditoFilterViewModel();
-    var clientes = Model ?? new List<CreditoClienteIndexViewModel>();
+    var filter = Model.Filter ?? new CreditoFilterViewModel();
+    var clientes = Model.Clientes ?? new List<CreditoClienteIndexViewModel>();
     var creditos = clientes.SelectMany(c => c.Creditos).ToList();
     var totalClientes = clientes.Count;
     var totalCreditos = creditos.Count;
