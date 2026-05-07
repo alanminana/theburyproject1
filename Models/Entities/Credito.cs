@@ -65,6 +65,22 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public int? CuotasMaximasPermitidas { get; set; }
 
+        /// <summary>
+        /// Fuente que determinó la restricción de cuotas efectiva: "Producto" o "Global".
+        /// </summary>
+        [StringLength(20)]
+        public string? FuenteRestriccionCuotasSnap { get; set; }
+
+        /// <summary>
+        /// ID del producto que impuso el límite de cuotas más restrictivo (snapshot histórico, sin FK).
+        /// </summary>
+        public int? ProductoIdRestrictivoSnap { get; set; }
+
+        /// <summary>
+        /// Máximo de cuotas global (antes de aplicar restricción por producto).
+        /// </summary>
+        public int? MaxCuotasBaseSnap { get; set; }
+
         public EstadoCredito Estado { get; set; } = EstadoCredito.Solicitado;
 
         public DateTime FechaSolicitud { get; set; } = DateTime.UtcNow;

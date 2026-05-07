@@ -103,7 +103,7 @@ const VentaCrearModal = (() => {
             if (data.success && data.requiresRedirect) {
                 window.location.href = data.redirectUrl;
             } else if (!data.success) {
-                showErrors(data.errors || { '': ['Error al crear la venta.'] });
+                showErrors(data.errors || { '': [data.message || 'Error al crear la venta.'] });
             }
         } catch {
             showErrors({ '': ['Error de conexión. Intente nuevamente.'] });

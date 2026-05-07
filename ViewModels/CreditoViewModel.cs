@@ -126,5 +126,21 @@ namespace TheBuryProject.ViewModels
 
         // Lista de cuotas
         public List<CuotaViewModel>? Cuotas { get; set; }
+
+        // ── Trazabilidad de restricciones de cuotas (Fase 9.5b) ──────────────
+        [Display(Name = "Mínimo de Cuotas Permitidas")]
+        public int? CuotasMinimasPermitidas { get; set; }
+
+        [Display(Name = "Máximo de Cuotas Permitidas")]
+        public int? CuotasMaximasPermitidas { get; set; }
+
+        [Display(Name = "Fuente Restricción Cuotas")]
+        public string? FuenteRestriccionCuotasSnap { get; set; }
+
+        [Display(Name = "Producto Restrictivo (snapshot)")]
+        public int? ProductoIdRestrictivoSnap { get; set; }
+
+        [Display(Name = "Máximo Cuotas Base (sin restricción producto)")]
+        public int? MaxCuotasBaseSnap { get; set; }
     }
 }

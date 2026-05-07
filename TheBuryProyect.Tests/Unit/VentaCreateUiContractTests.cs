@@ -26,6 +26,34 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void CreateController_ArmonizaErroresBackendDeCondicionesPago()
+    {
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaController.cs"));
+        var createPost = ExtractFunction(controller, "public async Task<IActionResult> Create(VentaViewModel viewModel, string? DatosCreditoPersonallJson)");
+        var createAjax = ExtractFunction(controller, "public async Task<IActionResult> CreateAjax(VentaViewModel viewModel)");
+        var confirmar = ExtractFunction(controller, "public async Task<IActionResult> Confirmar(int id, bool aplicarExcepcionDocumental = false, string? motivoExcepcionDocumental = null)");
+
+        Assert.Contains("catch (CondicionesPagoVentaException ex)", createPost);
+        Assert.Contains("CrearMensajePresentacionCondicionesPago(ex.Message)", createPost);
+        Assert.Contains("ModelState.AddModelError(\"\", mensaje)", createPost);
+        Assert.Contains("message = mensaje", createAjax);
+        Assert.Contains("errors = new Dictionary<string, string[]>", createAjax);
+        Assert.Contains("catch (CondicionesPagoVentaException ex)", confirmar);
+        Assert.Contains("TempData[\"Error\"] = CrearMensajePresentacionCondicionesPago(ex.Message)", confirmar);
+    }
+
+    [Fact]
+    public void VentaCrearModalJs_UsaMensajeJsonControladoSiNoHayErrors()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-crear-modal.js"));
+
+        Assert.Contains("showErrors(data.errors || { '': [data.message || 'Error al crear la venta.'] });", script);
+        Assert.DoesNotContain("DiagnosticarCondicionesPagoCarrito", script);
+        Assert.DoesNotContain("MaxCuotasSinInteres", script);
+        Assert.DoesNotContain("MaxCuotasConInteres", script);
+    }
+
+    [Fact]
     public void VentaCreateJs_MantienePreviewRecargoDebitoComoMontoYPorcentaje()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
@@ -35,6 +63,252 @@ public class VentaCreateUiContractTests
         Assert.Contains("formatCurrency(recargo.monto)", script);
         Assert.Contains("formatPercent(recargo.porcentaje)", script);
         Assert.Contains("if (recargoDebitoPreview?.monto > 0)", script);
+    }
+
+    [Fact]
+    public void CreateView_TienePanelDiagnosticoCondicionesPagoConBloqueoUi()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"panel-diagnostico-condiciones-pago\"", view);
+        Assert.Contains("data-diagnostico-condiciones-pago", view);
+        Assert.Contains("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
+        Assert.Contains("No se puede confirmar con el medio de pago seleccionado", view);
+        Assert.Contains("esta informacion no modifica totales, no aplica ajustes", view);
+        Assert.Contains("solo limita cuotas disponibles del medio seleccionado", view);
+        Assert.Contains("Las cuotas disponibles fueron restringidas por condiciones del producto", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_LlamaEndpointDiagnosticoConProductoIdsYTipoPago()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function diagnosticarCondicionesPagoCarrito()", script);
+        Assert.Contains("postJson('/api/ventas/DiagnosticarCondicionesPagoCarrito', body)", script);
+        Assert.Contains("productoIds: detalles.map(d => d.productoId)", script);
+        Assert.Contains("tipoPago: Number(selectTipoPago.value)", script);
+        Assert.Contains("configuracionTarjetaId: tarjetaId", script);
+        Assert.Contains("tipoTarjeta: tipoTarjeta", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoBloqueadoMuestraBloqueoVisual()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("renderDiagnosticoCondicionesPago", script);
+        Assert.Contains("permitido ? 'ok' : 'blocked'", script);
+        Assert.Contains("permitido ? 'Permitido' : 'Bloqueado'", script);
+        Assert.Contains("obtenerMensajeBloqueoCondicionesPago", script);
+        Assert.Contains("if (!permitido && diagnosticoCondicionesPagoBloqueo)", script);
+        Assert.Contains("diagnosticoCondicionesPagoBloqueo.textContent = mensajeBloqueo", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoBloqueadoImpideConfirmarConEseMedio()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("let diagnosticoCondicionesBloqueaContinuidad = false", script);
+        Assert.Contains("actualizarBloqueoContinuidadCondicionesPago(!permitido)", script);
+        Assert.Contains("btnConfirmarVenta.disabled = diagnosticoCondicionesBloqueaContinuidad", script);
+        Assert.Contains("if (diagnosticoCondicionesBloqueaContinuidad)", script);
+        Assert.Contains("e.preventDefault()", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoPermitidoYErroresLiberanContinuidad()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "async function diagnosticarCondicionesPagoCarrito");
+        var bloqueo = ExtractFunction(script, "function actualizarBloqueoContinuidadCondicionesPago");
+
+        Assert.Contains("actualizarBloqueoContinuidadCondicionesPago(!permitido)", script);
+        Assert.Contains("actualizarBloqueoContinuidadCondicionesPago(false)", diagnostico);
+        Assert.Contains("diagnosticoCondicionesPagoBloqueo.textContent = ''", bloqueo);
+        Assert.Contains("hide(diagnosticoCondicionesPagoBloqueo)", bloqueo);
+        Assert.Contains("No se pudo consultar el diagnostico", diagnostico);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MuestraProductosBloqueantesYMotivoAlVendedor()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("crearBloqueDiagnostico('Productos bloqueantes'", script);
+        Assert.Contains("crearBloqueDiagnostico('Bloqueos detallados'", script);
+        Assert.Contains("const motivo = getProp(b, 'motivo', 'Motivo')", script);
+        Assert.Contains("return `${textoProductoDiagnostico(productoId)}: ${motivo}`", script);
+        Assert.Contains("return `No se puede confirmar con el medio seleccionado. ${producto}: ${motivo}`", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_NoOcultaNiEliminaMediosDePagoGlobalmente()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var bloqueo = ExtractFunction(script, "function actualizarBloqueoContinuidadCondicionesPago");
+
+        Assert.Contains("btnConfirmarVenta.disabled", bloqueo);
+        Assert.DoesNotContain("selectTipoPago.remove", bloqueo);
+        Assert.DoesNotContain("selectTipoPago.disabled", bloqueo);
+        Assert.DoesNotContain("option.remove", bloqueo);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ErrorDiagnosticoNoBloqueaVenta()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "async function diagnosticarCondicionesPagoCarrito");
+
+        Assert.Contains("catch", diagnostico);
+        Assert.Contains("actualizarBloqueoContinuidadCondicionesPago(false)", diagnostico);
+        Assert.Contains("El calculo normal y la carga de la venta continuan sin cambios", diagnostico);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoNoModificaTotales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDiagnosticoCondicionesPago");
+
+        Assert.Contains("totalReferencia", script);
+        Assert.DoesNotContain("actualizarTotalesUI", render);
+        Assert.DoesNotContain("hdnTotal.value", render);
+        Assert.Contains("await postJson('/api/ventas/CalcularTotalesVenta', body)", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoMaxCuotasSinInteresLimitaDropdownSinTocarTotales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "function obtenerLimiteDiagnosticoCuotas");
+        var aplicar = ExtractFunction(script, "function aplicarLimiteCuotasTarjeta");
+        var render = ExtractFunction(script, "function renderDiagnosticoCondicionesPago");
+
+        Assert.Contains("Maximos efectivos informativos", render);
+        Assert.Contains("maxCuotasSinInteres", diagnostico);
+        Assert.Contains("tipoCuota === TIPO_CUOTA_TARJETA.SinInteres", diagnostico);
+        Assert.Contains("return maxSinInteres", diagnostico);
+        Assert.Contains("selectCuotasTarjeta.remove(i)", aplicar);
+        Assert.DoesNotContain("actualizarTotalesUI", aplicar);
+        Assert.DoesNotContain("hdnTotal.value", aplicar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoMaxCuotasConInteresLimitaDropdownSinTocarTotales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "function obtenerLimiteDiagnosticoCuotas");
+        var aplicar = ExtractFunction(script, "function aplicarLimiteCuotasTarjeta");
+
+        Assert.Contains("maxCuotasConInteres", diagnostico);
+        Assert.Contains("tipoCuota === TIPO_CUOTA_TARJETA.ConInteres", diagnostico);
+        Assert.Contains("return maxConInteres", diagnostico);
+        Assert.Contains("selectCuotasTarjeta.remove(i)", aplicar);
+        Assert.DoesNotContain("actualizarTotalesUI", aplicar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DiagnosticoMaxCuotasCreditoQuedaInformativoSiNoHaySelectorCredito()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "function obtenerLimiteDiagnosticoCuotas");
+
+        Assert.Contains("selectTipoPago?.value === TIPO_PAGO.CreditoPersonal", diagnostico);
+        Assert.Contains("return maxCredito", diagnostico);
+        Assert.DoesNotContain("select-cuotas-credito", view);
+        Assert.Contains("if (maxCredito != null) maximos.push(`Credito personal: hasta ${maxCredito}`)", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AplicaReglaMasRestrictivaEntreLimiteExistenteYDiagnostico()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var aplicar = ExtractFunction(script, "function aplicarLimiteCuotasTarjeta");
+
+        Assert.Contains("const limites = [limiteCuotasExistente, limiteCuotasDiagnostico]", aplicar);
+        Assert.Contains("Math.min(...limites)", aplicar);
+        Assert.Contains("if (parseInt(selectCuotasTarjeta.options[i].value) > limiteEfectivo)", aplicar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_CambiarMedioOTarjetaLiberaORecalculaCuotas()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var tipoPago = ExtractFunction(script, "function onTipoPagoChange");
+        var tarjetaChangeStart = script.IndexOf("selectTarjeta?.addEventListener('change'", StringComparison.Ordinal);
+        Assert.True(tarjetaChangeStart >= 0, "No se encontro el handler de cambio de tarjeta.");
+        var tarjetaChange = script[tarjetaChangeStart..script.IndexOf("selectCuotasTarjeta?.addEventListener", tarjetaChangeStart, StringComparison.Ordinal)];
+
+        Assert.Contains("limiteCuotasDiagnostico = null", tipoPago);
+        Assert.Contains("cuotasLimitadasPorDiagnostico = false", tipoPago);
+        Assert.Contains("aplicarLimiteCuotasTarjeta()", tipoPago);
+        Assert.Contains("limiteCuotasDiagnostico = null", tarjetaChange);
+        Assert.Contains("repoblarCuotasTarjeta(info)", tarjetaChange);
+        Assert.Contains("await recalcularTotales()", tarjetaChange);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ErrorDiagnosticoNoLimitaCuotas()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "async function diagnosticarCondicionesPagoCarrito");
+
+        Assert.Contains("catch", diagnostico);
+        Assert.Contains("limiteCuotasDiagnostico = null", diagnostico);
+        Assert.Contains("cuotasLimitadasPorDiagnostico = false", diagnostico);
+        Assert.Contains("aplicarLimiteCuotasTarjeta()", diagnostico);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RecargosYDescuentosSiguenInformativos()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDiagnosticoCondicionesPago");
+
+        Assert.Contains("Ajustes configurados informativos", render);
+        Assert.Contains("(no aplicado al total)", render);
+        Assert.DoesNotContain("recargoDebitoPreview =", render);
+        Assert.DoesNotContain("totalFinal.textContent", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MuestraMaximosYAjustesSinAplicarlosATotales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDiagnosticoCondicionesPago");
+
+        Assert.Contains("Maximos efectivos informativos", render);
+        Assert.Contains("Ajustes configurados informativos", render);
+        Assert.Contains("(no aplicado al total)", render);
+        Assert.DoesNotContain("actualizarTotalesUI", render);
+        Assert.Contains("function aplicarLimiteCuotasSinInteres", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ConservaPreviewRecargoDebitoYCalculoTotalesSeparados()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("La venta sigue sin cambios productivos", script);
+        Assert.Contains("await postJson('/api/ventas/CalcularTotalesVenta', body)", script);
+        Assert.Contains("recargoDebitoPreview", script);
+    }
+
+    [Fact]
+    public void VentaCreate_ConfirmacionBackendSigueSinValidarCondicionesPago()
+    {
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaController.cs"));
+        var createPost = ExtractFunction(controller, "public async Task<IActionResult> Create(VentaViewModel viewModel, string? DatosCreditoPersonallJson)");
+
+        Assert.Contains("var venta = await _ventaService.CreateAsync(viewModel);", createPost);
+        Assert.DoesNotContain("DiagnosticarCondicionesPagoCarrito", createPost);
+        Assert.DoesNotContain("ICondicionesPagoCarritoResolver", createPost);
+        Assert.DoesNotContain("MaxCuotasSinInteres", createPost);
+        Assert.DoesNotContain("MaxCuotasConInteres", createPost);
+        Assert.DoesNotContain("MaxCuotasCredito", createPost);
     }
 
     private static string FindRepoRoot()
@@ -51,5 +325,18 @@ public class VentaCreateUiContractTests
         }
 
         throw new DirectoryNotFoundException("No se encontro la raiz del repositorio.");
+    }
+
+    private static string ExtractFunction(string script, string signature)
+    {
+        var start = script.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"No se encontro la funcion {signature}.");
+
+        var nextFunction = script.IndexOf("\n    function ", start + signature.Length, StringComparison.Ordinal);
+        var nextAsyncFunction = script.IndexOf("\n    async function ", start + signature.Length, StringComparison.Ordinal);
+        var candidates = new[] { nextFunction, nextAsyncFunction }.Where(i => i > start).ToArray();
+        var end = candidates.Length > 0 ? candidates.Min() : script.Length;
+
+        return script[start..end];
     }
 }

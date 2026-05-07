@@ -210,6 +210,28 @@
                             <span class="material-symbols-outlined text-primary">settings_applications</span>
                             <h2 class="text-white text-xl font-bold">Condiciones del Crédito</h2>
                         </div>
+                        @if (Model.MaxCuotasBase > Model.CuotasMaxPermitidas && Model.MaxCuotasCreditoProducto.HasValue)
+                        {
+                            <div class="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3" data-credito-restriccion-cuotas-producto>
+                                <span class="material-symbols-outlined text-amber-400 shrink-0 mt-0.5">info</span>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-bold text-amber-300">Máximo de cuotas reducido por condiciones del producto</p>
+                                    <p class="text-xs text-amber-200/70 mt-1">
+                                        El rango base permitía hasta <span class="font-semibold">@Model.MaxCuotasBase cuotas</span>,
+                                        pero la configuración de un producto limita el crédito personal a un máximo de
+                                        <span class="font-semibold text-amber-200">@Model.MaxCuotasCreditoProducto!.Value cuotas</span>.
+                                        @if (!string.IsNullOrWhiteSpace(Model.ProductoRestrictivoNombre))
+                                        {
+                                            <span class="ml-1 font-semibold text-amber-200/80" data-credito-producto-restrictivo-nombre>(@Model.ProductoRestrictivoNombre)</span>
+                                        }
+                                        else if (Model.ProductoIdRestrictivo.HasValue)
+                                        {
+                                            <span class="ml-1 text-amber-200/50">(snapshot producto #@Model.ProductoIdRestrictivo.Value)</span>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        }
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- Método de Cálculo -->
                             <div class="flex flex-col gap-1.5">
@@ -249,10 +271,16 @@
                             <!-- Cantidad de Cuotas -->
                             <div class="flex flex-col gap-1.5">
                                 <label asp-for="CantidadCuotas" class="text-slate-300 text-sm font-semibold">Cantidad de Cuotas</label>
-                                <input asp-for="CantidadCuotas" type="number" min="1" max="120" id="txt-cuotas"
+                                <input asp-for="CantidadCuotas" type="number" min="@Model.CuotasMinPermitidas" max="@Model.CuotasMaxPermitidas" id="txt-cuotas"
                                        class="bg-slate-800 border-2 border-slate-700 focus:border-primary focus:border-primary rounded-lg text-white h-12 px-4 w-full focus:ring-0" />
                                 <span asp-validation-for="CantidadCuotas" class="text-red-500 text-xs"></span>
-                                <p id="cuotas-rango-info" class="text-xs text-slate-400 mt-1">Rango permitido: 1 a 120 cuotas.</p>
+                                <p id="cuotas-rango-info" class="text-xs text-slate-400 mt-1">
+                                    Rango permitido: @Model.CuotasMinPermitidas a @Model.CuotasMaxPermitidas cuotas.
+                                    @if (!string.IsNullOrWhiteSpace(Model.RestriccionCreditoProductoDescripcion))
+                                    {
+                                        <span>@Model.RestriccionCreditoProductoDescripcion</span>
+                                    }
+                                </p>
                             </div>
 
                             <!-- Tasa de Interés Mensual -->

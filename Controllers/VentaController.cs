@@ -11,6 +11,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -264,6 +265,14 @@ namespace TheBuryProject.Controllers
                 TempData[venta.RequiereAutorizacion ? "Warning" : "Success"] = mensajeCreacion;
                 return RedirectToAction(nameof(Details), new { id = venta.Id });
             }
+            catch (CondicionesPagoVentaException ex)
+            {
+                var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
+                _logger.LogWarning(ex, "Venta rechazada por condiciones de pago en Create");
+                ModelState.AddModelError("", mensaje);
+                await CargarViewBags(viewModel.ClienteId, vendedorUserIdSeleccionado: viewModel.VendedorUserId);
+                return View("Create_tw", viewModel);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear venta");
@@ -350,6 +359,20 @@ namespace TheBuryProject.Controllers
                     : $"Venta {venta.Numero} creada exitosamente";
 
                 return Json(new { success = true, requiresRedirect = true, redirectUrl = detailsUrl, message = mensaje });
+            }
+            catch (CondicionesPagoVentaException ex)
+            {
+                var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
+                _logger.LogWarning(ex, "Venta rechazada por condiciones de pago en CreateAjax");
+                return Json(new
+                {
+                    success = false,
+                    message = mensaje,
+                    errors = new Dictionary<string, string[]>
+                    {
+                        { "", new[] { mensaje } }
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -866,6 +889,11 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "No se pudo confirmar la venta";
                 }
             }
+            catch (CondicionesPagoVentaException ex)
+            {
+                _logger.LogWarning(ex, "Venta {Id} rechazada por condiciones de pago al confirmar", id);
+                TempData["Error"] = CrearMensajePresentacionCondicionesPago(ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al confirmar venta: {Id}", id);
@@ -1362,6 +1390,14 @@ namespace TheBuryProject.Controllers
 
             ModelState.AddModelError("", "Debe agregar al menos un producto a la venta");
             return false;
+        }
+
+        private static string CrearMensajePresentacionCondicionesPago(string mensajeBackend)
+        {
+            var mensaje = mensajeBackend.Trim();
+            return mensaje.StartsWith("Condiciones de pago del producto:", StringComparison.OrdinalIgnoreCase)
+                ? mensaje
+                : $"Condiciones de pago del producto: {mensaje}";
         }
 
         private async Task<IActionResult> RetornarVistaConDatos(VentaViewModel viewModel)

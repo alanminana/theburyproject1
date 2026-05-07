@@ -60,6 +60,8 @@ namespace TheBuryProject.Data
         public DbSet<ContratoVentaCredito> ContratosVentaCredito { get; set; }
         public DbSet<ConfiguracionPago> ConfiguracionesPago { get; set; }
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
+        public DbSet<ProductoCondicionPago> ProductoCondicionesPago { get; set; }
+        public DbSet<ProductoCondicionPagoTarjeta> ProductoCondicionesPagoTarjeta { get; set; }
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
@@ -345,6 +347,11 @@ namespace TheBuryProject.Data
                     .HasForeignKey(c => c.ProductoId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+                entity.HasMany(e => e.CondicionesPago)
+                    .WithOne(c => c.Producto)
+                    .HasForeignKey(c => c.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(e => e.AlicuotaIVA)
                     .WithMany()
                     .HasForeignKey(e => e.AlicuotaIVAId)
@@ -367,6 +374,91 @@ namespace TheBuryProject.Data
 
                 entity.HasIndex(e => e.ProductoId);
                 entity.HasIndex(e => new { e.ProductoId, e.Nombre });
+            });
+
+            modelBuilder.Entity<ProductoCondicionPago>(entity =>
+            {
+                var productoPorcentajesCheck = Database.IsSqlServer()
+                    ? "([PorcentajeRecargo] IS NULL OR ([PorcentajeRecargo] >= 0 AND [PorcentajeRecargo] <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR ([PorcentajeDescuentoMaximo] >= 0 AND [PorcentajeDescuentoMaximo] <= 100))"
+                    : "([PorcentajeRecargo] IS NULL OR (CAST([PorcentajeRecargo] AS REAL) >= 0 AND CAST([PorcentajeRecargo] AS REAL) <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR (CAST([PorcentajeDescuentoMaximo] AS REAL) >= 0 AND CAST([PorcentajeDescuentoMaximo] AS REAL) <= 100))";
+
+                entity.ToTable("ProductoCondicionesPago", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_ProductoCondicionesPago_Cuotas",
+                        "([MaxCuotasSinInteres] IS NULL OR [MaxCuotasSinInteres] >= 1) AND ([MaxCuotasConInteres] IS NULL OR [MaxCuotasConInteres] >= 1) AND ([MaxCuotasCredito] IS NULL OR [MaxCuotasCredito] >= 1)");
+
+                    t.HasCheckConstraint(
+                        "CK_ProductoCondicionesPago_Porcentajes",
+                        productoPorcentajesCheck);
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.PorcentajeRecargo).HasPrecision(5, 2);
+                entity.Property(e => e.PorcentajeDescuentoMaximo).HasPrecision(5, 2);
+                entity.Property(e => e.Observaciones).HasMaxLength(500);
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(e => e.ProductoId);
+                entity.HasIndex(e => e.TipoPago);
+                entity.HasIndex(e => new { e.ProductoId, e.TipoPago })
+                    .IsUnique()
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1");
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasMany(e => e.Tarjetas)
+                    .WithOne(t => t.ProductoCondicionPago)
+                    .HasForeignKey(t => t.ProductoCondicionPagoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProductoCondicionPagoTarjeta>(entity =>
+            {
+                var tarjetaPorcentajesCheck = Database.IsSqlServer()
+                    ? "([PorcentajeRecargo] IS NULL OR ([PorcentajeRecargo] >= 0 AND [PorcentajeRecargo] <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR ([PorcentajeDescuentoMaximo] >= 0 AND [PorcentajeDescuentoMaximo] <= 100))"
+                    : "([PorcentajeRecargo] IS NULL OR (CAST([PorcentajeRecargo] AS REAL) >= 0 AND CAST([PorcentajeRecargo] AS REAL) <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR (CAST([PorcentajeDescuentoMaximo] AS REAL) >= 0 AND CAST([PorcentajeDescuentoMaximo] AS REAL) <= 100))";
+
+                entity.ToTable("ProductoCondicionesPagoTarjeta", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_ProductoCondicionesPagoTarjeta_Cuotas",
+                        "([MaxCuotasSinInteres] IS NULL OR [MaxCuotasSinInteres] >= 1) AND ([MaxCuotasConInteres] IS NULL OR [MaxCuotasConInteres] >= 1)");
+
+                    t.HasCheckConstraint(
+                        "CK_ProductoCondicionesPagoTarjeta_Porcentajes",
+                        tarjetaPorcentajesCheck);
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.PorcentajeRecargo).HasPrecision(5, 2);
+                entity.Property(e => e.PorcentajeDescuentoMaximo).HasPrecision(5, 2);
+                entity.Property(e => e.Observaciones).HasMaxLength(500);
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(e => e.ProductoCondicionPagoId);
+                entity.HasIndex(e => e.ConfiguracionTarjetaId);
+                entity.HasIndex(e => e.ProductoCondicionPagoId)
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCondicionesPagoTarjeta_General")
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NULL");
+                entity.HasIndex(e => new { e.ProductoCondicionPagoId, e.ConfiguracionTarjetaId })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCondicionesPagoTarjeta_Especifica")
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NOT NULL");
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.ConfiguracionTarjeta)
+                    .WithMany()
+                    .HasForeignKey(e => e.ConfiguracionTarjetaId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // =======================

@@ -149,5 +149,11 @@ namespace TheBuryProject.Models.Entities
         /// Características variables del producto (ej: color, pulgadas, capacidad)
         /// </summary>
         public virtual ICollection<ProductoCaracteristica> Caracteristicas { get; set; } = new List<ProductoCaracteristica>();
+
+        /// <summary>
+        /// Condiciones de pago declaradas especificamente para este producto.
+        /// </summary>
+        public virtual ICollection<ProductoCondicionPago> CondicionesPago { get; set; } =
+            new List<ProductoCondicionPago>();
     }
 }

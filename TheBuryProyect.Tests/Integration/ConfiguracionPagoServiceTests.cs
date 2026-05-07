@@ -1215,6 +1215,33 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.True(max <= 6);
     }
 
+    [Fact]
+    public async Task ResolverRangoCuotas_Global_RetornaRangoActualBase()
+    {
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.Global, null, null);
+
+        Assert.Equal(1, min);
+        Assert.Equal(24, max);
+        Assert.Equal("Global", desc);
+        Assert.Null(nombre);
+    }
+
+    [Fact]
+    public async Task ResolverRangoCuotas_Manual_RetornaRangoActualAmplio()
+    {
+        var perfil = await SeedPerfil(minCuotas: 6, maxCuotas: 18);
+        var cliente = await SeedCliente(cuotasMaxPersonalizadas: 9);
+
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.Manual, perfil.Id, cliente.Id);
+
+        Assert.Equal(1, min);
+        Assert.Equal(120, max);
+        Assert.Equal("Manual", desc);
+        Assert.Null(nombre);
+    }
+
     // =========================================================================
     // ObtenerMaxCuotasSinInteresEfectivoAsync
     // =========================================================================
@@ -1360,6 +1387,67 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var resultado = await _service.ObtenerMaxCuotasSinInteresEfectivoAsync(tarjeta.Id, new[] { prod.Id });
 
         Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task MaxCuotasEfectivo_TarjetaSinCantidadMaxima_DevuelveNull()
+    {
+        var config = await SeedConfigPago(TipoPago.TarjetaCredito);
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = config.Id,
+            NombreTarjeta = "Visa-Sin-Max-Test",
+            TipoTarjeta = TipoTarjeta.Credito,
+            Activa = true,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = null,
+            TipoCuota = TipoCuotaTarjeta.SinInteres
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+
+        var prod = await SeedProductoConMaxCuotas(6);
+
+        var resultado = await _service.ObtenerMaxCuotasSinInteresEfectivoAsync(tarjeta.Id, new[] { prod.Id });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task MaxCuotasEfectivo_TarjetaInactiva_DevuelveNull()
+    {
+        var config = await SeedConfigPago(TipoPago.TarjetaCredito);
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = config.Id,
+            NombreTarjeta = "Visa-Inactiva-Test",
+            TipoTarjeta = TipoTarjeta.Credito,
+            Activa = false,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = 12,
+            TipoCuota = TipoCuotaTarjeta.SinInteres
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+
+        var prod = await SeedProductoConMaxCuotas(6);
+
+        var resultado = await _service.ObtenerMaxCuotasSinInteresEfectivoAsync(tarjeta.Id, new[] { prod.Id });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task MaxCuotasEfectivo_ProductoMaxCero_ClampeaAMinimoUno()
+    {
+        var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
+        var prod = await SeedProductoConMaxCuotas(0);
+
+        var resultado = await _service.ObtenerMaxCuotasSinInteresEfectivoAsync(tarjeta.Id, new[] { prod.Id });
+
+        Assert.NotNull(resultado);
+        Assert.Equal(1, resultado.MaxCuotas);
+        Assert.True(resultado.LimitadoPorProducto);
     }
 
     [Fact]

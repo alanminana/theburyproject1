@@ -131,6 +131,37 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task CalcularTotalesVenta_DosProductos_EnviaTodosLosProductosAlCalculoMaxCuotas()
+    {
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            MaxCuotasResult = new MaxCuotasSinInteresResultado
+            {
+                TarjetaId = 5,
+                MaxCuotas = 4,
+                LimitadoPorProducto = true
+            }
+        };
+        var controller = CreateController(configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 5,
+            Detalles =
+            {
+                new DetalleCalculoVentaRequest { ProductoId = 10, Cantidad = 1, PrecioUnitario = 200m },
+                new DetalleCalculoVentaRequest { ProductoId = 20, Cantidad = 1, PrecioUnitario = 300m }
+            }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(new[] { 10, 20 }, configuracionPago.LastProductoIds);
+        Assert.Equal(4, json.RootElement.GetProperty("maxCuotasSinInteresEfectivo").GetInt32());
+        Assert.True(json.RootElement.GetProperty("cuotasSinInteresLimitadasPorProducto").GetBoolean());
+    }
+
+    [Fact]
     public async Task CalcularTotalesVenta_TarjetaSinRestriccion_DevuelveMaxTarjetaSinLimitacionProducto()
     {
         var configuracionPago = new StubConfiguracionPagoService
@@ -271,6 +302,256 @@ public class VentaApiControllerTests
         var json = ToJson(ok.Value);
         Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("recargoDebitoAplicado").ValueKind);
         Assert.Equal(1_000m, json.RootElement.GetProperty("total").GetDecimal());
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_ProductoSinCondiciones_DevuelvePermitidoHeredado()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.Efectivo,
+                Permitido = true,
+                FuentePermitido = FuenteCondicionPagoEfectiva.Global
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 10 },
+            TipoPago = TipoPago.Efectivo
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.True(json.RootElement.GetProperty("permitido").GetBoolean());
+        Assert.Equal(0, json.RootElement.GetProperty("fuentePermitido").GetInt32());
+        Assert.Equal(new[] { 10 }, resolver.LastProductoIds);
+        Assert.Equal(TipoPago.Efectivo, resolver.LastTipoPago);
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_ProductoBloqueado_DevuelvePermitidoFalseYProductoBloqueante()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.Transferencia,
+                Permitido = false,
+                FuentePermitido = FuenteCondicionPagoEfectiva.Producto,
+                ProductoIdsBloqueantes = new[] { 20 },
+                Bloqueos = new[]
+                {
+                    new CondicionPagoBloqueoDetalleDto
+                    {
+                        ProductoId = 20,
+                        TipoPago = TipoPago.Transferencia,
+                        Alcance = AlcanceBloqueoPago.Medio,
+                        Fuente = FuenteCondicionPagoEfectiva.Producto
+                    }
+                }
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 20 },
+            TipoPago = TipoPago.Transferencia
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.False(json.RootElement.GetProperty("permitido").GetBoolean());
+        Assert.Equal(20, json.RootElement.GetProperty("productoIdsBloqueantes")[0].GetInt32());
+        Assert.Equal(JsonValueKind.Array, json.RootElement.GetProperty("bloqueos").ValueKind);
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_VariosProductos_DevuelveBloqueoSiUnoBloquea()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.Cheque,
+                Permitido = false,
+                ProductoIdsBloqueantes = new[] { 2 }
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 1, 2 },
+            TipoPago = TipoPago.Cheque
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.False(json.RootElement.GetProperty("permitido").GetBoolean());
+        Assert.Equal(2, json.RootElement.GetProperty("productoIdsBloqueantes")[0].GetInt32());
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_TarjetaEspecificaBloqueada_NoBloqueaOtraTarjeta()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.TarjetaCredito,
+                ConfiguracionTarjetaId = 8,
+                Permitido = true
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 30 },
+            TipoPago = TipoPago.TarjetaCredito,
+            ConfiguracionTarjetaId = 8,
+            TipoTarjeta = TipoTarjeta.Credito
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.True(json.RootElement.GetProperty("permitido").GetBoolean());
+        Assert.Empty(json.RootElement.GetProperty("productoIdsBloqueantes").EnumerateArray());
+        Assert.Equal(8, resolver.LastConfiguracionTarjetaId);
+        Assert.Equal(TipoTarjeta.Credito, resolver.LastTipoTarjetaLegacy);
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_DevuelveMaximosEfectivosSinModificarTotales()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.TarjetaCredito,
+                Permitido = true,
+                MaxCuotasSinInteres = 3,
+                MaxCuotasConInteres = 9,
+                MaxCuotasCredito = 12,
+                TotalReferencia = 1_000m,
+                TotalSinAplicarAjustes = 1_000m,
+                ProductoIdsRestrictivos = new[] { 40 }
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 40 },
+            TipoPago = TipoPago.TarjetaCredito,
+            TotalReferencia = 1_000m
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(3, json.RootElement.GetProperty("maxCuotasSinInteres").GetInt32());
+        Assert.Equal(9, json.RootElement.GetProperty("maxCuotasConInteres").GetInt32());
+        Assert.Equal(12, json.RootElement.GetProperty("maxCuotasCredito").GetInt32());
+        Assert.Equal(1_000m, json.RootElement.GetProperty("totalReferencia").GetDecimal());
+        Assert.Equal(1_000m, json.RootElement.GetProperty("totalSinAplicarAjustes").GetDecimal());
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_DevuelveRecargosYDescuentosInformativos()
+    {
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                TipoPago = TipoPago.Efectivo,
+                Permitido = true,
+                AjustesInformativos = new[]
+                {
+                    new CondicionPagoAjusteInformativoDto
+                    {
+                        ProductoId = 50,
+                        Fuente = FuenteCondicionPagoEfectiva.Producto,
+                        PorcentajeRecargo = 10m,
+                        PorcentajeDescuentoMaximo = 5m
+                    }
+                }
+            }
+        };
+        var controller = CreateController(condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 50 },
+            TipoPago = TipoPago.Efectivo
+        }, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        var ajuste = json.RootElement.GetProperty("ajustesInformativos")[0];
+        Assert.Equal(10m, ajuste.GetProperty("porcentajeRecargo").GetDecimal());
+        Assert.Equal(5m, ajuste.GetProperty("porcentajeDescuentoMaximo").GetDecimal());
+    }
+
+    [Fact]
+    public async Task CalcularTotalesVenta_NoCambiaContratoProductivoNiTotalesActuales()
+    {
+        var ventaService = new StubVentaService
+        {
+            Totales = new CalculoTotalesVentaResponse
+            {
+                Subtotal = 900m,
+                DescuentoGeneralAplicado = 100m,
+                IVA = 189m,
+                Total = 989m
+            }
+        };
+        var resolver = new StubCondicionesPagoCarritoResolver
+        {
+            Resultado = new CondicionesPagoCarritoResultado
+            {
+                Permitido = false,
+                ProductoIdsBloqueantes = new[] { 60 },
+                MaxCuotasSinInteres = 1
+            }
+        };
+        var controller = CreateController(ventaService: ventaService, condicionesPagoCarritoResolver: resolver);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 60, Cantidad = 1, PrecioUnitario = 989m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(900m, json.RootElement.GetProperty("subtotal").GetDecimal());
+        Assert.Equal(100m, json.RootElement.GetProperty("descuentoGeneralAplicado").GetDecimal());
+        Assert.Equal(189m, json.RootElement.GetProperty("iva").GetDecimal());
+        Assert.Equal(989m, json.RootElement.GetProperty("total").GetDecimal());
+        Assert.Equal(0, resolver.CallCount);
+    }
+
+    [Fact]
+    public async Task DiagnosticarCondicionesPagoCarrito_NoLlamaVentaServiceParaAplicarCondicionesNuevas()
+    {
+        var ventaService = new StubVentaService();
+        var controller = CreateController(
+            ventaService: ventaService,
+            condicionesPagoCarritoResolver: new StubCondicionesPagoCarritoResolver());
+
+        var result = await controller.DiagnosticarCondicionesPagoCarrito(new DiagnosticarCondicionesPagoCarritoRequest
+        {
+            ProductoIds = { 70 },
+            TipoPago = TipoPago.Efectivo
+        }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(0, ventaService.CalcularTotalesPreviewAsyncCallCount);
+        Assert.Equal(0, ventaService.CalcularCuotasTarjetaAsyncCallCount);
     }
 
     [Theory]
@@ -613,7 +894,8 @@ public class VentaApiControllerTests
         IVentaService? ventaService = null,
         IClienteService? clienteService = null,
         IConfiguracionPagoService? configuracionPagoService = null,
-        IValidacionVentaService? validacionVentaService = null)
+        IValidacionVentaService? validacionVentaService = null,
+        ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
     {
         return new VentaApiController(
             productoService ?? new StubProductoService(),
@@ -622,6 +904,7 @@ public class VentaApiControllerTests
             clienteService ?? new StubClienteService(),
             configuracionPagoService ?? new StubConfiguracionPagoService(),
             validacionVentaService ?? new StubValidacionVentaService(),
+            condicionesPagoCarritoResolver ?? new StubCondicionesPagoCarritoResolver(),
             NullLogger<VentaApiController>.Instance);
     }
 
@@ -645,6 +928,8 @@ public class VentaApiControllerTests
         public Task<Producto> CreateAsync(Producto producto) => throw new NotImplementedException();
         public Task<Producto> UpdateAsync(Producto producto) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
+        public Task PrepararPrecioVentaConIvaAsync(Producto producto) => Task.CompletedTask;
+        public decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA) => precioVentaConIva;
         public Task<IEnumerable<Producto>> SearchAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false, string? orderBy = null, string? orderDirection = "asc") => throw new NotImplementedException();
         public Task<List<int>> SearchIdsAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false) => throw new NotImplementedException();
         public Task<IEnumerable<ProductoVentaDto>> BuscarParaVentaAsync(string term, int take = 20, int? categoriaId = null, int? marcaId = null, bool soloConStock = true, decimal? precioMin = null, decimal? precioMax = null) => Task.FromResult<IEnumerable<ProductoVentaDto>>(ProductosVenta);
@@ -675,6 +960,8 @@ public class VentaApiControllerTests
         public DatosTarjetaViewModel Tarjeta { get; set; } = new() { MontoCuota = 0m, MontoTotalConInteres = 0m };
         public bool ThrowOnInvalidCardCalculation { get; set; }
         public string? InvalidCardCalculationMessage { get; set; }
+        public int CalcularTotalesPreviewAsyncCallCount { get; private set; }
+        public int CalcularCuotasTarjetaAsyncCallCount { get; private set; }
 
         public Task<List<VentaViewModel>> GetAllAsync(VentaFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<VentaViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
@@ -697,6 +984,7 @@ public class VentaApiControllerTests
         public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
         public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas)
         {
+            CalcularCuotasTarjetaAsyncCallCount++;
             if (ThrowOnInvalidCardCalculation && (tarjetaId <= 0 || monto <= 0 || cuotas <= 0))
                 throw new InvalidOperationException("Parámetros inválidos");
 
@@ -709,8 +997,49 @@ public class VentaApiControllerTests
         public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto) => throw new NotImplementedException();
         public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => Totales;
-        public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => Task.FromResult(Totales);
+        public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
+        {
+            CalcularTotalesPreviewAsyncCallCount++;
+            return Task.FromResult(Totales);
+        }
         public Task<decimal?> GetTotalVentaAsync(int ventaId) => throw new NotImplementedException();
+    }
+
+    private sealed class StubCondicionesPagoCarritoResolver : ICondicionesPagoCarritoResolver
+    {
+        public CondicionesPagoCarritoResultado Resultado { get; set; } = new();
+        public int CallCount { get; private set; }
+        public int[] LastProductoIds { get; private set; } = Array.Empty<int>();
+        public TipoPago LastTipoPago { get; private set; }
+        public int? LastConfiguracionTarjetaId { get; private set; }
+        public decimal? LastTotalReferencia { get; private set; }
+        public int? LastMaxCuotasSinInteresGlobal { get; private set; }
+        public int? LastMaxCuotasConInteresGlobal { get; private set; }
+        public int? LastMaxCuotasCreditoGlobal { get; private set; }
+        public TipoTarjeta? LastTipoTarjetaLegacy { get; private set; }
+
+        public Task<CondicionesPagoCarritoResultado> ResolverAsync(
+            IEnumerable<int> productoIds,
+            TipoPago tipoPago,
+            int? configuracionTarjetaId = null,
+            decimal? totalReferencia = null,
+            int? maxCuotasSinInteresGlobal = null,
+            int? maxCuotasConInteresGlobal = null,
+            int? maxCuotasCreditoGlobal = null,
+            TipoTarjeta? tipoTarjetaLegacy = null,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastProductoIds = productoIds.ToArray();
+            LastTipoPago = tipoPago;
+            LastConfiguracionTarjetaId = configuracionTarjetaId;
+            LastTotalReferencia = totalReferencia;
+            LastMaxCuotasSinInteresGlobal = maxCuotasSinInteresGlobal;
+            LastMaxCuotasConInteresGlobal = maxCuotasConInteresGlobal;
+            LastMaxCuotasCreditoGlobal = maxCuotasCreditoGlobal;
+            LastTipoTarjetaLegacy = tipoTarjetaLegacy;
+            return Task.FromResult(Resultado);
+        }
     }
 
     private sealed class StubConfiguracionPagoService : IConfiguracionPagoService
@@ -738,7 +1067,12 @@ public class VentaApiControllerTests
         public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) => throw new NotImplementedException();
         public Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(MetodoCalculoCredito metodo, int? perfilId, int? clienteId) => throw new NotImplementedException();
         public MaxCuotasSinInteresResultado? MaxCuotasResult { get; set; }
-        public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(int tarjetaId, IEnumerable<int> productoIds) => Task.FromResult(MaxCuotasResult);
+        public int[] LastProductoIds { get; private set; } = Array.Empty<int>();
+        public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(int tarjetaId, IEnumerable<int> productoIds)
+        {
+            LastProductoIds = productoIds.ToArray();
+            return Task.FromResult(MaxCuotasResult);
+        }
     }
 
     private sealed class StubValidacionVentaService : IValidacionVentaService

@@ -8,7 +8,7 @@ namespace TheBuryProject.Tests;
 /// <summary>
 /// Stub de IConfiguracionPagoService para tests de VentaService que no ejercen
 /// la restriccion de cuotas sin interes. Devuelve null en ObtenerMaxCuotasSinInteresEfectivoAsync
-/// (sin restriccion) y lanza NotImplementedException en todo lo demas.
+/// (sin restriccion) y rangos base actuales para credito personal.
 /// </summary>
 internal class StubConfiguracionPagoServiceVenta : IConfiguracionPagoService
 {
@@ -36,5 +36,12 @@ internal class StubConfiguracionPagoServiceVenta : IConfiguracionPagoService
     public Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config) => throw new NotImplementedException();
     public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) => throw new NotImplementedException();
     public Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(
-        MetodoCalculoCredito metodo, int? perfilId, int? clienteId) => throw new NotImplementedException();
+        MetodoCalculoCredito metodo, int? perfilId, int? clienteId)
+    {
+        var rango = metodo == MetodoCalculoCredito.Manual
+            ? (Min: 1, Max: 120, Descripcion: "Manual", PerfilNombre: (string?)null)
+            : (Min: 1, Max: 24, Descripcion: "Global", PerfilNombre: (string?)null);
+
+        return Task.FromResult(rango);
+    }
 }

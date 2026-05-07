@@ -18,6 +18,17 @@ namespace TheBuryProject.Services.Interfaces
         Task<Producto> CreateAsync(Producto producto);
         Task<Producto> UpdateAsync(Producto producto);
         Task<bool> DeleteAsync(int id);
+
+        /// <summary>
+        /// Resuelve el porcentaje de IVA aplicable al producto y convierte PrecioVenta
+        /// ingresado sin IVA al precio final persistible con IVA.
+        /// </summary>
+        Task PrepararPrecioVentaConIvaAsync(Producto producto);
+
+        /// <summary>
+        /// Convierte un precio final con IVA a precio base sin IVA para formularios.
+        /// </summary>
+        decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA);
         
         // Búsqueda y filtrado
         Task<IEnumerable<Producto>> SearchAsync(

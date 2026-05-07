@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -321,6 +322,20 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task PrepararPrecioVentaConIvaAsync(Producto producto)
+        {
+            producto.PorcentajeIVA = await ResolverPorcentajeIVAFormularioAsync(
+                producto.AlicuotaIVAId,
+                producto.PorcentajeIVA);
+
+            producto.PrecioVenta = PrecioIvaCalculator.AplicarIVA(
+                producto.PrecioVenta,
+                producto.PorcentajeIVA);
+        }
+
+        public decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA)
+            => PrecioIvaCalculator.QuitarIVA(precioVentaConIva, porcentajeIVA);
+
         public async Task<Producto> UpdateAsync(Producto producto)
         {
             try
@@ -619,6 +634,23 @@ namespace TheBuryProject.Services
 
             if (!existe)
                 throw new InvalidOperationException("La alícuota de IVA seleccionada no existe o no está activa");
+        }
+
+        private async Task<decimal> ResolverPorcentajeIVAFormularioAsync(int? alicuotaIVAId, decimal porcentajeManual)
+        {
+            if (alicuotaIVAId.HasValue)
+            {
+                var porcentaje = await _context.AlicuotasIVA
+                    .AsNoTracking()
+                    .Where(a => a.Id == alicuotaIVAId.Value && a.Activa && !a.IsDeleted)
+                    .Select(a => (decimal?)a.Porcentaje)
+                    .FirstOrDefaultAsync();
+
+                if (porcentaje.HasValue)
+                    return porcentaje.Value;
+            }
+
+            return porcentajeManual;
         }
 
         private static IEnumerable<ProductoCaracteristica> NormalizarCaracteristicas(IEnumerable<ProductoCaracteristica>? caracteristicas)

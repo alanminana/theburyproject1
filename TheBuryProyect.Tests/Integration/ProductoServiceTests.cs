@@ -136,6 +136,23 @@ public class ProductoServiceTests : IDisposable
         return precioLista;
     }
 
+    private async Task<AlicuotaIVA> SeedAlicuotaIVAAsync(decimal porcentaje, bool activa = true)
+    {
+        var code = Guid.NewGuid().ToString("N")[..8];
+        var alicuota = new AlicuotaIVA
+        {
+            Codigo = "IVA" + code,
+            Nombre = $"IVA {porcentaje}",
+            Porcentaje = porcentaje,
+            Activa = activa,
+            IsDeleted = false
+        };
+
+        _context.AlicuotasIVA.Add(alicuota);
+        await _context.SaveChangesAsync();
+        return alicuota;
+    }
+
     private ProductoService BuildServiceConResolver()
     {
         return new ProductoService(
@@ -897,6 +914,114 @@ public class ProductoServiceTests : IDisposable
     // =========================================================================
     // AlicuotaIVA
     // =========================================================================
+
+    [Fact]
+    public async Task PrepararPrecioVentaConIvaAsync_CreateConAlicuotaIVAId_ResuelveYAplicaPorcentajeAlicuota()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var alicuota = await SeedAlicuotaIVAAsync(10.5m);
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.PrecioVenta = 100m;
+        producto.PorcentajeIVA = 21m;
+        producto.AlicuotaIVAId = alicuota.Id;
+
+        await _service.PrepararPrecioVentaConIvaAsync(producto);
+        await _service.CreateAsync(producto);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(10.5m, bd.PorcentajeIVA);
+        Assert.Equal(110.50m, bd.PrecioVenta);
+    }
+
+    [Fact]
+    public async Task PrepararPrecioVentaConIvaAsync_CreateSinAlicuotaIVAId_UsaPorcentajeManual()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.PrecioVenta = 100m;
+        producto.PorcentajeIVA = 27m;
+        producto.AlicuotaIVAId = null;
+
+        await _service.PrepararPrecioVentaConIvaAsync(producto);
+        await _service.CreateAsync(producto);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(27m, bd.PorcentajeIVA);
+        Assert.Equal(127m, bd.PrecioVenta);
+    }
+
+    [Fact]
+    public async Task PrepararPrecioVentaConIvaAsync_EditConAlicuotaIVAId_ResuelveYAplicaPorcentajeAlicuota()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 121m);
+        var alicuota = await SeedAlicuotaIVAAsync(10.5m);
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = 60m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            AlicuotaIVAId = alicuota.Id,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = true,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.PrepararPrecioVentaConIvaAsync(update);
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(10.5m, bd.PorcentajeIVA);
+        Assert.Equal(110.50m, bd.PrecioVenta);
+    }
+
+    [Fact]
+    public async Task PrepararPrecioVentaConIvaAsync_EditSinAlicuotaIVAId_UsaPorcentajeManual()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 121m);
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = 60m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 27m,
+            AlicuotaIVAId = null,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = true,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.PrepararPrecioVentaConIvaAsync(update);
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(27m, bd.PorcentajeIVA);
+        Assert.Equal(127m, bd.PrecioVenta);
+    }
+
+    [Fact]
+    public void ObtenerPrecioVentaSinIva_ConPorcentajeIva_ConservaCalculoDePresentacion()
+    {
+        var precioSinIva = _service.ObtenerPrecioVentaSinIva(110.50m, 10.5m);
+
+        Assert.Equal(100m, precioSinIva);
+    }
 
     [Fact]
     public async Task Create_SinAlicuotaIVAId_PersistePorcentajeIVAManual()

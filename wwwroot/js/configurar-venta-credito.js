@@ -64,6 +64,7 @@
     let clienteConfig = creditoModule && typeof creditoModule.parseJsonScript === 'function'
         ? creditoModule.parseJsonScript('[data-credito-json="cliente-config"]', {})
         : {};
+    clienteConfig = clienteConfig || {};
 
     const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
 
@@ -239,14 +240,20 @@
     }
 
     function actualizarRangoCuotas(min, max) {
+        const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
+        const maxEfectivo = maxProducto ? Math.min(max, maxProducto) : max;
+
         txtCuotas.min = min;
-        txtCuotas.max = max;
-        cuotasRangoInfo.textContent = `Rango permitido: ${min} a ${max} cuotas.`;
+        txtCuotas.max = maxEfectivo;
+        cuotasRangoInfo.textContent = `Rango permitido: ${min} a ${maxEfectivo} cuotas.`;
+        if (maxProducto) {
+            cuotasRangoInfo.textContent += ` ${clienteConfig.restriccionCreditoProductoDescripcion || `Límite por producto: hasta ${maxProducto} cuotas.`}`;
+        }
 
         // Clamp current value
         const current = parseInt(txtCuotas.value) || 0;
         if (current < min) txtCuotas.value = min;
-        if (current > max) txtCuotas.value = max;
+        if (current > maxEfectivo) txtCuotas.value = maxEfectivo;
         if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
     }
 

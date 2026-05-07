@@ -638,6 +638,8 @@ public class CajaServiceTests : IDisposable
 
         Assert.NotNull(movimiento);
         Assert.Equal(TipoPago.TarjetaDebito, movimiento!.TipoPago);
+        Assert.Equal(venta.Total, movimiento.Monto);
+        Assert.Equal(venta.Id, movimiento.VentaId);
         Assert.Equal(100m, movimiento.RecargoDebitoAplicado);
         Assert.Equal("Tarjeta débito", movimiento.MedioPagoDetalle);
     }

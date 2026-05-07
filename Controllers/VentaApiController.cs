@@ -23,6 +23,7 @@ namespace TheBuryProject.Controllers
         private readonly IClienteService _clienteService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IValidacionVentaService _validacionVentaService;
+        private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
         private readonly ILogger<VentaApiController> _logger;
 
         public VentaApiController(
@@ -32,6 +33,7 @@ namespace TheBuryProject.Controllers
             IClienteService clienteService,
             IConfiguracionPagoService configuracionPagoService,
             IValidacionVentaService validacionVentaService,
+            ICondicionesPagoCarritoResolver condicionesPagoCarritoResolver,
             ILogger<VentaApiController> logger)
         {
             _productoService = productoService;
@@ -40,6 +42,7 @@ namespace TheBuryProject.Controllers
             _clienteService = clienteService;
             _configuracionPagoService = configuracionPagoService;
             _validacionVentaService = validacionVentaService;
+            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
             _logger = logger;
         }
 
@@ -229,6 +232,38 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al calcular totales de venta desde el backend");
                 return StatusCode(500, new { error = "No se pudieron calcular los totales" });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DiagnosticarCondicionesPagoCarrito(
+            [FromBody] DiagnosticarCondicionesPagoCarritoRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (request == null || !ModelState.IsValid || request.ProductoIds.Count == 0)
+                {
+                    return BadRequest(new { error = "Debe especificar al menos un producto para diagnosticar condiciones de pago" });
+                }
+
+                var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
+                    request.ProductoIds,
+                    request.TipoPago,
+                    request.ConfiguracionTarjetaId,
+                    request.TotalReferencia,
+                    request.MaxCuotasSinInteresGlobal,
+                    request.MaxCuotasConInteresGlobal,
+                    request.MaxCuotasCreditoGlobal,
+                    request.TipoTarjeta,
+                    cancellationToken);
+
+                return Ok(resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al diagnosticar condiciones de pago por carrito");
+                return StatusCode(500, new { error = "No se pudieron diagnosticar las condiciones de pago" });
             }
         }
 

@@ -1293,8 +1293,11 @@ namespace TheBuryProject.Services
             credito.FuenteConfiguracionAplicada = cmd.FuenteConfiguracion;
             credito.GastosAdministrativos     = cmd.GastosAdministrativos;
             credito.TasaInteresAplicada       = cmd.TasaMensual;
-            credito.CuotasMinimasPermitidas   = cmd.CuotasMinPermitidas;
-            credito.CuotasMaximasPermitidas   = cmd.CuotasMaxPermitidas;
+            credito.CuotasMinimasPermitidas       = cmd.CuotasMinPermitidas;
+            credito.CuotasMaximasPermitidas       = cmd.CuotasMaxPermitidas;
+            credito.FuenteRestriccionCuotasSnap   = cmd.FuenteRestriccionCuotasSnap;
+            credito.ProductoIdRestrictivoSnap     = cmd.ProductoIdRestrictivoSnap;
+            credito.MaxCuotasBaseSnap             = cmd.MaxCuotasBaseSnap;
 
             if (cmd.PerfilCreditoAplicadoId.HasValue)
             {

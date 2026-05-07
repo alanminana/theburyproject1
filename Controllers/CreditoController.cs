@@ -9,6 +9,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Requests;
 
@@ -27,6 +28,7 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<CreditoController> _logger;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
+        private readonly ICondicionesPagoCarritoResolver? _condicionesPagoCarritoResolver;
 
         private readonly ICurrentUserService _currentUser;
         private readonly CreditoViewBagBuilder _viewBagBuilder;
@@ -157,7 +159,8 @@ namespace TheBuryProject.Controllers
             ICurrentUserService currentUser,
             CreditoViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
-            IClienteAptitudService? aptitudService = null)
+            IClienteAptitudService? aptitudService = null,
+            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
         {
             _creditoService = creditoService;
             _evaluacionService = evaluacionService;
@@ -171,6 +174,7 @@ namespace TheBuryProject.Controllers
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _aptitudService = aptitudService;
+            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
         }
 
         #region Index / Detalle / Simular
@@ -476,6 +480,22 @@ namespace TheBuryProject.Controllers
                 PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync()
             };
 
+            var (cuotasMinGet, cuotasMaxGet, _, _) =
+                await _configuracionPagoService.ResolverRangoCuotasAsync(
+                    modelo.MetodoCalculo!.Value,
+                    modelo.PerfilCreditoSeleccionadoId,
+                    modelo.ClienteId);
+            var rangoGet = await ResolverRangoCreditoProductoAsync(modelo, cuotasMinGet, cuotasMaxGet);
+            if (rangoGet.Error is not null)
+            {
+                TempData["Error"] = rangoGet.Error;
+                if (ventaId.HasValue)
+                    return RedirectToAction("Details", "Venta", new { id = ventaId });
+                return RedirectToAction("Details", new { id });
+            }
+
+            AplicarRangoEfectivoAlModelo(modelo, rangoGet);
+
             // Pasar datos del cliente a la vista para JS
             var perfilPreferido = parametrosCliente.PerfilPreferidoId.HasValue
                 ? perfilesActivos.FirstOrDefault(p => p.Id == parametrosCliente.PerfilPreferidoId.Value)
@@ -499,7 +519,12 @@ namespace TheBuryProject.Controllers
                 PerfilMaxCuotas = perfilPreferido?.MaxCuotas,
                 TieneConfiguracionCliente = parametrosCliente.TieneConfiguracionPersonalizada,
                 MontoMinimo = parametrosCliente.MontoMinimo,
-                MontoMaximo = parametrosCliente.MontoMaximo
+                MontoMaximo = parametrosCliente.MontoMaximo,
+                MaxCuotasCreditoProducto = modelo.MaxCuotasCreditoProducto,
+                RestriccionCreditoProductoDescripcion = modelo.RestriccionCreditoProductoDescripcion,
+                MaxCuotasBase = modelo.MaxCuotasBase,
+                ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
+                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre
             };
 
             ViewBag.PerfilesActivos = perfilesActivos
@@ -621,6 +646,21 @@ namespace TheBuryProject.Controllers
                     modelo.PerfilCreditoSeleccionadoId,
                     modelo.ClienteId);
 
+            var rangoEfectivo = await ResolverRangoCreditoProductoAsync(
+                modelo,
+                cuotasMinPermitidas,
+                cuotasMaxPermitidas);
+            AplicarRangoEfectivoAlModelo(modelo, rangoEfectivo);
+            if (rangoEfectivo.Error is not null)
+            {
+                ModelState.AddModelError(nameof(modelo.CantidadCuotas), rangoEfectivo.Error);
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                return await RetornarVistaConPerfilesAsync(modelo);
+            }
+
+            cuotasMinPermitidas = rangoEfectivo.Min;
+            cuotasMaxPermitidas = rangoEfectivo.Max;
+
             if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
             {
                 ModelState.AddModelError(nameof(modelo.CantidadCuotas),
@@ -632,20 +672,23 @@ namespace TheBuryProject.Controllers
 
             var comando = new ConfiguracionCreditoComando
             {
-                CreditoId                  = modelo.CreditoId,
-                VentaId                    = modelo.VentaId,
-                Monto                      = modelo.Monto,
-                Anticipo                   = anticipo,
-                CantidadCuotas             = modelo.CantidadCuotas,
-                TasaMensual                = tasaMensual ?? 0,
-                GastosAdministrativos      = gastosAdministrativos,
-                FechaPrimeraCuota          = modelo.FechaPrimeraCuota,
-                MetodoCalculo              = modelo.MetodoCalculo!.Value,
-                FuenteConfiguracion        = modelo.FuenteConfiguracion,
-                PerfilCreditoAplicadoId    = modelo.PerfilCreditoSeleccionadoId,
-                PerfilCreditoAplicadoNombre = perfilNombre,
-                CuotasMinPermitidas        = cuotasMinPermitidas,
-                CuotasMaxPermitidas        = cuotasMaxPermitidas
+                CreditoId                    = modelo.CreditoId,
+                VentaId                      = modelo.VentaId,
+                Monto                        = modelo.Monto,
+                Anticipo                     = anticipo,
+                CantidadCuotas               = modelo.CantidadCuotas,
+                TasaMensual                  = tasaMensual ?? 0,
+                GastosAdministrativos        = gastosAdministrativos,
+                FechaPrimeraCuota            = modelo.FechaPrimeraCuota,
+                MetodoCalculo                = modelo.MetodoCalculo!.Value,
+                FuenteConfiguracion          = modelo.FuenteConfiguracion,
+                PerfilCreditoAplicadoId      = modelo.PerfilCreditoSeleccionadoId,
+                PerfilCreditoAplicadoNombre  = perfilNombre,
+                CuotasMinPermitidas          = cuotasMinPermitidas,
+                CuotasMaxPermitidas          = cuotasMaxPermitidas,
+                FuenteRestriccionCuotasSnap  = rangoEfectivo.ProductoIdRestrictivo.HasValue ? "Producto" : "Global",
+                ProductoIdRestrictivoSnap    = rangoEfectivo.ProductoIdRestrictivo,
+                MaxCuotasBaseSnap            = rangoEfectivo.MaxBase
             };
 
             await _creditoService.ConfigurarCreditoAsync(comando);
@@ -750,7 +793,132 @@ namespace TheBuryProject.Controllers
                 await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
             modelo.PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync();
             ViewBag.PerfilesActivos = await _configuracionPagoService.GetPerfilesCreditoActivosAsync();
+            ViewBag.ClienteConfigPersonalizada = new
+            {
+                MaxCuotasCreditoProducto = modelo.MaxCuotasCreditoProducto,
+                RestriccionCreditoProductoDescripcion = modelo.RestriccionCreditoProductoDescripcion,
+                MaxCuotasBase = modelo.MaxCuotasBase,
+                ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
+                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre
+            };
             return View("ConfigurarVenta_tw", modelo);
+        }
+
+        private sealed record RangoCreditoProductoResultado(
+            int Min,
+            int Max,
+            int MaxBase,
+            int? MaxProducto,
+            int? ProductoIdRestrictivo,
+            string? ProductoRestrictivoNombre,
+            string? DescripcionProducto,
+            string? Error);
+
+        private async Task<RangoCreditoProductoResultado> ResolverRangoCreditoProductoAsync(
+            ConfiguracionCreditoVentaViewModel modelo,
+            int minBase,
+            int maxBase)
+        {
+            if (!modelo.VentaId.HasValue || _condicionesPagoCarritoResolver is null)
+            {
+                return new RangoCreditoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
+            }
+
+            var venta = await _ventaService.GetByIdAsync(modelo.VentaId.Value);
+            var productoIds = venta?.Detalles
+                .Where(d => d.ProductoId > 0)
+                .Select(d => d.ProductoId)
+                .Distinct()
+                .ToArray() ?? Array.Empty<int>();
+
+            if (productoIds.Length == 0)
+            {
+                return new RangoCreditoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
+            }
+
+            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
+                productoIds,
+                TipoPago.CreditoPersonal,
+                totalReferencia: venta!.Total,
+                maxCuotasCreditoGlobal: maxBase);
+
+            if (!resultado.Permitido)
+            {
+                var productos = DescribirProductos(venta.Detalles, resultado.ProductoIdsBloqueantes);
+                return new RangoCreditoProductoResultado(
+                    minBase,
+                    maxBase,
+                    maxBase,
+                    null,
+                    null,
+                    null,
+                    null,
+                    $"No se puede configurar crédito personal: {productos} bloquea el medio de pago.");
+            }
+
+            var maxEfectivo = resultado.MaxCuotasCredito.HasValue
+                ? Math.Min(maxBase, resultado.MaxCuotasCredito.Value)
+                : maxBase;
+            var maxProducto = resultado.ProductoIdsRestrictivos.Count > 0
+                ? resultado.MaxCuotasCredito
+                : null;
+            var productoIdRestrictivo = resultado.ProductoIdsRestrictivos.Count > 0
+                ? resultado.ProductoIdsRestrictivos[0]
+                : (int?)null;
+            var productoRestrictivoNombre = productoIdRestrictivo.HasValue
+                ? venta.Detalles
+                    .Where(d => d.ProductoId == productoIdRestrictivo.Value)
+                    .Select(d => d.ProductoNombre)
+                    .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
+                : null;
+            var descripcion = maxProducto.HasValue
+                ? $"Límite por producto: hasta {maxProducto.Value} cuotas."
+                : null;
+
+            if (minBase > maxEfectivo)
+            {
+                return new RangoCreditoProductoResultado(
+                    minBase,
+                    maxEfectivo,
+                    maxBase,
+                    maxProducto,
+                    productoIdRestrictivo,
+                    productoRestrictivoNombre,
+                    descripcion,
+                    $"El rango de cuotas de crédito personal queda inválido para esta venta: mínimo {minBase}, máximo efectivo {maxEfectivo}.");
+            }
+
+            return new RangoCreditoProductoResultado(minBase, maxEfectivo, maxBase, maxProducto, productoIdRestrictivo, productoRestrictivoNombre, descripcion, null);
+        }
+
+        private static void AplicarRangoEfectivoAlModelo(
+            ConfiguracionCreditoVentaViewModel modelo,
+            RangoCreditoProductoResultado rango)
+        {
+            modelo.CuotasMinPermitidas = rango.Min;
+            modelo.CuotasMaxPermitidas = rango.Max;
+            modelo.MaxCuotasBase = rango.MaxBase;
+            modelo.MaxCuotasCreditoProducto = rango.MaxProducto;
+            modelo.ProductoIdRestrictivo = rango.ProductoIdRestrictivo;
+            modelo.ProductoRestrictivoNombre = rango.ProductoRestrictivoNombre;
+            modelo.RestriccionCreditoProductoDescripcion = rango.DescripcionProducto;
+        }
+
+        private static string DescribirProductos(
+            IEnumerable<VentaDetalleViewModel> detalles,
+            IReadOnlyCollection<int> productoIds)
+        {
+            var nombres = detalles
+                .Where(d => productoIds.Contains(d.ProductoId))
+                .Select(d => string.IsNullOrWhiteSpace(d.ProductoNombre)
+                    ? $"Producto #{d.ProductoId}"
+                    : d.ProductoNombre!)
+                .Distinct()
+                .ToArray();
+
+            return nombres.Length == 0
+                ? "un producto del carrito"
+                : string.Join(", ", nombres);
         }
 
         #endregion

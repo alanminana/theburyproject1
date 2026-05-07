@@ -69,6 +69,20 @@ namespace TheBuryProject.ViewModels
 
         public bool PlantillaActivaDisponible { get; set; }
 
+        public int CuotasMinPermitidas { get; set; } = 1;
+
+        public int CuotasMaxPermitidas { get; set; } = 120;
+
+        public int? MaxCuotasCreditoProducto { get; set; }
+
+        public string? RestriccionCreditoProductoDescripcion { get; set; }
+
+        public int MaxCuotasBase { get; set; } = 120;
+
+        public int? ProductoIdRestrictivo { get; set; }
+
+        public string? ProductoRestrictivoNombre { get; set; }
+
         public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado && PlantillaActivaDisponible;
     }
 }

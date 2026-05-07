@@ -2461,6 +2461,16 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("CuotasMinimasPermitidas")
                         .HasColumnType("int");
 
+                    b.Property<string>("FuenteRestriccionCuotasSnap")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("MaxCuotasBaseSnap")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductoIdRestrictivoSnap")
+                        .HasColumnType("int");
+
                     b.Property<int>("Estado")
                         .HasColumnType("int");
 
@@ -5089,6 +5099,169 @@ namespace TheBuryProject.Migrations
                     b.ToTable("ProductosCaracteristicas", (string)null);
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCondicionPago", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaxCuotasConInteres")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxCuotasCredito")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxCuotasSinInteres")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool?>("Permitido")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PorcentajeDescuentoMaximo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("PorcentajeRecargo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("TipoPago")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("TipoPago");
+
+                    b.HasIndex("ProductoId", "TipoPago")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0 AND [Activo] = 1");
+
+                    b.ToTable("ProductoCondicionesPago", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductoCondicionesPago_Cuotas", "([MaxCuotasSinInteres] IS NULL OR [MaxCuotasSinInteres] >= 1) AND ([MaxCuotasConInteres] IS NULL OR [MaxCuotasConInteres] >= 1) AND ([MaxCuotasCredito] IS NULL OR [MaxCuotasCredito] >= 1)");
+
+                            t.HasCheckConstraint("CK_ProductoCondicionesPago_Porcentajes", "([PorcentajeRecargo] IS NULL OR ([PorcentajeRecargo] >= 0 AND [PorcentajeRecargo] <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR ([PorcentajeDescuentoMaximo] >= 0 AND [PorcentajeDescuentoMaximo] <= 100))");
+                        });
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCondicionPagoTarjeta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int?>("ConfiguracionTarjetaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaxCuotasConInteres")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaxCuotasSinInteres")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool?>("Permitido")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PorcentajeDescuentoMaximo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("PorcentajeRecargo")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("ProductoCondicionPagoId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConfiguracionTarjetaId");
+
+                    b.HasIndex("ProductoCondicionPagoId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProductoCondicionesPagoTarjeta_General")
+                        .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NULL");
+
+                    b.HasIndex("ProductoCondicionPagoId", "ConfiguracionTarjetaId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProductoCondicionesPagoTarjeta_Especifica")
+                        .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NOT NULL");
+
+                    b.ToTable("ProductoCondicionesPagoTarjeta", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductoCondicionesPagoTarjeta_Cuotas", "([MaxCuotasSinInteres] IS NULL OR [MaxCuotasSinInteres] >= 1) AND ([MaxCuotasConInteres] IS NULL OR [MaxCuotasConInteres] >= 1)");
+
+                            t.HasCheckConstraint("CK_ProductoCondicionesPagoTarjeta_Porcentajes", "([PorcentajeRecargo] IS NULL OR ([PorcentajeRecargo] >= 0 AND [PorcentajeRecargo] <= 100)) AND ([PorcentajeDescuentoMaximo] IS NULL OR ([PorcentajeDescuentoMaximo] >= 0 AND [PorcentajeDescuentoMaximo] <= 100))");
+                        });
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoPrecioLista", b =>
                 {
                     b.Property<int>("Id")
@@ -7291,6 +7464,35 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Producto");
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCondicionPago", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.Producto", "Producto")
+                        .WithMany("CondicionesPago")
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Producto");
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCondicionPagoTarjeta", b =>
+                {
+                    b.HasOne("TheBuryProject.Models.Entities.ConfiguracionTarjeta", "ConfiguracionTarjeta")
+                        .WithMany()
+                        .HasForeignKey("ConfiguracionTarjetaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("TheBuryProject.Models.Entities.ProductoCondicionPago", "ProductoCondicionPago")
+                        .WithMany("Tarjetas")
+                        .HasForeignKey("ProductoCondicionPagoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ConfiguracionTarjeta");
+
+                    b.Navigation("ProductoCondicionPago");
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoPrecioLista", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.PriceChangeBatch", "Batch")
@@ -7631,6 +7833,13 @@ namespace TheBuryProject.Migrations
             modelBuilder.Entity("TheBuryProject.Models.Entities.Producto", b =>
                 {
                     b.Navigation("Caracteristicas");
+
+                    b.Navigation("CondicionesPago");
+                });
+
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ProductoCondicionPago", b =>
+                {
+                    b.Navigation("Tarjetas");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.Proveedor", b =>

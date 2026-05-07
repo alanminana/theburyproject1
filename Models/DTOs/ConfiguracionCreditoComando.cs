@@ -23,5 +23,14 @@ namespace TheBuryProject.Models.DTOs
         public string? PerfilCreditoAplicadoNombre { get; init; }
         public int CuotasMinPermitidas { get; init; }
         public int CuotasMaxPermitidas { get; init; }
+
+        /// <summary>Fuente que originó la restricción efectiva: "Producto" o "Global".</summary>
+        public string? FuenteRestriccionCuotasSnap { get; init; }
+
+        /// <summary>ID del producto que impuso el límite más restrictivo (snapshot, sin FK).</summary>
+        public int? ProductoIdRestrictivoSnap { get; init; }
+
+        /// <summary>Máximo de cuotas global antes de aplicar restricción por producto.</summary>
+        public int? MaxCuotasBaseSnap { get; init; }
     }
 }

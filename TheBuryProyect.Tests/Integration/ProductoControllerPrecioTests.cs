@@ -1,8 +1,8 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,15 +67,11 @@ public class ProductoControllerPrecioTests : IDisposable
             productoService,
             catalogLookup,
             catalogoService,
+            new ProductoCondicionPagoService(_context),
             NullLogger<ProductoController>.Instance,
             mapper);
 
-        var httpContext = new DefaultHttpContext();
-        httpContext.Request.Form = new FormCollection(new Dictionary<string, StringValues>
-        {
-            [nameof(ProductoViewModel.ComisionPorcentaje)] = "0"
-        });
-        _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     public void Dispose()
@@ -231,12 +227,12 @@ public class ProductoControllerPrecioTests : IDisposable
     [InlineData("12.5", 12.5)]
     [InlineData("", 0)]
     [InlineData(null, 0)]
-    public async Task EditAjax_NormalizaComisionPorcentaje_DesdeRequestForm(string? rawComision, double esperado)
+    public async Task EditAjax_ComisionPorcentajeBindeada_PersisteValor(string? rawComision, double esperado)
     {
         var producto = await SeedProductoAsync(precioVenta: 121m);
         var productoActualizado = await _context.Productos.FindAsync(producto.Id);
         var vm = CrearProductoViewModelParaEditar(productoActualizado!);
-        SetComisionForm(rawComision, agregarErrorModelState: true);
+        vm.ComisionPorcentaje = BindComisionOrDefault(rawComision);
 
         var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
 
@@ -258,7 +254,8 @@ public class ProductoControllerPrecioTests : IDisposable
         var producto = await SeedProductoAsync(precioVenta: 121m);
         var productoActualizado = await _context.Productos.FindAsync(producto.Id);
         var vm = CrearProductoViewModelParaEditar(productoActualizado!);
-        SetComisionForm("abc", agregarErrorModelState: true);
+        _controller.ModelState.Clear();
+        _controller.ModelState.AddModelError(nameof(ProductoViewModel.ComisionPorcentaje), "Comision invalida");
 
         var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
 
@@ -281,6 +278,33 @@ public class ProductoControllerPrecioTests : IDisposable
 
         Assert.NotNull(attribute);
         Assert.Equal(typeof(DecimalModelBinder), attribute!.BinderType);
+    }
+
+    [Fact]
+    public void ProductoController_NoUsaRequestFormParaNormalizarComision()
+    {
+        var sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "Controllers",
+            "ProductoController.cs");
+        var source = File.ReadAllText(sourcePath);
+
+        Assert.DoesNotContain("NormalizarComisionPorcentaje", source);
+        Assert.DoesNotContain("Request.Form", source);
+    }
+
+    [Fact]
+    public void ProductoController_NoDuplicaNormalizacionDeCaracteristicas()
+    {
+        var sourcePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "Controllers",
+            "ProductoController.cs");
+        var source = File.ReadAllText(sourcePath);
+
+        Assert.DoesNotContain("NormalizarCaracteristicas", source);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -391,6 +415,166 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAjax_ConAlicuotaIVAId_PersistePrecioFinalConPorcentajeDeAlicuota()
+    {
+        var (categoria, marca) = await SeedCategoriaYMarcaAsync();
+        var alicuota = await SeedAlicuotaIVAAsync(10.5m);
+        var codigo = "P" + Guid.NewGuid().ToString("N")[..8];
+        var vm = new ProductoViewModel
+        {
+            Codigo = codigo,
+            Nombre = "Producto ajax con alicuota",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 80m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            AlicuotaIVAId = alicuota.Id,
+            StockActual = 3m,
+            StockMinimo = 1m,
+            Activo = true
+        };
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(110.50m, entity.GetProperty("precioVenta").GetDecimal());
+
+        var creado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Codigo == codigo);
+        Assert.Equal(10.5m, creado.PorcentajeIVA);
+        Assert.Equal(110.50m, creado.PrecioVenta);
+        Assert.Equal(alicuota.Id, creado.AlicuotaIVAId);
+    }
+
+    [Fact]
+    public async Task CreateAjax_CaracteristicasVacias_NoPersisteCaracteristicasVacias()
+    {
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        vm.Caracteristicas =
+        [
+            new ProductoCaracteristicaViewModel { Nombre = "   ", Valor = "Color" },
+            new ProductoCaracteristicaViewModel { Nombre = "Memoria", Valor = "" },
+            new ProductoCaracteristicaViewModel { Nombre = "", Valor = "   " }
+        ];
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var creado = await _context.Productos
+            .AsNoTracking()
+            .Include(p => p.Caracteristicas)
+            .SingleAsync(p => p.Codigo == vm.Codigo);
+        Assert.Empty(creado.Caracteristicas);
+    }
+
+    [Fact]
+    public async Task CreateAjax_CaracteristicasConEspacios_AplicaTrimYConservaValidas()
+    {
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        vm.Caracteristicas =
+        [
+            new ProductoCaracteristicaViewModel { Nombre = "  Color  ", Valor = "  Negro  " },
+            new ProductoCaracteristicaViewModel { Nombre = " Memoria ", Valor = " 16GB " },
+            new ProductoCaracteristicaViewModel { Nombre = "   ", Valor = "No persiste" }
+        ];
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var caracteristicas = await _context.ProductosCaracteristicas
+            .AsNoTracking()
+            .Where(c => c.Producto.Codigo == vm.Codigo && !c.IsDeleted)
+            .OrderBy(c => c.Nombre)
+            .ToListAsync();
+        Assert.Equal(2, caracteristicas.Count);
+        Assert.Collection(
+            caracteristicas,
+            c =>
+            {
+                Assert.Equal("Color", c.Nombre);
+                Assert.Equal("Negro", c.Valor);
+            },
+            c =>
+            {
+                Assert.Equal("Memoria", c.Nombre);
+                Assert.Equal("16GB", c.Valor);
+            });
+    }
+
+    [Fact]
+    public async Task EditAjax_CaracteristicasVacias_NoPersisteCaracteristicasVacias()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(p!);
+        vm.Caracteristicas =
+        [
+            new ProductoCaracteristicaViewModel { Nombre = "  ", Valor = "Color" },
+            new ProductoCaracteristicaViewModel { Nombre = "Memoria", Valor = "   " }
+        ];
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var caracteristicas = await _context.ProductosCaracteristicas
+            .AsNoTracking()
+            .Where(c => c.ProductoId == producto.Id && !c.IsDeleted)
+            .ToListAsync();
+        Assert.Empty(caracteristicas);
+    }
+
+    [Fact]
+    public async Task EditAjax_CaracteristicasConEspacios_AplicaTrimYConservaValidas()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(p!);
+        vm.Caracteristicas =
+        [
+            new ProductoCaracteristicaViewModel { Nombre = "  Color  ", Valor = "  Blanco  " },
+            new ProductoCaracteristicaViewModel { Nombre = " Almacenamiento ", Valor = " 512GB " },
+            new ProductoCaracteristicaViewModel { Nombre = "", Valor = "No persiste" }
+        ];
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var caracteristicas = await _context.ProductosCaracteristicas
+            .AsNoTracking()
+            .Where(c => c.ProductoId == producto.Id && !c.IsDeleted)
+            .OrderBy(c => c.Nombre)
+            .ToListAsync();
+        Assert.Equal(2, caracteristicas.Count);
+        Assert.Collection(
+            caracteristicas,
+            c =>
+            {
+                Assert.Equal("Almacenamiento", c.Nombre);
+                Assert.Equal("512GB", c.Valor);
+            },
+            c =>
+            {
+                Assert.Equal("Color", c.Nombre);
+                Assert.Equal("Blanco", c.Valor);
+            });
+    }
+
+    [Fact]
     public async Task CreateAjax_CodigoDuplicado_DevuelveError()
     {
         var existente = await SeedProductoAsync();
@@ -412,9 +596,45 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.NotNull(result);
         var doc = ParseJson(result!.Value);
         Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
-        var codigoErrors = doc.RootElement.GetProperty("errors").GetProperty("Codigo");
-        Assert.Contains("Ya existe un producto con este codigo", Normalize(codigoErrors[0].GetString()));
+        // El service lanza InvalidOperationException; el controller lo captura bajo clave ""
+        var globalErrors = doc.RootElement.GetProperty("errors").GetProperty("");
+        Assert.Contains("Ya existe un producto con el codigo", Normalize(globalErrors[0].GetString()));
         Assert.Equal(1, await _context.Productos.CountAsync(p => p.Codigo == existente.Codigo));
+    }
+
+    [Fact]
+    public async Task EditAjax_CodigoDuplicado_DevuelveError()
+    {
+        var producto1 = await SeedProductoAsync();
+        var producto2 = await SeedProductoAsync();
+        var p2 = await _context.Productos.FindAsync(producto2.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = producto2.Id,
+            Codigo = producto1.Codigo, // código de otro producto existente
+            Nombre = p2!.Nombre,
+            CategoriaId = p2.CategoriaId,
+            MarcaId = p2.MarcaId,
+            PrecioCompra = p2.PrecioCompra,
+            PrecioVenta = 80m,
+            PorcentajeIVA = 21m,
+            StockActual = p2.StockActual,
+            StockMinimo = p2.StockMinimo,
+            Activo = true,
+            RowVersion = p2.RowVersion
+        };
+
+        var result = await _controller.EditAjax(producto2.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        // El service lanza InvalidOperationException; el controller lo captura bajo clave ""
+        var globalErrors = doc.RootElement.GetProperty("errors").GetProperty("");
+        Assert.Contains("Ya existe otro producto con el codigo", Normalize(globalErrors[0].GetString()));
+        // El código del producto2 no debe haber cambiado
+        var sinCambios = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto2.Id);
+        Assert.Equal(p2.Codigo, sinCambios.Codigo);
     }
 
     [Fact]
@@ -444,10 +664,10 @@ public class ProductoControllerPrecioTests : IDisposable
     [InlineData("12.5", 12.5)]
     [InlineData("", 0)]
     [InlineData(null, 0)]
-    public async Task CreateAjax_NormalizaComisionPorcentaje_DesdeRequestForm(string? rawComision, double esperado)
+    public async Task CreateAjax_ComisionPorcentajeBindeada_PersisteValor(string? rawComision, double esperado)
     {
         var vm = await CrearProductoViewModelParaCrearAsync();
-        SetComisionForm(rawComision, agregarErrorModelState: true);
+        vm.ComisionPorcentaje = BindComisionOrDefault(rawComision);
 
         var result = await _controller.CreateAjax(vm) as JsonResult;
 
@@ -464,7 +684,8 @@ public class ProductoControllerPrecioTests : IDisposable
     public async Task CreateAjax_ComisionPorcentajeInvalida_MantieneErrorModelState()
     {
         var vm = await CrearProductoViewModelParaCrearAsync();
-        SetComisionForm("abc", agregarErrorModelState: true);
+        _controller.ModelState.Clear();
+        _controller.ModelState.AddModelError(nameof(ProductoViewModel.ComisionPorcentaje), "Comision invalida");
 
         var result = await _controller.CreateAjax(vm) as JsonResult;
 
@@ -531,6 +752,260 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public async Task ProductoCondicionPagoController_Get_ProductoExistente_DevuelveEstadoEditable()
+    {
+        var producto = await SeedProductoAsync();
+
+        var result = await _controller.ObtenerCondicionesPago(producto.Id, CancellationToken.None) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var data = doc.RootElement.GetProperty("data");
+        Assert.Equal(producto.Id, data.GetProperty("ProductoId").GetInt32());
+        Assert.Equal(producto.Codigo, data.GetProperty("ProductoCodigo").GetString());
+        Assert.True(data.TryGetProperty("Condiciones", out _));
+        Assert.True(data.TryGetProperty("TarjetasDisponibles", out _));
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoController_Get_ProductoInexistente_DevuelveNotFoundControlado()
+    {
+        var result = await _controller.ObtenerCondicionesPago(int.MaxValue, CancellationToken.None) as NotFoundObjectResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(doc.RootElement.GetProperty("errors")[0].GetString()));
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoController_Post_Valido_GuardaYDevuelveOk()
+    {
+        var producto = await SeedProductoAsync();
+        var request = new GuardarProductoCondicionesPagoRequest
+        {
+            ProductoId = producto.Id,
+            Condiciones = new[]
+            {
+                new GuardarProductoCondicionPagoItem
+                {
+                    TipoPago = TipoPago.Efectivo,
+                    Permitido = true,
+                    PorcentajeDescuentoMaximo = 5m,
+                    Activo = true
+                }
+            }
+        };
+
+        var result = await _controller.GuardarCondicionesPago(producto.Id, request, CancellationToken.None) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("Condiciones de pago guardadas.", doc.RootElement.GetProperty("message").GetString());
+        Assert.True(await _context.ProductoCondicionesPago.AnyAsync(c => c.ProductoId == producto.Id && c.TipoPago == TipoPago.Efectivo));
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoController_Post_Invalido_DevuelveBadRequestConErrores()
+    {
+        var producto = await SeedProductoAsync();
+        var request = new GuardarProductoCondicionesPagoRequest
+        {
+            ProductoId = producto.Id,
+            Condiciones = new[]
+            {
+                new GuardarProductoCondicionPagoItem
+                {
+                    TipoPago = TipoPago.Efectivo,
+                    PorcentajeRecargo = 101m,
+                    Activo = true
+                }
+            }
+        };
+
+        var result = await _controller.GuardarCondicionesPago(producto.Id, request, CancellationToken.None) as BadRequestObjectResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.Contains("PorcentajeRecargo", doc.RootElement.GetProperty("errors")[0].GetString());
+        Assert.False(await _context.ProductoCondicionesPago.AnyAsync(c => c.ProductoId == producto.Id));
+    }
+
+    [Fact]
+    public void ProductoCondicionPagoCatalogo_TieneBotonYModalDeCondicionesPago()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Catalogo", "Index_tw.cshtml"));
+
+        Assert.Contains("data-condiciones-pago-producto-id", html);
+        Assert.Contains("Condiciones de pago", html);
+        Assert.Contains("modal-condiciones-pago-producto", html);
+        Assert.Contains("producto-condiciones-pago-modal.js", html);
+    }
+
+    [Fact]
+    public async Task EditAjax_RowVersionNula_DevuelveErrorControlado()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId,
+            PrecioCompra = 60m, PrecioVenta = 80m, PorcentajeIVA = 21m,
+            StockActual = p.StockActual, StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = null
+        };
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        var globalErrors = doc.RootElement.GetProperty("errors").GetProperty("");
+        Assert.True(globalErrors.GetArrayLength() > 0);
+        Assert.Contains("RowVersion", globalErrors[0].GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task EditAjax_RowVersionVacia_DevuelveErrorControlado()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId,
+            PrecioCompra = 60m, PrecioVenta = 80m, PorcentajeIVA = 21m,
+            StockActual = p.StockActual, StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = Array.Empty<byte>()
+        };
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        var globalErrors = doc.RootElement.GetProperty("errors").GetProperty("");
+        Assert.True(globalErrors.GetArrayLength() > 0);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Edit POST (ruta MVC tradicional)
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Edit_Post_RowVersionNula_VuelveAVistaConErrorControlado()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId,
+            PrecioCompra = 60m, PrecioVenta = 80m, PorcentajeIVA = 21m,
+            StockActual = p.StockActual, StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = null
+        };
+
+        var result = await _controller.Edit(p.Id, vm);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(_controller.ModelState.IsValid);
+        Assert.True(_controller.ModelState.ContainsKey(""));
+        var mensajes = _controller.ModelState[""]!.Errors.Select(e => e.ErrorMessage);
+        Assert.Contains(mensajes, m => m.Contains("RowVersion", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Edit_Post_RowVersionVacia_VuelveAVistaConErrorControlado()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id, Codigo = p.Codigo, Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId,
+            PrecioCompra = 60m, PrecioVenta = 80m, PorcentajeIVA = 21m,
+            StockActual = p.StockActual, StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = Array.Empty<byte>()
+        };
+
+        var result = await _controller.Edit(p.Id, vm);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(_controller.ModelState.IsValid);
+        Assert.True(_controller.ModelState.ContainsKey(""));
+    }
+
+    [Fact]
+    public async Task Edit_Post_Valido_RedireccionaAIndexYPersisteCambios()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id, Codigo = p.Codigo, Nombre = "Nombre Actualizado por Test",
+            CategoriaId = p.CategoriaId, MarcaId = p.MarcaId,
+            PrecioCompra = 60m, PrecioVenta = 80m, PorcentajeIVA = 21m,
+            StockActual = p.StockActual, StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = p.RowVersion
+        };
+        _controller.TempData = new StubTempDataDictionaryCtrlTest();
+
+        var result = await _controller.Edit(p.Id, vm);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ProductoController.Index), redirect.ActionName);
+        var actualizado = await _context.Productos.AsNoTracking().SingleAsync(x => x.Id == p.Id);
+        Assert.Equal("Nombre Actualizado por Test", actualizado.Nombre);
+    }
+
+    [Fact]
+    public async Task EditAjax_ConAlicuotaIVAId_PersistePrecioFinalConPorcentajeDeAlicuota()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var alicuota = await SeedAlicuotaIVAAsync(10.5m);
+        var p = await _context.Productos.FindAsync(producto.Id);
+        var vm = new ProductoViewModel
+        {
+            Id = p!.Id,
+            Codigo = p.Codigo,
+            Nombre = p.Nombre,
+            CategoriaId = p.CategoriaId,
+            MarcaId = p.MarcaId,
+            PrecioCompra = 60m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            AlicuotaIVAId = alicuota.Id,
+            StockActual = p.StockActual,
+            StockMinimo = p.StockMinimo,
+            Activo = true,
+            RowVersion = p.RowVersion
+        };
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(110.50m, entity.GetProperty("precioBase").GetDecimal());
+
+        var actualizado = await _context.Productos.AsNoTracking().SingleAsync(x => x.Id == producto.Id);
+        Assert.Equal(10.5m, actualizado.PorcentajeIVA);
+        Assert.Equal(110.50m, actualizado.PrecioVenta);
+        Assert.Equal(alicuota.Id, actualizado.AlicuotaIVAId);
+    }
+
+    [Fact]
     public async Task EditAjax_ConPrecioLista_DevuelveMargenBasadoEnPrecioLista()
     {
         var producto = await SeedProductoAsync(precioVenta: 100m);
@@ -580,18 +1055,13 @@ public class ProductoControllerPrecioTests : IDisposable
             .Replace("ó", "o")
             .Replace("í", "i");
 
-    private void SetComisionForm(string? rawComision, bool agregarErrorModelState = false)
-    {
-        var form = new Dictionary<string, StringValues>();
-        if (rawComision is not null)
-            form[nameof(ProductoViewModel.ComisionPorcentaje)] = rawComision;
-
-        _controller.ControllerContext.HttpContext.Request.Form = new FormCollection(form);
-        _controller.ModelState.Clear();
-
-        if (agregarErrorModelState)
-            _controller.ModelState.AddModelError(nameof(ProductoViewModel.ComisionPorcentaje), "Comision invalida");
-    }
+    private static decimal BindComisionOrDefault(string? rawComision)
+        => DecimalParsingHelper.TryParseFlexibleDecimal(
+            rawComision,
+            out var value,
+            allowMixedSeparators: true)
+            ? value
+            : 0m;
 
     private async Task<ProductoViewModel> CrearProductoViewModelParaCrearAsync()
     {
@@ -660,6 +1130,23 @@ public class ProductoControllerPrecioTests : IDisposable
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
         return producto;
+    }
+
+    private async Task<AlicuotaIVA> SeedAlicuotaIVAAsync(decimal porcentaje)
+    {
+        var code = Guid.NewGuid().ToString("N")[..8];
+        var alicuota = new AlicuotaIVA
+        {
+            Codigo = "IVA" + code,
+            Nombre = $"IVA {porcentaje}",
+            Porcentaje = porcentaje,
+            Activa = true,
+            IsDeleted = false
+        };
+
+        _context.AlicuotasIVA.Add(alicuota);
+        await _context.SaveChangesAsync();
+        return alicuota;
     }
 
     private async Task<ListaPrecio> SeedListaAsync(bool esPredeterminada, string nombre = "Lista-Test")
@@ -750,6 +1237,15 @@ file sealed class StubHistoricoPrecioCtrlTest : IPrecioHistoricoService
 
     public Task MarcarComoNoReversibleAsync(int historialId)
         => Task.CompletedTask;
+}
+
+file sealed class StubTempDataDictionaryCtrlTest : Dictionary<string, object?>, ITempDataDictionary
+{
+    public void Keep() { }
+    public void Keep(string key) { }
+    public void Load() { }
+    public object? Peek(string key) => TryGetValue(key, out var v) ? v : null;
+    public void Save() { }
 }
 
 file sealed class StubCatalogLookupCtrlTest : ICatalogLookupService

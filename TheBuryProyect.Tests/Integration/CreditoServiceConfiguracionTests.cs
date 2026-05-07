@@ -471,4 +471,167 @@ public class CreditoServiceConfiguracionTests : IDisposable
         Assert.NotNull(creditoActualizado);
         Assert.Contains("Nota previa del evaluador", creditoActualizado!.Observaciones);
     }
+
+    // -------------------------------------------------------------------------
+    // Tests de trazabilidad de restricción de cuotas (Fase 9.5b)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConfigurarCredito_ConProductoRestrictivo_PersisteFuenteProducto()
+    {
+        // Arrange
+        await SeedCredito(id: 1);
+        var cmd = new ConfiguracionCreditoComando
+        {
+            CreditoId                   = 1,
+            Monto                       = 10_000m,
+            Anticipo                    = 0m,
+            CantidadCuotas              = 12,
+            TasaMensual                 = 3m,
+            FechaPrimeraCuota           = DateTime.UtcNow.AddMonths(1),
+            MetodoCalculo               = MetodoCalculoCredito.Global,
+            FuenteConfiguracion         = FuenteConfiguracionCredito.Global,
+            CuotasMinPermitidas         = 1,
+            CuotasMaxPermitidas         = 6,
+            FuenteRestriccionCuotasSnap = "Producto",
+            ProductoIdRestrictivoSnap   = 42,
+            MaxCuotasBaseSnap           = 24
+        };
+
+        // Act
+        await _service.ConfigurarCreditoAsync(cmd);
+
+        // Assert
+        var credito = await _context.Creditos.FindAsync(1);
+        Assert.NotNull(credito);
+        Assert.Equal("Producto", credito!.FuenteRestriccionCuotasSnap);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_ConProductoRestrictivo_PersisteProductoIdRestrictivo()
+    {
+        // Arrange
+        await SeedCredito(id: 1);
+        var cmd = new ConfiguracionCreditoComando
+        {
+            CreditoId                   = 1,
+            Monto                       = 10_000m,
+            Anticipo                    = 0m,
+            CantidadCuotas              = 6,
+            TasaMensual                 = 3m,
+            FechaPrimeraCuota           = DateTime.UtcNow.AddMonths(1),
+            MetodoCalculo               = MetodoCalculoCredito.Global,
+            FuenteConfiguracion         = FuenteConfiguracionCredito.Global,
+            CuotasMinPermitidas         = 1,
+            CuotasMaxPermitidas         = 6,
+            FuenteRestriccionCuotasSnap = "Producto",
+            ProductoIdRestrictivoSnap   = 99,
+            MaxCuotasBaseSnap           = 24
+        };
+
+        // Act
+        await _service.ConfigurarCreditoAsync(cmd);
+
+        // Assert
+        var credito = await _context.Creditos.FindAsync(1);
+        Assert.NotNull(credito);
+        Assert.Equal(99, credito!.ProductoIdRestrictivoSnap);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_ConProductoRestrictivo_PersisteMaxCuotasBaseSnap()
+    {
+        // Arrange
+        await SeedCredito(id: 1);
+        var cmd = new ConfiguracionCreditoComando
+        {
+            CreditoId                   = 1,
+            Monto                       = 10_000m,
+            Anticipo                    = 0m,
+            CantidadCuotas              = 6,
+            TasaMensual                 = 3m,
+            FechaPrimeraCuota           = DateTime.UtcNow.AddMonths(1),
+            MetodoCalculo               = MetodoCalculoCredito.Global,
+            FuenteConfiguracion         = FuenteConfiguracionCredito.Global,
+            CuotasMinPermitidas         = 1,
+            CuotasMaxPermitidas         = 6,
+            FuenteRestriccionCuotasSnap = "Producto",
+            ProductoIdRestrictivoSnap   = 7,
+            MaxCuotasBaseSnap           = 36
+        };
+
+        // Act
+        await _service.ConfigurarCreditoAsync(cmd);
+
+        // Assert
+        var credito = await _context.Creditos.FindAsync(1);
+        Assert.NotNull(credito);
+        Assert.Equal(36, credito!.MaxCuotasBaseSnap);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_SinProductoRestrictivo_PersisteFuenteGlobal()
+    {
+        // Arrange: sin producto restrictivo → fuente Global
+        await SeedCredito(id: 1);
+        var cmd = new ConfiguracionCreditoComando
+        {
+            CreditoId                   = 1,
+            Monto                       = 10_000m,
+            Anticipo                    = 0m,
+            CantidadCuotas              = 12,
+            TasaMensual                 = 3m,
+            FechaPrimeraCuota           = DateTime.UtcNow.AddMonths(1),
+            MetodoCalculo               = MetodoCalculoCredito.Global,
+            FuenteConfiguracion         = FuenteConfiguracionCredito.Global,
+            CuotasMinPermitidas         = 1,
+            CuotasMaxPermitidas         = 24,
+            FuenteRestriccionCuotasSnap = "Global",
+            ProductoIdRestrictivoSnap   = null,
+            MaxCuotasBaseSnap           = 24
+        };
+
+        // Act
+        await _service.ConfigurarCreditoAsync(cmd);
+
+        // Assert
+        var credito = await _context.Creditos.FindAsync(1);
+        Assert.NotNull(credito);
+        Assert.Equal("Global", credito!.FuenteRestriccionCuotasSnap);
+        Assert.Null(credito.ProductoIdRestrictivoSnap);
+    }
+
+    [Fact]
+    public async Task ConfigurarCredito_VentaValida_TotalesNoModificados()
+    {
+        // Arrange: flujo normal completo no altera MontoAprobado ni SaldoPendiente
+        await SeedCredito(id: 1);
+        await SeedVenta(id: 1, estado: EstadoVenta.PendienteFinanciacion);
+        var cmd = new ConfiguracionCreditoComando
+        {
+            CreditoId                   = 1,
+            VentaId                     = 1,
+            Monto                       = 10_000m,
+            Anticipo                    = 1_000m,
+            CantidadCuotas              = 12,
+            TasaMensual                 = 2.5m,
+            FechaPrimeraCuota           = DateTime.UtcNow.AddMonths(1),
+            MetodoCalculo               = MetodoCalculoCredito.Global,
+            FuenteConfiguracion         = FuenteConfiguracionCredito.Global,
+            CuotasMinPermitidas         = 1,
+            CuotasMaxPermitidas         = 24,
+            FuenteRestriccionCuotasSnap = "Global",
+            ProductoIdRestrictivoSnap   = null,
+            MaxCuotasBaseSnap           = 24
+        };
+
+        // Act
+        await _service.ConfigurarCreditoAsync(cmd);
+
+        // Assert: el monto aprobado es monto - anticipo (9_000); la lógica financiera no cambió
+        var credito = await _context.Creditos.FindAsync(1);
+        Assert.NotNull(credito);
+        Assert.Equal(9_000m, credito!.MontoAprobado);
+        Assert.Equal(9_000m, credito.SaldoPendiente);
+    }
 }

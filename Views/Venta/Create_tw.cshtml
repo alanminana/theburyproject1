@@ -233,6 +233,44 @@
                             </div>
                         </div>
                     </div>
+
+                    @* Diagnostico de condiciones de pago por carrito. Fase 8.8B: bloquea medios incompatibles y limita cuotas en UI. *@
+                    <div id="panel-diagnostico-condiciones-pago"
+                         data-diagnostico-condiciones-pago
+                         class="mt-6 rounded-xl border border-slate-700 bg-slate-800/45 p-4"
+                         aria-live="polite">
+                        <div class="flex items-start gap-3">
+                            <span id="diagnostico-condiciones-pago-icon"
+                                  data-diagnostico-condiciones-pago-icon
+                                  class="material-symbols-outlined mt-0.5 text-primary">rule</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-sm font-bold text-white">Diagnostico de condiciones de pago</p>
+                                    <span id="diagnostico-condiciones-pago-estado"
+                                          data-diagnostico-condiciones-pago-estado
+                                          class="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-300">
+                                        Sin carrito
+                                    </span>
+                                </div>
+                                <p id="diagnostico-condiciones-pago-resumen"
+                                   data-diagnostico-condiciones-pago-resumen
+                                   class="mt-1 text-xs text-slate-400">
+                                    Agrega productos para consultar reglas configuradas del medio de pago seleccionado.
+                                </p>
+                                <p class="mt-2 text-[11px] font-semibold text-slate-500">
+                                    Fase 8.8B: esta informacion no modifica totales, no aplica ajustes y solo limita cuotas disponibles del medio seleccionado.
+                                </p>
+                                <p id="diagnostico-condiciones-pago-bloqueo"
+                                   data-diagnostico-condiciones-pago-bloqueo
+                                   class="mt-3 hidden rounded-lg border border-red-500/25 bg-red-500/10 p-3 text-xs font-bold text-red-200">
+                                    No se puede confirmar con el medio de pago seleccionado. Cambia el medio de pago para continuar.
+                                </p>
+                                <div id="diagnostico-condiciones-pago-detalle"
+                                     data-diagnostico-condiciones-pago-detalle
+                                     class="mt-3 hidden space-y-3 text-xs"></div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 @* ── Sección 2: Selección de productos ──────────────── *@
@@ -405,7 +443,7 @@
                                         <option value="1">1 Pago</option>
                                     </select>
                                     <p id="panel-aviso-cuotas-sin-interes" class="mt-1 text-xs text-amber-400 hidden">
-                                        Las cuotas sin interés fueron limitadas por productos del carrito.
+                                        Las cuotas disponibles fueron restringidas por condiciones del producto.
                                     </p>
                                 </div>
                                 <div>

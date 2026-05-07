@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Controllers
@@ -18,6 +19,7 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ICatalogoService _catalogoService;
+        private readonly IProductoCondicionPagoService _productoCondicionPagoService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
 
@@ -25,12 +27,14 @@ namespace TheBuryProject.Controllers
             IProductoService productoService,
             ICatalogLookupService catalogLookupService,
             ICatalogoService catalogoService,
+            IProductoCondicionPagoService productoCondicionPagoService,
             ILogger<ProductoController> logger,
             IMapper mapper)
         {
             _productoService = productoService;
             _catalogLookupService = catalogLookupService;
             _catalogoService = catalogoService;
+            _productoCondicionPagoService = productoCondicionPagoService;
             _logger = logger;
             _mapper = mapper;
         }
@@ -145,27 +149,11 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ProductoViewModel viewModel)
         {
-            NormalizarComisionPorcentaje(viewModel);
-            viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
-
             if (ModelState.IsValid)
             {
                 try
                 {
-                    // Verificar que el código no exista
-                    if (await _productoService.ExistsCodigoAsync(viewModel.Codigo))
-                    {
-                        ModelState.AddModelError("Codigo", "Ya existe un producto con este código");
-                        await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
-                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
-                        return View("Create_tw", viewModel);
-                    }
-
-                    // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
-                    viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
-                    viewModel.PrecioVenta = PrecioIvaCalculator.AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
-
-                    var producto = _mapper.Map<Producto>(viewModel);
+                    var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                     await _productoService.CreateAsync(producto);
 
                     TempData["Success"] = "Producto creado exitosamente";
@@ -188,6 +176,68 @@ namespace TheBuryProject.Controllers
             return View("Create_tw", viewModel);
         }
 
+        [HttpGet("Producto/CondicionesPago/{productoId:int}")]
+        public async Task<IActionResult> ObtenerCondicionesPago(int productoId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var estado = await _productoCondicionPagoService.ObtenerEstadoEditableAsync(productoId, cancellationToken);
+                return Json(new { success = true, data = estado });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { success = false, errors = new[] { ex.Message } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener condiciones de pago del producto {ProductoId}", productoId);
+                return StatusCode(500, new { success = false, errors = new[] { "Error al cargar las condiciones de pago." } });
+            }
+        }
+
+        [HttpPost("Producto/CondicionesPago/{productoId:int}")]
+        [ValidateAntiForgeryToken]
+        [Consumes("application/json")]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> GuardarCondicionesPago(
+            int productoId,
+            [FromBody] GuardarProductoCondicionesPagoRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (request is null)
+            {
+                return BadRequest(new { success = false, errors = new[] { "La solicitud es invalida." } });
+            }
+
+            if (request.ProductoId != 0 && request.ProductoId != productoId)
+            {
+                return BadRequest(new { success = false, errors = new[] { "El producto de la ruta no coincide con la solicitud." } });
+            }
+
+            try
+            {
+                await _productoCondicionPagoService.GuardarCondicionesCompletasAsync(
+                    productoId, request, cancellationToken);
+
+                var estado = await _productoCondicionPagoService.ObtenerEstadoEditableAsync(productoId, cancellationToken);
+                return Json(new
+                {
+                    success = true,
+                    message = "Condiciones de pago guardadas.",
+                    data = estado
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, errors = new[] { ex.Message } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al guardar condiciones de pago del producto {ProductoId}", productoId);
+                return StatusCode(500, new { success = false, errors = new[] { "Error al guardar las condiciones de pago." } });
+            }
+        }
+
         /// <summary>
         /// Crea un producto vía AJAX (desde el modal del catálogo).
         /// </summary>
@@ -195,9 +245,6 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateAjax(ProductoViewModel viewModel)
         {
-            NormalizarComisionPorcentaje(viewModel);
-            viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
-
             if (!ModelState.IsValid)
             {
                 var errors = ModelState
@@ -211,14 +258,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                if (await _productoService.ExistsCodigoAsync(viewModel.Codigo))
-                {
-                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe un producto con este código" } } } });
-                }
-
-                viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
-                viewModel.PrecioVenta = PrecioIvaCalculator.AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
-                var producto = _mapper.Map<Producto>(viewModel);
+                var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                 await _productoService.CreateAsync(producto);
 
                 var productoCreado = await _productoService.GetByIdAsync(producto.Id);
@@ -266,8 +306,9 @@ namespace TheBuryProject.Controllers
 
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
 
-                // Mostrar PrecioVenta sin IVA (el almacenado incluye IVA)
-                viewModel.PrecioVenta = PrecioIvaCalculator.QuitarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
+                viewModel.PrecioVenta = _productoService.ObtenerPrecioVentaSinIva(
+                    viewModel.PrecioVenta,
+                    viewModel.PorcentajeIVA);
 
                 await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
                 await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
@@ -291,37 +332,12 @@ namespace TheBuryProject.Controllers
                 return NotFound();
             }
 
-            NormalizarComisionPorcentaje(viewModel);
-            viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
-
             if (ModelState.IsValid)
             {
                 try
                 {
-                    var rowVersion = viewModel.RowVersion;
-                    if (rowVersion is null || rowVersion.Length == 0)
-                    {
-                        ModelState.AddModelError("", "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.");
-                        await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
-                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
-                        return View("Edit_tw", viewModel);
-                    }
-
-                    // Verificar que el código no exista en otro producto
-                    if (await _productoService.ExistsCodigoAsync(viewModel.Codigo, id))
-                    {
-                        ModelState.AddModelError("Codigo", "Ya existe otro producto con este código");
-                        await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
-                        await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
-                        return View("Edit_tw", viewModel);
-                    }
-
-                    // El usuario ingresa PrecioVenta sin IVA; se calcula el precio final con IVA
-                    viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
-                    viewModel.PrecioVenta = PrecioIvaCalculator.AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
-
-                    var producto = _mapper.Map<Producto>(viewModel);
-                    producto.RowVersion = rowVersion;
+                    var producto = await MapearProductoParaPersistenciaAsync(viewModel);
+                    producto.RowVersion = viewModel.RowVersion!;
                     await _productoService.UpdateAsync(producto);
 
                     TempData["Success"] = "Producto actualizado exitosamente";
@@ -413,7 +429,9 @@ namespace TheBuryProject.Controllers
                 if (producto == null) return NotFound();
 
                 var vm = _mapper.Map<ProductoViewModel>(producto);
-                var precioSinIVA = PrecioIvaCalculator.QuitarIVA(vm.PrecioVenta, vm.PorcentajeIVA);
+                var precioSinIVA = _productoService.ObtenerPrecioVentaSinIva(
+                    vm.PrecioVenta,
+                    vm.PorcentajeIVA);
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
 
                 return Json(new
@@ -461,9 +479,6 @@ namespace TheBuryProject.Controllers
             if (id != viewModel.Id)
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Id inválido." } } } });
 
-            NormalizarComisionPorcentaje(viewModel);
-            viewModel.Caracteristicas = NormalizarCaracteristicas(viewModel.Caracteristicas);
-
             if (!ModelState.IsValid)
             {
                 var errors = ModelState
@@ -474,17 +489,8 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                if (viewModel.RowVersion is null || viewModel.RowVersion.Length == 0)
-                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "No se recibió la versión de fila. Recargá la página." } } } });
-
-                if (await _productoService.ExistsCodigoAsync(viewModel.Codigo, id))
-                    return Json(new { success = false, errors = new Dictionary<string, string[]> { { "Codigo", new[] { "Ya existe otro producto con este código." } } } });
-
-                viewModel.PorcentajeIVA = await ResolverPorcentajeIVAAsync(viewModel);
-                viewModel.PrecioVenta = PrecioIvaCalculator.AplicarIVA(viewModel.PrecioVenta, viewModel.PorcentajeIVA);
-
-                var producto = _mapper.Map<Producto>(viewModel);
-                producto.RowVersion = viewModel.RowVersion;
+                var producto = await MapearProductoParaPersistenciaAsync(viewModel);
+                producto.RowVersion = viewModel.RowVersion!;
                 await _productoService.UpdateAsync(producto);
 
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
@@ -583,53 +589,15 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        private async Task<decimal> ResolverPorcentajeIVAAsync(ProductoViewModel viewModel)
+        private async Task<Producto> MapearProductoParaPersistenciaAsync(ProductoViewModel viewModel)
         {
-            if (viewModel.AlicuotaIVAId.HasValue)
-            {
-                var porcentaje = await _catalogLookupService.ObtenerPorcentajeAlicuotaAsync(viewModel.AlicuotaIVAId.Value);
-                if (porcentaje.HasValue)
-                    return porcentaje.Value;
-            }
+            var producto = _mapper.Map<Producto>(viewModel);
+            await _productoService.PrepararPrecioVentaConIvaAsync(producto);
 
-            return viewModel.PorcentajeIVA;
-        }
+            viewModel.PorcentajeIVA = producto.PorcentajeIVA;
+            viewModel.PrecioVenta = producto.PrecioVenta;
 
-        private void NormalizarComisionPorcentaje(ProductoViewModel viewModel)
-        {
-            var fieldName = nameof(ProductoViewModel.ComisionPorcentaje);
-            if (!ModelState.TryGetValue(fieldName, out var entry) || entry.Errors.Count == 0)
-                return;
-
-            var raw = Request.Form[fieldName].FirstOrDefault();
-            if (string.IsNullOrWhiteSpace(raw))
-            {
-                viewModel.ComisionPorcentaje = 0m;
-                ModelState.Remove(fieldName);
-                return;
-            }
-
-            if (DecimalParsingHelper.TryParseFlexibleDecimal(raw, out var valor))
-            {
-                viewModel.ComisionPorcentaje = valor;
-                ModelState.Remove(fieldName);
-            }
-        }
-
-        private static List<ProductoCaracteristicaViewModel> NormalizarCaracteristicas(IEnumerable<ProductoCaracteristicaViewModel>? caracteristicas)
-        {
-            if (caracteristicas == null)
-                return new List<ProductoCaracteristicaViewModel>();
-
-            return caracteristicas
-                .Where(c => !string.IsNullOrWhiteSpace(c.Nombre) && !string.IsNullOrWhiteSpace(c.Valor))
-                .Select(c => new ProductoCaracteristicaViewModel
-                {
-                    Id = c.Id,
-                    Nombre = c.Nombre.Trim(),
-                    Valor = c.Valor.Trim()
-                })
-                .ToList();
+            return producto;
         }
 
         #endregion

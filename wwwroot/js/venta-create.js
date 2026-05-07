@@ -24,6 +24,13 @@
     let detalleScrollAffordance = null;
     let reintentandoSubmitConDatosTarjeta = false;
     let recargoDebitoPreview = null;
+    let diagnosticoCondicionesTimer = null;
+    let diagnosticoCondicionesRequestSeq = 0;
+    let diagnosticoCondicionesBloqueaContinuidad = false;
+    let limiteCuotasExistente = null;
+    let cuotasLimitadasPorReglaExistente = false;
+    let limiteCuotasDiagnostico = null;
+    let cuotasLimitadasPorDiagnostico = false;
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
@@ -36,6 +43,11 @@
         MercadoPago: '6',
         CuentaCorriente: '7',
         Tarjeta: '8'
+    };
+
+    const TIPO_CUOTA_TARJETA = {
+        SinInteres: 0,
+        ConInteres: 1
     };
 
     // ── DOM refs ───────────────────────────────────────────────────────
@@ -77,6 +89,13 @@
     const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
 
     const panelAvisoCredito = $('#panel-aviso-credito');
+    const panelDiagnosticoCondicionesPago = $('#panel-diagnostico-condiciones-pago');
+    const diagnosticoCondicionesPagoIcon = $('#diagnostico-condiciones-pago-icon');
+    const diagnosticoCondicionesPagoEstado = $('#diagnostico-condiciones-pago-estado');
+    const diagnosticoCondicionesPagoResumen = $('#diagnostico-condiciones-pago-resumen');
+    const diagnosticoCondicionesPagoBloqueo = $('#diagnostico-condiciones-pago-bloqueo');
+    const diagnosticoCondicionesPagoDetalle = $('#diagnostico-condiciones-pago-detalle');
+    const btnConfirmarVenta = $('#btn-confirmar');
 
     const filtroCategoria = $('#filtro-categoria');
     const filtroMarca = $('#filtro-marca');
@@ -216,6 +235,11 @@
         };
     }
 
+    function programarDiagnosticoCondicionesPago() {
+        clearTimeout(diagnosticoCondicionesTimer);
+        diagnosticoCondicionesTimer = setTimeout(diagnosticarCondicionesPagoCarrito, 250);
+    }
+
     async function fetchJson(url) {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -234,6 +258,384 @@
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         return resp.json();
+    }
+
+    function setDiagnosticoCondicionesPagoEstado(tone, estado, resumen, iconName) {
+        if (!panelDiagnosticoCondicionesPago) return;
+
+        const tones = {
+            empty: {
+                panel: 'border-slate-700 bg-slate-800/45',
+                badge: 'border-slate-600 text-slate-300',
+                icon: 'text-primary'
+            },
+            ok: {
+                panel: 'border-emerald-500/20 bg-emerald-500/10',
+                badge: 'border-emerald-500/30 text-emerald-300',
+                icon: 'text-emerald-400'
+            },
+            warning: {
+                panel: 'border-amber-500/25 bg-amber-500/10',
+                badge: 'border-amber-500/30 text-amber-300',
+                icon: 'text-amber-400'
+            },
+            blocked: {
+                panel: 'border-red-500/30 bg-red-500/10',
+                badge: 'border-red-500/35 text-red-200',
+                icon: 'text-red-300'
+            },
+            error: {
+                panel: 'border-slate-700 bg-slate-800/45',
+                badge: 'border-slate-600 text-slate-300',
+                icon: 'text-slate-400'
+            }
+        };
+        const selected = tones[tone] || tones.empty;
+
+        panelDiagnosticoCondicionesPago.className = `mt-6 rounded-xl border p-4 ${selected.panel}`;
+        if (diagnosticoCondicionesPagoEstado) {
+            diagnosticoCondicionesPagoEstado.className = `rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${selected.badge}`;
+            diagnosticoCondicionesPagoEstado.textContent = estado;
+        }
+        if (diagnosticoCondicionesPagoResumen) {
+            diagnosticoCondicionesPagoResumen.textContent = resumen;
+        }
+        if (diagnosticoCondicionesPagoIcon) {
+            diagnosticoCondicionesPagoIcon.className = `material-symbols-outlined mt-0.5 ${selected.icon}`;
+            diagnosticoCondicionesPagoIcon.textContent = iconName || 'rule';
+        }
+    }
+
+    function actualizarBloqueoContinuidadCondicionesPago(bloqueado) {
+        diagnosticoCondicionesBloqueaContinuidad = Boolean(bloqueado);
+
+        if (diagnosticoCondicionesPagoBloqueo) {
+            if (diagnosticoCondicionesBloqueaContinuidad) {
+                show(diagnosticoCondicionesPagoBloqueo);
+            } else {
+                diagnosticoCondicionesPagoBloqueo.textContent = '';
+                hide(diagnosticoCondicionesPagoBloqueo);
+            }
+        }
+
+        if (!btnConfirmarVenta) return;
+
+        btnConfirmarVenta.disabled = diagnosticoCondicionesBloqueaContinuidad;
+        btnConfirmarVenta.setAttribute('aria-disabled', diagnosticoCondicionesBloqueaContinuidad ? 'true' : 'false');
+
+        if (diagnosticoCondicionesBloqueaContinuidad) {
+            btnConfirmarVenta.classList.add('cursor-not-allowed', 'opacity-60');
+            btnConfirmarVenta.classList.remove('hover:bg-slate-100');
+            if (diagnosticoCondicionesPagoBloqueo?.id) {
+                btnConfirmarVenta.setAttribute('aria-describedby', diagnosticoCondicionesPagoBloqueo.id);
+            }
+            return;
+        }
+
+        btnConfirmarVenta.classList.remove('cursor-not-allowed', 'opacity-60');
+        btnConfirmarVenta.classList.add('hover:bg-slate-100');
+        btnConfirmarVenta.removeAttribute('aria-describedby');
+    }
+
+    function obtenerMensajeBloqueoCondicionesPago(resultado) {
+        const bloqueos = getProp(resultado, 'bloqueos', 'Bloqueos') || [];
+        const primero = bloqueos[0];
+        const motivo = primero ? (getProp(primero, 'motivo', 'Motivo') || '').trim() : '';
+        const productoId = primero ? getProp(primero, 'productoId', 'ProductoId') : null;
+        const producto = productoId ? textoProductoDiagnostico(productoId) : null;
+
+        if (motivo && producto) {
+            return `No se puede confirmar con el medio seleccionado. ${producto}: ${motivo}`;
+        }
+
+        if (motivo) {
+            return `No se puede confirmar con el medio seleccionado. ${motivo}`;
+        }
+
+        return 'No se puede confirmar con el medio de pago seleccionado. Cambia el medio de pago para continuar.';
+    }
+
+    function normalizarLimiteCuotas(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 1) return null;
+        return Math.floor(numeric);
+    }
+
+    function getTarjetaInfoSeleccionada() {
+        const tarjetaId = parseInt(selectTarjeta?.value);
+        if (!tarjetaId) return null;
+        return tarjetaInfoCache.find(t => Number(t.id ?? t.Id) === tarjetaId) || null;
+    }
+
+    function getTipoCuotaTarjeta(info) {
+        const tipoCuota = getProp(info, 'tipoCuota', 'TipoCuota');
+        const numeric = Number(tipoCuota);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function getCantidadMaximaCuotasTarjeta(info) {
+        return normalizarLimiteCuotas(getProp(info, 'cantidadMaximaCuotas', 'CantidadMaximaCuotas')) || 12;
+    }
+
+    function obtenerLimiteDiagnosticoCuotas(resultado) {
+        const maxSinInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasSinInteres', 'MaxCuotasSinInteres'));
+        const maxConInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasConInteres', 'MaxCuotasConInteres'));
+        const maxCredito = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasCredito', 'MaxCuotasCredito'));
+
+        if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {
+            return maxCredito;
+        }
+
+        if (!esTipoPagoTarjeta(selectTipoPago?.value)) {
+            return null;
+        }
+
+        const info = getTarjetaInfoSeleccionada();
+        const tipoCuota = getTipoCuotaTarjeta(info);
+
+        if (tipoCuota === TIPO_CUOTA_TARJETA.SinInteres) {
+            return maxSinInteres;
+        }
+
+        if (tipoCuota === TIPO_CUOTA_TARJETA.ConInteres) {
+            return maxConInteres;
+        }
+
+        return maxConInteres ?? maxSinInteres;
+    }
+
+    function repoblarCuotasTarjeta(info) {
+        if (!selectCuotasTarjeta) return;
+
+        while (selectCuotasTarjeta.options.length) selectCuotasTarjeta.remove(0);
+
+        if (info && getProp(info, 'permiteCuotas', 'PermiteCuotas')) {
+            const maxCuotas = getCantidadMaximaCuotasTarjeta(info);
+            for (let i = 1; i <= maxCuotas; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i === 1 ? '1 Pago' : `${i} Cuotas`;
+                selectCuotasTarjeta.appendChild(opt);
+            }
+            return;
+        }
+
+        const opt = document.createElement('option');
+        opt.value = '1';
+        opt.textContent = '1 Pago';
+        selectCuotasTarjeta.appendChild(opt);
+    }
+
+    function aplicarLimiteCuotasTarjeta() {
+        if (!selectCuotasTarjeta || !esTipoPagoTarjeta(selectTipoPago?.value)) {
+            if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
+            return;
+        }
+
+        const info = getTarjetaInfoSeleccionada();
+        if (!info) {
+            if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
+            return;
+        }
+
+        const selectedBefore = parseInt(selectCuotasTarjeta.value) || 1;
+        repoblarCuotasTarjeta(info);
+
+        const limites = [limiteCuotasExistente, limiteCuotasDiagnostico]
+            .map(normalizarLimiteCuotas)
+            .filter(v => v != null);
+        const limiteEfectivo = limites.length > 0 ? Math.min(...limites) : null;
+
+        if (limiteEfectivo != null) {
+            for (let i = selectCuotasTarjeta.options.length - 1; i >= 0; i--) {
+                if (parseInt(selectCuotasTarjeta.options[i].value) > limiteEfectivo) {
+                    selectCuotasTarjeta.remove(i);
+                }
+            }
+        }
+
+        const maxDisponible = Array.from(selectCuotasTarjeta.options)
+            .map(opt => parseInt(opt.value))
+            .filter(Number.isFinite)
+            .reduce((max, value) => Math.max(max, value), 1);
+        selectCuotasTarjeta.value = String(Math.min(selectedBefore, maxDisponible));
+
+        const mostrarAviso = cuotasLimitadasPorReglaExistente || cuotasLimitadasPorDiagnostico;
+        if (panelAvisoCuotasSinInteres) {
+            mostrarAviso ? show(panelAvisoCuotasSinInteres) : hide(panelAvisoCuotasSinInteres);
+        }
+    }
+
+    function limpiarDetalleDiagnosticoCondicionesPago() {
+        if (!diagnosticoCondicionesPagoDetalle) return;
+        diagnosticoCondicionesPagoDetalle.replaceChildren();
+        hide(diagnosticoCondicionesPagoDetalle);
+    }
+
+    function textoProductoDiagnostico(productoId) {
+        const detalle = detalles.find(d => Number(d.productoId) === Number(productoId));
+        return detalle ? `${detalle.codigo} - ${detalle.nombre}` : `Producto #${productoId}`;
+    }
+
+    function getProp(obj, camel, pascal) {
+        return obj?.[camel] ?? obj?.[pascal];
+    }
+
+    function crearBloqueDiagnostico(titulo, items, mapper) {
+        if (!items || items.length === 0) return null;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'rounded-lg border border-slate-700/70 bg-slate-900/40 p-3';
+        const heading = document.createElement('p');
+        heading.className = 'mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400';
+        heading.textContent = titulo;
+        const list = document.createElement('ul');
+        list.className = 'space-y-1 text-slate-300';
+
+        items.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'flex items-start gap-2';
+            const bullet = document.createElement('span');
+            bullet.className = 'mt-1.5 size-1.5 shrink-0 rounded-full bg-current opacity-70';
+            const text = document.createElement('span');
+            text.textContent = mapper(item);
+            li.append(bullet, text);
+            list.appendChild(li);
+        });
+
+        wrapper.append(heading, list);
+        return wrapper;
+    }
+
+    function renderDiagnosticoCondicionesPago(resultado) {
+        const permitido = Boolean(getProp(resultado, 'permitido', 'Permitido'));
+        const productoIdsBloqueantes = getProp(resultado, 'productoIdsBloqueantes', 'ProductoIdsBloqueantes') || [];
+        const productoIdsRestrictivos = getProp(resultado, 'productoIdsRestrictivos', 'ProductoIdsRestrictivos') || [];
+        const bloqueos = getProp(resultado, 'bloqueos', 'Bloqueos') || [];
+        const restricciones = getProp(resultado, 'restricciones', 'Restricciones') || [];
+        const ajustes = getProp(resultado, 'ajustesInformativos', 'AjustesInformativos') || [];
+        const maxSinInteres = getProp(resultado, 'maxCuotasSinInteres', 'MaxCuotasSinInteres');
+        const maxConInteres = getProp(resultado, 'maxCuotasConInteres', 'MaxCuotasConInteres');
+        const maxCredito = getProp(resultado, 'maxCuotasCredito', 'MaxCuotasCredito');
+        const mensajeBloqueo = obtenerMensajeBloqueoCondicionesPago(resultado);
+
+        setDiagnosticoCondicionesPagoEstado(
+            permitido ? 'ok' : 'blocked',
+            permitido ? 'Permitido' : 'Bloqueado',
+            permitido
+                ? 'El carrito no informa bloqueos para el medio de pago seleccionado. La venta sigue sin cambios productivos.'
+                : mensajeBloqueo,
+            permitido ? 'check_circle' : 'block'
+        );
+        if (!permitido && diagnosticoCondicionesPagoBloqueo) {
+            diagnosticoCondicionesPagoBloqueo.textContent = mensajeBloqueo;
+        }
+        actualizarBloqueoContinuidadCondicionesPago(!permitido);
+        limiteCuotasDiagnostico = obtenerLimiteDiagnosticoCuotas(resultado);
+        cuotasLimitadasPorDiagnostico = limiteCuotasDiagnostico != null;
+        aplicarLimiteCuotasTarjeta();
+
+        if (!diagnosticoCondicionesPagoDetalle) return;
+        diagnosticoCondicionesPagoDetalle.replaceChildren();
+
+        const maximos = [];
+        if (maxSinInteres != null) maximos.push(`Cuotas sin interes: hasta ${maxSinInteres}`);
+        if (maxConInteres != null) maximos.push(`Cuotas con interes: hasta ${maxConInteres}`);
+        if (maxCredito != null) maximos.push(`Credito personal: hasta ${maxCredito}`);
+
+        const bloques = [
+            crearBloqueDiagnostico('Productos bloqueantes', productoIdsBloqueantes, textoProductoDiagnostico),
+            crearBloqueDiagnostico('Productos restrictivos', productoIdsRestrictivos, textoProductoDiagnostico),
+            crearBloqueDiagnostico('Bloqueos detallados', bloqueos, b => {
+                const productoId = getProp(b, 'productoId', 'ProductoId');
+                const motivo = getProp(b, 'motivo', 'Motivo') || 'Condicion bloqueante configurada.';
+                return `${textoProductoDiagnostico(productoId)}: ${motivo}`;
+            }),
+            crearBloqueDiagnostico('Maximos efectivos informativos', maximos, x => x),
+            crearBloqueDiagnostico('Restricciones detalladas', restricciones, r => {
+                const productoId = getProp(r, 'productoId', 'ProductoId');
+                const valor = getProp(r, 'valor', 'Valor');
+                const tipo = getProp(r, 'tipoRestriccion', 'TipoRestriccion');
+                return `${textoProductoDiagnostico(productoId)}: ${tipo} = ${valor}`;
+            }),
+            crearBloqueDiagnostico('Ajustes configurados informativos', ajustes, a => {
+                const productoId = getProp(a, 'productoId', 'ProductoId');
+                const recargo = getProp(a, 'porcentajeRecargo', 'PorcentajeRecargo');
+                const descuento = getProp(a, 'porcentajeDescuentoMaximo', 'PorcentajeDescuentoMaximo');
+                const partes = [];
+                if (recargo != null) partes.push(`recargo ${formatPercent(recargo)}%`);
+                if (descuento != null) partes.push(`descuento maximo ${formatPercent(descuento)}%`);
+                return `${textoProductoDiagnostico(productoId)}: ${partes.join(' / ') || 'ajuste configurado'} (no aplicado al total)`;
+            })
+        ].filter(Boolean);
+
+        if (bloques.length === 0) {
+            limpiarDetalleDiagnosticoCondicionesPago();
+            return;
+        }
+
+        bloques.forEach(b => diagnosticoCondicionesPagoDetalle.appendChild(b));
+        show(diagnosticoCondicionesPagoDetalle);
+    }
+
+    function obtenerTipoTarjetaDiagnostico() {
+        const value = hdnTarjetaTipo?.value;
+        if (value === '' || value == null) return null;
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    async function diagnosticarCondicionesPagoCarrito() {
+        if (!panelDiagnosticoCondicionesPago) return;
+
+        if (detalles.length === 0 || !selectTipoPago?.value) {
+            actualizarBloqueoContinuidadCondicionesPago(false);
+            limiteCuotasDiagnostico = null;
+            cuotasLimitadasPorDiagnostico = false;
+            aplicarLimiteCuotasTarjeta();
+            setDiagnosticoCondicionesPagoEstado(
+                'empty',
+                'Sin carrito',
+                'Agrega productos para consultar reglas configuradas del medio de pago seleccionado.',
+                'rule'
+            );
+            limpiarDetalleDiagnosticoCondicionesPago();
+            return;
+        }
+
+        const seq = ++diagnosticoCondicionesRequestSeq;
+        const tarjetaId = esTipoPagoTarjeta(selectTipoPago.value)
+            ? (parseInt(selectTarjeta?.value) || null)
+            : null;
+        const tipoTarjeta = esTipoPagoTarjeta(selectTipoPago.value)
+            ? obtenerTipoTarjetaDiagnostico()
+            : null;
+        const body = {
+            productoIds: detalles.map(d => d.productoId),
+            tipoPago: Number(selectTipoPago.value),
+            configuracionTarjetaId: tarjetaId,
+            tipoTarjeta: tipoTarjeta,
+            totalReferencia: parseFloat(hdnTotal?.value) || null
+        };
+
+        try {
+            const resultado = await postJson('/api/ventas/DiagnosticarCondicionesPagoCarrito', body);
+            if (seq !== diagnosticoCondicionesRequestSeq) return;
+            renderDiagnosticoCondicionesPago(resultado);
+        } catch {
+            if (seq !== diagnosticoCondicionesRequestSeq) return;
+            actualizarBloqueoContinuidadCondicionesPago(false);
+            limiteCuotasDiagnostico = null;
+            cuotasLimitadasPorDiagnostico = false;
+            aplicarLimiteCuotasTarjeta();
+            setDiagnosticoCondicionesPagoEstado(
+                'error',
+                'No disponible',
+                'No se pudo consultar el diagnostico. El calculo normal y la carga de la venta continuan sin cambios.',
+                'info'
+            );
+            limpiarDetalleDiagnosticoCondicionesPago();
+        }
     }
 
     btnCerrarBannerErrores?.addEventListener('click', function () {
@@ -456,6 +858,8 @@
             tbodyDetalles.innerHTML = '';
             show(detallesVacio);
             detallesHiddenInputs.innerHTML = '';
+            actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
+            programarDiagnosticoCondicionesPago();
             return;
         }
 
@@ -488,6 +892,7 @@
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
         updateDetallesScrollAffordance();
+        programarDiagnosticoCondicionesPago();
     }
 
     // Delete detail row
@@ -505,6 +910,7 @@
     async function recalcularTotales() {
         if (detalles.length === 0) {
             actualizarTotalesUI(0, 0, 0, 0);
+            programarDiagnosticoCondicionesPago();
             return;
         }
 
@@ -533,29 +939,13 @@
 
         // Update credit availability notice
         actualizarAvisoCredito();
+        programarDiagnosticoCondicionesPago();
     }
 
     function aplicarLimiteCuotasSinInteres(maxEfectivo, limitadoPorProducto) {
-        if (maxEfectivo == null) {
-            if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
-            return;
-        }
-
-        if (selectCuotasTarjeta) {
-            for (let i = selectCuotasTarjeta.options.length - 1; i >= 0; i--) {
-                if (parseInt(selectCuotasTarjeta.options[i].value) > maxEfectivo) {
-                    selectCuotasTarjeta.remove(i);
-                }
-            }
-            if (parseInt(selectCuotasTarjeta.value) > maxEfectivo) {
-                selectCuotasTarjeta.value = maxEfectivo;
-                calcularCuotasTarjeta();
-            }
-        }
-
-        if (panelAvisoCuotasSinInteres) {
-            limitadoPorProducto ? show(panelAvisoCuotasSinInteres) : hide(panelAvisoCuotasSinInteres);
-        }
+        limiteCuotasExistente = normalizarLimiteCuotas(maxEfectivo);
+        cuotasLimitadasPorReglaExistente = Boolean(limitadoPorProducto && limiteCuotasExistente != null);
+        aplicarLimiteCuotasTarjeta();
     }
 
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
@@ -623,7 +1013,11 @@
             limpiarDatosTarjetaSeleccionada();
         }
 
+        limiteCuotasDiagnostico = null;
+        cuotasLimitadasPorDiagnostico = false;
+        aplicarLimiteCuotasTarjeta();
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
+        programarDiagnosticoCondicionesPago();
     }
 
     // ── 7. Card Payment ───────────────────────────────────────────────
@@ -668,7 +1062,12 @@
         if (!tarjetaId) {
             limpiarDatosTarjetaSeleccionada();
             hide(panelTarjetaResumen);
+            limiteCuotasExistente = null;
+            limiteCuotasDiagnostico = null;
+            cuotasLimitadasPorReglaExistente = false;
+            cuotasLimitadasPorDiagnostico = false;
             if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
+            programarDiagnosticoCondicionesPago();
             return;
         }
 
@@ -678,25 +1077,14 @@
             info = poblarDatosTarjetaSeleccionada();
         }
 
-        while (selectCuotasTarjeta.options.length) selectCuotasTarjeta.remove(0);
-        if (info && info.permiteCuotas) {
-            const maxCuotas = info.cantidadMaximaCuotas || 12;
-            for (let i = 1; i <= maxCuotas; i++) {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = i === 1 ? '1 Pago' : `${i} Cuotas`;
-                selectCuotasTarjeta.appendChild(opt);
-            }
-        } else {
-            const opt = document.createElement('option');
-            opt.value = '1';
-            opt.textContent = '1 Pago';
-            selectCuotasTarjeta.appendChild(opt);
-        }
+        limiteCuotasDiagnostico = null;
+        cuotasLimitadasPorDiagnostico = false;
+        repoblarCuotasTarjeta(info);
 
-        // Refresh totals with the new tarjetaId so the effective cuotas limit is applied
+        // Refresh totals with the new tarjetaId so informational cuotas data stays current.
         await recalcularTotales();
         calcularCuotasTarjeta();
+        programarDiagnosticoCondicionesPago();
     });
 
     selectCuotasTarjeta?.addEventListener('change', calcularCuotasTarjeta);
@@ -1151,6 +1539,13 @@
     const ventaForm = document.getElementById('venta-form');
     if (ventaForm) {
         ventaForm.addEventListener('submit', async function (e) {
+            if (diagnosticoCondicionesBloqueaContinuidad) {
+                e.preventDefault();
+                showFeedback('No se puede confirmar con el medio de pago seleccionado. Cambia el medio de pago para continuar.', 'error');
+                panelDiagnosticoCondicionesPago?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
             if (!reintentandoSubmitConDatosTarjeta &&
                 esTipoPagoTarjeta(selectTipoPago?.value) &&
                 parseInt(selectTarjeta?.value) &&

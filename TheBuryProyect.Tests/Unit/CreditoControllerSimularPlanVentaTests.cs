@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
 using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
@@ -52,6 +54,39 @@ public class CreditoControllerSimularPlanVentaTests
         Assert.NotNull(value.GetType().GetProperty("semaforoMensaje"));
         Assert.NotNull(value.GetType().GetProperty("mostrarMsgIngreso"));
         Assert.NotNull(value.GetType().GetProperty("mostrarMsgAntiguedad"));
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_SinTasaRequestYSinConfiguracionGlobal_RetornaBadRequest()
+    {
+        var controller = new CreditoController(
+            creditoService: null!,
+            evaluacionService: null!,
+            financialService: new RecordingFinancialCalculationService(),
+            configuracionPagoService: new TasaCreditoPersonalConfigService(null),
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 10,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-01-01",
+            tasaMensual: null);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.NotNull(badRequest.Value);
+        var value = badRequest.Value!;
+        var error = value.GetType().GetProperty("error")?.GetValue(value)?.ToString();
+        Assert.Contains("tasa de inter", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Cr", error);
     }
 
     private sealed class RecordingFinancialCalculationService : IFinancialCalculationService
@@ -125,5 +160,40 @@ public class CreditoControllerSimularPlanVentaTests
         public Task<decimal> GetCreditoUtilizadoAsync(int clienteId) => throw new NotImplementedException();
         public Task<ScoringThresholdsViewModel> GetScoringThresholdsAsync() => throw new NotImplementedException();
         public Task UpdateScoringThresholdsAsync(ScoringThresholdsViewModel model) => throw new NotImplementedException();
+    }
+
+    private sealed class TasaCreditoPersonalConfigService : IConfiguracionPagoService
+    {
+        private readonly decimal? _tasa;
+
+        public TasaCreditoPersonalConfigService(decimal? tasa)
+        {
+            _tasa = tasa;
+        }
+
+        public Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync() => Task.FromResult(_tasa);
+        public Task<List<ConfiguracionPagoViewModel>> GetAllAsync() => throw new NotImplementedException();
+        public Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
+        public Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago) => throw new NotImplementedException();
+        public Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel) => throw new NotImplementedException();
+        public Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel) => throw new NotImplementedException();
+        public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
+        public Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones) => throw new NotImplementedException();
+        public Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync() => throw new NotImplementedException();
+        public Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync() => throw new NotImplementedException();
+        public Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id) => throw new NotImplementedException();
+        public Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento) => throw new NotImplementedException();
+        public Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto) => throw new NotImplementedException();
+        public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync() => throw new NotImplementedException();
+        public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync() => throw new NotImplementedException();
+        public Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config) => throw new NotImplementedException();
+        public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) => throw new NotImplementedException();
+        public Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(
+            MetodoCalculoCredito metodo,
+            int? perfilId,
+            int? clienteId) => throw new NotImplementedException();
+        public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
+            int tarjetaId,
+            IEnumerable<int> productoIds) => throw new NotImplementedException();
     }
 }

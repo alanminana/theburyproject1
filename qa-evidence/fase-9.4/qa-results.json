@@ -1,0 +1,76 @@
+{
+  "login": {
+    "url": "http://localhost:5187/Dashboard",
+    "text": "\n\n    \n\n        \n        \n\n            \n            \n                \n                    \n                \n                \n                    TheBuryProject\n                    SISTEMA GESTIÓN\n                \n            \n\n            \n            \n\n                    \n                        \n                            Operaciones\n                            \n                                    \n                                        shopping_bag\n                                        V"
+  },
+  "blocked": {
+    "url": "http://localhost:5187/Venta/Details/1023",
+    "title": "Venta QA94-0506223832-BLOC - TheBuryProject",
+    "h1": "TheBuryProject",
+    "cuotasValue": null,
+    "cuotasMin": null,
+    "cuotasMax": null,
+    "rangoInfo": null,
+    "validation": "No se puede configurar crédito personal: QA-94 Credito bloqueado 0506223832 bloquea el medio de pago.",
+    "textSample": "TheBuryProject\n\nSISTEMA GESTIÓN\n\nOPERACIONES\n\nshopping_bag\n\nVentas\n\ngroup\n\nClientes\n\nLOGÍSTICA\n\ninventory_2\n\nInventario\n\nlocal_shipping\n\nProveedores\n\npoint_of_sale\n\nCajas\n\nREPORTES\n\nleaderboard\n\nReportes\n\nSISTEMAS\n\nsecurity\n\nSeguridad\n\nbug_report\n\nTickets\n\ncontract\n\nPlantillas contrato\n\naccount_circle\n\nadmin\n\nSuperAdmin\n\nlogout\nCerrar sesión\nnotifications\nsearch\nassignment\nhelp\nerror\nNo se puede configurar crédito personal: QA-94 Credito bloqueado 0506223832 bloquea el medio de pago.\nVentas\n/\nQA94-0506223832-BLOC\nQA94-0506223832-BLOC\nPENDIENTE FINANCIACIÓN\n\nVerificá el detalle, configurá la financiación y resolvé pendientes operativos antes de cerrar la venta.\n\npayments\nCrédito Personal\nschedule\n07/05/2026 01:38\nVolver a Ventas\nprint\nImprimir\n\nCLIENTE\n\ncosme, fulanito - DNI: 32543423\n\n32543423\n\nDETALLE\n\n1 ítem\n\n1 unidad registrada\n\nTOTAL\n\n$ 1.000,00\n\nIncluye IVA y descuentos aplicados a la venta.\n\nFACTURACIÓN\n\nSin factura emitida\n\nSe habilita cuando la venta está lista para facturar.\n\nreceipt_long\n\nRESUMEN\n\nInformación de la venta\n\nDatos principales de la operación, del cliente y de la forma de cobro elegida.\n\naccount_balance\nCRÉDITO PERSONAL\n\nCLIENTE\n\ncosme, fulanito - DNI: 32543423\n\n32543423\n\nFORMA DE PAGO\n\naccount_balance\n\nCrédito Personal\n\nVENDEDOR\n\nQA-94 Admin\n\nFECHA\n\n07/05/2026\n\n01:38 hs\n\nOBSERVACIONES\n\nQA-94 BLOCK\n\ninventory_2\nDetalle de productos\n\nRevisá cantidades, descuentos y subtotales completos antes de imprimir o facturar.\n\nshopping_bag\n1 ÍTEM\nPRODUCTO\tCANT.\tPRE"
+  },
+  "max12": {
+    "url": "http://localhost:5187/Credito/ConfigurarVenta/16?ventaId=1024",
+    "title": "Solicitud de Crédito Personal - TheBuryProject",
+    "h1": "TheBuryProject",
+    "cuotasValue": "12",
+    "cuotasMin": "1",
+    "cuotasMax": "12",
+    "rangoInfo": "Rango permitido: 1 a 12 cuotas. Límite por producto: hasta 12 cuotas.",
+    "validation": "Rango permitido: 1 a 12 cuotas. Límite por producto: hasta 12 cuotas.",
+    "textSample": "TheBuryProject\n\nSISTEMA GESTIÓN\n\nOPERACIONES\n\nshopping_bag\n\nVentas\n\ngroup\n\nClientes\n\nLOGÍSTICA\n\ninventory_2\n\nInventario\n\nlocal_shipping\n\nProveedores\n\npoint_of_sale\n\nCajas\n\nREPORTES\n\nleaderboard\n\nReportes\n\nSISTEMAS\n\nsecurity\n\nSeguridad\n\nbug_report\n\nTickets\n\ncontract\n\nPlantillas contrato\n\naccount_circle\n\nadmin\n\nSuperAdmin\n\nlogout\nCerrar sesión\nchevron_left\nSolicitud de Crédito Personal\nDOLAR BLUE\n$1.245,00\nTARJETA\n$1.482,50\nOFICIAL\n$942,00\nnotifications\nsearch\nassignment\nhelp\nInicio\n/\nCréditos\n/\nVenta\n/\nConfigurar crédito\ntune\nCRÉDITO PERSONAL\nConfigurar solicitud de crédito\n\nDefiní anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de fulanito sin salir del flujo operativo de venta.\n\nperson\nfulanito\nreceipt_long\nCRE-QA94-0506223832-MAX1\nshopping_cart\nVenta #1024\nmanage_accounts\nEditar cliente\nsettings\nGlobal y perfiles\narrow_back\nVolver\n\nVENTA TOTAL\n\n$ 1.200,00\n\nimporte base a financiar\n\nFINANCIADO\n\n$ 1.200,00\n\nventa menos anticipo\n\nCUOTAS\n\n12\n\nplan configurado\n\nMÉTODO\n\nAutomático\n\norigen de configuración\n\nshopping_cart\nDatos de la Venta\nCliente\nNúmero de Crédito\nMonto Total de Venta\n$\nAnticipo\n$\nMonto Financiado\n$ 1.200,00\nsettings_applications\nCondiciones del Crédito\nMétodo de Cálculo\nSeleccione método...\n🤖 Automático (Por Cliente)\n📋 Usar Perfil\n👤 Usar Cliente\n🌍 Global (Sistema)\n✏️ Manual\n\ninfo\nUsa la mejor configuración disponible del cliente, perfil preferido o sistema.\n\nCantidad de Cuotas\n\nRango permitido: 1 a 12 cuotas. Límite por producto: hasta 1"
+  },
+  "max36": {
+    "url": "http://localhost:5187/Credito/ConfigurarVenta/17?ventaId=1025",
+    "title": "Solicitud de Crédito Personal - TheBuryProject",
+    "h1": "TheBuryProject",
+    "cuotasValue": "12",
+    "cuotasMin": "1",
+    "cuotasMax": "24",
+    "rangoInfo": "Rango permitido: 1 a 24 cuotas.",
+    "validation": "Rango permitido: 1 a 24 cuotas.",
+    "textSample": "TheBuryProject\n\nSISTEMA GESTIÓN\n\nOPERACIONES\n\nshopping_bag\n\nVentas\n\ngroup\n\nClientes\n\nLOGÍSTICA\n\ninventory_2\n\nInventario\n\nlocal_shipping\n\nProveedores\n\npoint_of_sale\n\nCajas\n\nREPORTES\n\nleaderboard\n\nReportes\n\nSISTEMAS\n\nsecurity\n\nSeguridad\n\nbug_report\n\nTickets\n\ncontract\n\nPlantillas contrato\n\naccount_circle\n\nadmin\n\nSuperAdmin\n\nlogout\nCerrar sesión\nchevron_left\nSolicitud de Crédito Personal\nDOLAR BLUE\n$1.245,00\nTARJETA\n$1.482,50\nOFICIAL\n$942,00\nnotifications\nsearch\nassignment\nhelp\nInicio\n/\nCréditos\n/\nVenta\n/\nConfigurar crédito\ntune\nCRÉDITO PERSONAL\nConfigurar solicitud de crédito\n\nDefiní anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de fulanito sin salir del flujo operativo de venta.\n\nperson\nfulanito\nreceipt_long\nCRE-QA94-0506223832-MAX3\nshopping_cart\nVenta #1025\nmanage_accounts\nEditar cliente\nsettings\nGlobal y perfiles\narrow_back\nVolver\n\nVENTA TOTAL\n\n$ 1.400,00\n\nimporte base a financiar\n\nFINANCIADO\n\n$ 1.400,00\n\nventa menos anticipo\n\nCUOTAS\n\n12\n\nplan configurado\n\nMÉTODO\n\nAutomático\n\norigen de configuración\n\nshopping_cart\nDatos de la Venta\nCliente\nNúmero de Crédito\nMonto Total de Venta\n$\nAnticipo\n$\nMonto Financiado\n$ 1.400,00\nsettings_applications\nCondiciones del Crédito\nMétodo de Cálculo\nSeleccione método...\n🤖 Automático (Por Cliente)\n📋 Usar Perfil\n👤 Usar Cliente\n🌍 Global (Sistema)\n✏️ Manual\n\ninfo\nUsa la mejor configuración disponible del cliente, perfil preferido o sistema.\n\nCantidad de Cuotas\n\nRango permitido: 1 a 24 cuotas.\n\nTasa Mensual Aplicada\nAUTO\n"
+  },
+  "multi": {
+    "url": "http://localhost:5187/Credito/ConfigurarVenta/18?ventaId=1026",
+    "title": "Solicitud de Crédito Personal - TheBuryProject",
+    "h1": "TheBuryProject",
+    "cuotasValue": "9",
+    "cuotasMin": "1",
+    "cuotasMax": "9",
+    "rangoInfo": "Rango permitido: 1 a 9 cuotas. Límite por producto: hasta 9 cuotas.",
+    "validation": "Rango permitido: 1 a 9 cuotas. Límite por producto: hasta 9 cuotas.",
+    "textSample": "TheBuryProject\n\nSISTEMA GESTIÓN\n\nOPERACIONES\n\nshopping_bag\n\nVentas\n\ngroup\n\nClientes\n\nLOGÍSTICA\n\ninventory_2\n\nInventario\n\nlocal_shipping\n\nProveedores\n\npoint_of_sale\n\nCajas\n\nREPORTES\n\nleaderboard\n\nReportes\n\nSISTEMAS\n\nsecurity\n\nSeguridad\n\nbug_report\n\nTickets\n\ncontract\n\nPlantillas contrato\n\naccount_circle\n\nadmin\n\nSuperAdmin\n\nlogout\nCerrar sesión\nchevron_left\nSolicitud de Crédito Personal\nDOLAR BLUE\n$1.245,00\nTARJETA\n$1.482,50\nOFICIAL\n$942,00\nnotifications\nsearch\nassignment\nhelp\nInicio\n/\nCréditos\n/\nVenta\n/\nConfigurar crédito\ntune\nCRÉDITO PERSONAL\nConfigurar solicitud de crédito\n\nDefiní anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de fulanito sin salir del flujo operativo de venta.\n\nperson\nfulanito\nreceipt_long\nCRE-QA94-0506223832-MULT\nshopping_cart\nVenta #1026\nmanage_accounts\nEditar cliente\nsettings\nGlobal y perfiles\narrow_back\nVolver\n\nVENTA TOTAL\n\n$ 2.000,00\n\nimporte base a financiar\n\nFINANCIADO\n\n$ 2.000,00\n\nventa menos anticipo\n\nCUOTAS\n\n9\n\nplan configurado\n\nMÉTODO\n\nAutomático\n\norigen de configuración\n\nshopping_cart\nDatos de la Venta\nCliente\nNúmero de Crédito\nMonto Total de Venta\n$\nAnticipo\n$\nMonto Financiado\n$ 2.000,00\nsettings_applications\nCondiciones del Crédito\nMétodo de Cálculo\nSeleccione método...\n🤖 Automático (Por Cliente)\n📋 Usar Perfil\n👤 Usar Cliente\n🌍 Global (Sistema)\n✏️ Manual\n\ninfo\nUsa la mejor configuración disponible del cliente, perfil preferido o sistema.\n\nCantidad de Cuotas\n\nRango permitido: 1 a 9 cuotas. Límite por producto: hasta 9 c"
+  },
+  "manualRestricted": {
+    "url": "http://localhost:5187/Credito/ConfigurarVenta/16?ventaId=1024",
+    "title": "Solicitud de Crédito Personal - TheBuryProject",
+    "h1": "TheBuryProject",
+    "cuotasValue": "12",
+    "cuotasMin": "1",
+    "cuotasMax": "12",
+    "rangoInfo": "Rango permitido: 1 a 12 cuotas. Límite por producto: hasta 12 cuotas.",
+    "validation": "Rango permitido: 1 a 12 cuotas. Límite por producto: hasta 12 cuotas.",
+    "textSample": "TheBuryProject\n\nSISTEMA GESTIÓN\n\nOPERACIONES\n\nshopping_bag\n\nVentas\n\ngroup\n\nClientes\n\nLOGÍSTICA\n\ninventory_2\n\nInventario\n\nlocal_shipping\n\nProveedores\n\npoint_of_sale\n\nCajas\n\nREPORTES\n\nleaderboard\n\nReportes\n\nSISTEMAS\n\nsecurity\n\nSeguridad\n\nbug_report\n\nTickets\n\ncontract\n\nPlantillas contrato\n\naccount_circle\n\nadmin\n\nSuperAdmin\n\nlogout\nCerrar sesión\nchevron_left\nSolicitud de Crédito Personal\nDOLAR BLUE\n$1.245,00\nTARJETA\n$1.482,50\nOFICIAL\n$942,00\nnotifications\nsearch\nassignment\nhelp\nInicio\n/\nCréditos\n/\nVenta\n/\nConfigurar crédito\ntune\nCRÉDITO PERSONAL\nConfigurar solicitud de crédito\n\nDefiní anticipo, cuotas, tasa y primera fecha de vencimiento para el crédito de fulanito sin salir del flujo operativo de venta.\n\nperson\nfulanito\nreceipt_long\nCRE-QA94-0506223832-MAX1\nshopping_cart\nVenta #1024\nmanage_accounts\nEditar cliente\nsettings\nGlobal y perfiles\narrow_back\nVolver\n\nVENTA TOTAL\n\n$ 1.200,00\n\nimporte base a financiar\n\nFINANCIADO\n\n$ 1.200,00\n\nventa menos anticipo\n\nCUOTAS\n\n12\n\nplan configurado\n\nMÉTODO\n\nManual\n\norigen de configuración\n\nshopping_cart\nDatos de la Venta\nCliente\nNúmero de Crédito\nMonto Total de Venta\n$\nAnticipo\n$\nMonto Financiado\n$ 1.200,00\nsettings_applications\nCondiciones del Crédito\nMétodo de Cálculo\nSeleccione método...\n🤖 Automático (Por Cliente)\n📋 Usar Perfil\n👤 Usar Cliente\n🌍 Global (Sistema)\n✏️ Manual\n\ninfo\nPermite edición libre de todos los campos.\n\nCantidad de Cuotas\n\nRango permitido: 1 a 12 cuotas. Límite por producto: hasta 12 cuotas.\n\nTasa Mensual Aplicada\nMANUAL\n"
+  },
+  "bypass": {
+    "status": 200,
+    "redirected": false,
+    "url": "http://localhost:5187/Credito/ConfigurarVenta/16",
+    "rejected": true,
+    "excerpt": "                            <!-- Cantidad de Cuotas -->"
+  },
+  "validConfig": {
+    "url": "http://localhost:5187/ContratoVentaCredito/Preparar?ventaId=1027",
+    "text": "\n\n    \n\n        \n        \n\n            \n            \n                \n                    \n                \n                \n                    TheBuryProject\n                    SISTEMA GESTIÓN\n                \n            \n\n            \n            \n\n                    \n                        \n                            Operaciones\n                            \n                                    \n                                        shopping_bag\n                                        Ventas\n                                    \n                                    \n                                        group\n                                        Clientes\n                                    \n                            \n                        \n\n                        \n                            \n                                Logística\n                                \n                                        \n                                            inventory_2\n                                            Inventario\n                                        \n                                        \n                                            local_shipping\n                                            Proveedores\n                                        \n                                        \n                                            point_of_sale\n                                            Cajas\n                                        \n                        "
+  },
+  "contract": {
+    "url": "http://localhost:5187/ContratoVentaCredito/Preparar?ventaId=1027",
+    "text": "\n\n    \n\n        \n        \n\n            \n            \n                \n                    \n                \n                \n                    TheBuryProject\n                    SISTEMA GESTIÓN\n                \n            \n\n            \n            \n\n                    \n                        \n                            Operaciones\n                            \n                                    \n                                        shopping_bag\n                                        Ventas\n                                    \n                                    \n                                        group\n                                        Clientes\n                                    \n                            \n                        \n\n                        \n                            \n                                Logística\n                                \n                                        \n                                            inventory_2\n                                            Inventario\n                                        \n                                        \n                                            local_shipping\n                                            Proveedores\n                                        \n                                        \n                                            point_of_sale\n                                            Cajas\n                                        \n                        "
+  }
+}

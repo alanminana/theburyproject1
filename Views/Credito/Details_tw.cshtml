@@ -347,6 +347,63 @@
                     <p class="text-sm text-slate-300 leading-relaxed">@cr.Observaciones</p>
                 </div>
             }
+
+            @* Trazabilidad de restricciones de cuotas — solo si hay datos persistidos (Fase 9.5b) *@
+            @if (cr.FuenteRestriccionCuotasSnap != null || cr.CuotasMaximasPermitidas.HasValue || cr.MaxCuotasBaseSnap.HasValue)
+            {
+                <div class="mt-5 pt-4 border-t border-slate-800" data-credito-restriccion-cuotas>
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-[16px] text-slate-400">tune</span>
+                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Restricciones de cuotas aplicadas</p>
+                        @if (cr.FuenteRestriccionCuotasSnap == "Producto")
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                                <span class="material-symbols-outlined text-[12px]">warning</span>
+                                Restringido por producto
+                            </span>
+                        }
+                        else if (cr.FuenteRestriccionCuotasSnap == "Global")
+                        {
+                            <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                                Sin restricción por producto
+                            </span>
+                        }
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
+                        @if (cr.MaxCuotasBaseSnap.HasValue)
+                        {
+                            <div>
+                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Máx. cuotas base</p>
+                                <p class="text-sm font-semibold text-slate-300 mt-0.5">@cr.MaxCuotasBaseSnap</p>
+                                <p class="text-[10px] text-slate-500">Sin restricción producto</p>
+                            </div>
+                        }
+                        @if (cr.CuotasMaximasPermitidas.HasValue)
+                        {
+                            <div>
+                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Máx. cuotas efectivo</p>
+                                <p class="text-sm font-semibold @(cr.FuenteRestriccionCuotasSnap == "Producto" ? "text-amber-400" : "text-white") mt-0.5">@cr.CuotasMaximasPermitidas</p>
+                                <p class="text-[10px] text-slate-500">Aplicado a la configuración</p>
+                            </div>
+                        }
+                        @if (cr.CuotasMinimasPermitidas.HasValue)
+                        {
+                            <div>
+                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Mín. cuotas</p>
+                                <p class="text-sm font-semibold text-slate-300 mt-0.5">@cr.CuotasMinimasPermitidas</p>
+                            </div>
+                        }
+                        @if (cr.ProductoIdRestrictivoSnap.HasValue && cr.FuenteRestriccionCuotasSnap == "Producto")
+                        {
+                            <div>
+                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Producto restrictivo (snapshot)</p>
+                                <p class="text-sm font-mono text-slate-300 mt-0.5">#@cr.ProductoIdRestrictivoSnap</p>
+                                <p class="text-[10px] text-slate-500">ID al momento de la venta</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
 
         <!-- Right Sidebar: Client + Garante + Cupo -->

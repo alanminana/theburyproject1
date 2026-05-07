@@ -7,6 +7,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.Services.Validators;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Requests;
@@ -34,6 +35,7 @@ namespace TheBuryProject.Services
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
 
         public VentaService(
             AppDbContext context,
@@ -50,7 +52,8 @@ namespace TheBuryProject.Services
             ICajaService cajaService,
             ICreditoDisponibleService creditoDisponibleService,
             IContratoVentaCreditoService contratoVentaCreditoService,
-            IConfiguracionPagoService configuracionPagoService)
+            IConfiguracionPagoService configuracionPagoService,
+            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
         {
             _context = context;
             _mapper = mapper;
@@ -67,6 +70,7 @@ namespace TheBuryProject.Services
             _creditoDisponibleService = creditoDisponibleService;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _configuracionPagoService = configuracionPagoService;
+            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver ?? new CondicionesPagoCarritoResolver(context);
         }
 
         #region Consultas
@@ -181,6 +185,8 @@ namespace TheBuryProject.Services
 
                 CalcularTotales(venta);
                 await CalcularComisionesAsync(venta);
+
+                await ValidarCondicionesPagoCarritoAsync(venta, viewModel.DatosTarjeta);
 
                 await CapturarSnapshotLimiteCreditoAsync(venta);
 
@@ -705,7 +711,7 @@ namespace TheBuryProject.Services
 
                 venta.AperturaCajaId = aperturaActiva.Id;
 
-                await ValidarYSnapshotearCuotasSinInteresAsync(venta);
+                await ValidarCondicionesPagoCarritoAsync(venta);
 
                 await DescontarStockYRegistrarMovimientos(venta);
 
@@ -843,6 +849,8 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(
                         "La tasa de interés de Crédito Personal no está configurada. " +
                         "Configure el valor en Administración → Tipos de Pago antes de confirmar la venta.");
+
+                await ValidarCuotasCreditoPersonalPorProductoAsync(venta, credito);
 
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);
@@ -1093,32 +1101,216 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task ValidarYSnapshotearCuotasSinInteresAsync(Venta venta)
+        private async Task ValidarCondicionesPagoCarritoAsync(Venta venta, DatosTarjetaViewModel? datosTarjetaViewModel = null)
         {
-            var datos = venta.DatosTarjeta;
-            if (datos?.TipoCuota != TipoCuotaTarjeta.SinInteres
-                || !datos.ConfiguracionTarjetaId.HasValue
-                || !datos.CantidadCuotas.HasValue)
+            var productoIds = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => d.ProductoId)
+                .Distinct()
+                .ToArray();
+
+            if (productoIds.Length == 0)
+            {
                 return;
+            }
+
+            var datosTarjeta = venta.DatosTarjeta;
+            var configuracionTarjetaId = datosTarjetaViewModel?.ConfiguracionTarjetaId
+                ?? datosTarjeta?.ConfiguracionTarjetaId;
+            var cantidadCuotas = datosTarjetaViewModel?.CantidadCuotas
+                ?? datosTarjeta?.CantidadCuotas;
+            var tipoCuota = datosTarjetaViewModel?.TipoCuota
+                ?? datosTarjeta?.TipoCuota;
+            var tipoTarjetaLegacy = datosTarjetaViewModel?.TipoTarjeta
+                ?? datosTarjeta?.TipoTarjeta;
+
+            ConfiguracionTarjeta? configuracionTarjeta = null;
+            if (configuracionTarjetaId.HasValue)
+            {
+                configuracionTarjeta = await _context.ConfiguracionesTarjeta
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == configuracionTarjetaId.Value && !t.IsDeleted);
+
+                if (configuracionTarjeta == null)
+                {
+                    throw new InvalidOperationException("Configuracion de tarjeta no encontrada");
+                }
+
+                if (!configuracionTarjeta.Activa)
+                {
+                    throw new InvalidOperationException("La tarjeta seleccionada no esta disponible");
+                }
+
+                tipoCuota ??= configuracionTarjeta.TipoCuota;
+                tipoTarjetaLegacy ??= configuracionTarjeta.TipoTarjeta;
+            }
+
+            var maxCuotasSinInteresGlobal = tipoCuota == TipoCuotaTarjeta.SinInteres
+                ? configuracionTarjeta?.CantidadMaximaCuotas
+                : null;
+            var maxCuotasConInteresGlobal = tipoCuota == TipoCuotaTarjeta.ConInteres
+                ? configuracionTarjeta?.CantidadMaximaCuotas
+                : null;
+
+            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
+                productoIds,
+                venta.TipoPago,
+                configuracionTarjetaId,
+                venta.Total,
+                maxCuotasSinInteresGlobal,
+                maxCuotasConInteresGlobal,
+                tipoTarjetaLegacy: tipoTarjetaLegacy);
+
+            if (!resultado.Permitido)
+            {
+                throw new CondicionesPagoVentaException(await CrearMensajeBloqueoCondicionesPagoAsync(resultado));
+            }
+
+            if (cantidadCuotas.HasValue && tipoCuota.HasValue)
+            {
+                var maximo = tipoCuota.Value switch
+                {
+                    TipoCuotaTarjeta.SinInteres => resultado.MaxCuotasSinInteres,
+                    TipoCuotaTarjeta.ConInteres => resultado.MaxCuotasConInteres,
+                    _ => null
+                };
+
+                if (maximo.HasValue && cantidadCuotas.Value > maximo.Value)
+                {
+                    throw new CondicionesPagoVentaException(
+                        await CrearMensajeCuotasExcedidasAsync(
+                            resultado,
+                            tipoCuota.Value,
+                            cantidadCuotas.Value,
+                            maximo.Value));
+                }
+            }
+
+            if (datosTarjeta is not null && tipoCuota == TipoCuotaTarjeta.SinInteres)
+            {
+                datosTarjeta.MaxCuotasSinInteresEfectivoAplicado =
+                    resultado.ProductoIdsRestrictivos.Count > 0
+                        ? resultado.MaxCuotasSinInteres
+                        : null;
+            }
+        }
+
+        private async Task ValidarCuotasCreditoPersonalPorProductoAsync(Venta venta, Credito credito)
+        {
+            if (venta.TipoPago != TipoPago.CreditoPersonal)
+            {
+                return;
+            }
 
             var productoIds = venta.Detalles
                 .Where(d => !d.IsDeleted)
-                .Select(d => d.ProductoId);
+                .Select(d => d.ProductoId)
+                .Distinct()
+                .ToArray();
 
-            var maxResult = await _configuracionPagoService.ObtenerMaxCuotasSinInteresEfectivoAsync(
-                datos.ConfiguracionTarjetaId.Value, productoIds);
-
-            if (maxResult == null)
+            if (productoIds.Length == 0)
+            {
                 return;
+            }
 
-            if (datos.CantidadCuotas.Value > maxResult.MaxCuotas)
-                throw new InvalidOperationException(
-                    $"Las cuotas seleccionadas ({datos.CantidadCuotas.Value}) superan el " +
-                    $"maximo permitido para esta tarjeta y los productos del carrito ({maxResult.MaxCuotas} cuotas sin interes).");
+            var metodo = credito.MetodoCalculoAplicado ?? MetodoCalculoCredito.Global;
+            var (minBase, maxBase, descripcionMetodo, _) =
+                await _configuracionPagoService.ResolverRangoCuotasAsync(
+                    metodo,
+                    credito.PerfilCreditoAplicadoId,
+                    venta.ClienteId);
 
-            datos.MaxCuotasSinInteresEfectivoAplicado = maxResult.LimitadoPorProducto
-                ? maxResult.MaxCuotas
-                : null;
+            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
+                productoIds,
+                TipoPago.CreditoPersonal,
+                totalReferencia: venta.Total,
+                maxCuotasCreditoGlobal: maxBase);
+
+            if (!resultado.Permitido)
+            {
+                throw new CondicionesPagoVentaException(
+                    await CrearMensajeBloqueoCondicionesPagoAsync(resultado));
+            }
+
+            var maxEfectivo = resultado.MaxCuotasCredito.HasValue
+                ? Math.Min(maxBase, resultado.MaxCuotasCredito.Value)
+                : maxBase;
+
+            if (minBase > maxEfectivo)
+            {
+                throw new CondicionesPagoVentaException(
+                    $"No se puede confirmar la venta con CréditoPersonal. " +
+                    $"El rango de cuotas queda inválido: mínimo {minBase}, máximo efectivo {maxEfectivo}.");
+            }
+
+            if (credito.CantidadCuotas < minBase || credito.CantidadCuotas > maxEfectivo)
+            {
+                throw new CondicionesPagoVentaException(
+                    $"No se puede confirmar la venta con CréditoPersonal. " +
+                    $"La cantidad de cuotas configurada ({credito.CantidadCuotas}) debe estar entre {minBase} y {maxEfectivo} " +
+                    $"según el método '{descripcionMetodo}' y las restricciones por producto.");
+            }
+        }
+
+        private async Task<string> CrearMensajeBloqueoCondicionesPagoAsync(
+            CondicionesPagoCarritoResultado resultado)
+        {
+            var nombres = await ObtenerNombresProductosAsync(resultado.ProductoIdsBloqueantes);
+            var detalles = resultado.Bloqueos.Count == 0
+                ? "Hay productos incompatibles con el medio de pago seleccionado."
+                : string.Join(" ", resultado.Bloqueos.Select(b =>
+                {
+                    var producto = nombres.GetValueOrDefault(b.ProductoId, $"Producto #{b.ProductoId}");
+                    return $"{producto}: {b.Motivo}";
+                }));
+
+            return $"No se puede crear o confirmar la venta con {resultado.TipoPago}. {detalles}";
+        }
+
+        private async Task<string> CrearMensajeCuotasExcedidasAsync(
+            CondicionesPagoCarritoResultado resultado,
+            TipoCuotaTarjeta tipoCuota,
+            int cuotasSeleccionadas,
+            int maximo)
+        {
+            var tipoRestriccion = tipoCuota == TipoCuotaTarjeta.SinInteres
+                ? TipoRestriccionCuotas.MaxCuotasSinInteres
+                : TipoRestriccionCuotas.MaxCuotasConInteres;
+            var restricciones = resultado.Restricciones
+                .Where(r => r.TipoRestriccion == tipoRestriccion && r.Valor == maximo)
+                .ToArray();
+            var productoIds = restricciones
+                .Select(r => r.ProductoId)
+                .Distinct()
+                .ToArray();
+            var nombres = await ObtenerNombresProductosAsync(productoIds);
+            var productos = nombres.Count == 0
+                ? "la configuracion vigente"
+                : string.Join(", ", nombres.Values);
+            var descripcionCuota = tipoCuota == TipoCuotaTarjeta.SinInteres
+                ? "sin interes"
+                : "con interes";
+
+            return $"Las cuotas seleccionadas ({cuotasSeleccionadas}) superan el maximo permitido " +
+                   $"para cuotas {descripcionCuota}: {maximo}. Restriccion efectiva: {productos}.";
+        }
+
+        private async Task<Dictionary<int, string>> ObtenerNombresProductosAsync(IEnumerable<int> productoIds)
+        {
+            var ids = productoIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToArray();
+
+            if (ids.Length == 0)
+            {
+                return new Dictionary<int, string>();
+            }
+
+            return await _context.Productos
+                .AsNoTracking()
+                .Where(p => ids.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.Nombre);
         }
 
         public async Task<int?> AnularFacturaAsync(int facturaId, string motivo)
