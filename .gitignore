@@ -22,3 +22,4 @@ node_modules
 qa-evidence/
 App_Data/contratos-venta-credito/**/*.pdf
 /*.png
+docs/qa-*.png

@@ -49,22 +49,10 @@ Ambiente usado para QA funcional:
 
 ## E. Evidencia QA consolidada
 
-Capturas generadas en `docs/`:
-
-- `qa-88f-escenario-1-medio-bloqueado.png`
-- `qa-88f-escenario-2-visa-bloqueada.png`
-- `qa-88f-escenario-2-master-compatible.png`
-- `qa-88f-escenario-3-cuotas-limitadas.png`
-- `qa-88f-escenario-4-venta-valida-vendedor-seleccionado.png`
-- `qa-88f-escenario-5-create-post-controlado.png`
-- `qa-88f-escenario-5-confirmar-antes.png`
-- `qa-88f-escenario-5-confirmar-despues.png`
-
-Evidencia auxiliar disponible:
-
-- `qa-88f-escenario-4-venta-valida-antes-submit.png`
-- `qa-88f-escenario-5-error-backend-controlado.png`
-- `qa-89-smoke-bloqueo-limpiado.png`
+La evidencia visual de QA fue generada localmente durante la fase 8.9 para validar
+los escenarios de bloqueo, compatibilidad, cuotas, venta valida y manejo de error
+controlado. Las capturas `docs/qa-*.png` se consideran artefactos locales de QA y
+no se conservan versionadas en Git.
 
 ## F. Resultados QA
 
