@@ -16,3 +16,9 @@ node_modules
 .env.unlighthouse
 
 **/TestResults/
+
+# Local QA / generated artifacts
+.playwright-mcp/
+qa-evidence/
+App_Data/contratos-venta-credito/**/*.pdf
+/*.png
