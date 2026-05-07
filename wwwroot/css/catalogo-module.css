@@ -34,6 +34,139 @@ select.catalogo-input {
 }
 select.catalogo-input option { background-color: #161c28; color: #dde2f4; }
 
+/* Modal de condiciones de pago por producto */
+.condiciones-modal-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+}
+
+.condiciones-modal-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overscroll-behavior: contain;
+    scrollbar-color: #334155 #0f172a;
+}
+
+#form-condiciones-pago-producto {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.condiciones-medio-tab {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    background: rgba(15, 23, 42, 0.58);
+    padding: 0.75rem;
+    color: #cbd5e1;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.condiciones-medio-tab:hover,
+.condiciones-medio-tab:focus {
+    border-color: #334155;
+    background: rgba(30, 41, 59, 0.72);
+    outline: none;
+}
+
+.condiciones-medio-tab:focus {
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.24);
+}
+
+.condiciones-medio-tab[aria-selected="true"] {
+    border-color: #135bec;
+    background: rgba(19, 91, 236, 0.16);
+    color: #ffffff;
+}
+
+.condiciones-medio-tab__main {
+    min-width: 0;
+}
+
+.condiciones-medio-tab__label,
+.condiciones-medio-tab__meta {
+    display: block;
+}
+
+.condiciones-medio-tab__label {
+    font-size: 0.875rem;
+    font-weight: 800;
+}
+
+.condiciones-medio-tab__meta {
+    margin-top: 0.125rem;
+    color: #94a3b8;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.condiciones-medio-tab__icon {
+    color: #64748b;
+    font-size: 1.125rem;
+}
+
+.condiciones-panel {
+    border: 1px solid #1e293b;
+    border-radius: 0.5rem;
+    background: rgba(15, 23, 42, 0.48);
+    padding: 1rem;
+}
+
+.condiciones-panel__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.condiciones-check {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.5rem;
+    align-items: center;
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.condiciones-check input {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.condiciones-check span {
+    grid-column: 1 / -1;
+    color: #64748b;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.35;
+    text-transform: none;
+}
+
+@media (min-width: 640px) {
+    .condiciones-panel__header {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+
+    .condiciones-check {
+        justify-items: end;
+        text-align: right;
+    }
+}
+
 /* ── Autocomplete widget ────────────────────────────────── */
 .autocomplete-erp {
     position: relative;

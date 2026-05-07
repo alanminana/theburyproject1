@@ -3,15 +3,17 @@
 
     var modal;
     var currentData = null;
+    var selectedTipoPago = 0;
+    var lastFocusedElement = null;
     var tiposPago = [
-        { value: 0, label: 'Efectivo', cardRules: false },
-        { value: 1, label: 'Transferencia', cardRules: false },
-        { value: 2, label: 'Tarjeta Debito', cardRules: true },
-        { value: 3, label: 'Tarjeta Credito', cardRules: true },
-        { value: 4, label: 'Cheque', cardRules: false },
-        { value: 5, label: 'Credito Personal', cardRules: false },
-        { value: 6, label: 'Mercado Pago', cardRules: false },
-        { value: 7, label: 'Cuenta Corriente', cardRules: false }
+        { value: 0, label: 'Efectivo', mode: 'direct' },
+        { value: 1, label: 'Transferencia', mode: 'direct' },
+        { value: 2, label: 'Tarjeta Debito', mode: 'card' },
+        { value: 3, label: 'Tarjeta Credito', mode: 'card' },
+        { value: 4, label: 'Cheque', mode: 'direct' },
+        { value: 5, label: 'Credito Personal', mode: 'credit' },
+        { value: 6, label: 'Mercado Pago', mode: 'card' },
+        { value: 7, label: 'Cuenta Corriente', mode: 'direct' }
     ];
 
     function el(id) { return document.getElementById(id); }
@@ -76,6 +78,8 @@
         clearMessages();
         setLoading(true);
 
+        lastFocusedElement = document.activeElement;
+        selectedTipoPago = 0;
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
 
@@ -95,6 +99,7 @@
                         .filter(Boolean)
                         .join(' - ');
                 render();
+                focusInitialControl();
             })
             .catch(function (err) {
                 currentData = null;
@@ -103,6 +108,7 @@
             })
             .finally(function () {
                 setLoading(false);
+                if (currentData) focusInitialControl();
             });
     }
 
@@ -112,12 +118,16 @@
         document.body.style.overflow = '';
         currentData = null;
         clearMessages();
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
+        }
+        lastFocusedElement = null;
     }
 
     function triStateSelect(name, value) {
         var selected = value === true ? 'true' : value === false ? 'false' : '';
         return '<select name="' + name + '" class="condiciones-input">' +
-            '<option value=""' + (selected === '' ? ' selected' : '') + '>Heredar</option>' +
+            '<option value=""' + (selected === '' ? ' selected' : '') + '>Heredar - usa configuracion global</option>' +
             '<option value="true"' + (selected === 'true' ? ' selected' : '') + '>Permitido</option>' +
             '<option value="false"' + (selected === 'false' ? ' selected' : '') + '>Bloqueado</option>' +
             '</select>';
@@ -137,43 +147,58 @@
 
     function render() {
         var medios = el('condiciones-pago-medios');
-        var tarjetas = el('condiciones-pago-tarjetas');
-        if (!medios || !tarjetas) return;
+        var detalle = el('condiciones-pago-detalle');
+        if (!medios || !detalle) return;
 
-        medios.innerHTML = tiposPago.map(renderMedio).join('');
-        tarjetas.innerHTML = renderTarjetas();
+        medios.innerHTML = renderMedioSelector();
+        detalle.innerHTML = tiposPago.map(renderMedio).join('');
 
         el('condiciones-pago-count').textContent = (currentData.condiciones || []).filter(function (c) { return c.activo; }).length + ' configurados';
-        el('condiciones-pago-tarjetas-count').textContent = (currentData.tarjetasDisponibles || []).length + ' tarjetas';
+        renderTarjetasSummary();
         ensureInputStyles();
     }
 
     function renderEmpty() {
         el('condiciones-pago-medios').innerHTML = '';
-        el('condiciones-pago-tarjetas').innerHTML = '';
+        el('condiciones-pago-detalle').innerHTML = '';
         el('condiciones-pago-count').textContent = '0 configurados';
-        el('condiciones-pago-tarjetas-count').textContent = '0 tarjetas';
+        renderTarjetasSummary();
+    }
+
+    function renderMedioSelector() {
+        return tiposPago.map(function (tipo) {
+            var condicion = findCondicion(tipo.value);
+            var selected = Number(selectedTipoPago) === Number(tipo.value);
+            var estado = condicion?.permitido === false ? 'Bloqueado' : condicion?.permitido === true ? 'Permitido' : 'Heredar';
+            var activeText = condicion && condicion.activo === false ? 'Inactiva' : 'Activa';
+            return '<button type="button" class="condiciones-medio-tab" data-condiciones-medio-tab="' + tipo.value + '" aria-selected="' + selected + '">' +
+                '<span class="condiciones-medio-tab__main">' +
+                '<span class="condiciones-medio-tab__label">' + esc(tipo.label) + '</span>' +
+                '<span class="condiciones-medio-tab__meta">' + esc(activeText) + ' / ' + esc(estado) + '</span>' +
+                '</span>' +
+                '<span class="material-symbols-outlined condiciones-medio-tab__icon" aria-hidden="true">chevron_right</span>' +
+                '</button>';
+        }).join('');
     }
 
     function renderMedio(tipo, index) {
         var condicion = findCondicion(tipo.value);
         var prefix = 'condiciones[' + index + ']';
-        return '<article class="rounded-xl border border-slate-800 bg-slate-900/50 p-4" data-condicion-card>' +
+        var selected = Number(selectedTipoPago) === Number(tipo.value);
+        return '<article class="condiciones-panel' + (selected ? '' : ' hidden') + '" data-condicion-card data-condiciones-panel="' + tipo.value + '">' +
             hidden(prefix + '.id', condicion?.id) +
             hidden(prefix + '.rowVersion', condicion?.rowVersion) +
             hidden(prefix + '.tipoPago', tipo.value) +
-            '<div class="mb-4 flex flex-wrap items-center justify-between gap-3">' +
-            '<div><h4 class="text-base font-bold text-white">' + esc(tipo.label) + '</h4><p class="text-xs text-slate-500">Regla por producto</p></div>' +
-            '<label class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">' +
-            '<input type="checkbox" name="' + prefix + '.activo" value="true" class="rounded border-slate-600 text-primary focus:ring-primary" ' + (condicion ? (condicion.activo !== false ? 'checked' : '') : '') + ' /> Activa</label>' +
+            '<div class="condiciones-panel__header">' +
+            '<div><h4 class="text-lg font-black text-white">' + esc(tipo.label) + '</h4><p class="text-xs text-slate-400">' + esc(getModeHelp(tipo)) + '</p></div>' +
+            '<label class="condiciones-check">Activa' +
+            '<input type="checkbox" name="' + prefix + '.activo" value="true" class="rounded border-slate-600 text-primary focus:ring-primary" ' + (condicion ? (condicion.activo !== false ? 'checked' : '') : '') + ' />' +
+            '<span>La regla participa en venta/diagnostico.</span></label>' +
             '</div>' +
             '<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">' +
-            field('Estado', triStateSelect(prefix + '.permitido', condicion?.permitido)) +
-            field('Cuotas sin interes', numberInput(prefix + '.maxCuotasSinInteres', condicion?.maxCuotasSinInteres, 'Heredar')) +
-            field('Cuotas con interes', numberInput(prefix + '.maxCuotasConInteres', condicion?.maxCuotasConInteres, 'Heredar')) +
-            field('Cuotas credito', numberInput(prefix + '.maxCuotasCredito', condicion?.maxCuotasCredito, 'Heredar')) +
-            field('Recargo %', percentInput(prefix + '.porcentajeRecargo', condicion?.porcentajeRecargo, 'Heredar')) +
-            field('Descuento max. %', percentInput(prefix + '.porcentajeDescuentoMaximo', condicion?.porcentajeDescuentoMaximo, 'Heredar')) +
+            field('Disponibilidad', triStateSelect(prefix + '.permitido', condicion?.permitido), 'Heredar usa configuracion global. Bloqueado impide usar este medio para el producto.') +
+            renderCuotasFields(prefix, condicion, tipo) +
+            renderAdjustmentFields(prefix, condicion, tipo) +
             '</div>' +
             '<label class="mt-3 block text-xs font-semibold text-slate-400">Observaciones' +
             '<textarea name="' + prefix + '.observaciones" rows="2" class="condiciones-input mt-1 resize-none" placeholder="Notas internas">' + esc(condicion?.observaciones || '') + '</textarea></label>' +
@@ -181,8 +206,42 @@
             '</article>';
     }
 
+    function renderCuotasFields(prefix, condicion, tipo) {
+        if (tipo.mode === 'card') {
+            return field('Cuotas sin interes', numberInput(prefix + '.maxCuotasSinInteres', condicion?.maxCuotasSinInteres, 'Heredar'), 'Maximo general para este medio. Heredar usa configuracion global.') +
+                field('Cuotas con interes', numberInput(prefix + '.maxCuotasConInteres', condicion?.maxCuotasConInteres, 'Heredar'), 'Maximo general para este medio. Heredar usa configuracion global.') +
+                hidden(prefix + '.maxCuotasCredito', condicion?.maxCuotasCredito);
+        }
+
+        if (tipo.mode === 'credit') {
+            return hidden(prefix + '.maxCuotasSinInteres', condicion?.maxCuotasSinInteres) +
+                hidden(prefix + '.maxCuotasConInteres', condicion?.maxCuotasConInteres) +
+                field('Cuotas credito', numberInput(prefix + '.maxCuotasCredito', condicion?.maxCuotasCredito, 'Heredar'), 'Maximo de cuotas para Credito Personal. Heredar usa configuracion global.');
+        }
+
+        return hidden(prefix + '.maxCuotasSinInteres', condicion?.maxCuotasSinInteres) +
+            hidden(prefix + '.maxCuotasConInteres', condicion?.maxCuotasConInteres) +
+            hidden(prefix + '.maxCuotasCredito', condicion?.maxCuotasCredito);
+    }
+
+    function renderAdjustmentFields(prefix, condicion, tipo) {
+        if (tipo.mode === 'credit') {
+            return hidden(prefix + '.porcentajeRecargo', condicion?.porcentajeRecargo) +
+                hidden(prefix + '.porcentajeDescuentoMaximo', condicion?.porcentajeDescuentoMaximo);
+        }
+
+        return field('Recargo %', percentInput(prefix + '.porcentajeRecargo', condicion?.porcentajeRecargo, 'Heredar'), 'Informativo por ahora: no modifica totales.') +
+            field('Descuento max. %', percentInput(prefix + '.porcentajeDescuentoMaximo', condicion?.porcentajeDescuentoMaximo, 'Heredar'), 'Informativo por ahora: no modifica totales.');
+    }
+
+    function getModeHelp(tipo) {
+        if (tipo.mode === 'card') return 'Configuracion tipo tarjeta con cuotas sin/con interes y reglas por tarjeta cuando existan.';
+        if (tipo.mode === 'credit') return 'Credito Personal se configura separado de tarjetas.';
+        return 'Medio directo: no usa campos de cuotas en esta fase.';
+    }
+
     function renderTarjetasEditables(prefix, condicion, tipo) {
-        if (!tipo.cardRules) return '';
+        if (tipo.mode !== 'card') return renderHiddenTarjetas(prefix, condicion, tipo);
         var tarjetas = currentData.tarjetasDisponibles || [];
         if (!tarjetas.length) {
             return '<div class="mt-4 rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2 text-xs text-slate-500">No hay tarjetas disponibles para reglas especificas.</div>';
@@ -201,11 +260,11 @@
                 '<input type="checkbox" name="' + tPrefix + '.activo" value="true" class="rounded border-slate-600 text-primary focus:ring-primary" ' + (regla ? (regla.activo !== false ? 'checked' : '') : '') + ' /> Regla activa</label>' +
                 '</div>' +
                 '<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">' +
-                field('Estado', triStateSelect(tPrefix + '.permitido', regla?.permitido)) +
-                field('Cuotas sin interes', numberInput(tPrefix + '.maxCuotasSinInteres', regla?.maxCuotasSinInteres, 'Heredar')) +
-                field('Cuotas con interes', numberInput(tPrefix + '.maxCuotasConInteres', regla?.maxCuotasConInteres, 'Heredar')) +
-                field('Recargo %', percentInput(tPrefix + '.porcentajeRecargo', regla?.porcentajeRecargo, 'Heredar')) +
-                field('Descuento max. %', percentInput(tPrefix + '.porcentajeDescuentoMaximo', regla?.porcentajeDescuentoMaximo, 'Heredar')) +
+                field('Disponibilidad', triStateSelect(tPrefix + '.permitido', regla?.permitido), 'Heredar usa la regla del medio y luego la configuracion global.') +
+                field('Cuotas sin interes', numberInput(tPrefix + '.maxCuotasSinInteres', regla?.maxCuotasSinInteres, 'Heredar'), 'Maximo especifico de esta tarjeta.') +
+                field('Cuotas con interes', numberInput(tPrefix + '.maxCuotasConInteres', regla?.maxCuotasConInteres, 'Heredar'), 'Maximo especifico de esta tarjeta.') +
+                field('Recargo %', percentInput(tPrefix + '.porcentajeRecargo', regla?.porcentajeRecargo, 'Heredar'), 'Informativo por ahora: no modifica totales.') +
+                field('Descuento max. %', percentInput(tPrefix + '.porcentajeDescuentoMaximo', regla?.porcentajeDescuentoMaximo, 'Heredar'), 'Informativo por ahora: no modifica totales.') +
                 '</div>' +
                 '<label class="mt-3 block text-xs font-semibold text-slate-400">Observaciones' +
                 '<textarea name="' + tPrefix + '.observaciones" rows="2" class="condiciones-input mt-1 resize-none" placeholder="Notas internas">' + esc(regla?.observaciones || '') + '</textarea></label>' +
@@ -219,7 +278,7 @@
     }
 
     function renderHiddenTarjetas(prefix, condicion, tipo) {
-        if (!tipo.cardRules) return '';
+        if (tipo.mode !== 'card') return '';
         var tarjetas = currentData.tarjetasDisponibles || [];
         return tarjetas.map(function (tarjeta, idx) {
             var regla = findTarjeta(condicion, tarjeta.id);
@@ -237,8 +296,16 @@
         }).join('');
     }
 
+    function renderTarjetasSummary() {
+        var count = el('condiciones-pago-tarjetas-count');
+        var box = el('condiciones-pago-tarjetas');
+        if (!count || !box) return;
+        count.textContent = ((currentData?.tarjetasDisponibles || []).length) + ' tarjetas';
+        box.innerHTML = renderTarjetas();
+    }
+
     function renderTarjetas() {
-        var tarjetas = currentData.tarjetasDisponibles || [];
+        var tarjetas = currentData?.tarjetasDisponibles || [];
         if (!tarjetas.length) {
             return '<div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5 text-sm text-slate-400">No hay tarjetas configuradas.</div>';
         }
@@ -254,8 +321,11 @@
         }).join('');
     }
 
-    function field(label, html) {
-        return '<label class="block text-xs font-semibold text-slate-400">' + esc(label) + '<span class="mt-1 block">' + html + '</span></label>';
+    function field(label, html, help) {
+        return '<label class="block text-xs font-semibold text-slate-400">' + esc(label) +
+            '<span class="mt-1 block">' + html + '</span>' +
+            (help ? '<span class="mt-1 block text-[11px] font-medium leading-snug text-slate-500">' + esc(help) + '</span>' : '') +
+            '</label>';
     }
 
     function ensureInputStyles() {
@@ -396,6 +466,14 @@
     }
 
     document.addEventListener('click', function (event) {
+        var medioTab = event.target.closest('[data-condiciones-medio-tab]');
+        if (medioTab) {
+            event.preventDefault();
+            selectedTipoPago = Number(medioTab.getAttribute('data-condiciones-medio-tab'));
+            updateSelectedMedio();
+            return;
+        }
+
         var trigger = event.target.closest('[data-condiciones-pago-producto-id]');
         if (trigger) {
             event.preventDefault();
@@ -410,8 +488,15 @@
     });
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        if (!modal || modal.classList.contains('hidden')) return;
+
+        if (event.key === 'Escape') {
             closeModal();
+            return;
+        }
+
+        if (event.key === 'Tab') {
+            trapFocus(event);
         }
     });
 
@@ -419,4 +504,46 @@
         var form = el('form-condiciones-pago-producto');
         if (form) form.addEventListener('submit', handleSubmit);
     });
+
+    function updateSelectedMedio() {
+        document.querySelectorAll('[data-condiciones-medio-tab]').forEach(function (node) {
+            node.setAttribute('aria-selected', String(Number(node.getAttribute('data-condiciones-medio-tab')) === Number(selectedTipoPago)));
+        });
+
+        document.querySelectorAll('[data-condiciones-panel]').forEach(function (node) {
+            node.classList.toggle('hidden', Number(node.getAttribute('data-condiciones-panel')) !== Number(selectedTipoPago));
+        });
+
+        var panel = document.querySelector('[data-condiciones-panel="' + selectedTipoPago + '"]');
+        var firstInput = panel?.querySelector('input:not([type="hidden"]), select, textarea, button');
+        if (firstInput) firstInput.focus();
+    }
+
+    function focusInitialControl() {
+        var firstTab = document.querySelector('[data-condiciones-medio-tab]');
+        if (firstTab) firstTab.focus();
+    }
+
+    function getFocusableNodes() {
+        if (!modal || modal.classList.contains('hidden')) return [];
+        return Array.prototype.slice.call(modal.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+            .filter(function (node) {
+                return node.offsetParent !== null || node === document.activeElement;
+            });
+    }
+
+    function trapFocus(event) {
+        var nodes = getFocusableNodes();
+        if (!nodes.length) return;
+        var first = nodes[0];
+        var last = nodes[nodes.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
 }());

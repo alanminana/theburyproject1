@@ -1627,10 +1627,10 @@
 </div>
 
 <!-- Modal: Condiciones de pago por producto -->
-<div id="modal-condiciones-pago-producto" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog" aria-labelledby="condiciones-pago-title">
+<div id="modal-condiciones-pago-producto" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog" aria-labelledby="condiciones-pago-title" aria-describedby="condiciones-pago-producto-label">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-condiciones-pago-close></div>
-    <div class="absolute right-0 top-0 flex h-full w-full max-w-6xl flex-col bg-[#111827] shadow-2xl">
-        <header class="border-b border-slate-800 px-6 py-5 sm:px-8">
+    <div class="condiciones-modal-shell absolute right-0 top-0 flex h-full w-full max-w-6xl flex-col bg-[#111827] shadow-2xl">
+        <header class="shrink-0 border-b border-slate-800 px-6 py-5 sm:px-8">
             <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                     <p class="text-[11px] font-black uppercase tracking-[0.18em] text-primary">Catalogo / Productos</p>
@@ -1643,8 +1643,8 @@
             </div>
         </header>
 
-        <div id="condiciones-pago-validation" class="mx-6 mt-5 hidden rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400 sm:mx-8" role="alert"></div>
-        <div id="condiciones-pago-success" class="mx-6 mt-5 hidden rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 sm:mx-8" role="status"></div>
+        <div id="condiciones-pago-validation" class="mx-6 mt-5 hidden shrink-0 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400 sm:mx-8" role="alert"></div>
+        <div id="condiciones-pago-success" class="mx-6 mt-5 hidden shrink-0 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 sm:mx-8" role="status"></div>
 
         <div id="condiciones-pago-loading" class="hidden flex-1 items-center justify-center">
             <div class="flex flex-col items-center gap-3">
@@ -1657,18 +1657,26 @@
             @Html.AntiForgeryToken()
             <input type="hidden" id="condiciones-pago-producto-id" value="" />
 
-            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
+            <div class="condiciones-modal-body min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
                 <div class="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                    Esta configuracion queda guardada para fases posteriores y todavia no impacta ventas, caja, comprobantes ni calculos productivos.
+                    Esta configuracion queda guardada para fases posteriores y todavia no impacta ventas, caja, comprobantes ni calculos productivos. Los recargos y descuentos se muestran como datos informativos.
                 </div>
 
-                <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
-                    <section class="min-w-0">
+                <div class="grid min-h-0 gap-5 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(280px,340px)]">
+                    <section class="min-w-0" aria-label="Seleccion de medio de pago">
                         <div class="mb-3 flex items-center justify-between gap-3">
                             <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Medios de pago</h3>
                             <span id="condiciones-pago-count" class="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold text-slate-400">0 configurados</span>
                         </div>
-                        <div id="condiciones-pago-medios" class="grid gap-3"></div>
+                        <div id="condiciones-pago-medios" class="grid gap-2" role="tablist" aria-label="Medios de pago configurables"></div>
+                    </section>
+
+                    <section class="min-w-0" aria-label="Configuracion del medio seleccionado">
+                        <div class="mb-3">
+                            <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Configuracion del medio</h3>
+                            <p class="mt-1 text-xs text-slate-500">Selecciona un medio para ver solo los campos aplicables.</p>
+                        </div>
+                        <div id="condiciones-pago-detalle" class="grid gap-3"></div>
                     </section>
 
                     <aside class="min-w-0">
@@ -1681,7 +1689,7 @@
                 </div>
             </div>
 
-            <footer class="border-t border-slate-800 bg-[#131a27] px-6 py-5 sm:px-8">
+            <footer class="shrink-0 border-t border-slate-800 bg-[#131a27] px-6 py-5 sm:px-8">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-xs text-slate-400">El backend valida cuotas, porcentajes, duplicados y concurrencia.</p>
                     <div class="flex flex-col gap-3 sm:flex-row">
