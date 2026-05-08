@@ -1106,6 +1106,13 @@ namespace TheBuryProject.Data
                     .HasPrecision(18, 2)
                     .HasDefaultValue(0m);
 
+                // Forma de pago por ítem (Fase 16.2 — nullable, sin default)
+                entity.Property(e => e.PorcentajeAjustePlanAplicado).HasPrecision(5, 2);
+                entity.Property(e => e.MontoAjustePlanAplicado).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.ProductoCondicionPagoPlanId)
+                    .HasDatabaseName("IX_VentaDetalles_ProductoCondicionPagoPlanId");
+
                 entity.HasOne(e => e.Venta)
                     .WithMany(v => v.Detalles)
                     .HasForeignKey(e => e.VentaId)
@@ -1114,6 +1121,12 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.Producto)
                     .WithMany()
                     .HasForeignKey(e => e.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.ProductoCondicionPagoPlan)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoCondicionPagoPlanId)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

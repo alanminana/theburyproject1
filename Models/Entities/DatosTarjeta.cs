@@ -37,7 +37,9 @@ namespace TheBuryProject.Models.Entities
         public int? MaxCuotasSinInteresEfectivoAplicado { get; set; }
 
         /// <summary>
-        /// Plan de cuotas seleccionado por el vendedor. Nullable: null preserva el flujo existente sin plan.
+        /// Plan de cuotas seleccionado a nivel global de la venta.
+        /// DEPRECATED para nuevas ventas: la fuente autoritativa es VentaDetalle.ProductoCondicionPagoPlanId (Fase 16.2).
+        /// Mantenido por compatibilidad con ventas existentes y flujo de tarjeta global.
         /// </summary>
         public int? ProductoCondicionPagoPlanId { get; set; }
 

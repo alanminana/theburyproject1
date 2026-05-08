@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using TheBuryProject.Models.Base;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Models.Entities
 {
@@ -73,8 +74,19 @@ namespace TheBuryProject.Models.Entities
         [StringLength(200)]
         public string? Observaciones { get; set; }
 
+        // Forma de pago por ítem (Fase 16.2 — todos nullable para compatibilidad con ventas existentes)
+        public TipoPago? TipoPago { get; set; }
+        public int? ProductoCondicionPagoPlanId { get; set; }
+
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? PorcentajeAjustePlanAplicado { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? MontoAjustePlanAplicado { get; set; }
+
         // Navegaci�n
         public virtual Venta Venta { get; set; } = null!;
         public virtual Producto Producto { get; set; } = null!;
+        public virtual ProductoCondicionPagoPlan? ProductoCondicionPagoPlan { get; set; }
     }
 }

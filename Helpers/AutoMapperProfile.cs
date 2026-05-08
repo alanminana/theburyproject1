@@ -236,7 +236,8 @@ namespace TheBuryProject.Helpers
             CreateMap<VentaDetalle, VentaDetalleViewModel>()
                 .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Nombre : string.Empty))
                 .ForMember(dest => dest.ProductoCodigo, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Codigo : string.Empty))
-                .ForMember(dest => dest.StockDisponible, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.StockActual : 0));
+                .ForMember(dest => dest.StockDisponible, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.StockActual : 0))
+                .ForMember(dest => dest.ResumenFormaPago, opt => opt.Ignore());
 
             CreateMap<VentaDetalleViewModel, VentaDetalle>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -262,7 +263,8 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.SubtotalFinalIVA, opt => opt.Ignore())
                 .ForMember(dest => dest.SubtotalFinal, opt => opt.Ignore())
                 .ForMember(dest => dest.CostoUnitarioAlMomento, opt => opt.Ignore())
-                .ForMember(dest => dest.CostoTotalAlMomento, opt => opt.Ignore());
+                .ForMember(dest => dest.CostoTotalAlMomento, opt => opt.Ignore())
+                .ForMember(dest => dest.ProductoCondicionPagoPlan, opt => opt.Ignore());
 
             CreateMap<Factura, FacturaViewModel>();
 

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels
 {
@@ -87,5 +88,12 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Observaciones")]
         [StringLength(200)]
         public string? Observaciones { get; set; }
+
+        // Forma de pago por ítem (Fase 16.2 — todos nullable para compatibilidad con ventas existentes)
+        public TipoPago? TipoPago { get; set; }
+        public int? ProductoCondicionPagoPlanId { get; set; }
+        public decimal? PorcentajeAjustePlanAplicado { get; set; }
+        public decimal? MontoAjustePlanAplicado { get; set; }
+        public string? ResumenFormaPago { get; set; }
     }
 }
