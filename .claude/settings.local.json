@@ -31,7 +31,8 @@
       "mcp__plugin_playwright_playwright__browser_close",
       "mcp__plugin_playwright_playwright__browser_wait_for",
       "mcp__plugin_playwright_playwright__browser_fill_form",
-      "PowerShell(Stop-Process -Id 24064 -Force)"
+      "PowerShell(Stop-Process -Id 24064 -Force)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\theburyproject1\\\\Views\\\\Catalogo\\\\\" | Where-Object { $_.Name -match \"ondicion|pago\" } | Select-Object Name, FullName)"
     ],
     "deny": [],
     "additionalDirectories": [

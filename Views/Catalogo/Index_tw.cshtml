@@ -1659,34 +1659,14 @@
 
             <div class="condiciones-modal-body min-h-0 flex-1 overflow-y-auto px-6 py-6 sm:px-8">
                 <div class="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                    Esta configuracion queda guardada para fases posteriores y todavia no impacta ventas, caja, comprobantes ni calculos productivos. Los recargos y descuentos se muestran como datos informativos.
+                    Esta configuracion queda guardada para fases posteriores y todavia no impacta ventas, caja, comprobantes ni calculos productivos.
                 </div>
 
-                <div class="grid min-h-0 gap-5 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(280px,340px)]">
-                    <section class="min-w-0" aria-label="Seleccion de medio de pago">
-                        <div class="mb-3 flex items-center justify-between gap-3">
-                            <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Medios de pago</h3>
-                            <span id="condiciones-pago-count" class="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold text-slate-400">0 configurados</span>
-                        </div>
-                        <div id="condiciones-pago-medios" class="grid gap-2" role="tablist" aria-label="Medios de pago configurables"></div>
-                    </section>
-
-                    <section class="min-w-0" aria-label="Configuracion del medio seleccionado">
-                        <div class="mb-3">
-                            <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Configuracion del medio</h3>
-                            <p class="mt-1 text-xs text-slate-500">Selecciona un medio para ver solo los campos aplicables.</p>
-                        </div>
-                        <div id="condiciones-pago-detalle" class="grid gap-3"></div>
-                    </section>
-
-                    <aside class="min-w-0">
-                        <div class="mb-3 flex items-center justify-between gap-3">
-                            <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Tarjetas disponibles</h3>
-                            <span id="condiciones-pago-tarjetas-count" class="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold text-slate-400">0 tarjetas</span>
-                        </div>
-                        <div id="condiciones-pago-tarjetas" class="grid gap-3"></div>
-                    </aside>
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <h3 class="text-sm font-black uppercase tracking-[0.16em] text-slate-300">Medios de pago</h3>
+                    <span id="condiciones-pago-count" class="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold text-slate-400">0 configurados</span>
                 </div>
+                <div id="condiciones-pago-medios" class="grid gap-2.5" aria-label="Medios de pago configurables"></div>
             </div>
 
             <footer class="shrink-0 border-t border-slate-800 bg-[#131a27] px-6 py-5 sm:px-8">
@@ -1704,6 +1684,48 @@
                 </div>
             </footer>
         </form>
+    </div>
+</div>
+
+<!-- Modal: Detalle de condicion de pago (sub-modal) -->
+<div id="modal-condiciones-medio" class="fixed inset-0 z-[60] hidden" aria-modal="true" role="dialog" aria-labelledby="condiciones-medio-title">
+    <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" data-condiciones-medio-close></div>
+    <div class="condiciones-medio-shell absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl">
+        <header class="shrink-0 border-b border-slate-800 px-5 py-4">
+            <div class="flex items-center gap-3">
+                <button type="button" data-condiciones-medio-close
+                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                        aria-label="Volver">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                </button>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Condiciones de pago</p>
+                    <h3 id="condiciones-medio-title" class="text-lg font-black leading-tight text-white">—</h3>
+                    <p id="condiciones-medio-subtitle" class="text-[11px] text-slate-500"></p>
+                </div>
+                <button type="button" data-condiciones-medio-close
+                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                        aria-label="Cerrar">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="condiciones-medio-body" class="flex-1 overflow-y-auto p-5 sm:p-6"></div>
+
+        <footer class="shrink-0 border-t border-slate-800 bg-[#131a27] px-5 py-4 sm:px-6">
+            <div class="flex items-center justify-end gap-3">
+                <button type="button" data-condiciones-medio-close
+                        class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-700 px-5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirmar-medio"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:brightness-110">
+                    <span class="material-symbols-outlined text-[18px]">check</span>
+                    Confirmar cambios
+                </button>
+            </div>
+        </footer>
     </div>
 </div>
 
