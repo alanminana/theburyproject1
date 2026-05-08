@@ -31,6 +31,7 @@
     let cuotasLimitadasPorReglaExistente = false;
     let limiteCuotasDiagnostico = null;
     let cuotasLimitadasPorDiagnostico = false;
+    let planesDisponibles = [];
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
@@ -87,6 +88,10 @@
     const panelAvisoCuotasSinInteres = $('#panel-aviso-cuotas-sin-interes');
     const hdnTarjetaNombre = $('#hdn-tarjeta-nombre');
     const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
+
+    const panelPlanesPago = $('#panel-planes-pago');
+    const listaPlanesPago = $('#lista-planes-pago');
+    const hdnPlanPagoId = $('#hdn-plan-pago-id');
 
     const panelAvisoCredito = $('#panel-aviso-credito');
     const panelDiagnosticoCondicionesPago = $('#panel-diagnostico-condiciones-pago');
@@ -517,7 +522,10 @@
         const maxSinInteres = getProp(resultado, 'maxCuotasSinInteres', 'MaxCuotasSinInteres');
         const maxConInteres = getProp(resultado, 'maxCuotasConInteres', 'MaxCuotasConInteres');
         const maxCredito = getProp(resultado, 'maxCuotasCredito', 'MaxCuotasCredito');
+        const planesRaw = getProp(resultado, 'planesDisponibles', 'PlanesDisponibles') || [];
         const mensajeBloqueo = obtenerMensajeBloqueoCondicionesPago(resultado);
+
+        renderSelectorPlanesPago(planesRaw);
 
         setDiagnosticoCondicionesPagoEstado(
             permitido ? 'ok' : 'blocked',
@@ -989,6 +997,12 @@
         return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito || tipoPago === TIPO_PAGO.Tarjeta;
     }
 
+    function esTipoPagoConPlanes(tipoPago) {
+        return tipoPago === TIPO_PAGO.TarjetaCredito ||
+               tipoPago === TIPO_PAGO.TarjetaDebito ||
+               tipoPago === TIPO_PAGO.MercadoPago;
+    }
+
     function onTipoPagoChange() {
         invalidarVerificacionCrediticia();
 
@@ -1003,6 +1017,9 @@
         isCheque ? show(panelCheque) : hide(panelCheque);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
         isCredito ? show(panelVerificacionCrediticia) : hide(panelVerificacionCrediticia);
+
+        // Plan selector reset: always clear on payment type change, re-populated by diagnostico
+        limpiarSelectorPlanesPago();
 
         // Fetch card info if needed
         if (isTarjeta && tarjetaInfoCache.length === 0) {
@@ -1037,6 +1054,88 @@
     function limpiarDatosTarjetaSeleccionada() {
         if (hdnTarjetaNombre) hdnTarjetaNombre.value = '';
         if (hdnTarjetaTipo) hdnTarjetaTipo.value = '';
+        limpiarSelectorPlanesPago();
+    }
+
+    function limpiarSelectorPlanesPago() {
+        planesDisponibles = [];
+        if (hdnPlanPagoId) hdnPlanPagoId.value = '';
+        if (listaPlanesPago) listaPlanesPago.replaceChildren();
+        hide(panelPlanesPago);
+    }
+
+    function formatearEtiquetaPlan(plan) {
+        const cuotas = plan.cantidadCuotas ?? getProp(plan, 'cantidadCuotas', 'CantidadCuotas');
+        const ajuste = parseFloat(getProp(plan, 'ajustePorcentaje', 'AjustePorcentaje') ?? 0);
+        const label = cuotas === 1 ? '1 pago' : `${cuotas} cuotas`;
+        let ajusteLabel;
+        if (ajuste === 0) {
+            ajusteLabel = 'sin ajuste';
+        } else if (ajuste > 0) {
+            ajusteLabel = `+${formatPercent(ajuste)}% informativo`;
+        } else {
+            ajusteLabel = `${formatPercent(ajuste)}% informativo`;
+        }
+        return `${label} · ${ajusteLabel}`;
+    }
+
+    function renderSelectorPlanesPago(planes) {
+        const tipoPago = selectTipoPago?.value;
+        if (!esTipoPagoConPlanes(tipoPago) || !planes || planes.length === 0) {
+            limpiarSelectorPlanesPago();
+            return;
+        }
+
+        planesDisponibles = planes;
+        if (hdnPlanPagoId) hdnPlanPagoId.value = '';
+        if (!listaPlanesPago) return;
+
+        listaPlanesPago.replaceChildren();
+
+        planes.forEach(plan => {
+            const planId = getProp(plan, 'id', 'Id');
+            const etiqueta = formatearEtiquetaPlan(plan);
+            const obs = getProp(plan, 'observaciones', 'Observaciones');
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.role = 'radio';
+            btn.setAttribute('aria-checked', 'false');
+            btn.dataset.planId = planId;
+            btn.className = 'plan-pago-btn px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 text-xs text-slate-300 hover:border-primary hover:text-white transition-colors text-left';
+            btn.setAttribute('aria-label', etiqueta + (obs ? '. ' + obs : ''));
+
+            const spanLabel = document.createElement('span');
+            spanLabel.className = 'block font-semibold';
+            spanLabel.textContent = etiqueta;
+            btn.appendChild(spanLabel);
+
+            if (obs) {
+                const spanObs = document.createElement('span');
+                spanObs.className = 'block text-slate-500 text-[10px] mt-0.5';
+                spanObs.textContent = obs;
+                btn.appendChild(spanObs);
+            }
+
+            btn.addEventListener('click', () => seleccionarPlan(planId, btn));
+            listaPlanesPago.appendChild(btn);
+        });
+
+        show(panelPlanesPago);
+    }
+
+    function seleccionarPlan(planId, btnActivo) {
+        if (hdnPlanPagoId) hdnPlanPagoId.value = planId ?? '';
+        listaPlanesPago?.querySelectorAll('.plan-pago-btn').forEach(btn => {
+            const activo = btn === btnActivo;
+            btn.setAttribute('aria-checked', activo ? 'true' : 'false');
+            btn.classList.toggle('border-primary', activo);
+            btn.classList.toggle('text-white', activo);
+            btn.classList.toggle('bg-primary/10', activo);
+            btn.classList.toggle('border-slate-600', !activo);
+            btn.classList.toggle('text-slate-300', !activo);
+            btn.classList.toggle('bg-slate-800', !activo);
+        });
     }
 
     function poblarDatosTarjetaSeleccionada() {

@@ -36,6 +36,23 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public int? MaxCuotasSinInteresEfectivoAplicado { get; set; }
 
+        /// <summary>
+        /// Plan de cuotas seleccionado por el vendedor. Nullable: null preserva el flujo existente sin plan.
+        /// </summary>
+        public int? ProductoCondicionPagoPlanId { get; set; }
+
+        /// <summary>
+        /// Snapshot del porcentaje de ajuste del plan aplicado al confirmar la venta.
+        /// Null si no se seleccionó plan o el plan tiene AjustePorcentaje = 0.
+        /// </summary>
+        public decimal? PorcentajeAjustePlanAplicado { get; set; }
+
+        /// <summary>
+        /// Snapshot del monto de ajuste del plan aplicado al confirmar la venta.
+        /// Negativo si el plan es descuento, positivo si es recargo.
+        /// </summary>
+        public decimal? MontoAjustePlanAplicado { get; set; }
+
         [StringLength(50)]
         public string? NumeroAutorizacion { get; set; }
 
@@ -45,5 +62,6 @@ namespace TheBuryProject.Models.Entities
         // Navigation
         public virtual Venta Venta { get; set; } = null!;
         public virtual ConfiguracionTarjeta? ConfiguracionTarjeta { get; set; }
+        public virtual ProductoCondicionPagoPlan? ProductoCondicionPagoPlan { get; set; }
     }
 }

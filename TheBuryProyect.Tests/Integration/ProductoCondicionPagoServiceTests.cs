@@ -196,6 +196,37 @@ public sealed class ProductoCondicionPagoServiceTests : IAsyncLifetime
         Assert.Contains("PorcentajeRecargo", ex.Message);
     }
 
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(-10)]
+    public async Task GuardarCondicion_PorcentajeNegativoActual_SeRechaza(decimal porcentaje)
+    {
+        var producto = await SeedProductoAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+            {
+                TipoPago = TipoPago.TarjetaCredito,
+                PorcentajeRecargo = porcentaje
+            }));
+
+        Assert.Contains("PorcentajeRecargo", ex.Message);
+    }
+
+    [Fact]
+    public async Task GuardarReglaTarjeta_PorcentajeNegativoActual_SeRechaza()
+    {
+        var condicion = await SeedCondicionAsync(TipoPago.TarjetaCredito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.GuardarReglaTarjetaAsync(condicion.Id!.Value, new GuardarProductoCondicionPagoTarjetaItem
+            {
+                PorcentajeDescuentoMaximo = -1m
+            }));
+
+        Assert.Contains("PorcentajeDescuentoMaximo", ex.Message);
+    }
+
     [Fact]
     public async Task GuardarCondicion_ProductoInexistente_SeRechaza()
     {
@@ -406,5 +437,215 @@ public sealed class ProductoCondicionPagoServiceTests : IAsyncLifetime
         _context.ConfiguracionesTarjeta.Add(tarjeta);
         await _context.SaveChangesAsync();
         return tarjeta;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Tests Fase 15.6: Persistencia de planes
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GuardarCondicion_ConPlanes_CreaRegistrosPlan()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[]
+            {
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 3, Activo = true, AjustePorcentaje = 4m },
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6, Activo = true, AjustePorcentaje = 0m }
+            }
+        });
+
+        Assert.Equal(2, resultado.Planes.Count);
+        Assert.All(resultado.Planes, p => Assert.NotNull(p.Id));
+        var plan3 = Assert.Single(resultado.Planes, p => p.CantidadCuotas == 3);
+        Assert.Equal(4m, plan3.AjustePorcentaje);
+        Assert.True(plan3.Activo);
+        Assert.Equal(2, await _context.ProductoCondicionPagoPlanes.CountAsync());
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_SinPlanes_SigueFuncionando()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.Efectivo
+        });
+
+        Assert.Empty(resultado.Planes);
+        Assert.Equal(0, await _context.ProductoCondicionPagoPlanes.CountAsync());
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_ConPlanes_PlanActivoSePersisteComoActivo()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[] { new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6, Activo = true } }
+        });
+
+        Assert.True(resultado.Planes.Single().Activo);
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_ConPlanes_PlanInactivoSePersisteComoInactivo()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[] { new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6, Activo = false } }
+        });
+
+        Assert.False(resultado.Planes.Single().Activo);
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_ActualizaCondicion_ReemplazaPlanessinDuplicar()
+    {
+        var producto = await SeedProductoAsync();
+        var creada = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[]
+            {
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 3, AjustePorcentaje = 4m },
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6, AjustePorcentaje = 0m }
+            }
+        });
+
+        var plan3Id = creada.Planes.Single(p => p.CantidadCuotas == 3).Id;
+
+        // Conservar plan-3 (actualizado), eliminar plan-6, agregar plan-12
+        var actualizada = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            Id = creada.Id,
+            RowVersion = creada.RowVersion,
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[]
+            {
+                new GuardarProductoCondicionPagoPlanItem { Id = plan3Id, CantidadCuotas = 3, AjustePorcentaje = 5m },
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 12, AjustePorcentaje = 8m }
+            }
+        });
+
+        Assert.Equal(2, actualizada.Planes.Count);
+        Assert.Contains(actualizada.Planes, p => p.CantidadCuotas == 3 && p.AjustePorcentaje == 5m);
+        Assert.Contains(actualizada.Planes, p => p.CantidadCuotas == 12);
+        Assert.DoesNotContain(actualizada.Planes, p => p.CantidadCuotas == 6);
+
+        // Solo 2 activos en DB (el soft-deleted de cuota-6 no se cuenta)
+        Assert.Equal(2, await _context.ProductoCondicionPagoPlanes.CountAsync());
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_CuotasDuplicadasEnLote_SeRechaza()
+    {
+        var producto = await SeedProductoAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+            {
+                TipoPago = TipoPago.TarjetaCredito,
+                Planes = new[]
+                {
+                    new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6 },
+                    new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6 }
+                }
+            }));
+
+        Assert.Contains("duplicadas", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_CantidadCuotasCero_SeRechaza()
+    {
+        var producto = await SeedProductoAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+            {
+                TipoPago = TipoPago.TarjetaCredito,
+                Planes = new[] { new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 0 } }
+            }));
+
+        Assert.Contains("cuotas", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ObtenerPorProducto_ConPlanes_DevuelvePlanesGuardados()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[]
+            {
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 3, AjustePorcentaje = 4m, Observaciones = "Plan test" },
+                new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 6, AjustePorcentaje = 0m }
+            }
+        });
+
+        var resultado = await _service.ObtenerPorProductoAsync(producto.Id);
+
+        var condicion = Assert.Single(resultado.Condiciones);
+        Assert.Equal(2, condicion.Planes.Count);
+        var plan3 = condicion.Planes.Single(p => p.CantidadCuotas == 3);
+        Assert.Equal(4m, plan3.AjustePorcentaje);
+        Assert.Equal("Plan test", plan3.Observaciones);
+    }
+
+    [Fact]
+    public async Task GuardarReglaTarjeta_ConPlanes_CreaRegistrosPlan()
+    {
+        var condicion = await SeedCondicionAsync(TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaAsync();
+
+        var resultado = await _service.GuardarReglaTarjetaAsync(condicion.Id!.Value, new GuardarProductoCondicionPagoTarjetaItem
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            Planes = new[] { new GuardarProductoCondicionPagoPlanItem { CantidadCuotas = 3, AjustePorcentaje = 4m, Activo = true } }
+        });
+
+        Assert.Single(resultado.Planes);
+        var plan = resultado.Planes.Single();
+        Assert.Equal(3, plan.CantidadCuotas);
+        Assert.Equal(4m, plan.AjustePorcentaje);
+        Assert.True(plan.Activo);
+        Assert.Equal(1, await _context.ProductoCondicionPagoPlanes.CountAsync());
+    }
+
+    [Fact]
+    public async Task GuardarCondicion_ConPlanes_ConservaObservacionesPlan()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GuardarCondicionAsync(producto.Id, new GuardarProductoCondicionPagoItem
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            Planes = new[]
+            {
+                new GuardarProductoCondicionPagoPlanItem
+                {
+                    CantidadCuotas = 12,
+                    AjustePorcentaje = 6.5m,
+                    Activo = true,
+                    Observaciones = "Recargo plan anual"
+                }
+            }
+        });
+
+        var plan = resultado.Planes.Single();
+        Assert.Equal(12, plan.CantidadCuotas);
+        Assert.Equal(6.5m, plan.AjustePorcentaje);
+        Assert.Equal("Recargo plan anual", plan.Observaciones);
     }
 }

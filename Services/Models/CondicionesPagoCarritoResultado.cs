@@ -54,6 +54,24 @@ public sealed class CondicionesPagoCarritoResultado
         Array.Empty<CondicionPagoAjusteInformativoDto>();
 
     /// <summary>
+    /// Planes activos disponibles resueltos con precedencia tarjeta-específica > tarjeta-general > medio-general.
+    /// Vacío cuando no hay planes configurados (se usa fallback de máximos escalares).
+    /// AjustePorcentaje es informativo en esta fase: no modifica totales.
+    /// </summary>
+    public IReadOnlyList<ProductoCondicionPagoPlanDto> PlanesDisponibles { get; init; } =
+        Array.Empty<ProductoCondicionPagoPlanDto>();
+
+    /// <summary>
+    /// True cuando al menos un producto tiene planes activos configurados.
+    /// </summary>
+    public bool UsaPlanesEspecificos { get; init; }
+
+    /// <summary>
+    /// True cuando no hay planes activos: se usan los máximos escalares como única restricción de cuotas.
+    /// </summary>
+    public bool UsaFallbackGlobalPlanes { get; init; }
+
+    /// <summary>
     /// Total de referencia recibido por el helper. Se devuelve intacto para explicitar que no aplica ajustes.
     /// </summary>
     public decimal? TotalReferencia { get; init; }

@@ -90,6 +90,7 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
 
         await ValidarDuplicadoCondicionAsync(productoId, request.TipoPago, request.Id, request.Activo, cancellationToken);
         AplicarCondicion(condicion, request);
+        await SincronizarPlanesCondicionAsync(condicion, request.Planes, cancellationToken);
 
         try
         {
@@ -100,7 +101,10 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
             throw new InvalidOperationException("La condicion de pago fue modificada por otro proceso. Recarga los datos e intenta nuevamente.");
         }
 
-        return MapCondicion(condicion);
+        var condicionFinal = await ObtenerCondicionesQuery(productoId)
+            .FirstOrDefaultAsync(c => c.Id == condicion.Id, cancellationToken)
+            ?? throw new InvalidOperationException("No se pudo recargar la condicion guardada.");
+        return MapCondicion(condicionFinal);
     }
 
     public async Task<ProductoCondicionPagoTarjetaDto> GuardarReglaTarjetaAsync(
@@ -140,6 +144,7 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         }
 
         AplicarTarjeta(tarjeta, request);
+        await SincronizarPlanesTarjetaAsync(tarjeta, condicion.Id, request.Planes, cancellationToken);
 
         try
         {
@@ -150,7 +155,12 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
             throw new InvalidOperationException("La regla de tarjeta fue modificada por otro proceso. Recarga los datos e intenta nuevamente.");
         }
 
-        return MapTarjeta(tarjeta);
+        var tarjetaFinal = await _context.ProductoCondicionesPagoTarjeta
+            .AsNoTracking()
+            .Include(t => t.Planes)
+            .FirstOrDefaultAsync(t => t.Id == tarjeta.Id, cancellationToken)
+            ?? throw new InvalidOperationException("No se pudo recargar la regla de tarjeta guardada.");
+        return MapTarjeta(tarjetaFinal);
     }
 
     public async Task GuardarCondicionesCompletasAsync(
@@ -181,14 +191,139 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Sincronización de planes
+    // ─────────────────────────────────────────────────────────────
+
+    private async Task SincronizarPlanesCondicionAsync(
+        ProductoCondicionPago condicion,
+        IReadOnlyList<GuardarProductoCondicionPagoPlanItem> planesRequest,
+        CancellationToken cancellationToken)
+    {
+        // Para condicion nueva sin planes: nada que hacer
+        if (planesRequest.Count == 0 && condicion.Id == 0) return;
+
+        ValidarPlanesRequest(planesRequest);
+
+        if (condicion.Id == 0)
+        {
+            // Nueva condicion: agregar a navigation property; EF resuelve la FK tras SaveChanges
+            foreach (var planRequest in planesRequest)
+            {
+                var plan = new ProductoCondicionPagoPlan();
+                AplicarPlan(plan, planRequest);
+                condicion.Planes.Add(plan);
+            }
+            return;
+        }
+
+        // Condicion existente: diff contra los planes actuales en DB
+        var existentes = await _context.ProductoCondicionPagoPlanes
+            .Where(p => p.ProductoCondicionPagoId == condicion.Id && p.ProductoCondicionPagoTarjetaId == null)
+            .ToListAsync(cancellationToken);
+
+        var idsRequest = planesRequest
+            .Where(p => p.Id.HasValue)
+            .Select(p => p.Id!.Value)
+            .ToHashSet();
+
+        // Soft-delete los planes que no aparecen en el request
+        foreach (var existente in existentes.Where(e => !idsRequest.Contains(e.Id)))
+            existente.IsDeleted = true;
+
+        foreach (var planRequest in planesRequest)
+        {
+            if (planRequest.Id.HasValue)
+            {
+                var existente = existentes.FirstOrDefault(e => e.Id == planRequest.Id.Value)
+                    ?? throw new InvalidOperationException($"El plan de cuotas {planRequest.Id.Value} no existe para la condicion indicada.");
+                AplicarPlan(existente, planRequest);
+            }
+            else
+            {
+                var plan = new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id };
+                AplicarPlan(plan, planRequest);
+                _context.ProductoCondicionPagoPlanes.Add(plan);
+            }
+        }
+    }
+
+    private async Task SincronizarPlanesTarjetaAsync(
+        ProductoCondicionPagoTarjeta tarjeta,
+        int condicionId,
+        IReadOnlyList<GuardarProductoCondicionPagoPlanItem> planesRequest,
+        CancellationToken cancellationToken)
+    {
+        // Para tarjeta nueva sin planes: nada que hacer
+        if (planesRequest.Count == 0 && tarjeta.Id == 0) return;
+
+        ValidarPlanesRequest(planesRequest);
+
+        if (tarjeta.Id == 0)
+        {
+            // Nueva tarjeta: agregar a navigation property; ProductoCondicionPagoId se setea explícitamente
+            foreach (var planRequest in planesRequest)
+            {
+                var plan = new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicionId };
+                AplicarPlan(plan, planRequest);
+                tarjeta.Planes.Add(plan);
+            }
+            return;
+        }
+
+        // Tarjeta existente: diff contra los planes actuales en DB
+        var existentes = await _context.ProductoCondicionPagoPlanes
+            .Where(p => p.ProductoCondicionPagoTarjetaId == tarjeta.Id)
+            .ToListAsync(cancellationToken);
+
+        var idsRequest = planesRequest
+            .Where(p => p.Id.HasValue)
+            .Select(p => p.Id!.Value)
+            .ToHashSet();
+
+        // Soft-delete los planes que no aparecen en el request
+        foreach (var existente in existentes.Where(e => !idsRequest.Contains(e.Id)))
+            existente.IsDeleted = true;
+
+        foreach (var planRequest in planesRequest)
+        {
+            if (planRequest.Id.HasValue)
+            {
+                var existente = existentes.FirstOrDefault(e => e.Id == planRequest.Id.Value)
+                    ?? throw new InvalidOperationException($"El plan de cuotas {planRequest.Id.Value} no existe para la tarjeta indicada.");
+                AplicarPlan(existente, planRequest);
+            }
+            else
+            {
+                var plan = new ProductoCondicionPagoPlan
+                {
+                    ProductoCondicionPagoId = condicionId,
+                    ProductoCondicionPagoTarjetaId = tarjeta.Id
+                };
+                AplicarPlan(plan, planRequest);
+                _context.ProductoCondicionPagoPlanes.Add(plan);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Query base
+    // ─────────────────────────────────────────────────────────────
+
     private IQueryable<ProductoCondicionPago> ObtenerCondicionesQuery(int productoId)
     {
         return _context.ProductoCondicionesPago
             .AsNoTracking()
             .Include(c => c.Tarjetas.Where(t => !t.IsDeleted))
+                .ThenInclude(t => t.Planes.Where(p => !p.IsDeleted))
+            .Include(c => c.Planes.Where(p => !p.IsDeleted && p.ProductoCondicionPagoTarjetaId == null))
             .Where(c => c.ProductoId == productoId)
             .OrderBy(c => c.TipoPago);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helpers de dominio
+    // ─────────────────────────────────────────────────────────────
 
     private async Task<Producto> ObtenerProductoValidoAsync(int productoId, CancellationToken cancellationToken)
     {
@@ -267,6 +402,20 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         throw new InvalidOperationException(configuracionTarjetaId.HasValue
             ? "Ya existe una regla activa para la tarjeta indicada."
             : "Ya existe una regla general activa de tarjeta para la condicion indicada.");
+    }
+
+    private static void ValidarPlanesRequest(IReadOnlyList<GuardarProductoCondicionPagoPlanItem> planes)
+    {
+        foreach (var plan in planes)
+        {
+            if (plan.CantidadCuotas < 1)
+                throw new InvalidOperationException("La cantidad de cuotas debe ser mayor a 0.");
+            if (plan.AjustePorcentaje is < -100m or > 999.9999m)
+                throw new InvalidOperationException("El ajuste de porcentaje debe estar entre -100 y 999.9999.");
+        }
+
+        if (planes.GroupBy(p => p.CantidadCuotas).Any(g => g.Count() > 1))
+            throw new InvalidOperationException("Existen planes con cantidad de cuotas duplicadas.");
     }
 
     private static void ValidarCondicionRequest(int productoId, GuardarProductoCondicionPagoItem request)
@@ -353,6 +502,10 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // RowVersion
+    // ─────────────────────────────────────────────────────────────
+
     private void AplicarRowVersion(ProductoCondicionPago condicion, byte[]? rowVersion, bool requiereRowVersion)
     {
         if (requiereRowVersion && (rowVersion is null || rowVersion.Length == 0))
@@ -379,6 +532,10 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Aplicar campos
+    // ─────────────────────────────────────────────────────────────
+
     private static void AplicarCondicion(ProductoCondicionPago condicion, GuardarProductoCondicionPagoItem request)
     {
         condicion.TipoPago = request.TipoPago;
@@ -404,6 +561,19 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
         tarjeta.Observaciones = request.Observaciones;
     }
 
+    private static void AplicarPlan(ProductoCondicionPagoPlan plan, GuardarProductoCondicionPagoPlanItem request)
+    {
+        plan.CantidadCuotas = request.CantidadCuotas;
+        plan.Activo = request.Activo;
+        plan.AjustePorcentaje = request.AjustePorcentaje;
+        plan.TipoAjuste = request.TipoAjuste;
+        plan.Observaciones = request.Observaciones;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Mapeo a DTOs
+    // ─────────────────────────────────────────────────────────────
+
     private static ProductoCondicionPagoDto MapCondicion(ProductoCondicionPago condicion)
     {
         return new ProductoCondicionPagoDto
@@ -425,6 +595,11 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
                 .OrderBy(t => t.ConfiguracionTarjetaId.HasValue)
                 .ThenBy(t => t.ConfiguracionTarjetaId)
                 .Select(MapTarjeta)
+                .ToArray(),
+            Planes = condicion.Planes
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.CantidadCuotas)
+                .Select(MapPlan)
                 .ToArray()
         };
     }
@@ -442,7 +617,25 @@ public sealed class ProductoCondicionPagoService : IProductoCondicionPagoService
             PorcentajeDescuentoMaximo = tarjeta.PorcentajeDescuentoMaximo,
             Activo = tarjeta.Activo,
             Observaciones = tarjeta.Observaciones,
-            RowVersion = tarjeta.RowVersion
+            RowVersion = tarjeta.RowVersion,
+            Planes = tarjeta.Planes
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.CantidadCuotas)
+                .Select(MapPlan)
+                .ToArray()
+        };
+    }
+
+    private static ProductoCondicionPagoPlanDto MapPlan(ProductoCondicionPagoPlan plan)
+    {
+        return new ProductoCondicionPagoPlanDto
+        {
+            Id = plan.Id,
+            CantidadCuotas = plan.CantidadCuotas,
+            Activo = plan.Activo,
+            AjustePorcentaje = plan.AjustePorcentaje,
+            TipoAjuste = plan.TipoAjuste,
+            Observaciones = plan.Observaciones
         };
     }
 }

@@ -19,7 +19,9 @@ namespace TheBuryProject.Helpers
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();
             var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(venta);
-            var totales = BuildTotales(factura, venta, lineas, recargoDebitoAplicado);
+            var ajustePlanMonto = venta.DatosTarjeta?.MontoAjustePlanAplicado;
+            var ajustePlanPct = venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
+            var totales = BuildTotales(factura, venta, lineas, recargoDebitoAplicado, ajustePlanMonto, ajustePlanPct);
 
             return new FacturaComprobanteViewModel
             {
@@ -139,7 +141,9 @@ namespace TheBuryProject.Helpers
             Factura factura,
             Venta venta,
             IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas,
-            decimal recargoDebitoAplicado)
+            decimal recargoDebitoAplicado,
+            decimal? ajustePlanMonto,
+            decimal? ajustePlanPct)
         {
             var totalProductos = lineas.Sum(l => l.Total);
 
@@ -153,6 +157,8 @@ namespace TheBuryProject.Helpers
                     IVA = lineas.Sum(l => l.IVA),
                     TotalProductos = totalProductos,
                     RecargoDebitoAplicado = recargoDebitoAplicado,
+                    PorcentajeAjustePlanAplicado = ajustePlanPct,
+                    MontoAjustePlanAplicado = ajustePlanMonto,
                     Total = ResolverTotalPersistido(factura, venta, totalProductos + recargoDebitoAplicado)
                 };
             }
@@ -165,6 +171,8 @@ namespace TheBuryProject.Helpers
                     IVA = factura.IVA,
                     TotalProductos = Math.Max(0m, factura.Total - recargoDebitoAplicado),
                     RecargoDebitoAplicado = recargoDebitoAplicado,
+                    PorcentajeAjustePlanAplicado = ajustePlanPct,
+                    MontoAjustePlanAplicado = ajustePlanMonto,
                     Total = factura.Total
                 };
             }
@@ -175,6 +183,8 @@ namespace TheBuryProject.Helpers
                 IVA = venta.IVA,
                 TotalProductos = Math.Max(0m, venta.Total - recargoDebitoAplicado),
                 RecargoDebitoAplicado = recargoDebitoAplicado,
+                PorcentajeAjustePlanAplicado = ajustePlanPct,
+                MontoAjustePlanAplicado = ajustePlanMonto,
                 Total = venta.Total
             };
         }

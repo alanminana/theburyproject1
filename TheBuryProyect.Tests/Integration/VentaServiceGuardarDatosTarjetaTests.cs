@@ -377,4 +377,502 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         Assert.Contains("no esta disponible", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
     }
+
+    // ── Infraestructura para tests de plan ─────────────────────────────
+
+    private static int _productoCounter = 700;
+
+    private async Task<(Producto Producto, ProductoCondicionPago Condicion, ProductoCondicionPagoPlan Plan)>
+        SeedPlan(TipoPago tipoPago, bool activo = true, bool isDeleted = false)
+    {
+        var suffix = Interlocked.Increment(ref _productoCounter).ToString();
+
+        var categoria = new Categoria { Codigo = $"CAT{suffix}", Nombre = $"Cat {suffix}" };
+        var marca = new Marca { Codigo = $"MRC{suffix}", Nombre = $"Marca {suffix}" };
+        var producto = new Producto
+        {
+            Codigo = $"PROD{suffix}",
+            Nombre = $"Producto {suffix}",
+            Categoria = categoria,
+            Marca = marca,
+            PrecioVenta = 1000m,
+            PrecioCompra = 500m,
+            StockActual = 1m,
+            IsDeleted = false
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var condicion = new ProductoCondicionPago
+        {
+            ProductoId = producto.Id,
+            TipoPago = tipoPago,
+            Activo = true,
+            IsDeleted = false
+        };
+        _context.ProductoCondicionesPago.Add(condicion);
+        await _context.SaveChangesAsync();
+
+        var plan = new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 3,
+            Activo = activo,
+            AjustePorcentaje = 4m,
+            IsDeleted = isDeleted
+        };
+        _context.ProductoCondicionPagoPlanes.Add(plan);
+        await _context.SaveChangesAsync();
+
+        return (producto, condicion, plan);
+    }
+
+    // ── Tests de plan (Fase 15.7.B) ────────────────────────────────────
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_SinPlan_SigueFuncionandoIgualQueAntes()
+    {
+        var venta = await SeedVenta(total: 6_000m);
+        var tarjeta = await SeedConfiguracionTarjeta(TipoTarjeta.Credito, TipoCuotaTarjeta.SinInteres, nombre: "Visa SinPlan");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            CantidadCuotas = 3,
+            ProductoCondicionPagoPlanId = null
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaCredito_ConPlanActivo_PersistePlanId()
+    {
+        var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
+        var (_, _, plan) = await SeedPlan(TipoPago.TarjetaCredito);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(plan.Id, datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaDebito_ConPlanActivo_PersistePlanId()
+    {
+        var venta = await SeedVenta(total: 5_000m, tipoPago: TipoPago.TarjetaDebito);
+        var (_, _, plan) = await SeedPlan(TipoPago.TarjetaDebito);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Maestro",
+            TipoTarjeta = TipoTarjeta.Debito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(plan.Id, datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_MercadoPago_ConPlanActivo_PersistePlanId()
+    {
+        var venta = await SeedVenta(total: 3_000m, tipoPago: TipoPago.MercadoPago);
+        var (_, _, plan) = await SeedPlan(TipoPago.MercadoPago);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(plan.Id, datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanInactivo_Rechaza()
+    {
+        var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
+        var (_, _, plan) = await SeedPlan(TipoPago.TarjetaCredito, activo: false);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no está disponible", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanEliminadoLogicamente_Rechaza()
+    {
+        var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
+        var (_, _, plan) = await SeedPlan(TipoPago.TarjetaCredito, activo: true, isDeleted: true);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no existe", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanDeTipoPagoIncorrecto_Rechaza()
+    {
+        // Plan configurado para TarjetaDebito, pero la venta es TarjetaCredito
+        var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
+        var (_, _, plan) = await SeedPlan(TipoPago.TarjetaDebito);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no corresponde al medio de pago", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanDeMedioNoTarjeta_Rechaza()
+    {
+        // Plan configurado para Efectivo — no es un medio válido para planes de tarjeta
+        var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.Efectivo);
+        var (_, _, plan) = await SeedPlan(TipoPago.Efectivo);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Efectivo",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no corresponde a un medio de pago de tarjeta", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── Tests de cálculo real de ajuste por plan (Fase 15.8.B) ────────────────
+
+    private async Task<ProductoCondicionPagoPlan> SeedPlanConAjuste(TipoPago tipoPago, decimal ajustePorcentaje)
+    {
+        var (_, _, plan) = await SeedPlan(tipoPago);
+
+        // SeedPlan crea el plan con AjustePorcentaje=4. Reemplazamos con el valor pedido.
+        var planTracked = await _context.ProductoCondicionPagoPlanes.FindAsync(plan.Id);
+        planTracked!.AjustePorcentaje = ajustePorcentaje;
+        await _context.SaveChangesAsync();
+        return planTracked;
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_SinPlan_TotalNoSeModifica()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = null
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(10_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Null(datos.PorcentajeAjustePlanAplicado);
+        Assert.Null(datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanCeroPorCiento_TotalNoSeModifica()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 0m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(10_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(0m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(0m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanRecargo10Pct_AumentaTotalCorrectamente()
+    {
+        // 10% de 10.000 = 1.000 → total = 11.000
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(10m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanDescuento10Pct_ReduceTotalCorrectamente()
+    {
+        // -10% de 10.000 = -1.000 → total = 9.000
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: -10m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(9_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(-10m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(-1_000m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaCredito_PlanAplicaAjuste()
+    {
+        // TarjetaCredito con plan +5% sobre 8.000 = 400 → total = 8.400
+        var venta = await SeedVenta(total: 8_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 5m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mastercard",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(8_400m, ventaActualizada.Total);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaDebito_PlanAplicaAjuste()
+    {
+        // TarjetaDebito con plan +4% sobre 5.000 = 200 → total = 5.200
+        var venta = await SeedVenta(total: 5_000m, tipoPago: TipoPago.TarjetaDebito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaDebito, ajustePorcentaje: 4m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Maestro",
+            TipoTarjeta = TipoTarjeta.Debito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(5_200m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(4m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(200m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaDebito_RecargoYPlan_AplicaAmbosAjustes()
+    {
+        // Debito: 5% recargo de tarjeta sobre 10.000 = 500 → subtotal 10.500
+        // Plan: +10% sobre 10.500 = 1.050 → total final = 11.550
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Debito,
+            nombre: "Maestro Recargo+Plan",
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaDebito, ajustePorcentaje: 10m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_550m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(500m, datos.RecargoAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(1_050m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_MercadoPago_PlanAplicaAjuste()
+    {
+        // MercadoPago con plan +8% sobre 3.000 = 240 → total = 3.240
+        var venta = await SeedVenta(total: 3_000m, tipoPago: TipoPago.MercadoPago);
+        var plan = await SeedPlanConAjuste(TipoPago.MercadoPago, ajustePorcentaje: 8m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(3_240m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(8m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(240m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_Efectivo_SinPlan_TotalNoSeModifica()
+    {
+        // Efectivo sin plan — GuardarDatosAdicionales no llama a GuardarDatosTarjetaAsync,
+        // pero el método en sí no debe modificar el total.
+        var venta = await SeedVenta(total: 7_000m, tipoPago: TipoPago.Efectivo);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Efectivo",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = null
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(7_000m, ventaActualizada.Total);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanActivo_SnapshotPorcentajeGuardadoCorrectamente()
+    {
+        var venta = await SeedVenta(total: 12_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 15m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(15m, datos.PorcentajeAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanActivo_SnapshotMontoGuardadoCorrectamente()
+    {
+        // 15% de 12.000 = 1.800
+        var venta = await SeedVenta(total: 12_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 15m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(1_800m, datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanActivo_TotalYaAjustadoDisponibleParaCaja()
+    {
+        // Verifica que venta.Total queda modificado antes del SaveChanges,
+        // lo que CajaService recibirá en ConfirmarVentaAsync.
+        // 10% de 5.000 = 500 → total = 5.500
+        var venta = await SeedVenta(total: 5_000m, tipoPago: TipoPago.TarjetaCredito);
+        var plan = await SeedPlanConAjuste(TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ProductoCondicionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(5_500m, ventaActualizada.Total);
+    }
 }

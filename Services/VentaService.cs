@@ -1619,6 +1619,12 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La tarjeta seleccionada no esta disponible");
             }
 
+            ProductoCondicionPagoPlan? planSeleccionado = null;
+            if (datosTarjeta.ProductoCondicionPagoPlanId.HasValue)
+            {
+                planSeleccionado = await ValidarYObtenerPlanPagoAsync(datosTarjeta.ProductoCondicionPagoPlanId.Value, venta.TipoPago);
+            }
+
             var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
             datosTarjetaEntity.VentaId = ventaId;
 
@@ -1661,10 +1667,47 @@ namespace TheBuryProject.Services
                 venta.Total += recargo;
             }
 
+            if (planSeleccionado != null)
+            {
+                var montoAjuste = RedondearMoneda(venta.Total * planSeleccionado.AjustePorcentaje / 100m);
+                venta.Total += montoAjuste;
+                datosTarjetaEntity.PorcentajeAjustePlanAplicado = planSeleccionado.AjustePorcentaje;
+                datosTarjetaEntity.MontoAjustePlanAplicado = montoAjuste;
+            }
+
             _context.DatosTarjeta.Add(datosTarjetaEntity);
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        private static readonly TipoPago[] TiposPagoConPlanes =
+        {
+            TipoPago.TarjetaCredito,
+            TipoPago.TarjetaDebito,
+            TipoPago.MercadoPago
+        };
+
+        private async Task<ProductoCondicionPagoPlan> ValidarYObtenerPlanPagoAsync(int planId, TipoPago tipoPagoVenta)
+        {
+            var plan = await _context.ProductoCondicionPagoPlanes
+                .Include(p => p.ProductoCondicionPago)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == planId && !p.IsDeleted);
+
+            if (plan == null)
+                throw new InvalidOperationException("El plan de pago seleccionado no existe.");
+
+            if (!plan.Activo)
+                throw new InvalidOperationException("El plan de pago seleccionado no está disponible.");
+
+            if (!TiposPagoConPlanes.Contains(plan.ProductoCondicionPago.TipoPago))
+                throw new InvalidOperationException("El plan seleccionado no corresponde a un medio de pago de tarjeta.");
+
+            if (plan.ProductoCondicionPago.TipoPago != tipoPagoVenta)
+                throw new InvalidOperationException("El plan seleccionado no corresponde al medio de pago elegido.");
+
+            return plan;
         }
 
         #endregion
@@ -2508,7 +2551,9 @@ namespace TheBuryProject.Services
         private async Task GuardarDatosAdicionales(int ventaId, VentaViewModel viewModel)
         {
             if (viewModel.DatosTarjeta != null &&
-                (viewModel.TipoPago == TipoPago.TarjetaCredito || viewModel.TipoPago == TipoPago.TarjetaDebito))
+                (viewModel.TipoPago == TipoPago.TarjetaCredito ||
+                 viewModel.TipoPago == TipoPago.TarjetaDebito ||
+                 viewModel.TipoPago == TipoPago.MercadoPago))
             {
                 await GuardarDatosTarjetaAsync(ventaId, viewModel.DatosTarjeta);
             }

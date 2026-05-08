@@ -367,6 +367,16 @@
             {
                 <div class="total-row"><span>Recargo d&eacute;bito</span><strong>@Model.Totales.RecargoDebitoAplicado.ToString("C2")</strong></div>
             }
+            @if (Model.Totales.MontoAjustePlanAplicado.HasValue)
+            {
+                var montoAjuste = Model.Totales.MontoAjustePlanAplicado.Value;
+                var pctAjuste = Model.Totales.PorcentajeAjustePlanAplicado;
+                var esRecargo = montoAjuste > 0;
+                var esDescuento = montoAjuste < 0;
+                var etiqueta = esRecargo ? "Recargo por plan" : esDescuento ? "Descuento por plan" : "Ajuste por plan";
+                var sufijoPct = pctAjuste.HasValue ? $" ({(pctAjuste.Value > 0 ? "+" : "")}{pctAjuste.Value:0.##}%)" : "";
+                <div class="total-row"><span>@etiqueta@sufijoPct</span><strong>@montoAjuste.ToString("C2")</strong></div>
+            }
             <div class="total-row"><span>Total</span><strong>@Model.Totales.Total.ToString("C2")</strong></div>
         </section>
 

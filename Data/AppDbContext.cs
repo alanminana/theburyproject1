@@ -62,6 +62,7 @@ namespace TheBuryProject.Data
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
         public DbSet<ProductoCondicionPago> ProductoCondicionesPago { get; set; }
         public DbSet<ProductoCondicionPagoTarjeta> ProductoCondicionesPagoTarjeta { get; set; }
+        public DbSet<ProductoCondicionPagoPlan> ProductoCondicionPagoPlanes { get; set; }
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
@@ -459,6 +460,59 @@ namespace TheBuryProject.Data
                     .WithMany()
                     .HasForeignKey(e => e.ConfiguracionTarjetaId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // =======================
+            // ProductoCondicionPagoPlan
+            // =======================
+            modelBuilder.Entity<ProductoCondicionPagoPlan>(entity =>
+            {
+                var cuotasCheck = "[CantidadCuotas] >= 1";
+                var ajusteCheck = Database.IsSqlServer()
+                    ? "[AjustePorcentaje] >= -100.0000 AND [AjustePorcentaje] <= 999.9999"
+                    : "CAST([AjustePorcentaje] AS REAL) >= -100.0 AND CAST([AjustePorcentaje] AS REAL) <= 999.9999";
+
+                entity.ToTable("ProductoCondicionPagoPlanes", t =>
+                {
+                    t.HasCheckConstraint("CK_ProductoCondicionPagoPlanes_Cuotas", cuotasCheck);
+                    t.HasCheckConstraint("CK_ProductoCondicionPagoPlanes_Ajuste", ajusteCheck);
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.AjustePorcentaje).HasPrecision(8, 4);
+                entity.Property(e => e.Observaciones).HasMaxLength(500);
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(e => e.ProductoCondicionPagoId);
+                entity.HasIndex(e => e.ProductoCondicionPagoTarjetaId);
+
+                // Plan general del medio (tarjetaId = null): único por condición + cuotas
+                entity.HasIndex(e => new { e.ProductoCondicionPagoId, e.CantidadCuotas })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCondicionPagoPlanes_General")
+                    .HasFilter("[IsDeleted] = 0 AND [ProductoCondicionPagoTarjetaId] IS NULL");
+
+                // Plan de tarjeta específica/general tipo tarjeta: único por condición + tarjeta + cuotas
+                entity.HasIndex(e => new { e.ProductoCondicionPagoId, e.ProductoCondicionPagoTarjetaId, e.CantidadCuotas })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCondicionPagoPlanes_Tarjeta")
+                    .HasFilter("[IsDeleted] = 0 AND [ProductoCondicionPagoTarjetaId] IS NOT NULL");
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.ProductoCondicionPago)
+                    .WithMany(c => c.Planes)
+                    .HasForeignKey(e => e.ProductoCondicionPagoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ProductoCondicionPagoTarjeta)
+                    .WithMany(t => t.Planes)
+                    .HasForeignKey(e => e.ProductoCondicionPagoTarjetaId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // =======================
@@ -1294,6 +1348,8 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoCuota).HasPrecision(18, 2);
                 entity.Property(e => e.MontoTotalConInteres).HasPrecision(18, 2);
                 entity.Property(e => e.RecargoAplicado).HasPrecision(18, 2);
+                entity.Property(e => e.PorcentajeAjustePlanAplicado).HasPrecision(5, 2);
+                entity.Property(e => e.MontoAjustePlanAplicado).HasPrecision(18, 2);
 
                 entity.HasOne(e => e.Venta)
                     .WithOne(v => v.DatosTarjeta)
@@ -1303,6 +1359,11 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.ConfiguracionTarjeta)
                     .WithMany()
                     .HasForeignKey(e => e.ConfiguracionTarjetaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.ProductoCondicionPagoPlan)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoCondicionPagoPlanId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 

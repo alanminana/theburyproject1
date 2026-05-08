@@ -196,6 +196,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void VentaCreateJs_MaxCuotasEscalaresSiguenFuncionando()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var diagnostico = ExtractFunction(script, "function obtenerLimiteDiagnosticoCuotas");
+
+        Assert.Contains("maxCuotasSinInteres", diagnostico);
+        Assert.Contains("maxCuotasConInteres", diagnostico);
+        Assert.Contains("maxCuotasCredito", diagnostico);
+    }
+
+    [Fact]
     public void VentaCreateJs_DiagnosticoMaxCuotasConInteresLimitaDropdownSinTocarTotales()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
@@ -309,6 +320,99 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("MaxCuotasSinInteres", createPost);
         Assert.DoesNotContain("MaxCuotasConInteres", createPost);
         Assert.DoesNotContain("MaxCuotasCredito", createPost);
+    }
+
+    // ── Fase 15.7.B: selector de plan de pago ──────────────────────────
+
+    [Fact]
+    public void CreateView_TienePanelPlanesPagoConInputHiddenYLista()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"panel-planes-pago\"", view);
+        Assert.Contains("id=\"lista-planes-pago\"", view);
+        Assert.Contains("name=\"DatosTarjeta.ProductoCondicionPagoPlanId\"", view);
+        Assert.Contains("id=\"hdn-plan-pago-id\"", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ConsumePlanesDisponiblesDelDiagnostico()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDiagnosticoCondicionesPago");
+
+        Assert.Contains("planesDisponibles", render, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PlanesDisponibles", render);
+        Assert.Contains("renderSelectorPlanesPago(planesRaw)", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_TieneFuncionEsTipoPagoConPlanes()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function esTipoPagoConPlanes(tipoPago)", script);
+        Assert.Contains("TIPO_PAGO.TarjetaCredito", script);
+        Assert.Contains("TIPO_PAGO.TarjetaDebito", script);
+        Assert.Contains("TIPO_PAGO.MercadoPago", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SelectorPlanNoAparece_ParaMediosDirectos()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var renderSelector = ExtractFunction(script, "function renderSelectorPlanesPago");
+
+        Assert.Contains("esTipoPagoConPlanes(tipoPago)", renderSelector);
+        Assert.Contains("limpiarSelectorPlanesPago()", renderSelector);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SelectorPlanAparece_ParaTarjetaDebitoYMercadoPago()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function esTipoPagoConPlanes", script);
+        Assert.Contains("TIPO_PAGO.MercadoPago", script.Substring(script.IndexOf("function esTipoPagoConPlanes", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void VentaCreateJs_CambioDeTipoPagoLimpiaPlanSeleccionado()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var tipoPago = ExtractFunction(script, "function onTipoPagoChange");
+
+        Assert.Contains("limpiarSelectorPlanesPago()", tipoPago);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AjustePlanMostradoComoInformativo()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var formatear = ExtractFunction(script, "function formatearEtiquetaPlan");
+
+        Assert.Contains("informativo", formatear);
+        Assert.Contains("ajustePorcentaje", formatear, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sin ajuste", formatear);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SeleccionarPlanEscribeEnHiddenInput()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("hdnPlanPagoId", script);
+        Assert.Contains("hdnPlanPagoId.value = planId", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_LimpiarSelectorPlanesPagoLimpiaPlanId()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var limpiar = ExtractFunction(script, "function limpiarSelectorPlanesPago");
+
+        Assert.Contains("hdnPlanPagoId.value = ''", limpiar);
+        Assert.Contains("hide(panelPlanesPago)", limpiar);
     }
 
     private static string FindRepoRoot()

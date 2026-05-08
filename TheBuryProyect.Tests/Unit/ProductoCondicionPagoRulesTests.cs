@@ -184,6 +184,32 @@ public class ProductoCondicionPagoRulesTests
     }
 
     [Fact]
+    public void ResolverCondicionesCarrito_MaxCuotasSinInteresNullHeredarConservaGlobalActual()
+    {
+        var condiciones = new[]
+        {
+            new ProductoCondicionPagoDto
+            {
+                ProductoId = 1,
+                TipoPago = TipoPago.TarjetaCredito,
+                Permitido = null,
+                MaxCuotasSinInteres = null
+            }
+        };
+
+        var resultado = ProductoCondicionPagoRules.ResolverCondicionesCarrito(
+            condiciones,
+            TipoPago.TarjetaCredito,
+            maxCuotasSinInteresGlobal: 12);
+
+        Assert.True(resultado.Permitido);
+        Assert.Equal(12, resultado.MaxCuotasSinInteres);
+        Assert.Equal(FuenteCondicionPagoEfectiva.Global, resultado.FuentePermitido);
+        Assert.Equal(FuenteCondicionPagoEfectiva.Global, resultado.FuenteRestriccion);
+        Assert.Empty(resultado.Restricciones);
+    }
+
+    [Fact]
     public void ResolverCondicionesCarrito_MaxCuotasConInteresUsaMinimoRestrictivo()
     {
         var condiciones = new[]
@@ -202,6 +228,23 @@ public class ProductoCondicionPagoRulesTests
     }
 
     [Fact]
+    public void ResolverCondicionesCarrito_MaxCuotasConInteresMayorAlGlobalNoAmpliaRango()
+    {
+        var condiciones = new[]
+        {
+            new ProductoCondicionPagoDto { ProductoId = 1, TipoPago = TipoPago.TarjetaCredito, MaxCuotasConInteres = 24 }
+        };
+
+        var resultado = ProductoCondicionPagoRules.ResolverCondicionesCarrito(
+            condiciones,
+            TipoPago.TarjetaCredito,
+            maxCuotasConInteresGlobal: 12);
+
+        Assert.Equal(12, resultado.MaxCuotasConInteres);
+        Assert.Empty(resultado.ProductoIdsRestrictivos);
+    }
+
+    [Fact]
     public void ResolverCondicionesCarrito_MaxCuotasCreditoUsaMinimoRestrictivo()
     {
         var condiciones = new[]
@@ -217,6 +260,73 @@ public class ProductoCondicionPagoRulesTests
 
         Assert.Equal(12, resultado.MaxCuotasCredito);
         Assert.Equal(new[] { 2 }, resultado.ProductoIdsRestrictivos);
+    }
+
+    [Fact]
+    public void ResolverCondicionesCarrito_CondicionInactivaNoParticipaYConservaGlobal()
+    {
+        var condiciones = new[]
+        {
+            new ProductoCondicionPagoDto
+            {
+                ProductoId = 1,
+                TipoPago = TipoPago.CreditoPersonal,
+                Permitido = false,
+                MaxCuotasCredito = 3,
+                Activo = false
+            }
+        };
+
+        var resultado = ProductoCondicionPagoRules.ResolverCondicionesCarrito(
+            condiciones,
+            TipoPago.CreditoPersonal,
+            maxCuotasCreditoGlobal: 24);
+
+        Assert.True(resultado.Permitido);
+        Assert.Equal(24, resultado.MaxCuotasCredito);
+        Assert.False(resultado.TieneRestriccionesPorProducto);
+        Assert.Empty(resultado.Bloqueos);
+        Assert.Empty(resultado.Restricciones);
+    }
+
+    [Fact]
+    public void ResolverCondicionesCarrito_ReglaTarjetaInactivaNoParticipaYUsaReglaGeneral()
+    {
+        var condiciones = new[]
+        {
+            new ProductoCondicionPagoDto
+            {
+                ProductoId = 1,
+                TipoPago = TipoPago.TarjetaCredito,
+                Tarjetas = new[]
+                {
+                    new ProductoCondicionPagoTarjetaDto
+                    {
+                        ConfiguracionTarjetaId = null,
+                        MaxCuotasSinInteres = 9
+                    },
+                    new ProductoCondicionPagoTarjetaDto
+                    {
+                        ConfiguracionTarjetaId = 10,
+                        Permitido = false,
+                        MaxCuotasSinInteres = 3,
+                        Activo = false
+                    }
+                }
+            }
+        };
+
+        var resultado = ProductoCondicionPagoRules.ResolverCondicionesCarrito(
+            condiciones,
+            TipoPago.TarjetaCredito,
+            configuracionTarjetaId: 10,
+            maxCuotasSinInteresGlobal: 12);
+
+        Assert.True(resultado.Permitido);
+        Assert.Equal(9, resultado.MaxCuotasSinInteres);
+        Assert.Empty(resultado.Bloqueos);
+        var restriccion = Assert.Single(resultado.Restricciones);
+        Assert.Equal(FuenteCondicionPagoEfectiva.TarjetaGeneral, restriccion.Fuente);
     }
 
     [Fact]

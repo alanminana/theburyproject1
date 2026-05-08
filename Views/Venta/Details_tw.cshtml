@@ -57,6 +57,9 @@
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var cantidadUnidades = detalles.Sum(d => d.Cantidad);
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
+    var datosTarjeta = Model.DatosTarjeta;
+    var ajustePlanMonto = datosTarjeta?.MontoAjustePlanAplicado;
+    var ajustePlanPct = datosTarjeta?.PorcentajeAjustePlanAplicado;
     var heroDescripcion = Model.Estado switch
     {
         EstadoVenta.Presupuesto => "Revisá el detalle, completá la configuración pendiente y prepará la aprobación o confirmación final.",
@@ -366,6 +369,18 @@
                                 <div class="flex justify-between w-64 text-sm">
                                     <span class="text-slate-500">Recargo d&eacute;bito</span>
                                     <span class="font-medium text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
+                                </div>
+                            }
+                            @if (ajustePlanMonto.HasValue)
+                            {
+                                var esRecargoPlan = ajustePlanMonto.Value > 0;
+                                var esDescuentoPlan = ajustePlanMonto.Value < 0;
+                                var labelPlan = esRecargoPlan ? "Recargo por plan" : esDescuentoPlan ? "Descuento por plan" : "Ajuste por plan";
+                                var colorPlan = esRecargoPlan ? "text-amber-300" : esDescuentoPlan ? "text-red-500" : "text-slate-400";
+                                var sufijoPct = ajustePlanPct.HasValue ? $" ({(ajustePlanPct.Value > 0 ? "+" : "")}{ajustePlanPct.Value:0.##}%)" : "";
+                                <div class="flex justify-between w-64 text-sm">
+                                    <span class="text-slate-500">@labelPlan@sufijoPct</span>
+                                    <span class="font-medium @colorPlan">@ajustePlanMonto.Value.ToString("C2")</span>
                                 </div>
                             }
                             <div class="flex justify-between w-64 text-lg pt-2 border-t border-slate-700">
@@ -851,6 +866,18 @@
                             <div class="flex justify-between items-center text-sm">
                                 <span class="text-slate-400">Recargo d&eacute;bito</span>
                                 <span class="text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
+                            </div>
+                        }
+                        @if (ajustePlanMonto.HasValue)
+                        {
+                            var esRecargoPlanC = ajustePlanMonto.Value > 0;
+                            var esDescuentoPlanC = ajustePlanMonto.Value < 0;
+                            var labelPlanC = esRecargoPlanC ? "Recargo por plan" : esDescuentoPlanC ? "Descuento por plan" : "Ajuste por plan";
+                            var colorPlanC = esRecargoPlanC ? "text-amber-300" : esDescuentoPlanC ? "text-red-400" : "text-slate-400";
+                            var sufijoPctC = ajustePlanPct.HasValue ? $" ({(ajustePlanPct.Value > 0 ? "+" : "")}{ajustePlanPct.Value:0.##}%)" : "";
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-400">@labelPlanC@sufijoPctC</span>
+                                <span class="@colorPlanC">@ajustePlanMonto.Value.ToString("C2")</span>
                             </div>
                         }
                         <div class="flex justify-between items-center pt-1">

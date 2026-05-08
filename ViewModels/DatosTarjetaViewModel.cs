@@ -24,6 +24,9 @@ namespace TheBuryProject.ViewModels
         [Range(1, 60)]
         public int? CantidadCuotas { get; set; }
 
+        [Display(Name = "Plan de Pago")]
+        public int? ProductoCondicionPagoPlanId { get; set; }
+
         [Display(Name = "Tipo de Cuota")]
         public TipoCuotaTarjeta? TipoCuota { get; set; }
 
@@ -41,6 +44,13 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Recargo Aplicado")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal? RecargoAplicado { get; set; }
+
+        [Display(Name = "Porcentaje de Ajuste por Plan")]
+        public decimal? PorcentajeAjustePlanAplicado { get; set; }
+
+        [Display(Name = "Monto de Ajuste por Plan")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal? MontoAjustePlanAplicado { get; set; }
 
         [Display(Name = "Número de Autorización")]
         [StringLength(50)]

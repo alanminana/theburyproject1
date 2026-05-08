@@ -203,6 +203,7 @@
             '<label class="mt-3 block text-xs font-semibold text-slate-400">Observaciones' +
             '<textarea name="' + prefix + '.observaciones" rows="2" class="condiciones-input mt-1 resize-none" placeholder="Notas internas">' + esc(condicion?.observaciones || '') + '</textarea></label>' +
             renderTarjetasEditables(prefix, condicion, tipo) +
+            renderPlanes(prefix, condicion, tipo) +
             '</article>';
     }
 
@@ -296,6 +297,70 @@
         }).join('');
     }
 
+    function renderPlanes(prefix, condicion, tipo) {
+        if (tipo.mode === 'direct') return '';
+
+        var planes = condicion?.planes || [];
+        var tieneActivos = planes.some(function (p) { return p.activo !== false; });
+        var sectionTitle = tipo.mode === 'credit' ? 'Planes de cuotas (Credito Personal)' : 'Planes de cuotas';
+
+        var rows = planes.map(function (plan, idx) {
+            return renderPlanRow(prefix + '.planes[' + idx + ']', plan);
+        }).join('');
+
+        return '<div class="condiciones-planes-section mt-4 border-t border-slate-800 pt-4" data-planes-section="' + tipo.value + '">' +
+            '<div class="mb-2 flex items-center justify-between gap-2">' +
+            '<h5 class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">' + esc(sectionTitle) + '</h5>' +
+            '<button type="button" class="text-[11px] font-bold text-primary hover:underline focus:outline-none" data-condiciones-add-plan="' + tipo.value + '">' +
+            '<span class="material-symbols-outlined text-[14px] align-middle">add</span> Agregar plan' +
+            '</button>' +
+            '</div>' +
+            '<div class="mb-2 rounded-lg bg-slate-900/60 p-2 text-[11px] leading-snug text-slate-400 space-y-0.5">' +
+            '<p>Ajuste negativo descuenta precio, cero no cambia, positivo aplica recargo.</p>' +
+            '<p>Cuota inactiva no se mostrara al vendedor en venta futura.</p>' +
+            '</div>' +
+            (!tieneActivos
+                ? '<div class="mb-2 rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 text-[11px] text-slate-500" data-planes-fallback>' +
+                  '<span class="material-symbols-outlined text-[13px] align-middle">info</span>' +
+                  ' Sin planes activos: se usan los maximos escalares actuales.' +
+                  '</div>'
+                : '') +
+            '<div class="overflow-x-auto">' +
+            '<table class="condiciones-planes-table w-full text-xs border-collapse">' +
+            '<thead class="border-b border-slate-800"><tr>' +
+            '<th class="condiciones-planes-th text-left">Cuotas</th>' +
+            '<th class="condiciones-planes-th text-center">Activa</th>' +
+            '<th class="condiciones-planes-th text-right">Ajuste %</th>' +
+            '<th class="condiciones-planes-th text-left">Tipo ajuste</th>' +
+            '<th class="condiciones-planes-th text-left">Observaciones</th>' +
+            '</tr></thead>' +
+            '<tbody data-planes-tbody>' + rows + '</tbody>' +
+            '</table>' +
+            '</div>' +
+            '</div>';
+    }
+
+    function renderPlanRow(pPrefix, plan) {
+        var activo = plan?.activo !== false;
+        return '<tr class="condiciones-plan-row border-b border-slate-800/60">' +
+            '<td class="px-2 py-1.5">' +
+            hidden(pPrefix + '.id', plan?.id) +
+            hidden(pPrefix + '.tipoAjuste', 0) +
+            '<input name="' + pPrefix + '.cantidadCuotas" type="number" min="1" step="1" value="' + esc(plan?.cantidadCuotas != null ? plan.cantidadCuotas : '') + '" placeholder="ej. 3" class="condiciones-input w-20 text-center" />' +
+            '</td>' +
+            '<td class="px-2 py-1.5 text-center">' +
+            '<input type="checkbox" name="' + pPrefix + '.activo" value="true"' + (activo ? ' checked' : '') + ' class="rounded border-slate-600 text-primary focus:ring-primary" />' +
+            '</td>' +
+            '<td class="px-2 py-1.5">' +
+            '<input name="' + pPrefix + '.ajustePorcentaje" type="number" step="0.01" value="' + esc(plan?.ajustePorcentaje != null ? plan.ajustePorcentaje : 0) + '" placeholder="0.00" class="condiciones-input w-24 text-right" />' +
+            '</td>' +
+            '<td class="condiciones-planes-td-tipo px-2 py-1.5 text-slate-400">Porcentaje</td>' +
+            '<td class="px-2 py-1.5">' +
+            '<input name="' + pPrefix + '.observaciones" type="text" value="' + esc(plan?.observaciones || '') + '" placeholder="Notas internas" class="condiciones-input" />' +
+            '</td>' +
+            '</tr>';
+    }
+
     function renderTarjetasSummary() {
         var count = el('condiciones-pago-tarjetas-count');
         var box = el('condiciones-pago-tarjetas');
@@ -351,7 +416,8 @@
                 porcentajeDescuentoMaximo: toDecimal(data.get(prefix + 'porcentajeDescuentoMaximo')),
                 activo: data.has(prefix + 'activo'),
                 observaciones: emptyToNull(data.get(prefix + 'observaciones')),
-                tarjetas: readTarjetas(data, prefix)
+                tarjetas: readTarjetas(data, prefix),
+                planes: readPlanes(data, prefix)
             };
         }).filter(hasCondicionData);
 
@@ -378,6 +444,24 @@
             });
         }
         return tarjetas.filter(hasTarjetaData);
+    }
+
+    function readPlanes(data, prefix) {
+        var planes = [];
+        for (var i = 0; i < 50; i++) {
+            var pPrefix = prefix + 'planes[' + i + '].';
+            var tipoAjuste = data.get(pPrefix + 'tipoAjuste');
+            if (tipoAjuste === null) break;
+            planes.push({
+                id: toInt(data.get(pPrefix + 'id')),
+                cantidadCuotas: toInt(data.get(pPrefix + 'cantidadCuotas')),
+                activo: data.has(pPrefix + 'activo'),
+                ajustePorcentaje: toDecimal(data.get(pPrefix + 'ajustePorcentaje')) || 0,
+                tipoAjuste: toInt(tipoAjuste) || 0,
+                observaciones: emptyToNull(data.get(pPrefix + 'observaciones'))
+            });
+        }
+        return planes;
     }
 
     function hasCondicionData(condicion) {
@@ -474,6 +558,13 @@
             return;
         }
 
+        var addPlanBtn = event.target.closest('[data-condiciones-add-plan]');
+        if (addPlanBtn) {
+            event.preventDefault();
+            handleAddPlan(Number(addPlanBtn.getAttribute('data-condiciones-add-plan')));
+            return;
+        }
+
         var trigger = event.target.closest('[data-condiciones-pago-producto-id]');
         if (trigger) {
             event.preventDefault();
@@ -545,5 +636,27 @@
             event.preventDefault();
             first.focus();
         }
+    }
+
+    function handleAddPlan(tipoPago) {
+        var section = document.querySelector('[data-planes-section="' + tipoPago + '"]');
+        if (!section) return;
+
+        var tbody = section.querySelector('[data-planes-tbody]');
+        if (!tbody) return;
+
+        var condicionIndex = tiposPago.findIndex(function (t) { return t.value === tipoPago; });
+        var rowCount = tbody.querySelectorAll('tr').length;
+        var pPrefix = 'condiciones[' + condicionIndex + '].planes[' + rowCount + ']';
+
+        tbody.insertAdjacentHTML('beforeend', renderPlanRow(pPrefix, null));
+        ensureInputStyles();
+
+        var fallback = section.querySelector('[data-planes-fallback]');
+        if (fallback) fallback.classList.add('hidden');
+
+        var lastRow = tbody.querySelector('tr:last-child');
+        var firstInput = lastRow ? lastRow.querySelector('input[type="number"]') : null;
+        if (firstInput) firstInput.focus();
     }
 }());

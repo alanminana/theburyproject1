@@ -125,6 +125,207 @@ public sealed class ProductoCondicionPagoEfTests
         await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task ProductoCondicionPago_RechazaPorcentajeNegativoActual()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCondicionesPago.Add(new ProductoCondicionPago
+        {
+            ProductoId = producto.Id,
+            TipoPago = TipoPago.TarjetaCredito,
+            PorcentajeRecargo = -1m
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoTarjeta_RechazaPorcentajeNegativoActual()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionesPagoTarjeta.Add(new ProductoCondicionPagoTarjeta
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            PorcentajeDescuentoMaximo = -1m
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    // ============================================================
+    // ProductoCondicionPagoPlan — Fase 15.3
+    // ============================================================
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_PersistePlanActivoConAjustePositivo()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 6,
+            Activo = true,
+            AjustePorcentaje = 5.5m
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var plan = await fixture.Context.ProductoCondicionPagoPlanes.SingleAsync(p => p.ProductoCondicionPagoId == condicion.Id);
+        Assert.Equal(6, plan.CantidadCuotas);
+        Assert.True(plan.Activo);
+        Assert.Equal(5.5m, plan.AjustePorcentaje);
+        Assert.NotEmpty(plan.RowVersion);
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_PersistePlanActivoConAjusteCero()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.CreditoPersonal);
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 3,
+            Activo = true,
+            AjustePorcentaje = 0m
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var plan = await fixture.Context.ProductoCondicionPagoPlanes.SingleAsync(p => p.ProductoCondicionPagoId == condicion.Id);
+        Assert.Equal(0m, plan.AjustePorcentaje);
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_PersistePlanActivoConAjusteNegativo()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 1,
+            Activo = true,
+            AjustePorcentaje = -10m
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var plan = await fixture.Context.ProductoCondicionPagoPlanes.SingleAsync(p => p.ProductoCondicionPagoId == condicion.Id);
+        Assert.Equal(-10m, plan.AjustePorcentaje);
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_PermiteActivoFalsePersistido()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 12,
+            Activo = false,
+            AjustePorcentaje = 0m
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var plan = await fixture.Context.ProductoCondicionPagoPlanes
+            .IgnoreQueryFilters()
+            .SingleAsync(p => p.ProductoCondicionPagoId == condicion.Id);
+        Assert.False(plan.Activo);
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_RechazaCantidadCuotasMenorAUno()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 0,
+            AjustePorcentaje = 0m
+        });
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_PermiteMultiplesCuotasDistintasEnMismaCondicion()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.AddRange(
+            new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id, CantidadCuotas = 3, AjustePorcentaje = 0m },
+            new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id, CantidadCuotas = 6, AjustePorcentaje = 5m },
+            new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id, CantidadCuotas = 12, AjustePorcentaje = 10m });
+
+        await fixture.Context.SaveChangesAsync();
+
+        var planes = await fixture.Context.ProductoCondicionPagoPlanes
+            .Where(p => p.ProductoCondicionPagoId == condicion.Id)
+            .ToListAsync();
+        Assert.Equal(3, planes.Count);
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_EvitaDuplicadoDeMismaCuotaEnMismaCondicionGeneral()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+        var condicion = await fixture.SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+
+        fixture.Context.ProductoCondicionPagoPlanes.AddRange(
+            new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id, CantidadCuotas = 6, AjustePorcentaje = 0m },
+            new ProductoCondicionPagoPlan { ProductoCondicionPagoId = condicion.Id, CantidadCuotas = 6, AjustePorcentaje = 5m });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ProductoCondicionPagoPlan_MaximosEscalaresExistentesNoSonModificadosPorLaEntidad()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        var condicion = new ProductoCondicionPago
+        {
+            ProductoId = producto.Id,
+            TipoPago = TipoPago.TarjetaCredito,
+            MaxCuotasSinInteres = 6,
+            MaxCuotasConInteres = 12
+        };
+        fixture.Context.ProductoCondicionesPago.Add(condicion);
+        await fixture.Context.SaveChangesAsync();
+
+        fixture.Context.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 3,
+            AjustePorcentaje = 0m
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var condicionRecargada = await fixture.Context.ProductoCondicionesPago
+            .SingleAsync(c => c.Id == condicion.Id);
+        Assert.Equal(6, condicionRecargada.MaxCuotasSinInteres);
+        Assert.Equal(12, condicionRecargada.MaxCuotasConInteres);
+    }
+
     private sealed class ProductoCondicionPagoDbFixture : IAsyncDisposable
     {
         private readonly SqliteConnection _connection;

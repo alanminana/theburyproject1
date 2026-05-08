@@ -45,6 +45,9 @@ public sealed class CondicionesPagoCarritoResolver : ICondicionesPagoCarritoReso
                         && (!configuracionTarjetaId.HasValue
                             || t.ConfiguracionTarjetaId == null
                             || t.ConfiguracionTarjetaId == configuracionTarjetaId.Value)))
+                    .ThenInclude(t => t.Planes.Where(p => p.Activo && !p.IsDeleted))
+                .Include(c => c.Planes
+                    .Where(p => p.Activo && !p.IsDeleted && p.ProductoCondicionPagoTarjetaId == null))
                 .Where(c =>
                     ids.Contains(c.ProductoId)
                     && c.Activo
@@ -90,6 +93,10 @@ public sealed class CondicionesPagoCarritoResolver : ICondicionesPagoCarritoReso
                 .OrderBy(t => t.ConfiguracionTarjetaId.HasValue)
                 .ThenBy(t => t.ConfiguracionTarjetaId)
                 .Select(MapTarjeta)
+                .ToArray(),
+            Planes = condicion.Planes
+                .OrderBy(p => p.CantidadCuotas)
+                .Select(MapPlan)
                 .ToArray()
         };
     }
@@ -107,7 +114,24 @@ public sealed class CondicionesPagoCarritoResolver : ICondicionesPagoCarritoReso
             PorcentajeDescuentoMaximo = tarjeta.PorcentajeDescuentoMaximo,
             Activo = tarjeta.Activo,
             Observaciones = tarjeta.Observaciones,
-            RowVersion = tarjeta.RowVersion
+            RowVersion = tarjeta.RowVersion,
+            Planes = tarjeta.Planes
+                .OrderBy(p => p.CantidadCuotas)
+                .Select(MapPlan)
+                .ToArray()
+        };
+    }
+
+    private static ProductoCondicionPagoPlanDto MapPlan(ProductoCondicionPagoPlan plan)
+    {
+        return new ProductoCondicionPagoPlanDto
+        {
+            Id = plan.Id,
+            CantidadCuotas = plan.CantidadCuotas,
+            Activo = plan.Activo,
+            AjustePorcentaje = plan.AjustePorcentaje,
+            TipoAjuste = plan.TipoAjuste,
+            Observaciones = plan.Observaciones
         };
     }
 }

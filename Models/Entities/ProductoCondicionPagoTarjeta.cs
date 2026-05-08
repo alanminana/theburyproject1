@@ -31,5 +31,8 @@ namespace TheBuryProject.Models.Entities
         public virtual ProductoCondicionPago ProductoCondicionPago { get; set; } = null!;
 
         public virtual ConfiguracionTarjeta? ConfiguracionTarjeta { get; set; }
+
+        public virtual ICollection<ProductoCondicionPagoPlan> Planes { get; set; } =
+            new List<ProductoCondicionPagoPlan>();
     }
 }

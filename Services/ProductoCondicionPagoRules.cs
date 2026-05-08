@@ -192,6 +192,9 @@ public static class ProductoCondicionPagoRules
             .OrderBy(id => id)
             .ToArray();
 
+        var (planesDisponibles, usaPlanesEspecificos) =
+            ResolverPlanesDisponibles(condicionesDelMedio, configuracionTarjetaId);
+
         return new CondicionesPagoCarritoResultado
         {
             TipoPago = tipoNormalizado,
@@ -215,6 +218,9 @@ public static class ProductoCondicionPagoRules
             Bloqueos = bloqueos,
             Restricciones = restriccionesEfectivas,
             AjustesInformativos = ajustes,
+            PlanesDisponibles = planesDisponibles,
+            UsaPlanesEspecificos = usaPlanesEspecificos,
+            UsaFallbackGlobalPlanes = !usaPlanesEspecificos,
             TotalReferencia = totalReferencia,
             TotalSinAplicarAjustes = totalReferencia
         };
@@ -428,5 +434,85 @@ public static class ProductoCondicionPagoRules
             PorcentajeRecargo = porcentajeRecargo,
             PorcentajeDescuentoMaximo = porcentajeDescuento
         };
+    }
+
+    /// <summary>
+    /// Resuelve la lista de planes disponibles para el carrito aplicando precedencia:
+    /// tarjeta-específica > tarjeta-general > medio-general.
+    /// Devuelve la intersección de CantidadCuotas entre todos los productos que tienen planes.
+    /// Productos sin planes no restringen: su control de cuotas es solo por máximos escalares.
+    /// </summary>
+    private static (IReadOnlyList<ProductoCondicionPagoPlanDto> Planes, bool UsaEspecificos)
+        ResolverPlanesDisponibles(
+            IEnumerable<ProductoCondicionPagoDto> condicionesDelMedio,
+            int? configuracionTarjetaId)
+    {
+        var planesPorProducto = new List<IReadOnlyList<ProductoCondicionPagoPlanDto>>();
+
+        foreach (var condicion in condicionesDelMedio)
+        {
+            var tarjetaGeneral = ObtenerReglaTarjetaGeneral(condicion);
+            var tarjetaEspecifica = ObtenerReglaTarjetaEspecifica(condicion, configuracionTarjetaId);
+
+            var efectivos = ResolverPlanesEfectivos(
+                condicion.Planes,
+                tarjetaGeneral?.Planes ?? Array.Empty<ProductoCondicionPagoPlanDto>(),
+                tarjetaEspecifica?.Planes ?? Array.Empty<ProductoCondicionPagoPlanDto>());
+
+            if (efectivos.Count > 0)
+            {
+                planesPorProducto.Add(efectivos);
+            }
+        }
+
+        if (planesPorProducto.Count == 0)
+        {
+            return (Array.Empty<ProductoCondicionPagoPlanDto>(), false);
+        }
+
+        var cuotasComunes = planesPorProducto[0]
+            .Select(p => p.CantidadCuotas)
+            .ToHashSet();
+
+        foreach (var planes in planesPorProducto.Skip(1))
+        {
+            cuotasComunes.IntersectWith(planes.Select(p => p.CantidadCuotas));
+        }
+
+        var resultado = planesPorProducto[0]
+            .Where(p => cuotasComunes.Contains(p.CantidadCuotas))
+            .OrderBy(p => p.CantidadCuotas)
+            .ToArray();
+
+        return (resultado, true);
+    }
+
+    /// <summary>
+    /// Combina planes con precedencia: específica-tarjeta override general-tarjeta override general-medio.
+    /// Para el mismo CantidadCuotas, gana el plan de mayor prioridad.
+    /// </summary>
+    private static IReadOnlyList<ProductoCondicionPagoPlanDto> ResolverPlanesEfectivos(
+        IReadOnlyList<ProductoCondicionPagoPlanDto> planesGeneralMedio,
+        IReadOnlyList<ProductoCondicionPagoPlanDto> planesGeneralTarjeta,
+        IReadOnlyList<ProductoCondicionPagoPlanDto> planesEspecificaTarjeta)
+    {
+        var resultado = new Dictionary<int, ProductoCondicionPagoPlanDto>();
+
+        foreach (var plan in planesGeneralMedio.Where(p => p.Activo))
+        {
+            resultado[plan.CantidadCuotas] = plan;
+        }
+
+        foreach (var plan in planesGeneralTarjeta.Where(p => p.Activo))
+        {
+            resultado[plan.CantidadCuotas] = plan;
+        }
+
+        foreach (var plan in planesEspecificaTarjeta.Where(p => p.Activo))
+        {
+            resultado[plan.CantidadCuotas] = plan;
+        }
+
+        return resultado.Values.OrderBy(p => p.CantidadCuotas).ToArray();
     }
 }

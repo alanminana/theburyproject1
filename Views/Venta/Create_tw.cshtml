@@ -469,6 +469,18 @@
                             </div>
                         </div>
 
+                        @* Plan de Pago (tarjeta/MercadoPago) — selector generado por JS al recibir PlanesDisponibles del diagnóstico *@
+                        <div id="panel-planes-pago" class="venta-sub-panel hidden" aria-live="polite">
+                            <h4 class="text-sm font-bold mb-3 flex items-center gap-2 text-white">
+                                <span class="material-symbols-outlined text-sm">credit_score</span> Plan de Pago
+                            </h4>
+                            <p class="text-xs text-slate-500 mb-3">
+                                El ajuste del plan es informativo y no modifica el total de la venta en esta versión.
+                            </p>
+                            <div id="lista-planes-pago" class="flex flex-wrap gap-2" role="radiogroup" aria-label="Plan de pago"></div>
+                            <input type="hidden" name="DatosTarjeta.ProductoCondicionPagoPlanId" id="hdn-plan-pago-id" />
+                        </div>
+
                         @* Cheque *@
                         <div id="panel-cheque" class="venta-sub-panel hidden">
                             <h4 class="text-sm font-bold mb-4 flex items-center gap-2 text-white">

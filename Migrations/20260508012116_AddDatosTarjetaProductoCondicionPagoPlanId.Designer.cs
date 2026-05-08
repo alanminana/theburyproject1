@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260508012116_AddDatosTarjetaProductoCondicionPagoPlanId")]
+    partial class AddDatosTarjetaProductoCondicionPagoPlanId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2851,10 +2854,6 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("MaxCuotasSinInteresEfectivoAplicado")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("MontoAjustePlanAplicado")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<decimal?>("MontoCuota")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -2875,10 +2874,6 @@ namespace TheBuryProject.Migrations
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<decimal?>("PorcentajeAjustePlanAplicado")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<int?>("ProductoCondicionPagoPlanId")
                         .HasColumnType("int");

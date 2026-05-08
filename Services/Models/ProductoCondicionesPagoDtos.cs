@@ -2,6 +2,44 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services.Models;
 
+/// <summary>
+/// DTO de lectura para un plan individual de cuotas. AjustePorcentaje es informativo en esta fase.
+/// </summary>
+public sealed class ProductoCondicionPagoPlanDto
+{
+    public int? Id { get; init; }
+
+    public int CantidadCuotas { get; init; }
+
+    public bool Activo { get; init; } = true;
+
+    public decimal AjustePorcentaje { get; init; }
+
+    public TipoAjustePagoPlan TipoAjuste { get; init; } = TipoAjustePagoPlan.Porcentaje;
+
+    public string? Observaciones { get; init; }
+}
+
+/// <summary>
+/// DTO de escritura para un plan individual de cuotas. Reservado para Fase 15.6.
+/// </summary>
+public sealed class GuardarProductoCondicionPagoPlanItem
+{
+    public int? Id { get; init; }
+
+    public int CantidadCuotas { get; init; }
+
+    public bool Activo { get; init; } = true;
+
+    public decimal AjustePorcentaje { get; init; }
+
+    public TipoAjustePagoPlan TipoAjuste { get; init; } = TipoAjustePagoPlan.Porcentaje;
+
+    public string? Observaciones { get; init; }
+
+    public byte[]? RowVersion { get; init; }
+}
+
 public enum TipoRestriccionCuotas
 {
     MaxCuotasSinInteres = 0,
@@ -57,6 +95,9 @@ public sealed class ProductoCondicionPagoDto
 
     public IReadOnlyList<ProductoCondicionPagoTarjetaDto> Tarjetas { get; init; } =
         Array.Empty<ProductoCondicionPagoTarjetaDto>();
+
+    public IReadOnlyList<ProductoCondicionPagoPlanDto> Planes { get; init; } =
+        Array.Empty<ProductoCondicionPagoPlanDto>();
 }
 
 /// <summary>
@@ -86,6 +127,9 @@ public sealed class ProductoCondicionPagoTarjetaDto
     public string? Observaciones { get; init; }
 
     public byte[]? RowVersion { get; init; }
+
+    public IReadOnlyList<ProductoCondicionPagoPlanDto> Planes { get; init; } =
+        Array.Empty<ProductoCondicionPagoPlanDto>();
 }
 
 public sealed class ProductoCondicionesPagoLecturaDto
@@ -134,6 +178,9 @@ public sealed class GuardarProductoCondicionPagoItem
 
     public IReadOnlyList<GuardarProductoCondicionPagoTarjetaItem> Tarjetas { get; init; } =
         Array.Empty<GuardarProductoCondicionPagoTarjetaItem>();
+
+    public IReadOnlyList<GuardarProductoCondicionPagoPlanItem> Planes { get; init; } =
+        Array.Empty<GuardarProductoCondicionPagoPlanItem>();
 }
 
 public sealed class GuardarProductoCondicionPagoTarjetaItem
@@ -157,6 +204,9 @@ public sealed class GuardarProductoCondicionPagoTarjetaItem
     public string? Observaciones { get; init; }
 
     public byte[]? RowVersion { get; init; }
+
+    public IReadOnlyList<GuardarProductoCondicionPagoPlanItem> Planes { get; init; } =
+        Array.Empty<GuardarProductoCondicionPagoPlanItem>();
 }
 
 public sealed class ProductoCondicionPagoValidacionDto

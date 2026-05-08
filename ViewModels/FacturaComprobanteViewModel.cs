@@ -66,6 +66,8 @@ namespace TheBuryProject.ViewModels
         public decimal IVA { get; set; }
         public decimal TotalProductos { get; set; }
         public decimal RecargoDebitoAplicado { get; set; }
+        public decimal? PorcentajeAjustePlanAplicado { get; set; }
+        public decimal? MontoAjustePlanAplicado { get; set; }
         public decimal Total { get; set; }
     }
 }

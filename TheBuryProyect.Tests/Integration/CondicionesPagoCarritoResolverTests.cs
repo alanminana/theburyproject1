@@ -55,6 +55,30 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CondicionInactiva_NoParticipaYDevuelveFallbackGlobal()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedCondicionAsync(
+            producto.Id,
+            TipoPago.CreditoPersonal,
+            permitido: false,
+            maxCuotasCredito: 3,
+            activo: false);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.CreditoPersonal,
+            maxCuotasCreditoGlobal: 24);
+
+        Assert.True(resultado.Permitido);
+        Assert.Equal(24, resultado.MaxCuotasCredito);
+        Assert.Equal(FuenteCondicionPagoEfectiva.Global, resultado.FuentePermitido);
+        Assert.Equal(FuenteCondicionPagoEfectiva.Global, resultado.FuenteRestriccion);
+        Assert.Empty(resultado.Bloqueos);
+        Assert.Empty(resultado.Restricciones);
+    }
+
+    [Fact]
     public async Task ProductoConPermitidoFalse_BloqueaMedioEnResultado()
     {
         var producto = await SeedProductoAsync();
@@ -148,6 +172,34 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
             r.ProductoId == producto.Id
             && r.Valor == 3
             && r.Fuente == FuenteCondicionPagoEfectiva.TarjetaEspecifica);
+    }
+
+    [Fact]
+    public async Task ReglaEspecificaTarjetaInactiva_NoParticipaYUsaGeneral()
+    {
+        var producto = await SeedProductoAsync();
+        var tarjeta = await SeedTarjetaAsync("Visa", TipoTarjeta.Credito);
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito, maxCuotasSinInteres: 12);
+        await SeedReglaTarjetaAsync(condicion.Id, null, maxCuotasSinInteres: 9);
+        await SeedReglaTarjetaAsync(
+            condicion.Id,
+            tarjeta.Id,
+            permitido: false,
+            maxCuotasSinInteres: 3,
+            activo: false);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            tarjeta.Id);
+
+        Assert.True(resultado.Permitido);
+        Assert.Equal(9, resultado.MaxCuotasSinInteres);
+        Assert.Empty(resultado.Bloqueos);
+        Assert.Contains(resultado.Restricciones, r =>
+            r.ProductoId == producto.Id
+            && r.Valor == 9
+            && r.Fuente == FuenteCondicionPagoEfectiva.TarjetaGeneral);
     }
 
     [Fact]
@@ -310,7 +362,8 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
         int? maxCuotasConInteres = null,
         int? maxCuotasCredito = null,
         decimal? porcentajeRecargo = null,
-        decimal? porcentajeDescuentoMaximo = null)
+        decimal? porcentajeDescuentoMaximo = null,
+        bool activo = true)
     {
         var condicion = new ProductoCondicionPago
         {
@@ -321,7 +374,8 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
             MaxCuotasConInteres = maxCuotasConInteres,
             MaxCuotasCredito = maxCuotasCredito,
             PorcentajeRecargo = porcentajeRecargo,
-            PorcentajeDescuentoMaximo = porcentajeDescuentoMaximo
+            PorcentajeDescuentoMaximo = porcentajeDescuentoMaximo,
+            Activo = activo
         };
 
         _context.ProductoCondicionesPago.Add(condicion);
@@ -336,7 +390,8 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
         int? maxCuotasSinInteres = null,
         int? maxCuotasConInteres = null,
         decimal? porcentajeRecargo = null,
-        decimal? porcentajeDescuentoMaximo = null)
+        decimal? porcentajeDescuentoMaximo = null,
+        bool activo = true)
     {
         var tarjeta = new ProductoCondicionPagoTarjeta
         {
@@ -346,11 +401,174 @@ public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
             MaxCuotasSinInteres = maxCuotasSinInteres,
             MaxCuotasConInteres = maxCuotasConInteres,
             PorcentajeRecargo = porcentajeRecargo,
-            PorcentajeDescuentoMaximo = porcentajeDescuentoMaximo
+            PorcentajeDescuentoMaximo = porcentajeDescuentoMaximo,
+            Activo = activo
         };
 
         _context.ProductoCondicionesPagoTarjeta.Add(tarjeta);
         await _context.SaveChangesAsync();
         return tarjeta;
+    }
+
+    private async Task<ProductoCondicionPagoPlan> SeedPlanAsync(
+        int productoCondicionPagoId,
+        int? productoCondicionPagoTarjetaId,
+        int cantidadCuotas,
+        decimal ajustePorcentaje = 0m,
+        bool activo = true)
+    {
+        var plan = new ProductoCondicionPagoPlan
+        {
+            ProductoCondicionPagoId = productoCondicionPagoId,
+            ProductoCondicionPagoTarjetaId = productoCondicionPagoTarjetaId,
+            CantidadCuotas = cantidadCuotas,
+            AjustePorcentaje = ajustePorcentaje,
+            Activo = activo
+        };
+
+        _context.ProductoCondicionPagoPlanes.Add(plan);
+        await _context.SaveChangesAsync();
+        return plan;
+    }
+
+    // --- Tests Fase 15.4: planes disponibles ---
+
+    [Fact]
+    public async Task PlanActivoGeneralDelMedio_AparecePlanesDisponibles()
+    {
+        var producto = await SeedProductoAsync();
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 3);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 6);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito);
+
+        Assert.True(resultado.UsaPlanesEspecificos);
+        Assert.False(resultado.UsaFallbackGlobalPlanes);
+        Assert.Equal(2, resultado.PlanesDisponibles.Count);
+        Assert.Contains(resultado.PlanesDisponibles, p => p.CantidadCuotas == 3);
+        Assert.Contains(resultado.PlanesDisponibles, p => p.CantidadCuotas == 6);
+    }
+
+    [Fact]
+    public async Task PlanInactivo_NoAparecePlanesDisponibles()
+    {
+        var producto = await SeedProductoAsync();
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 3, activo: true);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 6, activo: false);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito);
+
+        Assert.Single(resultado.PlanesDisponibles);
+        Assert.Equal(3, resultado.PlanesDisponibles[0].CantidadCuotas);
+        Assert.DoesNotContain(resultado.PlanesDisponibles, p => p.CantidadCuotas == 6);
+    }
+
+    [Fact]
+    public async Task PlanEspecificoTarjeta_TienePrioridadSobreGeneralDelMedio()
+    {
+        var producto = await SeedProductoAsync();
+        var visa = await SeedTarjetaAsync("Visa", TipoTarjeta.Credito);
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+        var reglaTarjeta = await SeedReglaTarjetaAsync(condicion.Id, visa.Id);
+
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 3, ajustePorcentaje: 0m);
+        await SeedPlanAsync(condicion.Id, reglaTarjeta.Id, cantidadCuotas: 3, ajustePorcentaje: 5m);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            visa.Id);
+
+        Assert.Single(resultado.PlanesDisponibles);
+        Assert.Equal(3, resultado.PlanesDisponibles[0].CantidadCuotas);
+        Assert.Equal(5m, resultado.PlanesDisponibles[0].AjustePorcentaje);
+    }
+
+    [Fact]
+    public async Task PlanesDeOtraTarjeta_NoAparecen()
+    {
+        var producto = await SeedProductoAsync();
+        var visa = await SeedTarjetaAsync("Visa", TipoTarjeta.Credito);
+        var master = await SeedTarjetaAsync("Master", TipoTarjeta.Credito);
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+        var reglaVisa = await SeedReglaTarjetaAsync(condicion.Id, visa.Id);
+        var reglaMaster = await SeedReglaTarjetaAsync(condicion.Id, master.Id);
+
+        await SeedPlanAsync(condicion.Id, reglaVisa.Id, cantidadCuotas: 3);
+        await SeedPlanAsync(condicion.Id, reglaMaster.Id, cantidadCuotas: 6);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            visa.Id);
+
+        Assert.Single(resultado.PlanesDisponibles);
+        Assert.Equal(3, resultado.PlanesDisponibles[0].CantidadCuotas);
+        Assert.DoesNotContain(resultado.PlanesDisponibles, p => p.CantidadCuotas == 6);
+    }
+
+    [Fact]
+    public async Task SinPlanesActivos_UsaFallbackEscalarYPlanesDisponiblesVacio()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito, maxCuotasSinInteres: 6);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            maxCuotasSinInteresGlobal: 12);
+
+        Assert.False(resultado.UsaPlanesEspecificos);
+        Assert.True(resultado.UsaFallbackGlobalPlanes);
+        Assert.Empty(resultado.PlanesDisponibles);
+        Assert.Equal(6, resultado.MaxCuotasSinInteres);
+    }
+
+    [Fact]
+    public async Task ConPlanesActivos_MaximosEscalaresSeConservanSinCambios()
+    {
+        var producto = await SeedProductoAsync();
+        var condicion = await SeedCondicionAsync(
+            producto.Id,
+            TipoPago.TarjetaCredito,
+            maxCuotasSinInteres: 6);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 3);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            maxCuotasSinInteresGlobal: 12);
+
+        Assert.Equal(6, resultado.MaxCuotasSinInteres);
+        Assert.True(resultado.UsaPlanesEspecificos);
+        Assert.Single(resultado.PlanesDisponibles);
+    }
+
+    [Fact]
+    public async Task AjustePlanNegativoCeroPosivito_AparecenInformativosYNoAlteranTotal()
+    {
+        var producto = await SeedProductoAsync();
+        var condicion = await SeedCondicionAsync(producto.Id, TipoPago.TarjetaCredito);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 3, ajustePorcentaje: -5m);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 6, ajustePorcentaje: 0m);
+        await SeedPlanAsync(condicion.Id, null, cantidadCuotas: 12, ajustePorcentaje: 10m);
+
+        var resultado = await _resolver.ResolverAsync(
+            new[] { producto.Id },
+            TipoPago.TarjetaCredito,
+            totalReferencia: 1_000m);
+
+        Assert.Equal(3, resultado.PlanesDisponibles.Count);
+        Assert.Contains(resultado.PlanesDisponibles, p => p.CantidadCuotas == 3 && p.AjustePorcentaje == -5m);
+        Assert.Contains(resultado.PlanesDisponibles, p => p.CantidadCuotas == 6 && p.AjustePorcentaje == 0m);
+        Assert.Contains(resultado.PlanesDisponibles, p => p.CantidadCuotas == 12 && p.AjustePorcentaje == 10m);
+        Assert.Equal(1_000m, resultado.TotalReferencia);
+        Assert.Equal(1_000m, resultado.TotalSinAplicarAjustes);
     }
 }
