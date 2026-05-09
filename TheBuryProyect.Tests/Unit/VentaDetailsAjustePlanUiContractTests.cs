@@ -310,6 +310,32 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     [Fact]
+    public void DetailsView_ItemSinExcepcion_MuestraUsaPagoPrincipal()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("Usa pago principal", view);
+        Assert.Contains("hereda-pago-principal", view);
+    }
+
+    [Fact]
+    public void DetailsView_ItemConExcepcion_MuestraPrefijoExcepcion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("Excepción:", view);
+    }
+
+    [Fact]
+    public void DetailsView_TodosLosItemsTienenBadgeDePago_SinCondicionExterna()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // La condición externa fue eliminada — todos los ítems siempre muestran badge
+        Assert.DoesNotContain("item.TipoPago.HasValue || item.ProductoCondicionPagoPlanId.HasValue", view);
+    }
+
+    [Fact]
     public void VentaDetalleViewModel_ExponeResumenFormaPago()
     {
         var vm = new VentaDetalleViewModel();
@@ -407,6 +433,33 @@ public class VentaDetailsAjustePlanUiContractTests
         Assert.Contains("grupo.Total", view);
         Assert.Contains("Recargo por plan", view);
         Assert.Contains("Descuento por plan", view);
+    }
+
+    [Fact]
+    public void ComprobanteView_ConPagosPorItem_MuestraColumnasDeFormaSubtotalAjusteYTotal()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "ComprobanteFactura_tw.cshtml"));
+
+        Assert.Contains("<th>Forma de pago</th>", view);
+        Assert.Contains("<th class=\"number\">Subtotal</th>", view);
+        Assert.Contains("<th class=\"number\">Ajuste por plan</th>", view);
+        Assert.Contains("<th class=\"number\">Total</th>", view);
+        Assert.Contains("@grupo.TipoPagoLabel", view);
+        Assert.Contains("@grupo.Subtotal.ToString(\"C2\")", view);
+        Assert.Contains("@grupo.AjusteMonto.ToString(\"C2\")", view);
+        Assert.Contains("@grupo.Total.ToString(\"C2\")", view);
+    }
+
+    [Fact]
+    public void ComprobanteView_ConPagosPorItem_NoRecalculaAjustesEnRazor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "ComprobanteFactura_tw.cshtml"));
+
+        Assert.Contains("grupo.PorcentajeAjuste", view);
+        Assert.Contains("grupo.AjusteMonto", view);
+        Assert.DoesNotContain("grupo.Subtotal * grupo.PorcentajeAjuste", view);
+        Assert.DoesNotContain("grupo.SubtotalFinal * grupo.PorcentajeAjuste", view);
+        Assert.DoesNotContain("/ 100", view);
     }
 
     [Fact]

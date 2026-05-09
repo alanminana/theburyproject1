@@ -549,6 +549,106 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         Assert.Equal(110m, venta.Total);
     }
 
+    // ── Fase 17.4: escenarios de consistencia confirmación ──────────
+
+    [Fact]
+    public async Task MezclaNullOverrideYOverrideExplicito_CadaItemUsaSuTipoPago()
+    {
+        // Global = TarjetaCredito.
+        // Item 1 (prod, 100): TipoPago = null → hereda global, plan 10% aplicado.
+        // Item 2 (prod2, 200): TipoPago = Efectivo → override, sin plan → sin ajuste.
+        // Total esperado = (100+10) + 200 = 310.
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
+        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
+        var producto2 = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 200m);
+
+        var (_, planId) = await SeedCondicionPlanAsync(
+            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito, new[]
+            {
+                DetalleVm(producto.Id,  cantidad: 1, tipoPagoItem: null,           planId: planId),
+                DetalleVm(producto2.Id, cantidad: 1, tipoPagoItem: TipoPago.Efectivo, planId: null)
+            }));
+
+        Assert.Equal(310m, resultado.Total);
+
+        var detalles = await _context.VentaDetalles
+            .AsNoTracking()
+            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
+            .ToListAsync();
+
+        var conFallback = detalles.Single(d => d.ProductoId == producto.Id);
+        var conOverride = detalles.Single(d => d.ProductoId == producto2.Id);
+
+        Assert.Null(conFallback.TipoPago);
+        Assert.Equal(planId, conFallback.ProductoCondicionPagoPlanId);
+        Assert.Equal(10m, conFallback.PorcentajeAjustePlanAplicado);
+        Assert.Equal(10m, conFallback.MontoAjustePlanAplicado);
+
+        Assert.Equal(TipoPago.Efectivo, conOverride.TipoPago);
+        Assert.Null(conOverride.ProductoCondicionPagoPlanId);
+        Assert.Null(conOverride.PorcentajeAjustePlanAplicado);
+        Assert.Null(conOverride.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task OverrideEfectivo_SinPlan_NoAplicaAjuste()
+    {
+        // Efectivo no tiene planes → ningún ajuste independientemente del global.
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito,
+            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.Efectivo, planId: null) }));
+
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
+
+        Assert.Equal(TipoPago.Efectivo, detalle.TipoPago);
+        Assert.Null(detalle.ProductoCondicionPagoPlanId);
+        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
+        Assert.Null(detalle.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task OverrideCreditoPersonal_LimpiaPlanYNoAplicaAjuste()
+    {
+        // Si el override del ítem es CréditoPersonal, el plan queda nullificado y
+        // no se aplica ajuste aunque se haya enviado un planId.
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+
+        // Sembramos un plan cuya condición tiene TipoPago = CréditoPersonal
+        // (situación hipotética: el backend debe protegerse de todos modos).
+        var (_, planIdCp) = await SeedCondicionPlanAsync(
+            producto.Id, TipoPago.CreditoPersonal, ajustePorcentaje: 15m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito,
+            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.CreditoPersonal, planId: planIdCp) }));
+
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
+
+        Assert.Equal(TipoPago.CreditoPersonal, detalle.TipoPago);
+        Assert.Null(detalle.ProductoCondicionPagoPlanId);
+        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
+        Assert.Null(detalle.MontoAjustePlanAplicado);
+    }
+
     [Fact]
     public async Task ItemSinPlanEnMezclado_NoPropagaAjuste()
     {

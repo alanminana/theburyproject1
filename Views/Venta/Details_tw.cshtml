@@ -311,54 +311,57 @@
                                             var tieneAjustePlanItem = item.ProductoCondicionPagoPlanId.HasValue
                                                 && item.MontoAjustePlanAplicado.HasValue
                                                 && efectivoPagoItem != TipoPago.CreditoPersonal;
+                                            var itemTipoPagoLabel = item.TipoPago switch
+                                            {
+                                                TipoPago.Efectivo        => "Efectivo",
+                                                TipoPago.Transferencia   => "Transferencia",
+                                                TipoPago.TarjetaDebito   => "Tarjeta Débito",
+                                                TipoPago.TarjetaCredito  => "Tarjeta Crédito",
+                                                TipoPago.Cheque          => "Cheque",
+                                                TipoPago.CreditoPersonal => "Crédito Personal",
+                                                TipoPago.MercadoPago     => "Mercado Pago",
+                                                TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                null                     => null,
+                                                _                        => item.TipoPago?.ToString()
+                                            };
                                             <tr class="transition-colors hover:bg-slate-800/30">
                                                 <td class="px-6 py-4">
                                                     <p class="font-bold text-white">@item.ProductoNombre</p>
                                                     <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
-                                                    @if (item.TipoPago.HasValue || item.ProductoCondicionPagoPlanId.HasValue)
-                                                    {
-                                                        var itemTipoPagoLabel = item.TipoPago switch
+                                                    <div class="mt-1.5 flex flex-wrap gap-1">
+                                                        @if (item.TipoPago.HasValue)
                                                         {
-                                                            TipoPago.Efectivo        => "Efectivo",
-                                                            TipoPago.Transferencia   => "Transferencia",
-                                                            TipoPago.TarjetaDebito   => "Tarjeta Débito",
-                                                            TipoPago.TarjetaCredito  => "Tarjeta Crédito",
-                                                            TipoPago.Cheque          => "Cheque",
-                                                            TipoPago.CreditoPersonal => "Crédito Personal",
-                                                            TipoPago.MercadoPago     => "Mercado Pago",
-                                                            TipoPago.CuentaCorriente => "Cuenta Corriente",
-                                                            null                     => null,
-                                                            _                        => item.TipoPago?.ToString()
-                                                        };
-                                                        <div class="mt-1.5 flex flex-wrap gap-1">
-                                                            @if (itemTipoPagoLabel != null)
-                                                            {
-                                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-700/60 text-slate-300 forma-pago-item">
-                                                                    @itemTipoPagoLabel
-                                                                </span>
-                                                            }
-                                                            @if (tieneAjustePlanItem)
-                                                            {
-                                                                var esRecargoPlanItem   = item.MontoAjustePlanAplicado!.Value > 0;
-                                                                var esDescuentoPlanItem = item.MontoAjustePlanAplicado!.Value < 0;
-                                                                var labelAjustePlanItem = esRecargoPlanItem   ? "Recargo por plan"
-                                                                                        : esDescuentoPlanItem ? "Descuento por plan"
-                                                                                        : "Plan sin ajuste";
-                                                                var colorAjustePlanItem = esRecargoPlanItem   ? "bg-amber-500/10 text-amber-300"
-                                                                                        : esDescuentoPlanItem ? "bg-red-500/10 text-red-400"
-                                                                                        : "bg-slate-700/60 text-slate-400";
-                                                                var pctSufijoItem = item.PorcentajeAjustePlanAplicado.HasValue
-                                                                    ? $" ({(item.PorcentajeAjustePlanAplicado.Value > 0 ? "+" : "")}{item.PorcentajeAjustePlanAplicado.Value:0.##}%)"
-                                                                    : "";
-                                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold @colorAjustePlanItem ajuste-plan-item">
-                                                                    @labelAjustePlanItem@pctSufijoItem
-                                                                </span>
-                                                                <span class="text-[10px] font-bold @(esRecargoPlanItem ? "text-amber-300" : esDescuentoPlanItem ? "text-red-400" : "text-slate-400") monto-ajuste-plan-item">
-                                                                    @item.MontoAjustePlanAplicado!.Value.ToString("C2")
-                                                                </span>
-                                                            }
-                                                        </div>
-                                                    }
+                                                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-700/60 text-slate-300 forma-pago-item">
+                                                                Excepción: @itemTipoPagoLabel
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-800/60 text-slate-500 forma-pago-item hereda-pago-principal">
+                                                                Usa pago principal
+                                                            </span>
+                                                        }
+                                                        @if (tieneAjustePlanItem)
+                                                        {
+                                                            var esRecargoPlanItem   = item.MontoAjustePlanAplicado!.Value > 0;
+                                                            var esDescuentoPlanItem = item.MontoAjustePlanAplicado!.Value < 0;
+                                                            var labelAjustePlanItem = esRecargoPlanItem   ? "Recargo por plan"
+                                                                                    : esDescuentoPlanItem ? "Descuento por plan"
+                                                                                    : "Plan sin ajuste";
+                                                            var colorAjustePlanItem = esRecargoPlanItem   ? "bg-amber-500/10 text-amber-300"
+                                                                                    : esDescuentoPlanItem ? "bg-red-500/10 text-red-400"
+                                                                                    : "bg-slate-700/60 text-slate-400";
+                                                            var pctSufijoItem = item.PorcentajeAjustePlanAplicado.HasValue
+                                                                ? $" ({(item.PorcentajeAjustePlanAplicado.Value > 0 ? "+" : "")}{item.PorcentajeAjustePlanAplicado.Value:0.##}%)"
+                                                                : "";
+                                                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold @colorAjustePlanItem ajuste-plan-item">
+                                                                @labelAjustePlanItem@pctSufijoItem
+                                                            </span>
+                                                            <span class="text-[10px] font-bold @(esRecargoPlanItem ? "text-amber-300" : esDescuentoPlanItem ? "text-red-400" : "text-slate-400") monto-ajuste-plan-item">
+                                                                @item.MontoAjustePlanAplicado!.Value.ToString("C2")
+                                                            </span>
+                                                        }
+                                                    </div>
                                                 </td>
                                                 <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
                                                 <td class="px-4 py-4 text-right text-slate-300">@item.PrecioUnitario.ToString("C2")</td>

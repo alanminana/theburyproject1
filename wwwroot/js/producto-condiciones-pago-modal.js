@@ -319,7 +319,7 @@
             '<button type="button" id="btn-cond-add-plan" class="text-[11px] font-bold text-primary hover:underline focus:outline-none">' +
             '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">add</span> Agregar plan</button></div>' +
             '<div class="mb-2 rounded-lg bg-slate-900/60 p-2 text-[11px] leading-snug text-slate-400">' +
-            '<p>Ajuste negativo = descuento, cero = sin cambio, positivo = recargo. Cuota inactiva no se mostrara.</p></div>' +
+            '<p>Ajuste negativo = descuento, cero = sin cambio, positivo = recargo. Cuota inactiva no se mostrara al vendedor en venta futura.</p></div>' +
             '<div class="overflow-x-auto"><table class="condiciones-planes-table w-full text-xs">' +
             '<thead class="border-b border-slate-800"><tr>' +
             '<th class="condiciones-planes-th text-left">Cuotas</th><th class="condiciones-planes-th text-center">Activa</th>' +
