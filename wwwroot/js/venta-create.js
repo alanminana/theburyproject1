@@ -924,7 +924,7 @@
             btnPago.type = 'button';
             btnPago.className = 'btn-configurar-pago-item text-xs px-2 py-1 rounded border transition-colors';
             btnPago.dataset.index = String(i);
-            btnPago.setAttribute('aria-label', 'Configurar forma de pago del ítem');
+            btnPago.setAttribute('aria-label', 'Cambiar solo este producto');
 
             if (d.tipoPago != null) {
                 btnPago.classList.add('border-primary', 'text-primary', 'font-semibold');
@@ -932,7 +932,9 @@
                 btnPago.textContent = d.planId != null ? `${label} · #${d.planId}` : label;
             } else {
                 btnPago.classList.add('border-slate-700', 'text-slate-500', 'hover:border-primary');
-                btnPago.textContent = 'Sin definir';
+                const globalVal = selectTipoPago?.value;
+                const globalLabel = globalVal ? (selectTipoPago.selectedOptions?.[0]?.textContent?.trim() || null) : null;
+                btnPago.textContent = globalLabel ? `Usa pago principal: ${globalLabel}` : 'Usa pago principal';
             }
 
             tdPago.appendChild(btnPago);
@@ -1196,6 +1198,7 @@
         cuotasLimitadasPorDiagnostico = false;
         aplicarLimiteCuotasTarjeta();
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
+        renderDetalles();
         programarDiagnosticoCondicionesPago();
     }
 

@@ -4,7 +4,7 @@
  *
  * Escenarios:
  *   T1. Flujo completo: 2 ítems con pagos mixtos → confirmar → verificar Details
- *   T2. Badge inicial "Sin definir" y actualización visual al guardar
+ *   T2. Badge inicial "Usa pago principal" y actualización visual al guardar
  *   T3. CréditoPersonal no muestra planes en el modal de ítem
  *   T4. Cancelar modal no modifica el ítem
  *   T5. Click en backdrop cierra el modal sin guardar
@@ -96,9 +96,9 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         // Esperar renderizado del botón de pago por ítem
         await page.waitForTimeout(400);
 
-        // 4. Verificar badge inicial "Sin definir" en ítem 1
+        // 4. Verificar badge inicial "Usa pago principal" en ítem 1
         const badge0 = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge0).toContainText('Sin definir');
+        await expect(badge0).toContainText('Usa pago principal');
 
         // 5. Cargar planes: setear pago global a TarjetaCredito para que el
         //    diagnóstico devuelva planesDisponibles
@@ -116,7 +116,7 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
 
         // Verificar badge ítem 0 actualizado
         await expect(badge0).toContainText(TIPO_PAGO_BADGE[TIPO_PAGO.TarjetaCredito]);
-        await expect(badge0).not.toContainText('Sin definir');
+        await expect(badge0).not.toContainText('Usa pago principal');
         await expect(badge0).toHaveClass(/border-primary/);
 
         console.log(`[T1] Ítem 0 configurado con TarjetaCredito. Plan seleccionado: ${plan0Seleccionado}`);
@@ -131,7 +131,7 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
 
             const badge1 = page.locator('.btn-configurar-pago-item').nth(1);
             await expect(badge1).toContainText(TIPO_PAGO_BADGE[TIPO_PAGO.MercadoPago]);
-            await expect(badge1).not.toContainText('Sin definir');
+            await expect(badge1).not.toContainText('Usa pago principal');
             console.log(`[T1] Ítem 1 configurado con MercadoPago. Plan seleccionado: ${plan1Seleccionado}`);
         }
 
@@ -250,7 +250,7 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
     // ──────────────────────────────────────────────────────────────────────
     // T2: Badge inicial "Sin definir" y actualización visual al guardar
     // ──────────────────────────────────────────────────────────────────────
-    test('T2: badge "Sin definir" inicial y actualización al guardar pago', async ({ page }) => {
+    test('T2: badge "Usa pago principal" inicial y actualización al guardar pago', async ({ page }) => {
 
         const clienteNombre = await searchAndSelectClient(page);
         if (!clienteNombre) { test.skip(); return; }
@@ -261,15 +261,15 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
 
         await page.waitForTimeout(400);
 
-        // Estado inicial: Sin definir con estilos neutrales
+        // Estado inicial: Usa pago principal con estilos neutrales
         const badge = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge).toContainText('Sin definir');
+        await expect(badge).toContainText('Usa pago principal');
         await expect(badge).toHaveClass(/border-slate-700/);
         await expect(badge).toHaveClass(/text-slate-500/);
         // hover:border-primary es una clase Tailwind distinta a border-primary — usar regex con límite de token
         await expect(badge).not.toHaveClass(/(^| )border-primary( |$)/);
 
-        await screenshot(page, 'T2_badge_sin_definir');
+        await screenshot(page, 'T2_badge_usa_pago_principal');
 
         // Abrir modal y configurar con Transferencia (tipo sin planes, verificación de flujo básico)
         await openPagoItemModal(page, 0);
@@ -304,7 +304,7 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
 
         await expect(badge).toContainText(TIPO_PAGO_BADGE[TIPO_PAGO.Efectivo]);
 
-        console.log('[T2] DONE: badge inicial "Sin definir" → actualizado correctamente');
+        console.log('[T2] DONE: badge inicial "Usa pago principal" → actualizado correctamente al guardar excepción');
     });
 
     // ──────────────────────────────────────────────────────────────────────
@@ -365,20 +365,24 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         await page.waitForTimeout(400);
 
         const badge = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge).toContainText('Sin definir');
+        await expect(badge).toContainText('Usa pago principal');
 
-        // Abrir modal, cambiar tipo, luego cancelar
+        // Capturar texto inicial para verificar que cancel no lo modifica
+        const textoInicial = await badge.textContent();
+
+        // Abrir modal, seleccionar un tipo distinto al global default, luego cancelar
         await openPagoItemModal(page, 0);
-        await page.selectOption('#select-tipo-pago-item', TIPO_PAGO.Efectivo);
+        await page.selectOption('#select-tipo-pago-item', TIPO_PAGO.CuentaCorriente);
         await page.waitForTimeout(200);
 
         // Cancelar vía botón
         await page.locator('.btn-cerrar-pago-item').first().click();
         await page.locator('#modal-pago-item').waitFor({ state: 'hidden', timeout: 3_000 });
 
-        // Badge debe seguir "Sin definir"
-        await expect(badge).toContainText('Sin definir');
-        await expect(badge).not.toContainText('Efectivo');
+        // Badge no cambió — cancel no aplicó la excepción de CuentaCorriente
+        const textoDespues = await badge.textContent();
+        expect(textoDespues).toBe(textoInicial);
+        await expect(badge).not.toContainText('Cta. Cte.');
 
         console.log('[T4] DONE: Cancelar no modifica badge ✓');
     });

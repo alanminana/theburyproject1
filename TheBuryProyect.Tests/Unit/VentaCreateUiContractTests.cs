@@ -468,11 +468,11 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCreateJs_MuestraBadgeSinDefinirConBotonPorLinea()
+    public void VentaCreateJs_MuestraBadgeUsaPagoPrincipalConBotonPorLinea()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
 
-        Assert.Contains("Sin definir", script);
+        Assert.Contains("Usa pago principal", script);
         Assert.Contains("btn-configurar-pago-item", script);
     }
 
@@ -515,6 +515,28 @@ public class VentaCreateUiContractTests
 
         Assert.Contains("selectTipoPago", script);
         Assert.Contains("function onTipoPagoChange", script);
+    }
+
+    // ── Fase 17.2: badge heredado muestra pago principal ──────────────
+
+    [Fact]
+    public void VentaCreateJs_BadgeHeredadoMuestraLabelDelPagoPrincipalGlobal()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        Assert.Contains("globalLabel", render);
+        Assert.Contains("Usa pago principal:", render);
+        Assert.Contains("selectedOptions", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_CambioTipoPagoGlobalRerenderizaBadgesItems()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var tipoPago = ExtractFunction(script, "function onTipoPagoChange");
+
+        Assert.Contains("renderDetalles()", tipoPago);
     }
 
     private static string FindRepoRoot()
