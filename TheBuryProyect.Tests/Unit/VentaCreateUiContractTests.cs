@@ -415,6 +415,108 @@ public class VentaCreateUiContractTests
         Assert.Contains("hide(panelPlanesPago)", limpiar);
     }
 
+    // ── Fase 16.3: UI pago por ítem ───────────────────────────────────
+
+    [Fact]
+    public void CreateView_TieneModalPagoItem()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"modal-pago-item\"", view);
+        Assert.Contains("id=\"select-tipo-pago-item\"", view);
+        Assert.Contains("id=\"modal-pago-item-planes\"", view);
+        Assert.Contains("id=\"btn-guardar-pago-item\"", view);
+        Assert.Contains("id=\"modal-pago-item-titulo\"", view);
+        Assert.Contains("btn-cerrar-pago-item", view);
+    }
+
+    [Fact]
+    public void CreateView_TieneColumnaPagoEnHeaderTabla()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains(">Pago<", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_TieneFuncionesModalPagoItem()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function openModalPagoItem", script);
+        Assert.Contains("function guardarPagoItem", script);
+        Assert.Contains("function closeModalPagoItem", script);
+        Assert.Contains("function actualizarPlanesItem", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_HiddenInputsIncluyenTipoPagoYPlanPorLinea()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("Detalles[${i}].TipoPago", script);
+        Assert.Contains("Detalles[${i}].ProductoCondicionPagoPlanId", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_DetalleEstadoTieneTipoPagoYPlanIdNullable()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("tipoPago: null", script);
+        Assert.Contains("planId: null", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MuestraBadgeSinDefinirConBotonPorLinea()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("Sin definir", script);
+        Assert.Contains("btn-configurar-pago-item", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_GuardarPagoItemActualizaDetalleYRerenderiza()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var guardar = ExtractFunction(script, "function guardarPagoItem");
+
+        Assert.Contains("detalles[pagoItemModalIndex].tipoPago", guardar);
+        Assert.Contains("detalles[pagoItemModalIndex].planId", guardar);
+        Assert.Contains("renderDetalles()", guardar);
+        Assert.Contains("closeModalPagoItem()", guardar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_GuardarPagoItemNoModificaTotales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var guardar = ExtractFunction(script, "function guardarPagoItem");
+
+        Assert.DoesNotContain("recalcularTotales()", guardar);
+        Assert.DoesNotContain("actualizarTotalesUI", guardar);
+        Assert.DoesNotContain("postJson('/api/ventas/CalcularTotalesVenta'", guardar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_HiddenInputsTipoPagoSoloSiDefinido()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("if (d.tipoPago != null)", script);
+        Assert.Contains("if (d.planId != null)", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SelectorGlobalSigueFuncionandoComoFallback()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("selectTipoPago", script);
+        Assert.Contains("function onTipoPagoChange", script);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

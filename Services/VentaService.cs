@@ -185,6 +185,7 @@ namespace TheBuryProject.Services
 
                 CalcularTotales(venta);
                 await CalcularComisionesAsync(venta);
+                await AplicarAjustesPorItemAsync(venta);
 
                 await ValidarCondicionesPagoCarritoAsync(venta, viewModel.DatosTarjeta);
 
@@ -598,6 +599,7 @@ namespace TheBuryProject.Services
 
             CalcularTotales(venta);
             await CalcularComisionesAsync(venta);
+            await AplicarAjustesPorItemAsync(venta);
 
             await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
 
@@ -1667,7 +1669,11 @@ namespace TheBuryProject.Services
                 venta.Total += recargo;
             }
 
-            if (planSeleccionado != null)
+            // Skip global plan if per-item plans already applied on detalles (avoid double adjustment)
+            var tieneAjustesPorItem = await _context.VentaDetalles
+                .AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted && d.ProductoCondicionPagoPlanId != null);
+
+            if (planSeleccionado != null && !tieneAjustesPorItem)
             {
                 var montoAjuste = RedondearMoneda(venta.Total * planSeleccionado.AjustePorcentaje / 100m);
                 venta.Total += montoAjuste;
@@ -1985,6 +1991,87 @@ namespace TheBuryProject.Services
 
             _validator.ValidarEstadoAutorizacion(venta, EstadoAutorizacionVenta.PendienteAutorizacion);
             return venta;
+        }
+
+        /// <summary>
+        /// Aplica ajustes de plan por ítem (Fase 16.4).
+        /// Valida cada plan referenciado en VentaDetalle, calcula el ajuste sobre SubtotalFinal de la línea
+        /// y acumula el total en Venta.Total.
+        /// Si ningún ítem tiene plan, retorna sin modificar nada (comportamiento legacy preservado).
+        /// CréditoPersonal ignora planes por ítem según regla de negocio.
+        /// </summary>
+        private async Task AplicarAjustesPorItemAsync(Venta venta)
+        {
+            var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
+
+            if (!detalles.Any(d => d.ProductoCondicionPagoPlanId.HasValue))
+                return;
+
+            var planIds = detalles
+                .Where(d => d.ProductoCondicionPagoPlanId.HasValue)
+                .Select(d => d.ProductoCondicionPagoPlanId!.Value)
+                .Distinct()
+                .ToList();
+
+            var planes = await _context.ProductoCondicionPagoPlanes
+                .Include(p => p.ProductoCondicionPago)
+                .AsNoTracking()
+                .Where(p => planIds.Contains(p.Id) && !p.IsDeleted)
+                .ToDictionaryAsync(p => p.Id);
+
+            decimal totalAjuste = 0m;
+
+            foreach (var detalle in detalles)
+            {
+                var tipoPagoItem = detalle.TipoPago ?? venta.TipoPago;
+
+                // CréditoPersonal nunca aplica ajuste por plan
+                if (tipoPagoItem == TipoPago.CreditoPersonal)
+                {
+                    detalle.ProductoCondicionPagoPlanId = null;
+                    detalle.PorcentajeAjustePlanAplicado = null;
+                    detalle.MontoAjustePlanAplicado = null;
+                    continue;
+                }
+
+                if (!detalle.ProductoCondicionPagoPlanId.HasValue)
+                {
+                    detalle.PorcentajeAjustePlanAplicado = null;
+                    detalle.MontoAjustePlanAplicado = null;
+                    continue;
+                }
+
+                var planId = detalle.ProductoCondicionPagoPlanId.Value;
+
+                if (!planes.TryGetValue(planId, out var plan))
+                    throw new InvalidOperationException(
+                        $"El plan de pago #{planId} seleccionado para el producto #{detalle.ProductoId} no existe.");
+
+                if (!plan.Activo)
+                    throw new InvalidOperationException(
+                        $"El plan de pago #{planId} seleccionado para el producto #{detalle.ProductoId} no está disponible.");
+
+                if (plan.ProductoCondicionPago.ProductoId != detalle.ProductoId)
+                    throw new InvalidOperationException(
+                        $"El plan #{planId} no corresponde al producto #{detalle.ProductoId}.");
+
+                var tipoPagoPlan = plan.ProductoCondicionPago.TipoPago;
+                if (tipoPagoPlan != tipoPagoItem)
+                    throw new InvalidOperationException(
+                        $"El plan #{planId} no corresponde al medio de pago del ítem " +
+                        $"(ítem: {tipoPagoItem}, plan: {tipoPagoPlan}).");
+
+                if (!TiposPagoConPlanes.Contains(tipoPagoPlan))
+                    throw new InvalidOperationException(
+                        $"El plan #{planId} no corresponde a un medio de pago que admita planes.");
+
+                var montoAjuste = RedondearMoneda(detalle.SubtotalFinal * plan.AjustePorcentaje / 100m);
+                detalle.PorcentajeAjustePlanAplicado = plan.AjustePorcentaje;
+                detalle.MontoAjustePlanAplicado = montoAjuste;
+                totalAjuste += montoAjuste;
+            }
+
+            venta.Total += totalAjuste;
         }
 
         private void CalcularTotales(Venta venta)

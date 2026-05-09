@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Helpers
@@ -19,8 +20,15 @@ namespace TheBuryProject.Helpers
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();
             var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(venta);
-            var ajustePlanMonto = venta.DatosTarjeta?.MontoAjustePlanAplicado;
-            var ajustePlanPct = venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
+
+            // Fase 16.6: cuando hay TipoPago por ítem, el ajuste global de DatosTarjeta queda subordinado.
+            var hasPagoPorItem = detalleViewModels.Any(d => d.TipoPago.HasValue);
+            var ajustePlanMonto = hasPagoPorItem ? null : venta.DatosTarjeta?.MontoAjustePlanAplicado;
+            var ajustePlanPct = hasPagoPorItem ? null : venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
+            var gruposPago = hasPagoPorItem
+                ? BuildGruposPagoPorItem(detalleViewModels, venta.TipoPago)
+                : new List<FacturaComprobanteGrupoPagoViewModel>();
+
             var totales = BuildTotales(factura, venta, lineas, recargoDebitoAplicado, ajustePlanMonto, ajustePlanPct);
 
             return new FacturaComprobanteViewModel
@@ -58,7 +66,8 @@ namespace TheBuryProject.Helpers
                 },
                 Lineas = lineas,
                 ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(detalleViewModels),
-                Totales = totales
+                Totales = totales,
+                GruposPagoPorItem = gruposPago
             };
         }
 
@@ -88,9 +97,55 @@ namespace TheBuryProject.Helpers
                 SubtotalFinal = detalle.SubtotalFinal,
                 CostoUnitarioAlMomento = detalle.CostoUnitarioAlMomento,
                 CostoTotalAlMomento = detalle.CostoTotalAlMomento,
-                Observaciones = detalle.Observaciones
+                Observaciones = detalle.Observaciones,
+                TipoPago = detalle.TipoPago,
+                ProductoCondicionPagoPlanId = detalle.ProductoCondicionPagoPlanId,
+                PorcentajeAjustePlanAplicado = detalle.PorcentajeAjustePlanAplicado,
+                MontoAjustePlanAplicado = detalle.MontoAjustePlanAplicado
             };
         }
+
+        private static List<FacturaComprobanteGrupoPagoViewModel> BuildGruposPagoPorItem(
+            IReadOnlyCollection<VentaDetalleViewModel> detalles,
+            TipoPago tipoPagoGlobal)
+        {
+            return detalles
+                .Where(d => d.ProductoCondicionPagoPlanId.HasValue
+                    && d.MontoAjustePlanAplicado.HasValue
+                    && (d.TipoPago ?? tipoPagoGlobal) != TipoPago.CreditoPersonal)
+                .GroupBy(d => new
+                {
+                    TipoPago = d.TipoPago ?? tipoPagoGlobal,
+                    d.ProductoCondicionPagoPlanId,
+                    d.PorcentajeAjustePlanAplicado
+                })
+                .Select(g =>
+                {
+                    var subtotal = g.Sum(d => d.SubtotalFinal);
+                    var ajuste = g.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
+                    return new FacturaComprobanteGrupoPagoViewModel
+                    {
+                        TipoPagoLabel = ResolverLabelTipoPago(g.Key.TipoPago),
+                        PorcentajeAjuste = g.Key.PorcentajeAjustePlanAplicado,
+                        Subtotal = subtotal,
+                        AjusteMonto = ajuste,
+                        Total = subtotal + ajuste
+                    };
+                })
+                .ToList();
+        }
+
+        private static string ResolverLabelTipoPago(TipoPago tipoPago) => tipoPago switch
+        {
+            TipoPago.Efectivo => "Efectivo",
+            TipoPago.Transferencia => "Transferencia",
+            TipoPago.TarjetaDebito => "Tarjeta Débito",
+            TipoPago.TarjetaCredito => "Tarjeta Crédito",
+            TipoPago.Cheque => "Cheque",
+            TipoPago.MercadoPago => "Mercado Pago",
+            TipoPago.CuentaCorriente => "Cuenta Corriente",
+            _ => tipoPago.ToString()
+        };
 
         private static FacturaComprobanteLineaViewModel ToLineaViewModel(VentaDetalleViewModel detalle)
         {

@@ -237,7 +237,9 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Nombre : string.Empty))
                 .ForMember(dest => dest.ProductoCodigo, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Codigo : string.Empty))
                 .ForMember(dest => dest.StockDisponible, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.StockActual : 0))
-                .ForMember(dest => dest.ResumenFormaPago, opt => opt.Ignore());
+                .ForMember(dest => dest.ResumenFormaPago, opt => opt.MapFrom(src =>
+                    BuildResumenFormaPagoItem(src.TipoPago, src.ProductoCondicionPagoPlanId,
+                        src.PorcentajeAjustePlanAplicado, src.MontoAjustePlanAplicado)));
 
             CreateMap<VentaDetalleViewModel, VentaDetalle>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -603,6 +605,41 @@ namespace TheBuryProject.Helpers
 
             CreateMap<TicketChecklistItem, TicketChecklistItemViewModel>();
 
+        }
+
+        private static string? BuildResumenFormaPagoItem(
+            TipoPago? tipoPago,
+            int? planId,
+            decimal? pct,
+            decimal? monto)
+        {
+            if (tipoPago == null && planId == null) return null;
+
+            var partes = new List<string>();
+            if (tipoPago.HasValue)
+            {
+                partes.Add(tipoPago.Value switch
+                {
+                    TipoPago.Efectivo        => "Efectivo",
+                    TipoPago.Transferencia   => "Transferencia",
+                    TipoPago.TarjetaDebito   => "Tarjeta Débito",
+                    TipoPago.TarjetaCredito  => "Tarjeta Crédito",
+                    TipoPago.Cheque          => "Cheque",
+                    TipoPago.CreditoPersonal => "Crédito Personal",
+                    TipoPago.MercadoPago     => "Mercado Pago",
+                    TipoPago.CuentaCorriente => "Cuenta Corriente",
+                    _                        => tipoPago.Value.ToString()
+                });
+            }
+            if (planId.HasValue && pct.HasValue)
+            {
+                var signo = pct.Value > 0 ? "+" : string.Empty;
+                var ajusteLabel = monto.HasValue && monto.Value > 0 ? "Recargo"
+                    : monto.HasValue && monto.Value < 0 ? "Descuento"
+                    : "Sin ajuste";
+                partes.Add($"{ajusteLabel} {signo}{pct.Value:0.##}%");
+            }
+            return partes.Count > 0 ? string.Join(" — ", partes) : null;
         }
 
         private static string GetColorAlerta(PrioridadAlerta prioridad)

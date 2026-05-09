@@ -10,6 +10,17 @@ namespace TheBuryProject.ViewModels
         public List<FacturaComprobanteLineaViewModel> Lineas { get; set; } = new();
         public List<FacturaAlicuotaResumenViewModel> ResumenAlicuotas { get; set; } = new();
         public FacturaComprobanteTotalesViewModel Totales { get; set; } = new();
+        // Fase 16.6: desglose por grupo cuando hay pagos por ítem. Vacío si todos los detalles usan TipoPago global.
+        public List<FacturaComprobanteGrupoPagoViewModel> GruposPagoPorItem { get; set; } = new();
+    }
+
+    public class FacturaComprobanteGrupoPagoViewModel
+    {
+        public string TipoPagoLabel { get; set; } = string.Empty;
+        public decimal? PorcentajeAjuste { get; set; }
+        public decimal Subtotal { get; set; }
+        public decimal AjusteMonto { get; set; }
+        public decimal Total { get; set; }
     }
 
     public class FacturaComprobanteFacturaViewModel

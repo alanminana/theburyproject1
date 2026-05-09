@@ -425,3 +425,62 @@ var ProductSelection = (function () {
 if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerProductSelectionApi === 'function') {
     CatalogoModule.registerProductSelectionApi(ProductSelection);
 }
+
+// ── Ordenamiento por columna en la tabla de productos ──
+(function () {
+    'use strict';
+
+    var tbody = document.getElementById('productos-tbody');
+    if (!tbody) return;
+
+    var table = tbody.closest('table');
+    if (!table) return;
+
+    var currentKey = null;
+    var currentDir = 'asc';
+    var headers = table.querySelectorAll('th[data-sort]');
+
+    headers.forEach(function (th) {
+        th.addEventListener('click', function () {
+            var key = th.dataset.sort;
+            if (currentKey === key) {
+                currentDir = currentDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentKey = key;
+                currentDir = 'asc';
+            }
+            sortRows(key, currentDir);
+            updateIcons(th);
+        });
+    });
+
+    function sortRows(key, dir) {
+        var attrName = 'sort' + key.charAt(0).toUpperCase() + key.slice(1);
+        var rows = Array.from(tbody.querySelectorAll('tr[data-search]'));
+        rows.sort(function (a, b) {
+            var va = a.dataset[attrName] || '';
+            var vb = b.dataset[attrName] || '';
+            var na = parseFloat(va);
+            var nb = parseFloat(vb);
+            var cmp = (!isNaN(na) && !isNaN(nb)) ? (na - nb) : va.localeCompare(vb, 'es', { sensitivity: 'base' });
+            return dir === 'asc' ? cmp : -cmp;
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
+    }
+
+    function updateIcons(activeHeader) {
+        headers.forEach(function (th) {
+            var icon = th.querySelector('[data-sort-icon]');
+            if (!icon) return;
+            if (th === activeHeader) {
+                icon.textContent = currentDir === 'asc' ? '↑' : '↓';
+                icon.classList.remove('text-slate-600');
+                icon.classList.add('text-slate-300');
+            } else {
+                icon.textContent = '↕';
+                icon.classList.remove('text-slate-300');
+                icon.classList.add('text-slate-600');
+            }
+        });
+    }
+})();

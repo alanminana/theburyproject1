@@ -32,7 +32,9 @@
       "mcp__plugin_playwright_playwright__browser_wait_for",
       "mcp__plugin_playwright_playwright__browser_fill_form",
       "PowerShell(Stop-Process -Id 24064 -Force)",
-      "PowerShell(Get-ChildItem -Path \"d:\\\\theburyproject1\\\\Views\\\\Catalogo\\\\\" | Where-Object { $_.Name -match \"ondicion|pago\" } | Select-Object Name, FullName)"
+      "PowerShell(Get-ChildItem -Path \"d:\\\\theburyproject1\\\\Views\\\\Catalogo\\\\\" | Where-Object { $_.Name -match \"ondicion|pago\" } | Select-Object Name, FullName)",
+      "PowerShell(head -50)",
+      "PowerShell(ls d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | Select-Object Name; \\(Get-Content d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | ConvertFrom-Json\\).main)"
     ],
     "deny": [],
     "additionalDirectories": [

@@ -1,11 +1,14 @@
+using AutoMapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
 
 /// <summary>
-/// Fase 15.8.C — Desglose visual del ajuste por plan aplicado.
+/// Fase 15.8.C + Fase 16.5 — Desglose visual del ajuste por plan aplicado.
 ///
 /// Verifica:
 /// - Details_tw y ComprobanteFactura_tw leen snapshots sin recalcular.
@@ -235,7 +238,302 @@ public class VentaDetailsAjustePlanUiContractTests
         Assert.Equal(-30m, vm.Totales.MontoAjustePlanAplicado);
     }
 
+    // ── Fase 16.5: desglose por ítem y resumen agrupado ────────────────
+
+    [Fact]
+    public void DetailsView_MuestraFormaPagoPorItem()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("forma-pago-item", view);
+        Assert.Contains("item.TipoPago", view);
+        Assert.Contains("item.ProductoCondicionPagoPlanId.HasValue", view);
+    }
+
+    [Fact]
+    public void DetailsView_MuestraPlanSinAjusteCuandoSnapshotCero()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("Plan sin ajuste", view);
+    }
+
+    [Fact]
+    public void DetailsView_OcultaBloqueAjusteSiItemSinPlan()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // El bloque por ítem solo se renderiza si hay plan y monto snapshot
+        Assert.Contains("tieneAjustePlanItem", view);
+        Assert.Contains("item.ProductoCondicionPagoPlanId.HasValue", view);
+    }
+
+    [Fact]
+    public void DetailsView_UsaMontoAjustePlanAplicadoPorItem_NoRecalcula()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("item.MontoAjustePlanAplicado", view);
+        // Razor no recalcula: no hay producto de SubtotalFinal * Porcentaje
+        Assert.DoesNotContain("SubtotalFinal * item.Porcentaje", view);
+        Assert.DoesNotContain("item.SubtotalFinal * item.PorcentajeAjuste", view);
+    }
+
+    [Fact]
+    public void DetailsView_MuestraResumenAgrupadoPorGrupo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("resumen-ajuste-por-grupo", view);
+        Assert.Contains("Sum(d => d.MontoAjustePlanAplicado", view);
+        Assert.Contains("gruposAjustePlan", view);
+    }
+
+    [Fact]
+    public void DetailsView_TotalFinalEsModelTotal_NoSumaGrupos()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("Model.Total.ToString(\"C2\")", view);
+        // El total no se recalcula sumando grupos sobre Model.Total
+        Assert.DoesNotContain("gruposAjustePlan.Sum", view);
+    }
+
+    [Fact]
+    public void DetailsView_CreditoPersonalNoMuestraAjustePorPlan()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // La condición de ajuste por ítem excluye CreditoPersonal
+        Assert.Contains("TipoPago.CreditoPersonal", view);
+        Assert.Contains("!= TipoPago.CreditoPersonal", view);
+    }
+
+    [Fact]
+    public void VentaDetalleViewModel_ExponeResumenFormaPago()
+    {
+        var vm = new VentaDetalleViewModel();
+        // La propiedad existe y por defecto es null (sin tipo de pago ni plan)
+        Assert.Null(vm.ResumenFormaPago);
+    }
+
+    [Fact]
+    public void AutoMapper_VentaDetalle_ConPlanPositivo_PopulaResumenFormaPago()
+    {
+        var mapper = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        var detalle = new VentaDetalle
+        {
+            TipoPago = TipoPago.TarjetaCredito,
+            ProductoCondicionPagoPlanId = 1,
+            PorcentajeAjustePlanAplicado = 10m,
+            MontoAjustePlanAplicado = 50m,
+            Producto = new Producto { Nombre = "Test", Codigo = "T1", RowVersion = new byte[8] }
+        };
+
+        var vm = mapper.Map<VentaDetalleViewModel>(detalle);
+
+        Assert.NotNull(vm.ResumenFormaPago);
+        Assert.Contains("Tarjeta Crédito", vm.ResumenFormaPago);
+        Assert.Contains("Recargo", vm.ResumenFormaPago);
+    }
+
+    [Fact]
+    public void AutoMapper_VentaDetalle_ConPlanNegativo_PopulaDescuentoEnResumen()
+    {
+        var mapper = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        var detalle = new VentaDetalle
+        {
+            TipoPago = TipoPago.TarjetaDebito,
+            ProductoCondicionPagoPlanId = 2,
+            PorcentajeAjustePlanAplicado = -5m,
+            MontoAjustePlanAplicado = -25m,
+            Producto = new Producto { Nombre = "Test", Codigo = "T2", RowVersion = new byte[8] }
+        };
+
+        var vm = mapper.Map<VentaDetalleViewModel>(detalle);
+
+        Assert.NotNull(vm.ResumenFormaPago);
+        Assert.Contains("Descuento", vm.ResumenFormaPago);
+    }
+
+    [Fact]
+    public void AutoMapper_VentaDetalle_SinPlanNiTipoPago_ResumenEsNull()
+    {
+        var mapper = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance)
+            .CreateMapper();
+
+        var detalle = new VentaDetalle
+        {
+            TipoPago = null,
+            ProductoCondicionPagoPlanId = null,
+            Producto = new Producto { Nombre = "Test", Codigo = "T3", RowVersion = new byte[8] }
+        };
+
+        var vm = mapper.Map<VentaDetalleViewModel>(detalle);
+
+        Assert.Null(vm.ResumenFormaPago);
+    }
+
+    // ── Fase 16.6: comprobante con pagos por ítem ───────────────────────
+
+    [Fact]
+    public void ComprobanteView_ConPagosPorItem_MuestraSeccionDesgloseGrupo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "ComprobanteFactura_tw.cshtml"));
+
+        Assert.Contains("desglose-pago-por-item", view);
+        Assert.Contains("GruposPagoPorItem", view);
+        Assert.Contains("GruposPagoPorItem.Any()", view);
+    }
+
+    [Fact]
+    public void ComprobanteView_ConPagosPorItem_IteraGruposYMuestraLabelsDeAjuste()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "ComprobanteFactura_tw.cshtml"));
+
+        Assert.Contains("grupo.TipoPagoLabel", view);
+        Assert.Contains("grupo.Subtotal", view);
+        Assert.Contains("grupo.AjusteMonto", view);
+        Assert.Contains("grupo.Total", view);
+        Assert.Contains("Recargo por plan", view);
+        Assert.Contains("Descuento por plan", view);
+    }
+
+    [Fact]
+    public void ComprobanteView_ConPagosPorItem_TotalFinalNoModificado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "ComprobanteFactura_tw.cshtml"));
+
+        // El total del comprobante sigue siendo Model.Totales.Total (sin sumar grupos encima)
+        Assert.Contains("Model.Totales.Total.ToString(\"C2\")", view);
+        Assert.DoesNotContain("grupo.Total + Model.Totales", view);
+    }
+
+    [Fact]
+    public void Builder_ConPagosPorItem_GeneraGruposYNulaAjusteTotalesLegacy()
+    {
+        // Un detalle con TipoPago por ítem + plan → builder debe generar grupos y nullificar ajuste legacy
+        var factura = BuildFacturaConDetallesPorItem(new[]
+        {
+            (TipoPago.TarjetaCredito, planId: 1, pct: 10m, monto: 50m, subtotal: 500m)
+        }, tipoPagoGlobal: TipoPago.TarjetaCredito);
+
+        var vm = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.NotEmpty(vm.GruposPagoPorItem);
+        // Cuando hay pagos por ítem, el ajuste legacy de Totales queda nulo
+        Assert.Null(vm.Totales.MontoAjustePlanAplicado);
+        Assert.Null(vm.Totales.PorcentajeAjustePlanAplicado);
+    }
+
+    [Fact]
+    public void Builder_ConPagosPorItem_GrupoTieneSubtotalAjusteYTotalCorrectos()
+    {
+        var factura = BuildFacturaConDetallesPorItem(new[]
+        {
+            (TipoPago.TarjetaCredito, planId: 1, pct: 10m, monto: 50m, subtotal: 500m)
+        }, tipoPagoGlobal: TipoPago.TarjetaCredito);
+
+        var vm = FacturaComprobanteBuilder.Build(factura);
+
+        var grupo = Assert.Single(vm.GruposPagoPorItem);
+        Assert.Equal("Tarjeta Crédito", grupo.TipoPagoLabel);
+        Assert.Equal(10m, grupo.PorcentajeAjuste);
+        Assert.Equal(500m, grupo.Subtotal);
+        Assert.Equal(50m, grupo.AjusteMonto);
+        Assert.Equal(550m, grupo.Total);
+    }
+
+    [Fact]
+    public void Builder_SinPagosPorItem_MantieneAjusteTotalesDesdesDatosTarjeta()
+    {
+        // Sin TipoPago por ítem → comportamiento anterior: ajuste viene de DatosTarjeta
+        var factura = BuildFacturaConTarjeta(
+            tipoTarjeta: TipoTarjeta.Credito,
+            montoAjuste: 100m,
+            porcentajeAjuste: 5m);
+
+        var vm = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Empty(vm.GruposPagoPorItem);
+        Assert.Equal(100m, vm.Totales.MontoAjustePlanAplicado);
+        Assert.Equal(5m, vm.Totales.PorcentajeAjustePlanAplicado);
+    }
+
+    [Fact]
+    public void Builder_CreditoPersonalExcluidoDeGruposPagoPorItem()
+    {
+        // Detalle con TipoPago = CreditoPersonal → no entra en grupos
+        var factura = BuildFacturaConDetallesPorItem(new[]
+        {
+            (TipoPago.CreditoPersonal, planId: 1, pct: 0m, monto: 0m, subtotal: 300m)
+        }, tipoPagoGlobal: TipoPago.CreditoPersonal);
+
+        var vm = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Empty(vm.GruposPagoPorItem);
+    }
+
+    [Fact]
+    public void Builder_DosGruposDistintosMedio_PropagaAmbosGrupos()
+    {
+        var factura = BuildFacturaConDetallesPorItem(new[]
+        {
+            (TipoPago.TarjetaCredito, planId: 1, pct: 10m, monto: 50m, subtotal: 500m),
+            (TipoPago.TarjetaDebito,  planId: 2, pct: -5m, monto: -10m, subtotal: 200m)
+        }, tipoPagoGlobal: TipoPago.TarjetaCredito);
+
+        var vm = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Equal(2, vm.GruposPagoPorItem.Count);
+        Assert.Contains(vm.GruposPagoPorItem, g => g.TipoPagoLabel == "Tarjeta Crédito" && g.AjusteMonto == 50m);
+        Assert.Contains(vm.GruposPagoPorItem, g => g.TipoPagoLabel == "Tarjeta Débito"  && g.AjusteMonto == -10m);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
+
+    private static Factura BuildFacturaConDetallesPorItem(
+        IEnumerable<(TipoPago TipoPago, int PlanId, decimal Pct, decimal Monto, decimal Subtotal)> items,
+        TipoPago tipoPagoGlobal,
+        decimal totalFactura = 1000m)
+    {
+        var detalles = items.Select(i => new VentaDetalle
+        {
+            TipoPago = i.TipoPago,
+            ProductoCondicionPagoPlanId = i.PlanId,
+            PorcentajeAjustePlanAplicado = i.Pct,
+            MontoAjustePlanAplicado = i.Monto,
+            SubtotalFinal = i.Subtotal,
+            Producto = new Producto { Nombre = "Test", Codigo = "T", RowVersion = new byte[8] }
+        }).ToList();
+
+        return new Factura
+        {
+            Numero = "FC-ITEM",
+            Tipo = TipoFactura.B,
+            FechaEmision = new DateTime(2026, 5, 8),
+            Total = totalFactura,
+            Venta = new Venta
+            {
+                Numero = "V-ITEM",
+                Total = totalFactura,
+                TipoPago = tipoPagoGlobal,
+                Cliente = BuildCliente(),
+                DatosTarjeta = null,
+                Detalles = detalles
+            }
+        };
+    }
 
     private static Factura BuildFacturaConTarjeta(
         TipoTarjeta tipoTarjeta,

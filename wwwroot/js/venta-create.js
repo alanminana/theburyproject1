@@ -51,6 +51,12 @@
         ConInteres: 1
     };
 
+    const TIPO_PAGO_LABELS = {
+        '0': 'Efectivo', '1': 'Transferencia', '2': 'Débito',
+        '3': 'Crédito', '4': 'Cheque', '5': 'Créd. Personal',
+        '6': 'Mercado Pago', '7': 'Cta. Cte.', '8': 'Tarjeta'
+    };
+
     // ── DOM refs ───────────────────────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
     const inputBuscarCliente = $('#input-buscar-cliente');
@@ -842,7 +848,7 @@
             existing.subtotal = calcularSubtotalLinea(existing.precioUnitario, newQty, descuentoPct);
         } else {
             const subtotal = calcularSubtotalLinea(precioUnitario, cantidad, descuentoPct);
-            detalles.push({ productoId, codigo, nombre, cantidad, precioUnitario, descuento: descuentoPct, subtotal, stock });
+            detalles.push({ productoId, codigo, nombre, cantidad, precioUnitario, descuento: descuentoPct, subtotal, stock, tipoPago: null, planId: null });
         }
 
         // Reset add panel
@@ -890,13 +896,50 @@
         `).join('');
 
         // Hidden inputs for form posting
-        detallesHiddenInputs.innerHTML = detalles.map((d, i) => `
-            <input type="hidden" name="Detalles[${i}].ProductoId" value="${d.productoId}" />
-            <input type="hidden" name="Detalles[${i}].Cantidad" value="${d.cantidad}" />
-            <input type="hidden" name="Detalles[${i}].PrecioUnitario" value="${d.precioUnitario}" />
-            <input type="hidden" name="Detalles[${i}].Descuento" value="${d.descuento}" />
-            <input type="hidden" name="Detalles[${i}].Subtotal" value="${d.subtotal}" />
-        `).join('');
+        detallesHiddenInputs.innerHTML = '';
+        detalles.forEach((d, i) => {
+            const mkHidden = (name, val) => {
+                const el = document.createElement('input');
+                el.type = 'hidden';
+                el.name = name;
+                el.value = val;
+                return el;
+            };
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoId`, d.productoId));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Cantidad`, d.cantidad));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].PrecioUnitario`, d.precioUnitario));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Descuento`, d.descuento));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Subtotal`, d.subtotal));
+            if (d.tipoPago != null) detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].TipoPago`, d.tipoPago));
+            if (d.planId != null) detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoCondicionPagoPlanId`, d.planId));
+        });
+
+        // Inject pago-por-item badge cell via DOM (safe: textContent only)
+        tbodyDetalles.querySelectorAll('tr').forEach((tr, i) => {
+            const d = detalles[i];
+            const tdPago = document.createElement('td');
+            tdPago.className = 'py-4 px-2 text-center';
+
+            const btnPago = document.createElement('button');
+            btnPago.type = 'button';
+            btnPago.className = 'btn-configurar-pago-item text-xs px-2 py-1 rounded border transition-colors';
+            btnPago.dataset.index = String(i);
+            btnPago.setAttribute('aria-label', 'Configurar forma de pago del ítem');
+
+            if (d.tipoPago != null) {
+                btnPago.classList.add('border-primary', 'text-primary', 'font-semibold');
+                const label = TIPO_PAGO_LABELS[String(d.tipoPago)] || 'Definido';
+                btnPago.textContent = d.planId != null ? `${label} · #${d.planId}` : label;
+            } else {
+                btnPago.classList.add('border-slate-700', 'text-slate-500', 'hover:border-primary');
+                btnPago.textContent = 'Sin definir';
+            }
+
+            tdPago.appendChild(btnPago);
+            // Insert before the last <td> (delete button)
+            const lastTd = tr.lastElementChild;
+            tr.insertBefore(tdPago, lastTd);
+        });
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
         updateDetallesScrollAffordance();
@@ -905,6 +948,11 @@
 
     // Delete detail row
     tbodyDetalles?.addEventListener('click', function (e) {
+        const btnPagoItem = e.target.closest('.btn-configurar-pago-item');
+        if (btnPagoItem) {
+            openModalPagoItem(parseInt(btnPagoItem.dataset.index));
+            return;
+        }
         const btn = e.target.closest('.btn-eliminar-detalle');
         if (!btn) return;
         const idx = parseInt(btn.dataset.index);
@@ -912,6 +960,120 @@
         renderDetalles();
         invalidarVerificacionCrediticia();
         recalcularTotales();
+    });
+
+    // ── 4b. Pago por ítem — modal ─────────────────────────────────────
+    let pagoItemModalIndex = -1;
+
+    function openModalPagoItem(index) {
+        if (index < 0 || index >= detalles.length) return;
+        pagoItemModalIndex = index;
+        const d = detalles[index];
+        const modal = $('#modal-pago-item');
+        if (!modal) return;
+
+        const titulo = $('#modal-pago-item-titulo');
+        if (titulo) titulo.textContent = d.nombre;
+
+        const sel = $('#select-tipo-pago-item');
+        if (sel) sel.value = d.tipoPago != null ? String(d.tipoPago) : '';
+
+        actualizarPlanesItem(d.tipoPago, d.planId);
+        show(modal);
+    }
+
+    function actualizarPlanesItem(tipoPago, planIdActual) {
+        const container = $('#modal-pago-item-planes');
+        if (!container) return;
+        container.replaceChildren();
+
+        if (!esTipoPagoConPlanes(String(tipoPago ?? '')) || !planesDisponibles?.length) {
+            const p = document.createElement('p');
+            p.className = 'text-xs text-slate-500';
+            p.textContent = 'Sin planes disponibles para este medio.';
+            container.appendChild(p);
+            return;
+        }
+
+        planesDisponibles.forEach(plan => {
+            const planId = getProp(plan, 'id', 'Id');
+            const etiqueta = formatearEtiquetaPlan(plan);
+            const obs = getProp(plan, 'observaciones', 'Observaciones');
+            const seleccionado = planIdActual != null && String(planId) === String(planIdActual);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('role', 'radio');
+            btn.setAttribute('aria-checked', String(seleccionado));
+            btn.dataset.planId = planId;
+            btn.className = [
+                'plan-pago-item-btn px-3 py-2 rounded-lg border text-xs text-left w-full transition-colors',
+                seleccionado
+                    ? 'border-primary bg-primary/10 text-white'
+                    : 'border-slate-600 bg-slate-800 text-slate-300 hover:border-primary hover:text-white'
+            ].join(' ');
+
+            const spanLabel = document.createElement('span');
+            spanLabel.className = 'block font-semibold';
+            spanLabel.textContent = etiqueta;
+            btn.appendChild(spanLabel);
+
+            if (obs) {
+                const spanObs = document.createElement('span');
+                spanObs.className = 'block text-slate-500 text-[10px] mt-0.5';
+                spanObs.textContent = obs;
+                btn.appendChild(spanObs);
+            }
+
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.plan-pago-item-btn').forEach(b => {
+                    const activo = b === btn;
+                    b.setAttribute('aria-checked', String(activo));
+                    b.classList.toggle('border-primary', activo);
+                    b.classList.toggle('bg-primary/10', activo);
+                    b.classList.toggle('text-white', activo);
+                    b.classList.toggle('border-slate-600', !activo);
+                    b.classList.toggle('bg-slate-800', !activo);
+                    b.classList.toggle('text-slate-300', !activo);
+                });
+            });
+
+            container.appendChild(btn);
+        });
+    }
+
+    function guardarPagoItem() {
+        if (pagoItemModalIndex < 0 || pagoItemModalIndex >= detalles.length) return;
+
+        const sel = $('#select-tipo-pago-item');
+        const val = sel?.value;
+        detalles[pagoItemModalIndex].tipoPago = (val !== '' && val != null) ? Number(val) : null;
+
+        const planBtn = $('#modal-pago-item-planes')?.querySelector('[aria-checked="true"]');
+        detalles[pagoItemModalIndex].planId = planBtn ? Number(planBtn.dataset.planId) : null;
+
+        closeModalPagoItem();
+        renderDetalles();
+    }
+
+    function closeModalPagoItem() {
+        pagoItemModalIndex = -1;
+        hide($('#modal-pago-item'));
+    }
+
+    $('#select-tipo-pago-item')?.addEventListener('change', function () {
+        const d = pagoItemModalIndex >= 0 ? detalles[pagoItemModalIndex] : null;
+        actualizarPlanesItem(this.value !== '' ? Number(this.value) : null, d?.planId ?? null);
+    });
+
+    document.querySelectorAll('.btn-cerrar-pago-item').forEach(btn => {
+        btn.addEventListener('click', closeModalPagoItem);
+    });
+
+    $('#btn-guardar-pago-item')?.addEventListener('click', guardarPagoItem);
+
+    $('#modal-pago-item')?.addEventListener('click', function (e) {
+        if (e.target === this) closeModalPagoItem();
     });
 
     // ── 5. Recalculate Totals ─────────────────────────────────────────

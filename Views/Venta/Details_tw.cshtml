@@ -307,10 +307,58 @@
                                             var subtotalNetoLinea = usaSnapshotsFinales ? item.SubtotalFinalNeto : item.SubtotalNeto;
                                             var subtotalIVALinea = usaSnapshotsFinales ? item.SubtotalFinalIVA : item.SubtotalIVA;
                                             var subtotalLinea = usaSnapshotsFinales ? item.SubtotalFinal : item.Subtotal;
+                                            var efectivoPagoItem = item.TipoPago ?? Model.TipoPago;
+                                            var tieneAjustePlanItem = item.ProductoCondicionPagoPlanId.HasValue
+                                                && item.MontoAjustePlanAplicado.HasValue
+                                                && efectivoPagoItem != TipoPago.CreditoPersonal;
                                             <tr class="transition-colors hover:bg-slate-800/30">
                                                 <td class="px-6 py-4">
                                                     <p class="font-bold text-white">@item.ProductoNombre</p>
                                                     <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
+                                                    @if (item.TipoPago.HasValue || item.ProductoCondicionPagoPlanId.HasValue)
+                                                    {
+                                                        var itemTipoPagoLabel = item.TipoPago switch
+                                                        {
+                                                            TipoPago.Efectivo        => "Efectivo",
+                                                            TipoPago.Transferencia   => "Transferencia",
+                                                            TipoPago.TarjetaDebito   => "Tarjeta Débito",
+                                                            TipoPago.TarjetaCredito  => "Tarjeta Crédito",
+                                                            TipoPago.Cheque          => "Cheque",
+                                                            TipoPago.CreditoPersonal => "Crédito Personal",
+                                                            TipoPago.MercadoPago     => "Mercado Pago",
+                                                            TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                            null                     => null,
+                                                            _                        => item.TipoPago?.ToString()
+                                                        };
+                                                        <div class="mt-1.5 flex flex-wrap gap-1">
+                                                            @if (itemTipoPagoLabel != null)
+                                                            {
+                                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-700/60 text-slate-300 forma-pago-item">
+                                                                    @itemTipoPagoLabel
+                                                                </span>
+                                                            }
+                                                            @if (tieneAjustePlanItem)
+                                                            {
+                                                                var esRecargoPlanItem   = item.MontoAjustePlanAplicado!.Value > 0;
+                                                                var esDescuentoPlanItem = item.MontoAjustePlanAplicado!.Value < 0;
+                                                                var labelAjustePlanItem = esRecargoPlanItem   ? "Recargo por plan"
+                                                                                        : esDescuentoPlanItem ? "Descuento por plan"
+                                                                                        : "Plan sin ajuste";
+                                                                var colorAjustePlanItem = esRecargoPlanItem   ? "bg-amber-500/10 text-amber-300"
+                                                                                        : esDescuentoPlanItem ? "bg-red-500/10 text-red-400"
+                                                                                        : "bg-slate-700/60 text-slate-400";
+                                                                var pctSufijoItem = item.PorcentajeAjustePlanAplicado.HasValue
+                                                                    ? $" ({(item.PorcentajeAjustePlanAplicado.Value > 0 ? "+" : "")}{item.PorcentajeAjustePlanAplicado.Value:0.##}%)"
+                                                                    : "";
+                                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold @colorAjustePlanItem ajuste-plan-item">
+                                                                    @labelAjustePlanItem@pctSufijoItem
+                                                                </span>
+                                                                <span class="text-[10px] font-bold @(esRecargoPlanItem ? "text-amber-300" : esDescuentoPlanItem ? "text-red-400" : "text-slate-400") monto-ajuste-plan-item">
+                                                                    @item.MontoAjustePlanAplicado!.Value.ToString("C2")
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                    }
                                                 </td>
                                                 <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
                                                 <td class="px-4 py-4 text-right text-slate-300">@item.PrecioUnitario.ToString("C2")</td>
@@ -345,6 +393,70 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Resumen agrupado por forma de pago con plan -->
+                    @{
+                        var gruposAjustePlan = detalles
+                            .Where(d => d.ProductoCondicionPagoPlanId.HasValue
+                                && d.MontoAjustePlanAplicado.HasValue
+                                && (d.TipoPago ?? Model.TipoPago) != TipoPago.CreditoPersonal)
+                            .GroupBy(d => new
+                            {
+                                TipoPago = d.TipoPago ?? Model.TipoPago,
+                                d.ProductoCondicionPagoPlanId,
+                                d.PorcentajeAjustePlanAplicado
+                            })
+                            .ToList();
+                    }
+                    @if (gruposAjustePlan.Any())
+                    {
+                        <div id="resumen-ajuste-por-grupo" class="border-t border-slate-800 px-6 py-4">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-3">Desglose por forma de pago</p>
+                            <div class="space-y-2">
+                                @foreach (var grp in gruposAjustePlan)
+                                {
+                                    var grpTipoPagoLabel = grp.Key.TipoPago switch
+                                    {
+                                        TipoPago.Efectivo        => "Efectivo",
+                                        TipoPago.Transferencia   => "Transferencia",
+                                        TipoPago.TarjetaDebito   => "Tarjeta Débito",
+                                        TipoPago.TarjetaCredito  => "Tarjeta Crédito",
+                                        TipoPago.Cheque          => "Cheque",
+                                        TipoPago.MercadoPago     => "Mercado Pago",
+                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                        _                        => grp.Key.TipoPago.ToString()
+                                    };
+                                    var grpSubtotal = grp.Sum(d => d.SubtotalFinal);
+                                    var grpAjuste   = grp.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
+                                    var grpTotal    = grpSubtotal + grpAjuste;
+                                    var grpPct      = grp.Key.PorcentajeAjustePlanAplicado;
+                                    var grpEsRecargo  = grpAjuste > 0;
+                                    var grpEsDescuento = grpAjuste < 0;
+                                    var grpColorAjuste = grpEsRecargo ? "text-amber-300" : grpEsDescuento ? "text-red-400" : "text-slate-400";
+                                    var grpPctLabel = grpPct.HasValue
+                                        ? $" ({(grpPct.Value > 0 ? "+" : "")}{grpPct.Value:0.##}%)"
+                                        : "";
+                                    <div class="flex flex-col gap-1 rounded-lg bg-slate-800/40 px-4 py-2.5 text-xs">
+                                        <div class="flex items-center justify-between">
+                                            <span class="font-semibold text-slate-300">@grpTipoPagoLabel@grpPctLabel</span>
+                                            <span class="font-bold text-white">@grpTotal.ToString("C2")</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-slate-500">
+                                            <span>Subtotal grupo</span>
+                                            <span>@grpSubtotal.ToString("C2")</span>
+                                        </div>
+                                        @if (grpAjuste != 0m)
+                                        {
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-slate-500">Ajuste plan</span>
+                                                <span class="@grpColorAjuste">@(grpEsRecargo ? "+" : "")@grpAjuste.ToString("C2")</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
 
                     <!-- Totals row -->
                     <div class="p-6 bg-slate-800/30 border-t border-slate-800">

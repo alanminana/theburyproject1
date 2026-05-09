@@ -201,11 +201,18 @@
                                    aria-label="Seleccionar todos los productos" />
                         </th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
-                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
+                        <th data-sort="nombre" class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-white transition-colors">
+                            <span class="inline-flex items-center gap-1">Producto <span data-sort-icon class="text-slate-600 text-[10px]">↕</span></span>
+                        </th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría</th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Marca</th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Stock</th>
-                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Precio vigente</th>
+                        <th data-sort="precio" class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-white transition-colors">
+                            <span class="inline-flex items-center gap-1">Precio vigente <span data-sort-icon class="text-slate-600 text-[10px]">↕</span></span>
+                        </th>
+                        <th data-sort="comision" class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 cursor-pointer select-none hover:text-white transition-colors text-right">
+                            <span class="inline-flex items-center justify-end gap-1">Comisión <span data-sort-icon class="text-slate-600 text-[10px]">↕</span></span>
+                        </th>
                         <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                     </tr>
                 </thead>
@@ -237,7 +244,10 @@
                                 data-catalogo-producto-id="@p.ProductoId"
                                 data-producto-codigo="@p.Codigo"
                                 data-producto-nombre="@p.Nombre"
-                                data-search="@searchData">
+                                data-search="@searchData"
+                                data-sort-nombre="@(p.Nombre?.ToLowerInvariant() ?? "")"
+                                data-sort-precio="@p.PrecioActual.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                data-sort-comision="@p.ComisionPorcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                                 <td class="w-10 px-3 py-4">
                                     <input type="checkbox" class="chk-producto rounded border-slate-600 text-primary focus:ring-primary cursor-pointer"
                                            value="@p.ProductoId"
@@ -284,17 +294,16 @@
                                     {
                                         <p data-prod-margen class="text-[10px] text-emerald-400">+@p.MargenPorcentaje.ToString("N1")% margen</p>
                                     }
-                                    <p class="text-[10px] text-slate-400">
-                                        Comisión vendedor:
-                                        @if (p.ComisionPorcentaje > 0)
-                                        {
-                                            <span data-producto-comision>@p.ComisionPorcentaje.ToString("N2")%</span>
-                                        }
-                                        else
-                                        {
-                                            <span data-producto-comision>Sin comisión</span>
-                                        }
-                                    </p>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-right">
+                                    @if (p.ComisionPorcentaje > 0)
+                                    {
+                                        <span data-producto-comision class="font-semibold text-emerald-400">@p.ComisionPorcentaje.ToString("N2")%</span>
+                                    }
+                                    else
+                                    {
+                                        <span data-producto-comision class="text-slate-500">—</span>
+                                    }
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex flex-wrap justify-end gap-2">
@@ -338,7 +347,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="8" class="py-12 text-center">
+                            <td colspan="9" class="py-12 text-center">
                                 <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600 mb-2 block">inventory_2</span>
                                 <p class="text-sm font-bold text-slate-400">No se encontraron productos</p>
                                 @if (Model.TieneFiltrosActivos)
@@ -349,7 +358,7 @@
                         </tr>
                     }
                     <tr id="productos-search-empty" style="display:none">
-                        <td colspan="8" class="py-12 text-center">
+                        <td colspan="9" class="py-12 text-center">
                             <div class="flex flex-col items-center gap-2 opacity-50">
                                 <span class="material-symbols-outlined text-4xl">search_off</span>
                                 <p class="text-sm font-bold text-slate-300">Sin resultados para "<span id="productos-search-term"></span>"</p>

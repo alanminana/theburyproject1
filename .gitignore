@@ -23,3 +23,8 @@ qa-evidence/
 App_Data/contratos-venta-credito/**/*.pdf
 /*.png
 docs/qa-*.png
+
+# Playwright E2E — Fase 16.7
+e2e/.auth/
+playwright-report/
+test-results/
