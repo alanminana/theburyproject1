@@ -419,4 +419,50 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         console.log('[T5] DONE: backdrop cierra modal sin modificar badge ✓');
     });
 
+    // ──────────────────────────────────────────────────────────────────────
+    // T6: Limpiar excepción → badge vuelve a herencia del pago principal
+    // ──────────────────────────────────────────────────────────────────────
+    test('T6: limpiar excepción vuelve al badge heredado del pago principal', async ({ page }) => {
+
+        const clienteNombre = await searchAndSelectClient(page);
+        if (!clienteNombre) { test.skip(); return; }
+
+        await activarFiltroStock(page);
+        const prod = await addProduct(page, 'an');
+        if (!prod) { test.skip(); return; }
+
+        await page.waitForTimeout(400);
+
+        const badge = page.locator('.btn-configurar-pago-item').first();
+
+        // 1. Guardar excepción: Transferencia
+        await openPagoItemModal(page, 0);
+        await page.selectOption('#select-tipo-pago-item', TIPO_PAGO.Transferencia);
+        await page.click('#btn-guardar-pago-item');
+        await page.locator('#modal-pago-item').waitFor({ state: 'hidden', timeout: 3_000 });
+
+        await expect(badge).toContainText(TIPO_PAGO_BADGE[TIPO_PAGO.Transferencia]);
+        await expect(badge).toHaveClass(/border-primary/);
+        await expect(badge).toHaveClass(/text-primary/);
+
+        await screenshot(page, 'T6_badge_con_excepcion_transferencia');
+
+        // 2. Reabrir modal y limpiar excepción → opción vacía = "Usa pago principal"
+        await openPagoItemModal(page, 0);
+        await page.selectOption('#select-tipo-pago-item', '');
+        await page.waitForTimeout(200);
+        await page.click('#btn-guardar-pago-item');
+        await page.locator('#modal-pago-item').waitFor({ state: 'hidden', timeout: 3_000 });
+
+        // Badge volvió a estado heredado: texto incluye "Usa pago principal", sin clases de excepción
+        await expect(badge).toContainText('Usa pago principal');
+        await expect(badge).toHaveClass(/border-slate-700/);
+        await expect(badge).not.toHaveClass(/(^| )border-primary( |$)/);
+        await expect(badge).not.toContainText('Transferencia');
+
+        await screenshot(page, 'T6_badge_limpio_herencia');
+
+        console.log('[T6] DONE: excepción limpiada → badge heredado ✓');
+    });
+
 });

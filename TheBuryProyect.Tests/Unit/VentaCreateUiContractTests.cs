@@ -539,6 +539,28 @@ public class VentaCreateUiContractTests
         Assert.Contains("renderDetalles()", tipoPago);
     }
 
+    // ── Fase 17.3: limpieza de excepción y retorno a pago principal ───
+
+    [Fact]
+    public void VentaCreateJs_GuardarConSelectVacioSeteTipoPagoNull()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var guardar = ExtractFunction(script, "function guardarPagoItem");
+
+        Assert.Contains("val !== '' && val != null", guardar);
+        Assert.Contains(": null", guardar);
+        Assert.Contains("detalles[pagoItemModalIndex].planId", guardar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AbrirModalConItemSinExcepcionSeleccionaOpcionVacia()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var open = ExtractFunction(script, "function openModalPagoItem");
+
+        Assert.Contains("d.tipoPago != null ? String(d.tipoPago) : ''", open);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());
