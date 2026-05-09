@@ -96,6 +96,31 @@ namespace TheBuryProject.Controllers
 
         #endregion
 
+        #region Destacado
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleDestacado(int productoId)
+        {
+            try
+            {
+                var esDestacado = await _catalogoService.ToggleDestacadoAsync(productoId);
+                return Json(new { success = true, esDestacado });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Producto {ProductoId} no encontrado al alternar destacado", productoId);
+                return NotFound(new { success = false, mensaje = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al alternar destacado del producto {ProductoId}", productoId);
+                return StatusCode(500, new { success = false, mensaje = "Error al actualizar el producto" });
+            }
+        }
+
+        #endregion
+
         #region API de precios — Simular / Aplicar / Historial / Revertir
 
         // ──────────────────────────────────────────────────────────────

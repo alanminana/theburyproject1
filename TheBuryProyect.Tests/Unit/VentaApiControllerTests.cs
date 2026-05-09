@@ -936,6 +936,7 @@ public class VentaApiControllerTests
         public Task<ProductoPrecioVentaResultado?> ObtenerPrecioVigenteParaVentaAsync(int productoId) => Task.FromResult(PrecioVenta);
         public Task<Producto> ActualizarStockAsync(int id, decimal cantidad) => throw new NotImplementedException();
         public Task<Producto> ActualizarComisionAsync(int id, decimal porcentaje) => throw new NotImplementedException();
+        public Task<bool> ToggleDestacadoAsync(int id) => Task.FromResult(false);
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => throw new NotImplementedException();
     }
 

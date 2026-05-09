@@ -4953,6 +4953,9 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("EsDestacado")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("AlicuotaIVAId")
                         .HasColumnType("int");
 

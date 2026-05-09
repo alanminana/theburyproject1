@@ -76,6 +76,9 @@ namespace TheBuryProject.Services.Interfaces
         // Comisión
         Task<Producto> ActualizarComisionAsync(int id, decimal porcentaje);
 
+        // Destacado
+        Task<bool> ToggleDestacadoAsync(int id);
+
         // Validaciones
         Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null);
     }

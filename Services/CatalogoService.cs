@@ -200,7 +200,8 @@ namespace TheBuryProject.Services
                 EstadoStock = estadoStock,
 
                 // Flags
-                Activo = producto.Activo
+                Activo = producto.Activo,
+                EsDestacado = producto.EsDestacado
             };
         }
 
@@ -452,6 +453,12 @@ namespace TheBuryProject.Services
                 PuedeRevertir = d.Evento != null && !d.Evento.RevertidoEn.HasValue
                                 && !string.Equals(d.Evento.Alcance, "reversion", StringComparison.OrdinalIgnoreCase)
             }).ToList();
+        }
+
+        /// <inheritdoc />
+        public async Task<bool> ToggleDestacadoAsync(int productoId)
+        {
+            return await _productoService.ToggleDestacadoAsync(productoId);
         }
 
         #endregion

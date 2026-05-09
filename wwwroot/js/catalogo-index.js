@@ -291,6 +291,57 @@
     }
 })();
 
+// ─── Toggle Destacado (estrella por fila) ─────────────────────
+(function () {
+    'use strict';
+
+    function setStarVisual(icon, btn, esDestacado) {
+        icon.style.fontVariationSettings = "'FILL' " + (esDestacado ? 1 : 0) + ", 'wght' 400, 'GRAD' 0, 'opsz' 24";
+        icon.classList.toggle('text-amber-400', esDestacado);
+        icon.classList.toggle('text-slate-600', !esDestacado);
+        btn.dataset.esDestacado = esDestacado ? 'true' : 'false';
+        btn.setAttribute('title', esDestacado ? 'Quitar destacado' : 'Marcar como destacado');
+    }
+
+    function dispatchToast(message, type) {
+        document.dispatchEvent(new CustomEvent('catalogo:toast', { detail: { message: message, type: type } }));
+    }
+
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('.btn-star-destacado');
+        if (!btn) return;
+
+        var productoId = btn.dataset.productoId;
+        var esDestacadoActual = btn.dataset.esDestacado === 'true';
+        var icon = btn.querySelector('.material-symbols-outlined');
+        if (!icon) return;
+
+        // Optimistic update
+        setStarVisual(icon, btn, !esDestacadoActual);
+
+        var token = document.querySelector('input[name="__RequestVerificationToken"]');
+        fetch('/Catalogo/ToggleDestacado', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': token ? token.value : ''
+            },
+            body: 'productoId=' + encodeURIComponent(productoId)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.success) {
+                setStarVisual(icon, btn, esDestacadoActual);
+                dispatchToast('No se pudo actualizar el destacado.', 'error');
+            }
+        })
+        .catch(function () {
+            setStarVisual(icon, btn, esDestacadoActual);
+            dispatchToast('Error al conectar con el servidor.', 'error');
+        });
+    });
+})();
+
 // ─── Product Selection (checkboxes + floating bar) ─────────────
 var ProductSelection = (function () {
     'use strict';

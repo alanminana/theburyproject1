@@ -458,6 +458,28 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<bool> ToggleDestacadoAsync(int id)
+        {
+            try
+            {
+                var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+                if (producto == null)
+                    throw new InvalidOperationException($"No se encontró el producto con ID {id}");
+
+                producto.EsDestacado = !producto.EsDestacado;
+                producto.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("EsDestacado toggled para producto {Id}: {Valor}", id, producto.EsDestacado);
+                return producto.EsDestacado;
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                _logger.LogError(ex, "Error al alternar destacado para producto {Id}", id);
+                throw;
+            }
+        }
+
         #endregion
 
         #region Eliminar / Stock

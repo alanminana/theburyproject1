@@ -119,6 +119,11 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public bool Activo { get; set; } = true;
 
+        /// <summary>
+        /// Indica si el producto está marcado como destacado en el catálogo.
+        /// </summary>
+        public bool EsDestacado { get; set; } = false;
+
         // Propiedades de navegaci�n
         /// <summary>
         /// Categor�a a la que pertenece el producto

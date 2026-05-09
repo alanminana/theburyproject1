@@ -168,6 +168,11 @@ namespace TheBuryProject.ViewModels
         public bool Activo { get; set; }
 
         /// <summary>
+        /// Producto marcado como destacado en el catálogo.
+        /// </summary>
+        public bool EsDestacado { get; set; }
+
+        /// <summary>
         /// Producto sin precio asignado en la lista
         /// </summary>
         public bool SinPrecio => PrecioActual <= 0;

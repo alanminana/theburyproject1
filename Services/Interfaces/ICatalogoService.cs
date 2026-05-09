@@ -61,5 +61,10 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<HistorialPrecioProductoItemViewModel>> GetHistorialCambiosPrecioProductoAsync(int productoId);
 
         Task<(bool Exitoso, string Mensaje, int? EventoReversionId)> RevertirCambioPrecioAsync(int eventoId);
+
+        /// <summary>
+        /// Alterna el estado EsDestacado del producto y devuelve el nuevo valor.
+        /// </summary>
+        Task<bool> ToggleDestacadoAsync(int productoId);
     }
 }
