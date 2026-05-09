@@ -435,7 +435,7 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains(">Pago<", view);
+        Assert.Contains(">Tipo de pago<", view);
     }
 
     [Fact]
@@ -472,7 +472,7 @@ public class VentaCreateUiContractTests
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
 
-        Assert.Contains("Usa pago principal", script);
+        Assert.Contains("Principal:", script);
         Assert.Contains("btn-configurar-pago-item", script);
     }
 
@@ -526,7 +526,7 @@ public class VentaCreateUiContractTests
         var render = ExtractFunction(script, "function renderDetalles");
 
         Assert.Contains("globalLabel", render);
-        Assert.Contains("Usa pago principal:", render);
+        Assert.Contains("Principal:", render);
         Assert.Contains("selectedOptions", render);
     }
 

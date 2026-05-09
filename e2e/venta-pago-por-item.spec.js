@@ -96,9 +96,9 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         // Esperar renderizado del botón de pago por ítem
         await page.waitForTimeout(400);
 
-        // 4. Verificar badge inicial "Usa pago principal" en ítem 1
+        // 4. Verificar badge inicial "Principal:" en ítem 1
         const badge0 = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge0).toContainText('Usa pago principal');
+        await expect(badge0).toContainText('Principal:');
 
         // 5. Cargar planes: setear pago global a TarjetaCredito para que el
         //    diagnóstico devuelva planesDisponibles
@@ -261,9 +261,9 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
 
         await page.waitForTimeout(400);
 
-        // Estado inicial: Usa pago principal con estilos neutrales
+        // Estado inicial: hereda pago principal, con estilos neutrales
         const badge = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge).toContainText('Usa pago principal');
+        await expect(badge).toContainText('Principal:');
         await expect(badge).toHaveClass(/border-slate-700/);
         await expect(badge).toHaveClass(/text-slate-500/);
         // hover:border-primary es una clase Tailwind distinta a border-primary — usar regex con límite de token
@@ -365,7 +365,7 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         await page.waitForTimeout(400);
 
         const badge = page.locator('.btn-configurar-pago-item').first();
-        await expect(badge).toContainText('Usa pago principal');
+        await expect(badge).toContainText('Principal:');
 
         // Capturar texto inicial para verificar que cancel no lo modifica
         const textoInicial = await badge.textContent();
@@ -454,8 +454,8 @@ test.describe('Pago por ítem — Fase 16.7 E2E', () => {
         await page.click('#btn-guardar-pago-item');
         await page.locator('#modal-pago-item').waitFor({ state: 'hidden', timeout: 3_000 });
 
-        // Badge volvió a estado heredado: texto incluye "Usa pago principal", sin clases de excepción
-        await expect(badge).toContainText('Usa pago principal');
+        // Badge volvió a estado heredado: texto incluye "Principal:", sin clases de excepción
+        await expect(badge).toContainText('Principal:');
         await expect(badge).toHaveClass(/border-slate-700/);
         await expect(badge).not.toHaveClass(/(^| )border-primary( |$)/);
         await expect(badge).not.toContainText('Transferencia');

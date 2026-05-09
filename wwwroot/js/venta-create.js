@@ -924,17 +924,17 @@
             btnPago.type = 'button';
             btnPago.className = 'btn-configurar-pago-item text-xs px-2 py-1 rounded border transition-colors';
             btnPago.dataset.index = String(i);
-            btnPago.setAttribute('aria-label', 'Cambiar solo este producto');
+            btnPago.setAttribute('aria-label', 'Configurar tipo de pago del producto');
 
             if (d.tipoPago != null) {
                 btnPago.classList.add('border-primary', 'text-primary', 'font-semibold');
                 const label = TIPO_PAGO_LABELS[String(d.tipoPago)] || 'Definido';
-                btnPago.textContent = d.planId != null ? `${label} · #${d.planId}` : label;
+                btnPago.textContent = d.planId != null ? `Excepción: ${label} · #${d.planId}` : `Excepción: ${label}`;
             } else {
                 btnPago.classList.add('border-slate-700', 'text-slate-500', 'hover:border-primary');
                 const globalVal = selectTipoPago?.value;
                 const globalLabel = globalVal ? (selectTipoPago.selectedOptions?.[0]?.textContent?.trim() || null) : null;
-                btnPago.textContent = globalLabel ? `Usa pago principal: ${globalLabel}` : 'Usa pago principal';
+                btnPago.textContent = globalLabel ? `Principal: ${globalLabel}` : 'Principal';
             }
 
             tdPago.appendChild(btnPago);
