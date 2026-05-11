@@ -15,4 +15,9 @@ public interface ICondicionesPagoCarritoResolver
         int? maxCuotasCreditoGlobal = null,
         TipoTarjeta? tipoTarjetaLegacy = null,
         CancellationToken cancellationToken = default);
+
+    Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
+        int productoId,
+        int? configuracionTarjetaId = null,
+        CancellationToken cancellationToken = default);
 }

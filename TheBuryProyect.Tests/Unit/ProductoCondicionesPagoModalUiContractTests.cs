@@ -59,9 +59,9 @@ public class ProductoCondicionesPagoModalUiContractTests
     {
         Assert.DoesNotContain("field('Estado'", Script);
         Assert.Contains("field('Disponibilidad'", Script);
-        Assert.Contains("Heredar - usa configuracion global", Script);
+        Assert.Contains("Usar configuracion general", Script);
+        Assert.Contains("Bloquear para este producto", Script);
         Assert.Contains("La regla participa en venta/diagnostico.", Script);
-        Assert.Contains("Bloqueado impide usar este medio para el producto.", Script);
     }
 
     [Fact]
@@ -94,6 +94,18 @@ public class ProductoCondicionesPagoModalUiContractTests
         Assert.Contains("Plan inactivo no aparece y no se puede seleccionar", fase151);
         Assert.Contains("No cambia endpoints, DTOs, persistencia", doc);
         Assert.DoesNotContain("database update", doc, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --- Fase 17.12: resumen de medio basado en planes activos ---
+
+    [Fact]
+    public void MediosTipoCard_ResumenMuestraPlanesActivosNoEscalares()
+    {
+        Assert.Contains("Sin planes activos", Script);
+        Assert.Contains("plan activo", Script);
+        Assert.Contains("planes activos", Script);
+        Assert.DoesNotContain("ctas s/int", Script);
+        Assert.DoesNotContain("ctas c/int", Script);
     }
 
     // --- Fase 15.5: sección de planes de cuotas en el modal ---
@@ -135,9 +147,9 @@ public class ProductoCondicionesPagoModalUiContractTests
     public void SeccionPlanes_TieneColumnasCuotasActivaAjusteTipoObservaciones()
     {
         Assert.Contains("condiciones-planes-table", Script);
-        Assert.Contains(">Cuotas<", Script);
+        Assert.Contains(">Plan de pago<", Script);
         Assert.Contains(">Activa<", Script);
-        Assert.Contains(">Ajuste %<", Script);
+        Assert.Contains(">Ajuste al precio<", Script);
         Assert.Contains(">Tipo ajuste<", Script);
         Assert.Contains(">Observaciones<", Script);
         Assert.Contains("condiciones-planes-th", Script);

@@ -468,11 +468,11 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCreateJs_MuestraBadgeUsaPagoPrincipalConBotonPorLinea()
+    public void VentaCreateJs_MuestraBadgeTipoPagoConBotonPorLinea()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
 
-        Assert.Contains("Principal:", script);
+        Assert.Contains("Tipo de pago:", script);
         Assert.Contains("btn-configurar-pago-item", script);
     }
 
@@ -520,13 +520,13 @@ public class VentaCreateUiContractTests
     // ── Fase 17.2: badge heredado muestra pago principal ──────────────
 
     [Fact]
-    public void VentaCreateJs_BadgeHeredadoMuestraLabelDelPagoPrincipalGlobal()
+    public void VentaCreateJs_BadgeHeredadoMuestraLabelDelTipoPagoGlobal()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
         var render = ExtractFunction(script, "function renderDetalles");
 
         Assert.Contains("globalLabel", render);
-        Assert.Contains("Principal:", render);
+        Assert.Contains("Tipo de pago:", render);
         Assert.Contains("selectedOptions", render);
     }
 
@@ -559,6 +559,129 @@ public class VentaCreateUiContractTests
         var open = ExtractFunction(script, "function openModalPagoItem");
 
         Assert.Contains("d.tipoPago != null ? String(d.tipoPago) : ''", open);
+    }
+
+    // ── Fase 17.8: medios de pago por producto en modal ──────────────
+
+    [Fact]
+    public void VentaCreateJs_ModalPagoItemCargaMediosPorProductoDelEndpoint()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("GetMediosPagoPorProducto", script);
+        Assert.Contains("condicionesProductoCache", script);
+        Assert.Contains("function poblarSelectTipoPagoItem", script);
+        Assert.Contains("function obtenerPlanesParaItem", script);
+        Assert.Contains("async function cargarMediosPagoPorProducto", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ModalPagoItemUsaPlanesDelProductoNoGlobales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var actualizarPlanes = ExtractFunction(script, "function actualizarPlanesItem");
+
+        Assert.Contains("planesDelProducto", actualizarPlanes);
+        Assert.Contains("planesDelProducto?.length", actualizarPlanes);
+        Assert.Contains("Sin planes configurados para este medio en este producto", actualizarPlanes);
+    }
+
+    [Fact]
+    public void VentaCreateJs_GuardarPagoItemGuardaMetadatosDePlan()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var guardar = ExtractFunction(script, "function guardarPagoItem");
+
+        Assert.Contains("planCuotas", guardar);
+        Assert.Contains("planAjustePct", guardar);
+        Assert.Contains("planBtn.dataset.cuotas", guardar);
+        Assert.Contains("planBtn.dataset.ajustePct", guardar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_CambioDeTarjetaInvalidaCacheCondicionesProducto()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var tarjetaChangeStart = script.IndexOf("selectTarjeta?.addEventListener('change'", StringComparison.Ordinal);
+        Assert.True(tarjetaChangeStart >= 0);
+        var tarjetaChange = script[tarjetaChangeStart..script.IndexOf("selectCuotasTarjeta?.addEventListener", tarjetaChangeStart, StringComparison.Ordinal)];
+
+        Assert.Contains("condicionesProductoCache.clear()", tarjetaChange);
+    }
+
+    [Fact]
+    public void VentaCrearModal_ModalPagoItemTieneBackdropOpaco()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("modal-pago-item", view);
+        Assert.Contains("bg-black/80", view);
+        Assert.Contains("backdrop-blur-sm", view);
+    }
+
+    [Fact]
+    public void VentaApiController_TieneEndpointGetMediosPagoPorProducto()
+    {
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaApiController.cs"));
+
+        Assert.Contains("GetMediosPagoPorProducto", controller);
+        Assert.Contains("ObtenerMediosPorProductoAsync", controller);
+    }
+
+    [Fact]
+    public void VentaCreateJs_FormatearEtiquetaPlanConSubtotalMuestraMontoEstimado()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var formatear = ExtractFunction(script, "function formatearEtiquetaPlanConSubtotal");
+
+        Assert.Contains("subtotal", formatear);
+        Assert.Contains("formatCurrency(monto)", formatear);
+        Assert.Contains("ajuste > 0", formatear);
+    }
+
+    // ── Fase 17.13: tabla automática de desglose de cuotas ──────────
+
+    [Fact]
+    public void VentaCrearModal_TieneTablaDesglosePlanPorItem()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"modal-pago-item-resumen\"", view);
+        Assert.Contains("id=\"modal-plan-producto\"", view);
+        Assert.Contains("id=\"modal-plan-precio-base\"", view);
+        Assert.Contains("id=\"modal-plan-cuotas-label\"", view);
+        Assert.Contains("id=\"modal-plan-ajuste\"", view);
+        Assert.Contains("id=\"modal-plan-total\"", view);
+        Assert.Contains("id=\"modal-plan-cuota\"", view);
+        Assert.Contains("overflow-x-auto", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ActualizarResumenPlanPoblaProductoYPlanLabel()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function actualizarResumenPlanSeleccionado");
+
+        Assert.Contains("modal-plan-producto", fn);
+        Assert.Contains("modal-pago-item-titulo", fn);
+        Assert.Contains("modal-plan-cuotas-label", fn);
+        Assert.Contains("Sin interés", fn);
+        Assert.Contains("text-red-400", fn);
+        Assert.Contains("text-emerald-400", fn);
+        Assert.Contains("text-slate-400", fn);
+        Assert.Contains("1 pago", fn);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ActualizarResumenUsaDomSeguroParaAjuste()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function actualizarResumenPlanSeleccionado");
+
+        Assert.Contains("replaceChildren()", fn);
+        Assert.Contains("createElement('span')", fn);
+        Assert.Contains("appendChild(spanAjuste)", fn);
+        Assert.DoesNotContain("innerHTML", fn);
     }
 
     private static string FindRepoRoot()

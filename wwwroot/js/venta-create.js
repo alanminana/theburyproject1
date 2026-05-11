@@ -32,6 +32,7 @@
     let limiteCuotasDiagnostico = null;
     let cuotasLimitadasPorDiagnostico = false;
     let planesDisponibles = [];
+    const condicionesProductoCache = new Map();
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
     const TIPO_PAGO = {
@@ -929,12 +930,27 @@
             if (d.tipoPago != null) {
                 btnPago.classList.add('border-primary', 'text-primary', 'font-semibold');
                 const label = TIPO_PAGO_LABELS[String(d.tipoPago)] || 'Definido';
-                btnPago.textContent = d.planId != null ? `Excepción: ${label} · #${d.planId}` : `Excepción: ${label}`;
+                if (d.planId != null) {
+                    const cuotasNum = d.planCuotas || 0;
+                    const cuotasLabel = cuotasNum ? (cuotasNum === 1 ? '1 pago' : `${cuotasNum}c`) : `#${d.planId}`;
+                    const ajustePct = d.planAjustePct ?? 0;
+                    let cuotaStr = '';
+                    if (cuotasNum > 0 && d.subtotal > 0) {
+                        const totalFinanciado = d.subtotal * (1 + ajustePct / 100);
+                        const valorCuota = totalFinanciado / cuotasNum;
+                        cuotaStr = cuotasNum === 1
+                            ? ` · ${formatCurrency(totalFinanciado)}`
+                            : ` · ${formatCurrency(valorCuota)}/c`;
+                    }
+                    btnPago.textContent = `${label} · ${cuotasLabel}${cuotaStr}`;
+                } else {
+                    btnPago.textContent = `Tipo de pago: ${label}`;
+                }
             } else {
                 btnPago.classList.add('border-slate-700', 'text-slate-500', 'hover:border-primary');
                 const globalVal = selectTipoPago?.value;
                 const globalLabel = globalVal ? (selectTipoPago.selectedOptions?.[0]?.textContent?.trim() || null) : null;
-                btnPago.textContent = globalLabel ? `Principal: ${globalLabel}` : 'Principal';
+                btnPago.textContent = 'Tipo de pago: ' + (globalLabel || TIPO_PAGO_LABELS[globalVal] || 'Efectivo');
             }
 
             tdPago.appendChild(btnPago);
@@ -967,7 +983,67 @@
     // ── 4b. Pago por ítem — modal ─────────────────────────────────────
     let pagoItemModalIndex = -1;
 
-    function openModalPagoItem(index) {
+    async function cargarMediosPagoPorProducto(productoId, configuracionTarjetaId) {
+        const cacheKey = `${productoId}-${configuracionTarjetaId ?? ''}`;
+        if (condicionesProductoCache.has(cacheKey)) return condicionesProductoCache.get(cacheKey);
+        try {
+            let url = `/api/ventas/GetMediosPagoPorProducto?productoId=${productoId}`;
+            if (configuracionTarjetaId) url += `&configuracionTarjetaId=${configuracionTarjetaId}`;
+            const resultado = await fetchJson(url);
+            condicionesProductoCache.set(cacheKey, resultado);
+            return resultado;
+        } catch {
+            return null;
+        }
+    }
+
+    function poblarSelectTipoPagoItem(sel, mediosResultado) {
+        if (!sel) return;
+        sel.replaceChildren();
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Tipo predeterminado del sistema';
+        sel.appendChild(defaultOpt);
+
+        if (!mediosResultado || mediosResultado.sinRestriccionesPropias) {
+            const TODOS_TIPOS = [
+                ['0', 'Efectivo'], ['1', 'Transferencia'], ['2', 'Tarjeta Débito'],
+                ['3', 'Tarjeta Crédito'], ['4', 'Cheque'], ['5', 'Crédito Personal'],
+                ['6', 'Mercado Pago'], ['7', 'Cuenta Corriente'], ['8', 'Tarjeta']
+            ];
+            TODOS_TIPOS.forEach(([val, label]) => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = label;
+                sel.appendChild(opt);
+            });
+            return;
+        }
+
+        const medios = mediosResultado.medios || [];
+        if (medios.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.disabled = true;
+            opt.textContent = '(Sin medios habilitados para este producto)';
+            sel.appendChild(opt);
+            return;
+        }
+        medios.forEach(medio => {
+            const opt = document.createElement('option');
+            opt.value = String(medio.tipoPago);
+            opt.textContent = TIPO_PAGO_LABELS[String(medio.tipoPago)] || `Tipo ${medio.tipoPago}`;
+            sel.appendChild(opt);
+        });
+    }
+
+    function obtenerPlanesParaItem(mediosResultado, tipoPago) {
+        if (!mediosResultado || mediosResultado.sinRestriccionesPropias || tipoPago == null) return null;
+        const medio = (mediosResultado.medios || []).find(m => String(m.tipoPago) === String(tipoPago));
+        return medio?.planes ?? [];
+    }
+
+    async function openModalPagoItem(index) {
         if (index < 0 || index >= detalles.length) return;
         pagoItemModalIndex = index;
         const d = detalles[index];
@@ -977,29 +1053,43 @@
         const titulo = $('#modal-pago-item-titulo');
         if (titulo) titulo.textContent = d.nombre;
 
+        const tarjetaId = esTipoPagoTarjeta(selectTipoPago?.value)
+            ? (parseInt(selectTarjeta?.value) || null)
+            : null;
+        const mediosResultado = await cargarMediosPagoPorProducto(d.productoId, tarjetaId);
+
         const sel = $('#select-tipo-pago-item');
+        poblarSelectTipoPagoItem(sel, mediosResultado);
         if (sel) sel.value = d.tipoPago != null ? String(d.tipoPago) : '';
 
-        actualizarPlanesItem(d.tipoPago, d.planId);
+        const planesItem = obtenerPlanesParaItem(mediosResultado, d.tipoPago);
+        actualizarPlanesItem(d.tipoPago, d.planId, planesItem, d.subtotal);
         show(modal);
     }
 
-    function actualizarPlanesItem(tipoPago, planIdActual) {
+    function actualizarPlanesItem(tipoPago, planIdActual, planesDelProducto, subtotalItem) {
         const container = $('#modal-pago-item-planes');
         if (!container) return;
         container.replaceChildren();
+        hide($('#modal-pago-item-resumen'));
 
-        if (!esTipoPagoConPlanes(String(tipoPago ?? '')) || !planesDisponibles?.length) {
+        const planes = planesDelProducto?.length
+            ? planesDelProducto
+            : (esTipoPagoConPlanes(String(tipoPago ?? '')) ? (planesDisponibles ?? []) : []);
+
+        if (!planes.length) {
             const p = document.createElement('p');
             p.className = 'text-xs text-slate-500';
-            p.textContent = 'Sin planes disponibles para este medio.';
+            p.textContent = 'Sin planes configurados para este medio en este producto.';
             container.appendChild(p);
             return;
         }
 
-        planesDisponibles.forEach(plan => {
+        planes.forEach(plan => {
             const planId = getProp(plan, 'id', 'Id');
-            const etiqueta = formatearEtiquetaPlan(plan);
+            const cuotas = getProp(plan, 'cantidadCuotas', 'CantidadCuotas');
+            const ajustePct = parseFloat(getProp(plan, 'ajustePorcentaje', 'AjustePorcentaje') ?? 0);
+            const etiqueta = formatearEtiquetaPlanConSubtotal(plan, subtotalItem);
             const obs = getProp(plan, 'observaciones', 'Observaciones');
             const seleccionado = planIdActual != null && String(planId) === String(planIdActual);
 
@@ -1008,6 +1098,8 @@
             btn.setAttribute('role', 'radio');
             btn.setAttribute('aria-checked', String(seleccionado));
             btn.dataset.planId = planId;
+            btn.dataset.cuotas = String(cuotas ?? 0);
+            btn.dataset.ajustePct = String(ajustePct);
             btn.className = [
                 'plan-pago-item-btn px-3 py-2 rounded-lg border text-xs text-left w-full transition-colors',
                 seleccionado
@@ -1019,6 +1111,18 @@
             spanLabel.className = 'block font-semibold';
             spanLabel.textContent = etiqueta;
             btn.appendChild(spanLabel);
+
+            const cuotasNum = parseInt(cuotas, 10) || 0;
+            if (subtotalItem > 0 && cuotasNum > 0) {
+                const totalFinanciado = subtotalItem * (1 + ajustePct / 100);
+                const valorCuota = totalFinanciado / cuotasNum;
+                const spanDetalle = document.createElement('span');
+                spanDetalle.className = 'block text-[10px] text-slate-400 mt-0.5';
+                spanDetalle.textContent = cuotasNum === 1
+                    ? `Total: ${formatCurrency(totalFinanciado)}`
+                    : `Total: ${formatCurrency(totalFinanciado)} · Cuota: ${formatCurrency(valorCuota)}`;
+                btn.appendChild(spanDetalle);
+            }
 
             if (obs) {
                 const spanObs = document.createElement('span');
@@ -1038,10 +1142,22 @@
                     b.classList.toggle('bg-slate-800', !activo);
                     b.classList.toggle('text-slate-300', !activo);
                 });
+                actualizarResumenPlanSeleccionado(cuotas, ajustePct, subtotalItem);
             });
 
             container.appendChild(btn);
         });
+
+        if (planIdActual != null) {
+            const planSel = planes.find(p => String(getProp(p, 'id', 'Id')) === String(planIdActual));
+            if (planSel) {
+                actualizarResumenPlanSeleccionado(
+                    getProp(planSel, 'cantidadCuotas', 'CantidadCuotas'),
+                    parseFloat(getProp(planSel, 'ajustePorcentaje', 'AjustePorcentaje') ?? 0),
+                    subtotalItem
+                );
+            }
+        }
     }
 
     function guardarPagoItem() {
@@ -1053,6 +1169,8 @@
 
         const planBtn = $('#modal-pago-item-planes')?.querySelector('[aria-checked="true"]');
         detalles[pagoItemModalIndex].planId = planBtn ? Number(planBtn.dataset.planId) : null;
+        detalles[pagoItemModalIndex].planCuotas = planBtn ? (Number(planBtn.dataset.cuotas) || null) : null;
+        detalles[pagoItemModalIndex].planAjustePct = planBtn ? (parseFloat(planBtn.dataset.ajustePct) || null) : null;
 
         closeModalPagoItem();
         renderDetalles();
@@ -1065,7 +1183,14 @@
 
     $('#select-tipo-pago-item')?.addEventListener('change', function () {
         const d = pagoItemModalIndex >= 0 ? detalles[pagoItemModalIndex] : null;
-        actualizarPlanesItem(this.value !== '' ? Number(this.value) : null, d?.planId ?? null);
+        const tipoPago = this.value !== '' ? Number(this.value) : null;
+        const tarjetaId = esTipoPagoTarjeta(selectTipoPago?.value)
+            ? (parseInt(selectTarjeta?.value) || null)
+            : null;
+        const cacheKey = d ? `${d.productoId}-${tarjetaId ?? ''}` : null;
+        const mediosResultado = cacheKey ? condicionesProductoCache.get(cacheKey) : null;
+        const planesItem = obtenerPlanesParaItem(mediosResultado, tipoPago);
+        actualizarPlanesItem(tipoPago, null, planesItem, d?.subtotal);
     });
 
     document.querySelectorAll('.btn-cerrar-pago-item').forEach(btn => {
@@ -1093,7 +1218,9 @@
                     productoId: d.productoId,
                     cantidad: d.cantidad,
                     precioUnitario: d.precioUnitario,
-                    descuento: d.descuento
+                    descuento: d.descuento,
+                    tipoPago: d.tipoPago ?? null,
+                    productoCondicionPagoPlanId: d.planId ?? null
                 })),
                 descuentoGeneral: 0,
                 descuentoEsPorcentaje: true,
@@ -1123,8 +1250,11 @@
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
         const recargoDebito = Number(backendResult?.recargoDebitoAplicado) || 0;
         const porcentajeRecargoDebito = Number(backendResult?.porcentajeRecargoDebitoAplicado) || 0;
-        const totalConRecargoDebito = backendResult?.totalConRecargoDebito;
-        const totalDisplay = totalConRecargoDebito ?? total;
+        const totalConAjusteItems = backendResult?.totalConAjusteItems;
+        const totalBase = totalConAjusteItems ?? total;
+        const totalDisplay = recargoDebito > 0
+            ? totalBase + recargoDebito
+            : (backendResult?.totalConRecargoDebito ?? totalBase);
 
         if (totalSubtotal) totalSubtotal.textContent = formatCurrency(subtotal);
         if (totalDescuento) totalDescuento.textContent = `-${formatCurrency(descuento)}`;
@@ -1244,6 +1374,61 @@
         return `${label} · ${ajusteLabel}`;
     }
 
+    function formatearEtiquetaPlanConSubtotal(plan, subtotal) {
+        const cuotas = getProp(plan, 'cantidadCuotas', 'CantidadCuotas');
+        const ajuste = parseFloat(getProp(plan, 'ajustePorcentaje', 'AjustePorcentaje') ?? 0);
+        const label = cuotas === 1 ? '1 pago' : `${cuotas} cuotas`;
+        if (ajuste === 0) return `${label} · sin ajuste`;
+        const signLabel = ajuste > 0 ? `+${formatPercent(ajuste)}%` : `${formatPercent(ajuste)}%`;
+        if (subtotal > 0) {
+            const monto = subtotal * Math.abs(ajuste) / 100;
+            const montoLabel = ajuste > 0 ? `+${formatCurrency(monto)}` : `-${formatCurrency(monto)}`;
+            return `${label} · ${signLabel} (${montoLabel})`;
+        }
+        return `${label} · ${signLabel}`;
+    }
+
+    function actualizarResumenPlanSeleccionado(cuotas, ajustePct, subtotalItem) {
+        const resumenEl = $('#modal-pago-item-resumen');
+        if (!resumenEl) return;
+        const cuotasNum = parseInt(cuotas, 10) || 0;
+        if (!cuotasNum || !(subtotalItem > 0)) { hide(resumenEl); return; }
+        const adj = ajustePct || 0;
+        const totalFinanciado = subtotalItem * (1 + adj / 100);
+        const valorCuota = totalFinanciado / cuotasNum;
+        const productoEl = $('#modal-plan-producto');
+        const precioBaseEl = $('#modal-plan-precio-base');
+        const cuotasLabelEl = $('#modal-plan-cuotas-label');
+        const ajusteEl = $('#modal-plan-ajuste');
+        const totalEl = $('#modal-plan-total');
+        const cuotaEl = $('#modal-plan-cuota');
+        if (productoEl) {
+            const titulo = $('#modal-pago-item-titulo');
+            productoEl.textContent = titulo?.textContent?.trim() || '—';
+        }
+        if (precioBaseEl) precioBaseEl.textContent = formatCurrency(subtotalItem);
+        if (cuotasLabelEl) {
+            cuotasLabelEl.textContent = cuotasNum === 1 ? '1 pago' : `${cuotasNum} cuotas`;
+        }
+        if (ajusteEl) {
+            ajusteEl.replaceChildren();
+            const spanAjuste = document.createElement('span');
+            if (adj === 0) {
+                spanAjuste.className = 'text-slate-400';
+                spanAjuste.textContent = 'Sin interés';
+            } else {
+                const montoAjuste = subtotalItem * Math.abs(adj) / 100;
+                const sign = adj > 0 ? '+' : '-';
+                spanAjuste.className = adj > 0 ? 'text-red-400' : 'text-emerald-400';
+                spanAjuste.textContent = `${sign}${formatPercent(Math.abs(adj))}% (${sign}${formatCurrency(montoAjuste)})`;
+            }
+            ajusteEl.appendChild(spanAjuste);
+        }
+        if (totalEl) totalEl.textContent = formatCurrency(totalFinanciado);
+        if (cuotaEl) cuotaEl.textContent = formatCurrency(valorCuota);
+        show(resumenEl);
+    }
+
     function renderSelectorPlanesPago(planes) {
         const tipoPago = selectTipoPago?.value;
         if (!esTipoPagoConPlanes(tipoPago) || !planes || planes.length === 0) {
@@ -1322,6 +1507,7 @@
     }
 
     selectTarjeta?.addEventListener('change', async function () {
+        condicionesProductoCache.clear();
         const tarjetaId = parseInt(this.value);
         if (!tarjetaId) {
             limpiarDatosTarjetaSeleccionada();

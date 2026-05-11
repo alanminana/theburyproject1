@@ -134,4 +134,68 @@ public sealed class CondicionesPagoCarritoResolver : ICondicionesPagoCarritoReso
             Observaciones = plan.Observaciones
         };
     }
+
+    public async Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
+        int productoId,
+        int? configuracionTarjetaId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (productoId <= 0)
+            return new MediosPagoPorProductoResultado { SinRestriccionesPropias = true };
+
+        var condicionesEntidades = await _context.ProductoCondicionesPago
+            .AsNoTracking()
+            .Include(c => c.Tarjetas
+                .Where(t =>
+                    t.Activo
+                    && !t.IsDeleted
+                    && (!configuracionTarjetaId.HasValue
+                        || t.ConfiguracionTarjetaId == null
+                        || t.ConfiguracionTarjetaId == configuracionTarjetaId.Value)))
+                .ThenInclude(t => t.Planes.Where(p => p.Activo && !p.IsDeleted))
+            .Include(c => c.Planes
+                .Where(p => p.Activo && !p.IsDeleted && p.ProductoCondicionPagoTarjetaId == null))
+            .Where(c =>
+                c.ProductoId == productoId
+                && c.Activo
+                && !c.IsDeleted
+                && !c.Producto.IsDeleted)
+            .OrderBy(c => c.TipoPago)
+            .ToListAsync(cancellationToken);
+
+        if (condicionesEntidades.Count == 0)
+            return new MediosPagoPorProductoResultado { SinRestriccionesPropias = true };
+
+        var medios = condicionesEntidades
+            .Where(c => c.Permitido != false)
+            .Select(c =>
+            {
+                var tarjetaEspecifica = configuracionTarjetaId.HasValue
+                    ? c.Tarjetas.FirstOrDefault(t => t.Activo && !t.IsDeleted && t.ConfiguracionTarjetaId == configuracionTarjetaId.Value)
+                    : null;
+                var tarjetaGeneral = c.Tarjetas.FirstOrDefault(t => t.Activo && !t.IsDeleted && t.ConfiguracionTarjetaId == null);
+
+                IEnumerable<ProductoCondicionPagoPlan> planes;
+                if (tarjetaEspecifica != null && tarjetaEspecifica.Planes.Any(p => p.Activo && !p.IsDeleted))
+                    planes = tarjetaEspecifica.Planes.Where(p => p.Activo && !p.IsDeleted);
+                else if (tarjetaGeneral != null && tarjetaGeneral.Planes.Any(p => p.Activo && !p.IsDeleted))
+                    planes = tarjetaGeneral.Planes.Where(p => p.Activo && !p.IsDeleted);
+                else
+                    planes = c.Planes.Where(p => p.Activo && !p.IsDeleted);
+
+                var porcentajeRecargo = tarjetaEspecifica?.PorcentajeRecargo
+                    ?? tarjetaGeneral?.PorcentajeRecargo
+                    ?? c.PorcentajeRecargo;
+
+                return new MedioHabilitadoDto
+                {
+                    TipoPago = (int)c.TipoPago,
+                    PorcentajeRecargo = porcentajeRecargo,
+                    Planes = planes.OrderBy(p => p.CantidadCuotas).Select(MapPlan).ToArray()
+                };
+            })
+            .ToArray();
+
+        return new MediosPagoPorProductoResultado { SinRestriccionesPropias = false, Medios = medios };
+    }
 }

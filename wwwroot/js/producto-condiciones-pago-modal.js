@@ -185,11 +185,9 @@
         var activoBadge = activo ? 'condiciones-badge condiciones-badge--active' : 'condiciones-badge condiciones-badge--inactive';
         var activoLabel = activo ? 'Activa' : 'Inactiva';
         var extraInfo = '';
-        if (condicion && tipo.mode === 'card') {
-            var parts = [];
-            if (condicion.maxCuotasSinInteres != null) parts.push(condicion.maxCuotasSinInteres + ' ctas s/int');
-            if (condicion.maxCuotasConInteres != null) parts.push(condicion.maxCuotasConInteres + ' ctas c/int');
-            if (parts.length) extraInfo = parts.join(' - ');
+        if (tipo.mode === 'card') {
+            var planesActivos = condicion ? (condicion.planes || []).filter(function (p) { return p.activo !== false; }).length : 0;
+            extraInfo = planesActivos === 0 ? 'Sin planes activos' : planesActivos === 1 ? '1 plan activo' : planesActivos + ' planes activos';
         }
         if (condicion && tipo.mode === 'credit' && condicion.maxCuotasCredito != null) extraInfo = condicion.maxCuotasCredito + ' cuotas';
         var metaText = extraInfo || getModeLabel(tipo);
@@ -246,9 +244,14 @@
             '<input type="checkbox" id="cond-activo" value="true" class="rounded border-slate-600 text-primary focus:ring-primary"' + (activo ? ' checked' : '') + ' />' +
             '<span>Participa en venta y diagnostico.</span></label></div>';
         html += '<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">';
-        html += detailField('Disponibilidad', triStateSelectId('cond-permitido', condicion?.permitido), 'Heredar usa la configuracion global.');
-        html += renderCuotasDetailFields(condicion, tipo);
-        html += renderAdjustmentDetailFields(condicion, tipo);
+        html += detailField('Disponibilidad', triStateSelectId('cond-permitido', condicion?.permitido),
+            tipo.mode === 'card'
+                ? 'Usar "Bloquear" solo si queres impedir este medio para este producto aunque este permitido globalmente.'
+                : 'Heredar usa la configuracion global.');
+        if (tipo.mode !== 'card') {
+            html += renderCuotasDetailFields(condicion, tipo);
+            html += renderAdjustmentDetailFields(condicion, tipo);
+        }
         html += '</div>';
         html += '<label class="mt-4 block text-xs font-semibold text-slate-400">Observaciones' +
             '<textarea id="cond-observaciones" rows="2" class="condiciones-input mt-1 resize-none" placeholder="Notas internas">' +
@@ -265,8 +268,8 @@
 
     function renderCuotasDetailFields(condicion, tipo) {
         if (tipo.mode === 'card') {
-            return detailField('Cuotas sin interes', numberInputId('cond-maxCuotasSinInteres', condicion?.maxCuotasSinInteres, 'Heredar'), 'Maximo general.') +
-                detailField('Cuotas con interes', numberInputId('cond-maxCuotasConInteres', condicion?.maxCuotasConInteres, 'Heredar'), 'Maximo general.');
+            return detailField('Cuotas sin interes', numberInputId('cond-maxCuotasSinInteres', condicion?.maxCuotasSinInteres, 'Heredar'), 'Fallback: se usa solo si no hay planes activos configurados abajo.') +
+                detailField('Cuotas con interes', numberInputId('cond-maxCuotasConInteres', condicion?.maxCuotasConInteres, 'Heredar'), 'Fallback: se usa solo si no hay planes activos configurados abajo.');
         }
         if (tipo.mode === 'credit') {
             return detailField('Cuotas credito', numberInputId('cond-maxCuotasCredito', condicion?.maxCuotasCredito, 'Heredar'), 'Maximo de cuotas para Credito Personal.');
@@ -276,8 +279,8 @@
 
     function renderAdjustmentDetailFields(condicion, tipo) {
         if (tipo.mode === 'credit') return '';
-        return detailField('Recargo %', percentInputId('cond-porcentajeRecargo', condicion?.porcentajeRecargo, 'Heredar'), 'Informativo.') +
-            detailField('Descuento max. %', percentInputId('cond-porcentajeDescuentoMaximo', condicion?.porcentajeDescuentoMaximo, 'Heredar'), 'Informativo.');
+        return detailField('Recargo %', percentInputId('cond-porcentajeRecargo', condicion?.porcentajeRecargo, 'Heredar'), 'Informativo. Si hay planes activos, el ajuste se define por plan.') +
+            detailField('Descuento max. %', percentInputId('cond-porcentajeDescuentoMaximo', condicion?.porcentajeDescuentoMaximo, 'Heredar'), 'Informativo. Referencia para el vendedor, no aplicado automaticamente.');
     }
 
     function renderTarjetasDetail(condicion) {
@@ -319,11 +322,11 @@
             '<button type="button" id="btn-cond-add-plan" class="text-[11px] font-bold text-primary hover:underline focus:outline-none">' +
             '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">add</span> Agregar plan</button></div>' +
             '<div class="mb-2 rounded-lg bg-slate-900/60 p-2 text-[11px] leading-snug text-slate-400">' +
-            '<p>Ajuste negativo = descuento, cero = sin cambio, positivo = recargo. Cuota inactiva no se mostrara al vendedor en venta futura.</p></div>' +
+            '<p>Cada fila es un plan completo: el numero indica cuantos pagos totales. El ajuste se aplica una vez al precio del producto. Ej: 2 cuotas +2% = precio +2% dividido en 2 pagos. Ajuste negativo descuenta precio, cero no cambia, positivo aplica recargo. Cuota inactiva no se mostrara al vendedor en venta futura.</p></div>' +
             '<div class="overflow-x-auto"><table class="condiciones-planes-table w-full text-xs">' +
             '<thead class="border-b border-slate-800"><tr>' +
-            '<th class="condiciones-planes-th text-left">Cuotas</th><th class="condiciones-planes-th text-center">Activa</th>' +
-            '<th class="condiciones-planes-th text-right">Ajuste %</th><th class="condiciones-planes-th text-left">Observaciones</th>' +
+            '<th class="condiciones-planes-th text-left">Plan de pago</th><th class="condiciones-planes-th text-center">Activa</th>' +
+            '<th class="condiciones-planes-th text-right">Ajuste al precio</th><th class="condiciones-planes-th text-left">Observaciones</th>' +
             '</tr></thead><tbody id="cond-planes-tbody">' + rows + '</tbody></table></div></div>';
     }
 
@@ -346,11 +349,11 @@
         var existing = getStagingCondicion(currentDetailTipoPago);
         var activo = body.querySelector('#cond-activo')?.checked || false;
         var permitido = toBoolNullable(body.querySelector('#cond-permitido')?.value ?? '');
-        var maxCuotasSinInteres = tipo.mode === 'card' ? toInt(body.querySelector('#cond-maxCuotasSinInteres')?.value) : (existing?.maxCuotasSinInteres ?? null);
-        var maxCuotasConInteres = tipo.mode === 'card' ? toInt(body.querySelector('#cond-maxCuotasConInteres')?.value) : (existing?.maxCuotasConInteres ?? null);
+        var maxCuotasSinInteres = tipo.mode === 'card' ? (existing?.maxCuotasSinInteres ?? null) : toInt(body.querySelector('#cond-maxCuotasSinInteres')?.value);
+        var maxCuotasConInteres = tipo.mode === 'card' ? (existing?.maxCuotasConInteres ?? null) : toInt(body.querySelector('#cond-maxCuotasConInteres')?.value);
         var maxCuotasCredito = tipo.mode === 'credit' ? toInt(body.querySelector('#cond-maxCuotasCredito')?.value) : (existing?.maxCuotasCredito ?? null);
-        var porcentajeRecargo = tipo.mode !== 'credit' ? toDecimal(body.querySelector('#cond-porcentajeRecargo')?.value) : (existing?.porcentajeRecargo ?? null);
-        var porcentajeDescuentoMaximo = tipo.mode !== 'credit' ? toDecimal(body.querySelector('#cond-porcentajeDescuentoMaximo')?.value) : (existing?.porcentajeDescuentoMaximo ?? null);
+        var porcentajeRecargo = (tipo.mode === 'card' || tipo.mode === 'credit') ? (existing?.porcentajeRecargo ?? null) : toDecimal(body.querySelector('#cond-porcentajeRecargo')?.value);
+        var porcentajeDescuentoMaximo = (tipo.mode === 'card' || tipo.mode === 'credit') ? (existing?.porcentajeDescuentoMaximo ?? null) : toDecimal(body.querySelector('#cond-porcentajeDescuentoMaximo')?.value);
         var observaciones = emptyToNull(body.querySelector('#cond-observaciones')?.value);
         var tarjetas = existing?.tarjetas || [];
         var planes = [];
@@ -380,9 +383,9 @@
     function triStateSelectId(id, value) {
         var sel = value === true ? 'true' : value === false ? 'false' : '';
         return '<select id="' + id + '" class="condiciones-input">' +
-            '<option value=""' + (sel === '' ? ' selected' : '') + '>Heredar - usa configuracion global</option>' +
-            '<option value="true"' + (sel === 'true' ? ' selected' : '') + '>Permitido</option>' +
-            '<option value="false"' + (sel === 'false' ? ' selected' : '') + '>Bloqueado</option></select>';
+            '<option value=""' + (sel === '' ? ' selected' : '') + '>Usar configuracion general</option>' +
+            '<option value="true"' + (sel === 'true' ? ' selected' : '') + '>Permitir para este producto</option>' +
+            '<option value="false"' + (sel === 'false' ? ' selected' : '') + '>Bloquear para este producto</option></select>';
     }
 
     function triStateSelectData(attr, idx, value) {

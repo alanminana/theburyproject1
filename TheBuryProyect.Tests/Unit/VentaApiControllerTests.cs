@@ -1041,6 +1041,12 @@ public class VentaApiControllerTests
             LastTipoTarjetaLegacy = tipoTarjetaLegacy;
             return Task.FromResult(Resultado);
         }
+
+        public Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
+            int productoId,
+            int? configuracionTarjetaId = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new MediosPagoPorProductoResultado { SinRestriccionesPropias = true });
     }
 
     private sealed class StubConfiguracionPagoService : IConfiguracionPagoService

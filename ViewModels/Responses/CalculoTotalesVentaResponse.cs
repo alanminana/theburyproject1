@@ -21,6 +21,10 @@ namespace TheBuryProject.ViewModels.Responses
         public int? MaxCuotasSinInteresEfectivo { get; set; }
 
         public bool CuotasSinInteresLimitadasPorProducto { get; set; }
+
+        public decimal AjusteItemsAplicado { get; set; }
+
+        public decimal? TotalConAjusteItems { get; set; }
     }
 
     public class DetalleCalculoTotalesVentaResponse

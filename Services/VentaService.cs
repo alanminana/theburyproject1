@@ -2019,8 +2019,7 @@ namespace TheBuryProject.Services
                 .Where(p => planIds.Contains(p.Id) && !p.IsDeleted)
                 .ToDictionaryAsync(p => p.Id);
 
-            decimal totalAjuste = 0m;
-
+            // Paso 1: validar cada plan y asignar el porcentaje correspondiente
             foreach (var detalle in detalles)
             {
                 var tipoPagoItem = detalle.TipoPago ?? venta.TipoPago;
@@ -2065,13 +2064,60 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(
                         $"El plan #{planId} no corresponde a un medio de pago que admita planes.");
 
-                var montoAjuste = RedondearMoneda(detalle.SubtotalFinal * plan.AjustePorcentaje / 100m);
                 detalle.PorcentajeAjustePlanAplicado = plan.AjustePorcentaje;
-                detalle.MontoAjustePlanAplicado = montoAjuste;
-                totalAjuste += montoAjuste;
+            }
+
+            // Paso 2: agrupar por porcentaje y aplicar el ajuste una vez por grupo,
+            // luego prorratear MontoAjustePlanAplicado a cada ítem del grupo.
+            // Esto evita diferencias de centavos por redondeo acumulado línea a línea.
+            var detallesConAjuste = detalles
+                .Where(d => d.PorcentajeAjustePlanAplicado.HasValue)
+                .ToList();
+
+            decimal totalAjuste = 0m;
+
+            foreach (var grupo in detallesConAjuste.GroupBy(d => d.PorcentajeAjustePlanAplicado!.Value))
+            {
+                var itemsGrupo = grupo.ToList();
+                var subtotalGrupo = itemsGrupo.Sum(d => d.SubtotalFinal);
+                var ajusteGrupo = RedondearMoneda(subtotalGrupo * grupo.Key / 100m);
+                ProrratearAjusteGrupoEnDetalles(itemsGrupo, ajusteGrupo);
+                totalAjuste += ajusteGrupo;
             }
 
             venta.Total += totalAjuste;
+        }
+
+        /// <summary>
+        /// Distribuye un ajuste de grupo entre los ítems usando el método de resto mayor
+        /// para garantizar que la suma de MontoAjustePlanAplicado coincida con ajusteGrupo.
+        /// </summary>
+        private static void ProrratearAjusteGrupoEnDetalles(List<VentaDetalle> detalles, decimal ajusteGrupo)
+        {
+            if (detalles.Count == 1)
+            {
+                detalles[0].MontoAjustePlanAplicado = ajusteGrupo;
+                return;
+            }
+
+            var totalSubtotal = detalles.Sum(d => d.SubtotalFinal);
+
+            if (totalSubtotal == 0m)
+            {
+                foreach (var d in detalles) d.MontoAjustePlanAplicado = 0m;
+                return;
+            }
+
+            foreach (var detalle in detalles)
+                detalle.MontoAjustePlanAplicado = RedondearMoneda(ajusteGrupo * detalle.SubtotalFinal / totalSubtotal);
+
+            // Ajustar diferencia de centavos al ítem de mayor subtotal (método de resto mayor)
+            var diferencia = RedondearMoneda(ajusteGrupo - detalles.Sum(d => d.MontoAjustePlanAplicado!.Value));
+            if (diferencia != 0m)
+            {
+                var mayor = detalles.OrderByDescending(d => d.SubtotalFinal).First();
+                mayor.MontoAjustePlanAplicado = RedondearMoneda(mayor.MontoAjustePlanAplicado!.Value + diferencia);
+            }
         }
 
         private void CalcularTotales(Venta venta)
@@ -2201,14 +2247,68 @@ namespace TheBuryProject.Services
 
             descuentoCalculado = AplicarProrrateoDescuentoGeneral(detallesCalculados, descuentoCalculado);
 
-            return new CalculoTotalesVentaResponse
+            var totalBase = detallesCalculados.Sum(d => d.SubtotalFinal);
+            var ajusteItems = await CalcularAjusteItemsPreviewAsync(detallesList, detallesCalculados);
+
+            var response = new CalculoTotalesVentaResponse
             {
                 Subtotal = detallesCalculados.Sum(d => d.SubtotalFinalNeto),
                 DescuentoGeneralAplicado = descuentoCalculado,
                 IVA = detallesCalculados.Sum(d => d.SubtotalFinalIVA),
-                Total = detallesCalculados.Sum(d => d.SubtotalFinal),
-                Detalles = detallesCalculados
+                Total = totalBase,
+                Detalles = detallesCalculados,
+                AjusteItemsAplicado = ajusteItems
             };
+
+            if (ajusteItems != 0m)
+                response.TotalConAjusteItems = RedondearMoneda(totalBase + ajusteItems);
+
+            return response;
+        }
+
+        /// <summary>
+        /// Calcula el ajuste agrupado por porcentaje de plan para el preview.
+        /// Agrupa ítems con el mismo AjustePorcentaje, aplica el porcentaje una vez
+        /// sobre el subtotal del grupo y acumula. CréditoPersonal se ignora.
+        /// </summary>
+        private async Task<decimal> CalcularAjusteItemsPreviewAsync(
+            List<DetalleCalculoVentaRequest> solicitudes,
+            List<DetalleCalculoTotalesVentaResponse> calculados)
+        {
+            var planIds = solicitudes
+                .Where(d => d.ProductoCondicionPagoPlanId.HasValue
+                    && d.TipoPago != TipoPago.CreditoPersonal)
+                .Select(d => d.ProductoCondicionPagoPlanId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (planIds.Count == 0)
+                return 0m;
+
+            var planes = await _context.ProductoCondicionPagoPlanes
+                .AsNoTracking()
+                .Where(p => planIds.Contains(p.Id) && p.Activo && !p.IsDeleted)
+                .Select(p => new { p.Id, p.AjustePorcentaje })
+                .ToDictionaryAsync(p => p.Id, p => p.AjustePorcentaje);
+
+            // Construir grupos: porcentaje → suma de SubtotalFinal de los ítems del grupo
+            var grupos = new Dictionary<decimal, decimal>();
+
+            for (var i = 0; i < solicitudes.Count && i < calculados.Count; i++)
+            {
+                var sol = solicitudes[i];
+                if (!sol.ProductoCondicionPagoPlanId.HasValue
+                    || sol.TipoPago == TipoPago.CreditoPersonal)
+                    continue;
+
+                if (!planes.TryGetValue(sol.ProductoCondicionPagoPlanId.Value, out var pct))
+                    continue;
+
+                grupos.TryGetValue(pct, out var acum);
+                grupos[pct] = acum + calculados[i].SubtotalFinal;
+            }
+
+            return grupos.Sum(g => RedondearMoneda(g.Value * g.Key / 100m));
         }
 
         private (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre) ResolverSnapshotIvaPreview(

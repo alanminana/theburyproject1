@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels.Requests
 {
@@ -26,5 +27,9 @@ namespace TheBuryProject.ViewModels.Requests
 
         [Range(0, double.MaxValue)]
         public decimal Descuento { get; set; }
+
+        public TipoPago? TipoPago { get; set; }
+
+        public int? ProductoCondicionPagoPlanId { get; set; }
     }
 }

@@ -235,6 +235,31 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetMediosPagoPorProducto(
+            int productoId,
+            int? configuracionTarjetaId = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (productoId <= 0)
+                    return BadRequest(new { error = "Identificador de producto inválido" });
+
+                var resultado = await _condicionesPagoCarritoResolver.ObtenerMediosPorProductoAsync(
+                    productoId,
+                    configuracionTarjetaId,
+                    cancellationToken);
+
+                return Ok(resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener medios de pago para producto {ProductoId}", productoId);
+                return StatusCode(500, new { error = "No se pudieron obtener los medios de pago del producto" });
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> DiagnosticarCondicionesPagoCarrito(
             [FromBody] DiagnosticarCondicionesPagoCarritoRequest request,

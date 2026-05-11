@@ -687,6 +687,153 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         Assert.Null(sinPlan.PorcentajeAjustePlanAplicado);
         Assert.Null(sinPlan.MontoAjustePlanAplicado);
     }
+
+    // ── Fase 17.9: agrupamiento y redondeo ──────────────────────────
+
+    [Fact]
+    public async Task DosItemsMismoPorcentaje_AjusteAgrupadoEvitaRedondeoAcumulado()
+    {
+        // Caso crítico de redondeo:
+        // A = $33.33, B = $33.33 al +10%
+        // Por línea: round(3.333) + round(3.333) = 3.33 + 3.33 = 6.66
+        // Agrupado:  round(66.66 * 0.10) = round(6.666) = 6.67  ← correcto
+        var (apertura, cliente, _) = await SeedBaseAsync();
+        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
+        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
+
+        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 33.33m);
+        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 33.33m);
+
+        var (condicionA, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+        var (condicionB, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito, new[]
+            {
+                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
+                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB)
+            }));
+
+        // Agrupado: (33.33 + 33.33) * 10% = 66.66 * 0.10 = 6.666 → round = 6.67
+        // Total = 66.66 + 6.67 = 73.33
+        Assert.Equal(73.33m, resultado.Total);
+
+        var detalles = await _context.VentaDetalles
+            .AsNoTracking()
+            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
+            .OrderBy(d => d.Id)
+            .ToListAsync();
+
+        Assert.Equal(2, detalles.Count);
+        Assert.All(detalles, d => Assert.Equal(10m, d.PorcentajeAjustePlanAplicado));
+
+        // La suma de MontoAjustePlanAplicado debe coincidir con el ajuste del grupo (6.67)
+        var sumaAjuste = detalles.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
+        Assert.Equal(6.67m, sumaAjuste);
+    }
+
+    [Fact]
+    public async Task TresItems_DosGruposPorcentaje_AjusteIndependientePorGrupo()
+    {
+        // Producto A: $100.000 con +3%
+        // Producto B: $50.000 con +3%
+        // Producto C: $200.000 con +4%
+        // Grupo +3%: (100.000 + 50.000) * 3% = 4.500
+        // Grupo +4%: 200.000 * 4% = 8.000
+        // Total final = 350.000 + 12.500 = 362.500
+        var (apertura, cliente, _) = await SeedBaseAsync();
+        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
+        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
+
+        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 100_000m);
+        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 50_000m);
+        var prodC = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 200_000m);
+
+        var (_, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 3m);
+        var (_, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 3m);
+        var (_, planC) = await SeedCondicionPlanAsync(prodC.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 4m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito, new[]
+            {
+                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
+                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB),
+                DetalleVm(prodC.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planC)
+            }));
+
+        Assert.Equal(362_500m, resultado.Total);
+    }
+
+    [Fact]
+    public async Task PorcentajeCero_NoModificaTotal()
+    {
+        // Un plan con 0% no debe alterar el total
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+
+        var (_, planId) = await SeedCondicionPlanAsync(
+            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 0m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito,
+            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) }));
+
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
+
+        Assert.Equal(0m, detalle.PorcentajeAjustePlanAplicado);
+        Assert.Equal(0m, detalle.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task SumaMontoAjustePorItemCoincideConAjusteGrupal()
+    {
+        // Verificar que sum(MontoAjustePlanAplicado) == ajuste del grupo
+        // cuando se prorratean montos fraccionarios.
+        // A = $10.01, B = $10.01 al +10%
+        // Grupo: 20.02 * 0.10 = 2.002 → round = 2.00
+        // Prorrateado: cada uno 1.00 → suma = 2.00 ✓
+        var (apertura, cliente, _) = await SeedBaseAsync();
+        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
+        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
+
+        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 10.01m);
+        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 10.01m);
+
+        var (_, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+        var (_, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id, TipoPago.TarjetaCredito, new[]
+            {
+                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
+                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB)
+            }));
+
+        var detalles = await _context.VentaDetalles
+            .AsNoTracking()
+            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
+            .ToListAsync();
+
+        var sumaAjuste = detalles.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
+
+        // ajuste grupal = round(20.02 * 0.10) = round(2.002) = 2.00
+        var subtotalGrupo = detalles.Sum(d => d.SubtotalFinal);
+        var ajusteEsperado = Math.Round(subtotalGrupo * 10m / 100m, 2, MidpointRounding.AwayFromZero);
+
+        Assert.Equal(ajusteEsperado, sumaAjuste);
+        Assert.Equal(subtotalGrupo + ajusteEsperado, resultado.Total);
+    }
 }
 
 // ── Stubs file-scoped ────────────────────────────────────────────
