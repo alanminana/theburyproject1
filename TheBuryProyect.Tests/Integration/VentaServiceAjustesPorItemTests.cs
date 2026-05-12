@@ -7,28 +7,15 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Validators;
+using TheBuryProject.Tests;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Tests.Integration;
 
-/// <summary>
-/// Tests de integración para AplicarAjustesPorItemAsync (Fase 16.4).
-///
-/// Cubre:
-/// - Venta sin pagos por ítem → comportamiento anterior preservado
-/// - Detalle con TipoPago propio → se persiste
-/// - Plan activo positivo → aumenta Total
-/// - Plan activo negativo → reduce Total
-/// - Dos ítems mismo medio/plan → ajustes individuales correctos
-/// - Ítems con distinto plan → ajustes independientes acumulados
-/// - Plan inactivo → rechazado (InvalidOperationException)
-/// - Plan de otro TipoPago → rechazado
-/// - Plan de otro producto → rechazado
-/// - Fallback TipoPago global cuando detalle.TipoPago es null
-/// - Snapshots PorcentajeAjustePlanAplicado y MontoAjustePlanAplicado persistidos
-/// - Venta.Total final sale del backend, no del frontend
-/// </summary>
 public class VentaServiceAjustesPorItemTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -61,10 +48,107 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         _connection.Dispose();
     }
 
-    // ── Infraestructura ──────────────────────────────────────────────
+    [Fact]
+    public async Task CreateAsync_TipoPagoGeneralGuardaDetalleSinPagoPropio()
+    {
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id,
+            TipoPago.Transferencia,
+            new[] { DetalleVm(producto.Id, cantidad: 2) }));
+
+        Assert.Equal(TipoPago.Transferencia, resultado.TipoPago);
+        Assert.Equal(200m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
+
+        Assert.Null(detalle.TipoPago);
+        Assert.Null(detalle.ProductoCondicionPagoPlanId);
+        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
+        Assert.Null(detalle.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task CreateAsync_IgnoraCamposLegacyPorDetalleSinAplicarAjusteNiBloquear()
+    {
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+        var (_, planId) = await SeedCondicionPlanAsync(
+            producto.Id,
+            TipoPago.TarjetaCredito,
+            ajustePorcentaje: 25m,
+            planActivo: false);
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id,
+            TipoPago.Efectivo,
+            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) }));
+
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
+
+        Assert.Null(detalle.TipoPago);
+        Assert.Null(detalle.ProductoCondicionPagoPlanId);
+        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
+        Assert.Null(detalle.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NoBloqueaVentaNormalPorCondicionProducto()
+    {
+        var (apertura, cliente, producto) = await SeedBaseAsync();
+        await SeedCondicionPagoAsync(producto.Id, TipoPago.Transferencia, permitido: false);
+        var svc = BuildService(apertura);
+
+        var resultado = await svc.CreateAsync(VentaVm(
+            cliente.Id,
+            TipoPago.Transferencia,
+            new[] { DetalleVm(producto.Id) }));
+
+        Assert.Equal(TipoPago.Transferencia, resultado.TipoPago);
+        Assert.Equal(100m, resultado.Total);
+    }
+
+    [Fact]
+    public async Task Preview_IgnoraPagoPorDetalleLegacy()
+    {
+        var (apertura, _, producto) = await SeedBaseAsync();
+        var (_, planId) = await SeedCondicionPlanAsync(
+            producto.Id,
+            TipoPago.TarjetaCredito,
+            ajustePorcentaje: 10m);
+        var svc = BuildService(apertura);
+
+        var result = await svc.CalcularTotalesPreviewAsync(
+            new List<DetalleCalculoVentaRequest>
+            {
+                new()
+                {
+                    ProductoId = producto.Id,
+                    Cantidad = 1,
+                    PrecioUnitario = 100m,
+                    Descuento = 0m,
+                    TipoPago = TipoPago.TarjetaCredito,
+                    ProductoCondicionPagoPlanId = planId
+                }
+            },
+            0m,
+            false);
+
+        Assert.Equal(100m, result.Total);
+        Assert.Equal(0m, result.AjusteItemsAplicado);
+        Assert.Null(result.TotalConAjusteItems);
+    }
 
     private VentaService BuildService(AperturaCaja apertura) =>
-        new VentaService(
+        new(
             _context,
             _mapper,
             NullLogger<VentaService>.Instance,
@@ -74,9 +158,9 @@ public class VentaServiceAjustesPorItemTests : IDisposable
             new VentaValidator(),
             new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance),
             new PrecioVigenteResolver(_context),
-            new StubCurrentUserServiceAjustePorItem(),
+            new StubCurrentUserServicePagoGeneral(),
             null!,
-            new StubCajaServiceAjustePorItem(apertura),
+            new StubCajaServicePagoGeneral(apertura),
             null!,
             new StubContratoVentaCreditoService(),
             new StubConfiguracionPagoServiceVenta());
@@ -136,7 +220,6 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         };
         _context.Clientes.Add(cliente);
 
-        // Producto con precio vigente fijo 100 (sin ProductoPrecioLista — usa fallback PrecioVenta)
         var producto = new Producto
         {
             Nombre = $"Prod {n}",
@@ -157,71 +240,45 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         return (apertura, cliente, producto);
     }
 
-    private async Task<Producto> AgregarProductoAsync(int categoriaId, int marcaId, decimal precioVenta = 100m)
-    {
-        var n = Interlocked.Increment(ref _counter).ToString();
-        var producto = new Producto
-        {
-            Nombre = $"Prod Extra {n}",
-            Codigo = $"PX{n}",
-            PrecioCompra = 50m,
-            PrecioVenta = precioVenta,
-            PorcentajeIVA = 0m,
-            ComisionPorcentaje = 0m,
-            StockActual = 100,
-            CategoriaId = categoriaId,
-            MarcaId = marcaId,
-            IsDeleted = false,
-            RowVersion = new byte[8]
-        };
-        _context.Productos.Add(producto);
-        await _context.SaveChangesAsync();
-        return producto;
-    }
-
-    private async Task<(int condicionId, int planId)> SeedCondicionPlanAsync(
+    private async Task<ProductoCondicionPago> SeedCondicionPagoAsync(
         int productoId,
         TipoPago tipoPago,
-        decimal ajustePorcentaje,
-        int cantidadCuotas = 1,
-        bool planActivo = true)
+        bool permitido = true)
     {
         var condicion = new ProductoCondicionPago
         {
             ProductoId = productoId,
             TipoPago = tipoPago,
-            Permitido = true,
+            Permitido = permitido,
             Activo = true,
             IsDeleted = false,
             RowVersion = new byte[8]
         };
         _context.ProductoCondicionesPago.Add(condicion);
         await _context.SaveChangesAsync();
-
-        var plan = await SeedPlanParaCondicionAsync(condicion.Id, ajustePorcentaje, cantidadCuotas, planActivo);
-        return (condicion.Id, plan);
+        return condicion;
     }
 
-    private async Task<int> SeedPlanParaCondicionAsync(
-        int condicionId,
+    private async Task<(int condicionId, int planId)> SeedCondicionPlanAsync(
+        int productoId,
+        TipoPago tipoPago,
         decimal ajustePorcentaje,
-        int cantidadCuotas,
-        bool activo = true)
+        bool planActivo = true)
     {
+        var condicion = await SeedCondicionPagoAsync(productoId, tipoPago);
         var plan = new ProductoCondicionPagoPlan
         {
-            ProductoCondicionPagoId = condicionId,
-            ProductoCondicionPagoTarjetaId = null,
-            CantidadCuotas = cantidadCuotas,
+            ProductoCondicionPagoId = condicion.Id,
+            CantidadCuotas = 1,
             AjustePorcentaje = ajustePorcentaje,
             TipoAjuste = TipoAjustePagoPlan.Porcentaje,
-            Activo = activo,
+            Activo = planActivo,
             IsDeleted = false,
             RowVersion = new byte[8]
         };
         _context.ProductoCondicionPagoPlanes.Add(plan);
         await _context.SaveChangesAsync();
-        return plan.Id;
+        return (condicion.Id, plan.Id);
     }
 
     private static VentaViewModel VentaVm(
@@ -250,595 +307,9 @@ public class VentaServiceAjustesPorItemTests : IDisposable
         TipoPago = tipoPagoItem,
         ProductoCondicionPagoPlanId = planId
     };
-
-    // ── Tests ────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task SinPagosPorItem_ConservaComportamientoLegacy()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.Efectivo,
-            new[] { DetalleVm(producto.Id, cantidad: 2) }));
-
-        // 2 * 100 = 200; sin ajuste
-        Assert.Equal(200m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Null(detalle.ProductoCondicionPagoPlanId);
-        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
-        Assert.Null(detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task DetalleTieneTipoPagoPersistido()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaDebito, ajustePorcentaje: 0m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.Efectivo,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaDebito, planId: planId) }));
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(TipoPago.TarjetaDebito, detalle.TipoPago);
-        Assert.Equal(planId, detalle.ProductoCondicionPagoPlanId);
-    }
-
-    [Fact]
-    public async Task PlanPositivo_AumentaTotal()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // 10% recargo sobre SubtotalFinal=100 → ajuste=10 → Total=110
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) }));
-
-        Assert.Equal(110m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(10m, detalle.PorcentajeAjustePlanAplicado);
-        Assert.Equal(10m, detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task PlanNegativo_ReduceTotal()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // -5% descuento → ajuste=-5 → Total=95
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaDebito, ajustePorcentaje: -5m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaDebito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaDebito, planId: planId) }));
-
-        Assert.Equal(95m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(-5m, detalle.PorcentajeAjustePlanAplicado);
-        Assert.Equal(-5m, detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task DosItemsMismoMedioPlan_CadaUnoTieneSuAjusteIndividual()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // 10% sobre SubtotalFinal 100 cada línea → ajuste 10 cada una → Total 220
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(producto.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId),
-                DetalleVm(producto.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId)
-            }));
-
-        Assert.Equal(220m, resultado.Total);
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .ToListAsync();
-
-        Assert.Equal(2, detalles.Count);
-        Assert.All(detalles, d =>
-        {
-            Assert.Equal(planId, d.ProductoCondicionPagoPlanId);
-            Assert.Equal(10m, d.PorcentajeAjustePlanAplicado);
-            Assert.Equal(10m, d.MontoAjustePlanAplicado);
-        });
-    }
-
-    [Fact]
-    public async Task ItemsConDistintoPlan_AjustesAcumuladosIndependientemente()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // Una sola condicion para TarjetaCredito; dos planes con distinto ajuste y cuotas
-        // Ítem 1 (plan A): 100*10%=10 → 110; Ítem 2 (plan B): 100*20%=20 → 120; Total=230
-        var (condicionId, planId10) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m, cantidadCuotas: 3);
-        var planId20 = await SeedPlanParaCondicionAsync(condicionId, ajustePorcentaje: 20m, cantidadCuotas: 6);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(producto.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId10),
-                DetalleVm(producto.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId20)
-            }));
-
-        Assert.Equal(230m, resultado.Total);
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .ToListAsync();
-
-        Assert.Equal(2, detalles.Count);
-        Assert.Contains(detalles, d => d.PorcentajeAjustePlanAplicado == 10m && d.MontoAjustePlanAplicado == 10m);
-        Assert.Contains(detalles, d => d.PorcentajeAjustePlanAplicado == 20m && d.MontoAjustePlanAplicado == 20m);
-    }
-
-    [Fact]
-    public async Task PlanInactivo_Rechazado()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m, planActivo: false);
-
-        var svc = BuildService(apertura);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.CreateAsync(VentaVm(
-                cliente.Id, TipoPago.TarjetaCredito,
-                new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) })));
-    }
-
-    [Fact]
-    public async Task PlanDeOtroTipoPago_Rechazado()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // Plan es para TarjetaDebito, pero el ítem usa TarjetaCredito
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaDebito, ajustePorcentaje: 5m);
-
-        var svc = BuildService(apertura);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.CreateAsync(VentaVm(
-                cliente.Id, TipoPago.TarjetaCredito,
-                new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) })));
-    }
-
-    [Fact]
-    public async Task PlanDeOtroProducto_Rechazado()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-        var otroProducto = await AgregarProductoAsync(cat.Id, marca.Id);
-
-        // Plan pertenece a otroProducto, no al producto del ítem
-        var (_, planIdOtro) = await SeedCondicionPlanAsync(
-            otroProducto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 5m);
-
-        var svc = BuildService(apertura);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.CreateAsync(VentaVm(
-                cliente.Id, TipoPago.TarjetaCredito,
-                new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planIdOtro) })));
-    }
-
-    [Fact]
-    public async Task FallbackTipoPagoGlobal_AplicaAjusteCuandoItemSinTipoPago()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // detalle.TipoPago = null → fallback a TipoPago global (TarjetaDebito)
-        // Plan para TarjetaDebito 10% → Total = 110
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaDebito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaDebito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: null, planId: planId) }));
-
-        Assert.Equal(110m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(10m, detalle.PorcentajeAjustePlanAplicado);
-        Assert.Equal(10m, detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task Snapshots_PorcentajeYMontoGuardadosEnVentaDetalle()
-    {
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.MercadoPago, ajustePorcentaje: 8m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.MercadoPago,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.MercadoPago, planId: planId) }));
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(planId, detalle.ProductoCondicionPagoPlanId);
-        Assert.Equal(8m, detalle.PorcentajeAjustePlanAplicado);
-        Assert.Equal(8m, detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task TotalFinalEsDelBackend_PrecioFrontendIgnorado()
-    {
-        // Frontend envía PrecioUnitario 999 — backend lo sobrescribe con precio vigente (100)
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var vm = VentaVm(cliente.Id, TipoPago.TarjetaCredito, new[]
-        {
-            new VentaDetalleViewModel
-            {
-                ProductoId = producto.Id,
-                Cantidad = 1,
-                PrecioUnitario = 999m,   // valor incorrecto del "frontend"
-                Descuento = 0m,
-                TipoPago = TipoPago.TarjetaCredito,
-                ProductoCondicionPagoPlanId = planId
-            }
-        });
-
-        var resultado = await svc.CreateAsync(vm);
-
-        // Backend usa precio vigente 100, aplica ajuste 10% → Total = 110
-        Assert.Equal(110m, resultado.Total);
-
-        var venta = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == resultado.Id);
-        Assert.Equal(110m, venta.Total);
-    }
-
-    // ── Fase 17.4: escenarios de consistencia confirmación ──────────
-
-    [Fact]
-    public async Task MezclaNullOverrideYOverrideExplicito_CadaItemUsaSuTipoPago()
-    {
-        // Global = TarjetaCredito.
-        // Item 1 (prod, 100): TipoPago = null → hereda global, plan 10% aplicado.
-        // Item 2 (prod2, 200): TipoPago = Efectivo → override, sin plan → sin ajuste.
-        // Total esperado = (100+10) + 200 = 310.
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-        var producto2 = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 200m);
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(producto.Id,  cantidad: 1, tipoPagoItem: null,           planId: planId),
-                DetalleVm(producto2.Id, cantidad: 1, tipoPagoItem: TipoPago.Efectivo, planId: null)
-            }));
-
-        Assert.Equal(310m, resultado.Total);
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .ToListAsync();
-
-        var conFallback = detalles.Single(d => d.ProductoId == producto.Id);
-        var conOverride = detalles.Single(d => d.ProductoId == producto2.Id);
-
-        Assert.Null(conFallback.TipoPago);
-        Assert.Equal(planId, conFallback.ProductoCondicionPagoPlanId);
-        Assert.Equal(10m, conFallback.PorcentajeAjustePlanAplicado);
-        Assert.Equal(10m, conFallback.MontoAjustePlanAplicado);
-
-        Assert.Equal(TipoPago.Efectivo, conOverride.TipoPago);
-        Assert.Null(conOverride.ProductoCondicionPagoPlanId);
-        Assert.Null(conOverride.PorcentajeAjustePlanAplicado);
-        Assert.Null(conOverride.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task OverrideEfectivo_SinPlan_NoAplicaAjuste()
-    {
-        // Efectivo no tiene planes → ningún ajuste independientemente del global.
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.Efectivo, planId: null) }));
-
-        Assert.Equal(100m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(TipoPago.Efectivo, detalle.TipoPago);
-        Assert.Null(detalle.ProductoCondicionPagoPlanId);
-        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
-        Assert.Null(detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task OverrideCreditoPersonal_LimpiaPlanYNoAplicaAjuste()
-    {
-        // Si el override del ítem es CréditoPersonal, el plan queda nullificado y
-        // no se aplica ajuste aunque se haya enviado un planId.
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        // Sembramos un plan cuya condición tiene TipoPago = CréditoPersonal
-        // (situación hipotética: el backend debe protegerse de todos modos).
-        var (_, planIdCp) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.CreditoPersonal, ajustePorcentaje: 15m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.CreditoPersonal, planId: planIdCp) }));
-
-        Assert.Equal(100m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(TipoPago.CreditoPersonal, detalle.TipoPago);
-        Assert.Null(detalle.ProductoCondicionPagoPlanId);
-        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
-        Assert.Null(detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task ItemSinPlanEnMezclado_NoPropagaAjuste()
-    {
-        // Un ítem tiene plan, otro no. El sin-plan no debe tener snapshot de ajuste.
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-        var producto2 = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 200m);
-
-        // Solo producto tiene plan
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(producto.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId),
-                DetalleVm(producto2.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito)
-            }));
-
-        // producto: 100+10=110; producto2: 200 sin ajuste → Total=310
-        Assert.Equal(310m, resultado.Total);
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .ToListAsync();
-
-        var conPlan = detalles.Single(d => d.ProductoCondicionPagoPlanId == planId);
-        var sinPlan = detalles.Single(d => d.ProductoCondicionPagoPlanId == null);
-
-        Assert.Equal(10m, conPlan.PorcentajeAjustePlanAplicado);
-        Assert.Equal(10m, conPlan.MontoAjustePlanAplicado);
-        Assert.Null(sinPlan.PorcentajeAjustePlanAplicado);
-        Assert.Null(sinPlan.MontoAjustePlanAplicado);
-    }
-
-    // ── Fase 17.9: agrupamiento y redondeo ──────────────────────────
-
-    [Fact]
-    public async Task DosItemsMismoPorcentaje_AjusteAgrupadoEvitaRedondeoAcumulado()
-    {
-        // Caso crítico de redondeo:
-        // A = $33.33, B = $33.33 al +10%
-        // Por línea: round(3.333) + round(3.333) = 3.33 + 3.33 = 6.66
-        // Agrupado:  round(66.66 * 0.10) = round(6.666) = 6.67  ← correcto
-        var (apertura, cliente, _) = await SeedBaseAsync();
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-
-        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 33.33m);
-        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 33.33m);
-
-        var (condicionA, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-        var (condicionB, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
-                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB)
-            }));
-
-        // Agrupado: (33.33 + 33.33) * 10% = 66.66 * 0.10 = 6.666 → round = 6.67
-        // Total = 66.66 + 6.67 = 73.33
-        Assert.Equal(73.33m, resultado.Total);
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .OrderBy(d => d.Id)
-            .ToListAsync();
-
-        Assert.Equal(2, detalles.Count);
-        Assert.All(detalles, d => Assert.Equal(10m, d.PorcentajeAjustePlanAplicado));
-
-        // La suma de MontoAjustePlanAplicado debe coincidir con el ajuste del grupo (6.67)
-        var sumaAjuste = detalles.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
-        Assert.Equal(6.67m, sumaAjuste);
-    }
-
-    [Fact]
-    public async Task TresItems_DosGruposPorcentaje_AjusteIndependientePorGrupo()
-    {
-        // Producto A: $100.000 con +3%
-        // Producto B: $50.000 con +3%
-        // Producto C: $200.000 con +4%
-        // Grupo +3%: (100.000 + 50.000) * 3% = 4.500
-        // Grupo +4%: 200.000 * 4% = 8.000
-        // Total final = 350.000 + 12.500 = 362.500
-        var (apertura, cliente, _) = await SeedBaseAsync();
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-
-        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 100_000m);
-        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 50_000m);
-        var prodC = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 200_000m);
-
-        var (_, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 3m);
-        var (_, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 3m);
-        var (_, planC) = await SeedCondicionPlanAsync(prodC.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 4m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
-                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB),
-                DetalleVm(prodC.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planC)
-            }));
-
-        Assert.Equal(362_500m, resultado.Total);
-    }
-
-    [Fact]
-    public async Task PorcentajeCero_NoModificaTotal()
-    {
-        // Un plan con 0% no debe alterar el total
-        var (apertura, cliente, producto) = await SeedBaseAsync();
-
-        var (_, planId) = await SeedCondicionPlanAsync(
-            producto.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 0m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito,
-            new[] { DetalleVm(producto.Id, tipoPagoItem: TipoPago.TarjetaCredito, planId: planId) }));
-
-        Assert.Equal(100m, resultado.Total);
-
-        var detalle = await _context.VentaDetalles
-            .AsNoTracking()
-            .SingleAsync(d => !d.IsDeleted && d.VentaId == resultado.Id);
-
-        Assert.Equal(0m, detalle.PorcentajeAjustePlanAplicado);
-        Assert.Equal(0m, detalle.MontoAjustePlanAplicado);
-    }
-
-    [Fact]
-    public async Task SumaMontoAjustePorItemCoincideConAjusteGrupal()
-    {
-        // Verificar que sum(MontoAjustePlanAplicado) == ajuste del grupo
-        // cuando se prorratean montos fraccionarios.
-        // A = $10.01, B = $10.01 al +10%
-        // Grupo: 20.02 * 0.10 = 2.002 → round = 2.00
-        // Prorrateado: cada uno 1.00 → suma = 2.00 ✓
-        var (apertura, cliente, _) = await SeedBaseAsync();
-        var cat = await _context.Categorias.AsNoTracking().FirstAsync();
-        var marca = await _context.Marcas.AsNoTracking().FirstAsync();
-
-        var prodA = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 10.01m);
-        var prodB = await AgregarProductoAsync(cat.Id, marca.Id, precioVenta: 10.01m);
-
-        var (_, planA) = await SeedCondicionPlanAsync(prodA.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-        var (_, planB) = await SeedCondicionPlanAsync(prodB.Id, TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
-
-        var svc = BuildService(apertura);
-
-        var resultado = await svc.CreateAsync(VentaVm(
-            cliente.Id, TipoPago.TarjetaCredito, new[]
-            {
-                DetalleVm(prodA.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planA),
-                DetalleVm(prodB.Id, cantidad: 1, tipoPagoItem: TipoPago.TarjetaCredito, planId: planB)
-            }));
-
-        var detalles = await _context.VentaDetalles
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted && d.VentaId == resultado.Id)
-            .ToListAsync();
-
-        var sumaAjuste = detalles.Sum(d => d.MontoAjustePlanAplicado ?? 0m);
-
-        // ajuste grupal = round(20.02 * 0.10) = round(2.002) = 2.00
-        var subtotalGrupo = detalles.Sum(d => d.SubtotalFinal);
-        var ajusteEsperado = Math.Round(subtotalGrupo * 10m / 100m, 2, MidpointRounding.AwayFromZero);
-
-        Assert.Equal(ajusteEsperado, sumaAjuste);
-        Assert.Equal(subtotalGrupo + ajusteEsperado, resultado.Total);
-    }
 }
 
-// ── Stubs file-scoped ────────────────────────────────────────────
-
-file sealed class StubCurrentUserServiceAjustePorItem : TheBuryProject.Services.Interfaces.ICurrentUserService
+file sealed class StubCurrentUserServicePagoGeneral : ICurrentUserService
 {
     public string GetUsername() => "testuser";
     public string GetUserId() => "system";
@@ -849,38 +320,39 @@ file sealed class StubCurrentUserServiceAjustePorItem : TheBuryProject.Services.
     public string? GetIpAddress() => "127.0.0.1";
 }
 
-file sealed class StubCajaServiceAjustePorItem : TheBuryProject.Services.Interfaces.ICajaService
+file sealed class StubCajaServicePagoGeneral : ICajaService
 {
     private readonly AperturaCaja _apertura;
-    public StubCajaServiceAjustePorItem(AperturaCaja apertura) => _apertura = apertura;
+
+    public StubCajaServicePagoGeneral(AperturaCaja apertura) => _apertura = apertura;
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario)
         => Task.FromResult<AperturaCaja?>(_apertura);
 
-    public Task<List<TheBuryProject.Models.Entities.Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.Caja> CrearCajaAsync(TheBuryProject.ViewModels.CajaViewModel model) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.Caja> ActualizarCajaAsync(int id, TheBuryProject.ViewModels.CajaViewModel model) => throw new NotImplementedException();
+    public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
+    public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
+    public Task<Caja> CrearCajaAsync(CajaViewModel model) => throw new NotImplementedException();
+    public Task<Caja> ActualizarCajaAsync(int id, CajaViewModel model) => throw new NotImplementedException();
     public Task EliminarCajaAsync(int id, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<bool> ExisteCodigoCajaAsync(string codigo, int? cajaIdExcluir = null) => throw new NotImplementedException();
-    public Task<AperturaCaja> AbrirCajaAsync(TheBuryProject.ViewModels.AbrirCajaViewModel model, string usuario) => throw new NotImplementedException();
+    public Task<AperturaCaja> AbrirCajaAsync(AbrirCajaViewModel model, string usuario) => throw new NotImplementedException();
     public Task<AperturaCaja?> ObtenerAperturaActivaAsync(int cajaId) => throw new NotImplementedException();
     public Task<AperturaCaja?> ObtenerAperturaPorIdAsync(int id) => throw new NotImplementedException();
     public Task<List<AperturaCaja>> ObtenerAperturasAbiertasAsync() => throw new NotImplementedException();
     public Task<bool> TieneCajaAbiertaAsync(int cajaId) => throw new NotImplementedException();
     public Task<bool> ExisteAlgunaCajaAbiertaAsync() => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.MovimientoCaja> RegistrarMovimientoAsync(TheBuryProject.ViewModels.MovimientoCajaViewModel model, string usuario) => throw new NotImplementedException();
-    public Task<List<TheBuryProject.Models.Entities.MovimientoCaja>> ObtenerMovimientosDeAperturaAsync(int aperturaId) => throw new NotImplementedException();
+    public Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario) => throw new NotImplementedException();
+    public Task<List<MovimientoCaja>> ObtenerMovimientosDeAperturaAsync(int aperturaId) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoActualAsync(int aperturaId) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario) => throw new NotImplementedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario) => throw new NotImplementedException();
     public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.MovimientoCaja?> RegistrarMovimientoCuotaAsync(int cuotaId, string creditoNumero, int numeroCuota, decimal monto, string medioPago, string usuario) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.MovimientoCaja> RegistrarMovimientoDevolucionAsync(int devolucionId, int ventaId, string ventaNumero, string devolucionNumero, decimal monto, string usuario) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.CierreCaja> CerrarCajaAsync(TheBuryProject.ViewModels.CerrarCajaViewModel model, string usuario) => throw new NotImplementedException();
-    public Task<TheBuryProject.Models.Entities.CierreCaja?> ObtenerCierrePorIdAsync(int id) => throw new NotImplementedException();
-    public Task<List<TheBuryProject.Models.Entities.CierreCaja>> ObtenerHistorialCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
-    public Task<TheBuryProject.ViewModels.DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId) => throw new NotImplementedException();
-    public Task<TheBuryProject.ViewModels.ReporteCajaViewModel> GenerarReporteCajaAsync(DateTime fechaDesde, DateTime fechaHasta, int? cajaId = null) => throw new NotImplementedException();
-    public Task<TheBuryProject.ViewModels.HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(int cuotaId, string creditoNumero, int numeroCuota, decimal monto, string medioPago, string usuario) => throw new NotImplementedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario) => throw new NotImplementedException();
+    public Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(int devolucionId, int ventaId, string ventaNumero, string devolucionNumero, decimal monto, string usuario) => throw new NotImplementedException();
+    public Task<CierreCaja> CerrarCajaAsync(CerrarCajaViewModel model, string usuario) => throw new NotImplementedException();
+    public Task<CierreCaja?> ObtenerCierrePorIdAsync(int id) => throw new NotImplementedException();
+    public Task<List<CierreCaja>> ObtenerHistorialCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
+    public Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId) => throw new NotImplementedException();
+    public Task<ReporteCajaViewModel> GenerarReporteCajaAsync(DateTime fechaDesde, DateTime fechaHasta, int? cajaId = null) => throw new NotImplementedException();
+    public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
 }

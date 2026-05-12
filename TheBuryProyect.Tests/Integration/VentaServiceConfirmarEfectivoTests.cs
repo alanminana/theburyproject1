@@ -488,7 +488,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ConfirmarVenta_TarjetaSinInteres_CuotasExceden_LanzaCondicionesPagoVentaException()
+    public async Task ConfirmarVenta_TarjetaSinInteres_CuotasExceden_ConfirmaSinValidacionProductoLegacy()
     {
         var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
         await SeedCondicionPago(producto.Id, TipoPago.TarjetaCredito, maxCuotasSinInteres: 3);
@@ -496,11 +496,9 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
 
         var service = CreateServiceConCondicionesPago();
-        var ex = await Assert.ThrowsAsync<CondicionesPagoVentaException>(
-            () => service.ConfirmarVentaAsync(venta.Id));
+        var result = await service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains("3", ex.Message);
-        Assert.Contains(producto.Nombre, ex.Message);
+        Assert.True(result);
     }
 
     [Fact]
@@ -546,7 +544,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
-    public async Task ConfirmarVenta_TarjetaSinInteres_SnapshotGuardadoCuandoLimitadoPorProducto()
+    public async Task ConfirmarVenta_TarjetaSinInteres_NoGuardaSnapshotRestriccionProductoLegacy()
     {
         var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
         await SeedCondicionPago(producto.Id, TipoPago.TarjetaCredito, maxCuotasSinInteres: 3);
@@ -557,7 +555,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         await service.ConfirmarVentaAsync(venta.Id);
 
         var datos = await _context.DatosTarjeta.FirstAsync(d => d.VentaId == venta.Id);
-        Assert.Equal(3, datos.MaxCuotasSinInteresEfectivoAplicado);
+        Assert.Null(datos.MaxCuotasSinInteresEfectivoAplicado);
     }
 
     [Fact]
@@ -575,21 +573,19 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
-    public async Task ConfirmarVenta_MedioBloqueadoPorProducto_LanzaCondicionesPagoVentaExceptionConProducto()
+    public async Task ConfirmarVenta_MedioBloqueadoPorProductoLegacy_Confirma()
     {
         var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);
         await SeedCondicionPago(producto.Id, TipoPago.Transferencia, permitido: false);
 
         var service = CreateServiceConCondicionesPago();
-        var ex = await Assert.ThrowsAsync<CondicionesPagoVentaException>(
-            () => service.ConfirmarVentaAsync(venta.Id));
+        var result = await service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains(producto.Nombre, ex.Message);
-        Assert.Contains("bloquea", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result);
     }
 
     [Fact]
-    public async Task ConfirmarVenta_Multiproducto_BloqueaSiUnProductoBloqueaMedio()
+    public async Task ConfirmarVenta_Multiproducto_CondicionProductoLegacyNoBloquea()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Efectivo);
         var productoBloqueante = await SeedProductoExtraAsync(stock: 10);
@@ -607,14 +603,13 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         await SeedCondicionPago(productoBloqueante.Id, TipoPago.Efectivo, permitido: false);
 
         var service = CreateServiceConCondicionesPago();
-        var ex = await Assert.ThrowsAsync<CondicionesPagoVentaException>(
-            () => service.ConfirmarVentaAsync(venta.Id));
+        var result = await service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains(productoBloqueante.Nombre, ex.Message);
+        Assert.True(result);
     }
 
     [Fact]
-    public async Task ConfirmarVenta_TarjetaEspecificaBloqueada_LanzaCondicionesPagoVentaException()
+    public async Task ConfirmarVenta_TarjetaEspecificaBloqueadaLegacy_Confirma()
     {
         var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
         var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
@@ -623,11 +618,9 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 1);
 
         var service = CreateServiceConCondicionesPago();
-        var ex = await Assert.ThrowsAsync<CondicionesPagoVentaException>(
-            () => service.ConfirmarVentaAsync(venta.Id));
+        var result = await service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains(producto.Nombre, ex.Message);
-        Assert.Contains("tarjeta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(result);
     }
 
     [Fact]
@@ -647,7 +640,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
-    public async Task ConfirmarVenta_TarjetaConInteres_CuotasExceden_LanzaCondicionesPagoVentaException()
+    public async Task ConfirmarVenta_TarjetaConInteres_CuotasExceden_ConfirmaSinValidacionProductoLegacy()
     {
         var (venta, producto) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
         await SeedCondicionPago(producto.Id, TipoPago.TarjetaCredito, maxCuotasConInteres: 4);
@@ -655,11 +648,9 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
 
         var service = CreateServiceConCondicionesPago();
-        var ex = await Assert.ThrowsAsync<CondicionesPagoVentaException>(
-            () => service.ConfirmarVentaAsync(venta.Id));
+        var result = await service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains("4", ex.Message);
-        Assert.Contains(producto.Nombre, ex.Message);
+        Assert.True(result);
     }
 
     [Fact]

@@ -38,7 +38,7 @@ namespace TheBuryProject.Models.Entities
 
         /// <summary>
         /// Plan de cuotas seleccionado a nivel global de la venta.
-        /// DEPRECATED para nuevas ventas: la fuente autoritativa es VentaDetalle.ProductoCondicionPagoPlanId (Fase 16.2).
+        /// Legacy: en nuevas ventas la fuente autoritativa de cobro es Venta.TipoPago.
         /// Mantenido por compatibilidad con ventas existentes y flujo de tarjeta global.
         /// </summary>
         public int? ProductoCondicionPagoPlanId { get; set; }

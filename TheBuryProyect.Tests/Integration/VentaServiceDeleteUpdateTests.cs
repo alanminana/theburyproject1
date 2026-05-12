@@ -115,6 +115,45 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         return v;
     }
 
+    private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m)
+    {
+        var n = Interlocked.Increment(ref _counter);
+        var categoria = new Categoria
+        {
+            Codigo = $"CAT-DU-{n}",
+            Nombre = $"Categoria DU {n}",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        var marca = new Marca
+        {
+            Codigo = $"MAR-DU-{n}",
+            Nombre = $"Marca DU {n}",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        _context.Categorias.Add(categoria);
+        _context.Marcas.Add(marca);
+        await _context.SaveChangesAsync();
+
+        var producto = new Producto
+        {
+            Codigo = $"PROD-DU-{n}",
+            Nombre = $"Producto DU {n}",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = precioVenta / 2m,
+            PrecioVenta = precioVenta,
+            PorcentajeIVA = 0m,
+            StockActual = 100,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+        return producto;
+    }
+
     // =========================================================================
     // DeleteAsync
     // =========================================================================
@@ -286,6 +325,60 @@ public class VentaServiceDeleteUpdateTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_IgnoraCamposLegacyPagoPorDetalle()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
+        var producto = await SeedProductoAsync(precioVenta: 100m);
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas
+            .AsNoTracking()
+            .SingleAsync(v => v.Id == venta.Id);
+
+        var vm = new VentaViewModel
+        {
+            Id = ventaOriginal.Id,
+            ClienteId = cliente.Id,
+            FechaVenta = ventaOriginal.FechaVenta,
+            Estado = ventaOriginal.Estado,
+            TipoPago = TipoPago.Transferencia,
+            RowVersion = ventaOriginal.RowVersion,
+            Detalles = new List<VentaDetalleViewModel>
+            {
+                new()
+                {
+                    ProductoId = producto.Id,
+                    Cantidad = 1,
+                    PrecioUnitario = 999m,
+                    Descuento = 0m,
+                    TipoPago = TipoPago.TarjetaCredito,
+                    ProductoCondicionPagoPlanId = 987_654,
+                    MontoAjustePlanAplicado = 999m
+                }
+            }
+        };
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoPago.Transferencia, resultado!.TipoPago);
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = await _context.VentaDetalles
+            .AsNoTracking()
+            .SingleAsync(d => d.VentaId == ventaOriginal.Id && !d.IsDeleted);
+
+        Assert.Null(detalle.TipoPago);
+        Assert.Null(detalle.ProductoCondicionPagoPlanId);
+        Assert.Null(detalle.PorcentajeAjustePlanAplicado);
+        Assert.Null(detalle.MontoAjustePlanAplicado);
     }
 
     // =========================================================================

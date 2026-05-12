@@ -551,7 +551,7 @@ namespace TheBuryProject.Services
                         ProductoNombre = d.Producto.Nombre,
                         Cantidad = d.Cantidad,
                         PrecioUnitario = d.PrecioUnitario,
-                        PrecioFinalItem = d.Subtotal,
+                        PrecioFinalItem = d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal,
                         TipoPago = d.Venta.TipoPago,
                         TipoPagoDescripcion = d.Venta.TipoPago.GetDisplayName(),
                         EstadoVenta = d.Venta.Estado,

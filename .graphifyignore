@@ -1,0 +1,11 @@
+wwwroot/uploads/
+wwwroot/lib/
+wwwroot/ico/
+Migrations/
+bin/
+obj/
+artifacts/
+*.jpg
+*.jpeg
+*.png
+*.ico

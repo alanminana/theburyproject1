@@ -456,6 +456,33 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerarReporteComisiones_UsaSubtotalFinalComoPrecioFinalImputado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedUsuarioAsync("vend-1", "Vendedor Uno");
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 2,
+            vendedorUserId: "vend-1",
+            vendedorNombre: "Vendedor Uno",
+            estado: EstadoVenta.Facturada,
+            comisionPorcentaje: 8m,
+            comisionMonto: 14.40m,
+            subtotalFinal: 180m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal(180m, item.PrecioFinalItem);
+        Assert.Equal(180m, resultado.TotalVendido);
+        Assert.Equal(180m, Assert.Single(resultado.ResumenPorVendedor).TotalVendido);
+        Assert.Equal(14.40m, item.ComisionMonto);
+    }
+
+    [Fact]
     public async Task GenerarReporteComisiones_CambioPosteriorProducto_NoAlteraReporteHistorico()
     {
         var cliente = await SeedClienteAsync();

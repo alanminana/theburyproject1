@@ -185,9 +185,11 @@ namespace TheBuryProject.Services
 
                 CalcularTotales(venta);
                 await CalcularComisionesAsync(venta);
-                await AplicarAjustesPorItemAsync(venta);
 
-                await ValidarCondicionesPagoCarritoAsync(venta, viewModel.DatosTarjeta);
+                if (venta.TipoPago == TipoPago.CreditoPersonal)
+                {
+                    await ValidarCondicionesPagoCarritoAsync(venta, viewModel.DatosTarjeta);
+                }
 
                 await CapturarSnapshotLimiteCreditoAsync(venta);
 
@@ -599,7 +601,6 @@ namespace TheBuryProject.Services
 
             CalcularTotales(venta);
             await CalcularComisionesAsync(venta);
-            await AplicarAjustesPorItemAsync(venta);
 
             await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
 
@@ -712,8 +713,6 @@ namespace TheBuryProject.Services
                 }
 
                 venta.AperturaCajaId = aperturaActiva.Id;
-
-                await ValidarCondicionesPagoCarritoAsync(venta);
 
                 await DescontarStockYRegistrarMovimientos(venta);
 
@@ -2248,8 +2247,6 @@ namespace TheBuryProject.Services
             descuentoCalculado = AplicarProrrateoDescuentoGeneral(detallesCalculados, descuentoCalculado);
 
             var totalBase = detallesCalculados.Sum(d => d.SubtotalFinal);
-            var ajusteItems = await CalcularAjusteItemsPreviewAsync(detallesList, detallesCalculados);
-
             var response = new CalculoTotalesVentaResponse
             {
                 Subtotal = detallesCalculados.Sum(d => d.SubtotalFinalNeto),
@@ -2257,11 +2254,8 @@ namespace TheBuryProject.Services
                 IVA = detallesCalculados.Sum(d => d.SubtotalFinalIVA),
                 Total = totalBase,
                 Detalles = detallesCalculados,
-                AjusteItemsAplicado = ajusteItems
+                AjusteItemsAplicado = 0m
             };
-
-            if (ajusteItems != 0m)
-                response.TotalConAjusteItems = RedondearMoneda(totalBase + ajusteItems);
 
             return response;
         }
@@ -2536,6 +2530,7 @@ namespace TheBuryProject.Services
             foreach (var detalleVM in detallesVM)
             {
                 var detalle = _mapper.Map<VentaDetalle>(detalleVM);
+                NormalizarPagoPorItemLegacy(detalle);
                 detalle.VentaId = venta.Id;
                 venta.Detalles.Add(detalle);
             }
@@ -2546,9 +2541,18 @@ namespace TheBuryProject.Services
             foreach (var detalleVM in detallesVM)
             {
                 var detalle = _mapper.Map<VentaDetalle>(detalleVM);
+                NormalizarPagoPorItemLegacy(detalle);
                 detalle.Venta = venta;
                 venta.Detalles.Add(detalle);
             }
+        }
+
+        private static void NormalizarPagoPorItemLegacy(VentaDetalle detalle)
+        {
+            detalle.TipoPago = null;
+            detalle.ProductoCondicionPagoPlanId = null;
+            detalle.PorcentajeAjustePlanAplicado = null;
+            detalle.MontoAjustePlanAplicado = null;
         }
 
         private async Task DescontarStockYRegistrarMovimientos(Venta venta)

@@ -1,8 +1,14 @@
-# TheBuryProject — Guía operativa de trabajo
+# TheBuryProject — Guía operativa compartida para CLAUDE.md y AGENTS.md
+
+> Este archivo está pensado para usarse igual en `CLAUDE.md` y `AGENTS.md`.
+> No documenta fases puntuales ni estado actual de módulos.
+> El estado de cada frente debe vivir en handoffs, checklists, issues, docs específicos o reportes de cierre.
+
+---
 
 ## Rol
 
-Actuá como desarrollador senior experto en ASP.NET MVC, C#, arquitectura de software, refactoring, testing, CSS, JavaScript, UX/UI empresarial y accesibilidad.
+Actuá como desarrollador senior experto en ASP.NET MVC, C#, arquitectura de software, refactoring, testing, CSS, JavaScript, Razor, UX/UI empresarial y accesibilidad.
 
 ---
 
@@ -38,122 +44,6 @@ La prioridad es:
 
 ---
 
-## Skills y herramientas disponibles
-
-El proyecto cuenta con skills instaladas o compatibles para asistir el trabajo de agentes.
-
-Usarlas según el tipo de tarea. No usar todas al mismo tiempo.
-
----
-
-### Graphify
-
-Usar Graphify para mapear contexto y dependencias antes de tareas medianas o grandes.
-
-Usarlo especialmente cuando la tarea implique:
-
-- varios archivos
-- dependencias entre zonas del sistema
-- servicios de dominio
-- controllers pesados
-- refactor arquitectónico
-- código legacy o duplicado
-- flujos que cruzan frontend, backend y tests
-- zonas donde no esté claro el camino canónico
-
-No es obligatorio para cambios chicos y localizados.
-
-Graphify ayuda a entender dependencias, pero no reemplaza la lectura directa del código afectado.
-
-Uso esperado en agentes compatibles:
-
-```text
-/graphify .
-```
-
----
-
-### Skills de Matt Pocock — ingeniería y productividad
-
-Usar estas skills para backend, arquitectura, bugs, tests, documentación, cierre de fases, planificación y control de comunicación.
-
-- `caveman` → comunicación ultra comprimida para estados cortos, checklists, próximos pasos y reportes sin explicación larga.
-- `diagnose` → bugs, tests fallando o comportamiento inesperado.
-- `grill-me` → interrogatorio rápido para aclarar requisitos antes de avanzar.
-- `grill-with-docs` → requisitos ambiguos o decisiones funcionales que deben quedar documentadas.
-- `handoff` → cierre de fase, resumen técnico, riesgos, pruebas y checklist actualizado.
-- `improve-codebase-architecture` → separación de responsabilidades, deuda estructural, acoplamiento, cohesión y oportunidades de refactor.
-- `prototype` → explorar una solución descartable antes de implementar formalmente.
-- `setup-matt-pocock-skills` → configuración inicial o revisión del paquete de skills de Matt Pocock.
-- `tdd` → reglas de negocio sensibles, cálculos, servicios, validaciones y regresiones.
-- `to-issues` → dividir un plan grande en micro-lotes implementables.
-- `to-prd` → convertir contexto desordenado en especificación funcional.
-- `triage` → clasificar issues o tareas cuando haya backlog formal.
-- `write-a-skill` → crear nuevas skills propias del proyecto si hace falta.
-- `zoom-out` → entender el flujo completo de una zona antes de intervenir.
-
-Reglas de uso:
-
-- No usar `caveman` para análisis funcional complejo, arquitectura profunda o decisiones de negocio importantes.
-- Usar `caveman` solo cuando se necesite ahorrar texto y reducir ruido.
-- Usar `diagnose` antes de tocar código si hay fallos, comportamiento raro o tests rotos.
-- Usar `tdd` cuando se modifiquen reglas sensibles de negocio o cálculo.
-- Usar `handoff` para cerrar fases o dejar contexto reutilizable.
-- Usar `improve-codebase-architecture` después de estabilizar comportamiento, no como excusa para refactor masivo.
-- Usar `grill-me` o `grill-with-docs` si el requerimiento es ambiguo.
-- Usar `to-prd` y `to-issues` si una tarea grande debe convertirse en especificación y micro-lotes.
-- Usar `prototype` solo para exploración descartable, no como implementación final.
-- Usar `triage` solo si hay backlog, issues o tareas acumuladas que clasificar.
-- Usar `write-a-skill` solo si realmente conviene crear una skill propia y reutilizable del proyecto.
-
----
-
-### Skills de frontend / diseño — Taste Skill
-
-Usar skills visuales solo cuando la funcionalidad ya esté entendida o estable.
-
-- `brandkit` → crear o explorar dirección visual/marca cuando se necesite una guía visual.
-- `design-taste-frontend` → diseño frontend general con mejor criterio visual.
-- `full-output-enforcement` → usar cuando se requieran respuestas completas sin placeholders.
-- `gpt-taste` → reglas visuales estrictas para Codex/GPT.
-- `high-end-visual-design` → elevar calidad visual de una pantalla.
-- `image-to-code` → adaptar una referencia visual o captura a código.
-- `imagegen-frontend-mobile` → generar referencias visuales mobile, no implementación directa.
-- `imagegen-frontend-web` → generar referencias visuales web, no implementación directa.
-- `industrial-brutalist-ui` → explorar una estética experimental, dura o brutalista solo si se pide explícitamente.
-- `minimalist-ui` → aplicar interfaz sobria, limpia y empresarial.
-- `redesign-existing-projects` → mejorar pantallas existentes sin romper funcionalidad.
-- `stitch-design-taste` → usar solo si el flujo involucra Google Stitch o diseño semántico compatible.
-
-Reglas de uso:
-
-- No usar skills visuales para resolver bugs de negocio.
-- No usar skills visuales para cálculos, migraciones, tests backend o arquitectura de servicios.
-- No usar `full-output-enforcement` por defecto porque puede aumentar consumo de tokens.
-- Usar `full-output-enforcement` solo cuando el resultado deba salir completo: archivo completo, vista completa, JS completo, CSS completo o checklist completo.
-- No aplicar rediseño visual amplio si hay reglas de negocio abiertas o tests relevantes fallando.
-- Priorizar claridad operativa sobre estética decorativa.
-
----
-
-### Otras skills visuales compatibles
-
-Además de Taste Skill, también se consideran disponibles o compatibles estas skills visuales:
-
-- `emil-design-eng` → pulido fino de UI, microinteracciones, estados hover/focus/active, transiciones, feedback visual y sensación general de calidad.
-- `impeccable` → auditoría visual/UX frontend, contraste, layout, responsive, motion, interacción, anti-patrones visuales, accesibilidad y polish general.
-
-Reglas de uso:
-
-- Usarlas solo cuando la funcionalidad ya esté entendida o estable.
-- No usarlas para corregir reglas de negocio.
-- No usarlas para cálculos, migraciones, tests backend o arquitectura de services.
-- No aplicarlas sobre una pantalla con comportamiento funcional roto salvo que el objetivo sea únicamente auditar visualmente.
-- Usar `impeccable` para auditoría general de UI/UX.
-- Usar `emil-design-eng` para detalles finos de interacción una vez que la estructura visual ya esté aceptada.
-
----
-
 ## Contexto activo del proyecto
 
 No usar este archivo para documentar el estado detallado de cada módulo, fase o archivo específico.
@@ -178,17 +68,155 @@ Antes de continuar un frente activo, revisar:
 - tests afectados
 - diff actual
 
-`CLAUDE.md` define reglas generales y estables del proyecto.
+No mantener en este archivo listas cerradas de módulos canónicos, legacy, duplicados o inciertos. Esas clasificaciones deben hacerse con evidencia real cada vez que se interviene una zona.
 
-Los detalles puntuales de cada módulo deben mantenerse fuera de este archivo.
+---
 
-Este mismo contenido puede copiarse a `AGENTS.md` para Codex y agentes compatibles.
+## Skills y herramientas disponibles
+
+El proyecto cuenta con skills instaladas o compatibles para asistir el trabajo de agentes.
+
+Usarlas según el tipo de tarea. No usar todas al mismo tiempo.
+
+---
+
+## Graphify
+
+Usar Graphify para mapear contexto y dependencias antes de tareas medianas o grandes.
+
+Usarlo especialmente cuando la tarea implique:
+
+- varios archivos
+- dependencias entre zonas del sistema
+- servicios de dominio
+- controllers pesados
+- refactor arquitectónico
+- código legacy o duplicado
+- flujos que cruzan frontend, backend y tests
+- zonas donde no esté claro el camino canónico
+
+No es obligatorio para cambios chicos y localizados.
+
+Graphify ayuda a entender dependencias, pero no reemplaza la lectura directa del código afectado.
+
+### Uso según entorno
+
+En agentes compatibles:
+
+- Claude Code puede usar `/graphify` si la integración está instalada.
+- Codex puede usar `$graphify` si la integración está instalada.
+- No asumir que el comando del agente funciona igual que la terminal.
+
+En terminal / PowerShell, usar la CLI real de Graphify:
+
+```powershell
+graphify --help
+graphify extract . --backend openai --out .
+graphify query "pregunta sobre dependencias o flujo"
+graphify update .
+```
+
+Si la extracción semántica falla por dependencias, API key, créditos o configuración, documentar el motivo y continuar con:
+
+- lectura directa del código
+- búsqueda de referencias
+- revisión de DI
+- revisión de rutas
+- revisión de vistas/scripts
+- tests relacionados
+
+No bloquear una tarea por Graphify si el análisis puede continuar de forma segura.
+
+### Reglas de uso de Graphify
+
+- No usar Graphify como excusa para refactors amplios.
+- No asumir que el mapa reemplaza la lectura directa del código.
+- No modificar código solo porque el grafo sugiera cercanía entre componentes.
+- Usar Graphify para orientar la investigación, no para decidir sin evidencia.
+- Si `graphify-out/graph.json` existe, puede usarse para consultas antes de tocar código.
+- Si el grafo está desactualizado, actualizarlo o documentar la limitación.
+
+---
+
+## Skills de ingeniería y productividad
+
+Usar estas skills para backend, arquitectura, bugs, tests, documentación, cierre de fases, planificación y control de comunicación.
+
+- `caveman` → comunicación ultra comprimida para estados cortos, checklists, próximos pasos y reportes sin explicación larga.
+- `diagnose` → bugs, tests fallando o comportamiento inesperado.
+- `find-skills` → revisar qué skills están disponibles/instaladas y elegir cuál conviene usar para una tarea concreta.
+- `graphify` → consultar el grafo del proyecto, mapear dependencias y reducir lectura innecesaria cuando ya existe `graphify-out/graph.json`.
+- `grill-me` → interrogatorio rápido para aclarar requisitos antes de avanzar.
+- `grill-with-docs` → requisitos ambiguos o decisiones funcionales que deben quedar documentadas.
+- `handoff` → cierre de fase, resumen técnico, riesgos, pruebas y checklist actualizado.
+- `improve-codebase-architecture` → separación de responsabilidades, deuda estructural, acoplamiento, cohesión y oportunidades de refactor.
+- `prototype` → explorar una solución descartable antes de implementar formalmente.
+- `setup-matt-pocock-skills` → configuración inicial o revisión del paquete de skills de Matt Pocock.
+- `tdd` → reglas de negocio sensibles, cálculos, servicios, validaciones y regresiones.
+- `to-issues` → dividir un plan grande en micro-lotes implementables.
+- `to-prd` → convertir contexto desordenado en especificación funcional.
+- `triage` → clasificar issues o tareas cuando haya backlog formal.
+- `write-a-skill` → crear nuevas skills propias del proyecto si hace falta.
+- `zoom-out` → entender el flujo completo de una zona antes de intervenir.
+
+### Reglas de uso
+
+- No usar `caveman` para análisis funcional complejo, arquitectura profunda o decisiones de negocio importantes.
+- Usar `caveman` solo cuando se necesite ahorrar texto y reducir ruido.
+- Usar `find-skills` cuando no esté claro qué skill conviene aplicar.
+- Usar `graphify` solo como apoyo de navegación/contexto; no reemplaza lectura directa ni justifica refactors amplios.
+- Usar `diagnose` antes de tocar código si hay fallos, comportamiento raro o tests rotos.
+- Usar `tdd` cuando se modifiquen reglas sensibles de negocio o cálculo.
+- Usar `handoff` para cerrar fases o dejar contexto reutilizable.
+- Usar `improve-codebase-architecture` después de estabilizar comportamiento, no como excusa para refactor masivo.
+- Usar `grill-me` o `grill-with-docs` si el requerimiento es ambiguo.
+- Usar `to-prd` y `to-issues` si una tarea grande debe convertirse en especificación y micro-lotes.
+- Usar `prototype` solo para exploración descartable, no como implementación final.
+- Usar `triage` solo si hay backlog, issues o tareas acumuladas que clasificar.
+- Usar `write-a-skill` solo si realmente conviene crear una skill propia y reutilizable del proyecto.
+
+---
+
+## Skills de frontend / diseño
+
+Usar skills visuales solo cuando la funcionalidad ya esté entendida o estable.
+
+- `brandkit` → crear o explorar dirección visual/marca cuando se necesite una guía visual.
+- `design-taste-frontend` → diseño frontend general con mejor criterio visual.
+- `full-output-enforcement` → usar cuando se requieran respuestas completas sin placeholders.
+- `gpt-taste` → reglas visuales estrictas para Codex/GPT.
+- `high-end-visual-design` → elevar calidad visual de una pantalla.
+- `image-to-code` → adaptar una referencia visual o captura a código.
+- `imagegen-frontend-mobile` → generar referencias visuales mobile, no implementación directa.
+- `imagegen-frontend-web` → generar referencias visuales web, no implementación directa.
+- `industrial-brutalist-ui` → explorar una estética experimental, dura o brutalista solo si se pide explícitamente.
+- `minimalist-ui` → aplicar interfaz sobria, limpia y empresarial.
+- `redesign-existing-projects` → mejorar pantallas existentes sin romper funcionalidad.
+- `stitch-design-taste` → usar solo si el flujo involucra Google Stitch o diseño semántico compatible.
+- `emil-design-eng` → pulido fino de UI, microinteracciones, estados hover/focus/active, transiciones, feedback visual y sensación general de calidad.
+- `impeccable` → auditoría visual/UX frontend, contraste, layout, responsive, motion, interacción, anti-patrones visuales, accesibilidad y polish general.
+- `normalize-razor-structure` → ordenar vistas Razor, estructura HTML, parciales, formularios, secciones y scripts embebidos sin cambiar reglas de negocio.
+
+### Reglas de uso
+
+- No usar skills visuales para resolver bugs de negocio.
+- No usar skills visuales para cálculos, migraciones, tests backend o arquitectura de servicios.
+- No usar `full-output-enforcement` por defecto porque puede aumentar consumo de tokens.
+- Usar `full-output-enforcement` solo cuando el resultado deba salir completo: archivo completo, vista completa, JS completo, CSS completo o checklist completo.
+- No aplicar rediseño visual amplio si hay reglas de negocio abiertas o tests relevantes fallando.
+- Priorizar claridad operativa sobre estética decorativa.
+- Usar `impeccable` para auditoría general de UI/UX.
+- Usar `emil-design-eng` para detalles finos de interacción una vez que la estructura visual ya esté aceptada.
+- Usar `normalize-razor-structure` solo sobre vistas Razor.
+- No usar `normalize-razor-structure` para cambiar reglas de negocio.
+- No usar `normalize-razor-structure` para rediseño visual amplio.
+- Si una vista Razor participa en un flujo crítico, validar build y flujo afectado después.
 
 ---
 
 ## Orden recomendado de intervención
 
-Para tareas complejas, seguir este orden:
+Para tareas complejas:
 
 1. Mapear contexto con Graphify si la zona no está completamente localizada.
 2. Diagnosticar antes de modificar si hay bug o tests fallando.
@@ -203,8 +231,6 @@ No aplicar rediseño visual sobre una funcionalidad con reglas de negocio abiert
 ---
 
 ## Clasificación de componentes
-
-No mantener en este archivo una lista cerrada de componentes canónicos, legacy, duplicados o inciertos.
 
 Antes de modificar, extender, eliminar o tomar como referencia cualquier archivo, clase, service, controller, entidad, vista, script, CSS o test, clasificarlo según evidencia real del código:
 
@@ -285,14 +311,13 @@ Si durante una tarea se detecta un componente canónico, legacy, duplicado o inc
 Antes de modificar código:
 
 - entender la zona afectada
-- identificar:
-  - responsabilidades actuales
-  - dependencias
-  - duplicaciones
-  - código muerto
-  - inconsistencias
-  - caminos canónicos
-  - caminos legacy o paralelos
+- identificar responsabilidades actuales
+- identificar dependencias
+- identificar duplicaciones
+- identificar código muerto
+- identificar inconsistencias
+- identificar caminos canónicos
+- identificar caminos legacy o paralelos
 - detectar riesgos
 - no implementar todavía si el alcance no está cerrado o si hay ambigüedad relevante
 
@@ -523,6 +548,7 @@ Cuando se trabaje frontend:
 - usar `full-output-enforcement` si el resultado debe salir completo, sin placeholders
 - usar `impeccable` para auditoría visual/UX, contraste, responsive, layout y anti-patrones
 - usar `emil-design-eng` para microinteracciones, estados hover/focus/active, transiciones y polish fino
+- usar `normalize-razor-structure` para ordenar vistas Razor sin alterar reglas funcionales
 
 Priorizar claridad operativa sobre estética decorativa.
 

@@ -28,8 +28,10 @@ namespace TheBuryProject.ViewModels.Requests
         [Range(0, double.MaxValue)]
         public decimal Descuento { get; set; }
 
+        // Legacy pago por item: el preview activo de Nueva Venta ignora este campo.
         public TipoPago? TipoPago { get; set; }
 
+        // Legacy pago por item: se conserva por compatibilidad de contrato, no como fuente principal.
         public int? ProductoCondicionPagoPlanId { get; set; }
     }
 }

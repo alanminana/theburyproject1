@@ -28,3 +28,4 @@ docs/qa-*.png
 e2e/.auth/
 playwright-report/
 test-results/
+graphify-out/

@@ -50,8 +50,8 @@ public class ProductoCondicionesPagoModalUiContractTests
     public void CreditoPersonal_MuestraSoloCuotasCredito()
     {
         Assert.Contains("label: 'Credito Personal', mode: 'credit'", Script);
-        Assert.Contains("field('Cuotas credito'", Script);
-        Assert.Contains("Credito Personal se configura separado de tarjetas.", Script);
+        Assert.Contains("detailField('Cuotas credito'", Script);
+        Assert.Contains("Credito Personal se configura con sus propias cuotas.", Script);
     }
 
     [Fact]
@@ -203,6 +203,6 @@ public class ProductoCondicionesPagoModalUiContractTests
         Assert.Contains("maxCuotasCredito", Script);
         Assert.Contains("field('Cuotas sin interes'", Script);
         Assert.Contains("field('Cuotas con interes'", Script);
-        Assert.Contains("field('Cuotas credito'", Script);
+        Assert.Contains("detailField('Cuotas credito'", Script);
     }
 }
