@@ -60,6 +60,7 @@ namespace TheBuryProject.Data
         public DbSet<ContratoVentaCredito> ContratosVentaCredito { get; set; }
         public DbSet<ConfiguracionPago> ConfiguracionesPago { get; set; }
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
+        public DbSet<ConfiguracionPagoPlan> ConfiguracionPagoPlanes { get; set; }
         public DbSet<ProductoCondicionPago> ProductoCondicionesPago { get; set; }
         public DbSet<ProductoCondicionPagoTarjeta> ProductoCondicionesPagoTarjeta { get; set; }
         public DbSet<ProductoCondicionPagoPlan> ProductoCondicionPagoPlanes { get; set; }
@@ -1308,6 +1309,59 @@ namespace TheBuryProject.Data
                     .WithOne(t => t.ConfiguracionPago)
                     .HasForeignKey(t => t.ConfiguracionPagoId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(e => e.PlanesPago)
+                    .WithOne(p => p.ConfiguracionPago)
+                    .HasForeignKey(p => p.ConfiguracionPagoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // ConfiguracionPagoPlan
+            // =======================
+            modelBuilder.Entity<ConfiguracionPagoPlan>(entity =>
+            {
+                var cuotasCheck = "[CantidadCuotas] >= 1";
+                var ajusteCheck = Database.IsSqlServer()
+                    ? "[AjustePorcentaje] >= -100.0000 AND [AjustePorcentaje] <= 999.9999"
+                    : "CAST([AjustePorcentaje] AS REAL) >= -100.0 AND CAST([AjustePorcentaje] AS REAL) <= 999.9999";
+
+                entity.ToTable("ConfiguracionPagoPlanes", t =>
+                {
+                    t.HasCheckConstraint("CK_ConfiguracionPagoPlanes_Cuotas", cuotasCheck);
+                    t.HasCheckConstraint("CK_ConfiguracionPagoPlanes_Ajuste", ajusteCheck);
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.AjustePorcentaje).HasPrecision(8, 4);
+                entity.Property(e => e.Etiqueta).HasMaxLength(100);
+                entity.Property(e => e.Observaciones).HasMaxLength(500);
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(e => e.ConfiguracionPagoId);
+                entity.HasIndex(e => e.ConfiguracionTarjetaId);
+                entity.HasIndex(e => new { e.TipoPago, e.Activo, e.Orden });
+
+                entity.HasIndex(e => new { e.ConfiguracionPagoId, e.TipoPago, e.CantidadCuotas })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ConfiguracionPagoPlanes_General")
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NULL");
+
+                entity.HasIndex(e => new { e.ConfiguracionPagoId, e.TipoPago, e.ConfiguracionTarjetaId, e.CantidadCuotas })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ConfiguracionPagoPlanes_Tarjeta")
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1 AND [ConfiguracionTarjetaId] IS NOT NULL");
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.ConfiguracionTarjeta)
+                    .WithMany(t => t.PlanesPago)
+                    .HasForeignKey(e => e.ConfiguracionTarjetaId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // PerfilCredito

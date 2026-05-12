@@ -35,5 +35,6 @@ namespace TheBuryProject.Models.Entities
 
         // Navigation
         public virtual ConfiguracionPago ConfiguracionPago { get; set; } = null!;
+        public virtual ICollection<ConfiguracionPagoPlan> PlanesPago { get; set; } = new List<ConfiguracionPagoPlan>();
     }
 }

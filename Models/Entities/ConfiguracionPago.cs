@@ -57,5 +57,6 @@ namespace TheBuryProject.Models.Entities
 
         // Relaciones espec�ficas
         public virtual ICollection<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; } = new List<ConfiguracionTarjeta>();
+        public virtual ICollection<ConfiguracionPagoPlan> PlanesPago { get; set; } = new List<ConfiguracionPagoPlan>();
     }
 }
