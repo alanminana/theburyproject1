@@ -17,12 +17,17 @@
     color: #dde2f4;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.catalogo-input::placeholder { color: #94a3b8; }
+
+.catalogo-input::placeholder {
+    color: #94a3b8;
+}
+
 .catalogo-input:focus {
     outline: none;
     border-color: #135bec;
     box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
 }
+
 select.catalogo-input {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -32,7 +37,11 @@ select.catalogo-input {
     cursor: pointer;
     appearance: none;
 }
-select.catalogo-input option { background-color: #161c28; color: #dde2f4; }
+
+select.catalogo-input option {
+    background-color: #161c28;
+    color: #dde2f4;
+}
 
 /* Modal de condiciones de pago por producto */
 .condiciones-modal-shell {
@@ -150,14 +159,40 @@ select.catalogo-input option { background-color: #161c28; color: #dde2f4; }
     white-space: nowrap;
 }
 
-.condiciones-badge--active   { background: rgba(19, 91, 236, 0.12); color: #60a5fa; border: 1px solid rgba(19, 91, 236, 0.2); }
-.condiciones-badge--inactive { background: rgba(100, 116, 139, 0.12); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); }
-.condiciones-badge--allowed  { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-.condiciones-badge--blocked  { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-.condiciones-badge--inherit  { background: rgba(100, 116, 139, 0.1); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.15); }
+.condiciones-badge--active {
+    background: rgba(19, 91, 236, 0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(19, 91, 236, 0.2);
+}
+
+.condiciones-badge--inactive {
+    background: rgba(100, 116, 139, 0.12);
+    color: #64748b;
+    border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.condiciones-badge--allowed {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.condiciones-badge--blocked {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.condiciones-badge--inherit {
+    background: rgba(100, 116, 139, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.15);
+}
 
 @media (max-width: 480px) {
-    .condiciones-card__badges { display: none; }
+    .condiciones-card__badges {
+        display: none;
+    }
 }
 
 .condiciones-panel {
@@ -277,10 +312,29 @@ select.catalogo-input option { background-color: #161c28; color: #dde2f4; }
 .autocomplete-erp {
     position: relative;
 }
+
 .autocomplete-erp [id$="-dropdown"] {
     position: absolute;
     left: 0;
     right: 0;
     top: 100%;
     z-index: 50;
+}
+
+/* Botón Movimientos en rojo */
+#btn-movimientos-inventario {
+    border-color: rgba(239, 68, 68, 0.4);
+    background-color: rgb(220, 38, 38);
+    color: #ffffff;
+}
+
+#btn-movimientos-inventario:hover {
+    border-color: rgba(239, 68, 68, 0.6);
+    background-color: rgb(185, 28, 28);
+    color: #ffffff;
+}
+
+#btn-movimientos-inventario:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
 }
