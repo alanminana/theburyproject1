@@ -1,0 +1,250 @@
+@model ConfiguracionPagoGlobalAdminViewModel
+@{
+    ViewData["Title"] = "Configuración global de pagos";
+    var puedeEditar = User.TienePermiso("configuraciones", "update");
+}
+
+<div class="space-y-8">
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="max-w-4xl space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-500">/</span></li>
+                        <li class="text-slate-100">Configuración global de pagos</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                        Administración
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Configuración global de pagos</h1>
+                        <p class="max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Administrá medios, tarjetas y planes globales. En ventas futuras, los elementos inactivos no estarán disponibles para seleccionar.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
+                <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal"
+                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+                   class="btn-erp-secondary w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">credit_score</span>
+                    Crédito personal
+                </a>
+                <a asp-controller="Home" asp-action="Index" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver
+                </a>
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div class="card-erp-panel-padded">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Medios</p>
+            <p class="mt-2 text-3xl font-black text-white">@Model.TotalMedios</p>
+        </div>
+        <div class="card-erp-panel-padded">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Tarjetas</p>
+            <p class="mt-2 text-3xl font-black text-white">@Model.TotalTarjetas</p>
+        </div>
+        <div class="card-erp-panel-padded">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Planes/cuotas</p>
+            <p class="mt-2 text-3xl font-black text-white">@Model.TotalPlanes</p>
+        </div>
+        <div class="card-erp-panel-padded">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Inactivos visibles</p>
+            <p class="mt-2 text-3xl font-black text-amber-300">@Model.TotalInactivos</p>
+        </div>
+    </section>
+
+    <section class="card-erp-panel-padded">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="space-y-2">
+                <h2 class="text-xl font-bold text-white">Regla operativa</h2>
+                <p class="max-w-3xl text-sm leading-relaxed text-slate-400">
+                    El ajuste se aplica una sola vez sobre el total. Ajuste positivo = recargo, ajuste negativo = descuento, ajuste 0 = sin ajuste.
+                    Cuotas indica la cantidad total de pagos, no interés mensual.
+                </p>
+            </div>
+            @if (!puedeEditar)
+            {
+                <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300">
+                    <span class="material-symbols-outlined text-sm">visibility</span>
+                    Solo lectura
+                </span>
+            }
+        </div>
+    </section>
+
+    @if (Model.Medios.Count == 0)
+    {
+        <section class="card-erp-panel-padded text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-600">payments</span>
+            <h2 class="mt-3 text-xl font-bold text-white">Sin medios configurados</h2>
+            <p class="mt-2 text-sm text-slate-400">Todavía no hay configuración global de pagos para administrar.</p>
+        </section>
+    }
+    else
+    {
+        <section class="space-y-6">
+            @foreach (var medio in Model.Medios)
+            {
+                <article class="card-erp-panel overflow-hidden">
+                    <header class="border-b border-slate-800 bg-slate-950/40 p-5">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="min-w-0 space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h2 class="text-xl font-black text-white">@medio.Nombre</h2>
+                                    <span class="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-300">@medio.TipoPago</span>
+                                    @if (medio.Activo)
+                                    {
+                                        <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-300">Activo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300">Inactivo</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(medio.Descripcion))
+                                {
+                                    <p class="text-sm text-slate-400">@medio.Descripcion</p>
+                                }
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:min-w-[34rem]">
+                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Descuento</p>
+                                    <p class="mt-1 font-semibold text-slate-100">@(medio.PermiteDescuento ? $"{medio.PorcentajeDescuentoMaximo:0.##}%" : "No")</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Recargo</p>
+                                    <p class="mt-1 font-semibold text-slate-100">@(medio.TieneRecargo ? $"{medio.PorcentajeRecargo:0.##}%" : "No")</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Tarjetas</p>
+                                    <p class="mt-1 font-semibold text-slate-100">@medio.Tarjetas.Count</p>
+                                </div>
+                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Planes</p>
+                                    <p class="mt-1 font-semibold text-slate-100">@medio.Planes.Count</p>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div class="grid grid-cols-1 gap-0 xl:grid-cols-2">
+                        <div class="border-b border-slate-800 p-5 xl:border-b-0 xl:border-r">
+                            <div class="mb-4 flex items-center justify-between gap-3">
+                                <h3 class="text-base font-bold text-white">Tarjetas activas/inactivas</h3>
+                                <span class="text-xs font-semibold text-slate-500">Inactivas quedan visibles en admin</span>
+                            </div>
+                            @if (medio.Tarjetas.Count == 0)
+                            {
+                                <p class="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">Este medio no tiene tarjetas configuradas.</p>
+                            }
+                            else
+                            {
+                                <div data-oc-scroll style="--oc-scroll-min-width: 42rem;" class="table-erp-wrapper">
+                                    <table data-oc-scroll-table class="w-full text-left text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                                                <th class="px-3 py-3">Tarjeta</th>
+                                                <th class="px-3 py-3">Tipo</th>
+                                                <th class="px-3 py-3">Estado</th>
+                                                <th class="px-3 py-3">Cuotas</th>
+                                                <th class="px-3 py-3">Observaciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-800">
+                                            @foreach (var tarjeta in medio.Tarjetas)
+                                            {
+                                                <tr>
+                                                    <td class="px-3 py-3 font-semibold text-slate-100">@tarjeta.Nombre</td>
+                                                    <td class="px-3 py-3 text-slate-300">@tarjeta.TipoTarjeta</td>
+                                                    <td class="px-3 py-3">
+                                                        <span class="rounded-full px-2 py-1 text-xs font-bold @(tarjeta.Activa ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300")">
+                                                            @(tarjeta.Activa ? "Activa" : "Inactiva")
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-3 py-3 text-slate-300">
+                                                        @if (tarjeta.PermiteCuotas)
+                                                        {
+                                                            <span>@tarjeta.CantidadMaximaCuotas cuotas (@tarjeta.TipoCuota)</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>No permite</span>
+                                                        }
+                                                    </td>
+                                                    <td class="px-3 py-3 text-slate-400">@(tarjeta.Observaciones ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="p-5">
+                            <div class="mb-4 flex items-center justify-between gap-3">
+                                <h3 class="text-base font-bold text-white">Planes/cuotas globales</h3>
+                                <span class="text-xs font-semibold text-slate-500">Plan inactivo no estará disponible en venta futura</span>
+                            </div>
+                            @if (medio.Planes.Count == 0)
+                            {
+                                <p class="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">Este medio no tiene planes globales configurados.</p>
+                            }
+                            else
+                            {
+                                <div data-oc-scroll style="--oc-scroll-min-width: 44rem;" class="table-erp-wrapper">
+                                    <table data-oc-scroll-table class="w-full text-left text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                                                <th class="px-3 py-3">Orden</th>
+                                                <th class="px-3 py-3">Cuotas</th>
+                                                <th class="px-3 py-3">Alcance</th>
+                                                <th class="px-3 py-3">Ajuste</th>
+                                                <th class="px-3 py-3">Estado</th>
+                                                <th class="px-3 py-3">Observaciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-800">
+                                            @foreach (var plan in medio.Planes)
+                                            {
+                                                <tr>
+                                                    <td class="px-3 py-3 text-slate-300">@plan.Orden</td>
+                                                    <td class="px-3 py-3 font-semibold text-slate-100">@plan.CantidadCuotas</td>
+                                                    <td class="px-3 py-3 text-slate-300">@plan.Alcance</td>
+                                                    <td class="px-3 py-3 text-slate-300">@plan.AjusteDescripcion</td>
+                                                    <td class="px-3 py-3">
+                                                        <span class="rounded-full px-2 py-1 text-xs font-bold @(plan.Activo ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300")">
+                                                            @(plan.Activo ? "Activo" : "Inactivo")
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-3 py-3 text-slate-400">@(plan.Observaciones ?? plan.Etiqueta ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </article>
+            }
+        </section>
+    }
+</div>

@@ -14,15 +14,18 @@ namespace TheBuryProject.Controllers
     public class ConfiguracionPagoController : Controller
     {
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly IConfiguracionPagoGlobalAdminService _configuracionPagoGlobalAdminService;
         private readonly IClienteAptitudService _aptitudService;
         private readonly ILogger<ConfiguracionPagoController> _logger;
 
         public ConfiguracionPagoController(
             IConfiguracionPagoService configuracionPagoService,
+            IConfiguracionPagoGlobalAdminService configuracionPagoGlobalAdminService,
             IClienteAptitudService aptitudService,
             ILogger<ConfiguracionPagoController> logger)
         {
             _configuracionPagoService = configuracionPagoService;
+            _configuracionPagoGlobalAdminService = configuracionPagoGlobalAdminService;
             _aptitudService = aptitudService;
             _logger = logger;
         }
@@ -42,6 +45,22 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al obtener configuraciones de pago");
                 TempData["Error"] = "Error al cargar las configuraciones de pago";
                 return View("Index_tw", new List<ConfiguracionPagoViewModel>());
+            }
+        }
+
+        // GET: ConfiguracionPago/MediosPago
+        public async Task<IActionResult> MediosPago()
+        {
+            try
+            {
+                var modelo = await _configuracionPagoGlobalAdminService.ObtenerAdminGlobalAsync();
+                return View("MediosPago_tw", modelo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener configuracion global de pagos");
+                TempData["Error"] = "Error al cargar la configuracion global de pagos";
+                return View("MediosPago_tw", new ConfiguracionPagoGlobalAdminViewModel());
             }
         }
 

@@ -888,12 +888,199 @@ public class VentaApiControllerTests
         Assert.IsAssignableFrom<System.Collections.IEnumerable>(ok.Value);
     }
 
+    [Fact]
+    public async Task ConfiguracionPagosGlobal_EndpointRespondeOkYLlamaQueryService()
+    {
+        var queryService = new StubConfiguracionPagoGlobalQueryService
+        {
+            Resultado = new ConfiguracionPagoGlobalResultado()
+        };
+        var controller = CreateController(configuracionPagoGlobalQueryService: queryService);
+
+        var result = await controller.ConfiguracionPagosGlobal();
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(1, queryService.CallCount);
+    }
+
+    [Fact]
+    public async Task ConfiguracionPagosGlobal_DevuelveMediosTarjetasYPlanesActivos()
+    {
+        var queryService = new StubConfiguracionPagoGlobalQueryService
+        {
+            Resultado = new ConfiguracionPagoGlobalResultado
+            {
+                Medios =
+                [
+                    new MedioPagoGlobalDto
+                    {
+                        Id = 10,
+                        TipoPago = TipoPago.TarjetaCredito,
+                        NombreVisible = "Tarjeta credito",
+                        Activo = true,
+                        Observaciones = "Solo activos",
+                        Ajuste = new AjusteMedioPagoGlobalDto
+                        {
+                            TieneRecargo = true,
+                            PorcentajeRecargo = 5m
+                        },
+                        Tarjetas =
+                        [
+                            new TarjetaPagoGlobalDto
+                            {
+                                Id = 20,
+                                ConfiguracionPagoId = 10,
+                                Nombre = "Visa",
+                                TipoTarjeta = TipoTarjeta.Credito,
+                                Activa = true
+                            }
+                        ],
+                        Planes =
+                        [
+                            new PlanPagoGlobalConfiguradoDto
+                            {
+                                Id = 30,
+                                ConfiguracionPagoId = 10,
+                                TipoPago = TipoPago.TarjetaCredito,
+                                CantidadCuotas = 1,
+                                TipoAjuste = TipoAjustePagoPlan.Porcentaje,
+                                AjustePorcentaje = 0m,
+                                Etiqueta = "Contado",
+                                Orden = 1,
+                                Activo = true
+                            },
+                            new PlanPagoGlobalConfiguradoDto
+                            {
+                                Id = 31,
+                                ConfiguracionPagoId = 10,
+                                ConfiguracionTarjetaId = 20,
+                                TipoPago = TipoPago.TarjetaCredito,
+                                CantidadCuotas = 6,
+                                TipoAjuste = TipoAjustePagoPlan.Porcentaje,
+                                AjustePorcentaje = 12.5m,
+                                Etiqueta = "6 cuotas",
+                                Orden = 2,
+                                Observaciones = "Plan especifico",
+                                Activo = true
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+        var controller = CreateController(configuracionPagoGlobalQueryService: queryService);
+
+        var result = await controller.ConfiguracionPagosGlobal();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        var medio = json.RootElement.GetProperty("medios")[0];
+        Assert.Equal(10, medio.GetProperty("id").GetInt32());
+        Assert.Equal((int)TipoPago.TarjetaCredito, medio.GetProperty("tipoPago").GetInt32());
+        Assert.Equal("Tarjeta credito", medio.GetProperty("nombre").GetString());
+        Assert.True(medio.GetProperty("activo").GetBoolean());
+        Assert.True(medio.GetProperty("ajuste").GetProperty("tieneRecargo").GetBoolean());
+        Assert.Equal(5m, medio.GetProperty("ajuste").GetProperty("porcentajeRecargo").GetDecimal());
+
+        var planGeneral = medio.GetProperty("planesGenerales")[0];
+        Assert.Equal(30, planGeneral.GetProperty("id").GetInt32());
+        Assert.Equal(1, planGeneral.GetProperty("cantidadCuotas").GetInt32());
+        Assert.Equal("Contado", planGeneral.GetProperty("etiqueta").GetString());
+
+        var tarjeta = medio.GetProperty("tarjetas")[0];
+        Assert.Equal(20, tarjeta.GetProperty("id").GetInt32());
+        Assert.Equal("Visa", tarjeta.GetProperty("nombre").GetString());
+        Assert.Equal((int)TipoTarjeta.Credito, tarjeta.GetProperty("tipoTarjeta").GetInt32());
+
+        var planEspecifico = tarjeta.GetProperty("planesEspecificos")[0];
+        Assert.Equal(31, planEspecifico.GetProperty("id").GetInt32());
+        Assert.Equal(6, planEspecifico.GetProperty("cantidadCuotas").GetInt32());
+        Assert.Equal(12.5m, planEspecifico.GetProperty("ajustePorcentaje").GetDecimal());
+    }
+
+    [Fact]
+    public async Task ConfiguracionPagosGlobal_SinConfiguracionActiva_DevuelveListaVacia()
+    {
+        var controller = CreateController(configuracionPagoGlobalQueryService: new StubConfiguracionPagoGlobalQueryService
+        {
+            Resultado = new ConfiguracionPagoGlobalResultado()
+        });
+
+        var result = await controller.ConfiguracionPagosGlobal();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Empty(json.RootElement.GetProperty("medios").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ConfiguracionPagosGlobal_NoRequiereVentaNiResolverPorProducto()
+    {
+        var ventaService = new StubVentaService();
+        var resolver = new StubCondicionesPagoCarritoResolver();
+        var controller = CreateController(
+            ventaService: ventaService,
+            condicionesPagoCarritoResolver: resolver,
+            configuracionPagoGlobalQueryService: new StubConfiguracionPagoGlobalQueryService
+            {
+                Resultado = new ConfiguracionPagoGlobalResultado
+                {
+                    Medios =
+                    [
+                        new MedioPagoGlobalDto
+                        {
+                            Id = 1,
+                            TipoPago = TipoPago.Efectivo,
+                            NombreVisible = "Efectivo",
+                            Activo = true
+                        }
+                    ]
+                }
+            });
+
+        await controller.ConfiguracionPagosGlobal();
+
+        Assert.Equal(0, ventaService.CalcularTotalesPreviewAsyncCallCount);
+        Assert.Equal(0, ventaService.CalcularCuotasTarjetaAsyncCallCount);
+        Assert.Equal(0, resolver.CallCount);
+    }
+
+    [Fact]
+    public async Task ConfiguracionPagosGlobal_NoExponePagoPorProducto()
+    {
+        var controller = CreateController(configuracionPagoGlobalQueryService: new StubConfiguracionPagoGlobalQueryService
+        {
+            Resultado = new ConfiguracionPagoGlobalResultado
+            {
+                Medios =
+                [
+                    new MedioPagoGlobalDto
+                    {
+                        Id = 1,
+                        TipoPago = TipoPago.Transferencia,
+                        NombreVisible = "Transferencia",
+                        Activo = true
+                    }
+                ]
+            }
+        });
+
+        var result = await controller.ConfiguracionPagosGlobal();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        var rawJson = json.RootElement.GetRawText();
+        Assert.DoesNotContain("producto", rawJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("condicion", rawJson, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static VentaApiController CreateController(
         IProductoService? productoService = null,
         ICreditoService? creditoService = null,
         IVentaService? ventaService = null,
         IClienteService? clienteService = null,
         IConfiguracionPagoService? configuracionPagoService = null,
+        IConfiguracionPagoGlobalQueryService? configuracionPagoGlobalQueryService = null,
         IValidacionVentaService? validacionVentaService = null,
         ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
     {
@@ -903,6 +1090,7 @@ public class VentaApiControllerTests
             ventaService ?? new StubVentaService(),
             clienteService ?? new StubClienteService(),
             configuracionPagoService ?? new StubConfiguracionPagoService(),
+            configuracionPagoGlobalQueryService ?? new StubConfiguracionPagoGlobalQueryService(),
             validacionVentaService ?? new StubValidacionVentaService(),
             condicionesPagoCarritoResolver ?? new StubCondicionesPagoCarritoResolver(),
             NullLogger<VentaApiController>.Instance);
@@ -1047,6 +1235,19 @@ public class VentaApiControllerTests
             int? configuracionTarjetaId = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new MediosPagoPorProductoResultado { SinRestriccionesPropias = true });
+    }
+
+    private sealed class StubConfiguracionPagoGlobalQueryService : IConfiguracionPagoGlobalQueryService
+    {
+        public ConfiguracionPagoGlobalResultado Resultado { get; init; } = new();
+        public int CallCount { get; private set; }
+
+        public Task<ConfiguracionPagoGlobalResultado> ObtenerActivaParaVentaAsync(
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(Resultado);
+        }
     }
 
     private sealed class StubConfiguracionPagoService : IConfiguracionPagoService

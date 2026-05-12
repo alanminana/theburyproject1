@@ -87,6 +87,8 @@ builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<ICreditoService, CreditoService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
+builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
+builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
 builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoService>();
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();

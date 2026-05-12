@@ -47,6 +47,71 @@ public class ConfiguracionPagoServiceTests : IDisposable
         _connection.Dispose();
     }
 
+    [Fact]
+    public async Task ObtenerAdminGlobal_IncluyeMediosTarjetasYPlanesActivosEInactivos()
+    {
+        var medio = await SeedConfigPago(TipoPago.TarjetaCredito);
+        medio.Activo = false;
+
+        var tarjetaActiva = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = medio.Id,
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            Activa = true,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = 12,
+            TipoCuota = TipoCuotaTarjeta.SinInteres
+        };
+
+        var tarjetaInactiva = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = medio.Id,
+            NombreTarjeta = "Mastercard",
+            TipoTarjeta = TipoTarjeta.Credito,
+            Activa = false,
+            PermiteCuotas = true,
+            CantidadMaximaCuotas = 6,
+            TipoCuota = TipoCuotaTarjeta.ConInteres,
+            TasaInteresesMensual = 5m
+        };
+
+        _context.ConfiguracionesTarjeta.AddRange(tarjetaActiva, tarjetaInactiva);
+        await _context.SaveChangesAsync();
+
+        _context.ConfiguracionPagoPlanes.AddRange(
+            new ConfiguracionPagoPlan
+            {
+                ConfiguracionPagoId = medio.Id,
+                TipoPago = medio.TipoPago,
+                CantidadCuotas = 3,
+                Activo = true,
+                AjustePorcentaje = 10m,
+                Orden = 2
+            },
+            new ConfiguracionPagoPlan
+            {
+                ConfiguracionPagoId = medio.Id,
+                ConfiguracionTarjetaId = tarjetaInactiva.Id,
+                TipoPago = medio.TipoPago,
+                CantidadCuotas = 6,
+                Activo = false,
+                AjustePorcentaje = -5m,
+                Orden = 1
+            });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerAdminGlobalAsync();
+
+        var medioVm = Assert.Single(resultado.Medios);
+        Assert.False(medioVm.Activo);
+        Assert.Contains(medioVm.Tarjetas, t => t.Id == tarjetaActiva.Id && t.Activa);
+        Assert.Contains(medioVm.Tarjetas, t => t.Id == tarjetaInactiva.Id && !t.Activa);
+        Assert.Equal(new[] { 6, 3 }, medioVm.Planes.Select(p => p.CantidadCuotas).ToArray());
+        Assert.Contains(medioVm.Planes, p => p.ConfiguracionTarjetaId == tarjetaInactiva.Id && !p.Activo);
+        Assert.Equal(3, resultado.TotalInactivos);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

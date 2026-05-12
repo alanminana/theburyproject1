@@ -6,6 +6,8 @@ using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
+using TheBuryProject.ViewModels.Responses;
 using TheBuryProject.ViewModels.Requests;
 using TheBuryProject.ViewModels;
 
@@ -22,6 +24,7 @@ namespace TheBuryProject.Controllers
         private readonly IVentaService _ventaService;
         private readonly IClienteService _clienteService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
         private readonly IValidacionVentaService _validacionVentaService;
         private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
         private readonly ILogger<VentaApiController> _logger;
@@ -32,6 +35,7 @@ namespace TheBuryProject.Controllers
             IVentaService ventaService,
             IClienteService clienteService,
             IConfiguracionPagoService configuracionPagoService,
+            IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
             IValidacionVentaService validacionVentaService,
             ICondicionesPagoCarritoResolver condicionesPagoCarritoResolver,
             ILogger<VentaApiController> logger)
@@ -41,6 +45,7 @@ namespace TheBuryProject.Controllers
             _ventaService = ventaService;
             _clienteService = clienteService;
             _configuracionPagoService = configuracionPagoService;
+            _configuracionPagoGlobalQueryService = configuracionPagoGlobalQueryService;
             _validacionVentaService = validacionVentaService;
             _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
             _logger = logger;
@@ -235,6 +240,23 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpGet("/api/ventas/configuracion-pagos-global")]
+        public async Task<IActionResult> ConfiguracionPagosGlobal(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var configuracion = await _configuracionPagoGlobalQueryService
+                    .ObtenerActivaParaVentaAsync(cancellationToken);
+
+                return Ok(MapConfiguracionPagoGlobal(configuracion));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener configuracion global de pagos para venta");
+                return StatusCode(500, new { error = "No se pudo obtener la configuracion global de pagos" });
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetMediosPagoPorProducto(
             int productoId,
@@ -350,5 +372,66 @@ namespace TheBuryProject.Controllers
 
         private static decimal RedondearMoneda(decimal value) =>
             Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+        private static ConfiguracionPagoGlobalResponse MapConfiguracionPagoGlobal(
+            ConfiguracionPagoGlobalResultado configuracion)
+        {
+            var medios = configuracion.Medios
+                .Select(m =>
+                {
+                    var planesGenerales = m.Planes
+                        .Where(p => p.EsPlanGeneral)
+                        .Select(MapPlan)
+                        .ToList();
+
+                    var planesPorTarjeta = m.Planes
+                        .Where(p => p.ConfiguracionTarjetaId.HasValue)
+                        .GroupBy(p => p.ConfiguracionTarjetaId!.Value)
+                        .ToDictionary(g => g.Key, g => g.Select(MapPlan).ToList());
+
+                    return new MedioPagoGlobalResponse
+                    {
+                        Id = m.Id,
+                        TipoPago = m.TipoPago,
+                        Nombre = m.NombreVisible,
+                        Activo = m.Activo,
+                        Observaciones = m.Observaciones,
+                        Ajuste = new AjusteMedioPagoGlobalResponse
+                        {
+                            PermiteDescuento = m.Ajuste.PermiteDescuento,
+                            PorcentajeDescuentoMaximo = m.Ajuste.PorcentajeDescuentoMaximo,
+                            TieneRecargo = m.Ajuste.TieneRecargo,
+                            PorcentajeRecargo = m.Ajuste.PorcentajeRecargo
+                        },
+                        Tarjetas = m.Tarjetas
+                            .Select(t => new TarjetaPagoGlobalResponse
+                            {
+                                Id = t.Id,
+                                Nombre = t.Nombre,
+                                TipoTarjeta = t.TipoTarjeta,
+                                PlanesEspecificos = planesPorTarjeta.TryGetValue(t.Id, out var planesTarjeta)
+                                    ? planesTarjeta
+                                    : Array.Empty<PlanPagoGlobalResponse>()
+                            })
+                            .ToList(),
+                        PlanesGenerales = planesGenerales
+                    };
+                })
+                .ToList();
+
+            return new ConfiguracionPagoGlobalResponse { Medios = medios };
+        }
+
+        private static PlanPagoGlobalResponse MapPlan(PlanPagoGlobalConfiguradoDto plan) =>
+            new()
+            {
+                Id = plan.Id,
+                CantidadCuotas = plan.CantidadCuotas,
+                TipoAjuste = plan.TipoAjuste,
+                AjustePorcentaje = plan.AjustePorcentaje,
+                Etiqueta = plan.Etiqueta,
+                Orden = plan.Orden,
+                Observaciones = plan.Observaciones
+            };
     }
 }

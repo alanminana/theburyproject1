@@ -9,7 +9,7 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
 {
-    public class ConfiguracionPagoService : IConfiguracionPagoService
+    public class ConfiguracionPagoService : IConfiguracionPagoService, IConfiguracionPagoGlobalAdminService
     {
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
@@ -35,6 +35,76 @@ namespace TheBuryProject.Services
                 .ToListAsync();
 
             return _mapper.Map<List<ConfiguracionPagoViewModel>>(configuraciones);
+        }
+
+        public async Task<ConfiguracionPagoGlobalAdminViewModel> ObtenerAdminGlobalAsync()
+        {
+            var configuraciones = await _context.ConfiguracionesPago
+                .AsNoTracking()
+                .Include(c => c.ConfiguracionesTarjeta)
+                .Include(c => c.PlanesPago)
+                    .ThenInclude(p => p.ConfiguracionTarjeta)
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.TipoPago)
+                .ThenBy(c => c.Nombre)
+                .ToListAsync();
+
+            return new ConfiguracionPagoGlobalAdminViewModel
+            {
+                Medios = configuraciones.Select(c => new MedioPagoGlobalAdminViewModel
+                {
+                    Id = c.Id,
+                    TipoPago = c.TipoPago,
+                    Nombre = c.Nombre,
+                    Descripcion = c.Descripcion,
+                    Activo = c.Activo,
+                    PermiteDescuento = c.PermiteDescuento,
+                    PorcentajeDescuentoMaximo = c.PorcentajeDescuentoMaximo,
+                    TieneRecargo = c.TieneRecargo,
+                    PorcentajeRecargo = c.PorcentajeRecargo,
+                    Tarjetas = c.ConfiguracionesTarjeta
+                        .Where(t => !t.IsDeleted)
+                        .OrderBy(t => t.TipoTarjeta)
+                        .ThenBy(t => t.NombreTarjeta)
+                        .Select(t => new TarjetaGlobalAdminViewModel
+                        {
+                            Id = t.Id,
+                            ConfiguracionPagoId = t.ConfiguracionPagoId,
+                            Nombre = t.NombreTarjeta,
+                            TipoTarjeta = t.TipoTarjeta,
+                            Activa = t.Activa,
+                            PermiteCuotas = t.PermiteCuotas,
+                            CantidadMaximaCuotas = t.CantidadMaximaCuotas,
+                            TipoCuota = t.TipoCuota,
+                            TasaInteresesMensual = t.TasaInteresesMensual,
+                            TieneRecargoDebito = t.TieneRecargoDebito,
+                            PorcentajeRecargoDebito = t.PorcentajeRecargoDebito,
+                            Observaciones = t.Observaciones
+                        })
+                        .ToList(),
+                    Planes = c.PlanesPago
+                        .Where(p => !p.IsDeleted)
+                        .OrderBy(p => p.Orden)
+                        .ThenBy(p => p.CantidadCuotas)
+                        .ThenBy(p => p.Id)
+                        .Select(p => new PlanPagoGlobalAdminViewModel
+                        {
+                            Id = p.Id,
+                            ConfiguracionPagoId = p.ConfiguracionPagoId,
+                            ConfiguracionTarjetaId = p.ConfiguracionTarjetaId,
+                            NombreTarjeta = p.ConfiguracionTarjeta?.NombreTarjeta,
+                            TipoPago = p.TipoPago,
+                            CantidadCuotas = p.CantidadCuotas,
+                            Activo = p.Activo,
+                            TipoAjuste = p.TipoAjuste,
+                            AjustePorcentaje = p.AjustePorcentaje,
+                            Etiqueta = p.Etiqueta,
+                            Orden = p.Orden,
+                            Observaciones = p.Observaciones
+                        })
+                        .ToList()
+                }).ToList()
+            };
         }
 
         public async Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id)
