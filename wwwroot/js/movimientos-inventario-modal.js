@@ -1,7 +1,7 @@
 /**
  * movimientos-inventario-modal.js
  * Modal de Movimientos de Inventario dentro de Catálogo Index_tw
- * - Open/close modal
+ * - Open/close modal (global o por productoId desde fila de catálogo)
  * - Fetch movements from /MovimientoStock/ListJson
  * - Render table rows, stats, pagination
  * - Filter support
@@ -34,18 +34,25 @@
     const selectPageSize = document.getElementById('mov-page-size');
     const paginationDiv = document.getElementById('mov-pagination');
 
+    // Contexto de producto (banner en modal)
+    const productoContexto = document.getElementById('mov-producto-contexto');
+    const productoNombreLabel = document.getElementById('mov-producto-nombre-label');
+    const btnVerTodos = document.getElementById('btn-mov-ver-todos');
+
     let allItems = [];
     let displayItems = [];
     let currentPage = 1;
     let pageSize = 25;
 
+    // Estado de filtro por producto (apertura desde fila de catálogo)
+    let productoIdFiltro = null;
+    let productoNombreFiltro = null;
+
     if (!modal || !btnOpen) return;
 
     /* ── Open / Close ── */
     btnOpen.addEventListener('click', () => {
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        fetchMovimientos();
+        abrirModal(null, null);
     });
 
     btnClose.addEventListener('click', closeModal);
@@ -58,9 +65,49 @@
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
     });
 
+    // Apertura desde fila de catálogo (delegación sobre el documento)
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-movimientos-producto-id]');
+        if (!btn) return;
+        const id = parseInt(btn.dataset.movimientosProductoId, 10);
+        const nombre = btn.dataset.movimientosProductoNombre || '';
+        if (!isNaN(id)) abrirModal(id, nombre);
+    });
+
+    if (btnVerTodos) {
+        btnVerTodos.addEventListener('click', () => abrirModal(null, null));
+    }
+
+    function abrirModal(productoId, productoNombre) {
+        productoIdFiltro = productoId;
+        productoNombreFiltro = productoNombre;
+        actualizarBannerProducto();
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        fetchMovimientos();
+    }
+
+    function actualizarBannerProducto() {
+        if (!productoContexto || !productoNombreLabel) return;
+        if (productoIdFiltro !== null) {
+            productoNombreLabel.textContent = productoNombreFiltro || `Producto #${productoIdFiltro}`;
+            productoContexto.classList.remove('hidden');
+            productoContexto.classList.add('flex');
+        } else {
+            productoContexto.classList.add('hidden');
+            productoContexto.classList.remove('flex');
+        }
+    }
+
     function closeModal() {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
+        productoIdFiltro = null;
+        productoNombreFiltro = null;
+        if (productoContexto) {
+            productoContexto.classList.add('hidden');
+            productoContexto.classList.remove('flex');
+        }
     }
 
     /* ── Fetch ── */
@@ -69,7 +116,12 @@
         if (filtroDesde.value) params.set('fechaDesde', filtroDesde.value);
         if (filtroHasta.value) params.set('fechaHasta', filtroHasta.value);
         if (filtroTipo.value) params.set('tipo', filtroTipo.value);
-        if (filtroProducto.value.trim()) params.set('busqueda', filtroProducto.value.trim());
+        // Cuando se abre desde fila de catálogo, filtra por productoId exacto (más preciso que texto)
+        if (productoIdFiltro !== null) {
+            params.set('productoId', productoIdFiltro);
+        } else if (filtroProducto.value.trim()) {
+            params.set('busqueda', filtroProducto.value.trim());
+        }
 
         try {
             const res = await fetch(`/MovimientoStock/ListJson?${params.toString()}`);

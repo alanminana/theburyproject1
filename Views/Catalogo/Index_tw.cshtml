@@ -336,6 +336,14 @@
                                             <span class="material-symbols-outlined">percent</span>
                                             <span class="row-action__label">Comisión</span>
                                         </button>
+                                        <button type="button"
+                                                data-movimientos-producto-id="@p.ProductoId"
+                                                data-movimientos-producto-nombre="@p.Nombre"
+                                                class="row-action row-action--primary"
+                                                title="Historial de movimientos de stock">
+                                            <span class="material-symbols-outlined">swap_vert</span>
+                                            <span class="row-action__label">Movimientos</span>
+                                        </button>
                                         @* Fase 7.8: ProductoCondicionPago* queda legacy/admin; no exponer entrada visible desde Catalogo. *@
                                         <button type="button" data-prod-edit-id="@p.ProductoId"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">
@@ -2159,6 +2167,22 @@
                     class="flex items-center justify-center gap-2 rounded-lg h-10 px-4 bg-slate-200 bg-slate-800 text-white text-sm font-bold transition-colors hover:bg-slate-300 hover:bg-slate-700">
                 <span class="material-symbols-outlined text-sm">arrow_back</span>
                 <span>Volver al Inventario</span>
+            </button>
+        </div>
+
+        <!-- Banner: contexto de producto (visible solo al abrir desde fila) -->
+        <div id="mov-producto-contexto" class="hidden mx-6 mt-4 flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">inventory_2</span>
+                <div>
+                    <p class="text-sm font-bold text-white">Filtrando por: <span id="mov-producto-nombre-label" class="text-primary"></span></p>
+                    <p class="text-xs text-slate-400">Historial por producto/SKU. No identifica unidades físicas individuales.</p>
+                </div>
+            </div>
+            <button type="button" id="btn-mov-ver-todos"
+                    class="text-xs font-bold text-primary hover:text-primary/80 transition-colors whitespace-nowrap flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">list</span>
+                Ver todos los movimientos
             </button>
         </div>
 

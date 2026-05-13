@@ -747,4 +747,44 @@ public class MovimientoStockServiceTests : IDisposable
         Assert.Single(resultado);
         Assert.Equal(orden.Id, resultado.First().OrdenCompraId);
     }
+
+    // -------------------------------------------------------------------------
+    // GetByProductoIdAsync — Fase 8.5: cobertura adicional desde catálogo
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetByProductoId_ConMultiplesMovimientos_RetornaTodos()
+    {
+        var p1 = await SeedProductoAsync(stockActual: 100m);
+        var p2 = await SeedProductoAsync(stockActual: 50m);
+
+        _context.Set<MovimientoStock>().AddRange(
+            new MovimientoStock { ProductoId = p1.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 10m, Motivo = "Entrada p1" },
+            new MovimientoStock { ProductoId = p1.Id, Tipo = TipoMovimiento.Salida, Cantidad = 5m, Motivo = "Salida p1" },
+            new MovimientoStock { ProductoId = p2.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 20m, Motivo = "Entrada p2" }
+        );
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByProductoIdAsync(p1.Id);
+
+        Assert.Equal(2, resultado.Count());
+        Assert.All(resultado, m => Assert.Equal(p1.Id, m.ProductoId));
+    }
+
+    [Fact]
+    public async Task GetByProductoId_ExcluyeMovimientosEliminados()
+    {
+        var producto = await SeedProductoAsync(stockActual: 100m);
+
+        _context.Set<MovimientoStock>().AddRange(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 10m, Motivo = "Visible", IsDeleted = false },
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 5m, Motivo = "Eliminado", IsDeleted = true }
+        );
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByProductoIdAsync(producto.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal("Visible", resultado.First().Motivo);
+    }
 }
