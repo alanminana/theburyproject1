@@ -258,6 +258,89 @@ public class VentaCreateUiContractTests
         throw new DirectoryNotFoundException("No se encontro la raiz del repositorio.");
     }
 
+    // ── Fase 7.1B — MercadoPago DatosTarjeta UI contract ────────────────
+
+    [Fact]
+    public void VentaCreateJs_TrataMercadoPagoComoMedioConPlanes_PeroNoPanelTarjeta()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        var esTarjeta = ExtractFunction(script, "function esTipoPagoTarjeta");
+        var conPlanes = ExtractFunction(script, "function esTipoPagoConPlanes");
+
+        // MercadoPago included in esTipoPagoConPlanes → puede tener planes globales
+        Assert.Contains("TIPO_PAGO.MercadoPago", conPlanes);
+
+        // MercadoPago NOT included in esTipoPagoTarjeta → no usa selector de tarjeta del catálogo
+        Assert.DoesNotContain("MercadoPago", esTarjeta);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MercadoPago_SetNombreTarjetaYTipoEnHiddenInputs()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var onTipoPagoChange = ExtractFunction(script, "function onTipoPagoChange");
+
+        // Cuando se selecciona MercadoPago, hdnTarjetaNombre y hdnTarjetaTipo se setean hardcoded
+        Assert.Contains("TIPO_PAGO.MercadoPago", onTipoPagoChange);
+        Assert.Contains("hdnTarjetaNombre.value = 'Mercado Pago'", onTipoPagoChange);
+        Assert.Contains("hdnTarjetaTipo.value", onTipoPagoChange);
+    }
+
+    [Fact]
+    public void VentaCreateView_MercadoPago_TieneHiddenInputsParaDatosTarjeta()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        // Los hidden inputs que envían DatosTarjeta (incluso para MercadoPago) deben estar presentes
+        Assert.Contains("name=\"DatosTarjeta.NombreTarjeta\"", view);
+        Assert.Contains("name=\"DatosTarjeta.TipoTarjeta\"", view);
+        Assert.Contains("name=\"DatosTarjeta.ConfiguracionPagoPlanId\"", view);
+        Assert.Contains("id=\"hdn-configuracion-pago-plan-id\"", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MercadoPago_RenderizaPlanesGlobales_CuandoConfigDisponible()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var onTipoPagoChange = ExtractFunction(script, "function onTipoPagoChange");
+
+        // Los medios no-tarjeta (incluido MercadoPago) disparan renderPlanesGlobalesSeleccionados
+        Assert.Contains("if (!isTarjeta && configuracionPagosGlobalDisponible)", onTipoPagoChange);
+        Assert.Contains("renderPlanesGlobalesSeleccionados()", onTipoPagoChange);
+    }
+
+    [Fact]
+    public void VentaCreateJs_Efectivo_Transferencia_NoActivanPlanesGlobales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var conPlanes = ExtractFunction(script, "function esTipoPagoConPlanes");
+
+        // Efectivo y Transferencia no están en esTipoPagoConPlanes → no renderizan planes
+        Assert.DoesNotContain("TIPO_PAGO.Efectivo", conPlanes);
+        Assert.DoesNotContain("TIPO_PAGO.Transferencia", conPlanes);
+    }
+
+    [Fact]
+    public void VentaCreateJs_TarjetaCredito_Debito_UsanEsTipoPagoTarjeta()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var esTarjeta = ExtractFunction(script, "function esTipoPagoTarjeta");
+
+        Assert.Contains("TIPO_PAGO.TarjetaCredito", esTarjeta);
+        Assert.Contains("TIPO_PAGO.TarjetaDebito", esTarjeta);
+    }
+
+    [Fact]
+    public void LimpiarModelState_TrataMercadoPagoComoEsTarjeta_ConservaDatosTarjeta()
+    {
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaController.cs"));
+        var limpiar = ExtractFunction(controller, "private void LimpiarModelStateSegunTipoPago");
+
+        // MercadoPago se trata como esTarjeta → no limpia DatosTarjeta del ModelState
+        Assert.Contains("TipoPago.MercadoPago", limpiar);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);

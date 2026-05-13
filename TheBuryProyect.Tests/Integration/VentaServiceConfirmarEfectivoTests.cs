@@ -851,26 +851,107 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // Tests — Fase 6.5: ConfirmarVentaAsync con/sin DatosTarjeta
+    // Tests — Fase 7.1: Guard DatosTarjeta en ConfirmarVentaAsync
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    /// Fase 6.5 — Documenta comportamiento actual: ConfirmarVentaAsync no exige
-    /// DatosTarjeta para TarjetaCredito. El guard no existe en el service.
-    /// Si en el futuro se agrega validación, este test fallará como señal.
-    /// </summary>
     [Fact]
-    public async Task ConfirmarVenta_TarjetaCredito_SinDatosTarjeta_ConfirmaSinError()
+    public async Task ConfirmarVenta_TarjetaCredito_SinDatosTarjeta_LanzaInvalidOperation()
     {
         var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("datos de tarjeta", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaDebito_SinDatosTarjeta_LanzaInvalidOperation()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaDebito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("datos de tarjeta", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_MercadoPago_SinDatosTarjeta_LanzaInvalidOperation()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.MercadoPago);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("datos de tarjeta", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaCredito_ConDatosTarjeta_Confirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await _context.SaveChangesAsync();
 
         var result = await _service.ConfirmarVentaAsync(venta.Id);
 
         Assert.True(result);
         var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
         Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
-        // Sin DatosTarjeta — ConfirmarVentaAsync no lo exige actualmente
-        Assert.Equal(0, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_Transferencia_SinDatosTarjeta_Confirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_CuentaCorriente_SinDatosTarjeta_Confirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.CuentaCorriente);
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_MercadoPago_ConDatosTarjeta_Confirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.MercadoPago);
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Debito,
+            CantidadCuotas = 1,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
     }
 
     /// <summary>
