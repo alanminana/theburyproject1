@@ -234,12 +234,22 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaApiController_ConservaEndpointLegacyGetMediosPagoPorProducto()
+    public void VentaApiController_NoConservaEndpointLegacyGetMediosPagoPorProducto()
     {
         var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaApiController.cs"));
 
-        Assert.Contains("GetMediosPagoPorProducto", controller);
-        Assert.Contains("ObtenerMediosPorProductoAsync", controller);
+        Assert.DoesNotContain("GetMediosPagoPorProducto", controller);
+        Assert.DoesNotContain("public async Task<IActionResult> GetMediosPagoPorProducto", controller);
+        Assert.DoesNotContain("ObtenerMediosPorProductoAsync", controller);
+    }
+
+    [Fact]
+    public void VentaApiController_NoConservaEndpointLegacyDiagnosticarCondicionesPagoCarrito()
+    {
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaApiController.cs"));
+
+        Assert.DoesNotContain("DiagnosticarCondicionesPagoCarrito", controller);
+        Assert.DoesNotContain("ICondicionesPagoCarritoResolver", controller);
     }
 
     private static string FindRepoRoot()

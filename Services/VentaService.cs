@@ -35,7 +35,6 @@ namespace TheBuryProject.Services
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
-        private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
         private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
 
         public VentaService(
@@ -54,7 +53,6 @@ namespace TheBuryProject.Services
             ICreditoDisponibleService creditoDisponibleService,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IConfiguracionPagoService configuracionPagoService,
-            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null,
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null)
         {
             _context = context;
@@ -72,7 +70,6 @@ namespace TheBuryProject.Services
             _creditoDisponibleService = creditoDisponibleService;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _configuracionPagoService = configuracionPagoService;
-            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver ?? new CondicionesPagoCarritoResolver(context);
             _productoCreditoRestriccionService =
                 productoCreditoRestriccionService ?? new ProductoCreditoRestriccionService(context);
         }
@@ -194,7 +191,7 @@ namespace TheBuryProject.Services
 
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
                 {
-                    await ValidarCondicionesPagoCarritoAsync(venta, viewModel.DatosTarjeta);
+                    await ValidarCondicionesPagoCarritoAsync(venta);
                 }
 
                 await CapturarSnapshotLimiteCreditoAsync(venta);
@@ -1123,7 +1120,7 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task ValidarCondicionesPagoCarritoAsync(Venta venta, DatosTarjetaViewModel? datosTarjetaViewModel = null)
+        private async Task ValidarCondicionesPagoCarritoAsync(Venta venta)
         {
             var productoIds = venta.Detalles
                 .Where(d => !d.IsDeleted)
@@ -1136,96 +1133,16 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            if (venta.TipoPago == TipoPago.CreditoPersonal)
+            if (venta.TipoPago != TipoPago.CreditoPersonal)
             {
-                var creditoResultado = await _productoCreditoRestriccionService.ResolverAsync(productoIds);
-                if (!creditoResultado.Permitido)
-                {
-                    throw new CondicionesPagoVentaException(
-                        await CrearMensajeBloqueoCreditoProductoAsync(creditoResultado));
-                }
-
                 return;
             }
 
-            var datosTarjeta = venta.DatosTarjeta;
-            var configuracionTarjetaId = datosTarjetaViewModel?.ConfiguracionTarjetaId
-                ?? datosTarjeta?.ConfiguracionTarjetaId;
-            var cantidadCuotas = datosTarjetaViewModel?.CantidadCuotas
-                ?? datosTarjeta?.CantidadCuotas;
-            var tipoCuota = datosTarjetaViewModel?.TipoCuota
-                ?? datosTarjeta?.TipoCuota;
-            var tipoTarjetaLegacy = datosTarjetaViewModel?.TipoTarjeta
-                ?? datosTarjeta?.TipoTarjeta;
-
-            ConfiguracionTarjeta? configuracionTarjeta = null;
-            if (configuracionTarjetaId.HasValue)
+            var creditoResultado = await _productoCreditoRestriccionService.ResolverAsync(productoIds);
+            if (!creditoResultado.Permitido)
             {
-                configuracionTarjeta = await _context.ConfiguracionesTarjeta
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Id == configuracionTarjetaId.Value && !t.IsDeleted);
-
-                if (configuracionTarjeta == null)
-                {
-                    throw new InvalidOperationException("Configuracion de tarjeta no encontrada");
-                }
-
-                if (!configuracionTarjeta.Activa)
-                {
-                    throw new InvalidOperationException("La tarjeta seleccionada no esta disponible");
-                }
-
-                tipoCuota ??= configuracionTarjeta.TipoCuota;
-                tipoTarjetaLegacy ??= configuracionTarjeta.TipoTarjeta;
-            }
-
-            var maxCuotasSinInteresGlobal = tipoCuota == TipoCuotaTarjeta.SinInteres
-                ? configuracionTarjeta?.CantidadMaximaCuotas
-                : null;
-            var maxCuotasConInteresGlobal = tipoCuota == TipoCuotaTarjeta.ConInteres
-                ? configuracionTarjeta?.CantidadMaximaCuotas
-                : null;
-
-            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
-                productoIds,
-                venta.TipoPago,
-                configuracionTarjetaId,
-                venta.Total,
-                maxCuotasSinInteresGlobal,
-                maxCuotasConInteresGlobal,
-                tipoTarjetaLegacy: tipoTarjetaLegacy);
-
-            if (!resultado.Permitido)
-            {
-                throw new CondicionesPagoVentaException(await CrearMensajeBloqueoCondicionesPagoAsync(resultado));
-            }
-
-            if (cantidadCuotas.HasValue && tipoCuota.HasValue)
-            {
-                var maximo = tipoCuota.Value switch
-                {
-                    TipoCuotaTarjeta.SinInteres => resultado.MaxCuotasSinInteres,
-                    TipoCuotaTarjeta.ConInteres => resultado.MaxCuotasConInteres,
-                    _ => null
-                };
-
-                if (maximo.HasValue && cantidadCuotas.Value > maximo.Value)
-                {
-                    throw new CondicionesPagoVentaException(
-                        await CrearMensajeCuotasExcedidasAsync(
-                            resultado,
-                            tipoCuota.Value,
-                            cantidadCuotas.Value,
-                            maximo.Value));
-                }
-            }
-
-            if (datosTarjeta is not null && tipoCuota == TipoCuotaTarjeta.SinInteres)
-            {
-                datosTarjeta.MaxCuotasSinInteresEfectivoAplicado =
-                    resultado.ProductoIdsRestrictivos.Count > 0
-                        ? resultado.MaxCuotasSinInteres
-                        : null;
+                throw new CondicionesPagoVentaException(
+                    await CrearMensajeBloqueoCreditoProductoAsync(creditoResultado));
             }
         }
 
@@ -1291,49 +1208,6 @@ namespace TheBuryProject.Services
                 : string.Join(", ", nombres.Values.Select(nombre => $"{nombre}: bloquea CreditoPersonal."));
 
             return $"No se puede crear o confirmar la venta con {TipoPago.CreditoPersonal}. {detalles}";
-        }
-
-        private async Task<string> CrearMensajeBloqueoCondicionesPagoAsync(
-            CondicionesPagoCarritoResultado resultado)
-        {
-            var nombres = await ObtenerNombresProductosAsync(resultado.ProductoIdsBloqueantes);
-            var detalles = resultado.Bloqueos.Count == 0
-                ? "Hay productos incompatibles con el medio de pago seleccionado."
-                : string.Join(" ", resultado.Bloqueos.Select(b =>
-                {
-                    var producto = nombres.GetValueOrDefault(b.ProductoId, $"Producto #{b.ProductoId}");
-                    return $"{producto}: {b.Motivo}";
-                }));
-
-            return $"No se puede crear o confirmar la venta con {resultado.TipoPago}. {detalles}";
-        }
-
-        private async Task<string> CrearMensajeCuotasExcedidasAsync(
-            CondicionesPagoCarritoResultado resultado,
-            TipoCuotaTarjeta tipoCuota,
-            int cuotasSeleccionadas,
-            int maximo)
-        {
-            var tipoRestriccion = tipoCuota == TipoCuotaTarjeta.SinInteres
-                ? TipoRestriccionCuotas.MaxCuotasSinInteres
-                : TipoRestriccionCuotas.MaxCuotasConInteres;
-            var restricciones = resultado.Restricciones
-                .Where(r => r.TipoRestriccion == tipoRestriccion && r.Valor == maximo)
-                .ToArray();
-            var productoIds = restricciones
-                .Select(r => r.ProductoId)
-                .Distinct()
-                .ToArray();
-            var nombres = await ObtenerNombresProductosAsync(productoIds);
-            var productos = nombres.Count == 0
-                ? "la configuracion vigente"
-                : string.Join(", ", nombres.Values);
-            var descripcionCuota = tipoCuota == TipoCuotaTarjeta.SinInteres
-                ? "sin interes"
-                : "con interes";
-
-            return $"Las cuotas seleccionadas ({cuotasSeleccionadas}) superan el maximo permitido " +
-                   $"para cuotas {descripcionCuota}: {maximo}. Restriccion efectiva: {productos}.";
         }
 
         private async Task<Dictionary<int, string>> ObtenerNombresProductosAsync(IEnumerable<int> productoIds)

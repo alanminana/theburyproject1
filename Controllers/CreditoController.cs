@@ -55,7 +55,6 @@ namespace TheBuryProject.Controllers
             CreditoViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IClienteAptitudService? aptitudService = null,
-            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null,
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
             ICreditoRangoProductoService? creditoRangoProductoService = null,
             ICreditoConfiguracionVentaService? creditoConfiguracionVentaService = null,

@@ -233,7 +233,6 @@ public class CreditoControllerConfigurarVentaTests
         StubConfiguracionPagoService configuracionPagoService,
         IVentaService? ventaService = null,
         IContratoVentaCreditoService? contratoService = null,
-        ICondicionesPagoCarritoResolver? condicionesResolver = null,
         IProductoCreditoRestriccionService? productoCreditoRestriccionService = null)
     {
         var controller = new CreditoController(
@@ -249,7 +248,6 @@ public class CreditoControllerConfigurarVentaTests
             viewBagBuilder: null!,
             contratoVentaCreditoService: contratoService ?? new StubContratoVentaCreditoService(),
             aptitudService: null,
-            condicionesPagoCarritoResolver: condicionesResolver,
             productoCreditoRestriccionService: productoCreditoRestriccionService);
         controller.TempData = new TempDataDictionary(new DefaultHttpContext(), new InMemoryTempDataProvider());
         return controller;
@@ -467,34 +465,6 @@ public class CreditoControllerConfigurarVentaTests
         public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => throw new NotImplementedException();
         public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<ContratoVentaCredito?> ObtenerContratoPorCreditoAsync(int creditoId) => throw new NotImplementedException();
-    }
-
-    private sealed class StubCondicionesPagoCarritoResolver : ICondicionesPagoCarritoResolver
-    {
-        private readonly CondicionesPagoCarritoResultado _resultado;
-
-        public StubCondicionesPagoCarritoResolver(CondicionesPagoCarritoResultado resultado)
-        {
-            _resultado = resultado;
-        }
-
-        public Task<CondicionesPagoCarritoResultado> ResolverAsync(
-            IEnumerable<int> productoIds,
-            TipoPago tipoPago,
-            int? configuracionTarjetaId = null,
-            decimal? totalReferencia = null,
-            int? maxCuotasSinInteresGlobal = null,
-            int? maxCuotasConInteresGlobal = null,
-            int? maxCuotasCreditoGlobal = null,
-            TipoTarjeta? tipoTarjetaLegacy = null,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(_resultado);
-
-        public Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
-            int productoId,
-            int? configuracionTarjetaId = null,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new MediosPagoPorProductoResultado { SinRestriccionesPropias = true });
     }
 
     private sealed class StubProductoCreditoRestriccionService : IProductoCreditoRestriccionService

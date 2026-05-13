@@ -50,6 +50,6 @@ public class ProductoCondicionesPagoAdminLegacyDespublicadoTests
 
         Assert.DoesNotContain("IProductoCondicionPagoService", program);
         Assert.DoesNotContain("ProductoCondicionPagoService", program);
-        Assert.Contains("ICondicionesPagoCarritoResolver", program);
+        Assert.DoesNotContain("ICondicionesPagoCarritoResolver", program);
     }
 }

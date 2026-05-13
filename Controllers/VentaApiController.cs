@@ -26,7 +26,6 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
         private readonly IValidacionVentaService _validacionVentaService;
-        private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
         private readonly ILogger<VentaApiController> _logger;
 
         public VentaApiController(
@@ -37,7 +36,6 @@ namespace TheBuryProject.Controllers
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
             IValidacionVentaService validacionVentaService,
-            ICondicionesPagoCarritoResolver condicionesPagoCarritoResolver,
             ILogger<VentaApiController> logger)
         {
             _productoService = productoService;
@@ -47,7 +45,6 @@ namespace TheBuryProject.Controllers
             _configuracionPagoService = configuracionPagoService;
             _configuracionPagoGlobalQueryService = configuracionPagoGlobalQueryService;
             _validacionVentaService = validacionVentaService;
-            _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
             _logger = logger;
         }
 
@@ -262,63 +259,6 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al obtener configuracion global de pagos para venta");
                 return StatusCode(500, new { error = "No se pudo obtener la configuracion global de pagos" });
-            }
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetMediosPagoPorProducto(
-            int productoId,
-            int? configuracionTarjetaId = null,
-            CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (productoId <= 0)
-                    return BadRequest(new { error = "Identificador de producto inválido" });
-
-                var resultado = await _condicionesPagoCarritoResolver.ObtenerMediosPorProductoAsync(
-                    productoId,
-                    configuracionTarjetaId,
-                    cancellationToken);
-
-                return Ok(resultado);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener medios de pago para producto {ProductoId}", productoId);
-                return StatusCode(500, new { error = "No se pudieron obtener los medios de pago del producto" });
-            }
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> DiagnosticarCondicionesPagoCarrito(
-            [FromBody] DiagnosticarCondicionesPagoCarritoRequest request,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                if (request == null || !ModelState.IsValid || request.ProductoIds.Count == 0)
-                {
-                    return BadRequest(new { error = "Debe especificar al menos un producto para diagnosticar condiciones de pago" });
-                }
-
-                var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
-                    request.ProductoIds,
-                    request.TipoPago,
-                    request.ConfiguracionTarjetaId,
-                    request.TotalReferencia,
-                    request.MaxCuotasSinInteresGlobal,
-                    request.MaxCuotasConInteresGlobal,
-                    request.MaxCuotasCreditoGlobal,
-                    request.TipoTarjeta,
-                    cancellationToken);
-
-                return Ok(resultado);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al diagnosticar condiciones de pago por carrito");
-                return StatusCode(500, new { error = "No se pudieron diagnosticar las condiciones de pago" });
             }
         }
 

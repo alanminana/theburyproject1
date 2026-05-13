@@ -71,7 +71,6 @@ builder.Services.AddTicketServices();
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<IMarcaService, MarcaService>();
 builder.Services.AddScoped<IProductoService, ProductoService>();
-builder.Services.AddScoped<ICondicionesPagoCarritoResolver, CondicionesPagoCarritoResolver>();
 builder.Services.AddScoped<IProductoCreditoRestriccionService, ProductoCreditoRestriccionService>();
 builder.Services.AddScoped<ICreditoRangoProductoService, CreditoRangoProductoService>();
 builder.Services.AddScoped<ICreditoConfiguracionVentaService, CreditoConfiguracionVentaService>();

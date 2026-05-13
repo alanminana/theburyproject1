@@ -143,31 +143,6 @@ file sealed class StubValidacionVentaEfectivo : IValidacionVentaService
     public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
 }
 
-file sealed class ThrowingCondicionesPagoCarritoResolver : ICondicionesPagoCarritoResolver
-{
-    public Task<CondicionesPagoCarritoResultado> ResolverAsync(
-        IEnumerable<int> productoIds,
-        TipoPago tipoPago,
-        int? configuracionTarjetaId = null,
-        decimal? totalReferencia = null,
-        int? maxCuotasSinInteresGlobal = null,
-        int? maxCuotasConInteresGlobal = null,
-        int? maxCuotasCreditoGlobal = null,
-        TipoTarjeta? tipoTarjetaLegacy = null,
-        CancellationToken cancellationToken = default)
-    {
-        throw new InvalidOperationException("El flujo canonico no debe consultar ProductoCondicionPago.");
-    }
-
-    public Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
-        int productoId,
-        int? configuracionTarjetaId = null,
-        CancellationToken cancellationToken = default)
-    {
-        throw new InvalidOperationException("El flujo canonico no debe consultar ProductoCondicionPago.");
-    }
-}
-
 // ---------------------------------------------------------------------------
 
 /// <summary>
@@ -892,7 +867,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         var tarjeta = await SeedTarjetaSinInteres(maxCuotas: 12);
         await SeedDatosTarjeta(venta, tarjeta, cantidadCuotas: 6);
 
-        var service = CreateServiceConCondicionesPago(new ThrowingCondicionesPagoCarritoResolver());
+        var service = CreateServiceConCondicionesPago();
         var result = await service.ConfirmarVentaAsync(venta.Id);
 
         Assert.True(result);
@@ -950,8 +925,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     // Helpers — cuotas sin interes
     // -------------------------------------------------------------------------
 
-    private VentaService CreateServiceConCondicionesPago(
-        ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
+    private VentaService CreateServiceConCondicionesPago()
     {
         var mapper = new MapperConfiguration(
                 cfg => cfg.AddProfile<MappingProfile>(),
@@ -978,8 +952,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             new StubCajaServiceEfectivo(_apertura),
             new StubCreditoDisponibleEfectivo(),
             new StubContratoVentaCreditoService(),
-            configuracionPago,
-            condicionesPagoCarritoResolver ?? new CondicionesPagoCarritoResolver(_context));
+            configuracionPago);
     }
 
     private async Task<int> SeedConfigPagoTarjeta()
