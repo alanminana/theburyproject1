@@ -1,0 +1,173 @@
+@model TheBuryProject.ViewModels.AjusteStockViewModel
+@using TheBuryProject.Models.Enums
+@{
+    ViewData["Title"] = "Registrar ajuste de stock";
+    var tieneProducto = Model?.ProductoId > 0 && !string.IsNullOrEmpty(Model?.ProductoNombre);
+}
+
+<div class="space-y-6 max-w-2xl">
+
+    <!-- Header -->
+    <div class="flex items-start gap-3">
+        <a asp-controller="MovimientoStock" asp-action="Index"
+           class="mt-1 text-slate-400 hover:text-slate-200 transition-colors"
+           title="Volver al listado">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">edit_note</span>
+                Registrar ajuste de stock
+            </h1>
+            @if (tieneProducto)
+            {
+                <p class="text-slate-400 text-sm mt-0.5">
+                    <span class="font-semibold text-slate-300">@Model!.ProductoNombre</span>
+                    @if (!string.IsNullOrEmpty(Model.ProductoCodigo))
+                    {
+                        <span class="mx-2 text-slate-600">·</span>
+                        <span class="font-mono text-xs tracking-wider text-slate-500">@Model.ProductoCodigo</span>
+                    }
+                </p>
+            }
+        </div>
+    </div>
+
+    <!-- Banner SKU -->
+    <div class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3">
+        <span class="material-symbols-outlined text-amber-400 mt-0.5 shrink-0">info</span>
+        <p class="text-sm text-amber-300/80">
+            El stock se gestiona por SKU/producto. Este formulario no registra unidades físicas individuales ni número de serie.
+        </p>
+    </div>
+
+    <!-- Stock actual (si hay producto preseleccionado) -->
+    @if (tieneProducto)
+    {
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-4 flex items-center gap-4">
+            <span class="material-symbols-outlined text-slate-400">inventory_2</span>
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Stock actual</p>
+                <p class="text-xl font-bold text-white">@Model!.StockActual.ToString("N0") <span class="text-sm font-normal text-slate-400">unidades</span></p>
+            </div>
+        </div>
+    }
+
+    <!-- Formulario -->
+    <form method="post" asp-controller="MovimientoStock" asp-action="Create"
+          class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 space-y-5">
+        @Html.AntiForgeryToken()
+
+        <div asp-validation-summary="ModelOnly"
+             class="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400 space-y-1 hidden [&:not(:empty)]:block">
+        </div>
+
+        <!-- Producto -->
+        <div>
+            <label asp-for="ProductoId" class="block text-sm font-semibold text-slate-300 mb-1.5">
+                Producto <span class="text-red-400">*</span>
+            </label>
+            <select asp-for="ProductoId" asp-items="ViewBag.Productos"
+                    id="select-producto"
+                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="">— Seleccioná un producto —</option>
+            </select>
+            <span asp-validation-for="ProductoId" class="text-xs text-red-400 mt-1 block"></span>
+        </div>
+
+        <!-- Tipo -->
+        <div>
+            <label asp-for="Tipo" class="block text-sm font-semibold text-slate-300 mb-1.5">
+                Tipo de movimiento <span class="text-red-400">*</span>
+            </label>
+            <select asp-for="Tipo" asp-items="ViewBag.Tipos"
+                    id="select-tipo"
+                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+            </select>
+            <span asp-validation-for="Tipo" class="text-xs text-red-400 mt-1 block"></span>
+            <!-- Ayuda contextual por tipo -->
+            <p id="tipo-hint-entrada" class="hidden text-xs text-emerald-400/80 mt-1">
+                <span class="material-symbols-outlined text-sm align-middle">arrow_upward</span>
+                Entrada: suma unidades al stock actual del producto.
+            </p>
+            <p id="tipo-hint-salida" class="hidden text-xs text-rose-400/80 mt-1">
+                <span class="material-symbols-outlined text-sm align-middle">arrow_downward</span>
+                Salida: resta unidades del stock actual del producto.
+            </p>
+            <p id="tipo-hint-ajuste" class="hidden text-xs text-amber-400/80 mt-1">
+                <span class="material-symbols-outlined text-sm align-middle">tune</span>
+                Ajuste: fija el stock al valor exacto indicado (inventario físico).
+            </p>
+        </div>
+
+        <!-- Cantidad -->
+        <div>
+            <label asp-for="Cantidad" class="block text-sm font-semibold text-slate-300 mb-1.5">
+                Cantidad <span class="text-red-400">*</span>
+            </label>
+            <input asp-for="Cantidad" type="number" min="0" step="0.01"
+                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                   placeholder="0" />
+            <span asp-validation-for="Cantidad" class="text-xs text-red-400 mt-1 block"></span>
+        </div>
+
+        <!-- Motivo -->
+        <div>
+            <label asp-for="Motivo" class="block text-sm font-semibold text-slate-300 mb-1.5">
+                Motivo <span class="text-red-400">*</span>
+            </label>
+            <input asp-for="Motivo" type="text" maxlength="500"
+                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                   placeholder="Ej: Inventario físico, devolución de proveedor..." />
+            <span asp-validation-for="Motivo" class="text-xs text-red-400 mt-1 block"></span>
+        </div>
+
+        <!-- Referencia (opcional) -->
+        <div>
+            <label asp-for="Referencia" class="block text-sm font-semibold text-slate-300 mb-1.5">
+                Referencia <span class="text-slate-500 font-normal text-xs">(opcional)</span>
+            </label>
+            <input asp-for="Referencia" type="text" maxlength="200"
+                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                   placeholder="Ej: OC-2024-001, Remito 456..." />
+            <span asp-validation-for="Referencia" class="text-xs text-red-400 mt-1 block"></span>
+        </div>
+
+        <!-- Acciones -->
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit"
+                    class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                <span class="material-symbols-outlined text-base">save</span>
+                Registrar ajuste
+            </button>
+            <a asp-controller="MovimientoStock" asp-action="Index"
+               class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                Cancelar
+            </a>
+        </div>
+    </form>
+
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (() => {
+            const selectTipo = document.getElementById('select-tipo');
+            const hints = {
+                'Entrada': document.getElementById('tipo-hint-entrada'),
+                'Salida':  document.getElementById('tipo-hint-salida'),
+                'Ajuste':  document.getElementById('tipo-hint-ajuste')
+            };
+
+            function updateHint() {
+                const val = selectTipo?.options[selectTipo.selectedIndex]?.text;
+                Object.values(hints).forEach(h => h?.classList.add('hidden'));
+                if (val && hints[val]) hints[val].classList.remove('hidden');
+            }
+
+            selectTipo?.addEventListener('change', updateHint);
+            updateHint();
+        })();
+    </script>
+}
