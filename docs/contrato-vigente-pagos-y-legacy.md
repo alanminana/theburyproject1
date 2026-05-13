@@ -122,6 +122,8 @@ Nota posterior Fase 7.10: los contratos del modal/admin y del service admin reti
 
 Nota posterior Fase 7.18: con la migracion de `CreditoPersonal` a `ProductoCreditoRestriccion` (Fase 7.17), los tests de caracterizacion del resolver fueron eliminados. No queda cobertura legacy del resolver; los tests remanentes de entidades (`ProductoCondicionPagoPlanReadinessTests`, `ProductoCondicionPagoEfTests`) solo verifican estructura de entidades DB.
 
+Nota posterior Fase 7.20: `ProductoCondicionesPagoAdminLegacyDespublicadoTests` consolidado de 4 tests a 2 (`LegacyAdmin_NoPresente_EnVistaYAsset`, `LegacyAdmin_NoPresente_EnControllerYDI`). Se agrego `[Trait("Area", "LegacyPagoPorProducto")]` para consistencia. Todos los asserts originales se conservaron.
+
 ## F. Que NO debe hacerse
 
 No se debe:
@@ -181,5 +183,6 @@ No eliminar ni ocultar componentes legacy sin inventario real de rutas, permisos
 - [x] Fase 7.10: admin legacy, endpoints admin, service admin y JS de modal retirados.
 - [x] Fase 7.17: CreditoPersonal migrado a ProductoCreditoRestriccion; ICondicionesPagoCarritoResolver eliminado de DI, VentaService y CreditoController.
 - [x] Fase 7.18: CondicionesPagoCarritoResolver, ICondicionesPagoCarritoResolver, ProductoCondicionPagoRules, MediosPagoPorProductoResultado y tests de caracterizacion legacy eliminados.
+- [x] Fase 7.20: ProductoCondicionesPagoAdminLegacyDespublicadoTests consolidado de 4 a 2 tests; [Trait] agregado; todos los asserts conservados.
 - [ ] Inventario futuro de datos/modelo legacy remanente de `ProductoCondicionPago*` en DB.
 - [ ] Cleanup de CondicionesPagoCarritoResultado.cs, ProductoCondicionesPagoDtos.cs y ProductoCondicionPagoPlanReadinessTests.cs (solo usados entre si).
