@@ -32,6 +32,8 @@
     let limiteCuotasDiagnostico = null;
     let cuotasLimitadasPorDiagnostico = false;
     let planesDisponibles = [];
+    let configuracionPagosGlobal = null;
+    let configuracionPagosGlobalDisponible = false;
     const condicionesProductoCache = new Map();
 
     // TipoPago enum integer values (must match Models/Enums/TipoPago.cs)
@@ -95,10 +97,10 @@
     const panelAvisoCuotasSinInteres = $('#panel-aviso-cuotas-sin-interes');
     const hdnTarjetaNombre = $('#hdn-tarjeta-nombre');
     const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
+    const estadoConfiguracionPagosGlobal = $('#configuracion-pagos-global-estado');
 
     const panelPlanesPago = $('#panel-planes-pago');
     const listaPlanesPago = $('#lista-planes-pago');
-    const hdnPlanPagoId = $('#hdn-plan-pago-id');
 
     const panelAvisoCredito = $('#panel-aviso-credito');
     const panelDiagnosticoCondicionesPago = $('#panel-diagnostico-condiciones-pago');
@@ -271,6 +273,97 @@
         return resp.json();
     }
 
+    function setEstadoConfiguracionPagosGlobal(message, tone) {
+        if (!estadoConfiguracionPagosGlobal) return;
+
+        const tones = {
+            ok: 'text-emerald-400',
+            warning: 'text-amber-400',
+            error: 'text-red-400',
+            muted: 'text-slate-500'
+        };
+
+        estadoConfiguracionPagosGlobal.className = `mt-1 text-xs ${tones[tone] || tones.muted}`;
+        estadoConfiguracionPagosGlobal.textContent = message;
+    }
+
+    function normalizarMedioGlobal(medio) {
+        return {
+            id: Number(getProp(medio, 'id', 'Id')),
+            tipoPago: String(getProp(medio, 'tipoPago', 'TipoPago')),
+            nombre: getProp(medio, 'nombre', 'Nombre') || 'Medio de pago',
+            activo: getProp(medio, 'activo', 'Activo') !== false,
+            observaciones: getProp(medio, 'observaciones', 'Observaciones') || '',
+            ajuste: getProp(medio, 'ajuste', 'Ajuste') || {},
+            tarjetas: (getProp(medio, 'tarjetas', 'Tarjetas') || []).map(t => ({
+                id: Number(getProp(t, 'id', 'Id')),
+                nombre: getProp(t, 'nombre', 'Nombre') || 'Tarjeta',
+                tipoTarjeta: getProp(t, 'tipoTarjeta', 'TipoTarjeta'),
+                planesEspecificos: getProp(t, 'planesEspecificos', 'PlanesEspecificos') || []
+            })),
+            planesGenerales: getProp(medio, 'planesGenerales', 'PlanesGenerales') || []
+        };
+    }
+
+    function getMediosGlobalesActivos() {
+        return configuracionPagosGlobal?.medios || [];
+    }
+
+    function getMedioGlobalSeleccionado() {
+        const tipoPago = selectTipoPago?.value;
+        if (!tipoPago || !configuracionPagosGlobalDisponible) return null;
+        return getMediosGlobalesActivos().find(m => m.tipoPago === String(tipoPago)) || null;
+    }
+
+    async function cargarConfiguracionPagosGlobal() {
+        if (!selectTipoPago) return;
+
+        try {
+            const data = await fetchJson('/api/ventas/configuracion-pagos-global');
+            const medios = (getProp(data, 'medios', 'Medios') || [])
+                .map(normalizarMedioGlobal)
+                .filter(m => m.activo);
+
+            configuracionPagosGlobal = { medios };
+            configuracionPagosGlobalDisponible = true;
+            aplicarMediosGlobalesAlSelector(medios);
+
+            if (medios.length === 0) {
+                setEstadoConfiguracionPagosGlobal('No hay medios activos en la configuracion global.', 'warning');
+            } else {
+                setEstadoConfiguracionPagosGlobal('Configuracion global activa cargada.', 'ok');
+            }
+        } catch {
+            configuracionPagosGlobal = null;
+            configuracionPagosGlobalDisponible = false;
+            setEstadoConfiguracionPagosGlobal('No se pudo cargar la configuracion global. Se conserva el selector actual.', 'warning');
+        }
+
+        onTipoPagoChange();
+    }
+
+    function aplicarMediosGlobalesAlSelector(medios) {
+        if (!selectTipoPago || !Array.isArray(medios)) return;
+
+        const selectedBefore = selectTipoPago.value;
+        selectTipoPago.replaceChildren();
+
+        medios.forEach(medio => {
+            const opt = document.createElement('option');
+            opt.value = medio.tipoPago;
+            opt.textContent = medio.nombre;
+            opt.dataset.configuracionPagoId = String(medio.id);
+            selectTipoPago.appendChild(opt);
+        });
+
+        const mantenerSeleccion = medios.some(m => m.tipoPago === selectedBefore);
+        if (mantenerSeleccion) {
+            selectTipoPago.value = selectedBefore;
+        } else if (selectTipoPago.options.length > 0) {
+            selectTipoPago.selectedIndex = 0;
+        }
+    }
+
     function setDiagnosticoCondicionesPagoEstado(tone, estado, resumen, iconName) {
         if (!panelDiagnosticoCondicionesPago) return;
 
@@ -388,6 +481,71 @@
         return normalizarLimiteCuotas(getProp(info, 'cantidadMaximaCuotas', 'CantidadMaximaCuotas')) || 12;
     }
 
+    function normalizarPlanGlobal(plan) {
+        return {
+            id: Number(getProp(plan, 'id', 'Id')),
+            cantidadCuotas: Number(getProp(plan, 'cantidadCuotas', 'CantidadCuotas')) || 1,
+            tipoAjuste: getProp(plan, 'tipoAjuste', 'TipoAjuste'),
+            ajustePorcentaje: Number(getProp(plan, 'ajustePorcentaje', 'AjustePorcentaje')) || 0,
+            etiqueta: getProp(plan, 'etiqueta', 'Etiqueta') || '',
+            orden: Number(getProp(plan, 'orden', 'Orden')) || 0,
+            observaciones: getProp(plan, 'observaciones', 'Observaciones') || ''
+        };
+    }
+
+    function getPlanesGlobalesDisponibles() {
+        const medio = getMedioGlobalSeleccionado();
+        if (!medio) return [];
+
+        const planes = [...(medio.planesGenerales || [])].map(normalizarPlanGlobal);
+        const tarjetaId = parseInt(selectTarjeta?.value);
+        if (tarjetaId) {
+            const tarjeta = medio.tarjetas.find(t => Number(t.id) === tarjetaId);
+            if (tarjeta) {
+                planes.push(...(tarjeta.planesEspecificos || []).map(normalizarPlanGlobal));
+            }
+        }
+
+        return planes
+            .filter(p => p.cantidadCuotas >= 1)
+            .sort((a, b) => a.orden - b.orden || a.cantidadCuotas - b.cantidadCuotas || a.id - b.id);
+    }
+
+    function repoblarCuotasDesdePlanesGlobales(planes) {
+        if (!selectCuotasTarjeta) return;
+
+        while (selectCuotasTarjeta.options.length) selectCuotasTarjeta.remove(0);
+
+        const cuotas = [...new Set((planes || []).map(p => p.cantidadCuotas).filter(c => c >= 1))]
+            .sort((a, b) => a - b);
+
+        if (cuotas.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '1';
+            opt.textContent = '1 Pago';
+            selectCuotasTarjeta.appendChild(opt);
+            return;
+        }
+
+        cuotas.forEach(cantidad => {
+            const opt = document.createElement('option');
+            opt.value = String(cantidad);
+            opt.textContent = cantidad === 1 ? '1 Pago' : `${cantidad} Cuotas`;
+            selectCuotasTarjeta.appendChild(opt);
+        });
+    }
+
+    function renderPlanesGlobalesSeleccionados() {
+        if (!configuracionPagosGlobalDisponible) {
+            limpiarSelectorPlanesPago();
+            return;
+        }
+
+        const planes = getPlanesGlobalesDisponibles();
+        repoblarCuotasDesdePlanesGlobales(planes);
+        renderSelectorPlanesPago(planes, { mostrarVacio: true });
+    }
+
     function obtenerLimiteDiagnosticoCuotas(resultado) {
         const maxSinInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasSinInteres', 'MaxCuotasSinInteres'));
         const maxConInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasConInteres', 'MaxCuotasConInteres'));
@@ -450,7 +608,11 @@
         }
 
         const selectedBefore = parseInt(selectCuotasTarjeta.value) || 1;
-        repoblarCuotasTarjeta(info);
+        if (configuracionPagosGlobalDisponible) {
+            repoblarCuotasDesdePlanesGlobales(getPlanesGlobalesDisponibles());
+        } else {
+            repoblarCuotasTarjeta(info);
+        }
 
         const limites = [limiteCuotasExistente, limiteCuotasDiagnostico]
             .map(normalizarLimiteCuotas)
@@ -983,14 +1145,21 @@
 
         // Plan selector reset: always clear on payment type change, re-populated by diagnostico
         limpiarSelectorPlanesPago();
+        tarjetaInfoCache = [];
 
         // Fetch card info if needed
-        if (isTarjeta && tarjetaInfoCache.length === 0) {
+        if (isTarjeta && configuracionPagosGlobalDisponible) {
+            cargarTarjetasActivas();
+        } else if (isTarjeta && tarjetaInfoCache.length === 0) {
             cargarTarjetasActivas();
         } else if (isTarjeta) {
             poblarDatosTarjetaSeleccionada();
         } else {
             limpiarDatosTarjetaSeleccionada();
+        }
+
+        if (!isTarjeta && configuracionPagosGlobalDisponible) {
+            renderPlanesGlobalesSeleccionados();
         }
 
         limiteCuotasDiagnostico = null;
@@ -1003,6 +1172,24 @@
 
     // ── 7. Card Payment ───────────────────────────────────────────────
     async function cargarTarjetasActivas() {
+        if (configuracionPagosGlobalDisponible) {
+            const medio = getMedioGlobalSeleccionado();
+            tarjetaInfoCache = (medio?.tarjetas || []).map(t => ({
+                id: Number(t.id),
+                nombre: t.nombre,
+                tipo: t.tipoTarjeta,
+                tipoTarjeta: t.tipoTarjeta,
+                permiteCuotas: (t.planesEspecificos || []).length > 0 || (medio?.planesGenerales || []).length > 0,
+                cantidadMaximaCuotas: Math.max(
+                    1,
+                    ...(medio?.planesGenerales || []).map(p => Number(getProp(p, 'cantidadCuotas', 'CantidadCuotas')) || 1),
+                    ...(t.planesEspecificos || []).map(p => Number(getProp(p, 'cantidadCuotas', 'CantidadCuotas')) || 1))
+            }));
+            poblarSelectTarjetasGlobales(tarjetaInfoCache);
+            poblarDatosTarjetaSeleccionada();
+            return tarjetaInfoCache;
+        }
+
         if (tarjetaInfoCache.length > 0) {
             return tarjetaInfoCache;
         }
@@ -1015,6 +1202,29 @@
         return tarjetaInfoCache;
     }
 
+    function poblarSelectTarjetasGlobales(tarjetas) {
+        if (!selectTarjeta) return;
+
+        const selectedBefore = selectTarjeta.value;
+        selectTarjeta.replaceChildren();
+
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = tarjetas.length === 0 ? 'Sin tarjetas activas' : 'Seleccione tarjeta...';
+        selectTarjeta.appendChild(empty);
+
+        tarjetas.forEach(tarjeta => {
+            const opt = document.createElement('option');
+            opt.value = String(tarjeta.id);
+            opt.textContent = tarjeta.nombre;
+            selectTarjeta.appendChild(opt);
+        });
+
+        if (tarjetas.some(t => String(t.id) === selectedBefore)) {
+            selectTarjeta.value = selectedBefore;
+        }
+    }
+
     function limpiarDatosTarjetaSeleccionada() {
         if (hdnTarjetaNombre) hdnTarjetaNombre.value = '';
         if (hdnTarjetaTipo) hdnTarjetaTipo.value = '';
@@ -1023,7 +1233,6 @@
 
     function limpiarSelectorPlanesPago() {
         planesDisponibles = [];
-        if (hdnPlanPagoId) hdnPlanPagoId.value = '';
         if (listaPlanesPago) listaPlanesPago.replaceChildren();
         hide(panelPlanesPago);
     }
@@ -1043,20 +1252,28 @@
         return `${label} · ${ajusteLabel}`;
     }
 
-    function renderSelectorPlanesPago(planes) {
+    function renderSelectorPlanesPago(planes, options = {}) {
         const tipoPago = selectTipoPago?.value;
-        if (!esTipoPagoConPlanes(tipoPago) || !planes || planes.length === 0) {
+        if (!esTipoPagoConPlanes(tipoPago)) {
             limpiarSelectorPlanesPago();
             return;
         }
 
-        planesDisponibles = planes;
-        if (hdnPlanPagoId) hdnPlanPagoId.value = '';
         if (!listaPlanesPago) return;
 
+        planesDisponibles = planes || [];
         listaPlanesPago.replaceChildren();
 
-        planes.forEach(plan => {
+        if (planesDisponibles.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs text-slate-400';
+            empty.textContent = 'No hay planes activos configurados para el medio seleccionado.';
+            listaPlanesPago.appendChild(empty);
+            options.mostrarVacio ? show(panelPlanesPago) : hide(panelPlanesPago);
+            return;
+        }
+
+        planesDisponibles.forEach(plan => {
             const planId = getProp(plan, 'id', 'Id');
             const etiqueta = formatearEtiquetaPlan(plan);
             const obs = getProp(plan, 'observaciones', 'Observaciones');
@@ -1089,7 +1306,6 @@
     }
 
     function seleccionarPlan(planId, btnActivo) {
-        if (hdnPlanPagoId) hdnPlanPagoId.value = planId ?? '';
         listaPlanesPago?.querySelectorAll('.plan-pago-btn').forEach(btn => {
             const activo = btn === btnActivo;
             btn.setAttribute('aria-checked', activo ? 'true' : 'false');
@@ -1109,14 +1325,15 @@
             return null;
         }
 
-        const info = tarjetaInfoCache.find(t => t.id === tarjetaId);
+        const info = tarjetaInfoCache.find(t => Number(t.id) === tarjetaId);
         if (!info) {
             limpiarDatosTarjetaSeleccionada();
             return null;
         }
 
         if (hdnTarjetaNombre) hdnTarjetaNombre.value = info.nombre || '';
-        if (hdnTarjetaTipo) hdnTarjetaTipo.value = info.tipo ?? '';
+        if (hdnTarjetaTipo) hdnTarjetaTipo.value = info.tipo ?? info.tipoTarjeta ?? '';
+        renderPlanesGlobalesSeleccionados();
         return info;
     }
 
@@ -1125,6 +1342,7 @@
         const tarjetaId = parseInt(this.value);
         if (!tarjetaId) {
             limpiarDatosTarjetaSeleccionada();
+            renderPlanesGlobalesSeleccionados();
             hide(panelTarjetaResumen);
             limiteCuotasExistente = null;
             limiteCuotasDiagnostico = null;
@@ -1143,7 +1361,11 @@
 
         limiteCuotasDiagnostico = null;
         cuotasLimitadasPorDiagnostico = false;
-        repoblarCuotasTarjeta(info);
+        if (configuracionPagosGlobalDisponible) {
+            renderPlanesGlobalesSeleccionados();
+        } else {
+            repoblarCuotasTarjeta(info);
+        }
 
         // Refresh totals with the new tarjetaId so informational cuotas data stays current.
         await recalcularTotales();
@@ -1821,6 +2043,7 @@
     }
 
     // ── Init ──────────────────────────────────────────────────────────
+    cargarConfiguracionPagosGlobal();
     onTipoPagoChange();
     renderDetalles();
     recalcularTotales();

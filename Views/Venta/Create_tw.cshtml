@@ -209,6 +209,9 @@
                                     }
                                 }
                             </select>
+                            <p id="configuracion-pagos-global-estado" class="mt-1 text-xs text-slate-500" aria-live="polite">
+                                Cargando configuracion global de pagos...
+                            </p>
                         </div>
                     </div>
 
@@ -438,10 +441,9 @@
                                 <span class="material-symbols-outlined text-sm">credit_score</span> Plan de Pago
                             </h4>
                             <p class="text-xs text-slate-500 mb-3">
-                                El ajuste del plan es informativo y no modifica el total de la venta en esta versión.
+                                Cuotas significa cantidad total de pagos. El ajuste se aplica una sola vez sobre el total y queda como preview informativo en esta version.
                             </p>
                             <div id="lista-planes-pago" class="flex flex-wrap gap-2" role="radiogroup" aria-label="Plan de pago"></div>
-                            <input type="hidden" name="DatosTarjeta.ProductoCondicionPagoPlanId" id="hdn-plan-pago-id" />
                         </div>
 
                         @* Cheque *@

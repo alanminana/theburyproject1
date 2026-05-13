@@ -47,8 +47,10 @@ public class VentaCreateUiContractTests
         Assert.Contains("id=\"panel-tarjeta\"", view);
         Assert.Contains("id=\"panel-cheque\"", view);
         Assert.Contains("id=\"panel-credito-personal\"", view);
-        Assert.Contains("name=\"DatosTarjeta.ProductoCondicionPagoPlanId\"", view);
-        Assert.Contains("id=\"hdn-plan-pago-id\"", view);
+        Assert.Contains("id=\"panel-planes-pago\"", view);
+        Assert.Contains("id=\"configuracion-pagos-global-estado\"", view);
+        Assert.DoesNotContain("name=\"DatosTarjeta.ProductoCondicionPagoPlanId\"", view);
+        Assert.DoesNotContain("id=\"hdn-plan-pago-id\"", view);
     }
 
     [Fact]
@@ -92,11 +94,38 @@ public class VentaCreateUiContractTests
         var tipoPago = ExtractFunction(script, "function onTipoPagoChange");
 
         Assert.Contains("selectTipoPago?.addEventListener('change', onTipoPagoChange)", script);
+        Assert.Contains("cargarConfiguracionPagosGlobal()", script);
+        Assert.Contains("fetchJson('/api/ventas/configuracion-pagos-global')", script);
+        Assert.Contains("aplicarMediosGlobalesAlSelector(medios)", script);
         Assert.Contains("const val = selectTipoPago.value", tipoPago);
         Assert.Contains("const isTarjeta = esTipoPagoTarjeta(val)", tipoPago);
         Assert.Contains("isTarjeta ? show(panelTarjeta) : hide(panelTarjeta)", tipoPago);
         Assert.Contains("isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal)", tipoPago);
         Assert.Contains("renderDetalles()", tipoPago);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ManejaMediosTarjetasPlanesGlobales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function normalizarMedioGlobal", script);
+        Assert.Contains("planesGenerales", script);
+        Assert.Contains("planesEspecificos", script);
+        Assert.Contains("function getPlanesGlobalesDisponibles", script);
+        Assert.Contains("function renderPlanesGlobalesSeleccionados", script);
+        Assert.Contains("No hay planes activos configurados para el medio seleccionado.", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ContemplaEndpointGlobalVacioOFallido()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var cargar = ExtractFunction(script, "async function cargarConfiguracionPagosGlobal");
+
+        Assert.Contains("No hay medios activos en la configuracion global.", cargar);
+        Assert.Contains("No se pudo cargar la configuracion global. Se conserva el selector actual.", cargar);
+        Assert.Contains("catch", cargar);
     }
 
     [Fact]
@@ -154,6 +183,8 @@ public class VentaCreateUiContractTests
 
         Assert.DoesNotContain("Detalles[${i}].TipoPago", render);
         Assert.DoesNotContain("Detalles[${i}].ProductoCondicionPagoPlanId", render);
+        Assert.DoesNotContain("ProductoCondicionPagoPlanId", script);
+        Assert.DoesNotContain("hdn-plan-pago-id", script);
         Assert.DoesNotContain("if (d.tipoPago != null)", render);
         Assert.DoesNotContain("if (d.planId != null)", render);
     }
