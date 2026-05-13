@@ -1417,6 +1417,9 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.RecargoAplicado).HasPrecision(18, 2);
                 entity.Property(e => e.PorcentajeAjustePlanAplicado).HasPrecision(5, 2);
                 entity.Property(e => e.MontoAjustePlanAplicado).HasPrecision(18, 2);
+                entity.Property(e => e.PorcentajeAjustePagoAplicado).HasPrecision(5, 2);
+                entity.Property(e => e.MontoAjustePagoAplicado).HasPrecision(18, 2);
+                entity.Property(e => e.NombrePlanPagoSnapshot).HasMaxLength(100);
 
                 entity.HasOne(e => e.Venta)
                     .WithOne(v => v.DatosTarjeta)
@@ -1426,6 +1429,11 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.ConfiguracionTarjeta)
                     .WithMany()
                     .HasForeignKey(e => e.ConfiguracionTarjetaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.ConfiguracionPagoPlan)
+                    .WithMany()
+                    .HasForeignKey(e => e.ConfiguracionPagoPlanId)
                     .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasOne(e => e.ProductoCondicionPagoPlan)

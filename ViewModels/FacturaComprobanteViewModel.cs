@@ -79,6 +79,8 @@ namespace TheBuryProject.ViewModels
         public decimal RecargoDebitoAplicado { get; set; }
         public decimal? PorcentajeAjustePlanAplicado { get; set; }
         public decimal? MontoAjustePlanAplicado { get; set; }
+        public string? NombrePlanPagoSnapshot { get; set; }
+        public int? CantidadCuotas { get; set; }
         public decimal Total { get; set; }
     }
 }

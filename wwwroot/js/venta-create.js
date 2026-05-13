@@ -97,6 +97,7 @@
     const panelAvisoCuotasSinInteres = $('#panel-aviso-cuotas-sin-interes');
     const hdnTarjetaNombre = $('#hdn-tarjeta-nombre');
     const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
+    const hdnConfiguracionPagoPlanId = $('#hdn-configuracion-pago-plan-id');
     const estadoConfiguracionPagosGlobal = $('#configuracion-pagos-global-estado');
 
     const panelPlanesPago = $('#panel-planes-pago');
@@ -1046,6 +1047,7 @@
 
         try {
             const tarjetaId = parseInt(selectTarjeta?.value) || null;
+            const planId = parseInt(hdnConfiguracionPagoPlanId?.value) || null;
             const body = {
                 detalles: detalles.map(d => ({
                     productoId: d.productoId,
@@ -1055,7 +1057,9 @@
                 })),
                 descuentoGeneral: 0,
                 descuentoEsPorcentaje: true,
-                tarjetaId: tarjetaId
+                tipoPago: parseInt(selectTipoPago?.value) || 0,
+                tarjetaId: tarjetaId,
+                configuracionPagoPlanId: planId
             };
 
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
@@ -1081,8 +1085,9 @@
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
         const recargoDebito = Number(backendResult?.recargoDebitoAplicado) || 0;
         const porcentajeRecargoDebito = Number(backendResult?.porcentajeRecargoDebitoAplicado) || 0;
+        const totalConAjustePagoGlobal = backendResult?.totalConAjustePagoGlobal;
         const totalConAjusteItems = backendResult?.totalConAjusteItems;
-        const totalBase = totalConAjusteItems ?? total;
+        const totalBase = totalConAjustePagoGlobal ?? totalConAjusteItems ?? total;
         const totalDisplay = recargoDebito > 0
             ? totalBase + recargoDebito
             : (backendResult?.totalConRecargoDebito ?? totalBase);
@@ -1095,7 +1100,7 @@
         if (hdnSubtotal) hdnSubtotal.value = subtotal.toFixed(2);
         if (hdnDescuento) hdnDescuento.value = descuento.toFixed(2);
         if (hdnIva) hdnIva.value = iva.toFixed(2);
-        if (hdnTotal) hdnTotal.value = total.toFixed(2);
+        if (hdnTotal) hdnTotal.value = totalBase.toFixed(2);
         actualizarResumenOperacion(totalDisplay);
 
         const tarjetaRecargo = $('#tarjeta-recargo');
@@ -1154,6 +1159,9 @@
             cargarTarjetasActivas();
         } else if (isTarjeta) {
             poblarDatosTarjetaSeleccionada();
+        } else if (val === TIPO_PAGO.MercadoPago) {
+            if (hdnTarjetaNombre) hdnTarjetaNombre.value = 'Mercado Pago';
+            if (hdnTarjetaTipo) hdnTarjetaTipo.value = '1';
         } else {
             limpiarDatosTarjetaSeleccionada();
         }
@@ -1228,11 +1236,13 @@
     function limpiarDatosTarjetaSeleccionada() {
         if (hdnTarjetaNombre) hdnTarjetaNombre.value = '';
         if (hdnTarjetaTipo) hdnTarjetaTipo.value = '';
+        if (hdnConfiguracionPagoPlanId) hdnConfiguracionPagoPlanId.value = '';
         limpiarSelectorPlanesPago();
     }
 
     function limpiarSelectorPlanesPago() {
         planesDisponibles = [];
+        if (hdnConfiguracionPagoPlanId) hdnConfiguracionPagoPlanId.value = '';
         if (listaPlanesPago) listaPlanesPago.replaceChildren();
         hide(panelPlanesPago);
     }
@@ -1302,10 +1312,26 @@
             listaPlanesPago.appendChild(btn);
         });
 
+        const planSeleccionado = hdnConfiguracionPagoPlanId?.value;
+        const btnSeleccionado = planSeleccionado
+            ? listaPlanesPago.querySelector(`.plan-pago-btn[data-plan-id="${planSeleccionado}"]`)
+            : listaPlanesPago.querySelector('.plan-pago-btn');
+        if (btnSeleccionado) {
+            seleccionarPlan(btnSeleccionado.dataset.planId, btnSeleccionado);
+        }
+
         show(panelPlanesPago);
     }
 
     function seleccionarPlan(planId, btnActivo) {
+        if (hdnConfiguracionPagoPlanId) hdnConfiguracionPagoPlanId.value = planId ? String(planId) : '';
+
+        const plan = planesDisponibles.find(p => Number(p.id ?? getProp(p, 'id', 'Id')) === Number(planId));
+        const cuotas = Number(plan?.cantidadCuotas ?? getProp(plan, 'cantidadCuotas', 'CantidadCuotas')) || 1;
+        if (selectCuotasTarjeta) {
+            selectCuotasTarjeta.value = String(cuotas);
+        }
+
         listaPlanesPago?.querySelectorAll('.plan-pago-btn').forEach(btn => {
             const activo = btn === btnActivo;
             btn.setAttribute('aria-checked', activo ? 'true' : 'false');
@@ -1316,6 +1342,8 @@
             btn.classList.toggle('text-slate-300', !activo);
             btn.classList.toggle('bg-slate-800', !activo);
         });
+
+        recalcularTotales();
     }
 
     function poblarDatosTarjetaSeleccionada() {

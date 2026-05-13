@@ -40,6 +40,16 @@ namespace TheBuryProject.Services.Interfaces
 
         CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
         Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
+        Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConPagoGlobalAsync(
+            List<DetalleCalculoVentaRequest> detalles,
+            decimal descuentoGeneral,
+            bool descuentoEsPorcentaje,
+            global::TheBuryProject.Models.Enums.TipoPago tipoPago,
+            int? configuracionTarjetaId,
+            int? configuracionPagoPlanId)
+        {
+            return CalcularTotalesPreviewAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
+        }
 
         /// <summary>
         /// Resuelve el total efectivo de una venta: usa venta.Total si es válido,

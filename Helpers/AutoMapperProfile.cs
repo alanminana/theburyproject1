@@ -302,9 +302,13 @@ namespace TheBuryProject.Helpers
             CreateMap<DatosTarjetaViewModel, DatosTarjeta>()
                 .ForMember(d => d.Venta, o => o.Ignore())
                 .ForMember(d => d.ConfiguracionTarjeta, o => o.Ignore())
+                .ForMember(d => d.ConfiguracionPagoPlan, o => o.Ignore())
                 .ForMember(d => d.ProductoCondicionPagoPlan, o => o.Ignore())
                 .ForMember(d => d.PorcentajeAjustePlanAplicado, o => o.Ignore())
-                .ForMember(d => d.MontoAjustePlanAplicado, o => o.Ignore());
+                .ForMember(d => d.MontoAjustePlanAplicado, o => o.Ignore())
+                .ForMember(d => d.PorcentajeAjustePagoAplicado, o => o.Ignore())
+                .ForMember(d => d.MontoAjustePagoAplicado, o => o.Ignore())
+                .ForMember(d => d.NombrePlanPagoSnapshot, o => o.Ignore());
 
             // =======================
             // DatosCheque

@@ -11,6 +11,7 @@ namespace TheBuryProject.Models.Entities
     {
         public int VentaId { get; set; }
         public int? ConfiguracionTarjetaId { get; set; }
+        public int? ConfiguracionPagoPlanId { get; set; }
 
         [Required]
         [StringLength(100)]
@@ -55,6 +56,21 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public decimal? MontoAjustePlanAplicado { get; set; }
 
+        /// <summary>
+        /// Snapshot del porcentaje de ajuste global aplicado a la venta.
+        /// Independiente de ProductoCondicionPagoPlanId, que pertenece al flujo legacy por producto.
+        /// </summary>
+        public decimal? PorcentajeAjustePagoAplicado { get; set; }
+
+        /// <summary>
+        /// Snapshot del monto de ajuste global aplicado a la venta.
+        /// Negativo si el plan es descuento, positivo si es recargo.
+        /// </summary>
+        public decimal? MontoAjustePagoAplicado { get; set; }
+
+        [StringLength(100)]
+        public string? NombrePlanPagoSnapshot { get; set; }
+
         [StringLength(50)]
         public string? NumeroAutorizacion { get; set; }
 
@@ -64,6 +80,7 @@ namespace TheBuryProject.Models.Entities
         // Navigation
         public virtual Venta Venta { get; set; } = null!;
         public virtual ConfiguracionTarjeta? ConfiguracionTarjeta { get; set; }
+        public virtual ConfiguracionPagoPlan? ConfiguracionPagoPlan { get; set; }
         public virtual ProductoCondicionPagoPlan? ProductoCondicionPagoPlan { get; set; }
     }
 }

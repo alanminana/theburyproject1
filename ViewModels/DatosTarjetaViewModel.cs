@@ -27,6 +27,9 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Plan de Pago")]
         public int? ProductoCondicionPagoPlanId { get; set; }
 
+        [Display(Name = "Plan Global de Pago")]
+        public int? ConfiguracionPagoPlanId { get; set; }
+
         [Display(Name = "Tipo de Cuota")]
         public TipoCuotaTarjeta? TipoCuota { get; set; }
 
@@ -51,6 +54,17 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Monto de Ajuste por Plan")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal? MontoAjustePlanAplicado { get; set; }
+
+        [Display(Name = "Porcentaje de Ajuste Global")]
+        public decimal? PorcentajeAjustePagoAplicado { get; set; }
+
+        [Display(Name = "Monto de Ajuste Global")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal? MontoAjustePagoAplicado { get; set; }
+
+        [Display(Name = "Plan Global")]
+        [StringLength(100)]
+        public string? NombrePlanPagoSnapshot { get; set; }
 
         [Display(Name = "Número de Autorización")]
         [StringLength(50)]

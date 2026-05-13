@@ -64,6 +64,79 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        public async Task<IActionResult> CrearPlanGlobal(PlanPagoGlobalCommandViewModel plan)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo crear el plan global.");
+                return RedirectToAction(nameof(MediosPago));
+            }
+
+            try
+            {
+                await _configuracionPagoGlobalAdminService.CrearPlanGlobalAsync(plan);
+                TempData["Success"] = "Plan global creado correctamente.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al crear plan global de pago");
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        public async Task<IActionResult> EditarPlanGlobal(int id, PlanPagoGlobalCommandViewModel plan)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo editar el plan global.");
+                return RedirectToAction(nameof(MediosPago));
+            }
+
+            try
+            {
+                var resultado = await _configuracionPagoGlobalAdminService.ActualizarPlanGlobalAsync(id, plan);
+                TempData[resultado == null ? "Error" : "Success"] = resultado == null
+                    ? "Plan global no encontrado."
+                    : "Plan global actualizado correctamente.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al editar plan global de pago {PlanId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo)
+        {
+            try
+            {
+                var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoPlanGlobalAsync(id, activo);
+                TempData[actualizado ? "Success" : "Error"] = actualizado
+                    ? (activo ? "Plan global activado correctamente." : "Plan global inactivado correctamente.")
+                    : "Plan global no encontrado.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al cambiar estado del plan global de pago {PlanId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago));
+        }
+
         // GET: ConfiguracionPago/Details/5
         public async Task<IActionResult> Details(int id)
         {
@@ -385,6 +458,15 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al guardar configuraciones desde modal");
                 return Json(new { success = false, message = "Error al guardar las configuraciones: " + ex.Message });
             }
+        }
+
+        private string ObtenerPrimerErrorModelState(string fallback)
+        {
+            return ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e))
+                ?? fallback;
         }
 
         #endregion

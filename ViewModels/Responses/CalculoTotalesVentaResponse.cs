@@ -25,6 +25,18 @@ namespace TheBuryProject.ViewModels.Responses
         public decimal AjusteItemsAplicado { get; set; }
 
         public decimal? TotalConAjusteItems { get; set; }
+
+        public decimal AjustePagoGlobalAplicado { get; set; }
+
+        public decimal? PorcentajeAjustePagoGlobalAplicado { get; set; }
+
+        public decimal? TotalConAjustePagoGlobal { get; set; }
+
+        public int? CantidadCuotasPagoGlobal { get; set; }
+
+        public decimal? ValorCuotaPagoGlobal { get; set; }
+
+        public string? NombrePlanPagoGlobal { get; set; }
     }
 
     public class DetalleCalculoTotalesVentaResponse

@@ -12,7 +12,11 @@ namespace TheBuryProject.ViewModels.Requests
 
         public bool DescuentoEsPorcentaje { get; set; }
 
+        public TipoPago TipoPago { get; set; } = TipoPago.Efectivo;
+
         public int? TarjetaId { get; set; }
+
+        public int? ConfiguracionPagoPlanId { get; set; }
     }
 
     public class DetalleCalculoVentaRequest

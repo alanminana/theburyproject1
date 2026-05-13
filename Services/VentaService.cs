@@ -572,6 +572,7 @@ namespace TheBuryProject.Services
 
             var venta = await _context.Ventas
                 .Include(v => v.Detalles)
+                .Include(v => v.DatosTarjeta)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (venta == null)
@@ -600,6 +601,7 @@ namespace TheBuryProject.Services
             await AplicarPrecioVigenteADetallesAsync(venta);
 
             CalcularTotales(venta);
+            await AplicarAjustePagoGlobalPersistidoAsync(venta);
             await CalcularComisionesAsync(venta);
 
             await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
@@ -1626,12 +1628,18 @@ namespace TheBuryProject.Services
                 planSeleccionado = await ValidarYObtenerPlanPagoAsync(datosTarjeta.ProductoCondicionPagoPlanId.Value, venta.TipoPago);
             }
 
+            var planGlobal = await ValidarYObtenerPlanPagoGlobalAsync(
+                datosTarjeta.ConfiguracionPagoPlanId,
+                venta.TipoPago,
+                datosTarjeta.ConfiguracionTarjetaId);
+
             var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
             datosTarjetaEntity.VentaId = ventaId;
 
             var tipoTarjeta = configuracionTarjeta?.TipoTarjeta ?? datosTarjeta.TipoTarjeta;
             if (configuracionTarjeta != null)
             {
+                ValidarTarjetaCorrespondeATipoPago(configuracionTarjeta, venta.TipoPago);
                 datosTarjetaEntity.ConfiguracionTarjetaId = configuracionTarjeta.Id;
                 datosTarjetaEntity.NombreTarjeta = configuracionTarjeta.NombreTarjeta;
                 datosTarjetaEntity.TipoTarjeta = configuracionTarjeta.TipoTarjeta;
@@ -1680,10 +1688,154 @@ namespace TheBuryProject.Services
                 datosTarjetaEntity.MontoAjustePlanAplicado = montoAjuste;
             }
 
+            if (planGlobal != null)
+            {
+                AplicarAjustePagoGlobal(venta, datosTarjetaEntity, planGlobal);
+            }
+
             _context.DatosTarjeta.Add(datosTarjetaEntity);
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        private async Task<ConfiguracionPagoPlan?> ValidarYObtenerPlanPagoGlobalAsync(
+            int? planId,
+            TipoPago tipoPagoVenta,
+            int? configuracionTarjetaId)
+        {
+            if (!TiposPagoConPlanes.Contains(tipoPagoVenta))
+            {
+                if (planId.HasValue)
+                    throw new InvalidOperationException("El medio de pago elegido no admite plan global.");
+
+                return null;
+            }
+
+            if (!planId.HasValue)
+            {
+                if (await ExistenPlanesGlobalesActivosAsync(tipoPagoVenta, configuracionTarjetaId))
+                    throw new InvalidOperationException("Debe seleccionar un plan de pago para el medio elegido.");
+
+                return null;
+            }
+
+            var plan = await _context.ConfiguracionPagoPlanes
+                .Include(p => p.ConfiguracionPago)
+                .Include(p => p.ConfiguracionTarjeta)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == planId.Value && !p.IsDeleted);
+
+            if (plan == null)
+                throw new InvalidOperationException("El plan global de pago seleccionado no existe.");
+
+            if (!plan.Activo)
+                throw new InvalidOperationException("El plan global de pago seleccionado no esta disponible.");
+
+            if (plan.ConfiguracionPago == null || plan.ConfiguracionPago.IsDeleted || !plan.ConfiguracionPago.Activo)
+                throw new InvalidOperationException("El medio de pago del plan global no esta disponible.");
+
+            if (plan.TipoPago != tipoPagoVenta || plan.ConfiguracionPago.TipoPago != tipoPagoVenta)
+                throw new InvalidOperationException("El plan global seleccionado no corresponde al medio de pago elegido.");
+
+            if (plan.ConfiguracionTarjetaId.HasValue)
+            {
+                if (!configuracionTarjetaId.HasValue || plan.ConfiguracionTarjetaId.Value != configuracionTarjetaId.Value)
+                    throw new InvalidOperationException("El plan global seleccionado no corresponde a la tarjeta elegida.");
+
+                if (plan.ConfiguracionTarjeta == null || plan.ConfiguracionTarjeta.IsDeleted || !plan.ConfiguracionTarjeta.Activa)
+                    throw new InvalidOperationException("La tarjeta del plan global seleccionado no esta disponible.");
+
+                ValidarTarjetaCorrespondeATipoPago(plan.ConfiguracionTarjeta, tipoPagoVenta);
+            }
+
+            return plan;
+        }
+
+        private async Task<bool> ExistenPlanesGlobalesActivosAsync(TipoPago tipoPagoVenta, int? configuracionTarjetaId)
+        {
+            var query = _context.ConfiguracionPagoPlanes
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Activo && p.TipoPago == tipoPagoVenta)
+                .Where(p => p.ConfiguracionPago.Activo && !p.ConfiguracionPago.IsDeleted);
+
+            if (configuracionTarjetaId.HasValue)
+            {
+                query = query.Where(p => p.ConfiguracionTarjetaId == null || p.ConfiguracionTarjetaId == configuracionTarjetaId.Value);
+            }
+            else
+            {
+                query = query.Where(p => p.ConfiguracionTarjetaId == null);
+            }
+
+            return await query.AnyAsync();
+        }
+
+        private static void ValidarTarjetaCorrespondeATipoPago(ConfiguracionTarjeta tarjeta, TipoPago tipoPagoVenta)
+        {
+            var tarjetaEsperada = tipoPagoVenta switch
+            {
+                TipoPago.TarjetaCredito => TipoTarjeta.Credito,
+                TipoPago.TarjetaDebito => TipoTarjeta.Debito,
+                _ => (TipoTarjeta?)null
+            };
+
+            if (tarjetaEsperada.HasValue && tarjeta.TipoTarjeta != tarjetaEsperada.Value)
+                throw new InvalidOperationException("La tarjeta seleccionada no corresponde al medio de pago elegido.");
+        }
+
+        private static void AplicarAjustePagoGlobal(
+            Venta venta,
+            DatosTarjeta datosTarjeta,
+            ConfiguracionPagoPlan plan)
+        {
+            var resultado = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+            {
+                BaseVenta = venta.Total,
+                PorcentajeAjuste = plan.AjustePorcentaje,
+                CantidadCuotas = plan.CantidadCuotas,
+                MedioActivo = plan.ConfiguracionPago.Activo,
+                TarjetaActiva = plan.ConfiguracionTarjeta?.Activa,
+                PlanActivo = plan.Activo
+            });
+
+            if (!resultado.EsValido)
+                throw new InvalidOperationException(resultado.Mensaje ?? "El plan global de pago no es valido.");
+
+            venta.Total = resultado.TotalFinal;
+            datosTarjeta.ConfiguracionPagoPlanId = plan.Id;
+            datosTarjeta.CantidadCuotas = plan.CantidadCuotas;
+            datosTarjeta.PorcentajeAjustePagoAplicado = resultado.PorcentajeAjuste;
+            datosTarjeta.MontoAjustePagoAplicado = resultado.MontoAjuste;
+            datosTarjeta.MontoCuota = resultado.ValorCuota;
+            datosTarjeta.MontoTotalConInteres = resultado.TotalFinal;
+            datosTarjeta.NombrePlanPagoSnapshot = CrearNombrePlanPagoSnapshot(plan);
+        }
+
+        private async Task AplicarAjustePagoGlobalPersistidoAsync(Venta venta)
+        {
+            if (venta.DatosTarjeta?.ConfiguracionPagoPlanId is not int planId)
+                return;
+
+            var plan = await ValidarYObtenerPlanPagoGlobalAsync(
+                planId,
+                venta.TipoPago,
+                venta.DatosTarjeta.ConfiguracionTarjetaId);
+
+            if (plan == null)
+                return;
+
+            AplicarAjustePagoGlobal(venta, venta.DatosTarjeta, plan);
+        }
+
+        private static string CrearNombrePlanPagoSnapshot(ConfiguracionPagoPlan plan)
+        {
+            if (!string.IsNullOrWhiteSpace(plan.Etiqueta))
+                return plan.Etiqueta.Trim();
+
+            return plan.CantidadCuotas == 1
+                ? "1 pago"
+                : $"{plan.CantidadCuotas} cuotas";
         }
 
         private static readonly TipoPago[] TiposPagoConPlanes =
@@ -1831,6 +1983,44 @@ namespace TheBuryProject.Services
         public async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
         {
             return await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
+        }
+
+        public async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConPagoGlobalAsync(
+            List<DetalleCalculoVentaRequest> detalles,
+            decimal descuentoGeneral,
+            bool descuentoEsPorcentaje,
+            TipoPago tipoPago,
+            int? configuracionTarjetaId,
+            int? configuracionPagoPlanId)
+        {
+            var response = await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
+            var plan = await ValidarYObtenerPlanPagoGlobalAsync(configuracionPagoPlanId, tipoPago, configuracionTarjetaId);
+
+            if (plan == null)
+                return response;
+
+            var resultado = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+            {
+                BaseVenta = response.Total,
+                PorcentajeAjuste = plan.AjustePorcentaje,
+                CantidadCuotas = plan.CantidadCuotas,
+                MedioActivo = plan.ConfiguracionPago.Activo,
+                TarjetaActiva = plan.ConfiguracionTarjeta?.Activa,
+                PlanActivo = plan.Activo
+            });
+
+            if (!resultado.EsValido)
+                throw new InvalidOperationException(resultado.Mensaje ?? "El plan global de pago no es valido.");
+
+            response.AjustePagoGlobalAplicado = resultado.MontoAjuste;
+            response.PorcentajeAjustePagoGlobalAplicado = resultado.PorcentajeAjuste;
+            response.TotalConAjustePagoGlobal = resultado.TotalFinal;
+            response.CantidadCuotasPagoGlobal = resultado.CantidadCuotas;
+            response.ValorCuotaPagoGlobal = resultado.ValorCuota;
+            response.NombrePlanPagoGlobal = CrearNombrePlanPagoSnapshot(plan);
+            response.Total = resultado.TotalFinal;
+
+            return response;
         }
 
         #endregion

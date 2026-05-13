@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels;
@@ -70,4 +71,31 @@ public sealed class PlanPagoGlobalAdminViewModel
         < 0m => $"Descuento {Math.Abs(AjustePorcentaje):0.##}%",
         _ => "Sin ajuste"
     };
+}
+
+public sealed class PlanPagoGlobalCommandViewModel
+{
+    [Required]
+    public int ConfiguracionPagoId { get; set; }
+
+    public int? ConfiguracionTarjetaId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "La cantidad de cuotas debe ser al menos 1.")]
+    public int CantidadCuotas { get; set; } = 1;
+
+    public bool Activo { get; set; } = true;
+
+    [Required]
+    public TipoAjustePagoPlan TipoAjuste { get; set; } = TipoAjustePagoPlan.Porcentaje;
+
+    [Range(typeof(decimal), "-100.0000", "999.9999", ErrorMessage = "El porcentaje debe estar entre -100.0000 y 999.9999.")]
+    public decimal AjustePorcentaje { get; set; }
+
+    [StringLength(100, ErrorMessage = "La etiqueta no puede superar 100 caracteres.")]
+    public string? Etiqueta { get; set; }
+
+    public int Orden { get; set; }
+
+    [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres.")]
+    public string? Observaciones { get; set; }
 }

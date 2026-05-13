@@ -58,8 +58,10 @@
     var cantidadUnidades = detalles.Sum(d => d.Cantidad);
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
     var datosTarjeta = Model.DatosTarjeta;
-    var ajustePlanMonto = datosTarjeta?.MontoAjustePlanAplicado;
-    var ajustePlanPct = datosTarjeta?.PorcentajeAjustePlanAplicado;
+    var ajustePlanMonto = datosTarjeta?.MontoAjustePagoAplicado ?? datosTarjeta?.MontoAjustePlanAplicado;
+    var ajustePlanPct = datosTarjeta?.PorcentajeAjustePagoAplicado ?? datosTarjeta?.PorcentajeAjustePlanAplicado;
+    var nombrePlanPago = datosTarjeta?.NombrePlanPagoSnapshot;
+    var cuotasPlanPago = datosTarjeta?.CantidadCuotas;
     var heroDescripcion = Model.Estado switch
     {
         EstadoVenta.Presupuesto => "Revisá el detalle, completá la configuración pendiente y prepará la aprobación o confirmación final.",
@@ -239,6 +241,13 @@
                                 <span class="material-symbols-outlined text-primary text-sm">@tipoPagoIcon</span>
                                 <p class="text-sm font-bold text-white">@tipoPagoDisplay</p>
                             </div>
+                            @if (!string.IsNullOrWhiteSpace(nombrePlanPago) || cuotasPlanPago.HasValue)
+                            {
+                                var planPagoLabel = !string.IsNullOrWhiteSpace(nombrePlanPago)
+                                    ? nombrePlanPago
+                                    : cuotasPlanPago == 1 ? "1 pago" : $"{cuotasPlanPago} cuotas";
+                                <p class="mt-1 text-[11px] text-slate-400">@planPagoLabel</p>
+                            }
                         </div>
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Vendedor</p>

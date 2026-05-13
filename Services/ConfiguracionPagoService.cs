@@ -107,6 +107,193 @@ namespace TheBuryProject.Services
             };
         }
 
+        public async Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
+        {
+            ArgumentNullException.ThrowIfNull(command);
+
+            var medio = await ObtenerMedioPagoParaPlanAsync(command.ConfiguracionPagoId);
+            await ValidarPlanGlobalCommandAsync(command, medio, planId: null);
+
+            var ahora = DateTime.UtcNow;
+            var plan = new ConfiguracionPagoPlan
+            {
+                ConfiguracionPagoId = medio.Id,
+                ConfiguracionTarjetaId = command.ConfiguracionTarjetaId,
+                TipoPago = medio.TipoPago,
+                CantidadCuotas = command.CantidadCuotas,
+                Activo = command.Activo,
+                TipoAjuste = command.TipoAjuste,
+                AjustePorcentaje = command.AjustePorcentaje,
+                Etiqueta = NormalizarTexto(command.Etiqueta),
+                Orden = command.Orden,
+                Observaciones = NormalizarTexto(command.Observaciones),
+                CreatedAt = ahora,
+                UpdatedAt = ahora
+            };
+
+            _context.ConfiguracionPagoPlanes.Add(plan);
+            await _context.SaveChangesAsync();
+
+            await _context.Entry(plan).Reference(p => p.ConfiguracionTarjeta).LoadAsync();
+            return MapPlanGlobalAdmin(plan);
+        }
+
+        public async Task<PlanPagoGlobalAdminViewModel?> ActualizarPlanGlobalAsync(int id, PlanPagoGlobalCommandViewModel command)
+        {
+            ArgumentNullException.ThrowIfNull(command);
+
+            var plan = await _context.ConfiguracionPagoPlanes
+                .Include(p => p.ConfiguracionPago)
+                .Include(p => p.ConfiguracionTarjeta)
+                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+
+            if (plan == null)
+                return null;
+
+            var medio = await ObtenerMedioPagoParaPlanAsync(command.ConfiguracionPagoId);
+            await ValidarPlanGlobalCommandAsync(command, medio, plan.Id);
+
+            plan.ConfiguracionPagoId = medio.Id;
+            plan.ConfiguracionTarjetaId = command.ConfiguracionTarjetaId;
+            plan.TipoPago = medio.TipoPago;
+            plan.CantidadCuotas = command.CantidadCuotas;
+            plan.Activo = command.Activo;
+            plan.TipoAjuste = command.TipoAjuste;
+            plan.AjustePorcentaje = command.AjustePorcentaje;
+            plan.Etiqueta = NormalizarTexto(command.Etiqueta);
+            plan.Orden = command.Orden;
+            plan.Observaciones = NormalizarTexto(command.Observaciones);
+            plan.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            await _context.Entry(plan).Reference(p => p.ConfiguracionTarjeta).LoadAsync();
+            return MapPlanGlobalAdmin(plan);
+        }
+
+        public async Task<bool> CambiarEstadoPlanGlobalAsync(int id, bool activo)
+        {
+            var plan = await _context.ConfiguracionPagoPlanes
+                .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
+
+            if (plan == null)
+                return false;
+
+            if (activo)
+            {
+                await ValidarDuplicadoActivoPlanGlobalAsync(
+                    plan.ConfiguracionPagoId,
+                    plan.TipoPago,
+                    plan.ConfiguracionTarjetaId,
+                    plan.CantidadCuotas,
+                    plan.Id);
+            }
+
+            plan.Activo = activo;
+            plan.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        private async Task<ConfiguracionPago> ObtenerMedioPagoParaPlanAsync(int configuracionPagoId)
+        {
+            var medio = await _context.ConfiguracionesPago
+                .FirstOrDefaultAsync(c => c.Id == configuracionPagoId && !c.IsDeleted);
+
+            return medio ?? throw new InvalidOperationException("El medio de pago global no existe.");
+        }
+
+        private async Task ValidarPlanGlobalCommandAsync(
+            PlanPagoGlobalCommandViewModel command,
+            ConfiguracionPago medio,
+            int? planId)
+        {
+            if (command.CantidadCuotas < 1)
+                throw new InvalidOperationException("La cantidad de cuotas debe ser al menos 1.");
+
+            if (command.AjustePorcentaje < -100.0000m || command.AjustePorcentaje > 999.9999m)
+                throw new InvalidOperationException("El porcentaje debe estar entre -100.0000 y 999.9999.");
+
+            if (command.TipoAjuste != TipoAjustePagoPlan.Porcentaje)
+                throw new InvalidOperationException("El tipo de ajuste global indicado no esta soportado.");
+
+            if (command.ConfiguracionTarjetaId.HasValue)
+            {
+                var tarjetaValida = await _context.ConfiguracionesTarjeta
+                    .AnyAsync(t => t.Id == command.ConfiguracionTarjetaId.Value
+                                   && t.ConfiguracionPagoId == medio.Id
+                                   && !t.IsDeleted);
+
+                if (!tarjetaValida)
+                    throw new InvalidOperationException("La tarjeta indicada no pertenece al medio de pago global.");
+            }
+
+            var validacionAjuste = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+            {
+                BaseVenta = 100m,
+                PorcentajeAjuste = command.AjustePorcentaje,
+                CantidadCuotas = command.CantidadCuotas,
+                MedioActivo = true,
+                PlanActivo = command.Activo
+            });
+
+            if (validacionAjuste.Estado == EstadoValidacionPagoGlobal.DescuentoMayorAlTotal)
+                throw new InvalidOperationException(validacionAjuste.Mensaje);
+
+            if (command.Activo)
+            {
+                await ValidarDuplicadoActivoPlanGlobalAsync(
+                    medio.Id,
+                    medio.TipoPago,
+                    command.ConfiguracionTarjetaId,
+                    command.CantidadCuotas,
+                    planId);
+            }
+        }
+
+        private async Task ValidarDuplicadoActivoPlanGlobalAsync(
+            int configuracionPagoId,
+            TipoPago tipoPago,
+            int? configuracionTarjetaId,
+            int cantidadCuotas,
+            int? planId)
+        {
+            var existeDuplicado = await _context.ConfiguracionPagoPlanes
+                .AnyAsync(p => p.ConfiguracionPagoId == configuracionPagoId
+                               && p.TipoPago == tipoPago
+                               && p.ConfiguracionTarjetaId == configuracionTarjetaId
+                               && p.CantidadCuotas == cantidadCuotas
+                               && p.Activo
+                               && !p.IsDeleted
+                               && (!planId.HasValue || p.Id != planId.Value));
+
+            if (existeDuplicado)
+                throw new InvalidOperationException("Ya existe un plan activo para el mismo medio, tarjeta y cantidad de cuotas.");
+        }
+
+        private static PlanPagoGlobalAdminViewModel MapPlanGlobalAdmin(ConfiguracionPagoPlan plan) =>
+            new()
+            {
+                Id = plan.Id,
+                ConfiguracionPagoId = plan.ConfiguracionPagoId,
+                ConfiguracionTarjetaId = plan.ConfiguracionTarjetaId,
+                NombreTarjeta = plan.ConfiguracionTarjeta?.NombreTarjeta,
+                TipoPago = plan.TipoPago,
+                CantidadCuotas = plan.CantidadCuotas,
+                Activo = plan.Activo,
+                TipoAjuste = plan.TipoAjuste,
+                AjustePorcentaje = plan.AjustePorcentaje,
+                Etiqueta = plan.Etiqueta,
+                Orden = plan.Orden,
+                Observaciones = plan.Observaciones
+            };
+
+        private static string? NormalizarTexto(string? value)
+        {
+            var trimmed = value?.Trim();
+            return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+        }
+
         public async Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id)
         {
             var configuracion = await _context.ConfiguracionesPago

@@ -67,6 +67,27 @@ public sealed class ConfiguracionPagoControllerTests
         Assert.Single(medio.Planes);
     }
 
+    [Fact]
+    public async Task CrearPlanGlobal_PostValido_RedireccionaAMediosPago()
+    {
+        var adminService = new FakeConfiguracionPagoGlobalAdminService();
+        var controller = CrearController(adminService);
+        var command = new PlanPagoGlobalCommandViewModel
+        {
+            ConfiguracionPagoId = 1,
+            CantidadCuotas = 3,
+            AjustePorcentaje = 10m,
+            Activo = true
+        };
+
+        var result = await controller.CrearPlanGlobal(command);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ConfiguracionPagoController.MediosPago), redirect.ActionName);
+        Assert.True(adminService.CrearPlanInvocado);
+        Assert.Equal("Plan global creado correctamente.", controller.TempData["Success"]);
+    }
+
     private static ConfiguracionPagoController CrearController(FakeConfiguracionPagoGlobalAdminService adminService)
     {
         var httpContext = new DefaultHttpContext();
@@ -84,8 +105,28 @@ public sealed class ConfiguracionPagoControllerTests
     private sealed class FakeConfiguracionPagoGlobalAdminService : IConfiguracionPagoGlobalAdminService
     {
         public ConfiguracionPagoGlobalAdminViewModel AdminModel { get; init; } = new();
+        public bool CrearPlanInvocado { get; private set; }
 
         public Task<ConfiguracionPagoGlobalAdminViewModel> ObtenerAdminGlobalAsync() => Task.FromResult(AdminModel);
+
+        public Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
+        {
+            CrearPlanInvocado = true;
+            return Task.FromResult(new PlanPagoGlobalAdminViewModel
+            {
+                Id = 1,
+                ConfiguracionPagoId = command.ConfiguracionPagoId,
+                ConfiguracionTarjetaId = command.ConfiguracionTarjetaId,
+                CantidadCuotas = command.CantidadCuotas,
+                Activo = command.Activo,
+                AjustePorcentaje = command.AjustePorcentaje
+            });
+        }
+
+        public Task<PlanPagoGlobalAdminViewModel?> ActualizarPlanGlobalAsync(int id, PlanPagoGlobalCommandViewModel command) =>
+            Task.FromResult<PlanPagoGlobalAdminViewModel?>(new PlanPagoGlobalAdminViewModel { Id = id });
+
+        public Task<bool> CambiarEstadoPlanGlobalAsync(int id, bool activo) => Task.FromResult(true);
     }
 
     private sealed class FakeConfiguracionPagoService : IConfiguracionPagoService

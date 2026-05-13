@@ -1354,6 +1354,7 @@ namespace TheBuryProject.Controllers
         {
             bool esTarjeta = tipoPago == TipoPago.TarjetaCredito
                           || tipoPago == TipoPago.TarjetaDebito
+                          || tipoPago == TipoPago.MercadoPago
                           || tipoPago == TipoPago.Tarjeta;
             bool esCheque = tipoPago == TipoPago.Cheque;
 

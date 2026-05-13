@@ -7,6 +7,9 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
+using TheBuryProject.Services.Validators;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -141,6 +144,48 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         _context.ConfiguracionesTarjeta.Add(tarjeta);
         await _context.SaveChangesAsync();
         return tarjeta;
+    }
+
+    private async Task<(ConfiguracionPago Medio, ConfiguracionTarjeta? Tarjeta, ConfiguracionPagoPlan Plan)>
+        SeedPlanGlobal(
+            TipoPago tipoPago,
+            decimal ajustePorcentaje,
+            int cantidadCuotas = 1,
+            bool planActivo = true,
+            ConfiguracionTarjeta? tarjeta = null,
+            bool medioActivo = true,
+            string? etiqueta = null)
+    {
+        var medio = tarjeta == null
+            ? new ConfiguracionPago
+            {
+                TipoPago = tipoPago,
+                Nombre = $"Medio {tipoPago} {Interlocked.Increment(ref _counter)}",
+                Activo = medioActivo,
+                IsDeleted = false
+            }
+            : await _context.ConfiguracionesPago.SingleAsync(c => c.Id == tarjeta.ConfiguracionPagoId);
+
+        if (tarjeta == null)
+        {
+            _context.ConfiguracionesPago.Add(medio);
+            await _context.SaveChangesAsync();
+        }
+
+        var plan = new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id,
+            ConfiguracionTarjetaId = tarjeta?.Id,
+            TipoPago = tipoPago,
+            CantidadCuotas = cantidadCuotas,
+            Activo = planActivo,
+            AjustePorcentaje = ajustePorcentaje,
+            Etiqueta = etiqueta,
+            IsDeleted = false
+        };
+        _context.ConfiguracionPagoPlanes.Add(plan);
+        await _context.SaveChangesAsync();
+        return (medio, tarjeta, plan);
     }
 
     // ── Tests ────────────────────────────────────────────────────────
@@ -874,5 +919,185 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
 
         var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
         Assert.Equal(5_500m, ventaActualizada.Total);
+    }
+
+    [Fact]
+    public async Task CalcularTotalesPreviewConPagoGlobal_Recargo10_AplicaSobreTotalBase()
+    {
+        var producto = await SeedProductoSimple("PG-PREV-REC");
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 10m, cantidadCuotas: 3, etiqueta: "3 cuotas +10");
+
+        var result = await _service.CalcularTotalesPreviewConPagoGlobalAsync(
+            new List<TheBuryProject.ViewModels.Requests.DetalleCalculoVentaRequest>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1_000m }
+            },
+            descuentoGeneral: 0m,
+            descuentoEsPorcentaje: false,
+            TipoPago.MercadoPago,
+            configuracionTarjetaId: null,
+            configuracionPagoPlanId: plan.Id);
+
+        Assert.Equal(1_100m, result.Total);
+        Assert.Equal(100m, result.AjustePagoGlobalAplicado);
+        Assert.Equal(10m, result.PorcentajeAjustePagoGlobalAplicado);
+        Assert.Equal(3, result.CantidadCuotasPagoGlobal);
+        Assert.Equal(366.67m, result.ValorCuotaPagoGlobal);
+        Assert.Equal("3 cuotas +10", result.NombrePlanPagoGlobal);
+    }
+
+    [Fact]
+    public async Task CalcularTotalesPreviewConPagoGlobal_Descuento10_AplicaSobreTotalBase()
+    {
+        var producto = await SeedProductoSimple("PG-PREV-DES");
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: -10m);
+
+        var result = await _service.CalcularTotalesPreviewConPagoGlobalAsync(
+            new List<TheBuryProject.ViewModels.Requests.DetalleCalculoVentaRequest>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 1_000m }
+            },
+            descuentoGeneral: 0m,
+            descuentoEsPorcentaje: false,
+            TipoPago.MercadoPago,
+            configuracionTarjetaId: null,
+            configuracionPagoPlanId: plan.Id);
+
+        Assert.Equal(900m, result.Total);
+        Assert.Equal(-100m, result.AjustePagoGlobalAplicado);
+        Assert.Equal(-10m, result.PorcentajeAjustePagoGlobalAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalRecargo10_GuardaTotalYSnapshotGlobalSinLegacy()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 10m, cantidadCuotas: 2, etiqueta: "MP 2 cuotas");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id
+        };
+
+        await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+
+        Assert.Equal(11_000m, ventaActualizada.Total);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Equal(2, datos.CantidadCuotas);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
+        Assert.Equal(5_500m, datos.MontoCuota);
+        Assert.Equal("MP 2 cuotas", datos.NombrePlanPagoSnapshot);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+        Assert.Null(datos.PorcentajeAjustePlanAplicado);
+        Assert.Null(datos.MontoAjustePlanAplicado);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalInactivo_Rechaza()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 10m, planActivo: false);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no esta disponible", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalDeOtroTipoPago_Rechaza()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.TarjetaCredito, ajustePorcentaje: 10m);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("no corresponde al medio de pago", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalDeTarjetaInactiva_Rechaza()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Credito,
+            TipoCuotaTarjeta.SinInteres,
+            nombre: "Visa Global Inactiva",
+            activa: false);
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.TarjetaCredito, ajustePorcentaje: 10m, tarjeta: tarjeta);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GuardarDatosTarjetaAsync(venta.Id, vm));
+
+        Assert.Contains("tarjeta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TipoPagoSinPlanGlobalCuandoNoCorresponde_PermiteVenta()
+    {
+        var venta = await SeedVenta(total: 7_000m, tipoPago: TipoPago.Efectivo);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Efectivo",
+            TipoTarjeta = TipoTarjeta.Credito
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(7_000m, ventaActualizada.Total);
+    }
+
+    private async Task<Producto> SeedProductoSimple(string codigo)
+    {
+        var categoria = new Categoria { Codigo = $"CAT-{codigo}", Nombre = $"Categoria {codigo}" };
+        var marca = new Marca { Codigo = $"MRC-{codigo}", Nombre = $"Marca {codigo}" };
+        var producto = new Producto
+        {
+            Codigo = codigo,
+            Nombre = $"Producto {codigo}",
+            Categoria = categoria,
+            Marca = marca,
+            PrecioVenta = 1_000m,
+            PrecioCompra = 500m,
+            StockActual = 10m,
+            IsDeleted = false
+        };
+
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+        return producto;
     }
 }

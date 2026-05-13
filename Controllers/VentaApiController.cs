@@ -197,10 +197,13 @@ namespace TheBuryProject.Controllers
                     return BadRequest(new { error = "Debe especificar al menos un detalle para calcular los totales" });
                 }
 
-                var totales = await _ventaService.CalcularTotalesPreviewAsync(
+                var totales = await _ventaService.CalcularTotalesPreviewConPagoGlobalAsync(
                     request.Detalles,
                     request.DescuentoGeneral,
-                    request.DescuentoEsPorcentaje);
+                    request.DescuentoEsPorcentaje,
+                    request.TipoPago,
+                    request.TarjetaId,
+                    request.ConfiguracionPagoPlanId);
 
                 if (request.TarjetaId.HasValue)
                 {
@@ -232,6 +235,11 @@ namespace TheBuryProject.Controllers
                 }
 
                 return Ok(totales);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Solicitud invalida al calcular totales de venta");
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {

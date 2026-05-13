@@ -155,7 +155,10 @@ public class ReporteServiceTests : IDisposable
         decimal subtotalFinal = 0m,
         decimal costoUnitarioAlMomento = 0m,
         decimal costoTotalAlMomento = 0m,
-        decimal recargoDebitoAplicado = 0m)
+        decimal recargoDebitoAplicado = 0m,
+        decimal? totalVentaOverride = null,
+        TipoPago? tipoPagoDetalleLegacy = null,
+        int? productoCondicionPagoPlanIdLegacy = null)
     {
         var total = precioUnitario * cantidad;
         var venta = new Venta
@@ -168,7 +171,7 @@ public class ReporteServiceTests : IDisposable
             VendedorUserId = vendedorUserId,
             VendedorNombre = vendedorNombre,
             Subtotal = total,
-            Total = total + recargoDebitoAplicado,
+            Total = totalVentaOverride ?? total + recargoDebitoAplicado,
             Detalles = new List<VentaDetalle>
             {
                 new()
@@ -182,7 +185,9 @@ public class ReporteServiceTests : IDisposable
                     CostoUnitarioAlMomento = costoUnitarioAlMomento,
                     CostoTotalAlMomento = costoTotalAlMomento,
                     ComisionPorcentajeAplicada = comisionPorcentaje,
-                    ComisionMonto = comisionMonto
+                    ComisionMonto = comisionMonto,
+                    TipoPago = tipoPagoDetalleLegacy,
+                    ProductoCondicionPagoPlanId = productoCondicionPagoPlanIdLegacy
                 }
             }
         };
@@ -268,6 +273,28 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(20m, item.Costo);    // 2 × PrecioCompra(10)
         Assert.Equal(80m, item.Ganancia); // 100 - 20
         Assert.Equal(80m, resultado.TotalGanancia);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_UsaVentaTotalAjustado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 1,
+            tipoPago: TipoPago.MercadoPago,
+            costoTotalAlMomento: 20m,
+            totalVentaOverride: 110m);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.Ventas);
+        Assert.Equal(110m, item.Total);
+        Assert.Equal(110m, resultado.TotalVentas);
+        Assert.Equal(90m, item.Ganancia);
     }
 
     [Fact]
@@ -562,6 +589,32 @@ public class ReporteServiceTests : IDisposable
 
         Assert.Single(resultado.Items);
         Assert.Equal(TipoPago.Transferencia, resultado.Items[0].TipoPago);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_UsaTipoPagoVentaYNoPagoPorProductoLegacy()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(
+            cliente.Id,
+            producto.Id,
+            precioUnitario: 100m,
+            cantidad: 1,
+            tipoPago: TipoPago.MercadoPago,
+            estado: EstadoVenta.Facturada,
+            comisionPorcentaje: 8m,
+            comisionMonto: 8m,
+            tipoPagoDetalleLegacy: TipoPago.TarjetaCredito);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel
+        {
+            TipoPago = TipoPago.MercadoPago
+        });
+
+        var item = Assert.Single(resultado.Items);
+        Assert.Equal(TipoPago.MercadoPago, item.TipoPago);
+        Assert.Equal("Mercado Pago", item.TipoPagoDescripcion);
     }
 
     [Fact]

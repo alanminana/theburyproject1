@@ -274,6 +274,13 @@
                 <div class="field"><span>Número</span><span>@Model.Venta.Numero</span></div>
                 <div class="field"><span>Fecha</span><span>@Model.Venta.FechaVenta.ToString("dd/MM/yyyy HH:mm")</span></div>
                 <div class="field"><span>Tipo de pago</span><span>@Model.Venta.TipoPago</span></div>
+                @if (!string.IsNullOrWhiteSpace(Model.Totales.NombrePlanPagoSnapshot) || Model.Totales.CantidadCuotas.HasValue)
+                {
+                    var planLabel = !string.IsNullOrWhiteSpace(Model.Totales.NombrePlanPagoSnapshot)
+                        ? Model.Totales.NombrePlanPagoSnapshot
+                        : Model.Totales.CantidadCuotas == 1 ? "1 pago" : $"{Model.Totales.CantidadCuotas} cuotas";
+                    <div class="field"><span>Plan</span><span>@planLabel</span></div>
+                }
                 <div class="field"><span>Estado</span><span>@Model.Venta.Estado</span></div>
                 @if (!string.IsNullOrWhiteSpace(Model.Venta.VendedorNombre))
                 {
@@ -409,7 +416,14 @@
                 var esDescuento = montoAjuste < 0;
                 var etiqueta = esRecargo ? "Recargo por plan" : esDescuento ? "Descuento por plan" : "Ajuste por plan";
                 var sufijoPct = pctAjuste.HasValue ? $" ({(pctAjuste.Value > 0 ? "+" : "")}{pctAjuste.Value:0.##}%)" : "";
+                var nombrePlan = string.IsNullOrWhiteSpace(Model.Totales.NombrePlanPagoSnapshot)
+                    ? ""
+                    : $" - {Model.Totales.NombrePlanPagoSnapshot}";
                 <div class="total-row"><span>@etiqueta@sufijoPct</span><strong>@montoAjuste.ToString("C2")</strong></div>
+                @if (!string.IsNullOrWhiteSpace(nombrePlan))
+                {
+                    <div class="total-row"><span>Plan aplicado</span><strong>@Model.Totales.NombrePlanPagoSnapshot</strong></div>
+                }
             }
             <div class="total-row"><span>Total</span><strong>@Model.Totales.Total.ToString("C2")</strong></div>
         </section>

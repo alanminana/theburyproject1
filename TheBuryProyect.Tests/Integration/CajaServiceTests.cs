@@ -644,6 +644,33 @@ public class CajaServiceTests : IDisposable
         Assert.Equal("Tarjeta débito", movimiento.MedioPagoDetalle);
     }
 
+    [Fact]
+    public async Task RegistrarMovimientoVentaAsync_PlanGlobal_RegistraTotalFinalAjustadoYTipoPagoGeneral()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.MercadoPago, total: 1_100m);
+        venta.DatosTarjeta = new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            CantidadCuotas = 3,
+            PorcentajeAjustePagoAplicado = 10m,
+            MontoAjustePagoAplicado = 100m,
+            NombrePlanPagoSnapshot = "MP 3 cuotas +10"
+        };
+        await _context.SaveChangesAsync();
+
+        var movimiento = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero1");
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(1_100m, movimiento!.Monto);
+        Assert.Equal(TipoPago.MercadoPago, movimiento.TipoPago);
+        Assert.Equal("MercadoPago", movimiento.MedioPagoDetalle);
+    }
+
     // -------------------------------------------------------------------------
     // RegistrarMovimientoAnticipoAsync
     // -------------------------------------------------------------------------

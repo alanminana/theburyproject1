@@ -151,4 +151,53 @@ public class FacturaComprobanteBuilderTests
         Assert.Equal(0m, comprobante.Totales.RecargoDebitoAplicado);
         Assert.Equal(121m, comprobante.Totales.Total);
     }
+
+    [Fact]
+    public void Build_PlanGlobal_PropagaSnapshotGlobalYTotalPersistido()
+    {
+        var factura = new Factura
+        {
+            Numero = "FC-GLOBAL",
+            Tipo = TipoFactura.B,
+            FechaEmision = new DateTime(2026, 5, 13),
+            Total = 1100m,
+            Venta = new Venta
+            {
+                Numero = "V-GLOBAL",
+                TipoPago = TipoPago.MercadoPago,
+                Total = 1100m,
+                DatosTarjeta = new DatosTarjeta
+                {
+                    TipoTarjeta = TipoTarjeta.Credito,
+                    NombreTarjeta = "Mercado Pago",
+                    ConfiguracionPagoPlanId = 10,
+                    CantidadCuotas = 3,
+                    PorcentajeAjustePagoAplicado = 10m,
+                    MontoAjustePagoAplicado = 100m,
+                    NombrePlanPagoSnapshot = "MP 3 cuotas +10",
+                    ProductoCondicionPagoPlanId = null
+                },
+                Detalles = new List<VentaDetalle>
+                {
+                    new()
+                    {
+                        Producto = new Producto { Codigo = "P1", Nombre = "Producto 1" },
+                        Cantidad = 1,
+                        PrecioUnitario = 1000m,
+                        Subtotal = 1000m,
+                        SubtotalFinal = 1000m
+                    }
+                }
+            }
+        };
+
+        var comprobante = FacturaComprobanteBuilder.Build(factura);
+
+        Assert.Equal(10m, comprobante.Totales.PorcentajeAjustePlanAplicado);
+        Assert.Equal(100m, comprobante.Totales.MontoAjustePlanAplicado);
+        Assert.Equal("MP 3 cuotas +10", comprobante.Totales.NombrePlanPagoSnapshot);
+        Assert.Equal(3, comprobante.Totales.CantidadCuotas);
+        Assert.Equal(1100m, comprobante.Totales.Total);
+        Assert.Empty(comprobante.GruposPagoPorItem);
+    }
 }

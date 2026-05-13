@@ -23,13 +23,27 @@ namespace TheBuryProject.Helpers
 
             // Fase 16.6: cuando hay TipoPago por ítem, el ajuste global de DatosTarjeta queda subordinado.
             var hasPagoPorItem = detalleViewModels.Any(d => d.TipoPago.HasValue);
-            var ajustePlanMonto = hasPagoPorItem ? null : venta.DatosTarjeta?.MontoAjustePlanAplicado;
-            var ajustePlanPct = hasPagoPorItem ? null : venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
+            var ajustePlanMonto = hasPagoPorItem
+                ? null
+                : venta.DatosTarjeta?.MontoAjustePagoAplicado ?? venta.DatosTarjeta?.MontoAjustePlanAplicado;
+            var ajustePlanPct = hasPagoPorItem
+                ? null
+                : venta.DatosTarjeta?.PorcentajeAjustePagoAplicado ?? venta.DatosTarjeta?.PorcentajeAjustePlanAplicado;
+            var nombrePlanPagoSnapshot = hasPagoPorItem ? null : venta.DatosTarjeta?.NombrePlanPagoSnapshot;
+            var cantidadCuotas = hasPagoPorItem ? null : venta.DatosTarjeta?.CantidadCuotas;
             var gruposPago = hasPagoPorItem
                 ? BuildGruposPagoPorItem(detalleViewModels, venta.TipoPago)
                 : new List<FacturaComprobanteGrupoPagoViewModel>();
 
-            var totales = BuildTotales(factura, venta, lineas, recargoDebitoAplicado, ajustePlanMonto, ajustePlanPct);
+            var totales = BuildTotales(
+                factura,
+                venta,
+                lineas,
+                recargoDebitoAplicado,
+                ajustePlanMonto,
+                ajustePlanPct,
+                nombrePlanPagoSnapshot,
+                cantidadCuotas);
 
             return new FacturaComprobanteViewModel
             {
@@ -198,7 +212,9 @@ namespace TheBuryProject.Helpers
             IReadOnlyCollection<FacturaComprobanteLineaViewModel> lineas,
             decimal recargoDebitoAplicado,
             decimal? ajustePlanMonto,
-            decimal? ajustePlanPct)
+            decimal? ajustePlanPct,
+            string? nombrePlanPagoSnapshot,
+            int? cantidadCuotas)
         {
             var totalProductos = lineas.Sum(l => l.Total);
 
@@ -214,6 +230,8 @@ namespace TheBuryProject.Helpers
                     RecargoDebitoAplicado = recargoDebitoAplicado,
                     PorcentajeAjustePlanAplicado = ajustePlanPct,
                     MontoAjustePlanAplicado = ajustePlanMonto,
+                    NombrePlanPagoSnapshot = nombrePlanPagoSnapshot,
+                    CantidadCuotas = cantidadCuotas,
                     Total = ResolverTotalPersistido(factura, venta, totalProductos + recargoDebitoAplicado)
                 };
             }
@@ -228,6 +246,8 @@ namespace TheBuryProject.Helpers
                     RecargoDebitoAplicado = recargoDebitoAplicado,
                     PorcentajeAjustePlanAplicado = ajustePlanPct,
                     MontoAjustePlanAplicado = ajustePlanMonto,
+                    NombrePlanPagoSnapshot = nombrePlanPagoSnapshot,
+                    CantidadCuotas = cantidadCuotas,
                     Total = factura.Total
                 };
             }
@@ -240,6 +260,8 @@ namespace TheBuryProject.Helpers
                 RecargoDebitoAplicado = recargoDebitoAplicado,
                 PorcentajeAjustePlanAplicado = ajustePlanPct,
                 MontoAjustePlanAplicado = ajustePlanMonto,
+                NombrePlanPagoSnapshot = nombrePlanPagoSnapshot,
+                CantidadCuotas = cantidadCuotas,
                 Total = venta.Total
             };
         }
