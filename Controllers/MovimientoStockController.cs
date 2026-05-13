@@ -108,6 +108,7 @@ namespace TheBuryProject.Controllers
                     items = list.Select(m => new
                     {
                         id = m.Id,
+                        productoId = m.ProductoId,
                         fecha = m.Fecha.ToString("dd MMM yyyy"),
                         hora = m.Fecha.ToString("HH:mm:ss"),
                         tipo = m.Tipo.ToString(),
