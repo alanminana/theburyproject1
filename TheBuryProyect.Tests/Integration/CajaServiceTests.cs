@@ -606,6 +606,25 @@ public class CajaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RegistrarMovimientoVentaAsync_TarjetaHistorica_SigueLeyendoMovimiento()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja);
+        var venta = await SeedVentaAsync(apertura, TipoPago.Tarjeta, total: 1_750m);
+
+        var movimiento = await _service.RegistrarMovimientoVentaAsync(
+            venta.Id, venta.Numero, venta.Total, venta.TipoPago, "cajero1");
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(TipoPago.Tarjeta, movimiento!.TipoPago);
+        Assert.Equal("Tarjeta crédito", movimiento.MedioPagoDetalle);
+
+        var resumen = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+        var tarjeta = Assert.Single(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Tarjeta");
+        Assert.Equal(venta.Total, tarjeta.TotalIngresos);
+    }
+
+    [Fact]
     public async Task RegistrarMovimientoVentaAsync_MercadoPago_PersisteTipoPagoYNoCuentaComoEfectivo()
     {
         var caja = await SeedCajaAsync();

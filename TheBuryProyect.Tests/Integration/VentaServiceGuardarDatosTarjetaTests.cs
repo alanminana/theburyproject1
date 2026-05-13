@@ -545,7 +545,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ProductoCondicionPagoPlanId = plan.Id
         };
 
@@ -826,7 +826,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ProductoCondicionPagoPlanId = plan.Id
         };
 
@@ -947,6 +947,35 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    public async Task CalcularTotalesPreviewConPagoGlobal_IgnoraPlanProductoLegacy()
+    {
+        var producto = await SeedProductoSimple("PG-PREV-LEG");
+        var (_, _, planGlobal) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 10m, cantidadCuotas: 3);
+        var planLegacy = await SeedPlanConAjuste(TipoPago.MercadoPago, ajustePorcentaje: 50m);
+
+        var result = await _service.CalcularTotalesPreviewConPagoGlobalAsync(
+            new List<TheBuryProject.ViewModels.Requests.DetalleCalculoVentaRequest>
+            {
+                new()
+                {
+                    ProductoId = producto.Id,
+                    Cantidad = 1,
+                    PrecioUnitario = 1_000m,
+                    TipoPago = TipoPago.MercadoPago,
+                    ProductoCondicionPagoPlanId = planLegacy.Id
+                }
+            },
+            descuentoGeneral: 0m,
+            descuentoEsPorcentaje: false,
+            TipoPago.MercadoPago,
+            configuracionTarjetaId: null,
+            configuracionPagoPlanId: planGlobal.Id);
+
+        Assert.Equal(1_100m, result.Total);
+        Assert.Equal(100m, result.AjustePagoGlobalAplicado);
+    }
+
+    [Fact]
     public async Task CalcularTotalesPreviewConPagoGlobal_Descuento10_AplicaSobreTotalBase()
     {
         var producto = await SeedProductoSimple("PG-PREV-DES");
@@ -969,6 +998,36 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    public async Task GuardarDatosTarjeta_PlanGlobalIgnoraPlanProductoLegacyInactivo()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var (_, _, planGlobal) = await SeedPlanGlobal(TipoPago.TarjetaCredito, ajustePorcentaje: 10m, cantidadCuotas: 2);
+        var (_, _, planLegacyInactivo) = await SeedPlan(TipoPago.TarjetaCredito, activo: false);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = planGlobal.Id,
+            ProductoCondicionPagoPlanId = planLegacyInactivo.Id
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(planGlobal.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+        Assert.Null(datos.PorcentajeAjustePlanAplicado);
+        Assert.Null(datos.MontoAjustePlanAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
+    }
+
+    [Fact]
     public async Task GuardarDatosTarjeta_PlanGlobalRecargo10_GuardaTotalYSnapshotGlobalSinLegacy()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
@@ -977,7 +1036,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ConfiguracionPagoPlanId = plan.Id
         };
 
@@ -988,6 +1047,8 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
 
         Assert.Equal(11_000m, ventaActualizada.Total);
         Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Equal(TipoTarjeta.Debito, datos.TipoTarjeta);
+        Assert.NotEqual(TipoTarjeta.Credito, datos.TipoTarjeta);
         Assert.Equal(2, datos.CantidadCuotas);
         Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
         Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
@@ -1007,7 +1068,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ConfiguracionPagoPlanId = plan.Id
         };
 
@@ -1026,7 +1087,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ConfiguracionPagoPlanId = plan.Id
         };
 
@@ -1099,7 +1160,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         var vm = new DatosTarjetaViewModel
         {
             NombreTarjeta = "Mercado Pago",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = TipoTarjeta.Debito,
             ConfiguracionPagoPlanId = plan.Id
         };
 

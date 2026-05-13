@@ -20,7 +20,7 @@ public sealed class ConfiguracionPagoGlobalQueryService : IConfiguracionPagoGlob
     {
         var medios = await _context.ConfiguracionesPago
             .AsNoTracking()
-            .Where(c => c.Activo && !c.IsDeleted)
+            .Where(c => c.Activo && !c.IsDeleted && c.TipoPago != TipoPago.Tarjeta)
             .OrderBy(c => c.TipoPago)
             .ThenBy(c => c.Nombre)
             .Select(c => new MedioPagoGlobalDto

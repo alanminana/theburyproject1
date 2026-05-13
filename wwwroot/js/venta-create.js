@@ -54,6 +54,12 @@
         ConInteres: 1
     };
 
+    // TipoTarjeta enum integer values (must match Models/Enums/TipoTarjeta.cs)
+    const TIPO_TARJETA = {
+        Debito: '0',
+        Credito: '1'
+    };
+
     const TIPO_PAGO_LABELS = {
         '0': 'Efectivo', '1': 'Transferencia', '2': 'Débito',
         '3': 'Crédito', '4': 'Cheque', '5': 'Créd. Personal',
@@ -1124,7 +1130,7 @@
     selectTipoPago?.addEventListener('change', onTipoPagoChange);
 
     function esTipoPagoTarjeta(tipoPago) {
-        return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito || tipoPago === TIPO_PAGO.Tarjeta;
+        return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito;
     }
 
     function esTipoPagoConPlanes(tipoPago) {
@@ -1161,7 +1167,7 @@
             poblarDatosTarjetaSeleccionada();
         } else if (val === TIPO_PAGO.MercadoPago) {
             if (hdnTarjetaNombre) hdnTarjetaNombre.value = 'Mercado Pago';
-            if (hdnTarjetaTipo) hdnTarjetaTipo.value = '1';
+            if (hdnTarjetaTipo) hdnTarjetaTipo.value = TIPO_TARJETA.Debito;
         } else {
             limpiarDatosTarjetaSeleccionada();
         }

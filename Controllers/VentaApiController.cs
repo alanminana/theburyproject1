@@ -385,6 +385,7 @@ namespace TheBuryProject.Controllers
             ConfiguracionPagoGlobalResultado configuracion)
         {
             var medios = configuracion.Medios
+                .Where(m => m.TipoPago != TipoPago.Tarjeta)
                 .Select(m =>
                 {
                     var planesGenerales = m.Planes

@@ -795,6 +795,21 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Create_TipoPagoTarjetaHistorico_RechazaConfiguracionNueva()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(new ConfiguracionPagoViewModel
+            {
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true
+            }));
+
+        Assert.Contains("historico", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await _context.ConfiguracionesPago.ToListAsync());
+    }
+
+    [Fact]
     public async Task Update_Existente_ActualizaCampos()
     {
         var config = await SeedConfigPago(TipoPago.Efectivo, tieneRecargo: false);
@@ -911,6 +926,27 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var enDb = await _context.ConfiguracionesPago
             .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.Cheque);
         Assert.NotNull(enDb);
+    }
+
+    [Fact]
+    public async Task GuardarConfiguracionesModal_TipoPagoTarjetaHistoricoConIdCero_Rechaza()
+    {
+        var vms = new List<ConfiguracionPagoViewModel>
+        {
+            new()
+            {
+                Id = 0,
+                TipoPago = TipoPago.Tarjeta,
+                Nombre = "Tarjeta",
+                Activo = true
+            }
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.GuardarConfiguracionesModalAsync(vms));
+
+        Assert.Contains("historico", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await _context.ConfiguracionesPago.ToListAsync());
     }
 
     [Fact]

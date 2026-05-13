@@ -143,6 +143,20 @@ public sealed class ConfiguracionPagoGlobalQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfiguracionPagoGlobal_OmiteTipoPagoTarjetaHistorico()
+    {
+        await SeedConfiguracionPagoAsync(TipoPago.Tarjeta);
+        await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        await SeedConfiguracionPagoAsync(TipoPago.TarjetaDebito);
+
+        var resultado = await _service.ObtenerActivaParaVentaAsync();
+
+        Assert.DoesNotContain(resultado.Medios, m => m.TipoPago == TipoPago.Tarjeta);
+        Assert.Contains(resultado.Medios, m => m.TipoPago == TipoPago.TarjetaCredito);
+        Assert.Contains(resultado.Medios, m => m.TipoPago == TipoPago.TarjetaDebito);
+    }
+
+    [Fact]
     public async Task ConfiguracionPagoGlobal_NoIncluyePagoPorProductoLegacy()
     {
         var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);

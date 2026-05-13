@@ -1014,6 +1014,53 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task ConfiguracionPagosGlobal_NoDevuelveTipoPagoTarjetaHistorico()
+    {
+        var controller = CreateController(configuracionPagoGlobalQueryService: new StubConfiguracionPagoGlobalQueryService
+        {
+            Resultado = new ConfiguracionPagoGlobalResultado
+            {
+                Medios =
+                [
+                    new MedioPagoGlobalDto
+                    {
+                        Id = 1,
+                        TipoPago = TipoPago.Tarjeta,
+                        NombreVisible = "Tarjeta",
+                        Activo = true
+                    },
+                    new MedioPagoGlobalDto
+                    {
+                        Id = 2,
+                        TipoPago = TipoPago.TarjetaCredito,
+                        NombreVisible = "Tarjeta credito",
+                        Activo = true
+                    },
+                    new MedioPagoGlobalDto
+                    {
+                        Id = 3,
+                        TipoPago = TipoPago.TarjetaDebito,
+                        NombreVisible = "Tarjeta debito",
+                        Activo = true
+                    }
+                ]
+            }
+        });
+
+        var result = await controller.ConfiguracionPagosGlobal();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        var tipos = json.RootElement.GetProperty("medios")
+            .EnumerateArray()
+            .Select(m => m.GetProperty("tipoPago").GetInt32())
+            .ToArray();
+        Assert.DoesNotContain((int)TipoPago.Tarjeta, tipos);
+        Assert.Contains((int)TipoPago.TarjetaCredito, tipos);
+        Assert.Contains((int)TipoPago.TarjetaDebito, tipos);
+    }
+
+    [Fact]
     public async Task ConfiguracionPagosGlobal_NoRequiereVentaNiResolverPorProducto()
     {
         var ventaService = new StubVentaService();

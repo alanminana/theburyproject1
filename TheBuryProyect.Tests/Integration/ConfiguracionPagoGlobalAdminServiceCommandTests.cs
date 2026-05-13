@@ -104,6 +104,23 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         Assert.Empty(_context.ConfiguracionPagoPlanes);
     }
 
+    [Fact]
+    public async Task CrearPlanGlobal_TipoPagoTarjetaHistorico_Rechaza()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.Tarjeta);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearPlanGlobalAsync(new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                CantidadCuotas = 1,
+                AjustePorcentaje = 0m
+            }));
+
+        Assert.Contains("historico", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_context.ConfiguracionPagoPlanes);
+    }
+
     [Theory]
     [InlineData(-100.0001)]
     [InlineData(1000)]

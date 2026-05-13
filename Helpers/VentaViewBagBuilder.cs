@@ -46,7 +46,8 @@ public class VentaViewBagBuilder
         dynamic viewBag,
         int? clienteIdSeleccionado = null,
         IEnumerable<int>? productoIdsIncluidos = null,
-        string? vendedorUserIdSeleccionado = null)
+        string? vendedorUserIdSeleccionado = null,
+        TipoPago? tipoPagoSeleccionado = null)
     {
         var creditosCount = 0;
         var vendedoresCount = 0;
@@ -95,7 +96,7 @@ public class VentaViewBagBuilder
 
         viewBag.CategoriasFiltro = new SelectList(categoriasFiltro, "Id", "Nombre");
         viewBag.MarcasFiltro = new SelectList(marcasFiltro, "Id", "Nombre");
-        viewBag.TiposPago = EnumHelper.GetSelectList<TipoPago>();
+        viewBag.TiposPago = CrearTiposPagoParaVenta(tipoPagoSeleccionado);
 
         // Créditos disponibles del cliente seleccionado
         if (clienteIdSeleccionado.HasValue)
@@ -152,5 +153,24 @@ public class VentaViewBagBuilder
             creditosCount,
             tarjetasDisponibles.Count,
             vendedoresCount);
+    }
+
+    private static IEnumerable<SelectListItem> CrearTiposPagoParaVenta(TipoPago? tipoPagoSeleccionado)
+    {
+        foreach (var item in EnumHelper.GetSelectList<TipoPago>(tipoPagoSeleccionado))
+        {
+            if (item.Value == ((int)TipoPago.Tarjeta).ToString() &&
+                tipoPagoSeleccionado != TipoPago.Tarjeta)
+            {
+                continue;
+            }
+
+            if (item.Value == ((int)TipoPago.Tarjeta).ToString())
+            {
+                item.Text = "Tarjeta (historico)";
+            }
+
+            yield return item;
+        }
     }
 }

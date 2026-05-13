@@ -200,7 +200,11 @@ namespace TheBuryProject.Services
             var medio = await _context.ConfiguracionesPago
                 .FirstOrDefaultAsync(c => c.Id == configuracionPagoId && !c.IsDeleted);
 
-            return medio ?? throw new InvalidOperationException("El medio de pago global no existe.");
+            if (medio == null)
+                throw new InvalidOperationException("El medio de pago global no existe.");
+
+            ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(medio.TipoPago);
+            return medio;
         }
 
         private async Task ValidarPlanGlobalCommandAsync(
@@ -342,6 +346,8 @@ namespace TheBuryProject.Services
 
         public async Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel)
         {
+            ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(viewModel.TipoPago);
+
             var configuracion = _mapper.Map<ConfiguracionPago>(viewModel);
 
             _context.ConfiguracionesPago.Add(configuracion);
@@ -396,6 +402,7 @@ namespace TheBuryProject.Services
             if (configuraciones.Count == 0) return;
 
             ValidarConfiguracionesTarjetaModal(configuraciones);
+            ValidarConfiguracionesNuevasModal(configuraciones);
 
             var ahora = DateTime.UtcNow;
             var idsExistentes = configuraciones
@@ -457,6 +464,23 @@ namespace TheBuryProject.Services
                         throw new InvalidOperationException("La tasa de interés mensual es requerida para tarjetas con cuotas con interés.");
                     }
                 }
+            }
+        }
+
+        private static void ValidarConfiguracionesNuevasModal(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones)
+        {
+            foreach (var configuracion in configuraciones.Where(c => c.Id == 0))
+            {
+                ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(configuracion.TipoPago);
+            }
+        }
+
+        private static void ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(TipoPago tipoPago)
+        {
+            if (tipoPago == TipoPago.Tarjeta)
+            {
+                throw new InvalidOperationException(
+                    "TipoPago.Tarjeta es historico y ambiguo. Configure Tarjeta Credito o Tarjeta Debito.");
             }
         }
 

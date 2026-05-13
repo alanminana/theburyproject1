@@ -435,7 +435,8 @@ namespace TheBuryProject.Controllers
                 await CargarViewBags(
                     venta.ClienteId,
                     venta.Detalles.Select(d => d.ProductoId).Distinct(),
-                    venta.VendedorUserId);
+                    venta.VendedorUserId,
+                    venta.TipoPago);
                 var ventaJson = JsonSerializer.Serialize(venta, new JsonSerializerOptions
                 {
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -506,7 +507,8 @@ namespace TheBuryProject.Controllers
                     await CargarViewBags(
                         viewModel.ClienteId,
                         viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
-                        viewModel.VendedorUserId);
+                        viewModel.VendedorUserId,
+                        viewModel.TipoPago);
                     return View("Edit_tw", viewModel);
                 }
 
@@ -551,7 +553,10 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al actualizar venta: {Id}", id);
                 ModelState.AddModelError("", "Error al actualizar la venta: " + ex.Message);
-                await CargarViewBags(viewModel.ClienteId, vendedorUserIdSeleccionado: viewModel.VendedorUserId);
+                await CargarViewBags(
+                    viewModel.ClienteId,
+                    vendedorUserIdSeleccionado: viewModel.VendedorUserId,
+                    tipoPagoSeleccionado: viewModel.TipoPago);
                 return View("Edit_tw", viewModel);
             }
         }
@@ -1329,9 +1334,15 @@ namespace TheBuryProject.Controllers
         private async Task CargarViewBags(
             int? clienteIdSeleccionado = null,
             IEnumerable<int>? productoIdsIncluidos = null,
-            string? vendedorUserIdSeleccionado = null)
+            string? vendedorUserIdSeleccionado = null,
+            TipoPago? tipoPagoSeleccionado = null)
         {
-            await _viewBagBuilder.CargarAsync(ViewBag, clienteIdSeleccionado, productoIdsIncluidos, vendedorUserIdSeleccionado);
+            await _viewBagBuilder.CargarAsync(
+                ViewBag,
+                clienteIdSeleccionado,
+                productoIdsIncluidos,
+                vendedorUserIdSeleccionado,
+                tipoPagoSeleccionado);
         }
 
         private VentaViewModel CrearVentaInicial(EstadoVenta estadoInicial)
@@ -1406,7 +1417,8 @@ namespace TheBuryProject.Controllers
             await CargarViewBags(
                 viewModel.ClienteId,
                 viewModel.Detalles.Select(d => d.ProductoId).Distinct(),
-                viewModel.VendedorUserId);
+                viewModel.VendedorUserId,
+                viewModel.TipoPago);
             return View("Create_tw", viewModel);
         }
 

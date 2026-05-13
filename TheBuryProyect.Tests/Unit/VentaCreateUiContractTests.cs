@@ -276,15 +276,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCreateJs_MercadoPago_SetNombreTarjetaYTipoEnHiddenInputs()
+    public void VentaCreateJs_MercadoPago_SetNombreTarjetaYTipoDebitoEnHiddenInputs()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
         var onTipoPagoChange = ExtractFunction(script, "function onTipoPagoChange");
 
-        // Cuando se selecciona MercadoPago, hdnTarjetaNombre y hdnTarjetaTipo se setean hardcoded
+        // MercadoPago no usa ConfiguracionTarjeta; TipoTarjeta queda como Debito para no identificarlo como credito.
         Assert.Contains("TIPO_PAGO.MercadoPago", onTipoPagoChange);
         Assert.Contains("hdnTarjetaNombre.value = 'Mercado Pago'", onTipoPagoChange);
-        Assert.Contains("hdnTarjetaTipo.value", onTipoPagoChange);
+        Assert.Contains("hdnTarjetaTipo.value = TIPO_TARJETA.Debito", onTipoPagoChange);
+        Assert.DoesNotContain("hdnTarjetaTipo.value = '1'", onTipoPagoChange);
+        Assert.Contains("Debito: '0'", script);
     }
 
     [Fact]
@@ -329,6 +331,20 @@ public class VentaCreateUiContractTests
 
         Assert.Contains("TIPO_PAGO.TarjetaCredito", esTarjeta);
         Assert.Contains("TIPO_PAGO.TarjetaDebito", esTarjeta);
+        Assert.Contains(
+            "return tipoPago === TIPO_PAGO.TarjetaCredito || tipoPago === TIPO_PAGO.TarjetaDebito;",
+            esTarjeta);
+    }
+
+    [Fact]
+    public void VentaViewBagBuilder_NoExponeTipoPagoTarjetaEnSelectorFallbackNuevo()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "Helpers", "VentaViewBagBuilder.cs"));
+
+        Assert.Contains("CrearTiposPagoParaVenta", source);
+        Assert.Contains("TipoPago.Tarjeta", source);
+        Assert.Contains("tipoPagoSeleccionado != TipoPago.Tarjeta", source);
+        Assert.Contains("Tarjeta (historico)", source);
     }
 
     [Fact]

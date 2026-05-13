@@ -208,6 +208,9 @@
                                 }
                             }
                         </select>
+                        <p id="configuracion-pagos-global-estado" class="mt-1 text-xs text-slate-500" aria-live="polite">
+                            Cargando configuracion global de pagos...
+                        </p>
                     </div>
                 </div>
 
@@ -381,23 +384,29 @@
                                     {
                                         @foreach (var t in tarjetas)
                                         {
-                                            <option value="@t.Value">@t.Text</option>
+                                            <option value="@t.Value" selected="@(Model.DatosTarjeta?.ConfiguracionTarjetaId?.ToString() == t.Value)">@t.Text</option>
                                         }
                                     }
                                 </select>
+                                <input type="hidden" name="DatosTarjeta.NombreTarjeta" id="hdn-tarjeta-nombre" value="@Model.DatosTarjeta?.NombreTarjeta" />
+                                <input type="hidden" name="DatosTarjeta.TipoTarjeta" id="hdn-tarjeta-tipo" value="@((int?)Model.DatosTarjeta?.TipoTarjeta)" />
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cuotas</label>
                                 <select id="select-cuotas-tarjeta" name="DatosTarjeta.CantidadCuotas"
                                         class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
-                                    <option value="1">1 Pago</option>
+                                    <option value="1" selected="@(Model.DatosTarjeta?.CantidadCuotas.GetValueOrDefault(1) == 1)">1 Pago</option>
                                 </select>
+                                <input type="hidden" name="DatosTarjeta.ConfiguracionPagoPlanId" id="hdn-configuracion-pago-plan-id" value="@Model.DatosTarjeta?.ConfiguracionPagoPlanId" />
+                                <p id="panel-aviso-cuotas-sin-interes" class="mt-1 text-xs text-amber-400 hidden">
+                                    Las cuotas disponibles fueron restringidas por la configuracion vigente del medio de pago.
+                                </p>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Autorización</label>
                                 <input type="text" name="DatosTarjeta.NumeroAutorizacion" id="txt-num-autorizacion-tarjeta"
                                        class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg"
-                                       placeholder="000000" />
+                                       placeholder="000000" value="@Model.DatosTarjeta?.NumeroAutorizacion" />
                             </div>
                         </div>
                         <div id="panel-tarjeta-resumen" class="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-700 hidden">
@@ -414,6 +423,17 @@
                                 <p id="tarjeta-recargo" class="text-sm font-bold text-white">0%</p>
                             </div>
                         </div>
+                    </div>
+
+                    @* Plan de Pago (tarjeta/MercadoPago) - selector generado por venta-create.js con configuracion global *@
+                    <div id="panel-planes-pago" class="p-6 rounded-xl border border-slate-700 bg-slate-800/30 hidden" aria-live="polite">
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">credit_score</span> Plan de Pago
+                        </h4>
+                        <p class="text-xs text-slate-500 mb-3">
+                            Cuotas significa cantidad total de pagos. El ajuste se aplica una sola vez sobre el total y queda como preview informativo en esta version.
+                        </p>
+                        <div id="lista-planes-pago" class="flex flex-wrap gap-2" role="radiogroup" aria-label="Plan de pago"></div>
                     </div>
 
                     <!-- Check View -->

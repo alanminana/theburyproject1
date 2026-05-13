@@ -161,6 +161,8 @@ namespace TheBuryProject.Services
 
         public async Task<VentaViewModel> CreateAsync(VentaViewModel viewModel)
         {
+            ValidarTipoPagoTarjetaNoPermitidoEnVentaNueva(viewModel.TipoPago);
+
             var currentUserName = _currentUserService.GetUsername();
             var currentUserId = await ObtenerUserIdActualAsync();
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
@@ -581,6 +583,8 @@ namespace TheBuryProject.Services
                 return null;
             }
 
+            ValidarTipoPagoTarjetaNoPermitidoEnEdicion(venta.TipoPago, viewModel.TipoPago);
+
             _logger.LogDebug(
                 "UpdateAsync venta {Id} loaded. Estado:{Estado} Autorizacion:{EstadoAutorizacion} Detalles:{Detalles}",
                 id,
@@ -601,10 +605,10 @@ namespace TheBuryProject.Services
             await AplicarPrecioVigenteADetallesAsync(venta);
 
             CalcularTotales(venta);
-            // INVARIANTE: CalcularTotales siempre debe preceder a AplicarAjustePagoGlobalPersistidoAsync.
+            // INVARIANTE: CalcularTotales siempre debe preceder a SincronizarDatosTarjetaEdicionAsync.
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
-            await AplicarAjustePagoGlobalPersistidoAsync(venta);
+            await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
 
             await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
@@ -677,6 +681,14 @@ namespace TheBuryProject.Services
                     venta.Estado,
                     venta.TipoPago,
                     venta.Detalles.Count(d => !d.IsDeleted));
+
+                // Guard: medios que requieren snapshot de datos de pago (Fase 7.1)
+                if ((venta.TipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.MercadoPago)
+                    && venta.DatosTarjeta == null)
+                {
+                    throw new InvalidOperationException(
+                        $"No se puede confirmar la venta: el medio de pago '{venta.TipoPago}' requiere datos de tarjeta y no han sido completados.");
+                }
 
                 // Validación previa del estado
                 _validator.ValidarEstadoParaConfirmacion(venta);
@@ -1611,6 +1623,23 @@ namespace TheBuryProject.Services
             if (yaExiste)
                 return false;
 
+            var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
+            datosTarjetaEntity.VentaId = ventaId;
+            await AplicarSnapshotDatosTarjetaAsync(venta, datosTarjetaEntity, datosTarjeta);
+
+            _context.DatosTarjeta.Add(datosTarjetaEntity);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        private async Task AplicarSnapshotDatosTarjetaAsync(
+            Venta venta,
+            DatosTarjeta datosTarjetaEntity,
+            DatosTarjetaViewModel datosTarjeta)
+        {
+            LimpiarSnapshotDatosTarjeta(datosTarjetaEntity);
+
             ConfiguracionTarjeta? configuracionTarjeta = null;
             if (datosTarjeta.ConfiguracionTarjetaId.HasValue)
             {
@@ -1625,19 +1654,22 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La tarjeta seleccionada no esta disponible");
             }
 
-            ProductoCondicionPagoPlan? planSeleccionado = null;
-            if (datosTarjeta.ProductoCondicionPagoPlanId.HasValue)
-            {
-                planSeleccionado = await ValidarYObtenerPlanPagoAsync(datosTarjeta.ProductoCondicionPagoPlanId.Value, venta.TipoPago);
-            }
-
             var planGlobal = await ValidarYObtenerPlanPagoGlobalAsync(
                 datosTarjeta.ConfiguracionPagoPlanId,
                 venta.TipoPago,
                 datosTarjeta.ConfiguracionTarjetaId);
 
-            var datosTarjetaEntity = _mapper.Map<DatosTarjeta>(datosTarjeta);
-            datosTarjetaEntity.VentaId = ventaId;
+            ProductoCondicionPagoPlan? planSeleccionado = null;
+            if (planGlobal != null)
+            {
+                // Fase 7.7: el plan global es la fuente canonica; cualquier plan por producto
+                // que llegue por compatibilidad legacy no debe validar, bloquear ni ajustar la venta nueva.
+                datosTarjetaEntity.ProductoCondicionPagoPlanId = null;
+            }
+            else if (datosTarjeta.ProductoCondicionPagoPlanId.HasValue)
+            {
+                planSeleccionado = await ValidarYObtenerPlanPagoAsync(datosTarjeta.ProductoCondicionPagoPlanId.Value, venta.TipoPago);
+            }
 
             var tipoTarjeta = configuracionTarjeta?.TipoTarjeta ?? datosTarjeta.TipoTarjeta;
             if (configuracionTarjeta != null)
@@ -1664,7 +1696,6 @@ namespace TheBuryProject.Services
                 datosTarjetaEntity.MontoTotalConInteres = calculado.MontoTotalConInteres;
             }
 
-            datosTarjetaEntity.RecargoAplicado = null;
             if (tipoTarjeta == TipoTarjeta.Debito &&
                 configuracionTarjeta is
                 {
@@ -1679,9 +1710,9 @@ namespace TheBuryProject.Services
                 venta.Total += recargo;
             }
 
-            // Skip global plan if per-item plans already applied on detalles (avoid double adjustment)
-            var tieneAjustesPorItem = await _context.VentaDetalles
-                .AnyAsync(d => d.VentaId == ventaId && !d.IsDeleted && d.ProductoCondicionPagoPlanId != null);
+            // Skip global plan if per-item plans already applied on detalles (avoid double adjustment).
+            var tieneAjustesPorItem = venta.Detalles.Any(d =>
+                !d.IsDeleted && d.ProductoCondicionPagoPlanId != null);
 
             if (planSeleccionado != null && !tieneAjustesPorItem)
             {
@@ -1695,11 +1726,20 @@ namespace TheBuryProject.Services
             {
                 AplicarAjustePagoGlobal(venta, datosTarjetaEntity, planGlobal);
             }
+        }
 
-            _context.DatosTarjeta.Add(datosTarjetaEntity);
-            await _context.SaveChangesAsync();
-
-            return true;
+        private static void LimpiarSnapshotDatosTarjeta(DatosTarjeta datosTarjeta)
+        {
+            datosTarjeta.TipoCuota = null;
+            datosTarjeta.TasaInteres = null;
+            datosTarjeta.MontoCuota = null;
+            datosTarjeta.MontoTotalConInteres = null;
+            datosTarjeta.RecargoAplicado = null;
+            datosTarjeta.PorcentajeAjustePlanAplicado = null;
+            datosTarjeta.MontoAjustePlanAplicado = null;
+            datosTarjeta.PorcentajeAjustePagoAplicado = null;
+            datosTarjeta.MontoAjustePagoAplicado = null;
+            datosTarjeta.NombrePlanPagoSnapshot = null;
         }
 
         private async Task<ConfiguracionPagoPlan?> ValidarYObtenerPlanPagoGlobalAsync(
@@ -1835,6 +1875,79 @@ namespace TheBuryProject.Services
                 return;
 
             AplicarAjustePagoGlobal(venta, venta.DatosTarjeta, plan);
+        }
+
+        private async Task SincronizarDatosTarjetaEdicionAsync(Venta venta, VentaViewModel viewModel)
+        {
+            if (!TipoPagoRequiereDatosTarjeta(viewModel.TipoPago))
+            {
+                if (venta.DatosTarjeta != null)
+                {
+                    _context.DatosTarjeta.Remove(venta.DatosTarjeta);
+                    venta.DatosTarjeta = null;
+                }
+
+                return;
+            }
+
+            if (viewModel.DatosTarjeta == null)
+            {
+                throw new InvalidOperationException(
+                    $"El medio de pago '{viewModel.TipoPago}' requiere datos de tarjeta.");
+            }
+
+            var datosTarjeta = venta.DatosTarjeta;
+            if (datosTarjeta == null)
+            {
+                datosTarjeta = _mapper.Map<DatosTarjeta>(viewModel.DatosTarjeta);
+                datosTarjeta.VentaId = venta.Id;
+                venta.DatosTarjeta = datosTarjeta;
+                _context.DatosTarjeta.Add(datosTarjeta);
+            }
+            else
+            {
+                ActualizarDatosTarjetaDesdeViewModel(datosTarjeta, viewModel.DatosTarjeta);
+            }
+
+            await AplicarSnapshotDatosTarjetaAsync(venta, datosTarjeta, viewModel.DatosTarjeta);
+        }
+
+        private static bool TipoPagoRequiereDatosTarjeta(TipoPago tipoPago) =>
+            tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.MercadoPago;
+
+        private static void ValidarTipoPagoTarjetaNoPermitidoEnVentaNueva(TipoPago tipoPago)
+        {
+            if (tipoPago == TipoPago.Tarjeta)
+            {
+                throw new InvalidOperationException(
+                    "El medio de pago Tarjeta es historico y ambiguo. Use Tarjeta Credito o Tarjeta Debito.");
+            }
+        }
+
+        private static void ValidarTipoPagoTarjetaNoPermitidoEnEdicion(
+            TipoPago tipoPagoActual,
+            TipoPago tipoPagoSolicitado)
+        {
+            if (tipoPagoSolicitado == TipoPago.Tarjeta && tipoPagoActual != TipoPago.Tarjeta)
+            {
+                throw new InvalidOperationException(
+                    "El medio de pago Tarjeta es historico y ambiguo. Use Tarjeta Credito o Tarjeta Debito.");
+            }
+        }
+
+        private static void ActualizarDatosTarjetaDesdeViewModel(
+            DatosTarjeta destino,
+            DatosTarjetaViewModel origen)
+        {
+            destino.ConfiguracionTarjetaId = origen.ConfiguracionTarjetaId;
+            destino.ConfiguracionPagoPlanId = origen.ConfiguracionPagoPlanId;
+            destino.NombreTarjeta = origen.NombreTarjeta;
+            destino.TipoTarjeta = origen.TipoTarjeta;
+            destino.CantidadCuotas = origen.CantidadCuotas;
+            destino.ProductoCondicionPagoPlanId = origen.ProductoCondicionPagoPlanId;
+            destino.TipoCuota = origen.TipoCuota;
+            destino.NumeroAutorizacion = origen.NumeroAutorizacion;
+            destino.Observaciones = origen.Observaciones;
         }
 
         private static string CrearNombrePlanPagoSnapshot(ConfiguracionPagoPlan plan)

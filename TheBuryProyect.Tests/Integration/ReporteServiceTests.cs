@@ -209,6 +209,66 @@ public class ReporteServiceTests : IDisposable
         return venta;
     }
 
+    private async Task<Venta> SeedVentaConDosDetallesComisionAsync(
+        int clienteId,
+        Producto productoA,
+        Producto productoB,
+        decimal ajusteGlobal = 0m)
+    {
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = clienteId,
+            Estado = EstadoVenta.Facturada,
+            TipoPago = TipoPago.MercadoPago,
+            FechaVenta = DateTime.UtcNow,
+            VendedorUserId = "vend-1",
+            VendedorNombre = "Vendedor Uno",
+            Subtotal = 300m,
+            Total = 300m + ajusteGlobal,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = productoA.Id,
+                    Cantidad = 1,
+                    PrecioUnitario = 100m,
+                    Subtotal = 100m,
+                    SubtotalFinal = 100m,
+                    ComisionPorcentajeAplicada = 10m,
+                    ComisionMonto = 10m
+                },
+                new()
+                {
+                    ProductoId = productoB.Id,
+                    Cantidad = 1,
+                    PrecioUnitario = 200m,
+                    Subtotal = 200m,
+                    SubtotalFinal = 200m,
+                    ComisionPorcentajeAplicada = 20m,
+                    ComisionMonto = 40m
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        if (ajusteGlobal != 0m)
+        {
+            _context.DatosTarjeta.Add(new DatosTarjeta
+            {
+                VentaId = venta.Id,
+                NombreTarjeta = "Mercado Pago",
+                TipoTarjeta = TipoTarjeta.Debito,
+                PorcentajeAjustePagoAplicado = 10m,
+                MontoAjustePagoAplicado = ajusteGlobal
+            });
+            await _context.SaveChangesAsync();
+        }
+
+        return venta;
+    }
+
     private async Task<MovimientoStock> SeedMovimientoStockAsync(
         int productoId,
         TipoMovimiento tipo,
@@ -507,6 +567,31 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(180m, resultado.TotalVendido);
         Assert.Equal(180m, Assert.Single(resultado.ResumenPorVendedor).TotalVendido);
         Assert.Equal(14.40m, item.ComisionMonto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteComisiones_DosProductosConComisionDistinta_RespetaSnapshotsPorLinea()
+    {
+        var cliente = await SeedClienteAsync();
+        var productoA = await SeedProductoAsync(precioVenta: 100m);
+        var productoB = await SeedProductoAsync(precioVenta: 200m);
+        await SeedUsuarioAsync("vend-1", "Vendedor Uno");
+        await SeedVentaConDosDetallesComisionAsync(cliente.Id, productoA, productoB, ajusteGlobal: 30m);
+
+        var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
+
+        Assert.Equal(2, resultado.Items.Count);
+        var itemA = resultado.Items.Single(i => i.ProductoId == productoA.Id);
+        var itemB = resultado.Items.Single(i => i.ProductoId == productoB.Id);
+        Assert.Equal(100m, itemA.PrecioFinalItem);
+        Assert.Equal(10m, itemA.ComisionPorcentajeAplicada);
+        Assert.Equal(10m, itemA.ComisionMonto);
+        Assert.Equal(200m, itemB.PrecioFinalItem);
+        Assert.Equal(20m, itemB.ComisionPorcentajeAplicada);
+        Assert.Equal(40m, itemB.ComisionMonto);
+        Assert.Equal(300m, resultado.TotalVendido);
+        Assert.Equal(50m, resultado.TotalComision);
+        Assert.Equal(50m, Assert.Single(resultado.ResumenPorVendedor).TotalComision);
     }
 
     [Fact]

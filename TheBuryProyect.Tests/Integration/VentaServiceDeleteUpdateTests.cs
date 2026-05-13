@@ -381,6 +381,258 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.Null(detalle.MontoAjustePlanAplicado);
     }
 
+    [Fact]
+    public async Task UpdateAsync_EfectivoAMercadoPagoConPlanGlobal_PersisteDatosTarjeta()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        var plan = await SeedPlanGlobalAsync(TipoPago.MercadoPago, ajustePorcentaje: 10m, cantidadCuotas: 2);
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.MercadoPago,
+            new DatosTarjetaViewModel
+            {
+                NombreTarjeta = "Mercado Pago",
+                TipoTarjeta = TipoTarjeta.Debito,
+                CantidadCuotas = 2,
+                ConfiguracionPagoPlanId = plan.Id
+            });
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoPago.MercadoPago, resultado!.TipoPago);
+        Assert.Equal(1_100m, resultado.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal("Mercado Pago", datos.NombreTarjeta);
+        Assert.Equal(TipoTarjeta.Debito, datos.TipoTarjeta);
+        Assert.NotEqual(TipoTarjeta.Credito, datos.TipoTarjeta);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(100m, datos.MontoAjustePagoAplicado);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Theory]
+    [InlineData(TipoPago.TarjetaCredito, TipoTarjeta.Credito)]
+    [InlineData(TipoPago.TarjetaDebito, TipoTarjeta.Debito)]
+    public async Task UpdateAsync_EfectivoATarjeta_PersisteDatosTarjeta(TipoPago tipoPago, TipoTarjeta tipoTarjeta)
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        var tarjeta = await SeedConfiguracionTarjetaAsync(tipoPago, tipoTarjeta);
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            tipoPago,
+            new DatosTarjetaViewModel
+            {
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = tipoTarjeta,
+                CantidadCuotas = 1
+            });
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(tipoPago, resultado!.TipoPago);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(tarjeta.NombreTarjeta, datos.NombreTarjeta);
+        Assert.Equal(tipoTarjeta, datos.TipoTarjeta);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_EfectivoATarjetaHistorica_RechazaCambioNuevo()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.Tarjeta,
+            datosTarjeta: null);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateAsync(ventaOriginal.Id, vm));
+
+        Assert.Contains("historico", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Tarjeta Credito", ex.Message);
+        Assert.Contains("Tarjeta Debito", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_TarjetaHistoricaAPermaneceTarjeta_PreservaCompatibilidad()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+
+        venta.TipoPago = TipoPago.Tarjeta;
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.Tarjeta,
+            datosTarjeta: null);
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(TipoPago.Tarjeta, resultado!.TipoPago);
+    }
+
+    [Theory]
+    [InlineData(TipoPago.Efectivo)]
+    [InlineData(TipoPago.Transferencia)]
+    public async Task UpdateAsync_EfectivoTransferencia_NoMantienenDatosTarjeta(TipoPago tipoPago)
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Snapshot anterior",
+            TipoTarjeta = TipoTarjeta.Credito,
+            CantidadCuotas = 1
+        });
+
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(ventaOriginal, cliente.Id, producto.Id, tipoPago, datosTarjeta: null);
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(tipoPago, resultado!.TipoPago);
+        Assert.False(await _context.DatosTarjeta.AsNoTracking().AnyAsync(d => d.VentaId == venta.Id));
+    }
+
+    private async Task<ConfiguracionTarjeta> SeedConfiguracionTarjetaAsync(TipoPago tipoPago, TipoTarjeta tipoTarjeta)
+    {
+        var medio = new ConfiguracionPago
+        {
+            TipoPago = tipoPago,
+            Nombre = $"Medio {tipoPago} {Interlocked.Increment(ref _counter)}",
+            Activo = true,
+            IsDeleted = false
+        };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+
+        var tarjeta = new ConfiguracionTarjeta
+        {
+            ConfiguracionPagoId = medio.Id,
+            NombreTarjeta = $"Tarjeta {tipoPago}",
+            TipoTarjeta = tipoTarjeta,
+            TipoCuota = TipoCuotaTarjeta.SinInteres,
+            PermiteCuotas = tipoTarjeta == TipoTarjeta.Credito,
+            Activa = true,
+            IsDeleted = false
+        };
+        _context.ConfiguracionesTarjeta.Add(tarjeta);
+        await _context.SaveChangesAsync();
+        return tarjeta;
+    }
+
+    private async Task<ConfiguracionPagoPlan> SeedPlanGlobalAsync(
+        TipoPago tipoPago,
+        decimal ajustePorcentaje,
+        int cantidadCuotas)
+    {
+        var medio = new ConfiguracionPago
+        {
+            TipoPago = tipoPago,
+            Nombre = $"Medio {tipoPago} {Interlocked.Increment(ref _counter)}",
+            Activo = true,
+            IsDeleted = false
+        };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+
+        var plan = new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id,
+            TipoPago = tipoPago,
+            CantidadCuotas = cantidadCuotas,
+            AjustePorcentaje = ajustePorcentaje,
+            Etiqueta = $"{cantidadCuotas} cuotas",
+            Activo = true,
+            IsDeleted = false
+        };
+        _context.ConfiguracionPagoPlanes.Add(plan);
+        await _context.SaveChangesAsync();
+        return plan;
+    }
+
+    private static VentaViewModel CrearVentaUpdateVm(
+        Venta venta,
+        int clienteId,
+        int productoId,
+        TipoPago tipoPago,
+        DatosTarjetaViewModel? datosTarjeta)
+    {
+        return new VentaViewModel
+        {
+            Id = venta.Id,
+            ClienteId = clienteId,
+            FechaVenta = venta.FechaVenta,
+            Estado = venta.Estado,
+            TipoPago = tipoPago,
+            RowVersion = venta.RowVersion,
+            DatosTarjeta = datosTarjeta,
+            Detalles = new List<VentaDetalleViewModel>
+            {
+                new()
+                {
+                    ProductoId = productoId,
+                    Cantidad = 1,
+                    PrecioUnitario = 1_000m,
+                    Descuento = 0m,
+                    ProductoCondicionPagoPlanId = 987_654
+                }
+            }
+        };
+    }
+
     // =========================================================================
     // ValidarDisponibilidadCreditoAsync
     // =========================================================================
