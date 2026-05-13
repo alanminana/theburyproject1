@@ -1476,7 +1476,7 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.ConfiguracionPagoPlan)
                     .WithMany()
                     .HasForeignKey(e => e.ConfiguracionPagoPlanId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(e => e.ProductoCondicionPagoPlan)
                     .WithMany()

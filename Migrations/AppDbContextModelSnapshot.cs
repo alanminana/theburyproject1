@@ -7406,7 +7406,7 @@ namespace TheBuryProject.Migrations
                     b.HasOne("TheBuryProject.Models.Entities.ConfiguracionPagoPlan", "ConfiguracionPagoPlan")
                         .WithMany()
                         .HasForeignKey("ConfiguracionPagoPlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("TheBuryProject.Models.Entities.ConfiguracionTarjeta", "ConfiguracionTarjeta")
                         .WithMany()

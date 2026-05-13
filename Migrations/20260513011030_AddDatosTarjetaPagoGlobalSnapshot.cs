@@ -50,7 +50,7 @@ namespace TheBuryProject.Migrations
                 column: "ConfiguracionPagoPlanId",
                 principalTable: "ConfiguracionPagoPlanes",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+                onDelete: ReferentialAction.NoAction);
         }
 
         /// <inheritdoc />
