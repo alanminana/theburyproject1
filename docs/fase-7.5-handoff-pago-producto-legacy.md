@@ -42,6 +42,10 @@ Estas referencias no deben interpretarse como autorizacion para reactivar pago p
 
 `CLAUDE.md` y `AGENTS.md` no requieren cambios por esta fase. No se detecto una referencia puntual que obligue a tratar pago por producto como camino canonico de Nueva Venta.
 
+Nota posterior Fase 7.7C: esta clasificacion no elimina la excepcion acotada de `CreditoPersonal`. Para ese medio, `ProductoCondicionPago.Permitido` y `ProductoCondicionPago.MaxCuotasCredito` siguen vigentes como restriccion de elegibilidad/rango del carrito, no como pago por producto ni plan por item. Ver `docs/fase-7.7c-restricciones-credito-personal-producto.md`.
+
+Nota posterior Fase 7.10: el admin legacy de condiciones de pago por producto fue retirado. Ya no quedan como superficie vigente el modal administrativo, `wwwroot/js/producto-condiciones-pago-modal.js`, los endpoints admin `Producto/CondicionesPago/{productoId}` ni `IProductoCondicionPagoService` / `ProductoCondicionPagoService`. Las entidades/reglas/resolver remanentes se conservan solo para la restriccion acotada de `CreditoPersonal`. Nueva Venta sigue con configuracion global de pagos.
+
 ## C. Decision vigente
 
 El camino canonico para ventas nuevas es:
@@ -72,9 +76,9 @@ El camino canonico para ventas nuevas es:
 
 ## E. Que queda legacy
 
-El flujo `ProductoCondicionPago*` queda como legacy administrativo/no canonico para Nueva Venta.
+El flujo `ProductoCondicionPago*` queda como legacy/no canonico para Nueva Venta.
 
-Incluye:
+Incluia historicamente:
 
 - `ProductoCondicionPagoService`
 - `ProductoCondicionPagoRules`
@@ -83,12 +87,15 @@ Incluye:
 - `wwwroot/js/producto-condiciones-pago-modal.js`
 - tests relacionados con el modal y reglas de condiciones por producto
 
-Uso permitido:
+Nota historica Fase 7.8: el acceso visible desde Catalogo al modal de condiciones por producto fue ocultado. En ese momento no se borraron endpoints, servicios, entidades, migraciones ni tests legacy y el bloque quedaba disponible solo para compatibilidad/admin futuro con decision explicita.
 
-- administracion historica o compatibilidad mientras exista el modulo;
+Nota posterior Fase 7.10: el bloque administrativo ya no queda disponible como compatibilidad futura. Se retiraron modal/admin, JS, endpoints admin y service admin. Permanecen solo las piezas necesarias para `CreditoPersonal`: entidad `ProductoCondicionPago`, reglas puras y resolver de carrito.
+
+Uso permitido despues de Fase 7.10:
+
 - caracterizacion del comportamiento legacy;
-- lectura para no romper pantallas administrativas existentes;
-- preparacion de retiro o aislamiento futuro, con decision explicita.
+- lectura de `ProductoCondicionPago.Permitido` y `MaxCuotasCredito` para `CreditoPersonal`;
+- preparacion de retiro o aislamiento futuro de datos/modelo remanente, con decision explicita.
 
 Uso no permitido:
 
@@ -102,7 +109,9 @@ Uso no permitido:
 
 No se debe:
 
-- modificar `ProductoCondicionPagoService` para soportar Nueva Venta;
+- recrear `ProductoCondicionPagoService` para soportar Nueva Venta;
+- recrear endpoints admin `Producto/CondicionesPago/{productoId}` sin fase aprobada;
+- reactivar el modal/admin legacy de condiciones por producto;
 - expandir `ProductoCondicionPagoRules` como motor de pagos globales;
 - modificar `venta-create.js` para enviar pago por detalle;
 - modificar `VentaService` para resolver medios por producto;
@@ -117,21 +126,18 @@ Si una fase futura necesita limpiar o retirar este flujo, debe hacerlo como micr
 
 Los siguientes tests deben tratarse como caracterizacion legacy o administrativa, no como especificacion canonica de Nueva Venta:
 
-- `TheBuryProyect.Tests/Unit/ProductoCondicionesPagoModalUiContractTests.cs`
 - `TheBuryProyect.Tests/Unit/ProductoCondicionPagoRulesTests.cs`
 - `TheBuryProyect.Tests/Unit/ProductoCondicionPagoPlanReadinessTests.cs`
-- `TheBuryProyect.Tests/Integration/ProductoCondicionPagoServiceTests.cs`
 - `TheBuryProyect.Tests/Integration/ProductoCondicionPagoEfTests.cs`
 
-La Fase 7.4 estabilizo `ProductoCondicionesPagoModalUiContractTests` como contrato legacy del modal. Ese contrato protege que la pantalla administrativa no se rompa accidentalmente, pero no autoriza a usar el modal como fuente funcional para Nueva Venta.
+Nota posterior Fase 7.10: los tests del modal/admin y del service admin retirado dejaron de ser contrato vigente. La caracterizacion que permanezca debe limitarse a reglas/resolver usados por `CreditoPersonal`.
 
 Los tests de venta, caja, reportes y configuracion global deben ser la proteccion principal del camino canonico `1 venta = 1 TipoPago principal`.
 
 ## H. Deuda pendiente
 
-- Inventariar uso real de rutas, botones, permisos y vistas del modulo administrativo `ProductoCondicionPago*`.
-- Decidir si el modulo queda visible solo para administracion historica o si se oculta por permisos/feature flag.
-- Separar con nombres, documentacion o estructura los tests legacy de los tests canonicos de venta.
+- Inventariar datos/modelo legacy remanente de `ProductoCondicionPago*` sin tocar la restriccion vigente de `CreditoPersonal`.
+- Separar con nombres, documentacion o estructura los tests legacy/remanentes de los tests canonicos de venta.
 - Revisar docs historicos de fases 8, 14, 15 y 16 si se prepara documentacion de release para usuarios finales.
 - Confirmar una estrategia de retiro o aislamiento para columnas/datos legacy sin eliminar migraciones ni datos historicos.
 - Mantener documentada la diferencia entre comision individual por producto y pago por producto.
@@ -153,5 +159,7 @@ Los tests de venta, caja, reportes y configuracion global deben ser la proteccio
 - [x] Tests de modal y reglas por producto clasificados como caracterizacion legacy.
 - [x] Restricciones de no reactivacion documentadas.
 - [x] Deuda y proximos frentes recomendados documentados.
-- [ ] Inventario operativo completo de rutas/permisos/vistas legacy.
-- [ ] Decision futura sobre ocultamiento, feature flag o retiro gradual del modulo administrativo.
+- [x] Fase 7.8: entrada visible desde Catalogo a condiciones por producto ocultada sin borrar superficie legacy.
+- [x] Fase 7.10: modal/admin legacy, endpoints admin, service admin y JS asociado retirados.
+- [x] Piezas remanentes limitadas a `CreditoPersonal` documentadas.
+- [ ] Inventario operativo de datos/modelo legacy remanente.

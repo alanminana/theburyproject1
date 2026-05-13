@@ -1,11 +1,19 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using System.Reflection;
 using TheBuryProject.Data;
+using TheBuryProject.Migrations;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.Integration;
 
+/// <summary>
+/// Caracterizacion legacy/admin de pago por producto; no define contrato canonico de Nueva Venta.
+/// </summary>
+[Trait("Area", "LegacyPagoPorProducto")]
 public sealed class ProductoCondicionPagoEfTests
 {
     [Fact]
@@ -324,6 +332,212 @@ public sealed class ProductoCondicionPagoEfTests
             .SingleAsync(c => c.Id == condicion.Id);
         Assert.Equal(6, condicionRecargada.MaxCuotasSinInteres);
         Assert.Equal(12, condicionRecargada.MaxCuotasConInteres);
+    }
+
+    // ============================================================
+    // ProductoCreditoRestriccion — Fase 7.14
+    // ============================================================
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_PersisteRestriccionValida()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
+        {
+            ProductoId = producto.Id,
+            Permitido = false,
+            MaxCuotasCredito = 6,
+            Observaciones = "Bloqueo operativo de credito personal"
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var restriccion = await fixture.Context.ProductoCreditoRestricciones
+            .SingleAsync(r => r.ProductoId == producto.Id);
+
+        Assert.False(restriccion.Permitido);
+        Assert.True(restriccion.Activo);
+        Assert.Equal(6, restriccion.MaxCuotasCredito);
+        Assert.NotEmpty(restriccion.RowVersion);
+    }
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_PermiteMaxCuotasCreditoNull()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
+        {
+            ProductoId = producto.Id,
+            MaxCuotasCredito = null
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var restriccion = await fixture.Context.ProductoCreditoRestricciones
+            .SingleAsync(r => r.ProductoId == producto.Id);
+
+        Assert.Null(restriccion.MaxCuotasCredito);
+        Assert.True(restriccion.Permitido);
+    }
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_RechazaMaxCuotasCreditoCero()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
+        {
+            ProductoId = producto.Id,
+            MaxCuotasCredito = 0
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_NoPermiteDosRestriccionesActivasParaMismoProducto()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.AddRange(
+            new ProductoCreditoRestriccion { ProductoId = producto.Id },
+            new ProductoCreditoRestriccion { ProductoId = producto.Id, Permitido = false });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => fixture.Context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_PermiteHistoricoInactivoOEliminadoParaMismoProducto()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.AddRange(
+            new ProductoCreditoRestriccion { ProductoId = producto.Id, Activo = true },
+            new ProductoCreditoRestriccion { ProductoId = producto.Id, Activo = false, Permitido = false },
+            new ProductoCreditoRestriccion { ProductoId = producto.Id, IsDeleted = true, Permitido = false });
+
+        await fixture.Context.SaveChangesAsync();
+
+        var visibles = await fixture.Context.ProductoCreditoRestricciones
+            .Where(r => r.ProductoId == producto.Id)
+            .ToListAsync();
+        var totalHistorico = await fixture.Context.ProductoCreditoRestricciones
+            .IgnoreQueryFilters()
+            .CountAsync(r => r.ProductoId == producto.Id);
+
+        Assert.Equal(2, visibles.Count);
+        Assert.Equal(3, totalHistorico);
+    }
+
+    [Fact]
+    public async Task ProductoCreditoRestriccion_FkProductoFunciona()
+    {
+        await using var fixture = await ProductoCondicionPagoDbFixture.CreateAsync();
+        var producto = await fixture.SeedProductoAsync();
+
+        fixture.Context.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
+        {
+            ProductoId = producto.Id,
+            MaxCuotasCredito = 3
+        });
+        await fixture.Context.SaveChangesAsync();
+
+        var restriccion = await fixture.Context.ProductoCreditoRestricciones
+            .Include(r => r.Producto)
+            .SingleAsync(r => r.ProductoId == producto.Id);
+
+        Assert.Equal(producto.Id, restriccion.Producto.Id);
+        Assert.Equal(producto.Codigo, restriccion.Producto.Codigo);
+    }
+
+    // ============================================================
+    // ProductoCreditoRestriccion — Fase 7.15 backfill desde legacy
+    // ============================================================
+
+    [Fact]
+    public void ProductoCreditoRestriccion_MigracionBackfill_CopiaSoloCreditoPersonalActivoNoEliminado()
+    {
+        var sql = GetSingleSqlOperationFromMigrationUp(
+            new BackfillProductoCreditoRestriccionesFromCondicionesPago());
+
+        Assert.Contains("[TipoPago] = 5", sql);
+        Assert.Contains("[IsDeleted] = 0", sql);
+        Assert.Contains("[Activo] = 1", sql);
+        Assert.Contains("INSERT INTO [ProductoCreditoRestricciones]", sql);
+        Assert.Contains("[ProductoId]", sql);
+        Assert.Contains("[Permitido]", sql);
+        Assert.Contains("[MaxCuotasCredito]", sql);
+        Assert.Contains("[Observaciones]", sql);
+        Assert.Contains("[CreatedAt]", sql);
+        Assert.Contains("[UpdatedAt]", sql);
+        Assert.Contains("[CreatedBy]", sql);
+        Assert.Contains("[UpdatedBy]", sql);
+        Assert.Contains("COALESCE(c.[Permitido], CAST(1 AS bit))", sql);
+    }
+
+    [Fact]
+    public void ProductoCreditoRestriccion_MigracionBackfill_NoCopiaCamposDePlanesTarjetasOAjustes()
+    {
+        var sql = GetSingleSqlOperationFromMigrationUp(
+            new BackfillProductoCreditoRestriccionesFromCondicionesPago());
+
+        Assert.DoesNotContain("PorcentajeRecargo", sql);
+        Assert.DoesNotContain("PorcentajeDescuentoMaximo", sql);
+        Assert.DoesNotContain("ConfiguracionTarjetaId", sql);
+        Assert.DoesNotContain("ProductoCondicionPagoPlanId", sql);
+        Assert.DoesNotContain("ProductoCondicionPagoPlanes", sql);
+        Assert.DoesNotContain("ProductoCondicionesPagoTarjeta", sql);
+    }
+
+    [Fact]
+    public void ProductoCreditoRestriccion_MigracionBackfill_DetectaDuplicadosYEvitaDuplicarDestino()
+    {
+        var sql = GetSingleSqlOperationFromMigrationUp(
+            new BackfillProductoCreditoRestriccionesFromCondicionesPago());
+
+        Assert.Contains("GROUP BY [ProductoId]", sql);
+        Assert.Contains("HAVING COUNT(*) > 1", sql);
+        Assert.Contains("THROW 51001", sql);
+        Assert.Contains("NOT EXISTS", sql);
+        Assert.Contains("FROM [ProductoCreditoRestricciones] AS r", sql);
+    }
+
+    [Fact]
+    public void ProductoCreditoRestriccion_MigracionBackfill_DownEsNoDestructivo()
+    {
+        var migration = new BackfillProductoCreditoRestriccionesFromCondicionesPago();
+        var builder = new MigrationBuilder("Microsoft.EntityFrameworkCore.SqlServer");
+        InvokeMigrationMethod(migration, "Down", builder);
+
+        var operation = Assert.IsType<SqlOperation>(Assert.Single(builder.Operations));
+        Assert.Contains("Down no destructivo", operation.Sql);
+        Assert.DoesNotContain("DELETE", operation.Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("TRUNCATE", operation.Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DROP", operation.Sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetSingleSqlOperationFromMigrationUp(Migration migration)
+    {
+        var builder = new MigrationBuilder("Microsoft.EntityFrameworkCore.SqlServer");
+        InvokeMigrationMethod(migration, "Up", builder);
+
+        var operation = Assert.IsType<SqlOperation>(Assert.Single(builder.Operations));
+        return operation.Sql;
+    }
+
+    private static void InvokeMigrationMethod(Migration migration, string methodName, MigrationBuilder builder)
+    {
+        var method = migration.GetType().GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        method.Invoke(migration, new object[] { builder });
     }
 
     private sealed class ProductoCondicionPagoDbFixture : IAsyncDisposable

@@ -64,6 +64,7 @@ namespace TheBuryProject.Data
         public DbSet<ProductoCondicionPago> ProductoCondicionesPago { get; set; }
         public DbSet<ProductoCondicionPagoTarjeta> ProductoCondicionesPagoTarjeta { get; set; }
         public DbSet<ProductoCondicionPagoPlan> ProductoCondicionPagoPlanes { get; set; }
+        public DbSet<ProductoCreditoRestriccion> ProductoCreditoRestricciones { get; set; }
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
@@ -354,6 +355,11 @@ namespace TheBuryProject.Data
                     .HasForeignKey(c => c.ProductoId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                entity.HasMany(e => e.CreditoRestricciones)
+                    .WithOne(c => c.Producto)
+                    .HasForeignKey(c => c.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(e => e.AlicuotaIVA)
                     .WithMany()
                     .HasForeignKey(e => e.AlicuotaIVAId)
@@ -416,6 +422,38 @@ namespace TheBuryProject.Data
                     .WithOne(t => t.ProductoCondicionPago)
                     .HasForeignKey(t => t.ProductoCondicionPagoId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProductoCreditoRestriccion>(entity =>
+            {
+                entity.ToTable("ProductoCreditoRestricciones", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_ProductoCreditoRestricciones_MaxCuotasCredito",
+                        "[MaxCuotasCredito] IS NULL OR [MaxCuotasCredito] >= 1");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.Permitido)
+                    .HasDefaultValue(true)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.Observaciones)
+                    .HasMaxLength(500);
+
+                entity.HasIndex(e => e.ProductoId);
+
+                entity.HasIndex(e => e.ProductoId)
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCreditoRestricciones_ProductoActivo")
+                    .HasFilter("[IsDeleted] = 0 AND [Activo] = 1");
+
+                entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
             modelBuilder.Entity<ProductoCondicionPagoTarjeta>(entity =>

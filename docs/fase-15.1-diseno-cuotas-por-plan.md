@@ -2,6 +2,10 @@
 
 Agente Kira
 
+> Nota Fase 7.7D: documento historico de diseno. No debe leerse como autorizacion para reactivar pago por producto en Nueva Venta. El estado actual usa configuracion global de pagos, conserva **1 venta = 1 TipoPago principal** y clasifica `ProductoCondicionPago*` como legacy administrativo/no canonico. Para `CreditoPersonal`, solo permanecen restricciones de elegibilidad/rango (`Permitido` y `MaxCuotasCredito`) si aplican; no planes, ajustes ni pagos por item.
+
+> Nota Fase 7.10: no existe admin/modal legacy vigente para administrar estos planes. Fueron retirados el modal, endpoints admin, service admin y JS asociado. Las referencias de este documento son historicas y no habilitan reactivar pago por producto; Nueva Venta sigue con configuracion global y `CreditoPersonal` solo conserva `Permitido`/`MaxCuotasCredito`.
+
 ## A. Diagnostico del modelo actual
 
 El modelo actual trabaja con maximos escalares, no con planes individuales.

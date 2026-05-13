@@ -2,6 +2,10 @@
 
 Agente Kira | Fecha: 2026-05-08
 
+> Nota Fase 7.7D: documento historico de decision. Sigue vigente como cierre de `CreditoPersonal`: solo bloqueo por `ProductoCondicionPago.Permitido` y rango por `MaxCuotasCredito`. Nueva Venta usa configuracion global de pagos y conserva **1 venta = 1 TipoPago principal**; `ProductoCondicionPago*` no es pago por producto ni plan por item para el flujo canonico.
+
+> Nota Fase 7.10: el admin/modal legacy de condiciones por producto fue retirado junto con endpoints admin, `IProductoCondicionPagoService` / `ProductoCondicionPagoService` y JS asociado. Esta decision sigue vigente solo por la restriccion de `CreditoPersonal`; no existe superficie admin legacy activa para reactivar planes por producto.
+
 ## Decision adoptada: Opcion C
 
 Credito Personal **no aplica ajustes por plan** en ninguna fase productiva activa ni proxima.

@@ -1,5 +1,9 @@
 # Fase 14.2 - Modal de condiciones de pago por producto
 
+> Nota Fase 7.7D: documento historico del modal administrativo. `ProductoCondicionPago*` no es camino canonico de Nueva Venta. Nueva Venta usa configuracion global de pagos y conserva **1 venta = 1 TipoPago principal**. Para `CreditoPersonal`, el uso vigente queda limitado a restricciones de elegibilidad/rango (`Permitido` y `MaxCuotasCredito`) cuando aplique; no habilita pago por producto ni seleccion de plan por item.
+
+> Nota Fase 7.10: este modal administrativo legacy fue retirado. Tambien fueron retirados `wwwroot/js/producto-condiciones-pago-modal.js`, los endpoints admin `Producto/CondicionesPago/{productoId}` y `IProductoCondicionPagoService` / `ProductoCondicionPagoService`. El documento queda solo como antecedente historico.
+
 ## Alcance
 
 La fase 14.2 modifica solamente la experiencia de configuracion del modal. No cambia endpoints, DTOs, persistencia, calculos de venta, caja, credito, reportes ni comprobantes.

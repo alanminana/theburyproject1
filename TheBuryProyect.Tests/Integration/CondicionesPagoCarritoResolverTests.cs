@@ -8,6 +8,10 @@ using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.Integration;
 
+/// <summary>
+/// Caracterizacion legacy/admin del resolver por producto; no define contrato canonico de Nueva Venta.
+/// </summary>
+[Trait("Area", "LegacyPagoPorProducto")]
 public sealed class CondicionesPagoCarritoResolverTests : IAsyncLifetime
 {
     private SqliteConnection _connection = null!;

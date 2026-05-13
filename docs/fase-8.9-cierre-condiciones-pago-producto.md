@@ -2,6 +2,10 @@
 
 Agente Kira
 
+> Nota Fase 7.7D: documento historico. El alcance de condiciones por producto quedo como legacy administrativo/no canonico para Nueva Venta. El flujo vigente de Nueva Venta usa configuracion global de pagos y conserva **1 venta = 1 TipoPago principal**. Para `CreditoPersonal`, las referencias a restricciones por producto se interpretan solo como elegibilidad/rango (`Permitido` y `MaxCuotasCredito`), no como pago por producto, recargo, descuento o plan por item.
+
+> Nota Fase 7.10: el admin/modal legacy de condiciones por producto, sus endpoints admin, `IProductoCondicionPagoService` / `ProductoCondicionPagoService` y `wwwroot/js/producto-condiciones-pago-modal.js` fueron retirados. Esta fase queda como antecedente historico; las piezas remanentes de `ProductoCondicionPago*` existen solo para la restriccion acotada de `CreditoPersonal`.
+
 ## A. Estado de cierre
 
 La funcionalidad de condiciones de pago por producto queda cerrada funcionalmente para venta con alcance de bloqueo de medios, bloqueo de tarjeta especifica, limites de cuotas y mensajes backend controlados.

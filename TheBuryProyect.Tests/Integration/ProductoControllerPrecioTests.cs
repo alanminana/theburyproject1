@@ -14,7 +14,6 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
-using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -67,7 +66,6 @@ public class ProductoControllerPrecioTests : IDisposable
             productoService,
             catalogLookup,
             catalogoService,
-            new ProductoCondicionPagoService(_context),
             NullLogger<ProductoController>.Instance,
             mapper);
 
@@ -752,97 +750,15 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
-    public async Task ProductoCondicionPagoController_Get_ProductoExistente_DevuelveEstadoEditable()
-    {
-        var producto = await SeedProductoAsync();
-
-        var result = await _controller.ObtenerCondicionesPago(producto.Id, CancellationToken.None) as JsonResult;
-
-        Assert.NotNull(result);
-        var doc = ParseJson(result!.Value);
-        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
-        var data = doc.RootElement.GetProperty("data");
-        Assert.Equal(producto.Id, data.GetProperty("ProductoId").GetInt32());
-        Assert.Equal(producto.Codigo, data.GetProperty("ProductoCodigo").GetString());
-        Assert.True(data.TryGetProperty("Condiciones", out _));
-        Assert.True(data.TryGetProperty("TarjetasDisponibles", out _));
-    }
-
-    [Fact]
-    public async Task ProductoCondicionPagoController_Get_ProductoInexistente_DevuelveNotFoundControlado()
-    {
-        var result = await _controller.ObtenerCondicionesPago(int.MaxValue, CancellationToken.None) as NotFoundObjectResult;
-
-        Assert.NotNull(result);
-        var doc = ParseJson(result!.Value);
-        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
-        Assert.False(string.IsNullOrWhiteSpace(doc.RootElement.GetProperty("errors")[0].GetString()));
-    }
-
-    [Fact]
-    public async Task ProductoCondicionPagoController_Post_Valido_GuardaYDevuelveOk()
-    {
-        var producto = await SeedProductoAsync();
-        var request = new GuardarProductoCondicionesPagoRequest
-        {
-            ProductoId = producto.Id,
-            Condiciones = new[]
-            {
-                new GuardarProductoCondicionPagoItem
-                {
-                    TipoPago = TipoPago.Efectivo,
-                    Permitido = true,
-                    PorcentajeDescuentoMaximo = 5m,
-                    Activo = true
-                }
-            }
-        };
-
-        var result = await _controller.GuardarCondicionesPago(producto.Id, request, CancellationToken.None) as JsonResult;
-
-        Assert.NotNull(result);
-        var doc = ParseJson(result!.Value);
-        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
-        Assert.Equal("Condiciones de pago guardadas.", doc.RootElement.GetProperty("message").GetString());
-        Assert.True(await _context.ProductoCondicionesPago.AnyAsync(c => c.ProductoId == producto.Id && c.TipoPago == TipoPago.Efectivo));
-    }
-
-    [Fact]
-    public async Task ProductoCondicionPagoController_Post_Invalido_DevuelveBadRequestConErrores()
-    {
-        var producto = await SeedProductoAsync();
-        var request = new GuardarProductoCondicionesPagoRequest
-        {
-            ProductoId = producto.Id,
-            Condiciones = new[]
-            {
-                new GuardarProductoCondicionPagoItem
-                {
-                    TipoPago = TipoPago.Efectivo,
-                    PorcentajeRecargo = 101m,
-                    Activo = true
-                }
-            }
-        };
-
-        var result = await _controller.GuardarCondicionesPago(producto.Id, request, CancellationToken.None) as BadRequestObjectResult;
-
-        Assert.NotNull(result);
-        var doc = ParseJson(result!.Value);
-        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
-        Assert.Contains("PorcentajeRecargo", doc.RootElement.GetProperty("errors")[0].GetString());
-        Assert.False(await _context.ProductoCondicionesPago.AnyAsync(c => c.ProductoId == producto.Id));
-    }
-
-    [Fact]
-    public void ProductoCondicionPagoCatalogo_TieneBotonYModalDeCondicionesPago()
+    public void ProductoCondicionPagoCatalogo_NoExponeAdministracionLegacy()
     {
         var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Catalogo", "Index_tw.cshtml"));
 
-        Assert.Contains("data-condiciones-pago-producto-id", html);
-        Assert.Contains("Condiciones de pago", html);
-        Assert.Contains("modal-condiciones-pago-producto", html);
-        Assert.Contains("producto-condiciones-pago-modal.js", html);
+        Assert.DoesNotContain("data-condiciones-pago-producto-id", html);
+        Assert.DoesNotContain("data-condiciones-pago-producto-nombre", html);
+        Assert.DoesNotContain("row-action__label\">Condiciones de pago</span>", html);
+        Assert.DoesNotContain("modal-condiciones-pago-producto", html);
+        Assert.DoesNotContain("producto-condiciones-pago-modal.js", html);
     }
 
     [Fact]

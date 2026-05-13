@@ -160,5 +160,11 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public virtual ICollection<ProductoCondicionPago> CondicionesPago { get; set; } =
             new List<ProductoCondicionPago>();
+
+        /// <summary>
+        /// Restricciones de credito personal declaradas especificamente para este producto.
+        /// </summary>
+        public virtual ICollection<ProductoCreditoRestriccion> CreditoRestricciones { get; set; } =
+            new List<ProductoCreditoRestriccion>();
     }
 }

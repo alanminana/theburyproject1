@@ -10,7 +10,9 @@ namespace TheBuryProject.Tests.Unit;
 /// Readiness de cuotas por plan.
 /// Fase 15.3: entidad ProductoCondicionPagoPlan, DbSet, relaciones EF.
 /// Fase 15.4: DTOs de lectura/escritura, Planes en DTOs existentes, campos en resultado del resolver.
+/// Caracterizacion legacy/admin de pago por producto; no define contrato canonico de Nueva Venta.
 /// </summary>
+[Trait("Area", "LegacyPagoPorProducto")]
 public class ProductoCondicionPagoPlanReadinessTests
 {
     // --- Fase 15.3: entidad y DbSet ya existen ---

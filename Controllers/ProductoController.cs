@@ -19,7 +19,6 @@ namespace TheBuryProject.Controllers
         private readonly IProductoService _productoService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ICatalogoService _catalogoService;
-        private readonly IProductoCondicionPagoService _productoCondicionPagoService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
 
@@ -27,14 +26,12 @@ namespace TheBuryProject.Controllers
             IProductoService productoService,
             ICatalogLookupService catalogLookupService,
             ICatalogoService catalogoService,
-            IProductoCondicionPagoService productoCondicionPagoService,
             ILogger<ProductoController> logger,
             IMapper mapper)
         {
             _productoService = productoService;
             _catalogLookupService = catalogLookupService;
             _catalogoService = catalogoService;
-            _productoCondicionPagoService = productoCondicionPagoService;
             _logger = logger;
             _mapper = mapper;
         }
@@ -174,68 +171,6 @@ namespace TheBuryProject.Controllers
             await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
             await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Create_tw", viewModel);
-        }
-
-        [HttpGet("Producto/CondicionesPago/{productoId:int}")]
-        public async Task<IActionResult> ObtenerCondicionesPago(int productoId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var estado = await _productoCondicionPagoService.ObtenerEstadoEditableAsync(productoId, cancellationToken);
-                return Json(new { success = true, data = estado });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return NotFound(new { success = false, errors = new[] { ex.Message } });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener condiciones de pago del producto {ProductoId}", productoId);
-                return StatusCode(500, new { success = false, errors = new[] { "Error al cargar las condiciones de pago." } });
-            }
-        }
-
-        [HttpPost("Producto/CondicionesPago/{productoId:int}")]
-        [ValidateAntiForgeryToken]
-        [Consumes("application/json")]
-        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
-        public async Task<IActionResult> GuardarCondicionesPago(
-            int productoId,
-            [FromBody] GuardarProductoCondicionesPagoRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (request is null)
-            {
-                return BadRequest(new { success = false, errors = new[] { "La solicitud es invalida." } });
-            }
-
-            if (request.ProductoId != 0 && request.ProductoId != productoId)
-            {
-                return BadRequest(new { success = false, errors = new[] { "El producto de la ruta no coincide con la solicitud." } });
-            }
-
-            try
-            {
-                await _productoCondicionPagoService.GuardarCondicionesCompletasAsync(
-                    productoId, request, cancellationToken);
-
-                var estado = await _productoCondicionPagoService.ObtenerEstadoEditableAsync(productoId, cancellationToken);
-                return Json(new
-                {
-                    success = true,
-                    message = "Condiciones de pago guardadas.",
-                    data = estado
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { success = false, errors = new[] { ex.Message } });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al guardar condiciones de pago del producto {ProductoId}", productoId);
-                return StatusCode(500, new { success = false, errors = new[] { "Error al guardar las condiciones de pago." } });
-            }
         }
 
         /// <summary>

@@ -305,6 +305,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_ProductoSinCondiciones_DevuelvePermitidoHeredado()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -333,6 +334,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_ProductoBloqueado_DevuelvePermitidoFalseYProductoBloqueante()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -371,6 +373,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_VariosProductos_DevuelveBloqueoSiUnoBloquea()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -397,6 +400,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_TarjetaEspecificaBloqueada_NoBloqueaOtraTarjeta()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -427,6 +431,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_DevuelveMaximosEfectivosSinModificarTotales()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -462,6 +467,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_DevuelveRecargosYDescuentosInformativos()
     {
         var resolver = new StubCondicionesPagoCarritoResolver
@@ -536,6 +542,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Area", "LegacyPagoPorProducto")]
     public async Task DiagnosticarCondicionesPagoCarrito_NoLlamaVentaServiceParaAplicarCondicionesNuevas()
     {
         var ventaService = new StubVentaService();

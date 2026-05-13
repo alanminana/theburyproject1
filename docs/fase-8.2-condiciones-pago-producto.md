@@ -2,6 +2,10 @@
 
 Agente Kira
 
+> Nota Fase 7.7D: documento historico. El estado actual clasifica `ProductoCondicionPago*` como legacy administrativo/no canonico para Nueva Venta. Nueva Venta usa configuracion global de pagos y conserva **1 venta = 1 TipoPago principal**. Para `CreditoPersonal`, `ProductoCondicionPago.Permitido` y `MaxCuotasCredito` pueden seguir aplicando solo como restriccion de elegibilidad/rango del carrito, no como pago por producto ni plan por item.
+
+> Nota Fase 7.10: el admin/modal legacy descrito en este documento fue retirado junto con sus endpoints admin, `IProductoCondicionPagoService` / `ProductoCondicionPagoService` y `wwwroot/js/producto-condiciones-pago-modal.js`. Solo permanecen entidad/reglas/resolver necesarios para `CreditoPersonal`; Nueva Venta sigue con configuracion global.
+
 ## A. Diagnostico tecnico posterior a Fase 8.1
 
 La Fase 8.1 dejo congelado el comportamiento actual sin modificar logica productiva:

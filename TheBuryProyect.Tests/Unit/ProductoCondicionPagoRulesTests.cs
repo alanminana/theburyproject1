@@ -4,6 +4,10 @@ using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.Unit;
 
+/// <summary>
+/// Caracterizacion legacy/admin de pago por producto; no define contrato canonico de Nueva Venta.
+/// </summary>
+[Trait("Area", "LegacyPagoPorProducto")]
 public class ProductoCondicionPagoRulesTests
 {
     [Fact]
