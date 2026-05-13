@@ -36,6 +36,7 @@ namespace TheBuryProject.Services
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
+        private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
 
         public VentaService(
             AppDbContext context,
@@ -53,7 +54,8 @@ namespace TheBuryProject.Services
             ICreditoDisponibleService creditoDisponibleService,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IConfiguracionPagoService configuracionPagoService,
-            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null)
+            ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null,
+            IProductoCreditoRestriccionService? productoCreditoRestriccionService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -71,6 +73,8 @@ namespace TheBuryProject.Services
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _configuracionPagoService = configuracionPagoService;
             _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver ?? new CondicionesPagoCarritoResolver(context);
+            _productoCreditoRestriccionService =
+                productoCreditoRestriccionService ?? new ProductoCreditoRestriccionService(context);
         }
 
         #region Consultas
@@ -1132,6 +1136,18 @@ namespace TheBuryProject.Services
                 return;
             }
 
+            if (venta.TipoPago == TipoPago.CreditoPersonal)
+            {
+                var creditoResultado = await _productoCreditoRestriccionService.ResolverAsync(productoIds);
+                if (!creditoResultado.Permitido)
+                {
+                    throw new CondicionesPagoVentaException(
+                        await CrearMensajeBloqueoCreditoProductoAsync(creditoResultado));
+                }
+
+                return;
+            }
+
             var datosTarjeta = venta.DatosTarjeta;
             var configuracionTarjetaId = datosTarjetaViewModel?.ConfiguracionTarjetaId
                 ?? datosTarjeta?.ConfiguracionTarjetaId;
@@ -1238,16 +1254,12 @@ namespace TheBuryProject.Services
                     credito.PerfilCreditoAplicadoId,
                     venta.ClienteId);
 
-            var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
-                productoIds,
-                TipoPago.CreditoPersonal,
-                totalReferencia: venta.Total,
-                maxCuotasCreditoGlobal: maxBase);
+            var resultado = await _productoCreditoRestriccionService.ResolverAsync(productoIds);
 
             if (!resultado.Permitido)
             {
                 throw new CondicionesPagoVentaException(
-                    await CrearMensajeBloqueoCondicionesPagoAsync(resultado));
+                    await CrearMensajeBloqueoCreditoProductoAsync(resultado));
             }
 
             var maxEfectivo = resultado.MaxCuotasCredito.HasValue
@@ -1268,6 +1280,17 @@ namespace TheBuryProject.Services
                     $"La cantidad de cuotas configurada ({credito.CantidadCuotas}) debe estar entre {minBase} y {maxEfectivo} " +
                     $"según el método '{descripcionMetodo}' y las restricciones por producto.");
             }
+        }
+
+        private async Task<string> CrearMensajeBloqueoCreditoProductoAsync(
+            ProductoCreditoRestriccionResultado resultado)
+        {
+            var nombres = await ObtenerNombresProductosAsync(resultado.ProductoIdsBloqueantes);
+            var detalles = nombres.Count == 0
+                ? "Hay productos incompatibles con CreditoPersonal."
+                : string.Join(", ", nombres.Values.Select(nombre => $"{nombre}: bloquea CreditoPersonal."));
+
+            return $"No se puede crear o confirmar la venta con {TipoPago.CreditoPersonal}. {detalles}";
         }
 
         private async Task<string> CrearMensajeBloqueoCondicionesPagoAsync(

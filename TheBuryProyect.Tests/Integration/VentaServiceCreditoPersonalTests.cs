@@ -391,10 +391,9 @@ public class VentaServiceCreditoPersonalTests
             var apertura = await SeedCajaAsync(ctx);
             var cliente = await SeedClienteAsync(ctx);
             var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
-            ctx.ProductoCondicionesPago.Add(new ProductoCondicionPago
+            ctx.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
             {
                 ProductoId = producto.Id,
-                TipoPago = TipoPago.CreditoPersonal,
                 Permitido = false,
                 Activo = true,
                 IsDeleted = false
@@ -424,10 +423,9 @@ public class VentaServiceCreditoPersonalTests
             var cliente = await SeedClienteAsync(ctx);
             var permitido = await SeedProductoAsync(ctx, precioVenta: 1_000m);
             var bloqueado = await SeedProductoAsync(ctx, precioVenta: 500m);
-            ctx.ProductoCondicionesPago.Add(new ProductoCondicionPago
+            ctx.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
             {
                 ProductoId = bloqueado.Id,
-                TipoPago = TipoPago.CreditoPersonal,
                 Permitido = false,
                 Activo = true,
                 IsDeleted = false
@@ -453,6 +451,78 @@ public class VentaServiceCreditoPersonalTests
 
             Assert.Contains("CreditoPersonal", ex.Message);
             Assert.Contains("bloquea", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalProductoCondicionPagoLegacyBloqueada_NoBloquea()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+            ctx.ProductoCondicionesPago.Add(new ProductoCondicionPago
+            {
+                ProductoId = producto.Id,
+                TipoPago = TipoPago.CreditoPersonal,
+                Permitido = false,
+                Activo = true,
+                IsDeleted = false
+            });
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+            Assert.Equal(TipoPago.CreditoPersonal, resultado.TipoPago);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalProductoCondicionPagoPlanLegacy_NoAfectaCreditoPersonal()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+            var condicion = new ProductoCondicionPago
+            {
+                ProductoId = producto.Id,
+                TipoPago = TipoPago.CreditoPersonal,
+                Permitido = false,
+                MaxCuotasCredito = 1,
+                Activo = true,
+                IsDeleted = false
+            };
+            ctx.ProductoCondicionesPago.Add(condicion);
+            await ctx.SaveChangesAsync();
+            ctx.ProductoCondicionPagoPlanes.Add(new ProductoCondicionPagoPlan
+            {
+                ProductoCondicionPagoId = condicion.Id,
+                CantidadCuotas = 1,
+                Activo = true,
+                IsDeleted = false
+            });
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+            Assert.Equal(TipoPago.CreditoPersonal, resultado.TipoPago);
         }
     }
 }

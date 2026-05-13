@@ -11,7 +11,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task ProductoSinRestriccion_ConservaRangoBase()
     {
-        var service = CrearService(new CondicionesPagoCarritoResultado
+        var service = CrearService(new ProductoCreditoRestriccionResultado
         {
             Permitido = true
         });
@@ -29,7 +29,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task ProductoBloqueante_BloqueaRangoConMensajeEquivalente()
     {
-        var service = CrearService(new CondicionesPagoCarritoResultado
+        var service = CrearService(new ProductoCreditoRestriccionResultado
         {
             Permitido = false,
             ProductoIdsBloqueantes = new[] { 7 }
@@ -48,7 +48,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task MaxCuotasCreditoMenor_ReduceMaximoEfectivoYConservaProductoRestrictivo()
     {
-        var service = CrearService(new CondicionesPagoCarritoResultado
+        var service = CrearService(new ProductoCreditoRestriccionResultado
         {
             Permitido = true,
             MaxCuotasCredito = 6,
@@ -68,7 +68,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task MaxCuotasCreditoMayor_NoAmpliaRangoBase()
     {
-        var service = CrearService(new CondicionesPagoCarritoResultado
+        var service = CrearService(new ProductoCreditoRestriccionResultado
         {
             Permitido = true,
             MaxCuotasCredito = 36,
@@ -86,7 +86,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task CarritoMultiproducto_UsaMenorMaxCuotasCreditoDelResolver()
     {
-        var resolver = new StubCondicionesPagoCarritoResolver(new CondicionesPagoCarritoResultado
+        var resolver = new StubProductoCreditoRestriccionService(new ProductoCreditoRestriccionResultado
         {
             Permitido = true,
             MaxCuotasCredito = 6,
@@ -109,7 +109,7 @@ public sealed class CreditoRangoProductoServiceTests
     [Fact]
     public async Task ResultadoConservaMaxCuotasBaseYProductoRestrictivo()
     {
-        var service = CrearService(new CondicionesPagoCarritoResultado
+        var service = CrearService(new ProductoCreditoRestriccionResultado
         {
             Permitido = true,
             MaxCuotasCredito = 12,
@@ -123,8 +123,8 @@ public sealed class CreditoRangoProductoServiceTests
         Assert.Equal("Notebook", resultado.ProductoRestrictivoNombre);
     }
 
-    private static CreditoRangoProductoService CrearService(CondicionesPagoCarritoResultado resultado) =>
-        new(new StubCondicionesPagoCarritoResolver(resultado));
+    private static CreditoRangoProductoService CrearService(ProductoCreditoRestriccionResultado resultado) =>
+        new(new StubProductoCreditoRestriccionService(resultado));
 
     private static VentaViewModel VentaConProductos(params (int Id, string Nombre)[] productos) =>
         new()
@@ -140,36 +140,23 @@ public sealed class CreditoRangoProductoServiceTests
                 .ToList()
         };
 
-    private sealed class StubCondicionesPagoCarritoResolver : ICondicionesPagoCarritoResolver
+    private sealed class StubProductoCreditoRestriccionService : IProductoCreditoRestriccionService
     {
-        private readonly CondicionesPagoCarritoResultado _resultado;
+        private readonly ProductoCreditoRestriccionResultado _resultado;
 
-        public StubCondicionesPagoCarritoResolver(CondicionesPagoCarritoResultado resultado)
+        public StubProductoCreditoRestriccionService(ProductoCreditoRestriccionResultado resultado)
         {
             _resultado = resultado;
         }
 
         public int[] ProductoIdsRecibidos { get; private set; } = Array.Empty<int>();
 
-        public Task<CondicionesPagoCarritoResultado> ResolverAsync(
+        public Task<ProductoCreditoRestriccionResultado> ResolverAsync(
             IEnumerable<int> productoIds,
-            TipoPago tipoPago,
-            int? configuracionTarjetaId = null,
-            decimal? totalReferencia = null,
-            int? maxCuotasSinInteresGlobal = null,
-            int? maxCuotasConInteresGlobal = null,
-            int? maxCuotasCreditoGlobal = null,
-            TipoTarjeta? tipoTarjetaLegacy = null,
             CancellationToken cancellationToken = default)
         {
             ProductoIdsRecibidos = productoIds.ToArray();
             return Task.FromResult(_resultado);
         }
-
-        public Task<MediosPagoPorProductoResultado> ObtenerMediosPorProductoAsync(
-            int productoId,
-            int? configuracionTarjetaId = null,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new MediosPagoPorProductoResultado { SinRestriccionesPropias = true });
     }
 }

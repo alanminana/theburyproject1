@@ -165,7 +165,7 @@ public class CreditoControllerConfigurarVentaTests
             new RecordingCreditoService(CreditoBase()),
             ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)),
             ventaService: new StubVentaService(venta: VentaConProducto()),
-            condicionesResolver: new StubCondicionesPagoCarritoResolver(new CondicionesPagoCarritoResultado
+            productoCreditoRestriccionService: new StubProductoCreditoRestriccionService(new ProductoCreditoRestriccionResultado
             {
                 Permitido = true,
                 MaxCuotasCredito = 6,
@@ -189,7 +189,7 @@ public class CreditoControllerConfigurarVentaTests
             new RecordingCreditoService(CreditoBase()),
             ConfigService(tasaGlobal: 5m),
             ventaService: new StubVentaService(venta: VentaConProducto()),
-            condicionesResolver: new StubCondicionesPagoCarritoResolver(new CondicionesPagoCarritoResultado
+            productoCreditoRestriccionService: new StubProductoCreditoRestriccionService(new ProductoCreditoRestriccionResultado
             {
                 Permitido = false,
                 ProductoIdsBloqueantes = new[] { 7 }
@@ -209,7 +209,7 @@ public class CreditoControllerConfigurarVentaTests
             creditoService,
             ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)),
             ventaService: new StubVentaService(venta: VentaConProducto()),
-            condicionesResolver: new StubCondicionesPagoCarritoResolver(new CondicionesPagoCarritoResultado
+            productoCreditoRestriccionService: new StubProductoCreditoRestriccionService(new ProductoCreditoRestriccionResultado
             {
                 Permitido = true,
                 MaxCuotasCredito = 6,
@@ -233,7 +233,8 @@ public class CreditoControllerConfigurarVentaTests
         StubConfiguracionPagoService configuracionPagoService,
         IVentaService? ventaService = null,
         IContratoVentaCreditoService? contratoService = null,
-        ICondicionesPagoCarritoResolver? condicionesResolver = null)
+        ICondicionesPagoCarritoResolver? condicionesResolver = null,
+        IProductoCreditoRestriccionService? productoCreditoRestriccionService = null)
     {
         var controller = new CreditoController(
             creditoService: creditoService,
@@ -248,7 +249,8 @@ public class CreditoControllerConfigurarVentaTests
             viewBagBuilder: null!,
             contratoVentaCreditoService: contratoService ?? new StubContratoVentaCreditoService(),
             aptitudService: null,
-            condicionesPagoCarritoResolver: condicionesResolver);
+            condicionesPagoCarritoResolver: condicionesResolver,
+            productoCreditoRestriccionService: productoCreditoRestriccionService);
         controller.TempData = new TempDataDictionary(new DefaultHttpContext(), new InMemoryTempDataProvider());
         return controller;
     }
@@ -493,6 +495,21 @@ public class CreditoControllerConfigurarVentaTests
             int? configuracionTarjetaId = null,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new MediosPagoPorProductoResultado { SinRestriccionesPropias = true });
+    }
+
+    private sealed class StubProductoCreditoRestriccionService : IProductoCreditoRestriccionService
+    {
+        private readonly ProductoCreditoRestriccionResultado _resultado;
+
+        public StubProductoCreditoRestriccionService(ProductoCreditoRestriccionResultado resultado)
+        {
+            _resultado = resultado;
+        }
+
+        public Task<ProductoCreditoRestriccionResultado> ResolverAsync(
+            IEnumerable<int> productoIds,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(_resultado);
     }
 
     private sealed class InMemoryTempDataProvider : ITempDataProvider

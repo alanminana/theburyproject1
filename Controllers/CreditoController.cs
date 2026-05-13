@@ -56,6 +56,7 @@ namespace TheBuryProject.Controllers
             IContratoVentaCreditoService contratoVentaCreditoService,
             IClienteAptitudService? aptitudService = null,
             ICondicionesPagoCarritoResolver? condicionesPagoCarritoResolver = null,
+            IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
             ICreditoRangoProductoService? creditoRangoProductoService = null,
             ICreditoConfiguracionVentaService? creditoConfiguracionVentaService = null,
             ICreditoSimulacionVentaService? creditoSimulacionVentaService = null,
@@ -72,8 +73,8 @@ namespace TheBuryProject.Controllers
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _creditoRangoProductoService = creditoRangoProductoService
-                ?? (condicionesPagoCarritoResolver is not null
-                    ? new CreditoRangoProductoService(condicionesPagoCarritoResolver)
+                ?? (productoCreditoRestriccionService is not null
+                    ? new CreditoRangoProductoService(productoCreditoRestriccionService)
                     : null);
             _creditoConfiguracionVentaService = creditoConfiguracionVentaService
                 ?? new CreditoConfiguracionVentaService(

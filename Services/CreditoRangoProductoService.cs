@@ -7,11 +7,11 @@ namespace TheBuryProject.Services;
 
 public sealed class CreditoRangoProductoService : ICreditoRangoProductoService
 {
-    private readonly ICondicionesPagoCarritoResolver _condicionesPagoCarritoResolver;
+    private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
 
-    public CreditoRangoProductoService(ICondicionesPagoCarritoResolver condicionesPagoCarritoResolver)
+    public CreditoRangoProductoService(IProductoCreditoRestriccionService productoCreditoRestriccionService)
     {
-        _condicionesPagoCarritoResolver = condicionesPagoCarritoResolver;
+        _productoCreditoRestriccionService = productoCreditoRestriccionService;
     }
 
     public async Task<CreditoRangoProductoResultado> ResolverAsync(
@@ -37,12 +37,14 @@ public sealed class CreditoRangoProductoService : ICreditoRangoProductoService
             return SinRestriccion(minBase, maxBase);
         }
 
-        var resultado = await _condicionesPagoCarritoResolver.ResolverAsync(
+        if (tipoPago != TipoPago.CreditoPersonal)
+        {
+            return SinRestriccion(minBase, maxBase);
+        }
+
+        var resultado = await _productoCreditoRestriccionService.ResolverAsync(
             productoIds,
-            tipoPago,
-            totalReferencia: venta.Total,
-            maxCuotasCreditoGlobal: maxBase,
-            cancellationToken: cancellationToken);
+            cancellationToken);
 
         if (!resultado.Permitido)
         {

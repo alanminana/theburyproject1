@@ -571,6 +571,34 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConfirmarVentaCredito_MaxCuotasCreditoPorProducto_LanzaCondicionesPagoVentaException()
+    {
+        var (venta, credito) = await SeedVentaConfirmable(cantidadCuotas: 12);
+        var productoId = await _context.VentaDetalles
+            .Where(d => d.VentaId == venta.Id)
+            .Select(d => d.ProductoId)
+            .SingleAsync();
+        _context.ProductoCreditoRestricciones.Add(new ProductoCreditoRestriccion
+        {
+            ProductoId = productoId,
+            Permitido = true,
+            MaxCuotasCredito = 6,
+            Activo = true,
+            IsDeleted = false
+        });
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<TheBuryProject.Services.Exceptions.CondicionesPagoVentaException>(
+            () => _service.ConfirmarVentaCreditoAsync(venta.Id));
+
+        Assert.Contains("entre", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("6", ex.Message);
+
+        var creditoActualizado = await _context.Creditos.FindAsync(credito.Id);
+        Assert.Equal(EstadoCredito.Configurado, creditoActualizado!.Estado);
+    }
+
+    [Fact]
     public async Task ConfirmarVentaCredito_ConExcepcionDocumental_SinContratoGenerado_NoPermiteContinuar()
     {
         // Arrange: una excepción documental/autorización no debe saltear el contrato.
