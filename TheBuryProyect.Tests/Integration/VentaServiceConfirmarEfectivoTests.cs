@@ -849,4 +849,71 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         });
         await _context.SaveChangesAsync();
     }
+
+    // -------------------------------------------------------------------------
+    // Tests — Fase 6.5: ConfirmarVentaAsync con/sin DatosTarjeta
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Fase 6.5 — Documenta comportamiento actual: ConfirmarVentaAsync no exige
+    /// DatosTarjeta para TarjetaCredito. El guard no existe en el service.
+    /// Si en el futuro se agrega validación, este test fallará como señal.
+    /// </summary>
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaCredito_SinDatosTarjeta_ConfirmaSinError()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+        // Sin DatosTarjeta — ConfirmarVentaAsync no lo exige actualmente
+        Assert.Equal(0, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
+    }
+
+    /// <summary>
+    /// Fase 6.5 — Los campos legacy de DatosTarjeta (PorcentajeAjustePlanAplicado,
+    /// MontoAjustePlanAplicado del flujo por producto) no deben alterar Venta.Total
+    /// ni bloquear la confirmación. ConfirmarVentaAsync no lee ni aplica esos campos.
+    /// </summary>
+    [Fact]
+    public async Task ConfirmarVenta_TarjetaCredito_CamposLegacyEnDatosTarjeta_NoRecalculanTotal()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.TarjetaCredito);
+        var totalOriginal = venta.Total; // 1000m
+
+        // DatosTarjeta con campos legacy seteados (flujo por producto, no global)
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Visa Legacy",
+            TipoTarjeta = TipoTarjeta.Credito,
+            PorcentajeAjustePlanAplicado = 8m,   // legacy snapshot por producto
+            MontoAjustePlanAplicado = 80m,         // legacy snapshot por producto
+            PorcentajeAjustePagoAplicado = null,   // sin ajuste global
+            MontoAjustePagoAplicado = null,
+            ProductoCondicionPagoPlanId = null,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+
+        var ventaConfirmada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        // ConfirmarVentaAsync no recalcula Total basándose en los campos legacy de DatosTarjeta
+        Assert.Equal(totalOriginal, ventaConfirmada.Total);
+        Assert.Equal(EstadoVenta.Confirmada, ventaConfirmada.Estado);
+
+        // Los campos legacy quedan intactos — el confirm no los toca
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(8m, datos.PorcentajeAjustePlanAplicado);
+        Assert.Equal(80m, datos.MontoAjustePlanAplicado);
+        Assert.Null(datos.PorcentajeAjustePagoAplicado);
+        Assert.Null(datos.MontoAjustePagoAplicado);
+    }
 }

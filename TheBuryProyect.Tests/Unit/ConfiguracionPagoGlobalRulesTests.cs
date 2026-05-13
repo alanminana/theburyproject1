@@ -159,4 +159,35 @@ public class ConfiguracionPagoGlobalRulesTests
         Assert.Equal(110.01m, resultado.TotalFinal);
         Assert.Equal(110.01m, resultado.ValorCuota);
     }
+
+    /// <summary>
+    /// Documenta el invariante: si el cálculo se aplica dos veces pasando TotalFinal
+    /// como BaseVenta de la segunda llamada, el ajuste se compone (compounding).
+    /// Este es el resultado incorrecto que ocurriría si AplicarAjustePagoGlobal se
+    /// llamara dos veces sobre venta.Total sin un reset intermedio via CalcularTotales.
+    /// VentaService previene esto garantizando la secuencia: CalcularTotales → AplicarAjustePagoGlobal.
+    /// </summary>
+    [Fact]
+    public void Calcular_AplicadoDosVecesSinReset_CompoundaElAjuste_DocumentaInvariante()
+    {
+        // Primera aplicación correcta: base 1000, +10% → 1100
+        var primera = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+        {
+            BaseVenta = 1_000m,
+            PorcentajeAjuste = 10m,
+            CantidadCuotas = 1
+        });
+        Assert.Equal(1_100m, primera.TotalFinal);
+
+        // Segunda aplicación tomando TotalFinal como base — simula el error de doble llamada.
+        // Resultado: 1100 + 10% = 1210 en lugar de 1100. El ajuste se compone.
+        var segunda = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
+        {
+            BaseVenta = primera.TotalFinal,
+            PorcentajeAjuste = 10m,
+            CantidadCuotas = 1
+        });
+        Assert.Equal(1_210m, segunda.TotalFinal);
+        Assert.NotEqual(primera.TotalFinal, segunda.TotalFinal);
+    }
 }

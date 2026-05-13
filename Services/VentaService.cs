@@ -601,6 +601,9 @@ namespace TheBuryProject.Services
             await AplicarPrecioVigenteADetallesAsync(venta);
 
             CalcularTotales(venta);
+            // INVARIANTE: CalcularTotales siempre debe preceder a AplicarAjustePagoGlobalPersistidoAsync.
+            // CalcularTotales establece venta.Total desde los ítems (base limpia).
+            // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await AplicarAjustePagoGlobalPersistidoAsync(venta);
             await CalcularComisionesAsync(venta);
 
@@ -1784,6 +1787,10 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("La tarjeta seleccionada no corresponde al medio de pago elegido.");
         }
 
+        // INVARIANTE: este método debe llamarse una sola vez por operación de guardado/actualización.
+        // Usa venta.Total como base para el cálculo. Una segunda llamada sin reset previo
+        // (CalcularTotales) compoundría el ajuste: e.g. +10% sobre 1000 → 1100, luego +10% sobre 1100 → 1210.
+        // En UpdateAsync, CalcularTotales garantiza la base limpia antes de cada llamada.
         private static void AplicarAjustePagoGlobal(
             Venta venta,
             DatosTarjeta datosTarjeta,
@@ -1812,6 +1819,8 @@ namespace TheBuryProject.Services
             datosTarjeta.NombrePlanPagoSnapshot = CrearNombrePlanPagoSnapshot(plan);
         }
 
+        // Diseñado para llamarse exactamente una vez en UpdateAsync, siempre después de CalcularTotales.
+        // Ese orden garantiza que venta.Total es la base limpia de ítems, no un total ya ajustado.
         private async Task AplicarAjustePagoGlobalPersistidoAsync(Venta venta)
         {
             if (venta.DatosTarjeta?.ConfiguracionPagoPlanId is not int planId)

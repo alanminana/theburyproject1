@@ -1426,6 +1426,10 @@ namespace TheBuryProject.Data
                     .HasForeignKey<DatosTarjeta>(e => e.VentaId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+                entity.HasIndex(e => e.VentaId)
+                    .IsUnique()
+                    .HasDatabaseName("IX_DatosTarjeta_VentaId");
+
                 entity.HasOne(e => e.ConfiguracionTarjeta)
                     .WithMany()
                     .HasForeignKey(e => e.ConfiguracionTarjetaId)

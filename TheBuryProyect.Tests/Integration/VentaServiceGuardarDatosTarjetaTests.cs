@@ -1080,6 +1080,48 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         Assert.Equal(7_000m, ventaActualizada.Total);
     }
 
+    // ── Tests de idempotencia — Fase 6.3 ──────────────────────────────
+
+    /// <summary>
+    /// Fase 6.3 — Idempotencia con plan global.
+    /// Verifica que una segunda llamada a GuardarDatosTarjetaAsync con plan global:
+    ///   - retorna false;
+    ///   - deja exactamente un DatosTarjeta;
+    ///   - no duplica Venta.Total;
+    ///   - ProductoCondicionPagoPlanId permanece null (flujo global, no legacy).
+    /// </summary>
+    [Fact]
+    public async Task GuardarDatosTarjeta_SegundaLlamadaConPlanGlobal_NoDuplicaTotalYMantieneSinLegacy()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
+        var (_, _, plan) = await SeedPlanGlobal(TipoPago.MercadoPago, ajustePorcentaje: 10m, cantidadCuotas: 2);
+
+        var vm = new DatosTarjetaViewModel
+        {
+            NombreTarjeta = "Mercado Pago",
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id
+        };
+
+        var primera = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+        var segunda = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(primera);
+        Assert.False(segunda);
+
+        // Total queda en 11.000 (10% sobre 10.000), no en 12.100 (10% compuesto dos veces).
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_000m, ventaActualizada.Total);
+
+        var countDatos = await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(1, countDatos);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
+    }
+
     private async Task<Producto> SeedProductoSimple(string codigo)
     {
         var categoria = new Categoria { Codigo = $"CAT-{codigo}", Nombre = $"Categoria {codigo}" };
@@ -1099,5 +1141,72 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
         return producto;
+    }
+
+    // ── Tests de índice único — Fase 6.4 ──────────────────────────────
+
+    /// <summary>
+    /// Fase 6.4 — Verifica que la restricción única sobre DatosTarjeta.VentaId está activa en BD.
+    /// Inserta dos DatosTarjeta para la misma Venta usando dos contextos distintos (bypass del
+    /// change tracker) y confirma que el segundo SaveChanges lanza DbUpdateException.
+    /// </summary>
+    [Fact]
+    public async Task DatosTarjeta_IndiceUnico_VentaId_RechazaSegundoRegistroEnBD()
+    {
+        var venta = await SeedVenta(total: 5_000m);
+
+        _context.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Visa",
+            TipoTarjeta = TipoTarjeta.Credito
+        });
+        await _context.SaveChangesAsync();
+
+        // Segundo contexto sobre la misma conexión SQLite para bypassear el change tracker.
+        // El change tracker del primer contexto conoce la relación WithOne y podría
+        // interceptar el segundo Add antes de llegar a la BD.
+        var opts2 = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+        await using var ctx2 = new AppDbContext(opts2);
+
+        ctx2.DatosTarjeta.Add(new DatosTarjeta
+        {
+            VentaId = venta.Id,
+            NombreTarjeta = "Mastercard",
+            TipoTarjeta = TipoTarjeta.Credito
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => ctx2.SaveChangesAsync());
+    }
+
+    /// <summary>
+    /// Fase 6.4 — GuardarDatosTarjetaAsync sigue retornando false en segunda llamada
+    /// (guard de servicio actúa antes de que la restricción de BD sea necesaria).
+    /// </summary>
+    [Fact]
+    public async Task DatosTarjeta_GuardarDatosTarjetaAsync_SegundaLlamada_SigueRetornandoFalse()
+    {
+        var venta = await SeedVenta(total: 6_000m);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Credito, TipoCuotaTarjeta.SinInteres, nombre: "Visa Fase64");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            CantidadCuotas = 3,
+            TipoCuota = TipoCuotaTarjeta.SinInteres
+        };
+
+        var primera = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+        var segunda = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(primera);
+        Assert.False(segunda);
+        Assert.Equal(1, await _context.DatosTarjeta.CountAsync(d => d.VentaId == venta.Id));
     }
 }
