@@ -74,6 +74,7 @@ public class ProductoControllerPrecioTests : IDisposable
             mapper);
 
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        _controller.TempData = new StubTempDataDictionaryCtrlTest();
     }
 
     public void Dispose()
@@ -776,6 +777,21 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void UnidadesView_MuestraFormularioAgregarUnidad()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+
+        Assert.Contains("Agregar unidad", html);
+        Assert.Contains("asp-action=\"CrearUnidad\"", html);
+        Assert.Contains("asp-for=\"CrearUnidad.NumeroSerie\"", html);
+        Assert.Contains("El codigo interno se genera automaticamente", html);
+        Assert.Contains("El numero de serie es opcional", html);
+        Assert.Contains("La unidad se creara en estado EnStock", html);
+        Assert.Contains("Crear una unidad fisica no ajusta el stock agregado", html);
+        Assert.DoesNotContain("CodigoInternoUnidad\" name=\"CrearUnidad", html);
+    }
+
+    [Fact]
     public async Task Unidades_ProductoExistente_DevuelveVistaConUnidadesDelProducto()
     {
         var producto = await SeedProductoAsync();
@@ -868,6 +884,110 @@ public class ProductoControllerPrecioTests : IDisposable
         var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
         Assert.False(model.RequiereNumeroSerie);
         Assert.Empty(model.Unidades);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_PostSinSerie_CreaUnidadYRedirigeAUnidades()
+    {
+        var producto = await SeedProductoAsync();
+
+        var result = await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = producto.Id,
+            UbicacionActual = "Deposito A",
+            Observaciones = "Alta manual"
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ProductoController.Unidades), redirect.ActionName);
+        Assert.Equal(producto.Id, redirect.RouteValues!["productoId"]);
+
+        var unidad = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.ProductoId == producto.Id);
+        Assert.Null(unidad.NumeroSerie);
+        Assert.Equal("Deposito A", unidad.UbicacionActual);
+        Assert.Equal("Alta manual", unidad.Observaciones);
+        Assert.Equal(EstadoUnidad.EnStock, unidad.Estado);
+        Assert.StartsWith(producto.Codigo + "-U-", unidad.CodigoInternoUnidad);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_PostConSerie_CreaUnidadConSerieYCodigoAutomatico()
+    {
+        var producto = await SeedProductoAsync();
+
+        await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = producto.Id,
+            NumeroSerie = "SN-MANUAL-001"
+        });
+
+        var unidad = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.ProductoId == producto.Id);
+        Assert.Equal("SN-MANUAL-001", unidad.NumeroSerie);
+        Assert.StartsWith(producto.Codigo + "-U-", unidad.CodigoInternoUnidad);
+        Assert.False(string.IsNullOrWhiteSpace(unidad.CodigoInternoUnidad));
+    }
+
+    [Fact]
+    public async Task CrearUnidad_PostProductoInexistente_DevuelveNotFound()
+    {
+        var result = await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = 999999,
+            NumeroSerie = "SN-X"
+        });
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_PostSerieDuplicada_MuestraErrorClaroSinCrearOtraUnidad()
+    {
+        var producto = await SeedProductoAsync();
+        await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = producto.Id,
+            NumeroSerie = "SN-DUP"
+        });
+
+        var result = await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = producto.Id,
+            NumeroSerie = "SN-DUP"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Unidades", view.ViewName);
+        Assert.False(_controller.ModelState.IsValid);
+        var error = Assert.Single(_controller.ModelState["CrearUnidad.NumeroSerie"]!.Errors);
+        Assert.Contains("unidad activa", Normalize(error.ErrorMessage));
+
+        var total = await _context.ProductoUnidades.CountAsync(u => u.ProductoId == producto.Id);
+        Assert.Equal(1, total);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_PostCreaHistorialInicialYNoModificaStockActual()
+    {
+        var producto = await SeedProductoAsync();
+        var stockInicial = producto.StockActual;
+
+        await _controller.CrearUnidad(new ProductoUnidadCrearViewModel
+        {
+            ProductoId = producto.Id,
+            NumeroSerie = "SN-HIST-001"
+        });
+
+        var unidad = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.ProductoId == producto.Id);
+        var historial = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .Where(m => m.ProductoUnidadId == unidad.Id)
+            .ToListAsync();
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+
+        var movimiento = Assert.Single(historial);
+        Assert.Equal(EstadoUnidad.EnStock, movimiento.EstadoNuevo);
+        Assert.Equal("Ingreso inicial de unidad", movimiento.Motivo);
+        Assert.Equal(stockInicial, productoActualizado.StockActual);
     }
 
     [Fact]

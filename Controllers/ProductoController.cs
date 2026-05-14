@@ -550,10 +550,6 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var producto = await _productoService.GetByIdAsync(productoId);
-                if (producto == null)
-                    return NotFound();
-
                 var filtros = new ProductoUnidadFiltros
                 {
                     Estado = estado,
@@ -563,40 +559,9 @@ namespace TheBuryProject.Controllers
                     SoloSinNumeroSerie = soloSinNumeroSerie
                 };
 
-                var unidadesFiltradas = (await _productoUnidadService
-                    .ObtenerPorProductoFiltradoAsync(productoId, filtros))
-                    .ToList();
-
-                var unidadesResumen = (await _productoUnidadService
-                    .ObtenerPorProductoAsync(productoId))
-                    .ToList();
-
-                var viewModel = new ProductoUnidadesViewModel
-                {
-                    ProductoId = producto.Id,
-                    Codigo = producto.Codigo,
-                    Nombre = producto.Nombre,
-                    RequiereNumeroSerie = producto.RequiereNumeroSerie,
-                    StockActual = producto.StockActual,
-                    Filtros = new ProductoUnidadesFiltroViewModel
-                    {
-                        Estado = estado,
-                        Texto = texto,
-                        SoloDisponibles = soloDisponibles,
-                        SoloVendidas = soloVendidas,
-                        SoloSinNumeroSerie = soloSinNumeroSerie
-                    },
-                    ResumenEstados = unidadesResumen
-                        .GroupBy(u => u.Estado)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new ProductoUnidadEstadoResumenViewModel
-                        {
-                            Estado = g.Key,
-                            Cantidad = g.Count()
-                        })
-                        .ToList(),
-                    Unidades = unidadesFiltradas.Select(MapearUnidadItem).ToList()
-                };
+                var viewModel = await ConstruirProductoUnidadesViewModelAsync(productoId, filtros);
+                if (viewModel == null)
+                    return NotFound();
 
                 return View("Unidades", viewModel);
             }
@@ -605,6 +570,44 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al cargar unidades del producto {ProductoId}", productoId);
                 TempData["Error"] = "Error al cargar las unidades del producto. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpPost("Producto/CrearUnidad")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> CrearUnidad(ProductoUnidadCrearViewModel crearUnidad)
+        {
+            if (!ModelState.IsValid)
+                return await VolverAUnidadesConFormularioAsync(crearUnidad);
+
+            try
+            {
+                var producto = await _productoService.GetByIdAsync(crearUnidad.ProductoId);
+                if (producto == null)
+                    return NotFound();
+
+                await _productoUnidadService.CrearUnidadAsync(
+                    crearUnidad.ProductoId,
+                    crearUnidad.NumeroSerie,
+                    crearUnidad.UbicacionActual,
+                    crearUnidad.Observaciones,
+                    User?.Identity?.Name);
+
+                TempData["Success"] = "Unidad fisica creada correctamente. El stock agregado no fue modificado.";
+                return RedirectToAction(nameof(Unidades), new { productoId = crearUnidad.ProductoId });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validacion al crear unidad para producto {ProductoId}", crearUnidad.ProductoId);
+                ModelState.AddModelError($"{nameof(ProductoUnidadesViewModel.CrearUnidad)}.{nameof(ProductoUnidadCrearViewModel.NumeroSerie)}", ex.Message);
+                return await VolverAUnidadesConFormularioAsync(crearUnidad);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear unidad para producto {ProductoId}", crearUnidad.ProductoId);
+                TempData["Error"] = "Error al crear la unidad fisica. Intenta nuevamente.";
+                return RedirectToAction(nameof(Unidades), new { productoId = crearUnidad.ProductoId });
             }
         }
 
@@ -646,6 +649,65 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al cargar el historial de la unidad. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
             }
+        }
+
+        private async Task<IActionResult> VolverAUnidadesConFormularioAsync(ProductoUnidadCrearViewModel crearUnidad)
+        {
+            var viewModel = await ConstruirProductoUnidadesViewModelAsync(
+                crearUnidad.ProductoId,
+                new ProductoUnidadFiltros(),
+                crearUnidad);
+
+            if (viewModel == null)
+                return NotFound();
+
+            return View("Unidades", viewModel);
+        }
+
+        private async Task<ProductoUnidadesViewModel?> ConstruirProductoUnidadesViewModelAsync(
+            int productoId,
+            ProductoUnidadFiltros filtros,
+            ProductoUnidadCrearViewModel? crearUnidad = null)
+        {
+            var producto = await _productoService.GetByIdAsync(productoId);
+            if (producto == null)
+                return null;
+
+            var unidadesFiltradas = (await _productoUnidadService
+                .ObtenerPorProductoFiltradoAsync(productoId, filtros))
+                .ToList();
+
+            var unidadesResumen = (await _productoUnidadService
+                .ObtenerPorProductoAsync(productoId))
+                .ToList();
+
+            return new ProductoUnidadesViewModel
+            {
+                ProductoId = producto.Id,
+                Codigo = producto.Codigo,
+                Nombre = producto.Nombre,
+                RequiereNumeroSerie = producto.RequiereNumeroSerie,
+                StockActual = producto.StockActual,
+                Filtros = new ProductoUnidadesFiltroViewModel
+                {
+                    Estado = filtros.Estado,
+                    Texto = filtros.Texto,
+                    SoloDisponibles = filtros.SoloDisponibles,
+                    SoloVendidas = filtros.SoloVendidas,
+                    SoloSinNumeroSerie = filtros.SoloSinNumeroSerie
+                },
+                CrearUnidad = crearUnidad ?? new ProductoUnidadCrearViewModel { ProductoId = producto.Id },
+                ResumenEstados = unidadesResumen
+                    .GroupBy(u => u.Estado)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new ProductoUnidadEstadoResumenViewModel
+                    {
+                        Estado = g.Key,
+                        Cantidad = g.Count()
+                    })
+                    .ToList(),
+                Unidades = unidadesFiltradas.Select(MapearUnidadItem).ToList()
+            };
         }
 
         private static ProductoUnidadItemViewModel MapearUnidadItem(ProductoUnidad unidad)

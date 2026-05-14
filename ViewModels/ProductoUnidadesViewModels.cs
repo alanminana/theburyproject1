@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace TheBuryProject.ViewModels
 {
@@ -10,8 +11,23 @@ namespace TheBuryProject.ViewModels
         public bool RequiereNumeroSerie { get; set; }
         public decimal StockActual { get; set; }
         public ProductoUnidadesFiltroViewModel Filtros { get; set; } = new();
+        public ProductoUnidadCrearViewModel CrearUnidad { get; set; } = new();
         public List<ProductoUnidadEstadoResumenViewModel> ResumenEstados { get; set; } = new();
         public List<ProductoUnidadItemViewModel> Unidades { get; set; } = new();
+    }
+
+    public class ProductoUnidadCrearViewModel
+    {
+        public int ProductoId { get; set; }
+
+        [StringLength(100, ErrorMessage = "El numero de serie no puede superar los 100 caracteres.")]
+        public string? NumeroSerie { get; set; }
+
+        [StringLength(200, ErrorMessage = "La ubicacion actual no puede superar los 200 caracteres.")]
+        public string? UbicacionActual { get; set; }
+
+        [StringLength(500, ErrorMessage = "Las observaciones no pueden superar los 500 caracteres.")]
+        public string? Observaciones { get; set; }
     }
 
     public class ProductoUnidadesFiltroViewModel

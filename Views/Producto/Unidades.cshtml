@@ -7,6 +7,19 @@
 }
 
 <div class="space-y-6">
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
+            @TempData["Error"]
+        </div>
+    }
+
     <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -52,6 +65,50 @@
                 <p class="mt-1 text-2xl font-black text-white">@resumen.Cantidad</p>
             </div>
         }
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+        <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+                <h2 class="text-base font-black text-white">Agregar unidad</h2>
+                <p class="mt-1 text-sm text-slate-400">El codigo interno se genera automaticamente. El numero de serie es opcional. La unidad se creara en estado EnStock.</p>
+                <p class="mt-1 text-xs text-amber-200">Crear una unidad fisica no ajusta el stock agregado. El stock agregado sigue bajo MovimientoStockService.</p>
+            </div>
+        </div>
+
+        <form method="post" asp-controller="Producto" asp-action="CrearUnidad" class="mt-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="CrearUnidad.ProductoId" value="@Model.ProductoId" />
+            <div asp-validation-summary="ModelOnly" class="mb-3 text-sm font-semibold text-red-300"></div>
+
+            <div class="grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_auto] lg:items-start">
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Numero de serie</span>
+                    <input asp-for="CrearUnidad.NumeroSerie" maxlength="100"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                           placeholder="Opcional" />
+                    <span asp-validation-for="CrearUnidad.NumeroSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Ubicacion actual</span>
+                    <input asp-for="CrearUnidad.UbicacionActual" maxlength="200"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                           placeholder="Opcional" />
+                    <span asp-validation-for="CrearUnidad.UbicacionActual" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</span>
+                    <input asp-for="CrearUnidad.Observaciones" maxlength="500"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                           placeholder="Opcional" />
+                    <span asp-validation-for="CrearUnidad.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <button type="submit" class="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90 lg:mt-5">
+                    <span class="material-symbols-outlined text-base">add_circle</span>
+                    Agregar unidad
+                </button>
+            </div>
+        </form>
     </section>
 
     <form method="get" asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
