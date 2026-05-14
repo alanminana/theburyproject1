@@ -300,11 +300,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void ProductoController_NoUsaRequestFormParaNormalizarComision()
     {
-        var sourcePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..",
-            "Controllers",
-            "ProductoController.cs");
+        var sourcePath = Path.Combine(FindRepoRoot(), "Controllers", "ProductoController.cs");
         var source = File.ReadAllText(sourcePath);
 
         Assert.DoesNotContain("NormalizarComisionPorcentaje", source);
@@ -314,11 +310,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void ProductoController_NoDuplicaNormalizacionDeCaracteristicas()
     {
-        var sourcePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..",
-            "Controllers",
-            "ProductoController.cs");
+        var sourcePath = Path.Combine(FindRepoRoot(), "Controllers", "ProductoController.cs");
         var source = File.ReadAllText(sourcePath);
 
         Assert.DoesNotContain("NormalizarCaracteristicas", source);
@@ -771,7 +763,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void ProductoCondicionPagoCatalogo_NoExponeAdministracionLegacy()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Catalogo", "Index_tw.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Catalogo", "Index_tw.cshtml"));
 
         Assert.DoesNotContain("data-condiciones-pago-producto-id", html);
         Assert.DoesNotContain("data-condiciones-pago-producto-nombre", html);
@@ -783,7 +775,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void Catalogo_MuestraBotonUnidades()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Catalogo", "Index_tw.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Catalogo", "Index_tw.cshtml"));
 
         Assert.Contains("asp-action=\"Unidades\"", html);
         Assert.Contains("asp-route-productoId=\"@p.ProductoId\"", html);
@@ -793,7 +785,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void UnidadesView_MuestraFormularioAgregarUnidad()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
         Assert.Contains("Agregar unidad", html);
         Assert.Contains("asp-action=\"CrearUnidad\"", html);
@@ -808,7 +800,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void UnidadesView_MuestraFormularioCargaMasivaConPreview()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
         Assert.Contains("Carga masiva de unidades", html);
         Assert.Contains("asp-action=\"CrearUnidadesMasivas\"", html);
@@ -822,7 +814,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void UnidadesView_MuestraAccionesDeAjusteConMotivoObligatorio()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
         Assert.Contains("asp-action=\"MarcarUnidadFaltante\"", html);
         Assert.Contains("asp-action=\"DarUnidadBaja\"", html);
@@ -837,7 +829,7 @@ public class ProductoControllerPrecioTests : IDisposable
     [Fact]
     public void UnidadesView_MuestraPanelConciliacionSinBotonFuncional()
     {
-        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
         Assert.Contains("Conciliacion stock vs unidades fisicas", html);
         Assert.Contains("Stock agregado actual", html);
@@ -1755,6 +1747,19 @@ public class ProductoControllerPrecioTests : IDisposable
         };
         _context.ProductosPrecios.Add(precioLista);
         await _context.SaveChangesAsync();
+    }
+
+    private static string FindRepoRoot()
+    {
+        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current != null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "TheBuryProyect.csproj")))
+                return current.FullName;
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("No se encontro la raiz del repositorio.");
     }
 }
 
