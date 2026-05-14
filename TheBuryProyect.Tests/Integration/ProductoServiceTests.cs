@@ -379,6 +379,46 @@ public class ProductoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Update_NoResetea_RequiereNumeroSerie()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var producto = new Producto
+        {
+            Codigo = "TRAZ-" + Guid.NewGuid().ToString("N")[..6],
+            Nombre = "Trazable",
+            CategoriaId = cat.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 100m,
+            PrecioVenta = 150m,
+            PorcentajeIVA = 21m,
+            StockActual = 5m,
+            RequiereNumeroSerie = true
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = "Trazable editado",
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            StockActual = producto.StockActual,
+            RequiereNumeroSerie = false, // simula form sin checkbox
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.True(bd.RequiereNumeroSerie); // no debe resetear
+    }
+
+    [Fact]
     public async Task Update_PreciosCambian_RegistraHistorico()
     {
         var producto = await SeedProductoAsync(precioCompra: 10m, precioVenta: 50m);

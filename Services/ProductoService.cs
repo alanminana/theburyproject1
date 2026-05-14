@@ -395,7 +395,8 @@ namespace TheBuryProject.Services
                 existing.AlicuotaIVAId = producto.AlicuotaIVAId;
                 existing.ComisionPorcentaje = producto.ComisionPorcentaje;
                 existing.MaxCuotasSinInteresPermitidas = producto.MaxCuotasSinInteresPermitidas;
-                existing.RequiereNumeroSerie = producto.RequiereNumeroSerie;
+                // RequiereNumeroSerie no se modifica por edición de producto (no hay UI para togglearlo).
+                // Solo se puede cambiar vía DB directa o endpoint dedicado. Protegido igual que StockActual.
                 existing.StockMinimo = producto.StockMinimo;
 
                 // IMPORTANTe: no permitir que UpdateAsync cambie StockActual “por edición de producto”.
