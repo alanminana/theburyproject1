@@ -857,6 +857,20 @@ public class ProductoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BuscarParaVentaAsync_ExponeRequiereNumeroSerieParaSelectorUnidad()
+    {
+        var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);
+        producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.BuscarParaVentaAsync(producto.Codigo, soloConStock: false);
+
+        var dto = Assert.Single(resultado);
+        Assert.True(dto.RequiereNumeroSerie);
+    }
+
+    [Fact]
     public async Task BuscarParaVentaAsync_ConResolverSinPrecioListaVigente_UsaPrecioVentaProducto()
     {
         var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 100m);

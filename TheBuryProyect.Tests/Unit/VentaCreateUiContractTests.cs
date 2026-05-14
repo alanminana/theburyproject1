@@ -54,6 +54,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void CreateView_TieneSoporteSelectorProductoUnidad()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"hdn-producto-requiere-numero-serie\"", view);
+        Assert.Contains("id=\"panel-selector-unidad\"", view);
+        Assert.Contains("id=\"select-producto-unidad\"", view);
+        Assert.Contains("Producto con trazabilidad individual: debe seleccionar una unidad física.", view);
+    }
+
+    [Fact]
     public void CreateView_NoExponePanelDiagnosticoCondicionesPagoProductoEnNuevaVenta()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -137,6 +148,36 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("btn-configurar-pago-item", render);
         Assert.DoesNotContain("openModalPagoItem(parseInt", render);
         Assert.DoesNotContain("Tipo de pago:", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_CargaUnidadesDisponiblesParaProductoTrazable()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("data-requiere-numero-serie", script);
+        Assert.Contains("async function cargarUnidadesDisponibles", script);
+        Assert.Contains("/api/productos/${productoId}/unidades-disponibles", script);
+        Assert.Contains("await cargarUnidadesDisponibles(parseInt(item.dataset.id))", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RenderizaYValidaSelectorProductoUnidad()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var agregar = ExtractFunction(script, "btnAgregarProducto?.addEventListener");
+        var render = ExtractFunction(script, "function renderDetalles");
+        var submit = ExtractFunction(script, "ventaForm.addEventListener");
+
+        Assert.Contains("const productoUnidadId = requiereNumeroSerie", agregar);
+        Assert.Contains("Debe seleccionar una unidad física.", agregar);
+        Assert.Contains("No hay unidades disponibles para este producto", agregar);
+        Assert.Contains("unidadesSeleccionadasExcepto(productoUnidadId)", agregar);
+        Assert.Contains("cantidad !== 1", agregar);
+        Assert.Contains("Detalles[${i}].ProductoUnidadId", render);
+        Assert.Contains("Unidad:", render);
+        Assert.Contains("trazableSinUnidad", submit);
+        Assert.Contains("unidadesDuplicadas", submit);
     }
 
     [Fact]

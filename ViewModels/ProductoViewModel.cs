@@ -153,6 +153,7 @@ namespace TheBuryProject.ViewModels
         public string? Descripcion { get; set; }
         public decimal StockActual { get; set; }
         public decimal PrecioVenta { get; set; }
+        public bool RequiereNumeroSerie { get; set; }
         public List<ProductoCaracteristicaDto> Caracteristicas { get; set; } = new();
         public string CaracteristicasResumen { get; set; } = string.Empty;
         public bool CodigoExacto { get; set; }

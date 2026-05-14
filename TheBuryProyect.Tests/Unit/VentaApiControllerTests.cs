@@ -415,6 +415,7 @@ public class VentaApiControllerTests
                     Categoria = "Categoria",
                     StockActual = 4,
                     PrecioVenta = 1500m,
+                    RequiereNumeroSerie = true,
                     CaracteristicasResumen = "16GB · SSD",
                     CodigoExacto = true
                 }
@@ -434,6 +435,7 @@ public class VentaApiControllerTests
         Assert.Equal("Categoria", item.GetProperty("categoria").GetString());
         Assert.Equal(4m, item.GetProperty("stockActual").GetDecimal());
         Assert.Equal(1500m, item.GetProperty("precioVenta").GetDecimal());
+        Assert.True(item.GetProperty("requiereNumeroSerie").GetBoolean());
         Assert.Equal("16GB · SSD", item.GetProperty("caracteristicasResumen").GetString());
     }
 

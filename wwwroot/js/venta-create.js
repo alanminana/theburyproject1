@@ -16,7 +16,7 @@
     const ventaModule = window.VentaModule || {};
 
     // ── State ──────────────────────────────────────────────────────────
-    const detalles = [];         // { productoId, codigo, nombre, cantidad, precioUnitario, descuento, subtotal, stock }
+    const detalles = [];         // { productoId, codigo, nombre, cantidad, precioUnitario, descuento, subtotal, stock, requiereNumeroSerie, productoUnidadId, productoUnidadLabel }
     let clienteSeleccionado = null;  // { id, nombre, apellido, tipoDocumento, numeroDocumento }
     let tarjetaInfoCache = [];   // from /api/ventas/GetTarjetasActivas
     let creditoCupoDisponible = null;
@@ -84,8 +84,12 @@
     const hdnProductoCodigo = $('#hdn-producto-codigo');
     const hdnProductoPrecio = $('#hdn-producto-precio');
     const hdnProductoStock = $('#hdn-producto-stock');
+    const hdnProductoRequiereNumeroSerie = $('#hdn-producto-requiere-numero-serie');
     const txtCantidad = $('#txt-cantidad');
     const txtDescuentoItem = $('#txt-descuento-item');
+    const panelSelectorUnidad = $('#panel-selector-unidad');
+    const selectProductoUnidad = $('#select-producto-unidad');
+    const productoUnidadError = $('#producto-unidad-error');
     const stockError = $('#stock-error');
     const btnAgregarProducto = $('#btn-agregar-producto');
     const tbodyDetalles = $('#tbody-detalles');
@@ -206,6 +210,102 @@
         } else if (typeof theBury.autoDismissToasts === 'function') {
             theBury.autoDismissToasts(4500);
         }
+    }
+
+    function parseBool(value) {
+        return value === true || value === 'true' || value === 'True' || value === '1';
+    }
+
+    function esc(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function formatearUnidadDisponible(unidad) {
+        const partes = [unidad.codigoInternoUnidad || unidad.CodigoInternoUnidad];
+        const serie = unidad.numeroSerie || unidad.NumeroSerie;
+        const ubicacion = unidad.ubicacionActual || unidad.UbicacionActual;
+
+        if (serie) partes.push(`Serie: ${serie}`);
+        if (ubicacion) partes.push(ubicacion);
+
+        return partes.filter(Boolean).join(' - ');
+    }
+
+    function unidadesSeleccionadasExcepto(productoUnidadId, exceptIndex = -1) {
+        return detalles.some((d, index) =>
+            index !== exceptIndex &&
+            d.productoUnidadId != null &&
+            Number(d.productoUnidadId) === Number(productoUnidadId));
+    }
+
+    function limpiarSelectorUnidad() {
+        if (selectProductoUnidad) {
+            selectProductoUnidad.replaceChildren(new Option('Seleccione una unidad disponible...', ''));
+            selectProductoUnidad.disabled = false;
+        }
+        if (productoUnidadError) {
+            productoUnidadError.textContent = '';
+            hide(productoUnidadError);
+        }
+        hide(panelSelectorUnidad);
+    }
+
+    async function cargarUnidadesDisponibles(productoId) {
+        if (!selectProductoUnidad || !productoUnidadError) return;
+
+        show(panelSelectorUnidad);
+        selectProductoUnidad.disabled = true;
+        selectProductoUnidad.replaceChildren(new Option('Cargando unidades disponibles...', ''));
+        productoUnidadError.textContent = '';
+        hide(productoUnidadError);
+
+        try {
+            const unidades = await fetchJson(`/api/productos/${productoId}/unidades-disponibles`);
+            selectProductoUnidad.replaceChildren(new Option('Seleccione una unidad disponible...', ''));
+
+            const disponibles = (unidades || []).filter(u => !unidadesSeleccionadasExcepto(u.id ?? u.Id));
+            if (disponibles.length === 0) {
+                selectProductoUnidad.disabled = true;
+                productoUnidadError.textContent = 'No hay unidades disponibles para este producto';
+                show(productoUnidadError);
+                return;
+            }
+
+            disponibles.forEach(unidad => {
+                const id = unidad.id ?? unidad.Id;
+                const label = formatearUnidadDisponible(unidad);
+                const option = new Option(label, id);
+                option.dataset.label = label;
+                selectProductoUnidad.appendChild(option);
+            });
+            selectProductoUnidad.disabled = false;
+        } catch {
+            selectProductoUnidad.replaceChildren(new Option('No se pudieron cargar unidades', ''));
+            selectProductoUnidad.disabled = true;
+            productoUnidadError.textContent = 'No se pudieron cargar las unidades disponibles. Intente nuevamente.';
+            show(productoUnidadError);
+        }
+    }
+
+    function validarCantidadProductoSeleccionado() {
+        const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
+        const qty = parseInt(txtCantidad?.value) || 0;
+
+        if (requiereNumeroSerie && qty !== 1) {
+            if (txtCantidad) txtCantidad.value = 1;
+            if (stockError) {
+                stockError.textContent = 'Producto con trazabilidad individual: la cantidad debe ser 1.';
+                show(stockError);
+            }
+            return false;
+        }
+
+        return true;
     }
 
     function updateDetallesScrollAffordance() {
@@ -887,39 +987,53 @@
 
             dropdownProductos.innerHTML = data.map(p => `
                 <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
-                     data-id="${p.id}" data-codigo="${p.codigo}" data-nombre="${p.nombre}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}">
+                     data-id="${p.id}" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre)}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}" data-requiere-numero-serie="${p.requiereNumeroSerie ? 'true' : 'false'}">
                     <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-slate-900 dark:text-white">${p.nombre}</p>
-                        <span class="text-xs font-bold text-primary">${formatCurrency(p.precioVenta)}</span>
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">${esc(p.nombre)}</p>
+                        <div class="flex items-center gap-2">
+                            ${p.requiereNumeroSerie ? '<span class="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-500">Unidad</span>' : ''}
+                            <span class="text-xs font-bold text-primary">${formatCurrency(p.precioVenta)}</span>
+                        </div>
                     </div>
-                    <p class="text-xs text-slate-500">${p.codigo} ${p.marca ? '· ' + p.marca : ''} ${p.categoria ? '· ' + p.categoria : ''} · Stock: ${p.stockActual}</p>
-                    ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5">${p.caracteristicasResumen}</p>` : ''}
+                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${p.marca ? '- ' + esc(p.marca) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - Stock: ${p.stockActual}</p>
+                    ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5">${esc(p.caracteristicasResumen)}</p>` : ''}
                 </div>
             `).join('');
             show(dropdownProductos);
         } catch { hide(dropdownProductos); }
     }, 300));
 
-    dropdownProductos?.addEventListener('click', function (e) {
+    dropdownProductos?.addEventListener('click', async function (e) {
         const item = e.target.closest('[data-id]');
         if (!item) return;
 
+        const requiereNumeroSerie = parseBool(item.dataset.requiereNumeroSerie);
         hdnProductoId.value = item.dataset.id;
         hdnProductoCodigo.value = item.dataset.codigo;
         hdnProductoPrecio.value = item.dataset.precio;
         hdnProductoStock.value = item.dataset.stock;
+        hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';
         txtProductoSeleccionado.value = `${item.dataset.codigo} - ${item.dataset.nombre}`;
         txtCantidad.value = 1;
+        txtCantidad.readOnly = requiereNumeroSerie;
+        txtCantidad.max = requiereNumeroSerie ? '1' : '';
         txtDescuentoItem.value = 0;
         hide(stockError);
+        limpiarSelectorUnidad();
 
         show(panelAgregarProducto);
         hide(dropdownProductos);
         inputBuscarProducto.value = '';
+
+        if (requiereNumeroSerie) {
+            await cargarUnidadesDisponibles(parseInt(item.dataset.id));
+        }
     });
 
     // Stock validation on quantity change
     txtCantidad?.addEventListener('input', function () {
+        if (!validarCantidadProductoSeleccionado()) return;
+
         const qty = parseInt(this.value) || 0;
         const stock = parseInt(hdnProductoStock.value) || 0;
         if (qty > stock) {
@@ -933,6 +1047,10 @@
     });
 
     // ── 3. Add Product ────────────────────────────────────────────────
+    selectProductoUnidad?.addEventListener('change', function () {
+        if (this.value) hide(productoUnidadError);
+    });
+
     btnAgregarProducto?.addEventListener('click', function () {
         const productoId = parseInt(hdnProductoId.value);
         const codigo = hdnProductoCodigo.value;
@@ -941,8 +1059,34 @@
         const stock = parseInt(hdnProductoStock.value) || 0;
         const cantidad = parseInt(txtCantidad.value) || 0;
         const descuentoPct = parseFloat(txtDescuentoItem.value) || 0;
+        const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
+        const productoUnidadId = requiereNumeroSerie ? (parseInt(selectProductoUnidad?.value) || null) : null;
+        const productoUnidadLabel = requiereNumeroSerie
+            ? selectProductoUnidad?.selectedOptions?.[0]?.dataset?.label || selectProductoUnidad?.selectedOptions?.[0]?.textContent?.trim() || ''
+            : '';
 
         if (!productoId || cantidad <= 0) return;
+
+        if (requiereNumeroSerie && cantidad !== 1) {
+            stockError.textContent = 'Producto con trazabilidad individual: la cantidad debe ser 1.';
+            show(stockError);
+            txtCantidad.value = 1;
+            return;
+        }
+
+        if (requiereNumeroSerie && !productoUnidadId) {
+            productoUnidadError.textContent = selectProductoUnidad?.disabled
+                ? 'No hay unidades disponibles para este producto'
+                : 'Debe seleccionar una unidad física.';
+            show(productoUnidadError);
+            return;
+        }
+
+        if (requiereNumeroSerie && unidadesSeleccionadasExcepto(productoUnidadId)) {
+            productoUnidadError.textContent = 'La unidad seleccionada ya fue agregada en otra línea.';
+            show(productoUnidadError);
+            return;
+        }
 
         if (cantidad > stock) {
             stockError.textContent = `Stock insuficiente (Máx: ${stock})`;
@@ -951,7 +1095,9 @@
         }
 
         // Check if product already exists
-        const existing = detalles.find(d => d.productoId === productoId);
+        const existing = requiereNumeroSerie
+            ? null
+            : detalles.find(d => d.productoId === productoId);
         if (existing) {
             const newQty = existing.cantidad + cantidad;
             if (newQty > stock) {
@@ -964,13 +1110,29 @@
             existing.subtotal = calcularSubtotalLinea(existing.precioUnitario, newQty, descuentoPct);
         } else {
             const subtotal = calcularSubtotalLinea(precioUnitario, cantidad, descuentoPct);
-            detalles.push({ productoId, codigo, nombre, cantidad, precioUnitario, descuento: descuentoPct, subtotal, stock });
+            detalles.push({
+                productoId,
+                codigo,
+                nombre,
+                cantidad,
+                precioUnitario,
+                descuento: descuentoPct,
+                subtotal,
+                stock,
+                requiereNumeroSerie,
+                productoUnidadId,
+                productoUnidadLabel
+            });
         }
 
         // Reset add panel
         hide(panelAgregarProducto);
         hdnProductoId.value = '';
+        hdnProductoRequiereNumeroSerie.value = '';
         txtProductoSeleccionado.value = '';
+        txtCantidad.readOnly = false;
+        txtCantidad.max = '';
+        limpiarSelectorUnidad();
 
         renderDetalles();
         invalidarVerificacionCrediticia();
@@ -998,7 +1160,10 @@
         tbodyDetalles.innerHTML = detalles.map((d, i) => `
             <tr>
                 <td class="py-4 px-2 text-xs font-mono">${d.codigo}</td>
-                <td class="py-4 px-2 text-sm font-medium">${d.nombre}</td>
+                <td class="py-4 px-2 text-sm font-medium">
+                    <div>${d.nombre}</div>
+                    ${d.requiereNumeroSerie ? `<div class="mt-1 text-[11px] font-semibold text-amber-500">Unidad: ${esc(d.productoUnidadLabel)}</div>` : ''}
+                </td>
                 <td class="py-4 px-2 text-sm text-center">${d.cantidad}</td>
                 <td class="py-4 px-2 text-sm text-right">${formatCurrency(d.precioUnitario)}</td>
                 <td class="py-4 px-2 text-sm text-right">${d.descuento}%</td>
@@ -1026,6 +1191,7 @@
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].PrecioUnitario`, d.precioUnitario));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Descuento`, d.descuento));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Subtotal`, d.subtotal));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoUnidadId`, d.productoUnidadId ?? ''));
         });
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
@@ -1859,6 +2025,31 @@
     const ventaForm = document.getElementById('venta-form');
     if (ventaForm) {
         ventaForm.addEventListener('submit', async function (e) {
+            const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
+            if (trazableSinUnidad) {
+                e.preventDefault();
+                showFeedback('Producto con trazabilidad individual: debe seleccionar una unidad física.', 'error');
+                panelAgregarProducto?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            const trazableCantidadInvalida = detalles.find(d => d.requiereNumeroSerie && d.cantidad !== 1);
+            if (trazableCantidadInvalida) {
+                e.preventDefault();
+                showFeedback('Producto con trazabilidad individual: la cantidad debe ser 1.', 'error');
+                return;
+            }
+
+            const unidadesDuplicadas = detalles
+                .filter(d => d.productoUnidadId != null)
+                .map(d => Number(d.productoUnidadId))
+                .filter((id, index, arr) => arr.indexOf(id) !== index);
+            if (unidadesDuplicadas.length > 0) {
+                e.preventDefault();
+                showFeedback('La misma unidad física no puede venderse en dos líneas.', 'error');
+                return;
+            }
+
             if (diagnosticoCondicionesBloqueaContinuidad) {
                 e.preventDefault();
                 showFeedback('No se puede confirmar con el medio de pago seleccionado. Cambia el medio de pago para continuar.', 'error');

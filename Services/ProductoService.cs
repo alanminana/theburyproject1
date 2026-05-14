@@ -787,6 +787,7 @@ namespace TheBuryProject.Services
                     Descripcion           = producto.Descripcion,
                     StockActual           = producto.StockActual,
                     PrecioVenta           = precioVenta,
+                    RequiereNumeroSerie   = producto.RequiereNumeroSerie,
                     Caracteristicas       = caracteristicas,
                     CaracteristicasResumen = string.Join(" · ", caracteristicasResumen),
                     CodigoExacto          = string.Equals(producto.Codigo, termino, StringComparison.OrdinalIgnoreCase)
