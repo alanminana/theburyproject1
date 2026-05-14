@@ -792,6 +792,20 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void UnidadesView_MuestraFormularioCargaMasivaConPreview()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+
+        Assert.Contains("Carga masiva de unidades", html);
+        Assert.Contains("asp-action=\"CrearUnidadesMasivas\"", html);
+        Assert.Contains("asp-for=\"CargaMasiva.CantidadSinSerie\"", html);
+        Assert.Contains("asp-for=\"CargaMasiva.NumerosSerieTexto\"", html);
+        Assert.Contains("Previsualizar", html);
+        Assert.Contains("Confirmar carga", html);
+        Assert.Contains("La carga masiva no ajusta el stock agregado", html);
+    }
+
+    [Fact]
     public async Task Unidades_ProductoExistente_DevuelveVistaConUnidadesDelProducto()
     {
         var producto = await SeedProductoAsync();
@@ -988,6 +1002,120 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Equal(EstadoUnidad.EnStock, movimiento.EstadoNuevo);
         Assert.Equal("Ingreso inicial de unidad", movimiento.Motivo);
         Assert.Equal(stockInicial, productoActualizado.StockActual);
+    }
+
+    [Fact]
+    public async Task CrearUnidadesMasivas_PreviewValido_NoCreaUnidades()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+
+        var result = await _controller.CrearUnidadesMasivas(new ProductoUnidadCargaMasivaViewModel
+        {
+            ProductoId = producto.Id,
+            CantidadSinSerie = 2,
+            NumerosSerieTexto = "SN-BULK-001\r\nSN-BULK-002",
+            UbicacionActual = "Deposito masivo",
+            Observaciones = "Preview"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Unidades", view.ViewName);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        Assert.True(model.CargaMasiva.PreviewListo);
+        Assert.Equal(4, model.CargaMasiva.Preview.Count);
+        Assert.Equal(2, model.CargaMasiva.Preview.Count(p => !p.TieneNumeroSerie));
+        Assert.Contains(model.CargaMasiva.Preview, p => p.NumeroSerie == "SN-BULK-001");
+        Assert.Contains(model.CargaMasiva.Preview, p => p.NumeroSerie == "SN-BULK-002");
+
+        var total = await _context.ProductoUnidades.CountAsync(u => u.ProductoId == producto.Id);
+        Assert.Equal(0, total);
+    }
+
+    [Fact]
+    public async Task CrearUnidadesMasivas_Confirmar_CreaUnidadesConHistorialYNoModificaStock()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var stockInicial = producto.StockActual;
+
+        var result = await _controller.CrearUnidadesMasivas(new ProductoUnidadCargaMasivaViewModel
+        {
+            ProductoId = producto.Id,
+            CantidadSinSerie = 1,
+            NumerosSerieTexto = "SN-BULK-010\nSN-BULK-011",
+            UbicacionActual = "Deposito masivo",
+            Observaciones = "Alta masiva",
+            Confirmar = true
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ProductoController.Unidades), redirect.ActionName);
+        Assert.Equal(producto.Id, redirect.RouteValues!["productoId"]);
+
+        var unidades = await _context.ProductoUnidades
+            .AsNoTracking()
+            .Where(u => u.ProductoId == producto.Id)
+            .OrderBy(u => u.CodigoInternoUnidad)
+            .ToListAsync();
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimientos = await _context.ProductoUnidadMovimientos.AsNoTracking().ToListAsync();
+
+        Assert.Equal(3, unidades.Count);
+        Assert.Single(unidades.Where(u => u.NumeroSerie == null));
+        Assert.Contains(unidades, u => u.NumeroSerie == "SN-BULK-010");
+        Assert.Contains(unidades, u => u.NumeroSerie == "SN-BULK-011");
+        Assert.All(unidades, u =>
+        {
+            Assert.Equal(EstadoUnidad.EnStock, u.Estado);
+            Assert.Equal("Deposito masivo", u.UbicacionActual);
+            Assert.Equal("Alta masiva", u.Observaciones);
+            Assert.StartsWith(producto.Codigo + "-U-", u.CodigoInternoUnidad);
+        });
+        Assert.Equal(stockInicial, productoActualizado.StockActual);
+        Assert.Equal(3, movimientos.Count);
+        Assert.All(movimientos, m => Assert.Equal("Ingreso inicial de unidad", m.Motivo));
+    }
+
+    [Fact]
+    public async Task CrearUnidadesMasivas_SeriesDuplicadasEnInput_MuestraErrorYNoCrea()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+
+        var result = await _controller.CrearUnidadesMasivas(new ProductoUnidadCargaMasivaViewModel
+        {
+            ProductoId = producto.Id,
+            NumerosSerieTexto = "SN-DUP-MASIVA\nsn-dup-masiva"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Unidades", view.ViewName);
+        Assert.False(_controller.ModelState.IsValid);
+        var error = Assert.Single(_controller.ModelState["CargaMasiva.NumerosSerieTexto"]!.Errors);
+        Assert.Contains("repetidos", Normalize(error.ErrorMessage));
+
+        var total = await _context.ProductoUnidades.CountAsync(u => u.ProductoId == producto.Id);
+        Assert.Equal(0, total);
+    }
+
+    [Fact]
+    public async Task CrearUnidadesMasivas_SerieExistente_MuestraErrorYNoCrea()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-EXISTENTE", "SN-EXISTE", EstadoUnidad.EnStock);
+
+        var result = await _controller.CrearUnidadesMasivas(new ProductoUnidadCargaMasivaViewModel
+        {
+            ProductoId = producto.Id,
+            NumerosSerieTexto = "SN-EXISTE\nSN-NUEVA"
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Unidades", view.ViewName);
+        Assert.False(_controller.ModelState.IsValid);
+        var error = Assert.Single(_controller.ModelState["CargaMasiva.NumerosSerieTexto"]!.Errors);
+        Assert.Contains("Ya existen unidades activas", Normalize(error.ErrorMessage));
+
+        var total = await _context.ProductoUnidades.CountAsync(u => u.ProductoId == producto.Id);
+        Assert.Equal(1, total);
     }
 
     [Fact]

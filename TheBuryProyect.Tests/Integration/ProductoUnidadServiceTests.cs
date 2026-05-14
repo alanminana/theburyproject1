@@ -235,6 +235,63 @@ public class ProductoUnidadServiceTests : IDisposable
         Assert.Equal("admin@test.com", mov.UsuarioResponsable);
     }
 
+    [Fact]
+    public async Task CrearUnidades_CreaVariasEnUnaOperacionConHistorial()
+    {
+        var prod = await SeedProductoAsync("BULK");
+
+        var unidades = await _service.CrearUnidadesAsync(
+            prod.Id,
+            new string?[] { null, "SN-BULK-001", "SN-BULK-002" },
+            ubicacionActual: "Deposito",
+            observaciones: "Alta masiva",
+            usuario: "admin@test.com");
+
+        var persistidas = await _context.ProductoUnidades
+            .AsNoTracking()
+            .Where(u => u.ProductoId == prod.Id)
+            .OrderBy(u => u.CodigoInternoUnidad)
+            .ToListAsync();
+        var movimientos = await _context.ProductoUnidadMovimientos.AsNoTracking().ToListAsync();
+
+        Assert.Equal(3, unidades.Count);
+        Assert.Equal(3, persistidas.Count);
+        Assert.Equal("BULK-U-0001", persistidas[0].CodigoInternoUnidad);
+        Assert.Equal("BULK-U-0002", persistidas[1].CodigoInternoUnidad);
+        Assert.Equal("BULK-U-0003", persistidas[2].CodigoInternoUnidad);
+        Assert.Single(persistidas.Where(u => u.NumeroSerie == null));
+        Assert.Contains(persistidas, u => u.NumeroSerie == "SN-BULK-001");
+        Assert.Contains(persistidas, u => u.NumeroSerie == "SN-BULK-002");
+        Assert.All(persistidas, u =>
+        {
+            Assert.Equal(EstadoUnidad.EnStock, u.Estado);
+            Assert.Equal("Deposito", u.UbicacionActual);
+            Assert.Equal("Alta masiva", u.Observaciones);
+        });
+        Assert.Equal(3, movimientos.Count);
+        Assert.All(movimientos, m => Assert.Equal("admin@test.com", m.UsuarioResponsable));
+    }
+
+    [Fact]
+    public async Task CrearUnidades_SiUnaSerieDuplica_RollbackCompleto()
+    {
+        var prod = await SeedProductoAsync("BULK");
+        await _service.CrearUnidadAsync(prod.Id, numeroSerie: "SN-EXISTENTE");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearUnidadesAsync(
+                prod.Id,
+                new string?[] { "SN-NUEVA", "SN-EXISTENTE" }));
+
+        var unidades = await _context.ProductoUnidades
+            .AsNoTracking()
+            .Where(u => u.ProductoId == prod.Id)
+            .ToListAsync();
+
+        var unidad = Assert.Single(unidades);
+        Assert.Equal("SN-EXISTENTE", unidad.NumeroSerie);
+    }
+
     // -------------------------------------------------------------------------
     // 11. ObtenerDisponiblesPorProductoAsync devuelve solo EnStock
     // -------------------------------------------------------------------------
