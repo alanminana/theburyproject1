@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -365,6 +366,91 @@ public class MovimientoStockControllerTests : IDisposable
         Assert.Equal(-5m, model[0].Cantidad);
         Assert.Equal(20m, model[0].StockAnterior);
         Assert.Equal(15m, model[0].StockNuevo);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ListJson
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static JsonElement ParseListJsonResult(IActionResult result)
+    {
+        var json = Assert.IsType<JsonResult>(result);
+        var raw = JsonSerializer.Serialize(json.Value);
+        return JsonDocument.Parse(raw).RootElement;
+    }
+
+    [Fact]
+    public async Task ListJson_ConMotivo_DevuelveMotivoEnItems()
+    {
+        var producto = await SeedProductoAsync();
+        await _movimientoService.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Entrada, 10m, null, "Ajuste por conciliación", "user");
+
+        var result = await _controller.ListJson(null, null, null, null, null);
+        var doc = ParseListJsonResult(result);
+        var items = doc.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Single(items);
+        Assert.Equal("Ajuste por conciliación", items[0].GetProperty("motivo").GetString());
+    }
+
+    [Fact]
+    public async Task ListJson_SinMotivo_DevuelveMotivoNullEnItems()
+    {
+        var producto = await SeedProductoAsync();
+        var movimiento = new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 5m,
+            StockAnterior = producto.StockActual,
+            StockNuevo = producto.StockActual + 5m,
+            Motivo = null,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "testuser"
+        };
+        await _movimientoService.CreateAsync(movimiento);
+
+        var result = await _controller.ListJson(null, null, null, null, null);
+        var doc = ParseListJsonResult(result);
+        var items = doc.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Single(items);
+        Assert.Equal(JsonValueKind.Null, items[0].GetProperty("motivo").ValueKind);
+    }
+
+    [Fact]
+    public async Task ListJson_ConReferencia_DevuelveReferenciaEnItems()
+    {
+        var producto = await SeedProductoAsync();
+        var referencia = $"ConciliacionUnidad:{producto.Id}";
+        await _movimientoService.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Ajuste, 15m, referencia, "Conciliación física", "user");
+
+        var result = await _controller.ListJson(null, null, null, null, null);
+        var doc = ParseListJsonResult(result);
+        var items = doc.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Single(items);
+        Assert.Equal(referencia, items[0].GetProperty("referencia").GetString());
+        Assert.Equal("Conciliación física", items[0].GetProperty("motivo").GetString());
+    }
+
+    [Fact]
+    public async Task ListJson_FiltradoPorProductoId_DevuelveSoloMovimientosDelProducto()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await _movimientoService.RegistrarAjusteAsync(p1.Id, TipoMovimiento.Entrada, 5m, null, "Motivo P1", "u");
+        await _movimientoService.RegistrarAjusteAsync(p2.Id, TipoMovimiento.Entrada, 5m, null, "Motivo P2", "u");
+
+        var result = await _controller.ListJson(p1.Id, null, null, null, null);
+        var doc = ParseListJsonResult(result);
+        var items = doc.GetProperty("items").EnumerateArray().ToList();
+
+        Assert.Single(items);
+        Assert.Equal(p1.Id, items[0].GetProperty("productoId").GetInt32());
+        Assert.Equal("Motivo P1", items[0].GetProperty("motivo").GetString());
     }
 
     // ─────────────────────────────────────────────────────────────────────────

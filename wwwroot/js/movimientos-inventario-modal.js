@@ -246,7 +246,10 @@
                           data-fuente-costo="${esc(m.fuenteCosto || 'NoInformado')}">${esc(fuenteCostoLabel(m.fuenteCosto))}</span>
                 </td>
                 <td class="px-4 py-4">
-                    <span class="text-sm text-slate-600 dark:text-slate-400">${esc(m.referencia || '-')}</span>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-sm text-slate-600 dark:text-slate-400">${esc(m.referencia || '-')}</span>
+                        <span class="text-xs text-slate-400 dark:text-slate-500 italic">${esc(m.motivo || 'Sin motivo registrado')}</span>
+                    </div>
                 </td>
                 <td class="px-4 py-4">
                     <div class="flex items-center gap-2">
