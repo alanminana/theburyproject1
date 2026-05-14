@@ -66,6 +66,70 @@
     </section>
 
     <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
+        @{
+            var puedeDesactivar = Model.RequiereNumeroSerie && Model.Conciliacion.TotalUnidadesActivas == 0;
+            var bloqueadaConUnidades = Model.RequiereNumeroSerie && Model.Conciliacion.TotalUnidadesActivas > 0;
+        }
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-base font-black text-white">Trazabilidad individual</h2>
+                <p class="mt-1 text-sm text-slate-400">
+                    Controla si este producto exige selección de unidad física en cada venta.
+                </p>
+                @if (bloqueadaConUnidades)
+                {
+                    <p class="mt-2 text-xs text-amber-300">
+                        Para desactivar, primero eliminá todas las unidades físicas registradas (@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")).
+                    </p>
+                }
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                @if (Model.RequiereNumeroSerie)
+                {
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-bold text-emerald-300">
+                        <span class="material-symbols-outlined text-base">verified</span>
+                        Activada
+                    </span>
+                    @if (puedeDesactivar)
+                    {
+                        <form method="post" asp-controller="Producto" asp-action="DesactivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
+                            @Html.AntiForgeryToken()
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 px-3 py-1.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800">
+                                <span class="material-symbols-outlined text-base">toggle_off</span>
+                                Desactivar
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-bold text-slate-500 cursor-not-allowed"
+                              title="No se puede desactivar porque hay unidades físicas registradas">
+                            <span class="material-symbols-outlined text-base">toggle_off</span>
+                            Desactivar
+                        </span>
+                    }
+                }
+                else
+                {
+                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-sm font-bold text-slate-400">
+                        <span class="material-symbols-outlined text-base">remove_circle</span>
+                        Desactivada
+                    </span>
+                    <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
+                        @Html.AntiForgeryToken()
+                        <button type="submit"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                            <span class="material-symbols-outlined text-base">toggle_on</span>
+                            Activar
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
                 <div class="flex flex-wrap items-center gap-2">

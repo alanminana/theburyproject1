@@ -24,6 +24,14 @@
     <None Remove="TheBuryProyect.Tests/**" />
   </ItemGroup>
 
+  <!-- Exclude build-check artifacts directory -->
+  <ItemGroup>
+    <Compile Remove="theburyproject1_build_check/**" />
+    <Content Remove="theburyproject1_build_check/**" />
+    <EmbeddedResource Remove="theburyproject1_build_check/**" />
+    <None Remove="theburyproject1_build_check/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />

@@ -543,6 +543,52 @@ namespace TheBuryProject.Controllers
             return producto;
         }
 
+        [HttpPost("Producto/ActivarTrazabilidad/{productoId:int}")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> ActivarTrazabilidad(int productoId)
+        {
+            try
+            {
+                await _productoService.CambiarTrazabilidadIndividualAsync(productoId, true);
+                TempData["Success"] = "Se activó la trazabilidad individual. Cargá unidades físicas antes de vender este producto.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error al activar trazabilidad para producto {ProductoId}", productoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al activar trazabilidad para producto {ProductoId}", productoId);
+                TempData["Error"] = "Error al activar la trazabilidad. Intentá nuevamente.";
+            }
+            return RedirectToAction(nameof(Unidades), new { productoId });
+        }
+
+        [HttpPost("Producto/DesactivarTrazabilidad/{productoId:int}")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> DesactivarTrazabilidad(int productoId)
+        {
+            try
+            {
+                await _productoService.CambiarTrazabilidadIndividualAsync(productoId, false);
+                TempData["Success"] = "Se desactivó la trazabilidad individual para este producto.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error al desactivar trazabilidad para producto {ProductoId}", productoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al desactivar trazabilidad para producto {ProductoId}", productoId);
+                TempData["Error"] = "Error al desactivar la trazabilidad. Intentá nuevamente.";
+            }
+            return RedirectToAction(nameof(Unidades), new { productoId });
+        }
+
         [HttpGet("Producto/Unidades/{productoId:int}")]
         public async Task<IActionResult> Unidades(
             int productoId,

@@ -1337,6 +1337,119 @@ public class ProductoServiceTests : IDisposable
         var bd = await _context.Productos.FirstAsync(p => p.Id == productoConRestriccion.Id);
         Assert.Null(bd.MaxCuotasSinInteresPermitidas);
     }
+
+    // -------------------------------------------------------------------------
+    // CambiarTrazabilidadIndividualAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CambiarTrazabilidad_Activar_Setea_RequiereNumeroSerie()
+    {
+        var producto = await SeedProductoAsync();
+        Assert.False(producto.RequiereNumeroSerie);
+
+        await _service.CambiarTrazabilidadIndividualAsync(producto.Id, true);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.True(bd.RequiereNumeroSerie);
+    }
+
+    [Fact]
+    public async Task CambiarTrazabilidad_Desactivar_SinUnidades_Permitido()
+    {
+        var producto = await SeedProductoAsync();
+        producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+
+        await _service.CambiarTrazabilidadIndividualAsync(producto.Id, false);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.False(bd.RequiereNumeroSerie);
+    }
+
+    [Fact]
+    public async Task CambiarTrazabilidad_Desactivar_ConUnidadEnStock_Bloqueado()
+    {
+        var producto = await SeedProductoAsync();
+        producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+
+        _context.ProductoUnidades.Add(new ProductoUnidad
+        {
+            ProductoId = producto.Id,
+            CodigoInternoUnidad = "U-001",
+            Estado = EstadoUnidad.EnStock,
+            FechaIngreso = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CambiarTrazabilidadIndividualAsync(producto.Id, false));
+        Assert.Contains("unidades físicas registradas", ex.Message);
+    }
+
+    [Fact]
+    public async Task CambiarTrazabilidad_Desactivar_ConUnidadVendida_Bloqueado()
+    {
+        var producto = await SeedProductoAsync();
+        producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+
+        _context.ProductoUnidades.Add(new ProductoUnidad
+        {
+            ProductoId = producto.Id,
+            CodigoInternoUnidad = "U-002",
+            Estado = EstadoUnidad.Vendida,
+            FechaIngreso = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CambiarTrazabilidadIndividualAsync(producto.Id, false));
+        Assert.Contains("unidades físicas registradas", ex.Message);
+    }
+
+    [Fact]
+    public async Task CambiarTrazabilidad_ProductoInexistente_LanzaExcepcion()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CambiarTrazabilidadIndividualAsync(999999, true));
+        Assert.Contains("999999", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NoReset_RequiereNumeroSerie()
+    {
+        var producto = await SeedProductoAsync();
+        producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+        await _context.Entry(producto).ReloadAsync();
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre + " editado",
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            PorcentajeIVA = producto.PorcentajeIVA,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = producto.Activo,
+            RequiereNumeroSerie = false,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.True(bd.RequiereNumeroSerie);
+    }
 }
 
 // ---------------------------------------------------------------------------

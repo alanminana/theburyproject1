@@ -79,6 +79,13 @@ namespace TheBuryProject.Services.Interfaces
         // Destacado
         Task<bool> ToggleDestacadoAsync(int id);
 
+        // Trazabilidad individual
+        /// <summary>
+        /// Activa o desactiva la trazabilidad individual (RequiereNumeroSerie) del producto.
+        /// Para desactivar, el producto no debe tener unidades físicas registradas (no soft-deleted).
+        /// </summary>
+        Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad);
+
         // Validaciones
         Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null);
     }

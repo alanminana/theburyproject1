@@ -481,6 +481,38 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad)
+        {
+            try
+            {
+                var producto = await _context.Productos.FirstOrDefaultAsync(p => p.Id == productoId && !p.IsDeleted);
+                if (producto == null)
+                    throw new InvalidOperationException($"No se encontró el producto con ID {productoId}.");
+
+                if (!requiereTrazabilidad)
+                {
+                    var tieneUnidades = await _context.ProductoUnidades
+                        .AnyAsync(u => u.ProductoId == productoId && !u.IsDeleted);
+                    if (tieneUnidades)
+                        throw new InvalidOperationException(
+                            "No se puede desactivar la trazabilidad porque el producto ya tiene unidades físicas registradas.");
+                }
+
+                producto.RequiereNumeroSerie = requiereTrazabilidad;
+                producto.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Trazabilidad individual {Estado} para producto {Id}",
+                    requiereTrazabilidad ? "activada" : "desactivada", productoId);
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                _logger.LogError(ex, "Error al cambiar trazabilidad para producto {Id}", productoId);
+                throw;
+            }
+        }
+
         #endregion
 
         #region Eliminar / Stock
