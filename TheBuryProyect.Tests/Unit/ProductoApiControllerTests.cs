@@ -71,6 +71,20 @@ public class ProductoApiControllerTests
         Assert.Equal(3, unidadService.UltimoProductoIdConsultado);
     }
 
+    [Fact]
+    public async Task GetUnidadesDisponibles_DevuelveListaVaciaParaProductoSinUnidadesEnStock()
+    {
+        var unidadService = new StubProductoUnidadService(); // sin unidades
+        var controller = new ProductoApiController(unidadService, NullLogger<ProductoApiController>.Instance);
+
+        var result = await controller.GetUnidadesDisponibles(5);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(0, json.RootElement.GetArrayLength());
+        Assert.Equal(5, unidadService.UltimoProductoIdConsultado);
+    }
+
     private static JsonDocument ToJson(object? value)
     {
         var json = JsonSerializer.Serialize(value, JsonOptions);

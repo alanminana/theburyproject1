@@ -90,6 +90,8 @@
     const panelSelectorUnidad = $('#panel-selector-unidad');
     const selectProductoUnidad = $('#select-producto-unidad');
     const productoUnidadError = $('#producto-unidad-error');
+    const avisoSinUnidades = $('#aviso-sin-unidades');
+    const linkGestionarUnidades = $('#link-gestionar-unidades');
     const stockError = $('#stock-error');
     const btnAgregarProducto = $('#btn-agregar-producto');
     const tbodyDetalles = $('#tbody-detalles');
@@ -252,6 +254,7 @@
             productoUnidadError.textContent = '';
             hide(productoUnidadError);
         }
+        if (avisoSinUnidades) hide(avisoSinUnidades);
         hide(panelSelectorUnidad);
     }
 
@@ -271,8 +274,10 @@
             const disponibles = (unidades || []).filter(u => !unidadesSeleccionadasExcepto(u.id ?? u.Id));
             if (disponibles.length === 0) {
                 selectProductoUnidad.disabled = true;
-                productoUnidadError.textContent = 'No hay unidades disponibles para este producto';
+                productoUnidadError.textContent = 'No hay unidades disponibles para este producto.';
                 show(productoUnidadError);
+                if (linkGestionarUnidades) linkGestionarUnidades.href = `/Producto/Unidades/${productoId}`;
+                if (avisoSinUnidades) show(avisoSinUnidades);
                 return;
             }
 
@@ -1075,9 +1080,14 @@
         }
 
         if (requiereNumeroSerie && !productoUnidadId) {
-            productoUnidadError.textContent = selectProductoUnidad?.disabled
-                ? 'No hay unidades disponibles para este producto'
-                : 'Debe seleccionar una unidad física.';
+            if (selectProductoUnidad?.disabled) {
+                productoUnidadError.textContent = 'No hay unidades disponibles para este producto.';
+                const pId = parseInt(hdnProductoId?.value) || 0;
+                if (pId && linkGestionarUnidades) linkGestionarUnidades.href = `/Producto/Unidades/${pId}`;
+                if (avisoSinUnidades) show(avisoSinUnidades);
+            } else {
+                productoUnidadError.textContent = 'Debe seleccionar una unidad física.';
+            }
             show(productoUnidadError);
             return;
         }

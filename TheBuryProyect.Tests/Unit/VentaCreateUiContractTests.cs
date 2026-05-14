@@ -65,6 +65,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void CreateView_TieneAvisoSinUnidadesConLinkAGestionarUnidades()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"aviso-sin-unidades\"", view);
+        Assert.Contains("id=\"link-gestionar-unidades\"", view);
+        Assert.Contains("Gestionar unidades", view);
+        Assert.Contains("antes de vender", view);
+    }
+
+    [Fact]
     public void CreateView_NoExponePanelDiagnosticoCondicionesPagoProductoEnNuevaVenta()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -159,6 +170,32 @@ public class VentaCreateUiContractTests
         Assert.Contains("async function cargarUnidadesDisponibles", script);
         Assert.Contains("/api/productos/${productoId}/unidades-disponibles", script);
         Assert.Contains("await cargarUnidadesDisponibles(parseInt(item.dataset.id))", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MuestraAvisoConLinkCuandoNoHayUnidades()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var cargar = ExtractFunction(script, "async function cargarUnidadesDisponibles");
+        var agregar = ExtractFunction(script, "btnAgregarProducto?.addEventListener");
+
+        // DOM refs presentes
+        Assert.Contains("avisoSinUnidades", script);
+        Assert.Contains("linkGestionarUnidades", script);
+
+        // cargarUnidadesDisponibles muestra aviso con link cuando lista vacía
+        Assert.Contains("disponibles.length === 0", cargar);
+        Assert.Contains("/Producto/Unidades/${productoId}", cargar);
+        Assert.Contains("show(avisoSinUnidades)", cargar);
+        Assert.Contains("No hay unidades disponibles para este producto", cargar);
+
+        // limpiarSelectorUnidad oculta el aviso al cambiar producto
+        Assert.Contains("hide(avisoSinUnidades)", script);
+
+        // btnAgregarProducto también muestra aviso cuando selector está deshabilitado
+        Assert.Contains("show(avisoSinUnidades)", agregar);
+        Assert.Contains("/Producto/Unidades/", agregar);
+        Assert.Contains("No hay unidades disponibles para este producto", agregar);
     }
 
     [Fact]
