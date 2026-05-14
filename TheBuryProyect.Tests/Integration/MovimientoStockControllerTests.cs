@@ -296,6 +296,77 @@ public class MovimientoStockControllerTests : IDisposable
         Assert.Equal("Producto", result.ControllerName);
     }
 
+    [Fact]
+    public async Task Kardex_MovimientoConMotivo_MotivoPresente()
+    {
+        var producto = await SeedProductoAsync();
+        await _movimientoService.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Entrada, 10m, null, "Ajuste por conciliación de stock", "user");
+
+        var result = await _controller.Kardex(producto.Id) as ViewResult;
+        var model = Assert.IsAssignableFrom<IEnumerable<MovimientoStockViewModel>>(result!.Model).ToList();
+
+        Assert.Single(model);
+        Assert.Equal("Ajuste por conciliación de stock", model[0].Motivo);
+    }
+
+    [Fact]
+    public async Task Kardex_MovimientoSinMotivo_MotivoNullEnModel()
+    {
+        var producto = await SeedProductoAsync();
+        var movimiento = new MovimientoStock
+        {
+            ProductoId = producto.Id,
+            Tipo = TipoMovimiento.Entrada,
+            Cantidad = 5m,
+            StockAnterior = producto.StockActual,
+            StockNuevo = producto.StockActual + 5m,
+            Motivo = null,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "testuser"
+        };
+        await _movimientoService.CreateAsync(movimiento);
+
+        var result = await _controller.Kardex(producto.Id) as ViewResult;
+        var model = Assert.IsAssignableFrom<IEnumerable<MovimientoStockViewModel>>(result!.Model).ToList();
+
+        Assert.Single(model);
+        Assert.Null(model[0].Motivo);
+    }
+
+    [Fact]
+    public async Task Kardex_AjusteConciliacion_MotivoYReferenciaPresentes()
+    {
+        var producto = await SeedProductoAsync(stockActual: 20m);
+        var referencia = $"ConciliacionUnidad:{producto.Id}";
+        var motivo = "Conciliación de unidades físicas";
+        await _movimientoService.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Ajuste, 15m, referencia, motivo, "user");
+
+        var result = await _controller.Kardex(producto.Id) as ViewResult;
+        var model = Assert.IsAssignableFrom<IEnumerable<MovimientoStockViewModel>>(result!.Model).ToList();
+
+        Assert.Single(model);
+        Assert.Equal(motivo, model[0].Motivo);
+        Assert.Equal(referencia, model[0].Referencia);
+    }
+
+    [Fact]
+    public async Task Kardex_AjusteNegativo_CantidadEnModelEsNegativa()
+    {
+        var producto = await SeedProductoAsync(stockActual: 20m);
+        await _movimientoService.RegistrarAjusteAsync(
+            producto.Id, TipoMovimiento.Ajuste, 15m, null, "Corrección baja", "user");
+
+        var result = await _controller.Kardex(producto.Id) as ViewResult;
+        var model = Assert.IsAssignableFrom<IEnumerable<MovimientoStockViewModel>>(result!.Model).ToList();
+
+        Assert.Single(model);
+        Assert.Equal(-5m, model[0].Cantidad);
+        Assert.Equal(20m, model[0].StockAnterior);
+        Assert.Equal(15m, model[0].StockNuevo);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Create — POST (validación básica)
     // ─────────────────────────────────────────────────────────────────────────

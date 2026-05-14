@@ -137,7 +137,7 @@
         }
         else
         {
-            <table class="min-w-[900px] w-full text-left border-collapse">
+            <table class="min-w-[1100px] w-full text-left border-collapse">
                 <thead>
                     <tr class="border-b border-slate-800 bg-slate-800/30">
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Fecha / Hora</th>
@@ -146,6 +146,7 @@
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Costo unitario</th>
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Costo total</th>
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                        <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Motivo</th>
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Referencia</th>
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Saldo post.</th>
                         <th class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Usuario</th>
@@ -190,6 +191,16 @@
                                     }
                                     @fuenteLabel
                                 </span>
+                            </td>
+                            <td class="px-4 py-3 max-w-[180px]">
+                                @if (string.IsNullOrWhiteSpace(m.Motivo))
+                                {
+                                    <span class="text-sm italic text-slate-500">Sin motivo registrado</span>
+                                }
+                                else
+                                {
+                                    <span class="text-sm text-slate-300 block truncate" title="@m.Motivo">@m.Motivo</span>
+                                }
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-sm text-slate-400">@(m.Referencia ?? "—")</span>
