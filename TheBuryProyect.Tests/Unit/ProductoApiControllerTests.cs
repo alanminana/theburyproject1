@@ -5,6 +5,7 @@ using TheBuryProject.Controllers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.Unit;
 
@@ -83,6 +84,8 @@ public class ProductoApiControllerTests
 
         public Task<ProductoUnidad> CrearUnidadAsync(int productoId, string? numeroSerie = null, string? ubicacionActual = null, string? observaciones = null, string? usuario = null) => throw new NotImplementedException();
         public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId) => throw new NotImplementedException();
+        public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(int productoId, ProductoUnidadFiltros filtros) => throw new NotImplementedException();
+        public Task<ProductoUnidad?> ObtenerPorIdAsync(int productoUnidadId) => throw new NotImplementedException();
 
         public Task<IEnumerable<ProductoUnidad>> ObtenerDisponiblesPorProductoAsync(int productoId)
         {

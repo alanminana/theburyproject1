@@ -6,6 +6,7 @@ using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -17,6 +18,7 @@ namespace TheBuryProject.Controllers
     public class ProductoController : Controller
     {
         private readonly IProductoService _productoService;
+        private readonly IProductoUnidadService _productoUnidadService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ICatalogoService _catalogoService;
         private readonly ILogger<ProductoController> _logger;
@@ -24,12 +26,14 @@ namespace TheBuryProject.Controllers
 
         public ProductoController(
             IProductoService productoService,
+            IProductoUnidadService productoUnidadService,
             ICatalogLookupService catalogLookupService,
             ICatalogoService catalogoService,
             ILogger<ProductoController> logger,
             IMapper mapper)
         {
             _productoService = productoService;
+            _productoUnidadService = productoUnidadService;
             _catalogLookupService = catalogLookupService;
             _catalogoService = catalogoService;
             _logger = logger;
@@ -534,6 +538,130 @@ namespace TheBuryProject.Controllers
 
             return producto;
         }
+
+        [HttpGet("Producto/Unidades/{productoId:int}")]
+        public async Task<IActionResult> Unidades(
+            int productoId,
+            EstadoUnidad? estado = null,
+            string? texto = null,
+            bool soloDisponibles = false,
+            bool soloVendidas = false,
+            bool soloSinNumeroSerie = false)
+        {
+            try
+            {
+                var producto = await _productoService.GetByIdAsync(productoId);
+                if (producto == null)
+                    return NotFound();
+
+                var filtros = new ProductoUnidadFiltros
+                {
+                    Estado = estado,
+                    Texto = texto,
+                    SoloDisponibles = soloDisponibles,
+                    SoloVendidas = soloVendidas,
+                    SoloSinNumeroSerie = soloSinNumeroSerie
+                };
+
+                var unidadesFiltradas = (await _productoUnidadService
+                    .ObtenerPorProductoFiltradoAsync(productoId, filtros))
+                    .ToList();
+
+                var unidadesResumen = (await _productoUnidadService
+                    .ObtenerPorProductoAsync(productoId))
+                    .ToList();
+
+                var viewModel = new ProductoUnidadesViewModel
+                {
+                    ProductoId = producto.Id,
+                    Codigo = producto.Codigo,
+                    Nombre = producto.Nombre,
+                    RequiereNumeroSerie = producto.RequiereNumeroSerie,
+                    StockActual = producto.StockActual,
+                    Filtros = new ProductoUnidadesFiltroViewModel
+                    {
+                        Estado = estado,
+                        Texto = texto,
+                        SoloDisponibles = soloDisponibles,
+                        SoloVendidas = soloVendidas,
+                        SoloSinNumeroSerie = soloSinNumeroSerie
+                    },
+                    ResumenEstados = unidadesResumen
+                        .GroupBy(u => u.Estado)
+                        .OrderBy(g => g.Key)
+                        .Select(g => new ProductoUnidadEstadoResumenViewModel
+                        {
+                            Estado = g.Key,
+                            Cantidad = g.Count()
+                        })
+                        .ToList(),
+                    Unidades = unidadesFiltradas.Select(MapearUnidadItem).ToList()
+                };
+
+                return View("Unidades", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cargar unidades del producto {ProductoId}", productoId);
+                TempData["Error"] = "Error al cargar las unidades del producto. Intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpGet("Producto/UnidadHistorial/{unidadId:int}")]
+        public async Task<IActionResult> UnidadHistorial(int unidadId)
+        {
+            try
+            {
+                var unidad = await _productoUnidadService.ObtenerPorIdAsync(unidadId);
+                if (unidad == null)
+                    return NotFound();
+
+                var movimientos = await _productoUnidadService.ObtenerHistorialAsync(unidadId);
+                var viewModel = new ProductoUnidadHistorialViewModel
+                {
+                    UnidadId = unidad.Id,
+                    ProductoId = unidad.ProductoId,
+                    ProductoCodigo = unidad.Producto?.Codigo ?? string.Empty,
+                    ProductoNombre = unidad.Producto?.Nombre ?? string.Empty,
+                    CodigoInternoUnidad = unidad.CodigoInternoUnidad,
+                    NumeroSerie = unidad.NumeroSerie,
+                    EstadoActual = unidad.Estado,
+                    Movimientos = movimientos.Select(m => new ProductoUnidadMovimientoItemViewModel
+                    {
+                        FechaCambio = m.FechaCambio,
+                        EstadoAnterior = m.EstadoAnterior,
+                        EstadoNuevo = m.EstadoNuevo,
+                        Motivo = m.Motivo,
+                        OrigenReferencia = m.OrigenReferencia,
+                        UsuarioResponsable = m.UsuarioResponsable
+                    }).ToList()
+                };
+
+                return View("UnidadHistorial", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cargar historial de unidad {UnidadId}", unidadId);
+                TempData["Error"] = "Error al cargar el historial de la unidad. Intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        private static ProductoUnidadItemViewModel MapearUnidadItem(ProductoUnidad unidad)
+            => new()
+            {
+                Id = unidad.Id,
+                CodigoInternoUnidad = unidad.CodigoInternoUnidad,
+                NumeroSerie = unidad.NumeroSerie,
+                Estado = unidad.Estado,
+                UbicacionActual = unidad.UbicacionActual,
+                FechaIngreso = unidad.FechaIngreso,
+                ClienteAsociado = unidad.Cliente?.ToDisplayName(),
+                VentaDetalleId = unidad.VentaDetalleId,
+                FechaVenta = unidad.FechaVenta,
+                Observaciones = unidad.Observaciones
+            };
 
         #endregion
     }

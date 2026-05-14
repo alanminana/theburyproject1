@@ -51,6 +51,9 @@ public class ProductoControllerPrecioTests : IDisposable
             new StubHistoricoPrecioCtrlTest(),
             stubUser,
             resolver);
+        var productoUnidadService = new ProductoUnidadService(
+            _context,
+            NullLogger<ProductoUnidadService>.Instance);
 
         var precioService = new PrecioService(_context, NullLogger<PrecioService>.Instance, stubUser, config);
         var catalogLookup = new StubCatalogLookupCtrlTest();
@@ -64,6 +67,7 @@ public class ProductoControllerPrecioTests : IDisposable
 
         _controller = new ProductoController(
             productoService,
+            productoUnidadService,
             catalogLookup,
             catalogoService,
             NullLogger<ProductoController>.Instance,
@@ -762,6 +766,111 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void Catalogo_MuestraBotonUnidades()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Catalogo", "Index_tw.cshtml"));
+
+        Assert.Contains("asp-action=\"Unidades\"", html);
+        Assert.Contains("asp-route-productoId=\"@p.ProductoId\"", html);
+        Assert.Contains("row-action__label\">Unidades</span>", html);
+    }
+
+    [Fact]
+    public async Task Unidades_ProductoExistente_DevuelveVistaConUnidadesDelProducto()
+    {
+        var producto = await SeedProductoAsync();
+        var otroProducto = await SeedProductoAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-OK", "SN-OK", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(otroProducto.Id, "UNI-OTRA", "SN-OTRA", EstadoUnidad.EnStock);
+
+        var result = await _controller.Unidades(producto.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Unidades", view.ViewName);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        var unidad = Assert.Single(model.Unidades);
+        Assert.Equal("UNI-OK", unidad.CodigoInternoUnidad);
+        Assert.DoesNotContain(model.Unidades, u => u.CodigoInternoUnidad == "UNI-OTRA");
+    }
+
+    [Fact]
+    public async Task Unidades_ProductoInexistente_DevuelveNotFound()
+    {
+        var result = await _controller.Unidades(999999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Unidades_FiltroPorEstado_FiltraUnidades()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-STOCK", "SN-STOCK", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-VENDIDA", "SN-VENDIDA", EstadoUnidad.Vendida);
+
+        var result = await _controller.Unidades(producto.Id, estado: EstadoUnidad.Vendida);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        var unidad = Assert.Single(model.Unidades);
+        Assert.Equal(EstadoUnidad.Vendida, unidad.Estado);
+        Assert.Equal("UNI-VENDIDA", unidad.CodigoInternoUnidad);
+    }
+
+    [Fact]
+    public async Task Unidades_FiltroTexto_BuscaCodigoInternoONumeroSerie()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedProductoUnidadAsync(producto.Id, "COD-123", "SERIE-ABC", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "COD-456", "SERIE-XYZ", EstadoUnidad.EnStock);
+
+        var result = await _controller.Unidades(producto.Id, texto: "XYZ");
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        var unidad = Assert.Single(model.Unidades);
+        Assert.Equal("COD-456", unidad.CodigoInternoUnidad);
+    }
+
+    [Fact]
+    public async Task UnidadHistorial_UnidadExistente_MuestraMovimientos()
+    {
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-HIST", "SN-HIST", EstadoUnidad.Vendida);
+        await SeedMovimientoUnidadAsync(unidad.Id, EstadoUnidad.EnStock, EstadoUnidad.Vendida, "Venta de unidad");
+
+        var result = await _controller.UnidadHistorial(unidad.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("UnidadHistorial", view.ViewName);
+        var model = Assert.IsType<ProductoUnidadHistorialViewModel>(view.Model);
+        Assert.Equal("UNI-HIST", model.CodigoInternoUnidad);
+        Assert.Single(model.Movimientos);
+        Assert.Equal("Venta de unidad", model.Movimientos[0].Motivo);
+    }
+
+    [Fact]
+    public async Task UnidadHistorial_UnidadInexistente_DevuelveNotFound()
+    {
+        var result = await _controller.UnidadHistorial(999999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Unidades_ProductoNoTrazable_MuestraAvisoYNoRompe()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: false);
+
+        var result = await _controller.Unidades(producto.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        Assert.False(model.RequiereNumeroSerie);
+        Assert.Empty(model.Unidades);
+    }
+
+    [Fact]
     public async Task EditAjax_RowVersionNula_DevuelveErrorControlado()
     {
         var producto = await SeedProductoAsync(precioVenta: 100m);
@@ -1025,7 +1134,7 @@ public class ProductoControllerPrecioTests : IDisposable
         return (cat, marca);
     }
 
-    private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m, int? maxCuotas = null)
+    private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m, int? maxCuotas = null, bool requiereNumeroSerie = false)
     {
         var (cat, marca) = await SeedCategoriaYMarcaAsync();
         var code = Guid.NewGuid().ToString("N")[..8];
@@ -1041,11 +1150,55 @@ public class ProductoControllerPrecioTests : IDisposable
             PorcentajeIVA = 21m,
             StockActual = 10m,
             Activo = true,
+            RequiereNumeroSerie = requiereNumeroSerie,
             MaxCuotasSinInteresPermitidas = maxCuotas
         };
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
         return producto;
+    }
+
+    private async Task<ProductoUnidad> SeedProductoUnidadAsync(
+        int productoId,
+        string codigoInterno,
+        string? numeroSerie,
+        EstadoUnidad estado)
+    {
+        var unidad = new ProductoUnidad
+        {
+            ProductoId = productoId,
+            CodigoInternoUnidad = codigoInterno,
+            NumeroSerie = numeroSerie,
+            Estado = estado,
+            UbicacionActual = "Deposito",
+            FechaIngreso = DateTime.UtcNow.AddDays(-2),
+            FechaVenta = estado == EstadoUnidad.Vendida ? DateTime.UtcNow.AddDays(-1) : null,
+            Observaciones = "Obs test"
+        };
+
+        _context.ProductoUnidades.Add(unidad);
+        await _context.SaveChangesAsync();
+        return unidad;
+    }
+
+    private async Task SeedMovimientoUnidadAsync(
+        int unidadId,
+        EstadoUnidad anterior,
+        EstadoUnidad nuevo,
+        string motivo)
+    {
+        _context.ProductoUnidadMovimientos.Add(new ProductoUnidadMovimiento
+        {
+            ProductoUnidadId = unidadId,
+            EstadoAnterior = anterior,
+            EstadoNuevo = nuevo,
+            Motivo = motivo,
+            OrigenReferencia = "Test",
+            UsuarioResponsable = "testuser",
+            FechaCambio = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync();
     }
 
     private async Task<AlicuotaIVA> SeedAlicuotaIVAAsync(decimal porcentaje)

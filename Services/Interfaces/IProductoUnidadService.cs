@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -20,6 +21,18 @@ namespace TheBuryProject.Services.Interfaces
         /// Retorna todas las unidades activas de un producto.
         /// </summary>
         Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId);
+
+        /// <summary>
+        /// Retorna unidades activas de un producto aplicando filtros operativos de consulta.
+        /// </summary>
+        Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(
+            int productoId,
+            ProductoUnidadFiltros filtros);
+
+        /// <summary>
+        /// Retorna una unidad activa por id con sus datos de consulta.
+        /// </summary>
+        Task<ProductoUnidad?> ObtenerPorIdAsync(int productoUnidadId);
 
         /// <summary>
         /// Retorna unidades en estado EnStock y no eliminadas de un producto.

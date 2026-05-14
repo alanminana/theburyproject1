@@ -1,0 +1,71 @@
+@model ProductoUnidadHistorialViewModel
+
+@{
+    ViewData["Title"] = $"Historial - {Model.CodigoInternoUnidad}";
+}
+
+<div class="space-y-6">
+    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
+        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+           class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
+            <span class="material-symbols-outlined text-base">arrow_back</span>
+            Volver a unidades
+        </a>
+        <div class="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <h1 class="text-2xl font-black text-white">@Model.CodigoInternoUnidad</h1>
+                <p class="mt-1 text-sm text-slate-400">
+                    @Model.ProductoCodigo - @Model.ProductoNombre
+                    @if (!string.IsNullOrWhiteSpace(Model.NumeroSerie))
+                    {
+                        <span>/ Serie @Model.NumeroSerie</span>
+                    }
+                </p>
+            </div>
+            <span class="inline-flex w-fit items-center rounded-full border border-slate-700 px-3 py-1 text-sm font-bold text-slate-200">
+                Estado actual: @Model.EstadoActual
+            </span>
+        </div>
+    </section>
+
+    <section class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-800">
+                <thead class="bg-slate-900/70">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado anterior</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado nuevo</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Motivo</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Usuario</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @if (Model.Movimientos.Any())
+                    {
+                        @foreach (var movimiento in Model.Movimientos)
+                        {
+                            <tr class="hover:bg-white/5">
+                                <td class="px-4 py-3 text-sm text-slate-300">@movimiento.FechaCambio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td class="px-4 py-3 text-sm text-slate-300">@movimiento.EstadoAnterior</td>
+                                <td class="px-4 py-3 text-sm text-white">@movimiento.EstadoNuevo</td>
+                                <td class="px-4 py-3 text-sm text-slate-300">@movimiento.Motivo</td>
+                                <td class="px-4 py-3 text-sm text-slate-300">@(movimiento.OrigenReferencia ?? "-")</td>
+                                <td class="px-4 py-3 text-sm text-slate-300">@(movimiento.UsuarioResponsable ?? "-")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">
+                                Esta unidad no tiene movimientos registrados.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

@@ -3,6 +3,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Services
 {
@@ -94,6 +95,53 @@ namespace TheBuryProject.Services
                 .Where(u => u.ProductoId == productoId && !u.IsDeleted)
                 .OrderBy(u => u.CodigoInternoUnidad)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(
+            int productoId,
+            ProductoUnidadFiltros filtros)
+        {
+            filtros ??= new ProductoUnidadFiltros();
+
+            var query = _context.ProductoUnidades
+                .AsNoTracking()
+                .Include(u => u.Cliente)
+                .Include(u => u.VentaDetalle)
+                .Where(u => u.ProductoId == productoId && !u.IsDeleted);
+
+            if (filtros.SoloDisponibles)
+                query = query.Where(u => u.Estado == EstadoUnidad.EnStock);
+
+            if (filtros.SoloVendidas)
+                query = query.Where(u => u.Estado == EstadoUnidad.Vendida);
+
+            if (filtros.SoloSinNumeroSerie)
+                query = query.Where(u => string.IsNullOrEmpty(u.NumeroSerie));
+
+            if (filtros.Estado.HasValue)
+                query = query.Where(u => u.Estado == filtros.Estado.Value);
+
+            if (!string.IsNullOrWhiteSpace(filtros.Texto))
+            {
+                var texto = filtros.Texto.Trim();
+                query = query.Where(u =>
+                    u.CodigoInternoUnidad.Contains(texto) ||
+                    (u.NumeroSerie != null && u.NumeroSerie.Contains(texto)));
+            }
+
+            return await query
+                .OrderBy(u => u.CodigoInternoUnidad)
+                .ToListAsync();
+        }
+
+        public async Task<ProductoUnidad?> ObtenerPorIdAsync(int productoUnidadId)
+        {
+            return await _context.ProductoUnidades
+                .AsNoTracking()
+                .Include(u => u.Producto)
+                .Include(u => u.Cliente)
+                .Include(u => u.VentaDetalle)
+                .FirstOrDefaultAsync(u => u.Id == productoUnidadId && !u.IsDeleted);
         }
 
         public async Task<IEnumerable<ProductoUnidad>> ObtenerDisponiblesPorProductoAsync(int productoId)

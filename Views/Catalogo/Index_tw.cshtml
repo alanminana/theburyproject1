@@ -344,6 +344,11 @@
                                             <span class="material-symbols-outlined">swap_vert</span>
                                             <span class="row-action__label">Movimientos</span>
                                         </button>
+                                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@p.ProductoId"
+                                           class="row-action row-action--primary" title="Unidades fisicas del producto">
+                                            <span class="material-symbols-outlined">qr_code_2</span>
+                                            <span class="row-action__label">Unidades</span>
+                                        </a>
                                         @* Fase 7.8: ProductoCondicionPago* queda legacy/admin; no exponer entrada visible desde Catalogo. *@
                                         <button type="button" data-prod-edit-id="@p.ProductoId"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">

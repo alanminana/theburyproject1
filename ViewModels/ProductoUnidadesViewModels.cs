@@ -1,0 +1,67 @@
+using TheBuryProject.Models.Enums;
+
+namespace TheBuryProject.ViewModels
+{
+    public class ProductoUnidadesViewModel
+    {
+        public int ProductoId { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public bool RequiereNumeroSerie { get; set; }
+        public decimal StockActual { get; set; }
+        public ProductoUnidadesFiltroViewModel Filtros { get; set; } = new();
+        public List<ProductoUnidadEstadoResumenViewModel> ResumenEstados { get; set; } = new();
+        public List<ProductoUnidadItemViewModel> Unidades { get; set; } = new();
+    }
+
+    public class ProductoUnidadesFiltroViewModel
+    {
+        public EstadoUnidad? Estado { get; set; }
+        public string? Texto { get; set; }
+        public bool SoloDisponibles { get; set; }
+        public bool SoloVendidas { get; set; }
+        public bool SoloSinNumeroSerie { get; set; }
+    }
+
+    public class ProductoUnidadEstadoResumenViewModel
+    {
+        public EstadoUnidad Estado { get; set; }
+        public int Cantidad { get; set; }
+    }
+
+    public class ProductoUnidadItemViewModel
+    {
+        public int Id { get; set; }
+        public string CodigoInternoUnidad { get; set; } = string.Empty;
+        public string? NumeroSerie { get; set; }
+        public EstadoUnidad Estado { get; set; }
+        public string? UbicacionActual { get; set; }
+        public DateTime FechaIngreso { get; set; }
+        public string? ClienteAsociado { get; set; }
+        public int? VentaDetalleId { get; set; }
+        public DateTime? FechaVenta { get; set; }
+        public string? Observaciones { get; set; }
+    }
+
+    public class ProductoUnidadHistorialViewModel
+    {
+        public int UnidadId { get; set; }
+        public int ProductoId { get; set; }
+        public string ProductoCodigo { get; set; } = string.Empty;
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string CodigoInternoUnidad { get; set; } = string.Empty;
+        public string? NumeroSerie { get; set; }
+        public EstadoUnidad EstadoActual { get; set; }
+        public List<ProductoUnidadMovimientoItemViewModel> Movimientos { get; set; } = new();
+    }
+
+    public class ProductoUnidadMovimientoItemViewModel
+    {
+        public DateTime FechaCambio { get; set; }
+        public EstadoUnidad EstadoAnterior { get; set; }
+        public EstadoUnidad EstadoNuevo { get; set; }
+        public string Motivo { get; set; } = string.Empty;
+        public string? OrigenReferencia { get; set; }
+        public string? UsuarioResponsable { get; set; }
+    }
+}
