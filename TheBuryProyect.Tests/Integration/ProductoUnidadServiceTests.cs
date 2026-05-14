@@ -704,7 +704,29 @@ public class ProductoUnidadServiceTests : IDisposable
         Assert.Equal(EstadoUnidad.EnStock, mov.EstadoAnterior);
         Assert.Equal(EstadoUnidad.Faltante, mov.EstadoNuevo);
         Assert.Equal("Extraviada en traslado", mov.Motivo);
+        Assert.Equal("AjusteUnidad:Faltante", mov.OrigenReferencia);
         Assert.Equal("bodega@test.com", mov.UsuarioResponsable);
+    }
+
+    [Fact]
+    public async Task AjustesUnidad_Historial_GuardaOrigenReferencia()
+    {
+        var prod = await SeedProductoAsync();
+        var unidadBaja = await _service.CrearUnidadAsync(prod.Id);
+        var unidadReintegro = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+
+        await _service.MarcarBajaAsync(unidadBaja.Id, "Baja operativa");
+        await _service.ReintegrarAStockAsync(unidadReintegro.Id, "Reintegro operativo");
+
+        var baja = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .SingleAsync(m => m.ProductoUnidadId == unidadBaja.Id && m.EstadoNuevo == EstadoUnidad.Baja);
+        var reintegro = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .SingleAsync(m => m.ProductoUnidadId == unidadReintegro.Id && m.OrigenReferencia == "AjusteUnidad:Reintegro");
+
+        Assert.Equal("AjusteUnidad:Baja", baja.OrigenReferencia);
+        Assert.Equal("AjusteUnidad:Reintegro", reintegro.OrigenReferencia);
     }
 
     // -------------------------------------------------------------------------

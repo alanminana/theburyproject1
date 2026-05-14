@@ -293,11 +293,63 @@
                                 </td>
                                 <td class="max-w-xs px-4 py-3 text-sm text-slate-300">@(unidad.Observaciones ?? "-")</td>
                                 <td class="px-4 py-3 text-right">
-                                    <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
-                                       class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
-                                        <span class="material-symbols-outlined text-base">history</span>
-                                        Ver historial
-                                    </a>
+                                    <div class="flex min-w-[18rem] flex-col items-stretch gap-2">
+                                        <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
+                                           class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                                            <span class="material-symbols-outlined text-base">history</span>
+                                            Ver historial
+                                        </a>
+
+                                        @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock)
+                                        {
+                                            <div class="grid gap-2">
+                                                @if (unidad.PuedeMarcarFaltante)
+                                                {
+                                                    <form method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante" class="grid gap-1">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                                                        <input name="Motivo" maxlength="500" required
+                                                               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                               placeholder="Motivo obligatorio" />
+                                                        <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
+                                                            <span class="material-symbols-outlined text-base">inventory_2</span>
+                                                            Marcar faltante
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                                @if (unidad.PuedeReintegrarAStock)
+                                                {
+                                                    <form method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock" class="grid gap-1">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                                                        <input name="Motivo" maxlength="500" required
+                                                               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                               placeholder="Motivo obligatorio" />
+                                                        <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                                                            <span class="material-symbols-outlined text-base">assignment_return</span>
+                                                            Reintegrar a stock
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                                @if (unidad.PuedeDarBaja)
+                                                {
+                                                    <form method="post" asp-controller="Producto" asp-action="DarUnidadBaja" class="grid gap-1">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                                                        <input name="Motivo" maxlength="500" required
+                                                               class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                               placeholder="Motivo obligatorio" />
+                                                        <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-200 transition-colors hover:bg-red-500/20">
+                                                            <span class="material-symbols-outlined text-base">block</span>
+                                                            Dar de baja
+                                                        </button>
+                                                    </form>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }

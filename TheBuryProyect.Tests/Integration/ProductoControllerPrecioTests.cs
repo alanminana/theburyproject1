@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Security.Claims;
 using System.Text.Json;
 using TheBuryProject.Controllers;
 using TheBuryProject.Data;
@@ -73,7 +74,15 @@ public class ProductoControllerPrecioTests : IDisposable
             NullLogger<ProductoController>.Instance,
             mapper);
 
-        _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    new[] { new Claim(ClaimTypes.Name, "operador@test.com") },
+                    "TestAuth"))
+            }
+        };
         _controller.TempData = new StubTempDataDictionaryCtrlTest();
     }
 
@@ -806,6 +815,21 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void UnidadesView_MuestraAccionesDeAjusteConMotivoObligatorio()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+
+        Assert.Contains("asp-action=\"MarcarUnidadFaltante\"", html);
+        Assert.Contains("asp-action=\"DarUnidadBaja\"", html);
+        Assert.Contains("asp-action=\"ReintegrarUnidadAStock\"", html);
+        Assert.Contains("Marcar faltante", html);
+        Assert.Contains("Dar de baja", html);
+        Assert.Contains("Reintegrar a stock", html);
+        Assert.Contains("name=\"Motivo\"", html);
+        Assert.Contains("required", html);
+    }
+
+    [Fact]
     public async Task Unidades_ProductoExistente_DevuelveVistaConUnidadesDelProducto()
     {
         var producto = await SeedProductoAsync();
@@ -860,6 +884,41 @@ public class ProductoControllerPrecioTests : IDisposable
         var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
         var unidad = Assert.Single(model.Unidades);
         Assert.Equal("COD-456", unidad.CodigoInternoUnidad);
+    }
+
+    [Fact]
+    public async Task Unidades_DefineAccionesValidasPorEstado()
+    {
+        var producto = await SeedProductoAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-STOCK", "SN-STOCK", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-FALT", "SN-FALT", EstadoUnidad.Faltante);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-DEV", "SN-DEV", EstadoUnidad.Devuelta);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-VEND", "SN-VEND", EstadoUnidad.Vendida);
+
+        var result = await _controller.Unidades(producto.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        var enStock = Assert.Single(model.Unidades, u => u.Estado == EstadoUnidad.EnStock);
+        var faltante = Assert.Single(model.Unidades, u => u.Estado == EstadoUnidad.Faltante);
+        var devuelta = Assert.Single(model.Unidades, u => u.Estado == EstadoUnidad.Devuelta);
+        var vendida = Assert.Single(model.Unidades, u => u.Estado == EstadoUnidad.Vendida);
+
+        Assert.True(enStock.PuedeMarcarFaltante);
+        Assert.True(enStock.PuedeDarBaja);
+        Assert.False(enStock.PuedeReintegrarAStock);
+
+        Assert.False(faltante.PuedeMarcarFaltante);
+        Assert.True(faltante.PuedeDarBaja);
+        Assert.True(faltante.PuedeReintegrarAStock);
+
+        Assert.False(devuelta.PuedeMarcarFaltante);
+        Assert.True(devuelta.PuedeDarBaja);
+        Assert.True(devuelta.PuedeReintegrarAStock);
+
+        Assert.False(vendida.PuedeMarcarFaltante);
+        Assert.False(vendida.PuedeDarBaja);
+        Assert.False(vendida.PuedeReintegrarAStock);
     }
 
     [Fact]
@@ -1119,6 +1178,122 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public async Task MarcarUnidadFaltante_PostCambiaEstadoCreaHistorialYNoModificaStock()
+    {
+        var producto = await SeedProductoAsync();
+        var stockInicial = producto.StockActual;
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-FALTANTE", "SN-FALTANTE", EstadoUnidad.EnStock);
+
+        var result = await _controller.MarcarUnidadFaltante(new ProductoUnidadAjusteViewModel
+        {
+            ProductoUnidadId = unidad.Id,
+            Motivo = "No encontrada en deposito"
+        });
+
+        AssertRedirectUnidades(result, producto.Id);
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimiento = await _context.ProductoUnidadMovimientos.AsNoTracking().SingleAsync(m => m.ProductoUnidadId == unidad.Id);
+
+        Assert.Equal(EstadoUnidad.Faltante, unidadActualizada.Estado);
+        Assert.Equal(stockInicial, productoActualizado.StockActual);
+        Assert.Equal(EstadoUnidad.EnStock, movimiento.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.Faltante, movimiento.EstadoNuevo);
+        Assert.Equal("No encontrada en deposito", movimiento.Motivo);
+        Assert.Equal("AjusteUnidad:Faltante", movimiento.OrigenReferencia);
+        Assert.Equal("operador@test.com", movimiento.UsuarioResponsable);
+    }
+
+    [Fact]
+    public async Task DarUnidadBaja_PostCambiaEstadoCreaHistorialYNoModificaStock()
+    {
+        var producto = await SeedProductoAsync();
+        var stockInicial = producto.StockActual;
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-BAJA", "SN-BAJA", EstadoUnidad.EnStock);
+
+        var result = await _controller.DarUnidadBaja(new ProductoUnidadAjusteViewModel
+        {
+            ProductoUnidadId = unidad.Id,
+            Motivo = "Rotura irreparable"
+        });
+
+        AssertRedirectUnidades(result, producto.Id);
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimiento = await _context.ProductoUnidadMovimientos.AsNoTracking().SingleAsync(m => m.ProductoUnidadId == unidad.Id);
+
+        Assert.Equal(EstadoUnidad.Baja, unidadActualizada.Estado);
+        Assert.Equal(stockInicial, productoActualizado.StockActual);
+        Assert.Equal(EstadoUnidad.Baja, movimiento.EstadoNuevo);
+        Assert.Equal("AjusteUnidad:Baja", movimiento.OrigenReferencia);
+    }
+
+    [Fact]
+    public async Task ReintegrarUnidadAStock_PostCambiaEstadoCreaHistorialYNoModificaStock()
+    {
+        var producto = await SeedProductoAsync();
+        var stockInicial = producto.StockActual;
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-REINT", "SN-REINT", EstadoUnidad.Faltante);
+
+        var result = await _controller.ReintegrarUnidadAStock(new ProductoUnidadAjusteViewModel
+        {
+            ProductoUnidadId = unidad.Id,
+            Motivo = "Recuperada en deposito"
+        });
+
+        AssertRedirectUnidades(result, producto.Id);
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimiento = await _context.ProductoUnidadMovimientos.AsNoTracking().SingleAsync(m => m.ProductoUnidadId == unidad.Id);
+
+        Assert.Equal(EstadoUnidad.EnStock, unidadActualizada.Estado);
+        Assert.Equal(stockInicial, productoActualizado.StockActual);
+        Assert.Equal(EstadoUnidad.Faltante, movimiento.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.EnStock, movimiento.EstadoNuevo);
+        Assert.Equal("AjusteUnidad:Reintegro", movimiento.OrigenReferencia);
+    }
+
+    [Fact]
+    public async Task AjusteUnidad_MotivoVacio_RedireccionaConErrorClaroSinCambiarEstado()
+    {
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-SIN-MOTIVO", "SN-SIN-MOTIVO", EstadoUnidad.EnStock);
+
+        var result = await _controller.MarcarUnidadFaltante(new ProductoUnidadAjusteViewModel
+        {
+            ProductoUnidadId = unidad.Id,
+            Motivo = " "
+        });
+
+        AssertRedirectUnidades(result, producto.Id);
+        Assert.Equal("El motivo es obligatorio para ajustar la unidad.", _controller.TempData["Error"]);
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        var movimientos = await _context.ProductoUnidadMovimientos.CountAsync(m => m.ProductoUnidadId == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadActualizada.Estado);
+        Assert.Equal(0, movimientos);
+    }
+
+    [Fact]
+    public async Task AjusteUnidad_TransicionInvalida_RedireccionaConErrorClaroSinCambiarEstado()
+    {
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, "UNI-VENDIDA", "SN-VENDIDA", EstadoUnidad.Vendida);
+
+        var result = await _controller.MarcarUnidadFaltante(new ProductoUnidadAjusteViewModel
+        {
+            ProductoUnidadId = unidad.Id,
+            Motivo = "Intento invalido"
+        });
+
+        AssertRedirectUnidades(result, producto.Id);
+        Assert.Contains("no permite la transicion", Normalize(_controller.TempData["Error"]?.ToString() ?? string.Empty));
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        var movimientos = await _context.ProductoUnidadMovimientos.CountAsync(m => m.ProductoUnidadId == unidad.Id);
+        Assert.Equal(EstadoUnidad.Vendida, unidadActualizada.Estado);
+        Assert.Equal(0, movimientos);
+    }
+
+    [Fact]
     public async Task EditAjax_RowVersionNula_DevuelveErrorControlado()
     {
         var producto = await SeedProductoAsync(precioVenta: 100m);
@@ -1327,6 +1502,13 @@ public class ProductoControllerPrecioTests : IDisposable
         => value?
             .Replace("ó", "o")
             .Replace("í", "i");
+
+    private static void AssertRedirectUnidades(IActionResult result, int productoId)
+    {
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ProductoController.Unidades), redirect.ActionName);
+        Assert.Equal(productoId, redirect.RouteValues!["productoId"]);
+    }
 
     private static decimal BindComisionOrDefault(string? rawComision)
         => DecimalParsingHelper.TryParseFlexibleDecimal(

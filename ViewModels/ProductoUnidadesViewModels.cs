@@ -59,6 +59,15 @@ namespace TheBuryProject.ViewModels
         public bool TieneNumeroSerie => !string.IsNullOrWhiteSpace(NumeroSerie);
     }
 
+    public class ProductoUnidadAjusteViewModel
+    {
+        public int ProductoUnidadId { get; set; }
+
+        [Required(ErrorMessage = "El motivo es obligatorio.")]
+        [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
+        public string? Motivo { get; set; }
+    }
+
     public class ProductoUnidadesFiltroViewModel
     {
         public EstadoUnidad? Estado { get; set; }
@@ -86,6 +95,9 @@ namespace TheBuryProject.ViewModels
         public int? VentaDetalleId { get; set; }
         public DateTime? FechaVenta { get; set; }
         public string? Observaciones { get; set; }
+        public bool PuedeMarcarFaltante { get; set; }
+        public bool PuedeDarBaja { get; set; }
+        public bool PuedeReintegrarAStock { get; set; }
     }
 
     public class ProductoUnidadHistorialViewModel

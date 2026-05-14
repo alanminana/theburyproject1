@@ -703,6 +703,82 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost("Producto/MarcarUnidadFaltante")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public Task<IActionResult> MarcarUnidadFaltante(ProductoUnidadAjusteViewModel ajuste)
+            => AplicarAjusteUnidadAsync(
+                ajuste,
+                (id, motivo, usuario) => _productoUnidadService.MarcarFaltanteAsync(id, motivo, usuario),
+                "Unidad marcada como faltante. El stock agregado no fue modificado.");
+
+        [HttpPost("Producto/DarUnidadBaja")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public Task<IActionResult> DarUnidadBaja(ProductoUnidadAjusteViewModel ajuste)
+            => AplicarAjusteUnidadAsync(
+                ajuste,
+                (id, motivo, usuario) => _productoUnidadService.MarcarBajaAsync(id, motivo, usuario),
+                "Unidad dada de baja. El stock agregado no fue modificado.");
+
+        [HttpPost("Producto/ReintegrarUnidadAStock")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public Task<IActionResult> ReintegrarUnidadAStock(ProductoUnidadAjusteViewModel ajuste)
+            => AplicarAjusteUnidadAsync(
+                ajuste,
+                (id, motivo, usuario) => _productoUnidadService.ReintegrarAStockAsync(id, motivo, usuario),
+                "Unidad reintegrada a stock. El stock agregado no fue modificado.");
+
+        private async Task<IActionResult> AplicarAjusteUnidadAsync(
+            ProductoUnidadAjusteViewModel ajuste,
+            Func<int, string, string?, Task<ProductoUnidad>> aplicarAjuste,
+            string mensajeExito)
+        {
+            var unidad = await _productoUnidadService.ObtenerPorIdAsync(ajuste.ProductoUnidadId);
+            if (unidad == null)
+                return NotFound();
+
+            if (string.IsNullOrWhiteSpace(ajuste.Motivo))
+            {
+                TempData["Error"] = "El motivo es obligatorio para ajustar la unidad.";
+                return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+            }
+
+            if (ajuste.Motivo.Length > 500)
+            {
+                TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+            }
+
+            try
+            {
+                await aplicarAjuste(
+                    ajuste.ProductoUnidadId,
+                    ajuste.Motivo.Trim(),
+                    User?.Identity?.Name);
+
+                TempData["Success"] = mensajeExito;
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Motivo invalido al ajustar unidad {ProductoUnidadId}", ajuste.ProductoUnidadId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Transicion invalida al ajustar unidad {ProductoUnidadId}", ajuste.ProductoUnidadId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al ajustar unidad {ProductoUnidadId}", ajuste.ProductoUnidadId);
+                TempData["Error"] = "Error al ajustar la unidad. Intenta nuevamente.";
+            }
+
+            return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+        }
+
         private async Task<IActionResult> VolverAUnidadesConFormularioAsync(ProductoUnidadCrearViewModel crearUnidad)
         {
             var viewModel = await ConstruirProductoUnidadesViewModelAsync(
@@ -789,7 +865,13 @@ namespace TheBuryProject.Controllers
                 ClienteAsociado = unidad.Cliente?.ToDisplayName(),
                 VentaDetalleId = unidad.VentaDetalleId,
                 FechaVenta = unidad.FechaVenta,
-                Observaciones = unidad.Observaciones
+                Observaciones = unidad.Observaciones,
+                PuedeMarcarFaltante = unidad.Estado == EstadoUnidad.EnStock,
+                PuedeDarBaja = unidad.Estado == EstadoUnidad.EnStock
+                    || unidad.Estado == EstadoUnidad.Faltante
+                    || unidad.Estado == EstadoUnidad.Devuelta,
+                PuedeReintegrarAStock = unidad.Estado == EstadoUnidad.Faltante
+                    || unidad.Estado == EstadoUnidad.Devuelta
             };
 
         private async Task PrepararPreviewCargaMasivaAsync(ProductoUnidadCargaMasivaViewModel cargaMasiva)

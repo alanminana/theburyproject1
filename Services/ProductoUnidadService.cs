@@ -253,7 +253,7 @@ namespace TheBuryProject.Services
 
             _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
                 unidad.Id, estadoAnterior, EstadoUnidad.Faltante,
-                motivo, null, usuario));
+                motivo, "AjusteUnidad:Faltante", usuario));
 
             await _context.SaveChangesAsync();
 
@@ -282,7 +282,7 @@ namespace TheBuryProject.Services
 
             _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
                 unidad.Id, estadoAnterior, EstadoUnidad.Baja,
-                motivo, null, usuario));
+                motivo, "AjusteUnidad:Baja", usuario));
 
             await _context.SaveChangesAsync();
 
@@ -314,7 +314,7 @@ namespace TheBuryProject.Services
 
             _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
                 unidad.Id, estadoAnterior, EstadoUnidad.EnStock,
-                motivo, null, usuario));
+                motivo, "AjusteUnidad:Reintegro", usuario));
 
             await _context.SaveChangesAsync();
 
