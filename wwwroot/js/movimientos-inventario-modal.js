@@ -232,7 +232,7 @@
                     </div>
                 </td>
                 <td class="px-4 py-4">
-                    <span class="text-sm font-bold ${cantColor}">${signo}${m.cantidad}</span>
+                    <span class="text-sm font-bold ${cantColor}">${signo}${Math.abs(m.cantidad)}</span>
                 </td>
                 <td class="px-4 py-4">
                     <span class="text-sm text-slate-600 dark:text-slate-400">${formatMoney(m.costoUnitarioAlMomento)}</span>
