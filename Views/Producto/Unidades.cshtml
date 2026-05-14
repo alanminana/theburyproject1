@@ -72,6 +72,9 @@
                 <p class="mt-2 max-w-4xl text-sm text-slate-400">
                     Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.
                 </p>
+                <p class="mt-2 max-w-4xl text-xs text-slate-500">
+                    Unidades registradas incluye todas las unidades no eliminadas, aunque esten vendidas, faltantes o dadas de baja. Unidades disponibles corresponde a unidades en estado EnStock.
+                </p>
                 @if (!conciliacion.RequiereNumeroSerie)
                 {
                     <p class="mt-2 max-w-4xl text-sm text-amber-200">
@@ -104,7 +107,7 @@
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades fisicas EnStock</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades disponibles</p>
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.UnidadesEnStock</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
@@ -112,8 +115,8 @@
                 <p class="mt-1 text-2xl font-black @(conciliacion.HayDiferencia ? "text-amber-200" : "text-emerald-200")">@diferenciaTexto</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total unidades activas</p>
-                <p class="mt-1 text-2xl font-black text-white">@conciliacion.TotalUnidadesActivas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades registradas</p>
+                <p class="mt-1 text-2xl font-black text-white">@conciliacion.TotalUnidadesRegistradas</p>
             </div>
         </div>
 

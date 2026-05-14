@@ -33,6 +33,7 @@ namespace TheBuryProject.ViewModels
         public int UnidadesReservadas { get; set; }
         public int UnidadesEnReparacion { get; set; }
         public int TotalUnidadesActivas { get; set; }
+        public int TotalUnidadesRegistradas => TotalUnidadesActivas;
         public decimal DiferenciaStockVsUnidadesEnStock { get; set; }
         public bool HayDiferencia => DiferenciaStockVsUnidadesEnStock != 0m;
         public DateTime? UltimoMovimientoStockFecha { get; set; }
