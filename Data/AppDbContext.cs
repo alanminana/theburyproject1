@@ -116,6 +116,9 @@ namespace TheBuryProject.Data
         public DbSet<TicketAdjunto> TicketAdjuntos { get; set; }
         public DbSet<TicketChecklistItem> TicketChecklistItems { get; set; }
 
+        public DbSet<ProductoUnidad> ProductoUnidades { get; set; }
+        public DbSet<ProductoUnidadMovimiento> ProductoUnidadMovimientos { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -364,6 +367,11 @@ namespace TheBuryProject.Data
                     .WithMany()
                     .HasForeignKey(e => e.AlicuotaIVAId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasMany(e => e.ProductoUnidades)
+                    .WithOne(u => u.Producto)
+                    .HasForeignKey(u => u.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 // SIN: entity.HasQueryFilter(e => !e.IsDeleted);
             });
@@ -2273,6 +2281,84 @@ namespace TheBuryProject.Data
                     .WithMany(t => t.ChecklistItems)
                     .HasForeignKey(e => e.TicketId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // ProductoUnidad
+            // =======================
+            modelBuilder.Entity<ProductoUnidad>(entity =>
+            {
+                entity.ToTable("ProductoUnidades");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.CodigoInternoUnidad)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.NumeroSerie)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.UbicacionActual)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Observaciones)
+                    .HasMaxLength(500);
+
+                entity.HasIndex(e => e.ProductoId);
+                entity.HasIndex(e => e.Estado);
+                entity.HasIndex(e => e.ClienteId);
+                entity.HasIndex(e => e.VentaDetalleId);
+
+                entity.HasIndex(e => new { e.ProductoId, e.CodigoInternoUnidad })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoUnidades_CodigoInterno")
+                    .HasFilter("[IsDeleted] = 0");
+
+                entity.HasIndex(e => new { e.ProductoId, e.NumeroSerie })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoUnidades_NumeroSerie")
+                    .HasFilter("[IsDeleted] = 0 AND [NumeroSerie] IS NOT NULL");
+
+                entity.HasOne(e => e.VentaDetalle)
+                    .WithMany()
+                    .HasForeignKey(e => e.VentaDetalleId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // =======================
+            // ProductoUnidadMovimiento
+            // =======================
+            modelBuilder.Entity<ProductoUnidadMovimiento>(entity =>
+            {
+                entity.ToTable("ProductoUnidadMovimientos");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Motivo)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.OrigenReferencia)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.UsuarioResponsable)
+                    .HasMaxLength(200);
+
+                entity.HasIndex(e => new { e.ProductoUnidadId, e.FechaCambio })
+                    .HasDatabaseName("IX_ProductoUnidadMovimientos_UnidadFecha");
+
+                entity.HasIndex(e => e.EstadoNuevo);
+
+                entity.HasOne(e => e.ProductoUnidad)
+                    .WithMany(u => u.Historial)
+                    .HasForeignKey(e => e.ProductoUnidadId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Seed de datos inicial

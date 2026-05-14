@@ -166,5 +166,11 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public virtual ICollection<ProductoCreditoRestriccion> CreditoRestricciones { get; set; } =
             new List<ProductoCreditoRestriccion>();
+
+        /// <summary>
+        /// Unidades físicas individuales de este producto (trazabilidad individual).
+        /// Solo aplica cuando RequiereNumeroSerie = true o se gestiona trazabilidad por unidad.
+        /// </summary>
+        public virtual ICollection<ProductoUnidad> ProductoUnidades { get; set; } = new List<ProductoUnidad>();
     }
 }
