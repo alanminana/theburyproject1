@@ -1016,6 +1016,8 @@ namespace TheBuryProject.Services
                     }
                 }
 
+                DesvincularUnidadesDeDetallesCancelados(venta);
+
                 venta.Estado = EstadoVenta.Cancelada;
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
@@ -2439,6 +2441,14 @@ namespace TheBuryProject.Services
             foreach (var unidad in unidades)
             {
                 await _productoUnidadService.RevertirVentaAsync(unidad.Id, motivo, usuario);
+            }
+        }
+
+        private static void DesvincularUnidadesDeDetallesCancelados(Venta venta)
+        {
+            foreach (var detalle in venta.Detalles.Where(d => !d.IsDeleted && d.ProductoUnidadId.HasValue))
+            {
+                detalle.ProductoUnidadId = null;
             }
         }
 

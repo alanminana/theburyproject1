@@ -516,6 +516,9 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Null(unidadTrasCancel.VentaDetalleId);
         Assert.Null(unidadTrasCancel.ClienteId);
         Assert.Null(unidadTrasCancel.FechaVenta);
+
+        var detalleTrasCancel = await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.VentaId == venta.Id);
+        Assert.Null(detalleTrasCancel.ProductoUnidadId);
     }
 
     // -------------------------------------------------------------------------
@@ -534,6 +537,9 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
 
         var unidadTrasCancel = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
         Assert.Equal(EstadoUnidad.EnStock, unidadTrasCancel.Estado);
+
+        var detalleTrasCancel = await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.VentaId == venta.Id);
+        Assert.Null(detalleTrasCancel.ProductoUnidadId);
     }
 
     // -------------------------------------------------------------------------
