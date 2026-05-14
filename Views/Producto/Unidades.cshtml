@@ -117,6 +117,21 @@
             </div>
         </div>
 
+        <div class="mt-3 rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+            @if (conciliacion.DiferenciaStockVsUnidadesEnStock > 0)
+            {
+                <p>Interpretacion: el stock agregado es mayor que las unidades fisicas disponibles en estado EnStock. No se realizo ningun ajuste automatico.</p>
+            }
+            else if (conciliacion.DiferenciaStockVsUnidadesEnStock < 0)
+            {
+                <p>Interpretacion: hay mas unidades fisicas disponibles en estado EnStock que stock agregado. No se realizo ningun ajuste automatico.</p>
+            }
+            else
+            {
+                <p>Interpretacion: el stock agregado coincide con las unidades fisicas disponibles en estado EnStock. No se realizo ningun ajuste.</p>
+            }
+        </div>
+
         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Vendidas</p>
