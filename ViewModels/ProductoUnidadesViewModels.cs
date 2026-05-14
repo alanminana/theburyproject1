@@ -144,4 +144,13 @@ namespace TheBuryProject.ViewModels
         public string? OrigenReferencia { get; set; }
         public string? UsuarioResponsable { get; set; }
     }
+
+    public class ProductoUnidadConciliarStockViewModel
+    {
+        public int ProductoId { get; set; }
+
+        [Required(ErrorMessage = "El motivo es obligatorio.")]
+        [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
+        public string? Motivo { get; set; }
+    }
 }

@@ -19,6 +19,7 @@ namespace TheBuryProject.Controllers
     {
         private readonly IProductoService _productoService;
         private readonly IProductoUnidadService _productoUnidadService;
+        private readonly IMovimientoStockService _movimientoStockService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ICatalogoService _catalogoService;
         private readonly ILogger<ProductoController> _logger;
@@ -28,6 +29,7 @@ namespace TheBuryProject.Controllers
         public ProductoController(
             IProductoService productoService,
             IProductoUnidadService productoUnidadService,
+            IMovimientoStockService movimientoStockService,
             ICatalogLookupService catalogLookupService,
             ICatalogoService catalogoService,
             ILogger<ProductoController> logger,
@@ -35,6 +37,7 @@ namespace TheBuryProject.Controllers
         {
             _productoService = productoService;
             _productoUnidadService = productoUnidadService;
+            _movimientoStockService = movimientoStockService;
             _catalogLookupService = catalogLookupService;
             _catalogoService = catalogoService;
             _logger = logger;
@@ -729,6 +732,61 @@ namespace TheBuryProject.Controllers
                 ajuste,
                 (id, motivo, usuario) => _productoUnidadService.ReintegrarAStockAsync(id, motivo, usuario),
                 "Unidad reintegrada a stock. El stock agregado no fue modificado.");
+
+        [HttpPost("Producto/ConciliarStockUnidades")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> ConciliarStockUnidades(ProductoUnidadConciliarStockViewModel vm)
+        {
+            if (string.IsNullOrWhiteSpace(vm.Motivo))
+            {
+                TempData["Error"] = "El motivo es obligatorio para conciliar el stock.";
+                return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+            }
+
+            if (vm.Motivo.Length > 500)
+            {
+                TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+            }
+
+            try
+            {
+                // Siempre recalcular en servidor; ignorar cualquier valor enviado por el cliente
+                var conciliacion = await _productoUnidadService.ObtenerConciliacionPorProductoAsync(vm.ProductoId);
+
+                if (conciliacion.DiferenciaStockVsUnidadesEnStock == 0m)
+                {
+                    TempData["Error"] = "El stock ya esta conciliado. No se genero ningun ajuste.";
+                    return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+                }
+
+                var nuevoStockAbsoluto = (decimal)conciliacion.UnidadesEnStock;
+                var referencia = $"ConciliacionUnidad:{vm.ProductoId}";
+
+                await _movimientoStockService.RegistrarAjusteAsync(
+                    vm.ProductoId,
+                    TipoMovimiento.Ajuste,
+                    nuevoStockAbsoluto,
+                    referencia,
+                    vm.Motivo.Trim(),
+                    User?.Identity?.Name);
+
+                TempData["Success"] = $"Stock agregado ajustado a {nuevoStockAbsoluto:G29}. Kardex actualizado. Unidades fisicas sin cambios.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validacion al conciliar stock del producto {ProductoId}", vm.ProductoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al conciliar stock del producto {ProductoId}", vm.ProductoId);
+                TempData["Error"] = "Error al conciliar el stock. Intenta nuevamente.";
+            }
+
+            return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+        }
 
         private async Task<IActionResult> AplicarAjusteUnidadAsync(
             ProductoUnidadAjusteViewModel ajuste,

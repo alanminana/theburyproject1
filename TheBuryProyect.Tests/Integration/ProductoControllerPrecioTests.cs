@@ -62,6 +62,10 @@ public class ProductoControllerPrecioTests : IDisposable
             catalogLookup, productoService, precioService, resolver,
             NullLogger<CatalogoService>.Instance, stubUser);
 
+        var movimientoStockService = new MovimientoStockService(
+            _context,
+            NullLogger<MovimientoStockService>.Instance);
+
         var mapper = new MapperConfiguration(
             cfg => cfg.AddProfile<MappingProfile>(),
             NullLoggerFactory.Instance).CreateMapper();
@@ -69,6 +73,7 @@ public class ProductoControllerPrecioTests : IDisposable
         _controller = new ProductoController(
             productoService,
             productoUnidadService,
+            movimientoStockService,
             catalogLookup,
             catalogoService,
             NullLogger<ProductoController>.Instance,
@@ -854,8 +859,9 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.DoesNotContain("Total unidades activas", html);
         Assert.Contains("Ver Kardex SKU", html);
         Assert.Contains("Ver historial/listado de unidades", html);
-        Assert.Contains("Ajuste asistido pendiente de proxima fase", html);
-        Assert.DoesNotContain("asp-action=\"Conciliar", html);
+        Assert.Contains("ConciliarStockUnidades", html);
+        Assert.Contains("Conciliar stock agregado", html);
+        Assert.Contains("ajuste-asistido", html);
     }
 
     [Fact]
