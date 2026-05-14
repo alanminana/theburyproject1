@@ -95,5 +95,8 @@ namespace TheBuryProject.ViewModels
         public decimal? PorcentajeAjustePlanAplicado { get; set; }
         public decimal? MontoAjustePlanAplicado { get; set; }
         public string? ResumenFormaPago { get; set; }
+
+        // Trazabilidad individual (Fase 8.2.E — nullable para compatibilidad con ventas históricas)
+        public int? ProductoUnidadId { get; set; }
     }
 }

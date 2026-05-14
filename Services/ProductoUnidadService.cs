@@ -242,6 +242,67 @@ namespace TheBuryProject.Services
             return unidad;
         }
 
+        public async Task<ProductoUnidad> RevertirVentaAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.Vendida },
+                EstadoUnidad.EnStock);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.EnStock;
+            unidad.VentaDetalleId = null;
+            unidad.ClienteId = null;
+            unidad.FechaVenta = null;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.EnStock,
+                motivo, "CancelacionVenta", usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} revertida a EnStock por cancelación. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, motivo);
+
+            return unidad;
+        }
+
+        public async Task<ProductoUnidad> MarcarDevueltaAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.Vendida },
+                EstadoUnidad.Devuelta);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.Devuelta;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.Devuelta,
+                motivo, null, usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} marcada como Devuelta. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, motivo);
+
+            return unidad;
+        }
+
         private async Task<ProductoUnidad> CargarYValidarTransicionAsync(
             int productoUnidadId,
             EstadoUnidad[] estadosPermitidos,

@@ -1175,6 +1175,18 @@ namespace TheBuryProject.Data
                     .HasForeignKey(e => e.ProductoCondicionPagoPlanId)
                     .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                // Trazabilidad individual (Fase 8.2.E)
+                entity.HasOne(e => e.ProductoUnidad)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoUnidadId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.ProductoUnidadId)
+                    .IsUnique()
+                    .HasDatabaseName("UX_VentaDetalles_ProductoUnidadId")
+                    .HasFilter("[IsDeleted] = 0 AND [ProductoUnidadId] IS NOT NULL");
             });
 
             // =======================

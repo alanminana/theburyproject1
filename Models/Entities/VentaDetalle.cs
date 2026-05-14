@@ -84,9 +84,13 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal? MontoAjustePlanAplicado { get; set; }
 
-        // Navegaci�n
+        // Trazabilidad individual (Fase 8.2.E — nullable para compatibilidad con ventas históricas)
+        public int? ProductoUnidadId { get; set; }
+
+        // Navegación
         public virtual Venta Venta { get; set; } = null!;
         public virtual Producto Producto { get; set; } = null!;
         public virtual ProductoCondicionPagoPlan? ProductoCondicionPagoPlan { get; set; }
+        public virtual ProductoUnidad? ProductoUnidad { get; set; }
     }
 }

@@ -36,6 +36,7 @@ namespace TheBuryProject.Services
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
+        private readonly IProductoUnidadService? _productoUnidadService;
 
         public VentaService(
             AppDbContext context,
@@ -53,7 +54,8 @@ namespace TheBuryProject.Services
             ICreditoDisponibleService creditoDisponibleService,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IConfiguracionPagoService configuracionPagoService,
-            IProductoCreditoRestriccionService? productoCreditoRestriccionService = null)
+            IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
+            IProductoUnidadService? productoUnidadService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -72,6 +74,7 @@ namespace TheBuryProject.Services
             _configuracionPagoService = configuracionPagoService;
             _productoCreditoRestriccionService =
                 productoCreditoRestriccionService ?? new ProductoCreditoRestriccionService(context);
+            _productoUnidadService = productoUnidadService;
         }
 
         #region Consultas
@@ -732,10 +735,12 @@ namespace TheBuryProject.Services
 
                 venta.AperturaCajaId = aperturaActiva.Id;
 
+                await ValidarUnidadesTrazablesAsync(venta);
                 await DescontarStockYRegistrarMovimientos(venta);
+                await MarcarUnidadesVendidasAsync(venta);
 
                 // E4: Procesar crédito personal solo si hay datos JSON y la venta está autorizada
-                if (venta.TipoPago == TipoPago.CreditoPersonal && 
+                if (venta.TipoPago == TipoPago.CreditoPersonal &&
                     !string.IsNullOrEmpty(venta.DatosCreditoPersonallJson))
                 {
                     // Verificar que la venta esté autorizada (o no requiera autorización)
@@ -876,7 +881,9 @@ namespace TheBuryProject.Services
                 _validator.ValidarAutorizacion(venta);
                 await ValidarContratoCreditoPersonalGeneradoAsync(venta);
 
+                await ValidarUnidadesTrazablesAsync(venta);
                 await DescontarStockYRegistrarMovimientos(venta);
+                await MarcarUnidadesVendidasAsync(venta);
 
                 // Generar las cuotas del crédito
                 await GenerarCuotasCreditoAsync(credito, venta.Total);
@@ -992,6 +999,7 @@ namespace TheBuryProject.Services
                 if (venta.Estado == EstadoVenta.Confirmada || venta.Estado == EstadoVenta.Facturada)
                 {
                     await DevolverStock(venta, motivo);
+                    await RevertirUnidadesVentaAsync(venta, motivo);
                 }
 
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
@@ -2327,6 +2335,114 @@ namespace TheBuryProject.Services
                 mayor.MontoAjustePlanAplicado = RedondearMoneda(mayor.MontoAjustePlanAplicado!.Value + diferencia);
             }
         }
+
+        #region Trazabilidad individual (Fase 8.2.E)
+
+        private async Task ValidarUnidadesTrazablesAsync(Venta venta)
+        {
+            var detallesActivos = venta.Detalles.Where(d => !d.IsDeleted).ToList();
+
+            var unidadesInformadas = detallesActivos
+                .Where(d => d.ProductoUnidadId.HasValue)
+                .Select(d => d.ProductoUnidadId!.Value)
+                .ToList();
+
+            var duplicadas = unidadesInformadas
+                .GroupBy(id => id)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicadas.Any())
+                throw new InvalidOperationException(
+                    $"La venta contiene unidades duplicadas en distintas líneas: {string.Join(", ", duplicadas)}.");
+
+            foreach (var detalle in detallesActivos)
+            {
+                var producto = detalle.Producto;
+                if (producto == null)
+                    continue;
+
+                if (producto.RequiereNumeroSerie)
+                {
+                    if (!detalle.ProductoUnidadId.HasValue)
+                        throw new InvalidOperationException(
+                            $"El producto '{producto.Nombre}' requiere selección de unidad individual (número de serie).");
+
+                    var unidad = await _context.ProductoUnidades
+                        .FirstOrDefaultAsync(u => u.Id == detalle.ProductoUnidadId.Value && !u.IsDeleted);
+
+                    if (unidad == null)
+                        throw new InvalidOperationException(
+                            $"La unidad {detalle.ProductoUnidadId.Value} no existe o está eliminada.");
+
+                    if (unidad.ProductoId != detalle.ProductoId)
+                        throw new InvalidOperationException(
+                            $"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{producto.Nombre}'.");
+
+                    if (unidad.Estado != EstadoUnidad.EnStock)
+                        throw new InvalidOperationException(
+                            $"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).");
+
+                    if (detalle.Cantidad != 1)
+                        throw new InvalidOperationException(
+                            $"Para productos trazables, la cantidad por línea debe ser 1. Producto: '{producto.Nombre}'.");
+                }
+                else
+                {
+                    if (detalle.ProductoUnidadId.HasValue)
+                        throw new InvalidOperationException(
+                            $"El producto '{producto.Nombre}' no requiere unidad individual. No debe informar ProductoUnidadId.");
+                }
+            }
+        }
+
+        private async Task MarcarUnidadesVendidasAsync(Venta venta)
+        {
+            if (_productoUnidadService == null)
+                return;
+
+            var usuario = _currentUserService.GetUsername();
+
+            foreach (var detalle in venta.Detalles.Where(d => !d.IsDeleted && d.ProductoUnidadId.HasValue))
+            {
+                await _productoUnidadService.MarcarVendidaAsync(
+                    detalle.ProductoUnidadId!.Value,
+                    detalle.Id,
+                    venta.ClienteId,
+                    usuario);
+            }
+        }
+
+        private async Task RevertirUnidadesVentaAsync(Venta venta, string motivo)
+        {
+            if (_productoUnidadService == null)
+                return;
+
+            var detalleIds = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => d.Id)
+                .ToList();
+
+            if (!detalleIds.Any())
+                return;
+
+            var usuario = _currentUserService.GetUsername();
+
+            var unidades = await _context.ProductoUnidades
+                .Where(u => u.VentaDetalleId.HasValue
+                         && detalleIds.Contains(u.VentaDetalleId.Value)
+                         && u.Estado == EstadoUnidad.Vendida
+                         && !u.IsDeleted)
+                .ToListAsync();
+
+            foreach (var unidad in unidades)
+            {
+                await _productoUnidadService.RevertirVentaAsync(unidad.Id, motivo, usuario);
+            }
+        }
+
+        #endregion
 
         private void CalcularTotales(Venta venta)
         {
