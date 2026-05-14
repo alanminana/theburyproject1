@@ -948,6 +948,7 @@ public class VentaApiControllerTests
         public Task<Producto> ActualizarComisionAsync(int id, decimal porcentaje) => throw new NotImplementedException();
         public Task<bool> ToggleDestacadoAsync(int id) => Task.FromResult(false);
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => throw new NotImplementedException();
+        public Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad) => throw new NotImplementedException();
     }
 
     private sealed class StubClienteService : IClienteService
