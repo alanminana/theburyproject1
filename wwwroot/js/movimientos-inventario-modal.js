@@ -206,10 +206,9 @@
 
         pageItems.forEach(m => {
             const badge = tipoBadge(m.tipo);
-            const signo = m.cantidad >= 0 ? '+' : '';
-            const cantColor = m.cantidad >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-rose-600 dark:text-rose-400';
+            const cv = cantidadVisual(m);
+            const signo = cv.signo;
+            const cantColor = cv.cls;
             const initials = (m.usuario || '??').split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
 
             const tr = document.createElement('tr');
@@ -280,6 +279,24 @@
 
     function fuenteCostoLabel(value) {
         return FUENTE_COSTO_LABELS[value] || value || 'No informado';
+    }
+
+    function cantidadVisual(m) {
+        const tipo = (m.tipo || '').toLowerCase();
+        if (tipo === 'entrada') {
+            return { signo: '+', cls: 'text-emerald-600 dark:text-emerald-400' };
+        }
+        if (tipo === 'salida') {
+            return { signo: '-', cls: 'text-rose-600 dark:text-rose-400' };
+        }
+        if (tipo === 'ajuste') {
+            const ant = Number(m.stockAnterior ?? 0);
+            const nuevo = Number(m.stockNuevo ?? 0);
+            if (nuevo > ant) return { signo: '+', cls: 'text-emerald-600 dark:text-emerald-400' };
+            if (nuevo < ant) return { signo: '-', cls: 'text-rose-600 dark:text-rose-400' };
+            return { signo: '', cls: 'text-slate-400 dark:text-slate-400' };
+        }
+        return { signo: '', cls: 'text-slate-400 dark:text-slate-400' };
     }
 
     function tipoBadge(tipo) {

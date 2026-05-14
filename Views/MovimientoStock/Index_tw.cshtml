@@ -12,8 +12,25 @@
         _ => "bg-slate-500/10 text-slate-400 border border-slate-700"
     };
 
-    string SignoColor(decimal cant) => cant >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold";
-    string Signo(decimal cant) => cant >= 0 ? "+" : "";
+    string SignoColor(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
+    {
+        TipoMovimiento.Entrada => "text-emerald-400 font-bold",
+        TipoMovimiento.Salida  => "text-rose-400 font-bold",
+        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "text-emerald-400 font-bold"
+                                : stockNuevo < stockAnterior ? "text-rose-400 font-bold"
+                                : "text-slate-400 font-bold",
+        _                      => "text-slate-400 font-bold"
+    };
+
+    string Signo(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
+    {
+        TipoMovimiento.Entrada => "+",
+        TipoMovimiento.Salida  => "-",
+        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "+"
+                                : stockNuevo < stockAnterior ? "-"
+                                : "",
+        _                      => ""
+    };
 
     string FormatMoney(decimal v) =>
         v.ToString("C", new System.Globalization.CultureInfo("es-AR"));
@@ -188,7 +205,7 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="text-sm @SignoColor(m.Cantidad)">@Signo(m.Cantidad)@m.Cantidad.ToString("N0")</span>
+                                <span class="text-sm @SignoColor(m.Tipo, m.StockAnterior, m.StockNuevo)">@Signo(m.Tipo, m.StockAnterior, m.StockNuevo)@m.Cantidad.ToString("N0")</span>
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-sm text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</span>

@@ -121,6 +121,7 @@ namespace TheBuryProject.Controllers
                         fuenteCosto = m.FuenteCosto,
                         referencia = m.Referencia,
                         usuario = m.CreatedBy,
+                        stockAnterior = m.StockAnterior,
                         stockNuevo = m.StockNuevo
                     })
                 });
