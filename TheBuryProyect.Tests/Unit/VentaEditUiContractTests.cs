@@ -2,6 +2,77 @@ namespace TheBuryProject.Tests.Unit;
 
 public class VentaEditUiContractTests
 {
+    // ── Trazabilidad individual (Fase 8.2.S) ─────────────────────────────
+
+    [Fact]
+    public void EditView_TienePanelSelectorUnidad()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("id=\"panel-selector-unidad\"", view);
+        Assert.Contains("id=\"select-producto-unidad\"", view);
+    }
+
+    [Fact]
+    public void EditView_TieneAvisoSinUnidades()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("id=\"aviso-sin-unidades\"", view);
+    }
+
+    [Fact]
+    public void EditView_TieneLinkGestionarUnidades()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("id=\"link-gestionar-unidades\"", view);
+    }
+
+    [Fact]
+    public void EditView_TieneScriptSeedVentaInicial()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("window.ventaInicial", view);
+        Assert.Contains("ventaInicialJson", view);
+    }
+
+    [Fact]
+    public void EditView_TieneContenedorDetallesHiddenInputs()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("id=\"detalles-hidden-inputs\"", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_TieneSeedVentaInicial()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("window.ventaInicial", js);
+        Assert.Contains("ventaInicial.detalles", js);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SeedPreservaProductoUnidadId()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("productoUnidadId: d.productoUnidadId", js);
+        Assert.Contains("requiereNumeroSerie: !!d.requiereNumeroSerie", js);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RenderDetallesMuestraEtiquetaUnidad()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("requiereNumeroSerie", js);
+        Assert.Contains("productoUnidadLabel", js);
+    }
+
     [Fact]
     public void EditView_TieneHiddenInputsParaDatosTarjetaGlobal()
     {

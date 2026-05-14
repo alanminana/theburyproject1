@@ -24,12 +24,20 @@
     <None Remove="TheBuryProyect.Tests/**" />
   </ItemGroup>
 
-  <!-- Exclude build-check artifacts directory -->
+  <!-- Exclude build-check artifacts directories -->
   <ItemGroup>
     <Compile Remove="theburyproject1_build_check/**" />
     <Content Remove="theburyproject1_build_check/**" />
     <EmbeddedResource Remove="theburyproject1_build_check/**" />
     <None Remove="theburyproject1_build_check/**" />
+    <Compile Remove="theburyproject1objbuild-check-fase8r/**" />
+    <Content Remove="theburyproject1objbuild-check-fase8r/**" />
+    <EmbeddedResource Remove="theburyproject1objbuild-check-fase8r/**" />
+    <None Remove="theburyproject1objbuild-check-fase8r/**" />
+    <Compile Remove="obj2/**" />
+    <Content Remove="obj2/**" />
+    <EmbeddedResource Remove="obj2/**" />
+    <None Remove="obj2/**" />
   </ItemGroup>
 
   <ItemGroup>

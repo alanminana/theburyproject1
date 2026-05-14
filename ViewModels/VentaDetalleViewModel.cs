@@ -98,5 +98,9 @@ namespace TheBuryProject.ViewModels
 
         // Trazabilidad individual (Fase 8.2.E — nullable para compatibilidad con ventas históricas)
         public int? ProductoUnidadId { get; set; }
+
+        // Trazabilidad individual — metadatos del producto para seed de edición (Fase 8.2.S)
+        public bool RequiereNumeroSerie { get; set; }
+        public string? ProductoUnidadCodigoInterno { get; set; }
     }
 }

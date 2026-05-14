@@ -135,6 +135,24 @@ namespace TheBuryProject.Services
                 viewModel.ResumenAlicuotasFactura = FacturaAlicuotaResumenBuilder.Build(viewModel.Detalles);
             }
 
+            // Enriquecer código de unidad para detalles trazables (Fase 8.2.S)
+            var unidadIds = viewModel.Detalles
+                .Where(d => d.ProductoUnidadId.HasValue)
+                .Select(d => d.ProductoUnidadId!.Value)
+                .ToList();
+            if (unidadIds.Any())
+            {
+                var unidades = await _context.ProductoUnidades
+                    .Where(u => unidadIds.Contains(u.Id) && !u.IsDeleted)
+                    .Select(u => new { u.Id, u.CodigoInternoUnidad })
+                    .ToListAsync();
+                foreach (var det in viewModel.Detalles.Where(d => d.ProductoUnidadId.HasValue))
+                {
+                    var u = unidades.FirstOrDefault(x => x.Id == det.ProductoUnidadId!.Value);
+                    if (u != null) det.ProductoUnidadCodigoInterno = u.CodigoInternoUnidad;
+                }
+            }
+
             // Mapear estado del crédito para control de flujo en la vista
             if (venta.Credito != null)
             {
@@ -604,6 +622,7 @@ namespace TheBuryProject.Services
             _context.Entry(venta).Property(v => v.RowVersion).OriginalValue = viewModel.RowVersion;
 
             ActualizarDatosVenta(venta, viewModel);
+            await ValidarTrazabilidadDetallesVMAsync(viewModel.Detalles);
             ActualizarDetalles(venta, viewModel.Detalles);
 
             await AplicarPrecioVigenteADetallesAsync(venta);
@@ -2339,6 +2358,65 @@ namespace TheBuryProject.Services
         }
 
         #region Trazabilidad individual (Fase 8.2.E)
+
+        // Valida trazabilidad desde el viewmodel antes de persistir (usado en UpdateAsync). Fase 8.2.S.
+        private async Task ValidarTrazabilidadDetallesVMAsync(List<VentaDetalleViewModel> detallesVM)
+        {
+            var unidadIds = detallesVM
+                .Where(d => d.ProductoUnidadId.HasValue)
+                .Select(d => d.ProductoUnidadId!.Value)
+                .ToList();
+
+            var duplicadas = unidadIds
+                .GroupBy(id => id)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicadas.Any())
+                throw new InvalidOperationException(
+                    $"La venta contiene unidades duplicadas en distintas líneas: {string.Join(", ", duplicadas)}.");
+
+            foreach (var detalleVM in detallesVM)
+            {
+                var producto = await _context.Productos
+                    .FirstOrDefaultAsync(p => p.Id == detalleVM.ProductoId && !p.IsDeleted);
+                if (producto == null)
+                    continue;
+
+                if (producto.RequiereNumeroSerie)
+                {
+                    if (!detalleVM.ProductoUnidadId.HasValue)
+                        throw new InvalidOperationException(
+                            $"El producto '{producto.Nombre}' requiere selección de unidad individual (número de serie).");
+
+                    var unidad = await _context.ProductoUnidades
+                        .FirstOrDefaultAsync(u => u.Id == detalleVM.ProductoUnidadId.Value && !u.IsDeleted);
+
+                    if (unidad == null)
+                        throw new InvalidOperationException(
+                            $"La unidad {detalleVM.ProductoUnidadId.Value} no existe o está eliminada.");
+
+                    if (unidad.ProductoId != detalleVM.ProductoId)
+                        throw new InvalidOperationException(
+                            $"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{producto.Nombre}'.");
+
+                    if (unidad.Estado != EstadoUnidad.EnStock)
+                        throw new InvalidOperationException(
+                            $"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).");
+
+                    if (detalleVM.Cantidad != 1)
+                        throw new InvalidOperationException(
+                            $"Para productos trazables, la cantidad debe ser 1. Producto: '{producto.Nombre}'.");
+                }
+                else
+                {
+                    if (detalleVM.ProductoUnidadId.HasValue)
+                        throw new InvalidOperationException(
+                            $"El producto '{producto.Nombre}' no requiere unidad individual. No debe informar ProductoUnidadId.");
+                }
+            }
+        }
 
         private async Task ValidarUnidadesTrazablesAsync(Venta venta)
         {

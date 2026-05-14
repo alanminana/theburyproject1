@@ -663,4 +663,253 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Single(disponibles);
         Assert.Equal(u1.Id, disponibles[0].Id);
     }
+
+    // =========================================================================
+    // Fase 8.2.S — UpdateAsync: validación trazabilidad en edición
+    // =========================================================================
+
+    private VentaViewModel BuildVentaVM(Venta venta, List<VentaDetalleViewModel> detalles)
+        => new VentaViewModel
+        {
+            ClienteId = venta.ClienteId,
+            Estado = venta.Estado,
+            TipoPago = venta.TipoPago,
+            RowVersion = venta.RowVersion ?? new byte[8],
+            Detalles = detalles
+        };
+
+    // 16. UpdateAsync conserva ProductoUnidadId en venta no confirmada
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_ConUnidad_Guarda()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-UPD-OK");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidad.Id
+            }
+        });
+
+        var result = await _service.UpdateAsync(venta.Id, vm);
+
+        Assert.NotNull(result);
+        var detalleGuardado = await _context.VentaDetalles.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.VentaId == venta.Id && !d.IsDeleted);
+        Assert.NotNull(detalleGuardado);
+        Assert.Equal(unidad.Id, detalleGuardado!.ProductoUnidadId);
+    }
+
+    // 17. UpdateAsync rechaza producto trazable sin unidad
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_SinUnidad_LanzaExcepcion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-UPD-NOUNID");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 500m,
+                ProductoUnidadId = null  // sin unidad — inválido para trazable
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("requiere selección de unidad individual", ex.Message);
+    }
+
+    // 18. UpdateAsync rechaza producto trazable con cantidad > 1
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_CantidadMayorUno_LanzaExcepcion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-UPD-CANT");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 2,  // inválido para trazable
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 1000m,
+                ProductoUnidadId = unidad.Id
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("cantidad debe ser 1", ex.Message);
+    }
+
+    // 19. UpdateAsync rechaza unidad de otro producto
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_UnidadDeOtroProducto_LanzaExcepcion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var (otroProducto, _) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidadOtro = await SeedUnidadEnStockAsync(otroProducto, "SN-UPD-OTRO");
+        var venta = await SeedVentaConDetalle(producto, cliente);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidadOtro.Id  // unidad del producto incorrecto
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("no pertenece al producto", ex.Message);
+    }
+
+    // 20. UpdateAsync rechaza unidad no EnStock
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_UnidadNoEnStock_LanzaExcepcion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-UPD-NOSTOCK");
+        // Marcar la unidad como Baja para que no esté EnStock
+        await _unidadService.MarcarBajaAsync(unidad.Id, "test", "test");
+        var venta = await SeedVentaConDetalle(producto, cliente);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidad.Id
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("no está disponible", ex.Message);
+    }
+
+    // 21. UpdateAsync rechaza duplicado de unidad en dos líneas
+    [Fact]
+    public async Task UpdateAsync_ProductoTrazable_UnidadDuplicada_LanzaExcepcion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-UPD-DUP");
+        var venta = await SeedVentaConDetalle(producto, cliente);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidad.Id
+            },
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidad.Id  // misma unidad — inválido
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("unidades duplicadas", ex.Message);
+    }
+
+    // 22. UpdateAsync permite producto no trazable sin unidad
+    [Fact]
+    public async Task UpdateAsync_ProductoNoTrazable_SinUnidad_Guarda()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 2,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 1000m,
+                ProductoUnidadId = null
+            }
+        });
+
+        var result = await _service.UpdateAsync(venta.Id, vm);
+
+        Assert.NotNull(result);
+    }
+
+    // 23. UpdateAsync rechaza producto no trazable con unidad informada
+    [Fact]
+    public async Task UpdateAsync_ProductoNoTrazable_ConUnidad_LanzaExcepcion()
+    {
+        var (productoNormal, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var (productoTrazable, _) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(productoTrazable, "SN-UPD-NOTRAZ");
+        var venta = await SeedVentaConDetalle(productoNormal, cliente);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = productoNormal.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidad.Id  // no trazable no debe tener unidad
+            }
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.UpdateAsync(venta.Id, vm));
+
+        Assert.Contains("no requiere unidad individual", ex.Message);
+    }
 }

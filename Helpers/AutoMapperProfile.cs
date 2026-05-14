@@ -237,6 +237,8 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Nombre : string.Empty))
                 .ForMember(dest => dest.ProductoCodigo, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Codigo : string.Empty))
                 .ForMember(dest => dest.StockDisponible, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.StockActual : 0))
+                .ForMember(dest => dest.RequiereNumeroSerie, opt => opt.MapFrom(src => src.Producto != null && src.Producto.RequiereNumeroSerie))
+                .ForMember(dest => dest.ProductoUnidadCodigoInterno, opt => opt.MapFrom(src => src.ProductoUnidad != null ? src.ProductoUnidad.CodigoInternoUnidad : null))
                 .ForMember(dest => dest.ResumenFormaPago, opt => opt.MapFrom(src =>
                     BuildResumenFormaPagoItem(src.TipoPago, src.ProductoCondicionPagoPlanId,
                         src.PorcentajeAjustePlanAplicado, src.MontoAjustePlanAplicado)));

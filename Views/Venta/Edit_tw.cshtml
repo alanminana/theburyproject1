@@ -855,7 +855,31 @@
     <partial name="_VentaModuleStyles" />
 }
 
+@{
+    var ventaInicialJson = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        detalles = Model.Detalles.Select(d => new
+        {
+            productoId = d.ProductoId,
+            codigo = d.ProductoCodigo ?? string.Empty,
+            nombre = d.ProductoNombre ?? string.Empty,
+            cantidad = d.Cantidad,
+            precioUnitario = d.PrecioUnitario,
+            descuento = d.Descuento,
+            subtotal = d.Subtotal,
+            stock = d.StockDisponible,
+            requiereNumeroSerie = d.RequiereNumeroSerie,
+            productoUnidadId = (object?)d.ProductoUnidadId,
+            productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty
+        })
+    }, new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    });
+}
+
 @section Scripts {
+    <script>window.ventaInicial = @Html.Raw(ventaInicialJson);</script>
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/venta-module.js" asp-append-version="true"></script>
     <script src="~/js/venta-create.js" asp-append-version="true"></script>

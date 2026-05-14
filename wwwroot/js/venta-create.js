@@ -2278,6 +2278,26 @@
     }
 
     // ── Init ──────────────────────────────────────────────────────────
+
+    // Seed de detalles existentes en modo edición (Fase 8.2.S)
+    if (window.ventaInicial && Array.isArray(window.ventaInicial.detalles)) {
+        window.ventaInicial.detalles.forEach(function (d) {
+            detalles.push({
+                productoId: d.productoId,
+                codigo: d.codigo || '',
+                nombre: d.nombre || '',
+                cantidad: d.cantidad || 1,
+                precioUnitario: parseFloat(d.precioUnitario) || 0,
+                descuento: parseFloat(d.descuento) || 0,
+                subtotal: parseFloat(d.subtotal) || 0,
+                stock: d.stock || 0,
+                requiereNumeroSerie: !!d.requiereNumeroSerie,
+                productoUnidadId: d.productoUnidadId || null,
+                productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : '')
+            });
+        });
+    }
+
     cargarConfiguracionPagosGlobal();
     onTipoPagoChange();
     renderDetalles();
