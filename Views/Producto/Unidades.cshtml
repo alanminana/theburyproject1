@@ -4,6 +4,13 @@
 @{
     ViewData["Title"] = $"Unidades - {Model.Nombre}";
     var estados = Enum.GetValues<EstadoUnidad>();
+    var conciliacion = Model.Conciliacion;
+    var diferenciaCss = conciliacion.HayDiferencia
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+    var diferenciaTexto = conciliacion.DiferenciaStockVsUnidadesEnStock > 0
+        ? $"+{conciliacion.DiferenciaStockVsUnidadesEnStock:G29}"
+        : conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29");
 }
 
 <div class="space-y-6">
@@ -50,6 +57,96 @@
                     Ver kardex SKU
                 </a>
             </div>
+        </div>
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-base font-black text-white">Conciliacion stock vs unidades fisicas</h2>
+                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold @diferenciaCss">
+                        @(conciliacion.HayDiferencia ? "Diferencia detectada" : "Conciliado")
+                    </span>
+                </div>
+                <p class="mt-2 max-w-4xl text-sm text-slate-400">
+                    Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.
+                </p>
+                @if (!conciliacion.RequiereNumeroSerie)
+                {
+                    <p class="mt-2 max-w-4xl text-sm text-amber-200">
+                        Este producto no requiere trazabilidad individual. Las unidades cargadas son trazabilidad operativa opcional.
+                    </p>
+                }
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
+                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                    <span class="material-symbols-outlined text-base">receipt_long</span>
+                    Ver Kardex SKU
+                </a>
+                <a href="#listado-unidades"
+                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                    <span class="material-symbols-outlined text-base">list_alt</span>
+                    Ver historial/listado de unidades
+                </a>
+                <span aria-disabled="true"
+                      class="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-800 px-3 py-2 text-sm font-bold text-slate-500">
+                    <span class="material-symbols-outlined text-base">pending_actions</span>
+                    Ajuste asistido pendiente de proxima fase
+                </span>
+            </div>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock agregado actual</p>
+                <p class="mt-1 text-2xl font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades fisicas EnStock</p>
+                <p class="mt-1 text-2xl font-black text-white">@conciliacion.UnidadesEnStock</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Diferencia</p>
+                <p class="mt-1 text-2xl font-black @(conciliacion.HayDiferencia ? "text-amber-200" : "text-emerald-200")">@diferenciaTexto</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total unidades activas</p>
+                <p class="mt-1 text-2xl font-black text-white">@conciliacion.TotalUnidadesActivas</p>
+            </div>
+        </div>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Vendidas</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesVendidas</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Faltantes</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesFaltantes</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Baja</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesBaja</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Devueltas</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesDevueltas</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Reservadas</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesReservadas</p>
+            </div>
+            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">En reparacion</p>
+                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesEnReparacion</p>
+            </div>
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+            <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
+            <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
         </div>
     </section>
 
@@ -249,7 +346,7 @@
         </div>
     </form>
 
-    <section class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+    <section id="listado-unidades" class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-800">
                 <thead class="bg-slate-900/70">

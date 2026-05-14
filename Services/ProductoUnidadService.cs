@@ -132,6 +132,62 @@ namespace TheBuryProject.Services
                 .ToListAsync();
         }
 
+        public async Task<ProductoUnidadConciliacionReadModel> ObtenerConciliacionPorProductoAsync(int productoId)
+        {
+            var producto = await _context.Productos
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productoId && !p.IsDeleted);
+
+            if (producto == null)
+                throw new InvalidOperationException($"No existe el producto con Id {productoId}.");
+
+            var conteosPorEstado = await _context.ProductoUnidades
+                .AsNoTracking()
+                .Where(u => u.ProductoId == productoId && !u.IsDeleted)
+                .GroupBy(u => u.Estado)
+                .Select(g => new { Estado = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            var conteos = conteosPorEstado.ToDictionary(x => x.Estado, x => x.Cantidad);
+            var unidadesEnStock = ObtenerConteo(conteos, EstadoUnidad.EnStock);
+
+            var ultimoMovimientoStockFecha = await _context.MovimientosStock
+                .AsNoTracking()
+                .Where(m => m.ProductoId == productoId && !m.IsDeleted)
+                .OrderByDescending(m => m.CreatedAt)
+                .Select(m => (DateTime?)m.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            var ultimoMovimientoUnidadFecha = await _context.ProductoUnidadMovimientos
+                .AsNoTracking()
+                .Where(m => !m.IsDeleted
+                         && !m.ProductoUnidad.IsDeleted
+                         && m.ProductoUnidad.ProductoId == productoId)
+                .OrderByDescending(m => m.FechaCambio)
+                .Select(m => (DateTime?)m.FechaCambio)
+                .FirstOrDefaultAsync();
+
+            return new ProductoUnidadConciliacionReadModel
+            {
+                ProductoId = producto.Id,
+                ProductoNombre = producto.Nombre,
+                ProductoCodigo = producto.Codigo,
+                RequiereNumeroSerie = producto.RequiereNumeroSerie,
+                StockActual = producto.StockActual,
+                UnidadesEnStock = unidadesEnStock,
+                UnidadesVendidas = ObtenerConteo(conteos, EstadoUnidad.Vendida),
+                UnidadesFaltantes = ObtenerConteo(conteos, EstadoUnidad.Faltante),
+                UnidadesBaja = ObtenerConteo(conteos, EstadoUnidad.Baja),
+                UnidadesDevueltas = ObtenerConteo(conteos, EstadoUnidad.Devuelta),
+                UnidadesReservadas = ObtenerConteo(conteos, EstadoUnidad.Reservada),
+                UnidadesEnReparacion = ObtenerConteo(conteos, EstadoUnidad.EnReparacion),
+                TotalUnidadesActivas = conteos.Values.Sum(),
+                DiferenciaStockVsUnidadesEnStock = producto.StockActual - unidadesEnStock,
+                UltimoMovimientoStockFecha = ultimoMovimientoStockFecha,
+                UltimoMovimientoUnidadFecha = ultimoMovimientoUnidadFecha
+            };
+        }
+
         public async Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(
             int productoId,
             ProductoUnidadFiltros filtros)
@@ -198,6 +254,11 @@ namespace TheBuryProject.Services
                 .OrderBy(m => m.FechaCambio)
                 .ToListAsync();
         }
+
+        private static int ObtenerConteo(
+            IReadOnlyDictionary<EstadoUnidad, int> conteos,
+            EstadoUnidad estado)
+            => conteos.TryGetValue(estado, out var cantidad) ? cantidad : 0;
 
         #endregion
 

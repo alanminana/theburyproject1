@@ -823,6 +823,9 @@ namespace TheBuryProject.Controllers
                 .ObtenerPorProductoAsync(productoId))
                 .ToList();
 
+            var conciliacion = await _productoUnidadService
+                .ObtenerConciliacionPorProductoAsync(productoId);
+
             return new ProductoUnidadesViewModel
             {
                 ProductoId = producto.Id,
@@ -830,6 +833,7 @@ namespace TheBuryProject.Controllers
                 Nombre = producto.Nombre,
                 RequiereNumeroSerie = producto.RequiereNumeroSerie,
                 StockActual = producto.StockActual,
+                Conciliacion = MapearConciliacion(conciliacion),
                 Filtros = new ProductoUnidadesFiltroViewModel
                 {
                     Estado = filtros.Estado,
@@ -852,6 +856,28 @@ namespace TheBuryProject.Controllers
                 Unidades = unidadesFiltradas.Select(MapearUnidadItem).ToList()
             };
         }
+
+        private static ProductoUnidadConciliacionViewModel MapearConciliacion(
+            ProductoUnidadConciliacionReadModel conciliacion)
+            => new()
+            {
+                ProductoId = conciliacion.ProductoId,
+                ProductoNombre = conciliacion.ProductoNombre,
+                ProductoCodigo = conciliacion.ProductoCodigo,
+                RequiereNumeroSerie = conciliacion.RequiereNumeroSerie,
+                StockActual = conciliacion.StockActual,
+                UnidadesEnStock = conciliacion.UnidadesEnStock,
+                UnidadesVendidas = conciliacion.UnidadesVendidas,
+                UnidadesFaltantes = conciliacion.UnidadesFaltantes,
+                UnidadesBaja = conciliacion.UnidadesBaja,
+                UnidadesDevueltas = conciliacion.UnidadesDevueltas,
+                UnidadesReservadas = conciliacion.UnidadesReservadas,
+                UnidadesEnReparacion = conciliacion.UnidadesEnReparacion,
+                TotalUnidadesActivas = conciliacion.TotalUnidadesActivas,
+                DiferenciaStockVsUnidadesEnStock = conciliacion.DiferenciaStockVsUnidadesEnStock,
+                UltimoMovimientoStockFecha = conciliacion.UltimoMovimientoStockFecha,
+                UltimoMovimientoUnidadFecha = conciliacion.UltimoMovimientoUnidadFecha
+            };
 
         private static ProductoUnidadItemViewModel MapearUnidadItem(ProductoUnidad unidad)
             => new()

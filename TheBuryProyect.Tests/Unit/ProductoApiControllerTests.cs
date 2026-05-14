@@ -85,6 +85,7 @@ public class ProductoApiControllerTests
         public Task<ProductoUnidad> CrearUnidadAsync(int productoId, string? numeroSerie = null, string? ubicacionActual = null, string? observaciones = null, string? usuario = null) => throw new NotImplementedException();
         public Task<IReadOnlyList<ProductoUnidad>> CrearUnidadesAsync(int productoId, IReadOnlyCollection<string?> numerosSerie, string? ubicacionActual = null, string? observaciones = null, string? usuario = null) => throw new NotImplementedException();
         public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId) => throw new NotImplementedException();
+        public Task<ProductoUnidadConciliacionReadModel> ObtenerConciliacionPorProductoAsync(int productoId) => throw new NotImplementedException();
         public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(int productoId, ProductoUnidadFiltros filtros) => throw new NotImplementedException();
         public Task<ProductoUnidad?> ObtenerPorIdAsync(int productoUnidadId) => throw new NotImplementedException();
 

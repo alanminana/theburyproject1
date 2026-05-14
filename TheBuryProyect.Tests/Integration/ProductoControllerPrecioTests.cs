@@ -830,6 +830,24 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void UnidadesView_MuestraPanelConciliacionSinBotonFuncional()
+    {
+        var html = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Views", "Producto", "Unidades.cshtml"));
+
+        Assert.Contains("Conciliacion stock vs unidades fisicas", html);
+        Assert.Contains("Stock agregado actual", html);
+        Assert.Contains("Unidades fisicas EnStock", html);
+        Assert.Contains("Diferencia", html);
+        Assert.Contains("Conciliado", html);
+        Assert.Contains("Diferencia detectada", html);
+        Assert.Contains("Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.", html);
+        Assert.Contains("Ver Kardex SKU", html);
+        Assert.Contains("Ver historial/listado de unidades", html);
+        Assert.Contains("Ajuste asistido pendiente de proxima fase", html);
+        Assert.DoesNotContain("asp-action=\"Conciliar", html);
+    }
+
+    [Fact]
     public async Task Unidades_ProductoExistente_DevuelveVistaConUnidadesDelProducto()
     {
         var producto = await SeedProductoAsync();
@@ -845,6 +863,43 @@ public class ProductoControllerPrecioTests : IDisposable
         var unidad = Assert.Single(model.Unidades);
         Assert.Equal("UNI-OK", unidad.CodigoInternoUnidad);
         Assert.DoesNotContain(model.Unidades, u => u.CodigoInternoUnidad == "UNI-OTRA");
+        Assert.Equal(producto.StockActual, model.Conciliacion.StockActual);
+        Assert.Equal(1, model.Conciliacion.UnidadesEnStock);
+    }
+
+    [Fact]
+    public async Task Unidades_MuestraPanelConciliacionConStockUnidadesYDiferencia()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        var result = await _controller.Unidades(producto.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        Assert.Equal(10m, model.Conciliacion.StockActual);
+        Assert.Equal(2, model.Conciliacion.UnidadesEnStock);
+        Assert.Equal(8m, model.Conciliacion.DiferenciaStockVsUnidadesEnStock);
+        Assert.True(model.Conciliacion.HayDiferencia);
+    }
+
+    [Fact]
+    public async Task Unidades_ConciliacionSinDiferencia_MarcaConciliado()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 2m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        var result = await _controller.Unidades(producto.Id);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
+        Assert.False(model.Conciliacion.HayDiferencia);
+        Assert.Equal(0m, model.Conciliacion.DiferenciaStockVsUnidadesEnStock);
     }
 
     [Fact]
@@ -956,6 +1011,7 @@ public class ProductoControllerPrecioTests : IDisposable
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
         Assert.False(model.RequiereNumeroSerie);
+        Assert.False(model.Conciliacion.RequiereNumeroSerie);
         Assert.Empty(model.Unidades);
     }
 

@@ -43,7 +43,10 @@ public class ProductoUnidadServiceTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<Producto> SeedProductoAsync(string? codigo = null)
+    private async Task<Producto> SeedProductoAsync(
+        string? codigo = null,
+        decimal stockActual = 0m,
+        bool requiereNumeroSerie = false)
     {
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
@@ -63,7 +66,9 @@ public class ProductoUnidadServiceTests : IDisposable
             MarcaId = marca.Id,
             PrecioCompra = 100m,
             PrecioVenta = 150m,
-            PorcentajeIVA = 21m
+            PorcentajeIVA = 21m,
+            StockActual = stockActual,
+            RequiereNumeroSerie = requiereNumeroSerie
         };
         _context.Productos.Add(prod);
         await _context.SaveChangesAsync();
@@ -397,6 +402,136 @@ public class ProductoUnidadServiceTests : IDisposable
         Assert.StartsWith($"{prod.Id}-U-", unidad.CodigoInternoUnidad);
     }
 
+    [Fact]
+    public async Task ObtenerConciliacion_StockIgualAUnidadesEnStock_DevuelveConciliado()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 2m, requiereNumeroSerie: true);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        Assert.Equal(prod.Id, conciliacion.ProductoId);
+        Assert.True(conciliacion.RequiereNumeroSerie);
+        Assert.Equal(2m, conciliacion.StockActual);
+        Assert.Equal(2, conciliacion.UnidadesEnStock);
+        Assert.Equal(0m, conciliacion.DiferenciaStockVsUnidadesEnStock);
+        Assert.False(conciliacion.HayDiferencia);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_StockMayorAUnidadesEnStock_DevuelveDiferenciaPositiva()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 5m, requiereNumeroSerie: true);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        Assert.Equal(2, conciliacion.UnidadesEnStock);
+        Assert.Equal(3m, conciliacion.DiferenciaStockVsUnidadesEnStock);
+        Assert.True(conciliacion.HayDiferencia);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_StockMenorAUnidadesEnStock_DevuelveDiferenciaNegativa()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        Assert.Equal(3, conciliacion.UnidadesEnStock);
+        Assert.Equal(-2m, conciliacion.DiferenciaStockVsUnidadesEnStock);
+        Assert.True(conciliacion.HayDiferencia);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_CuentaBucketsPorEstado()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnStock);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Vendida);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Baja);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Devuelta);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Reservada);
+        await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        Assert.Equal(1, conciliacion.UnidadesEnStock);
+        Assert.Equal(1, conciliacion.UnidadesVendidas);
+        Assert.Equal(1, conciliacion.UnidadesFaltantes);
+        Assert.Equal(1, conciliacion.UnidadesBaja);
+        Assert.Equal(1, conciliacion.UnidadesDevueltas);
+        Assert.Equal(1, conciliacion.UnidadesReservadas);
+        Assert.Equal(1, conciliacion.UnidadesEnReparacion);
+        Assert.Equal(7, conciliacion.TotalUnidadesActivas);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_ExcluyeUnidadesSoftDeleted()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        var activa = await _service.CrearUnidadAsync(prod.Id);
+        var eliminada = await _service.CrearUnidadAsync(prod.Id);
+        var eliminadaEntity = await _context.ProductoUnidades.FindAsync(eliminada.Id);
+        eliminadaEntity!.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        Assert.Equal(1, conciliacion.UnidadesEnStock);
+        Assert.Equal(1, conciliacion.TotalUnidadesActivas);
+        Assert.Equal(activa.Id, (await _service.ObtenerPorProductoAsync(prod.Id)).Single().Id);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_InformaUltimosMovimientos()
+    {
+        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+        var fechaStock = DateTime.UtcNow.AddHours(-3);
+        var fechaUnidad = DateTime.UtcNow.AddHours(1);
+
+        _context.MovimientosStock.Add(new MovimientoStock
+        {
+            ProductoId = prod.Id,
+            Tipo = TipoMovimiento.Ajuste,
+            Cantidad = 1m,
+            StockAnterior = 0m,
+            StockNuevo = 1m,
+            Motivo = "Ajuste test",
+            CreatedAt = fechaStock
+        });
+        _context.ProductoUnidadMovimientos.Add(new ProductoUnidadMovimiento
+        {
+            ProductoUnidadId = unidad.Id,
+            EstadoAnterior = EstadoUnidad.EnStock,
+            EstadoNuevo = EstadoUnidad.Faltante,
+            Motivo = "Movimiento test",
+            FechaCambio = fechaUnidad
+        });
+        await _context.SaveChangesAsync();
+
+        var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
+
+        AssertDateClose(fechaStock, conciliacion.UltimoMovimientoStockFecha);
+        AssertDateClose(fechaUnidad, conciliacion.UltimoMovimientoUnidadFecha);
+    }
+
+    [Fact]
+    public async Task ObtenerConciliacion_ProductoInexistente_LanzaExcepcionControlada()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ObtenerConciliacionPorProductoAsync(999999));
+
+        Assert.Contains("No existe el producto", ex.Message);
+    }
+
     // =========================================================================
     // TRANSICIONES DE ESTADO
     // =========================================================================
@@ -408,6 +543,14 @@ public class ProductoUnidadServiceTests : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "PRAGMA foreign_keys = OFF";
         cmd.ExecuteNonQuery();
+    }
+
+    private static void AssertDateClose(DateTime expected, DateTime? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.True(
+            (actual.Value - expected).Duration() < TimeSpan.FromSeconds(1),
+            $"Expected {expected:O}, actual {actual.Value:O}");
     }
 
     // Helper: crea una unidad con estado forzado directamente en DB.

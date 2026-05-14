@@ -35,6 +35,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId);
 
         /// <summary>
+        /// Retorna el read model de conciliacion entre stock agregado del SKU y unidades fisicas.
+        /// Consulta read-only: no modifica Producto.StockActual ni genera MovimientoStock.
+        /// </summary>
+        Task<ProductoUnidadConciliacionReadModel> ObtenerConciliacionPorProductoAsync(int productoId);
+
+        /// <summary>
         /// Retorna unidades activas de un producto aplicando filtros operativos de consulta.
         /// </summary>
         Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(

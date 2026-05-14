@@ -10,11 +10,33 @@ namespace TheBuryProject.ViewModels
         public string Nombre { get; set; } = string.Empty;
         public bool RequiereNumeroSerie { get; set; }
         public decimal StockActual { get; set; }
+        public ProductoUnidadConciliacionViewModel Conciliacion { get; set; } = new();
         public ProductoUnidadesFiltroViewModel Filtros { get; set; } = new();
         public ProductoUnidadCrearViewModel CrearUnidad { get; set; } = new();
         public ProductoUnidadCargaMasivaViewModel CargaMasiva { get; set; } = new();
         public List<ProductoUnidadEstadoResumenViewModel> ResumenEstados { get; set; } = new();
         public List<ProductoUnidadItemViewModel> Unidades { get; set; } = new();
+    }
+
+    public class ProductoUnidadConciliacionViewModel
+    {
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string ProductoCodigo { get; set; } = string.Empty;
+        public bool RequiereNumeroSerie { get; set; }
+        public decimal StockActual { get; set; }
+        public int UnidadesEnStock { get; set; }
+        public int UnidadesVendidas { get; set; }
+        public int UnidadesFaltantes { get; set; }
+        public int UnidadesBaja { get; set; }
+        public int UnidadesDevueltas { get; set; }
+        public int UnidadesReservadas { get; set; }
+        public int UnidadesEnReparacion { get; set; }
+        public int TotalUnidadesActivas { get; set; }
+        public decimal DiferenciaStockVsUnidadesEnStock { get; set; }
+        public bool HayDiferencia => DiferenciaStockVsUnidadesEnStock != 0m;
+        public DateTime? UltimoMovimientoStockFecha { get; set; }
+        public DateTime? UltimoMovimientoUnidadFecha { get; set; }
     }
 
     public class ProductoUnidadCrearViewModel
