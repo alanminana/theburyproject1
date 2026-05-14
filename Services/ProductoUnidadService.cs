@@ -118,6 +118,170 @@ namespace TheBuryProject.Services
 
         #endregion
 
+        #region Transiciones de estado
+
+        public async Task<ProductoUnidad> MarcarVendidaAsync(
+            int productoUnidadId,
+            int ventaDetalleId,
+            int? clienteId = null,
+            string? usuario = null)
+        {
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.EnStock },
+                EstadoUnidad.Vendida);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.Vendida;
+            unidad.VentaDetalleId = ventaDetalleId;
+            unidad.ClienteId = clienteId;
+            unidad.FechaVenta = DateTime.UtcNow;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.Vendida,
+                "Venta de unidad",
+                $"VentaDetalle:{ventaDetalleId}",
+                usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} marcada como Vendida. VentaDetalleId: {VentaDetalleId}",
+                unidad.CodigoInternoUnidad, ventaDetalleId);
+
+            return unidad;
+        }
+
+        public async Task<ProductoUnidad> MarcarFaltanteAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.EnStock },
+                EstadoUnidad.Faltante);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.Faltante;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.Faltante,
+                motivo, null, usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} marcada como Faltante. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, motivo);
+
+            return unidad;
+        }
+
+        public async Task<ProductoUnidad> MarcarBajaAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.EnStock, EstadoUnidad.Devuelta, EstadoUnidad.Faltante },
+                EstadoUnidad.Baja);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.Baja;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.Baja,
+                motivo, null, usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} marcada como Baja. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, motivo);
+
+            return unidad;
+        }
+
+        public async Task<ProductoUnidad> ReintegrarAStockAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.Faltante, EstadoUnidad.Devuelta },
+                EstadoUnidad.EnStock);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = EstadoUnidad.EnStock;
+            unidad.VentaDetalleId = null;
+            unidad.ClienteId = null;
+            unidad.FechaVenta = null;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, EstadoUnidad.EnStock,
+                motivo, null, usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unidad {Codigo} reintegrada a stock. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, motivo);
+
+            return unidad;
+        }
+
+        private async Task<ProductoUnidad> CargarYValidarTransicionAsync(
+            int productoUnidadId,
+            EstadoUnidad[] estadosPermitidos,
+            EstadoUnidad estadoDestino)
+        {
+            var unidad = await _context.ProductoUnidades
+                .FirstOrDefaultAsync(u => u.Id == productoUnidadId && !u.IsDeleted);
+
+            if (unidad == null)
+                throw new InvalidOperationException(
+                    $"No existe la unidad con Id {productoUnidadId}.");
+
+            if (!estadosPermitidos.Contains(unidad.Estado))
+                throw new InvalidOperationException(
+                    $"La unidad '{unidad.CodigoInternoUnidad}' está en estado '{unidad.Estado}' " +
+                    $"y no permite la transición a '{estadoDestino}'.");
+
+            return unidad;
+        }
+
+        private static ProductoUnidadMovimiento CrearMovimiento(
+            int productoUnidadId,
+            EstadoUnidad estadoAnterior,
+            EstadoUnidad estadoNuevo,
+            string motivo,
+            string? origenReferencia,
+            string? usuario)
+            => new()
+            {
+                ProductoUnidadId = productoUnidadId,
+                EstadoAnterior = estadoAnterior,
+                EstadoNuevo = estadoNuevo,
+                Motivo = motivo,
+                OrigenReferencia = origenReferencia,
+                UsuarioResponsable = usuario,
+                FechaCambio = DateTime.UtcNow
+            };
+
+        #endregion
+
         #region Generación de código interno
 
         /// <summary>

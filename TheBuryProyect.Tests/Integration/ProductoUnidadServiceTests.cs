@@ -339,4 +339,355 @@ public class ProductoUnidadServiceTests : IDisposable
 
         Assert.StartsWith($"{prod.Id}-U-", unidad.CodigoInternoUnidad);
     }
+
+    // =========================================================================
+    // TRANSICIONES DE ESTADO
+    // =========================================================================
+
+    // Helper: deshabilita FK enforcement en SQLite para tests que usan IDs arbitrarios de VentaDetalle/Cliente.
+    // Seguro porque cada instancia de test usa su propia base de datos in-memory (GUID único).
+    private void DisableForeignKeys()
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "PRAGMA foreign_keys = OFF";
+        cmd.ExecuteNonQuery();
+    }
+
+    // Helper: crea una unidad con estado forzado directamente en DB.
+    private async Task<ProductoUnidad> SeedUnidadConEstadoAsync(int productoId, EstadoUnidad estado)
+    {
+        var unidad = await _service.CrearUnidadAsync(productoId);
+        if (estado != EstadoUnidad.EnStock)
+        {
+            var entity = await _context.ProductoUnidades.FindAsync(unidad.Id);
+            entity!.Estado = estado;
+            await _context.SaveChangesAsync();
+            _context.Entry(entity).State = EntityState.Detached;
+        }
+        return unidad;
+    }
+
+    // -------------------------------------------------------------------------
+    // 15. MarcarVendida: EnStock → Vendida correcto
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarVendida_EnStock_TrasicionaYPersiste()
+    {
+        DisableForeignKeys();
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        var resultado = await _service.MarcarVendidaAsync(unidad.Id, ventaDetalleId: 42, clienteId: 7, usuario: "op@test.com");
+
+        var saved = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.Vendida, saved.Estado);
+        Assert.Equal(42, saved.VentaDetalleId);
+        Assert.Equal(7, saved.ClienteId);
+        Assert.NotNull(saved.FechaVenta);
+        Assert.Equal(EstadoUnidad.Vendida, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 16. MarcarVendida: estado != EnStock rechazado (ej: Vendida → Vendida)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarVendida_EstadoNoEnStock_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Vendida);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.MarcarVendidaAsync(unidad.Id, ventaDetalleId: 99));
+    }
+
+    // -------------------------------------------------------------------------
+    // 17. MarcarFaltante: EnStock → Faltante correcto
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarFaltante_EnStock_TrasicionaYPersiste()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        var resultado = await _service.MarcarFaltanteAsync(unidad.Id, "Unidad no encontrada en depósito", usuario: "op@test.com");
+
+        var saved = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.Faltante, saved.Estado);
+        Assert.Equal(EstadoUnidad.Faltante, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 18. MarcarFaltante: estado Vendida rechazado
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarFaltante_Vendida_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Vendida);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.MarcarFaltanteAsync(unidad.Id, "motivo"));
+    }
+
+    // -------------------------------------------------------------------------
+    // 19. MarcarFaltante: motivo vacío rechazado
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarFaltante_MotivoVacio_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.MarcarFaltanteAsync(unidad.Id, "  "));
+    }
+
+    // -------------------------------------------------------------------------
+    // 20. MarcarBaja: EnStock → Baja correcto
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarBaja_EnStock_TrasicionaYPersiste()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        var resultado = await _service.MarcarBajaAsync(unidad.Id, "Rotura irreparable", usuario: "op@test.com");
+
+        var saved = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.Baja, saved.Estado);
+        Assert.Equal(EstadoUnidad.Baja, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 21. MarcarBaja: Faltante → Baja permitido
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarBaja_Faltante_Permitido()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+
+        var resultado = await _service.MarcarBajaAsync(unidad.Id, "Confirmado extraviado");
+
+        Assert.Equal(EstadoUnidad.Baja, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 22. MarcarBaja: Devuelta → Baja permitido
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarBaja_Devuelta_Permitido()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Devuelta);
+
+        var resultado = await _service.MarcarBajaAsync(unidad.Id, "Devuelta con daño total");
+
+        Assert.Equal(EstadoUnidad.Baja, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 23. MarcarBaja: motivo vacío rechazado
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarBaja_MotivoVacio_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.MarcarBajaAsync(unidad.Id, ""));
+    }
+
+    // -------------------------------------------------------------------------
+    // 24. ReintegrarAStock: Faltante → EnStock correcto
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ReintegrarAStock_Faltante_TrasicionaYPersiste()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+
+        var resultado = await _service.ReintegrarAStockAsync(unidad.Id, "Unidad recuperada en depósito", usuario: "op@test.com");
+
+        var saved = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, saved.Estado);
+        Assert.Equal(EstadoUnidad.EnStock, resultado.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // 25. ReintegrarAStock: Devuelta → EnStock permitido y limpia campos de venta
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ReintegrarAStock_Devuelta_LimpiaVentaYTrasiciona()
+    {
+        DisableForeignKeys();
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Devuelta);
+
+        // Simular campos de venta previos
+        var entity = await _context.ProductoUnidades.FindAsync(unidad.Id);
+        entity!.VentaDetalleId = 55;
+        entity.ClienteId = 10;
+        entity.FechaVenta = DateTime.UtcNow.AddDays(-1);
+        await _context.SaveChangesAsync();
+        _context.Entry(entity).State = EntityState.Detached;
+
+        await _service.ReintegrarAStockAsync(unidad.Id, "Devolución aceptada");
+
+        var saved = await _context.ProductoUnidades.AsNoTracking().SingleAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, saved.Estado);
+        Assert.Null(saved.VentaDetalleId);
+        Assert.Null(saved.ClienteId);
+        Assert.Null(saved.FechaVenta);
+    }
+
+    // -------------------------------------------------------------------------
+    // 26. ReintegrarAStock: motivo vacío rechazado
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ReintegrarAStock_MotivoVacio_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.ReintegrarAStockAsync(unidad.Id, ""));
+    }
+
+    // -------------------------------------------------------------------------
+    // 27. Transición inválida rechazada (ej: Baja → EnStock)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Transicion_EstadoInvalido_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Baja);
+
+        // Baja no puede reintegrarse a stock (solo Faltante/Devuelta pueden)
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ReintegrarAStockAsync(unidad.Id, "intento inválido"));
+    }
+
+    // -------------------------------------------------------------------------
+    // 28. Cada transición crea movimiento en historial
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarVendida_CreaMovimientoEnHistorial()
+    {
+        DisableForeignKeys();
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+        var movimientosAntes = await _context.ProductoUnidadMovimientos
+            .CountAsync(m => m.ProductoUnidadId == unidad.Id);
+
+        await _service.MarcarVendidaAsync(unidad.Id, ventaDetalleId: 10);
+
+        var movimientosDespues = await _context.ProductoUnidadMovimientos
+            .CountAsync(m => m.ProductoUnidadId == unidad.Id);
+        Assert.Equal(movimientosAntes + 1, movimientosDespues);
+    }
+
+    // -------------------------------------------------------------------------
+    // 29. Historial guarda usuario, motivo y OrigenReferencia en MarcarVendida
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarVendida_Historial_GuardaUsuarioMotivoYOrigen()
+    {
+        DisableForeignKeys();
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        await _service.MarcarVendidaAsync(unidad.Id, ventaDetalleId: 77, clienteId: 3, usuario: "vendedor@test.com");
+
+        var mov = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .Where(m => m.ProductoUnidadId == unidad.Id && m.EstadoNuevo == EstadoUnidad.Vendida)
+            .SingleAsync();
+
+        Assert.Equal(EstadoUnidad.EnStock, mov.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.Vendida, mov.EstadoNuevo);
+        Assert.Equal("Venta de unidad", mov.Motivo);
+        Assert.Equal("VentaDetalle:77", mov.OrigenReferencia);
+        Assert.Equal("vendedor@test.com", mov.UsuarioResponsable);
+    }
+
+    // -------------------------------------------------------------------------
+    // 30. Historial guarda usuario y motivo en MarcarFaltante
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarFaltante_Historial_GuardaUsuarioYMotivo()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+
+        await _service.MarcarFaltanteAsync(unidad.Id, "Extraviada en traslado", usuario: "bodega@test.com");
+
+        var mov = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .Where(m => m.ProductoUnidadId == unidad.Id && m.EstadoNuevo == EstadoUnidad.Faltante)
+            .SingleAsync();
+
+        Assert.Equal(EstadoUnidad.EnStock, mov.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.Faltante, mov.EstadoNuevo);
+        Assert.Equal("Extraviada en traslado", mov.Motivo);
+        Assert.Equal("bodega@test.com", mov.UsuarioResponsable);
+    }
+
+    // -------------------------------------------------------------------------
+    // 31. ObtenerDisponibles no devuelve Vendida, Faltante ni Baja
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerDisponibles_ExcluyeVendidaFaltanteBaja()
+    {
+        var prod = await SeedProductoAsync();
+
+        var uStock   = await _service.CrearUnidadAsync(prod.Id);
+        var uVendida = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Vendida);
+        var uFaltante= await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
+        var uBaja    = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Baja);
+
+        var disponibles = (await _service.ObtenerDisponiblesPorProductoAsync(prod.Id)).ToList();
+
+        Assert.Single(disponibles);
+        Assert.Equal(uStock.Id, disponibles[0].Id);
+        Assert.DoesNotContain(disponibles, u => u.Id == uVendida.Id);
+        Assert.DoesNotContain(disponibles, u => u.Id == uFaltante.Id);
+        Assert.DoesNotContain(disponibles, u => u.Id == uBaja.Id);
+    }
+
+    // -------------------------------------------------------------------------
+    // 32. MarcarVendida no modifica Producto.StockActual
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task MarcarVendida_NoModificaStockActualProducto()
+    {
+        DisableForeignKeys();
+        var prod = await SeedProductoAsync();
+        var stockOriginal = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+
+        var unidad = await _service.CrearUnidadAsync(prod.Id);
+        await _service.MarcarVendidaAsync(unidad.Id, ventaDetalleId: 1);
+
+        var stockFinal = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+        Assert.Equal(stockOriginal, stockFinal);
+    }
 }

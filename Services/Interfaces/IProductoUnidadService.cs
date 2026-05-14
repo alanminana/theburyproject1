@@ -30,5 +30,42 @@ namespace TheBuryProject.Services.Interfaces
         /// Retorna el historial de movimientos de una unidad, ordenado por FechaCambio ascendente.
         /// </summary>
         Task<IEnumerable<ProductoUnidadMovimiento>> ObtenerHistorialAsync(int productoUnidadId);
+
+        /// <summary>
+        /// Marca una unidad como Vendida. Estado previo debe ser EnStock.
+        /// Registra VentaDetalleId, ClienteId y FechaVenta. Crea movimiento de historial.
+        /// </summary>
+        Task<ProductoUnidad> MarcarVendidaAsync(
+            int productoUnidadId,
+            int ventaDetalleId,
+            int? clienteId = null,
+            string? usuario = null);
+
+        /// <summary>
+        /// Marca una unidad como Faltante. Estado previo debe ser EnStock.
+        /// Motivo obligatorio. Crea movimiento de historial.
+        /// </summary>
+        Task<ProductoUnidad> MarcarFaltanteAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null);
+
+        /// <summary>
+        /// Marca una unidad como Baja. Estado previo debe ser EnStock, Devuelta o Faltante.
+        /// Motivo obligatorio. Crea movimiento de historial.
+        /// </summary>
+        Task<ProductoUnidad> MarcarBajaAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null);
+
+        /// <summary>
+        /// Reintegra una unidad a EnStock. Estado previo debe ser Faltante o Devuelta.
+        /// Limpia VentaDetalleId, ClienteId y FechaVenta. Motivo obligatorio. Crea movimiento de historial.
+        /// </summary>
+        Task<ProductoUnidad> ReintegrarAStockAsync(
+            int productoUnidadId,
+            string motivo,
+            string? usuario = null);
     }
 }
