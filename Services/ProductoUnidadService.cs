@@ -84,6 +84,41 @@ namespace TheBuryProject.Services
             return unidad;
         }
 
+        public async Task<IReadOnlyList<ProductoUnidad>> CrearUnidadesAsync(
+            int productoId,
+            IReadOnlyCollection<string?> numerosSerie,
+            string? ubicacionActual = null,
+            string? observaciones = null,
+            string? usuario = null)
+        {
+            if (numerosSerie == null || numerosSerie.Count == 0)
+                throw new ArgumentException("Debe informar al menos una unidad para crear.", nameof(numerosSerie));
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var unidades = new List<ProductoUnidad>();
+
+            try
+            {
+                foreach (var numeroSerie in numerosSerie)
+                {
+                    unidades.Add(await CrearUnidadAsync(
+                        productoId,
+                        numeroSerie,
+                        ubicacionActual,
+                        observaciones,
+                        usuario));
+                }
+
+                await transaction.CommitAsync();
+                return unidades;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         #endregion
 
         #region Consultas

@@ -111,6 +111,98 @@
         </form>
     </section>
 
+    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+        <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+                <h2 class="text-base font-black text-white">Carga masiva de unidades</h2>
+                <p class="mt-1 text-sm text-slate-400">Genera varias unidades sin serie o pega una serie por linea. Primero se muestra una previsualizacion para confirmar.</p>
+                <p class="mt-1 text-xs text-amber-200">La carga masiva no ajusta el stock agregado y no crea movimientos de stock SKU.</p>
+            </div>
+        </div>
+
+        <form method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas" class="mt-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="CargaMasiva.ProductoId" value="@Model.ProductoId" />
+
+            <div class="grid gap-3 lg:grid-cols-[0.7fr_1.3fr_1fr_1.2fr] lg:items-start">
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Cantidad sin serie</span>
+                    <input asp-for="CargaMasiva.CantidadSinSerie" min="0" max="200" type="number"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary" />
+                    <span asp-validation-for="CargaMasiva.CantidadSinSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Numeros de serie</span>
+                    <textarea asp-for="CargaMasiva.NumerosSerieTexto" rows="5" maxlength="12000"
+                              class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                              placeholder="Una serie por linea"></textarea>
+                    <span asp-validation-for="CargaMasiva.NumerosSerieTexto" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Ubicacion actual</span>
+                    <input asp-for="CargaMasiva.UbicacionActual" maxlength="200"
+                           class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                           placeholder="Opcional" />
+                    <span asp-validation-for="CargaMasiva.UbicacionActual" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+                <label class="block">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</span>
+                    <textarea asp-for="CargaMasiva.Observaciones" rows="5" maxlength="500"
+                              class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                              placeholder="Opcional"></textarea>
+                    <span asp-validation-for="CargaMasiva.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                </label>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
+                <button type="submit" name="CargaMasiva.Confirmar" value="false"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
+                    <span class="material-symbols-outlined text-base">visibility</span>
+                    Previsualizar
+                </button>
+                @if (Model.CargaMasiva.PreviewListo && Model.CargaMasiva.Preview.Any())
+                {
+                    <button type="submit" name="CargaMasiva.Confirmar" value="true"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                        <span class="material-symbols-outlined text-base">done_all</span>
+                        Confirmar carga
+                    </button>
+                }
+            </div>
+
+            @if (Model.CargaMasiva.PreviewListo && Model.CargaMasiva.Preview.Any())
+            {
+                <div class="mt-4 overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                    <div class="border-b border-slate-800 px-4 py-3">
+                        <p class="text-sm font-bold text-white">Preview de carga: @Model.CargaMasiva.TotalUnidades unidades</p>
+                        <p class="mt-1 text-xs text-slate-400">Todas se crearan en estado EnStock con codigo interno automatico.</p>
+                    </div>
+                    <div class="max-h-72 overflow-y-auto">
+                        <table class="min-w-full divide-y divide-slate-800">
+                            <thead class="bg-slate-900/70">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado inicial</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                @foreach (var item in Model.CargaMasiva.Preview)
+                                {
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm text-slate-300">@item.Orden</td>
+                                        <td class="px-4 py-2 text-sm text-slate-300">@(item.NumeroSerie ?? "Sin numero de serie")</td>
+                                        <td class="px-4 py-2 text-sm text-slate-200">@EstadoUnidad.EnStock</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </form>
+    </section>
+
     <form method="get" asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
           class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
         <div class="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto] lg:items-end">

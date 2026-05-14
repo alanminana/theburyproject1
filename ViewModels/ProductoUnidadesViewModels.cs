@@ -12,6 +12,7 @@ namespace TheBuryProject.ViewModels
         public decimal StockActual { get; set; }
         public ProductoUnidadesFiltroViewModel Filtros { get; set; } = new();
         public ProductoUnidadCrearViewModel CrearUnidad { get; set; } = new();
+        public ProductoUnidadCargaMasivaViewModel CargaMasiva { get; set; } = new();
         public List<ProductoUnidadEstadoResumenViewModel> ResumenEstados { get; set; } = new();
         public List<ProductoUnidadItemViewModel> Unidades { get; set; } = new();
     }
@@ -28,6 +29,34 @@ namespace TheBuryProject.ViewModels
 
         [StringLength(500, ErrorMessage = "Las observaciones no pueden superar los 500 caracteres.")]
         public string? Observaciones { get; set; }
+    }
+
+    public class ProductoUnidadCargaMasivaViewModel
+    {
+        public int ProductoId { get; set; }
+
+        [Range(0, 200, ErrorMessage = "La cantidad sin serie debe estar entre 0 y 200.")]
+        public int CantidadSinSerie { get; set; }
+
+        public string? NumerosSerieTexto { get; set; }
+
+        [StringLength(200, ErrorMessage = "La ubicacion actual no puede superar los 200 caracteres.")]
+        public string? UbicacionActual { get; set; }
+
+        [StringLength(500, ErrorMessage = "Las observaciones no pueden superar los 500 caracteres.")]
+        public string? Observaciones { get; set; }
+
+        public bool Confirmar { get; set; }
+        public bool PreviewListo { get; set; }
+        public int TotalUnidades => Preview.Count;
+        public List<ProductoUnidadCargaMasivaPreviewItemViewModel> Preview { get; set; } = new();
+    }
+
+    public class ProductoUnidadCargaMasivaPreviewItemViewModel
+    {
+        public int Orden { get; set; }
+        public string? NumeroSerie { get; set; }
+        public bool TieneNumeroSerie => !string.IsNullOrWhiteSpace(NumeroSerie);
     }
 
     public class ProductoUnidadesFiltroViewModel

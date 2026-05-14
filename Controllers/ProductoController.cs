@@ -23,6 +23,7 @@ namespace TheBuryProject.Controllers
         private readonly ICatalogoService _catalogoService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
+        private const int MaxUnidadesCargaMasiva = 200;
 
         public ProductoController(
             IProductoService productoService,
@@ -611,6 +612,57 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost("Producto/CrearUnidadesMasivas")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> CrearUnidadesMasivas(ProductoUnidadCargaMasivaViewModel cargaMasiva)
+        {
+            if (!ModelState.IsValid)
+                return await VolverAUnidadesConCargaMasivaAsync(cargaMasiva);
+
+            var producto = await _productoService.GetByIdAsync(cargaMasiva.ProductoId);
+            if (producto == null)
+                return NotFound();
+
+            await PrepararPreviewCargaMasivaAsync(cargaMasiva);
+
+            if (!ModelState.IsValid || !cargaMasiva.Preview.Any())
+                return await VolverAUnidadesConCargaMasivaAsync(cargaMasiva);
+
+            if (!cargaMasiva.Confirmar)
+            {
+                cargaMasiva.PreviewListo = true;
+                return await VolverAUnidadesConCargaMasivaAsync(cargaMasiva);
+            }
+
+            try
+            {
+                await _productoUnidadService.CrearUnidadesAsync(
+                    cargaMasiva.ProductoId,
+                    cargaMasiva.Preview.Select(p => p.NumeroSerie).ToList(),
+                    cargaMasiva.UbicacionActual,
+                    cargaMasiva.Observaciones,
+                    User?.Identity?.Name);
+
+                TempData["Success"] =
+                    $"{cargaMasiva.Preview.Count} unidades fisicas creadas correctamente. El stock agregado no fue modificado.";
+
+                return RedirectToAction(nameof(Unidades), new { productoId = cargaMasiva.ProductoId });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validacion al crear unidades masivas para producto {ProductoId}", cargaMasiva.ProductoId);
+                ModelState.AddModelError($"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.NumerosSerieTexto)}", ex.Message);
+                return await VolverAUnidadesConCargaMasivaAsync(cargaMasiva);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear unidades masivas para producto {ProductoId}", cargaMasiva.ProductoId);
+                TempData["Error"] = "Error al crear las unidades fisicas. Intenta nuevamente.";
+                return RedirectToAction(nameof(Unidades), new { productoId = cargaMasiva.ProductoId });
+            }
+        }
+
         [HttpGet("Producto/UnidadHistorial/{unidadId:int}")]
         public async Task<IActionResult> UnidadHistorial(int unidadId)
         {
@@ -664,10 +716,24 @@ namespace TheBuryProject.Controllers
             return View("Unidades", viewModel);
         }
 
+        private async Task<IActionResult> VolverAUnidadesConCargaMasivaAsync(ProductoUnidadCargaMasivaViewModel cargaMasiva)
+        {
+            var viewModel = await ConstruirProductoUnidadesViewModelAsync(
+                cargaMasiva.ProductoId,
+                new ProductoUnidadFiltros(),
+                cargaMasiva: cargaMasiva);
+
+            if (viewModel == null)
+                return NotFound();
+
+            return View("Unidades", viewModel);
+        }
+
         private async Task<ProductoUnidadesViewModel?> ConstruirProductoUnidadesViewModelAsync(
             int productoId,
             ProductoUnidadFiltros filtros,
-            ProductoUnidadCrearViewModel? crearUnidad = null)
+            ProductoUnidadCrearViewModel? crearUnidad = null,
+            ProductoUnidadCargaMasivaViewModel? cargaMasiva = null)
         {
             var producto = await _productoService.GetByIdAsync(productoId);
             if (producto == null)
@@ -697,6 +763,7 @@ namespace TheBuryProject.Controllers
                     SoloSinNumeroSerie = filtros.SoloSinNumeroSerie
                 },
                 CrearUnidad = crearUnidad ?? new ProductoUnidadCrearViewModel { ProductoId = producto.Id },
+                CargaMasiva = cargaMasiva ?? new ProductoUnidadCargaMasivaViewModel { ProductoId = producto.Id },
                 ResumenEstados = unidadesResumen
                     .GroupBy(u => u.Estado)
                     .OrderBy(g => g.Key)
@@ -724,6 +791,130 @@ namespace TheBuryProject.Controllers
                 FechaVenta = unidad.FechaVenta,
                 Observaciones = unidad.Observaciones
             };
+
+        private async Task PrepararPreviewCargaMasivaAsync(ProductoUnidadCargaMasivaViewModel cargaMasiva)
+        {
+            cargaMasiva.Preview.Clear();
+            cargaMasiva.PreviewListo = false;
+
+            var series = ParsearNumerosSerieCargaMasiva(cargaMasiva.NumerosSerieTexto);
+
+            ValidarCantidadSinSerieCargaMasiva(cargaMasiva.CantidadSinSerie);
+            ValidarDuplicadosEnCargaMasiva(series);
+            await ValidarDuplicadosExistentesCargaMasivaAsync(cargaMasiva.ProductoId, series);
+
+            var total = cargaMasiva.CantidadSinSerie + series.Count;
+            if (total == 0)
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.CantidadSinSerie)}",
+                    "Indica una cantidad sin serie o pega al menos un numero de serie.");
+                return;
+            }
+
+            if (total > MaxUnidadesCargaMasiva)
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.CantidadSinSerie)}",
+                    $"La carga masiva admite hasta {MaxUnidadesCargaMasiva} unidades por operacion.");
+                return;
+            }
+
+            var orden = 1;
+            for (var i = 0; i < cargaMasiva.CantidadSinSerie; i++)
+            {
+                cargaMasiva.Preview.Add(new ProductoUnidadCargaMasivaPreviewItemViewModel
+                {
+                    Orden = orden++
+                });
+            }
+
+            foreach (var serie in series)
+            {
+                cargaMasiva.Preview.Add(new ProductoUnidadCargaMasivaPreviewItemViewModel
+                {
+                    Orden = orden++,
+                    NumeroSerie = serie
+                });
+            }
+        }
+
+        private static List<string> ParsearNumerosSerieCargaMasiva(string? numerosSerieTexto)
+            => string.IsNullOrWhiteSpace(numerosSerieTexto)
+                ? new List<string>()
+                : numerosSerieTexto
+                    .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None)
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToList();
+
+        private void ValidarCantidadSinSerieCargaMasiva(int cantidadSinSerie)
+        {
+            if (cantidadSinSerie < 0)
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.CantidadSinSerie)}",
+                    "La cantidad sin serie no puede ser negativa.");
+            }
+
+            if (cantidadSinSerie > MaxUnidadesCargaMasiva)
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.CantidadSinSerie)}",
+                    $"La cantidad sin serie no puede superar {MaxUnidadesCargaMasiva} unidades.");
+            }
+        }
+
+        private void ValidarDuplicadosEnCargaMasiva(IReadOnlyCollection<string> series)
+        {
+            var seriesDuplicadas = series
+                .GroupBy(s => s, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (seriesDuplicadas.Any())
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.NumerosSerieTexto)}",
+                    $"Hay numeros de serie repetidos en la carga: {string.Join(", ", seriesDuplicadas)}.");
+            }
+
+            var seriesLargas = series
+                .Where(s => s.Length > 100)
+                .ToList();
+
+            if (seriesLargas.Any())
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.NumerosSerieTexto)}",
+                    "Cada numero de serie debe tener 100 caracteres o menos.");
+            }
+        }
+
+        private async Task ValidarDuplicadosExistentesCargaMasivaAsync(int productoId, IReadOnlyCollection<string> series)
+        {
+            if (!series.Any())
+                return;
+
+            var existentes = await _productoUnidadService.ObtenerPorProductoAsync(productoId);
+            var seriesExistentes = existentes
+                .Where(u => !string.IsNullOrWhiteSpace(u.NumeroSerie))
+                .Select(u => u.NumeroSerie!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var duplicadas = series
+                .Where(seriesExistentes.Contains)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (duplicadas.Any())
+            {
+                ModelState.AddModelError(
+                    $"{nameof(ProductoUnidadesViewModel.CargaMasiva)}.{nameof(ProductoUnidadCargaMasivaViewModel.NumerosSerieTexto)}",
+                    $"Ya existen unidades activas con estos numeros de serie: {string.Join(", ", duplicadas)}.");
+            }
+        }
 
         #endregion
     }

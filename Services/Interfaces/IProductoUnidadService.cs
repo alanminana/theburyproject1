@@ -18,6 +18,18 @@ namespace TheBuryProject.Services.Interfaces
             string? usuario = null);
 
         /// <summary>
+        /// Crea varias unidades fisicas en una unica transaccion.
+        /// Reutiliza la misma regla canonica de alta individual para codigo interno,
+        /// estado inicial e historial.
+        /// </summary>
+        Task<IReadOnlyList<ProductoUnidad>> CrearUnidadesAsync(
+            int productoId,
+            IReadOnlyCollection<string?> numerosSerie,
+            string? ubicacionActual = null,
+            string? observaciones = null,
+            string? usuario = null);
+
+        /// <summary>
         /// Retorna todas las unidades activas de un producto.
         /// </summary>
         Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId);
