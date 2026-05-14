@@ -848,7 +848,7 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("Conciliado", html);
         Assert.Contains("Diferencia detectada", html);
         Assert.Contains("Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.", html);
-        Assert.Contains("Unidades registradas incluye todas las unidades no eliminadas, aunque esten vendidas, faltantes o dadas de baja.", html);
+        Assert.Contains("Unidades registradas incluye todas las unidades no eliminadas, aunque esten vendidas, faltantes, anuladas o dadas de baja.", html);
         Assert.Contains("Unidades disponibles corresponde a unidades en estado EnStock.", html);
         Assert.Contains("Este producto no requiere trazabilidad individual. Las unidades cargadas son trazabilidad operativa opcional.", html);
         Assert.DoesNotContain("Total unidades activas", html);
