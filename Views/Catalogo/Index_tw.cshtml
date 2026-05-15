@@ -4,11 +4,6 @@
     ViewData["MetaDescription"] = "Catálogo de productos, control de stock, listas de precios y movimientos de inventario del ERP TheBuryProject.";
     var productos = Model.Productos.ToList();
     var total = Model.TotalResultados;
-    var stockBajoCount = Model.ProductosStockBajo;
-    var productosActivos = productos.Count(p => p.Activo);
-    var productosInactivos = productos.Count - productosActivos;
-    var categoriasActivas = Model.CategoriasListado.Count(c => c.Activo);
-    var marcasActivas = Model.MarcasListado.Count(m => m.Activo);
 }
 
 @section Styles {
@@ -179,7 +174,7 @@
                     @if (Model.TieneFiltrosActivos)
                     {
                         <a asp-controller="Catalogo" asp-action="Index"
-                           class="p-2.5 bg-slate-200 bg-slate-800 text-slate-300 hover:bg-slate-300 hover:bg-slate-700 rounded-lg transition-colors no-underline"
+                           class="p-2.5 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors no-underline"
                            title="Limpiar filtros">
                             <span class="material-symbols-outlined text-lg">clear_all</span>
                         </a>
@@ -374,7 +369,7 @@
                     {
                         <tr>
                             <td colspan="9" class="py-12 text-center">
-                                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600 mb-2 block">inventory_2</span>
+                                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">inventory_2</span>
                                 <p class="text-sm font-bold text-slate-400">No se encontraron productos</p>
                                 @if (Model.TieneFiltrosActivos)
                                 {
@@ -537,7 +532,7 @@
                     {
                         <tr>
                             <td colspan="5" class="py-12 text-center">
-                                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600 mb-2 block">category</span>
+                                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">category</span>
                                 <p class="text-sm font-bold text-slate-400">No se encontraron categorías</p>
                             </td>
                         </tr>
@@ -661,7 +656,7 @@
                     {
                         <tr>
                             <td colspan="6" class="py-12 text-center">
-                                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600 mb-2 block">branding_watermark</span>
+                                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">branding_watermark</span>
                                 <p class="text-sm font-bold text-slate-400">No se encontraron marcas</p>
                             </td>
                         </tr>
@@ -1811,7 +1806,7 @@
 
             <!-- Empty state -->
             <div id="historial-precio-empty" class="hidden py-16 text-center">
-                <span class="material-symbols-outlined text-4xl text-slate-300 text-slate-600 mb-2 block">info</span>
+                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">info</span>
                 <p class="text-sm font-bold text-slate-400">No hay cambios de precio registrados</p>
             </div>
         </div>
