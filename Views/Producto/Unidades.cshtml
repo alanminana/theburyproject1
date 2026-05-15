@@ -541,7 +541,7 @@
                                             Ver historial
                                         </a>
 
-                                        @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock)
+                                        @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
                                         {
                                             <div class="grid gap-2">
                                                 @if (unidad.PuedeMarcarFaltante)
@@ -585,6 +585,28 @@
                                                         <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-200 transition-colors hover:bg-red-500/20">
                                                             <span class="material-symbols-outlined text-base">block</span>
                                                             Dar de baja
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                                @if (unidad.PuedeFinalizarReparacion)
+                                                {
+                                                    <form method="post" asp-controller="Producto" asp-action="FinalizarReparacionUnidad" class="grid gap-1">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                                                        <select name="EstadoDestino" required
+                                                                class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-blue-400">
+                                                            <option value="">Destino de la reparacion...</option>
+                                                            <option value="EnStock">Reintegrar a stock</option>
+                                                            <option value="Baja">Dar de baja (no reparable)</option>
+                                                            <option value="Devuelta">Marcar como devuelta</option>
+                                                        </select>
+                                                        <input name="Motivo" maxlength="500" required
+                                                               class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-blue-400"
+                                                               placeholder="Motivo obligatorio" />
+                                                        <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1.5 text-xs font-bold text-blue-200 transition-colors hover:bg-blue-500/20">
+                                                            <span class="material-symbols-outlined text-base">build_circle</span>
+                                                            Finalizar reparacion
                                                         </button>
                                                     </form>
                                                 }

@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Services.Interfaces
@@ -116,6 +117,18 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<ProductoUnidad> MarcarDevueltaAsync(
             int productoUnidadId,
+            string motivo,
+            string? usuario = null);
+
+        /// <summary>
+        /// Finaliza la reparación de una unidad física.
+        /// Estado origen obligatorio: EnReparacion.
+        /// Estados destino permitidos: EnStock, Baja, Devuelta.
+        /// Motivo obligatorio. Registra ProductoUnidadMovimiento. No modifica stock agregado.
+        /// </summary>
+        Task<ProductoUnidad> FinalizarReparacionAsync(
+            int productoUnidadId,
+            EstadoUnidad estadoDestino,
             string motivo,
             string? usuario = null);
 

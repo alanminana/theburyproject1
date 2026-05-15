@@ -500,6 +500,45 @@ namespace TheBuryProject.Services
             return unidad;
         }
 
+        public async Task<ProductoUnidad> FinalizarReparacionAsync(
+            int productoUnidadId,
+            EstadoUnidad estadoDestino,
+            string motivo,
+            string? usuario = null)
+        {
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
+
+            var destinosPermitidos = new[] { EstadoUnidad.EnStock, EstadoUnidad.Baja, EstadoUnidad.Devuelta };
+            if (!destinosPermitidos.Contains(estadoDestino))
+                throw new ArgumentException(
+                    $"El estado destino '{estadoDestino}' no es válido para finalizar una reparación. " +
+                    $"Los estados permitidos son: EnStock, Baja, Devuelta.",
+                    nameof(estadoDestino));
+
+            var unidad = await CargarYValidarTransicionAsync(
+                productoUnidadId,
+                new[] { EstadoUnidad.EnReparacion },
+                estadoDestino);
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = estadoDestino;
+
+            _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
+                unidad.Id, estadoAnterior, estadoDestino,
+                motivo,
+                $"FinalizacionReparacion:{unidad.Id}",
+                usuario));
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Reparación finalizada: unidad {Codigo} pasó de {EstadoAnterior} a {EstadoDestino}. Motivo: {Motivo}",
+                unidad.CodigoInternoUnidad, estadoAnterior, estadoDestino, motivo);
+
+            return unidad;
+        }
+
         public async Task<ProductoUnidad> MarcarDevueltaAsync(
             int productoUnidadId,
             string motivo,

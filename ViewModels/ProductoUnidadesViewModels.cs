@@ -91,6 +91,18 @@ namespace TheBuryProject.ViewModels
         public string? Motivo { get; set; }
     }
 
+    public class ProductoUnidadFinalizarReparacionViewModel
+    {
+        public int ProductoUnidadId { get; set; }
+
+        [Required(ErrorMessage = "El estado destino es obligatorio.")]
+        public EstadoUnidad EstadoDestino { get; set; }
+
+        [Required(ErrorMessage = "El motivo es obligatorio.")]
+        [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
+        public string? Motivo { get; set; }
+    }
+
     public class ProductoUnidadesFiltroViewModel
     {
         public EstadoUnidad? Estado { get; set; }
@@ -121,6 +133,7 @@ namespace TheBuryProject.ViewModels
         public bool PuedeMarcarFaltante { get; set; }
         public bool PuedeDarBaja { get; set; }
         public bool PuedeReintegrarAStock { get; set; }
+        public bool PuedeFinalizarReparacion { get; set; }
     }
 
     public class ProductoUnidadHistorialViewModel

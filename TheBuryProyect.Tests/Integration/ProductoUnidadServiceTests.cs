@@ -912,4 +912,119 @@ public class ProductoUnidadServiceTests : IDisposable
         var stockFinal = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
         Assert.Equal(stockOriginal, stockFinal);
     }
+
+    // -------------------------------------------------------------------------
+    // 33–41. FinalizarReparacionAsync — Fase 10.7
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task FinalizarReparacion_UnidadEnReparacion_AEnStock_CambiaEstado()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        var resultado = await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, "Reparada OK");
+
+        Assert.Equal(EstadoUnidad.EnStock, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_UnidadEnReparacion_ABaja_CambiaEstado()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        var resultado = await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.Baja, "No reparable");
+
+        Assert.Equal(EstadoUnidad.Baja, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_UnidadEnReparacion_ADevuelta_CambiaEstado()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        var resultado = await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.Devuelta, "Pendiente revision");
+
+        Assert.Equal(EstadoUnidad.Devuelta, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_RegistraProductoUnidadMovimiento()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, "Reparada y OK", "operador1");
+
+        var movimiento = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ProductoUnidadId == unidad.Id
+                                   && m.EstadoAnterior == EstadoUnidad.EnReparacion
+                                   && m.EstadoNuevo == EstadoUnidad.EnStock);
+
+        Assert.NotNull(movimiento);
+        Assert.Equal("Reparada y OK", movimiento.Motivo);
+        Assert.Equal("operador1", movimiento.UsuarioResponsable);
+        Assert.StartsWith("FinalizacionReparacion:", movimiento.OrigenReferencia);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_UnidadNoEnReparacion_Falla()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await _service.CrearUnidadAsync(prod.Id); // EnStock
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, "Motivo"));
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_DestinoNoPermitido_Falla()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.Vendida, "Motivo"));
+
+        Assert.Contains("Vendida", ex.Message);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_MotivoVacio_Falla()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, ""));
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_AEnStock_NoModificaStockAgregado()
+    {
+        var prod = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+        var stockAntes = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+
+        await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, "Reparada");
+
+        var stockDespues = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+        Assert.Equal(stockAntes, stockDespues);
+    }
+
+    [Fact]
+    public async Task FinalizarReparacion_NoGeneraMovimientoStock()
+    {
+        var prod = await SeedProductoAsync();
+        var unidad = await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnReparacion);
+        var movStockAntes = await _context.MovimientosStock.CountAsync(m => m.ProductoId == prod.Id);
+
+        await _service.FinalizarReparacionAsync(unidad.Id, EstadoUnidad.EnStock, "Reparada");
+
+        var movStockDespues = await _context.MovimientosStock.CountAsync(m => m.ProductoId == prod.Id);
+        Assert.Equal(movStockAntes, movStockDespues);
+    }
 }

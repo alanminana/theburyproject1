@@ -779,6 +779,56 @@ namespace TheBuryProject.Controllers
                 (id, motivo, usuario) => _productoUnidadService.ReintegrarAStockAsync(id, motivo, usuario),
                 "Unidad reintegrada a stock. El stock agregado no fue modificado.");
 
+        [HttpPost("Producto/FinalizarReparacionUnidad")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> FinalizarReparacionUnidad(ProductoUnidadFinalizarReparacionViewModel vm)
+        {
+            var unidad = await _productoUnidadService.ObtenerPorIdAsync(vm.ProductoUnidadId);
+            if (unidad == null)
+                return NotFound();
+
+            if (string.IsNullOrWhiteSpace(vm.Motivo))
+            {
+                TempData["Error"] = "El motivo es obligatorio para finalizar la reparación.";
+                return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+            }
+
+            if (vm.Motivo.Length > 500)
+            {
+                TempData["Error"] = "El motivo no puede superar los 500 caracteres.";
+                return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+            }
+
+            try
+            {
+                await _productoUnidadService.FinalizarReparacionAsync(
+                    vm.ProductoUnidadId,
+                    vm.EstadoDestino,
+                    vm.Motivo.Trim(),
+                    User?.Identity?.Name);
+
+                TempData["Success"] = $"Reparación finalizada. Unidad pasó a estado {vm.EstadoDestino}. El stock agregado no fue modificado.";
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Parámetro inválido al finalizar reparación de unidad {ProductoUnidadId}", vm.ProductoUnidadId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Transición inválida al finalizar reparación de unidad {ProductoUnidadId}", vm.ProductoUnidadId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al finalizar reparación de unidad {ProductoUnidadId}", vm.ProductoUnidadId);
+                TempData["Error"] = "Error al finalizar la reparación. Intentá nuevamente.";
+            }
+
+            return RedirectToAction(nameof(Unidades), new { productoId = unidad.ProductoId });
+        }
+
         [HttpPost("Producto/ConciliarStockUnidades")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
@@ -1001,7 +1051,8 @@ namespace TheBuryProject.Controllers
                     || unidad.Estado == EstadoUnidad.Faltante
                     || unidad.Estado == EstadoUnidad.Devuelta,
                 PuedeReintegrarAStock = unidad.Estado == EstadoUnidad.Faltante
-                    || unidad.Estado == EstadoUnidad.Devuelta
+                    || unidad.Estado == EstadoUnidad.Devuelta,
+                PuedeFinalizarReparacion = unidad.Estado == EstadoUnidad.EnReparacion
             };
 
         [HttpGet("Producto/UnidadesGlobal")]
