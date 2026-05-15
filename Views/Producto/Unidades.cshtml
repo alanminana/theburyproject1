@@ -434,7 +434,7 @@
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-slate-300">@item.Orden</td>
                                         <td class="px-4 py-2 text-sm text-slate-300">@(item.NumeroSerie ?? "Sin numero de serie")</td>
-                                        <td class="px-4 py-2 text-sm text-slate-200">@EstadoUnidad.EnStock</td>
+                                        <td class="px-4 py-2"><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)EstadoUnidad.EnStock" /></td>
                                     </tr>
                                 }
                             </tbody>
