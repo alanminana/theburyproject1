@@ -118,5 +118,11 @@ namespace TheBuryProject.Services.Interfaces
             int productoUnidadId,
             string motivo,
             string? usuario = null);
+
+        /// <summary>
+        /// Reporte global de unidades físicas con filtros operativos cross-producto.
+        /// Consulta read-only: no modifica ningún estado ni genera movimientos.
+        /// </summary>
+        Task<ProductoUnidadesGlobalResultado> BuscarUnidadesGlobalAsync(ProductoUnidadesGlobalFiltros filtros);
     }
 }

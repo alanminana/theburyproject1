@@ -260,6 +260,87 @@ namespace TheBuryProject.Services
             EstadoUnidad estado)
             => conteos.TryGetValue(estado, out var cantidad) ? cantidad : 0;
 
+        public async Task<ProductoUnidadesGlobalResultado> BuscarUnidadesGlobalAsync(
+            ProductoUnidadesGlobalFiltros filtros)
+        {
+            filtros ??= new ProductoUnidadesGlobalFiltros();
+
+            var query = _context.ProductoUnidades
+                .AsNoTracking()
+                .Where(u => !u.IsDeleted && !u.Producto.IsDeleted);
+
+            if (filtros.ProductoId.HasValue)
+                query = query.Where(u => u.ProductoId == filtros.ProductoId.Value);
+
+            if (filtros.Estado.HasValue)
+                query = query.Where(u => u.Estado == filtros.Estado.Value);
+
+            if (filtros.SoloDisponibles)
+                query = query.Where(u => u.Estado == EstadoUnidad.EnStock);
+
+            if (filtros.SoloVendidas)
+                query = query.Where(u => u.Estado == EstadoUnidad.Vendida);
+
+            if (filtros.SoloFaltantes)
+                query = query.Where(u => u.Estado == EstadoUnidad.Faltante);
+
+            if (filtros.SoloBaja)
+                query = query.Where(u => u.Estado == EstadoUnidad.Baja);
+
+            if (filtros.SoloDevueltas)
+                query = query.Where(u => u.Estado == EstadoUnidad.Devuelta);
+
+            if (filtros.SoloSinNumeroSerie)
+                query = query.Where(u => string.IsNullOrEmpty(u.NumeroSerie));
+
+            if (!string.IsNullOrWhiteSpace(filtros.Texto))
+            {
+                var texto = filtros.Texto.Trim();
+                query = query.Where(u =>
+                    u.CodigoInternoUnidad.Contains(texto) ||
+                    (u.NumeroSerie != null && u.NumeroSerie.Contains(texto)) ||
+                    u.Producto.Nombre.Contains(texto) ||
+                    u.Producto.Codigo.Contains(texto));
+            }
+
+            var items = await query
+                .OrderBy(u => u.Producto.Nombre)
+                .ThenBy(u => u.CodigoInternoUnidad)
+                .Select(u => new ProductoUnidadGlobalItem
+                {
+                    Id = u.Id,
+                    ProductoId = u.ProductoId,
+                    ProductoCodigo = u.Producto.Codigo,
+                    ProductoNombre = u.Producto.Nombre,
+                    CodigoInternoUnidad = u.CodigoInternoUnidad,
+                    NumeroSerie = u.NumeroSerie,
+                    Estado = u.Estado,
+                    UbicacionActual = u.UbicacionActual,
+                    FechaIngreso = u.FechaIngreso,
+                    ClienteId = u.ClienteId,
+                    ClienteNombre = u.Cliente != null
+                        ? u.Cliente.Apellido + ", " + u.Cliente.Nombre
+                        : null,
+                    VentaDetalleId = u.VentaDetalleId,
+                    FechaVenta = u.FechaVenta
+                })
+                .ToListAsync();
+
+            return new ProductoUnidadesGlobalResultado
+            {
+                TotalUnidades = items.Count,
+                TotalEnStock = items.Count(i => i.Estado == EstadoUnidad.EnStock),
+                TotalVendidas = items.Count(i => i.Estado == EstadoUnidad.Vendida),
+                TotalFaltantes = items.Count(i => i.Estado == EstadoUnidad.Faltante),
+                TotalBaja = items.Count(i => i.Estado == EstadoUnidad.Baja),
+                TotalDevueltas = items.Count(i => i.Estado == EstadoUnidad.Devuelta),
+                TotalEnReparacion = items.Count(i => i.Estado == EstadoUnidad.EnReparacion),
+                TotalAnuladas = items.Count(i => i.Estado == EstadoUnidad.Anulada),
+                TotalReservadas = items.Count(i => i.Estado == EstadoUnidad.Reservada),
+                Items = items
+            };
+        }
+
         #endregion
 
         #region Transiciones de estado

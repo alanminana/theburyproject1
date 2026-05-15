@@ -116,5 +116,6 @@ public class ProductoApiControllerTests
         public Task<ProductoUnidad> ReintegrarAStockAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotImplementedException();
         public Task<ProductoUnidad> RevertirVentaAsync(int productoUnidadId, string motivo, string? usuario = null, string? origenReferencia = null) => throw new NotImplementedException();
         public Task<ProductoUnidad> MarcarDevueltaAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotImplementedException();
+        public Task<ProductoUnidadesGlobalResultado> BuscarUnidadesGlobalAsync(ProductoUnidadesGlobalFiltros filtros) => throw new NotImplementedException();
     }
 }

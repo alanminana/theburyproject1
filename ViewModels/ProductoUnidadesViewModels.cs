@@ -153,4 +153,57 @@ namespace TheBuryProject.ViewModels
         [StringLength(500, ErrorMessage = "El motivo no puede superar los 500 caracteres.")]
         public string? Motivo { get; set; }
     }
+
+    // -------------------------------------------------------------------------
+    // Reporte global de unidades físicas (Fase 10.1)
+    // -------------------------------------------------------------------------
+
+    public class ProductoUnidadesGlobalViewModel
+    {
+        public ProductoUnidadesGlobalFiltrosViewModel Filtros { get; set; } = new();
+        public ProductoUnidadesGlobalResumenViewModel Resumen { get; set; } = new();
+        public List<ProductoUnidadGlobalItemViewModel> Items { get; set; } = new();
+    }
+
+    public class ProductoUnidadesGlobalFiltrosViewModel
+    {
+        public int? ProductoId { get; set; }
+        public EstadoUnidad? Estado { get; set; }
+        public string? Texto { get; set; }
+        public bool SoloDisponibles { get; set; }
+        public bool SoloSinNumeroSerie { get; set; }
+        public bool SoloVendidas { get; set; }
+        public bool SoloFaltantes { get; set; }
+        public bool SoloBaja { get; set; }
+        public bool SoloDevueltas { get; set; }
+    }
+
+    public class ProductoUnidadesGlobalResumenViewModel
+    {
+        public int TotalUnidades { get; set; }
+        public int TotalEnStock { get; set; }
+        public int TotalVendidas { get; set; }
+        public int TotalFaltantes { get; set; }
+        public int TotalBaja { get; set; }
+        public int TotalDevueltas { get; set; }
+        public int TotalEnReparacion { get; set; }
+        public int TotalAnuladas { get; set; }
+        public int TotalReservadas { get; set; }
+    }
+
+    public class ProductoUnidadGlobalItemViewModel
+    {
+        public int Id { get; set; }
+        public int ProductoId { get; set; }
+        public string ProductoCodigo { get; set; } = string.Empty;
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string CodigoInternoUnidad { get; set; } = string.Empty;
+        public string? NumeroSerie { get; set; }
+        public EstadoUnidad Estado { get; set; }
+        public string? UbicacionActual { get; set; }
+        public DateTime FechaIngreso { get; set; }
+        public string? ClienteNombre { get; set; }
+        public int? VentaDetalleId { get; set; }
+        public DateTime? FechaVenta { get; set; }
+    }
 }

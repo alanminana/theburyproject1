@@ -1004,6 +1004,101 @@ namespace TheBuryProject.Controllers
                     || unidad.Estado == EstadoUnidad.Devuelta
             };
 
+        [HttpGet("Producto/UnidadesGlobal")]
+        public async Task<IActionResult> UnidadesGlobal(
+            int? productoId = null,
+            EstadoUnidad? estado = null,
+            string? texto = null,
+            bool soloDisponibles = false,
+            bool soloSinNumeroSerie = false,
+            bool soloVendidas = false,
+            bool soloFaltantes = false,
+            bool soloBaja = false,
+            bool soloDevueltas = false)
+        {
+            try
+            {
+                var filtros = new ProductoUnidadesGlobalFiltros
+                {
+                    ProductoId = productoId,
+                    Estado = estado,
+                    Texto = texto,
+                    SoloDisponibles = soloDisponibles,
+                    SoloSinNumeroSerie = soloSinNumeroSerie,
+                    SoloVendidas = soloVendidas,
+                    SoloFaltantes = soloFaltantes,
+                    SoloBaja = soloBaja,
+                    SoloDevueltas = soloDevueltas
+                };
+
+                var resultado = await _productoUnidadService.BuscarUnidadesGlobalAsync(filtros);
+                var productos = await _productoService.GetAllAsync();
+
+                var viewModel = new ProductoUnidadesGlobalViewModel
+                {
+                    Filtros = new ProductoUnidadesGlobalFiltrosViewModel
+                    {
+                        ProductoId = productoId,
+                        Estado = estado,
+                        Texto = texto,
+                        SoloDisponibles = soloDisponibles,
+                        SoloSinNumeroSerie = soloSinNumeroSerie,
+                        SoloVendidas = soloVendidas,
+                        SoloFaltantes = soloFaltantes,
+                        SoloBaja = soloBaja,
+                        SoloDevueltas = soloDevueltas
+                    },
+                    Resumen = new ProductoUnidadesGlobalResumenViewModel
+                    {
+                        TotalUnidades = resultado.TotalUnidades,
+                        TotalEnStock = resultado.TotalEnStock,
+                        TotalVendidas = resultado.TotalVendidas,
+                        TotalFaltantes = resultado.TotalFaltantes,
+                        TotalBaja = resultado.TotalBaja,
+                        TotalDevueltas = resultado.TotalDevueltas,
+                        TotalEnReparacion = resultado.TotalEnReparacion,
+                        TotalAnuladas = resultado.TotalAnuladas,
+                        TotalReservadas = resultado.TotalReservadas
+                    },
+                    Items = resultado.Items.Select(i => new ProductoUnidadGlobalItemViewModel
+                    {
+                        Id = i.Id,
+                        ProductoId = i.ProductoId,
+                        ProductoCodigo = i.ProductoCodigo,
+                        ProductoNombre = i.ProductoNombre,
+                        CodigoInternoUnidad = i.CodigoInternoUnidad,
+                        NumeroSerie = i.NumeroSerie,
+                        Estado = i.Estado,
+                        UbicacionActual = i.UbicacionActual,
+                        FechaIngreso = i.FechaIngreso,
+                        ClienteNombre = i.ClienteNombre,
+                        VentaDetalleId = i.VentaDetalleId,
+                        FechaVenta = i.FechaVenta
+                    }).ToList()
+                };
+
+                ViewBag.ProductosDropdown = new SelectList(
+                    productos
+                        .OrderBy(p => p.Nombre)
+                        .Select(p => new { Id = p.Id, Texto = $"{p.Codigo} — {p.Nombre}" }),
+                    "Id", "Texto", productoId);
+
+                ViewBag.EstadosDropdown = new SelectList(
+                    Enum.GetValues<EstadoUnidad>()
+                        .Select(e => new { Id = (int)e, Texto = e.ToString() }),
+                    "Id", "Texto",
+                    estado.HasValue ? (int?)estado.Value : null);
+
+                return View("UnidadesGlobal", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cargar reporte global de unidades");
+                TempData["Error"] = "Error al cargar el reporte. Intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
         private async Task PrepararPreviewCargaMasivaAsync(ProductoUnidadCargaMasivaViewModel cargaMasiva)
         {
             cargaMasiva.Preview.Clear();
