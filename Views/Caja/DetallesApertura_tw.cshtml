@@ -248,9 +248,44 @@
     </div>
 
     <div class="col-span-2 flex flex-col gap-1 rounded-2xl p-4 bg-primary/10 border border-primary/30 shadow-sm xl:col-span-1">
-        <p class="text-primary text-xs font-bold uppercase tracking-tight">Saldo actual</p>
+        <p class="text-primary text-xs font-bold uppercase tracking-tight">Saldo operativo</p>
         <p class="text-primary text-xl font-black leading-tight">$@Model.SaldoActual.ToString("N2")</p>
+        <p class="text-slate-500 text-[10px]">Incluye pendientes</p>
     </div>
+</div>
+
+<!-- Saldo real y pendiente de acreditación -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="flex flex-col gap-1 rounded-2xl p-4 bg-emerald-500/5 border border-emerald-500/20">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="material-symbols-outlined text-emerald-400 text-base">verified</span>
+            <p class="text-emerald-400 text-xs font-bold uppercase tracking-tight">Saldo real acreditado</p>
+        </div>
+        <p class="text-emerald-400 text-2xl font-black leading-tight">$@Model.SaldoReal.ToString("N2")</p>
+        <p class="text-slate-500 text-[11px]">Solo dinero efectivamente recibido o acreditado</p>
+    </div>
+    @if (Model.SaldoPendienteAcreditacion > 0)
+    {
+        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-amber-500/5 border border-amber-500/20">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="material-symbols-outlined text-amber-400 text-base">pending</span>
+                <p class="text-amber-400 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
+            </div>
+            <p class="text-amber-400 text-2xl font-black leading-tight">$@Model.SaldoPendienteAcreditacion.ToString("N2")</p>
+            <p class="text-slate-500 text-[11px]">Transferencias, tarjetas y MP aún no confirmados</p>
+        </div>
+    }
+    else
+    {
+        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-slate-800/40 border border-slate-700/40">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="material-symbols-outlined text-slate-500 text-base">check_circle</span>
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
+            </div>
+            <p class="text-slate-400 text-2xl font-black leading-tight">$0,00</p>
+            <p class="text-slate-600 text-[11px]">Sin movimientos pendientes</p>
+        </div>
+    }
 </div>
 
 
@@ -468,6 +503,10 @@
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Referencia</th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Monto</th>
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Usuario</th>
+                                    @if (!apertura.Cerrada && puedeOperar)
+                                    {
+                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Acciones</th>
+                                    }
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800">
@@ -526,14 +565,41 @@
                                             @(esIngreso ? "+" : "-")$@mov.Monto.ToString("N2")
                                         </td>
                                         <td class="px-6 py-4 text-sm text-slate-400">@mov.Usuario</td>
+                                        @if (!apertura.Cerrada && puedeOperar)
+                                        {
+                                            <td class="px-6 py-4 text-sm">
+                                                @if (mov.Tipo == TipoMovimientoCaja.Ingreso
+                                                     && mov.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
+                                                {
+                                                    <form asp-action="AcreditarMovimiento" asp-controller="Caja" method="post"
+                                                          onsubmit="return confirm('¿Confirmar acreditación de este movimiento? Esta acción no se puede deshacer.');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="movimientoId" value="@mov.Id" />
+                                                        <input type="hidden" name="aperturaId" value="@apertura.Id" />
+                                                        <button type="submit"
+                                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors">
+                                                            <span class="material-symbols-outlined text-[13px]">verified</span>
+                                                            Marcar acreditado
+                                                        </button>
+                                                    </form>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-slate-600 text-xs">—</span>
+                                                }
+                                            </td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
                             <tfoot>
+                                @{
+                                    var totalCols = (!apertura.Cerrada && puedeOperar) ? 8 : 7;
+                                }
                                 @if (Model.ResumenRealPorMedioPago.Any())
                                 {
                                     <tr>
-                                        <td colspan="7" class="px-6 pt-4 pb-1">
+                                        <td colspan="@totalCols" class="px-6 pt-4 pb-1">
                                             <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Desglose por medio de pago</p>
                                         </td>
                                     </tr>
@@ -546,14 +612,14 @@
                                             <td class="px-6 py-2 text-sm font-bold text-right @(neto >= 0 ? "text-slate-200" : "text-rose-400")">
                                                 @(neto >= 0 ? "+" : "−")$@Math.Abs(neto).ToString("N2")
                                             </td>
-                                            <td></td>
+                                            <td colspan="@(totalCols - 6)"></td>
                                         </tr>
                                     }
                                 }
                                 <tr class="bg-slate-800 font-black border-t-2 border-slate-700">
-                                    <td colspan="5" class="px-6 py-5 text-sm text-white text-right uppercase tracking-wider">Saldo calculado al momento</td>
+                                    <td colspan="5" class="px-6 py-5 text-sm text-white text-right uppercase tracking-wider">Saldo operativo</td>
                                     <td class="px-6 py-5 text-xl text-primary text-right">$@Model.SaldoActual.ToString("N2")</td>
-                                    <td></td>
+                                    <td colspan="@(totalCols - 6)"></td>
                                 </tr>
                             </tfoot>
                         </table>

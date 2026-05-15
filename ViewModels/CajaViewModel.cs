@@ -219,7 +219,12 @@ public class DetallesAperturaViewModel
     public List<ResumenMedioPagoCajaViewModel> ResumenRealPorMedioPago { get; set; } = new();
     public AperturaCaja Apertura { get; set; } = null!;
     public List<MovimientoCaja> Movimientos { get; set; } = new();
+    /// <summary>Saldo operativo: incluye todos los movimientos independientemente del estado de acreditación.</summary>
     public decimal SaldoActual { get; set; }
+    /// <summary>Saldo real: solo movimientos con dinero efectivamente acreditado o en efectivo.</summary>
+    public decimal SaldoReal { get; set; }
+    /// <summary>Monto de ingresos pendientes de acreditación bancaria (SaldoActual - SaldoReal para ingresos).</summary>
+    public decimal SaldoPendienteAcreditacion { get; set; }
     public decimal TotalIngresos { get; set; }
     public decimal TotalEgresos { get; set; }
     public decimal TotalRecargoDebito { get; set; }

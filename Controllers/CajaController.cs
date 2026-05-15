@@ -305,6 +305,30 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "edit")]
+        public async Task<IActionResult> AcreditarMovimiento(int movimientoId, int aperturaId)
+        {
+            try
+            {
+                await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
+                TempData["Success"] = "Movimiento acreditado correctamente.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Validación al acreditar movimiento {MovimientoId}", movimientoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al acreditar movimiento {MovimientoId}", movimientoId);
+                TempData["Error"] = "Error al acreditar el movimiento.";
+            }
+
+            return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+        }
+
         #endregion
 
         #region Cierre de Caja

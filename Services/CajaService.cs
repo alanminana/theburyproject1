@@ -474,6 +474,94 @@ namespace TheBuryProject.Services
         }
 
         /// <inheritdoc/>
+        public async Task<decimal> CalcularSaldoRealAsync(int aperturaId)
+        {
+            try
+            {
+                var apertura = await ObtenerAperturaPorIdAsync(aperturaId);
+                if (apertura == null)
+                {
+                    return 0;
+                }
+
+                var movimientos = await ObtenerMovimientosDeAperturaAsync(aperturaId);
+
+                // VentaIds cuyo ingreso fue Acreditado: usados para filtrar egresos ReversionVenta
+                var ventasConIngresoAcreditado = movimientos
+                    .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                             && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
+                             && m.VentaId.HasValue)
+                    .Select(m => m.VentaId!.Value)
+                    .ToHashSet();
+
+                // Ingresos reales: Acreditados explícitamente o sin estado (movimientos manuales en efectivo)
+                var ingresosReales = movimientos
+                    .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                             && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
+                              || m.EstadoAcreditacion == null))
+                    .Sum(m => m.Monto);
+
+                // Egresos reales: sin estado, NoAplica, o ReversionVenta de un ingreso que era Acreditado
+                var egresosReales = movimientos
+                    .Where(m => m.Tipo == TipoMovimientoCaja.Egreso
+                             && (m.EstadoAcreditacion == null
+                              || m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.NoAplica
+                              || (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Revertido
+                                  && m.VentaId.HasValue
+                                  && ventasConIngresoAcreditado.Contains(m.VentaId.Value))))
+                    .Sum(m => m.Monto);
+
+                return apertura.MontoInicial + ingresosReales - egresosReales;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al calcular saldo real para apertura {AperturaId}", aperturaId);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario)
+        {
+            try
+            {
+                var movimiento = await _context.MovimientosCaja
+                    .FirstOrDefaultAsync(m => m.Id == movimientoId && !m.IsDeleted);
+
+                if (movimiento == null)
+                {
+                    throw new InvalidOperationException("Movimiento no encontrado.");
+                }
+
+                if (movimiento.Tipo != TipoMovimientoCaja.Ingreso)
+                {
+                    throw new InvalidOperationException("Solo se pueden acreditar movimientos de ingreso.");
+                }
+
+                if (movimiento.EstadoAcreditacion != EstadoAcreditacionMovimientoCaja.Pendiente)
+                {
+                    throw new InvalidOperationException(
+                        $"Solo se puede acreditar un movimiento en estado Pendiente. Estado actual: {movimiento.EstadoAcreditacion}.");
+                }
+
+                movimiento.EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Movimiento {MovimientoId} acreditado manualmente por {Usuario}",
+                    movimientoId, usuario);
+
+                return movimiento;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al acreditar movimiento {MovimientoId}", movimientoId);
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
         public async Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync()
         {
             try
@@ -1050,6 +1138,17 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
 
         var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
         var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
+        var saldoReal = await CalcularSaldoRealAsync(aperturaId);
+        var ingresosAcreditados = movimientos
+            .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                     && (m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Acreditado
+                      || m.EstadoAcreditacion == null))
+            .Sum(m => m.Monto);
+        var ingresosPendientes = movimientos
+            .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
+                     && m.EstadoAcreditacion == EstadoAcreditacionMovimientoCaja.Pendiente)
+            .Sum(m => m.Monto);
+        var saldoPendienteAcreditacion = ingresosPendientes;
 
         var totalesPorTipoPago = ventasDelTurno
             .GroupBy(v => v.TipoPago)
@@ -1103,6 +1202,8 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             Movimientos = movimientos,
             VentasDelTurno = ventasDelTurno,
             SaldoActual = saldoActual,
+            SaldoReal = saldoReal,
+            SaldoPendienteAcreditacion = saldoPendienteAcreditacion,
             TotalIngresos = totalIngresos,
             TotalEgresos = totalEgresos,
             TotalRecargoDebito = ventasDelTurno.Sum(ResolverRecargoDebitoAplicado),

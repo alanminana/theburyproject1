@@ -44,6 +44,19 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> CalcularSaldoActualAsync(int aperturaId);
 
         /// <summary>
+        /// Calcula el saldo real de caja: solo dinero efectivamente acreditado.
+        /// Incluye ingresos Acreditados (o sin estado), egresos sin estado, y
+        /// egresos ReversionVenta solo si el ingreso original era Acreditado.
+        /// </summary>
+        Task<decimal> CalcularSaldoRealAsync(int aperturaId);
+
+        /// <summary>
+        /// Marca un movimiento de ingreso como Acreditado.
+        /// Solo admite la transición Pendiente → Acreditado.
+        /// </summary>
+        Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario);
+
+        /// <summary>
         /// Registra automáticamente el movimiento de caja para una venta confirmada.
         /// Solo aplica para ventas de contado (Efectivo, Tarjeta, Cheque, Transferencia, MercadoPago).
         /// Las ventas a crédito personal no generan ingreso inmediato (se cobra por cuotas).
