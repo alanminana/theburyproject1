@@ -968,7 +968,7 @@ namespace TheBuryProject.Controllers
                 var resultado = await _ventaService.CancelarVentaAsync(id, motivo);
                 if (resultado)
                 {
-                    TempData["Success"] = "Venta cancelada exitosamente";
+                    TempData["Success"] = "Venta cancelada. El stock fue revertido y las unidades físicas asociadas volvieron a disponible.";
                 }
                 else
                 {

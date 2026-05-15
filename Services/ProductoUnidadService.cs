@@ -389,7 +389,8 @@ namespace TheBuryProject.Services
         public async Task<ProductoUnidad> RevertirVentaAsync(
             int productoUnidadId,
             string motivo,
-            string? usuario = null)
+            string? usuario = null,
+            string? origenReferencia = null)
         {
             if (string.IsNullOrWhiteSpace(motivo))
                 throw new ArgumentException("El motivo es obligatorio.", nameof(motivo));
@@ -407,7 +408,7 @@ namespace TheBuryProject.Services
 
             _context.ProductoUnidadMovimientos.Add(CrearMovimiento(
                 unidad.Id, estadoAnterior, EstadoUnidad.EnStock,
-                motivo, "CancelacionVenta", usuario));
+                motivo, origenReferencia ?? "CancelacionVenta", usuario));
 
             await _context.SaveChangesAsync();
 

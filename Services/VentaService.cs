@@ -2518,7 +2518,11 @@ namespace TheBuryProject.Services
 
             foreach (var unidad in unidades)
             {
-                await _productoUnidadService.RevertirVentaAsync(unidad.Id, motivo, usuario);
+                await _productoUnidadService.RevertirVentaAsync(
+                    unidad.Id,
+                    motivo,
+                    usuario,
+                    $"CancelacionVenta:{venta.Id}");
             }
         }
 

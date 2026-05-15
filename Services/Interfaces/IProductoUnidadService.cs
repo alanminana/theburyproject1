@@ -102,11 +102,13 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>
         /// Revierte una unidad de Vendida a EnStock (cancelación de venta).
         /// Limpia VentaDetalleId, ClienteId y FechaVenta. Motivo obligatorio. Crea movimiento de historial.
+        /// origenReferencia permite registrar el ventaId de origen, ej: "CancelacionVenta:42".
         /// </summary>
         Task<ProductoUnidad> RevertirVentaAsync(
             int productoUnidadId,
             string motivo,
-            string? usuario = null);
+            string? usuario = null,
+            string? origenReferencia = null);
 
         /// <summary>
         /// Marca una unidad como Devuelta. Estado previo debe ser Vendida.

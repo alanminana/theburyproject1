@@ -913,6 +913,198 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Contains("no requiere unidad individual", ex.Message);
     }
 
+    // =========================================================================
+    // Fase 8.2.T — Auditoría cancelación con trazabilidad individual
+    // =========================================================================
+
+    // 25. Cancelar venta confirmada → historial tiene movimiento Vendida→EnStock
+    //     con OrigenReferencia que contiene el ventaId
+    [Fact]
+    public async Task CancelarVenta_Confirmada_HistorialTieneMovimientoConVentaId()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-HIST-CANC-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.CancelarVentaAsync(venta.Id, "Auditoria 8.2.T");
+
+        var historial = await _context.ProductoUnidadMovimientos
+            .Where(m => m.ProductoUnidadId == unidad.Id)
+            .OrderBy(m => m.FechaCambio)
+            .ToListAsync();
+
+        var movCancelacion = historial.Last();
+        Assert.Equal(EstadoUnidad.Vendida, movCancelacion.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.EnStock, movCancelacion.EstadoNuevo);
+        Assert.NotNull(movCancelacion.OrigenReferencia);
+        Assert.Contains($"CancelacionVenta:{venta.Id}", movCancelacion.OrigenReferencia);
+        Assert.Equal("Auditoria 8.2.T", movCancelacion.Motivo);
+    }
+
+    // 26. Cancelar venta confirmada → unidad vuelve a aparecer en ObtenerDisponibles
+    [Fact]
+    public async Task CancelarVenta_Confirmada_UnidadVuelveADisponibles()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-DISP-CANC-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var disponiblesTrasfirmar = (await _unidadService.ObtenerDisponiblesPorProductoAsync(producto.Id)).ToList();
+        Assert.Empty(disponiblesTrasfirmar);
+
+        await _service.CancelarVentaAsync(venta.Id, "Auditoria disponibles");
+
+        var disponiblesTrasCancel = (await _unidadService.ObtenerDisponiblesPorProductoAsync(producto.Id)).ToList();
+        Assert.Single(disponiblesTrasCancel);
+        Assert.Equal(unidad.Id, disponiblesTrasCancel[0].Id);
+    }
+
+    // 27. Cancelar venta confirmada con dos unidades trazables → ambas vuelven a EnStock
+    [Fact]
+    public async Task CancelarVenta_Confirmada_DosUnidadesTrazables_AmbasRevertidas()
+    {
+        var (productoA, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var (productoB, _) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidadA = await SeedUnidadEnStockAsync(productoA, "SN-MULTI-A");
+        var unidadB = await SeedUnidadEnStockAsync(productoB, "SN-MULTI-B");
+
+        var n = Interlocked.Increment(ref _counter).ToString();
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            Numero = $"VMUL{n}",
+            Estado = EstadoVenta.Presupuesto,
+            TipoPago = TipoPago.Efectivo,
+            Total = 1_000m,
+            IsDeleted = false
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var detalleA = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoA.Id,
+            Cantidad = 1, PrecioUnitario = 500m, Subtotal = 500m,
+            ProductoUnidadId = unidadA.Id, IsDeleted = false
+        };
+        var detalleB = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoB.Id,
+            Cantidad = 1, PrecioUnitario = 500m, Subtotal = 500m,
+            ProductoUnidadId = unidadB.Id, IsDeleted = false
+        };
+        _context.VentaDetalles.AddRange(detalleA, detalleB);
+        await _context.SaveChangesAsync();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var uA = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadA.Id);
+        var uB = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadB.Id);
+        Assert.Equal(EstadoUnidad.Vendida, uA.Estado);
+        Assert.Equal(EstadoUnidad.Vendida, uB.Estado);
+
+        await _service.CancelarVentaAsync(venta.Id, "Multi cancelacion");
+
+        uA = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadA.Id);
+        uB = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadB.Id);
+        Assert.Equal(EstadoUnidad.EnStock, uA.Estado);
+        Assert.Equal(EstadoUnidad.EnStock, uB.Estado);
+        Assert.Null(uA.VentaDetalleId);
+        Assert.Null(uB.VentaDetalleId);
+        Assert.Null(uA.ClienteId);
+        Assert.Null(uB.ClienteId);
+    }
+
+    // 28. Cancelar venta con mix trazable / no trazable no rompe
+    [Fact]
+    public async Task CancelarVenta_Confirmada_MixTrazableNoTrazable_NoRompe()
+    {
+        var (productoTrazable, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var (productoNormal, _) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(productoTrazable, "SN-MIX-001");
+
+        var n = Interlocked.Increment(ref _counter).ToString();
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            Numero = $"VMIX{n}",
+            Estado = EstadoVenta.Presupuesto,
+            TipoPago = TipoPago.Efectivo,
+            Total = 1_500m,
+            IsDeleted = false
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var detalleTrazable = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoTrazable.Id,
+            Cantidad = 1, PrecioUnitario = 500m, Subtotal = 500m,
+            ProductoUnidadId = unidad.Id, IsDeleted = false
+        };
+        var detalleNormal = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoNormal.Id,
+            Cantidad = 2, PrecioUnitario = 500m, Subtotal = 1_000m,
+            ProductoUnidadId = null, IsDeleted = false
+        };
+        _context.VentaDetalles.AddRange(detalleTrazable, detalleNormal);
+        await _context.SaveChangesAsync();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Mix cancelacion");
+
+        Assert.True(resultado);
+        var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadTras.Estado);
+        Assert.Null(unidadTras.VentaDetalleId);
+    }
+
+    // 29. Cancelar venta confirmada con unidad → exactamente un movimiento de reversión
+    //     (anti-regresión: no se duplica el historial de la unidad)
+    [Fact]
+    public async Task CancelarVenta_Confirmada_CreaExactamenteUnMovimientoDeReversion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-NODUP-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.CancelarVentaAsync(venta.Id, "Anti-duplication test");
+
+        var movimientosEnStock = await _context.ProductoUnidadMovimientos
+            .Where(m => m.ProductoUnidadId == unidad.Id
+                     && m.EstadoNuevo == EstadoUnidad.EnStock
+                     && m.EstadoAnterior == EstadoUnidad.Vendida)
+            .ToListAsync();
+
+        Assert.Single(movimientosEnStock);
+    }
+
+    // 30. Cancelar venta sin unidades trazables (producto normal) funciona sin tocar unidades
+    [Fact]
+    public async Task CancelarVenta_Confirmada_SinUnidades_FuncionaSinError()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Sin unidades cancelacion");
+
+        Assert.True(resultado);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaDb.Estado);
+        var unidadesProducto = await _context.ProductoUnidades
+            .Where(u => u.ProductoId == producto.Id && !u.IsDeleted)
+            .ToListAsync();
+        Assert.Empty(unidadesProducto);
+    }
+
     // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,
     //     la unidad anterior queda EnStock intacta (Fase 8.2.S Caso 2).
     [Fact]
