@@ -58,6 +58,8 @@ Tests unitarios agregados:
 
 V1B: implementar calculo real read-only para efectivo, transferencia y tarjeta usando `ConfiguracionPagoGlobalRules` e `IConfiguracionPagoGlobalQueryService`, con tests unitarios primero.
 
+Nota V1B: `docs/fase-cotizacion-v1b-calculator-readonly.md` documenta la implementacion inicial de calculo read-only para productos, efectivo, transferencia, tarjeta, MercadoPago configurado y credito personal no definitivo.
+
 ## H. Checklist actualizado
 
 Carlos:
