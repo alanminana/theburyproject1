@@ -270,3 +270,10 @@ Implementar:
 
 Trabajar en E:\theburyproject-carlos-cotizacion, rama carlos/cotizacion-v1-contratos.
 ```
+
+---
+
+## Nota V1.4
+
+V1.4 implementa la UI que consume los endpoints preview/convertir de esta fase.
+Ver: docs/fase-cotizacion-v1-4-ui-conversion-venta.md

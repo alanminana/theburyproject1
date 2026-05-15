@@ -1,9 +1,11 @@
+@using TheBuryProject.Models.Enums
 @using TheBuryProject.Services.Models
 @model CotizacionResultado
 
 @{
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
+    var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida;
 }
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
@@ -20,6 +22,141 @@
             </a>
         </div>
     </section>
+
+    @if (puedeConvertir)
+    {
+        <section id="cotizacion-conversion-panel"
+                 data-cotizacion-conversion
+                 data-cotizacion-id="@Model.Id"
+                 data-preview-url="@Url.Content("~/api/cotizacion/" + Model.Id + "/conversion/preview")"
+                 data-convertir-url="@Url.Content("~/api/cotizacion/" + Model.Id + "/conversion/convertir")"
+                 data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")"
+                 data-venta-edit-url="@Url.Content("~/Venta/Edit/")"
+                 class="rounded-lg border border-amber-500/20 bg-amber-500/10 p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-bold text-amber-300">Esta cotizacion esta emitida y puede convertirse en venta.</p>
+                    <p class="mt-1 text-xs text-slate-400">La conversion crea una venta editable. No confirma la venta ni descuenta stock.</p>
+                </div>
+                <button id="cotizacion-btn-convertir"
+                        type="button"
+                        class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:opacity-50">
+                    <span class="material-symbols-outlined text-lg">autorenew</span>
+                    Convertir a Venta
+                </button>
+            </div>
+        </section>
+
+        <div id="cotizacion-conversion-modal"
+             class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="cotizacion-modal-titulo">
+            <div class="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+                    <h2 id="cotizacion-modal-titulo" class="text-base font-black text-white">Convertir a Venta</h2>
+                    <button id="cotizacion-modal-cerrar" type="button" class="text-slate-400 hover:text-white">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+
+                <div id="cotizacion-conversion-loading" class="hidden px-6 py-8 text-center">
+                    <p class="text-sm text-slate-400">Calculando preview...</p>
+                </div>
+
+                <div id="cotizacion-conversion-contenido" class="hidden max-h-[60vh] overflow-y-auto px-6 py-5 space-y-4">
+                    <div id="cotizacion-conversion-errores" class="hidden rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+                        <p class="mb-2 text-xs font-bold uppercase tracking-wider text-red-400">No se puede convertir</p>
+                        <ul id="cotizacion-conversion-errores-lista" class="list-disc list-inside space-y-1 text-sm text-red-300"></ul>
+                    </div>
+
+                    <div id="cotizacion-conversion-advertencias" class="hidden rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                        <p class="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">Advertencias</p>
+                        <ul id="cotizacion-conversion-advertencias-lista" class="list-disc list-inside space-y-1 text-sm text-amber-300"></ul>
+                    </div>
+
+                    <div id="cotizacion-conversion-resumen" class="hidden space-y-4">
+                        <div class="rounded-lg border border-slate-800 bg-slate-800/40 px-4 py-3">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Total cotizado</p>
+                            <p id="cotizacion-total-cotizado" class="mt-1 text-lg font-black text-white"></p>
+                        </div>
+
+                        <div id="cotizacion-cliente-override-panel" class="hidden rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                            <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Cliente requerido</p>
+                            <p class="text-xs text-slate-400">La cotizacion no tiene cliente asignado. Buscar y seleccionar uno para continuar.</p>
+                            <div class="relative">
+                                <input id="cotizacion-override-cliente-buscar"
+                                       type="text"
+                                       placeholder="Buscar cliente..."
+                                       autocomplete="off"
+                                       class="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none" />
+                                <ul id="cotizacion-override-clientes-dropdown"
+                                    class="absolute z-10 mt-1 hidden w-full overflow-hidden rounded-lg border border-slate-700 bg-slate-800 shadow-xl"></ul>
+                            </div>
+                            <input id="cotizacion-override-cliente-id" type="hidden" value="" />
+                            <p id="cotizacion-override-cliente-nombre" class="hidden text-xs font-bold text-emerald-400"></p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Politica de precios</p>
+                            <label class="flex cursor-pointer items-center gap-3">
+                                <input id="cotizacion-precio-cotizado" type="radio" name="cotizacion-precio-politica" value="cotizado" checked class="accent-amber-500" />
+                                <span class="text-sm text-white">Usar precio cotizado (recomendado)</span>
+                            </label>
+                            <label class="flex cursor-pointer items-center gap-3">
+                                <input id="cotizacion-precio-actual" type="radio" name="cotizacion-precio-politica" value="actual" class="accent-amber-500" />
+                                <span class="text-sm text-slate-300">Usar precio actual de lista</span>
+                            </label>
+                        </div>
+
+                        <div id="cotizacion-confirmar-advertencias-panel" class="hidden">
+                            <label class="flex cursor-pointer items-start gap-3">
+                                <input id="cotizacion-check-advertencias" type="checkbox" class="mt-0.5 accent-amber-500" />
+                                <span class="text-sm text-amber-300">Entiendo las advertencias y quiero continuar con la conversion.</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cotizacion-conversion-error-general" class="hidden px-6 pb-4">
+                    <p id="cotizacion-conversion-error-general-texto" class="text-sm text-red-300"></p>
+                </div>
+
+                <div id="cotizacion-conversion-footer" class="hidden border-t border-slate-800 px-6 py-4 flex justify-end gap-3">
+                    <button id="cotizacion-modal-cancelar"
+                            type="button"
+                            class="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">
+                        Cancelar
+                    </button>
+                    <button id="cotizacion-btn-confirmar-conversion"
+                            type="button"
+                            disabled
+                            class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50">
+                        <span class="material-symbols-outlined text-lg">check</span>
+                        Confirmar Conversion
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else if (Model.Estado == EstadoCotizacion.ConvertidaAVenta)
+    {
+        <section class="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-emerald-400">check_circle</span>
+                <p class="text-sm font-bold text-emerald-300">Esta cotizacion ya fue convertida a venta.</p>
+            </div>
+        </section>
+    }
+    else if (Model.Estado == EstadoCotizacion.Cancelada)
+    {
+        <section class="rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-slate-500">cancel</span>
+                <p class="text-sm text-slate-400">Esta cotizacion esta cancelada y no puede convertirse.</p>
+            </div>
+        </section>
+    }
 
     <section class="grid grid-cols-1 gap-3 md:grid-cols-4">
         <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
@@ -113,3 +250,8 @@
         </div>
     </section>
 </div>
+
+@if (puedeConvertir)
+{
+    <script src="~/js/cotizacion-conversion.js" asp-append-version="true"></script>
+}

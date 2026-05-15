@@ -91,6 +91,64 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("IsActive(\"Cotizacion\")", layout);
     }
 
+    [Fact]
+    public void DetallesView_ContieneBotonConversionYScriptConversion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Detalles_tw.cshtml"));
+
+        Assert.Contains("cotizacion-btn-convertir", view);
+        Assert.Contains("data-cotizacion-conversion", view);
+        Assert.Contains("data-preview-url=", view);
+        Assert.Contains("data-convertir-url=", view);
+        Assert.Contains("data-clientes-url=", view);
+        Assert.Contains("data-venta-edit-url=", view);
+        Assert.Contains("~/js/cotizacion-conversion.js", view);
+        Assert.Contains("cotizacion-conversion-modal", view);
+        Assert.Contains("cotizacion-btn-confirmar-conversion", view);
+        Assert.DoesNotContain("venta-create.js", view);
+        Assert.DoesNotContain("asp-controller=\"Venta\"", view);
+    }
+
+    [Fact]
+    public void DetallesView_MuestraBadgeParaEstadosNoConvertibles()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Detalles_tw.cshtml"));
+
+        Assert.Contains("ConvertidaAVenta", view);
+        Assert.Contains("Cancelada", view);
+        Assert.Contains("ya fue convertida a venta", view);
+        Assert.Contains("cancelada y no puede convertirse", view);
+    }
+
+    [Fact]
+    public void ScriptConversion_NoDependeDeVentaCreateNiApiVentas()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-conversion.js"));
+
+        Assert.Contains("data-cotizacion-conversion", script);
+        Assert.Contains("urls.preview", script);
+        Assert.Contains("urls.convertir", script);
+        Assert.Contains("urls.ventaEdit", script);
+        Assert.Contains("clienteFaltante", script);
+        Assert.Contains("usarPrecioCotizado", script);
+        Assert.Contains("confirmarAdvertencias", script);
+        Assert.Contains("clienteIdOverride", script);
+        Assert.DoesNotContain("venta-create", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("/api/ventas/", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("VentaService", script, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ScriptConversion_UsaTextContentParaDatosExternos()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-conversion.js"));
+
+        // Verificar que los datos del servidor se aplican via textContent (no via string interpolacion insegura)
+        Assert.Contains("li.textContent = texto", script);
+        Assert.Contains("clearChildren", script);
+        Assert.Contains("appendItems", script);
+    }
+
     private static CotizacionController CreateController() =>
         new(new StubCotizacionService(), new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
 
