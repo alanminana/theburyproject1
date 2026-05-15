@@ -512,6 +512,18 @@ public class DevolucionService : IDevolucionService
                     $"Reparación iniciada por devolución: {devolucion.NumeroDevolucion}",
                     usuario);
 
+            var detallesDescarte = devolucion.Detalles
+                .Where(d => d.ProductoUnidadId.HasValue &&
+                            d.AccionRecomendada == AccionProducto.Descarte)
+                .ToList();
+
+            if (detallesDescarte.Count > 0)
+                await ActualizarEstadoUnidadDevolucionAsync(
+                    detallesDescarte, devolucion,
+                    EstadoUnidad.Baja,
+                    $"Unidad dada de baja por devolución descartada: {devolucion.NumeroDevolucion}",
+                    usuario);
+
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero && devolucion.RegistrarEgresoCaja)
             {
                 if (_cajaService == null)
