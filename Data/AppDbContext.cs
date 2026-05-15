@@ -1981,6 +1981,16 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PrecioUnitario).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+
+                // Trazabilidad individual (Fase 10.3)
+                entity.HasOne(e => e.ProductoUnidad)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoUnidadId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasIndex(e => e.ProductoUnidadId)
+                    .HasDatabaseName("IX_DevolucionDetalles_ProductoUnidadId");
             });
 
             // NotaCredito

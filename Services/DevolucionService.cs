@@ -129,7 +129,7 @@ public class DevolucionService : IDevolucionService
         // Ventas: obtener lo vendido por producto (cantidad y total ponderado)
         var ventaDetallesRaw = await _context.VentaDetalles
             .Where(vd => vd.VentaId == devolucion.VentaId && !vd.IsDeleted)
-            .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario })
+            .Select(vd => new { vd.ProductoId, vd.Cantidad, vd.PrecioUnitario, vd.ProductoUnidadId })
             .ToListAsync();
 
         var vendidoPorProducto = ventaDetallesRaw
@@ -142,6 +142,13 @@ public class DevolucionService : IDevolucionService
         if (vendidoPorProducto.Count == 0)
             throw new InvalidOperationException("La venta no tiene detalles para devolver");
 
+        // Auto-inferencia: ProductoId con exactamente una VentaDetalle que tiene unidad trazada
+        var unidadPorProducto = ventaDetallesRaw
+            .Where(vd => vd.ProductoUnidadId.HasValue)
+            .GroupBy(vd => vd.ProductoId)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().ProductoUnidadId!.Value);
+
         // Devoluciones previas (incluye pendientes/en revisión/aprobadas/completadas; excluye rechazadas)
         var devueltoPorProducto = await _context.DevolucionDetalles
             .Where(dd => !dd.IsDeleted)
@@ -153,6 +160,43 @@ public class DevolucionService : IDevolucionService
             .GroupBy(x => x.ProductoId)
             .Select(g => new { ProductoId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
             .ToDictionaryAsync(x => x.ProductoId, x => x.Cantidad);
+
+        // Resolver ProductoUnidadId efectivo para cada detalle (explícito o auto-inferido)
+        var unidadIdPorDetalle = detalles.ToDictionary(
+            d => d,
+            d => d.ProductoUnidadId
+                ?? (unidadPorProducto.TryGetValue(d.ProductoId, out var inferida) ? inferida : (int?)null));
+
+        // Validar unidades físicas referenciadas
+        var unidadIdsAValidar = unidadIdPorDetalle.Values
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (unidadIdsAValidar.Count > 0)
+        {
+            var unidadesValidacion = await _context.ProductoUnidades
+                .Where(u => unidadIdsAValidar.Contains(u.Id) && !u.IsDeleted)
+                .Select(u => new { u.Id, u.ProductoId, u.Estado })
+                .ToListAsync();
+
+            foreach (var detalle in detalles.Where(d => unidadIdPorDetalle[d].HasValue))
+            {
+                var unidadId = unidadIdPorDetalle[detalle]!.Value;
+                var unidad = unidadesValidacion.FirstOrDefault(u => u.Id == unidadId);
+
+                if (unidad == null)
+                    throw new InvalidOperationException($"La unidad física {unidadId} no existe o fue eliminada");
+
+                if (unidad.ProductoId != detalle.ProductoId)
+                    throw new InvalidOperationException($"La unidad física {unidadId} no corresponde al producto {detalle.ProductoId}");
+
+                if (unidad.Estado is EstadoUnidad.Baja or EstadoUnidad.Faltante or EstadoUnidad.Anulada or EstadoUnidad.EnReparacion)
+                    throw new InvalidOperationException(
+                        $"La unidad física {unidadId} tiene un estado incompatible con la devolución ({unidad.Estado})");
+            }
+        }
 
         var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
         await using var transaction = hasAmbientTransaction
@@ -191,6 +235,9 @@ public class DevolucionService : IDevolucionService
                 detalle.PrecioUnitario = precioUnitario;
                 detalle.Subtotal = detalle.Cantidad * detalle.PrecioUnitario;
                 total += detalle.Subtotal;
+
+                // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
+                detalle.ProductoUnidadId = unidadIdPorDetalle[detalle];
 
                 // Relación
                 detalle.Devolucion = devolucion;
@@ -435,6 +482,48 @@ public class DevolucionService : IDevolucionService
                     $"En cuarentena por devolución {devolucion.NumeroDevolucion}",
                     usuario,
                     costos: costosCuarentenas);
+            }
+
+            // Actualizar estado de unidades físicas (Fase 10.3)
+            var detallesConUnidad = devolucion.Detalles
+                .Where(d => d.ProductoUnidadId.HasValue &&
+                            (d.AccionRecomendada == AccionProducto.ReintegrarStock ||
+                             d.AccionRecomendada == AccionProducto.Cuarentena))
+                .ToList();
+
+            if (detallesConUnidad.Count > 0)
+            {
+                var unidadIds = detallesConUnidad.Select(d => d.ProductoUnidadId!.Value).ToList();
+                var unidades = await _context.ProductoUnidades
+                    .Where(u => unidadIds.Contains(u.Id) && !u.IsDeleted)
+                    .ToListAsync();
+
+                foreach (var detalle in detallesConUnidad)
+                {
+                    var unidad = unidades.FirstOrDefault(u => u.Id == detalle.ProductoUnidadId!.Value);
+                    if (unidad == null) continue;
+
+                    var estadoAnterior = unidad.Estado;
+                    unidad.Estado = EstadoUnidad.Devuelta;
+                    unidad.UpdatedAt = DateTime.UtcNow;
+
+                    _context.ProductoUnidadMovimientos.Add(new ProductoUnidadMovimiento
+                    {
+                        ProductoUnidadId = unidad.Id,
+                        EstadoAnterior = estadoAnterior,
+                        EstadoNuevo = EstadoUnidad.Devuelta,
+                        Motivo = $"Devolución completada: {devolucion.NumeroDevolucion}",
+                        OrigenReferencia = $"Devolucion:{devolucion.Id}",
+                        UsuarioResponsable = usuario,
+                        FechaCambio = DateTime.UtcNow
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Unidades físicas marcadas como Devuelta - Devolucion {Numero} - Unidades {Cantidad}",
+                    devolucion.NumeroDevolucion, detallesConUnidad.Count);
             }
 
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero && devolucion.RegistrarEgresoCaja)

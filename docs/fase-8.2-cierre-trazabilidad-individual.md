@@ -340,7 +340,7 @@ Los siguientes puntos están fuera del alcance del bloque 8.2 y pertenecen a fas
 
 - **Caja real:** reversión, anulación o acreditación de `MovimientoCaja` al cancelar una venta.
 - **Anulación automática de factura:** la factura queda activa al cancelar una venta facturada.
-- **Devoluciones/garantía con unidad:** flujo formal de devolución que use `MarcarDevueltaAsync`.
+- **Devoluciones/garantía con unidad:** flujo formal de devolución. **Implementado en Fase 10.3** (2026-05-15): `DevolucionDetalle.ProductoUnidadId`, auto-inferencia desde `VentaDetalle`, estado `Devuelta` al completar. Deuda restante: UI, Descarte→Baja, Reparacion→EnReparacion.
 - **Reserva de unidades en ventas pendientes:** `EstadoUnidad.Reservada` no se usa en V1.
 - **Race condition completa:** V1 mitiga re-validando EnStock en confirmación; la reserva formal queda para V2.
 - **Permisos finos de conciliación:** V1 usa permiso `productos/edit`; un permiso específico `stock/conciliar` queda postergado.
@@ -356,7 +356,7 @@ Los siguientes puntos están fuera del alcance del bloque 8.2 y pertenecen a fas
 |---|---|---|
 | Factura queda activa al cancelar venta facturada | Alta | Comprobantes: anulación automática de factura |
 | MovimientoCaja de ingreso no se revierte al cancelar | Alta | Caja: reversión/anulación/acreditación de movimientos |
-| Devoluciones/garantía con unidad (`MarcarDevueltaAsync` no tiene flujo UI) | Media | Devoluciones con trazabilidad |
+| Devoluciones/garantía con unidad — UI (`DevolucionDetalle.ProductoUnidadId` implementado en Fase 10.3) | Media | UI devolucion: mostrar unidad, Descarte→Baja, Reparacion→EnReparacion |
 | Race condition: dos ventas no confirmadas pueden intentar usar la misma unidad | Media | Implementar `EstadoUnidad.Reservada` en V2 |
 | Reserva de unidades en ventas pendientes (negocio no lo exigió en V1) | Baja | Solo si el negocio lo requiere |
 | Sin reporte global de inventario físico por estado | Baja | Reportes de unidades si negocio lo necesita |
@@ -377,7 +377,7 @@ En orden de prioridad:
    Deuda funcional visible: el ingreso de caja queda activo al cancelar. Bloquea cierre contable correcto.
 
 3. **Devoluciones/garantía con unidad.**  
-   Permite cerrar el ciclo completo de vida de una unidad física en flujos post-venta.
+   Permite cerrar el ciclo completo de vida de una unidad física en flujos post-venta. **Backend implementado en Fase 10.3.** UI y estados Descarte/Reparacion pendientes.
 
 4. **Reportes globales de unidades por estado (si el negocio lo necesita).**  
    Inventario físico completo: cuántas unidades hay EnStock, Vendidas, en Baja, etc.
@@ -419,7 +419,10 @@ En orden de prioridad:
 
 - [ ] Anulación automática de factura al cancelar venta facturada (Comprobantes).
 - [ ] Reversión de MovimientoCaja al cancelar venta (Caja).
-- [ ] Flujo UI de devolución/garantía con unidad trazable.
+- [x] Backend: devolución simple con unidad física (Fase 10.3 — 2026-05-15).
+- [ ] UI: mostrar y gestionar unidad en flujo de devolución.
+- [ ] Descarte → marcar unidad como Baja.
+- [ ] Reparación → marcar unidad como EnReparacion.
 - [ ] `EstadoUnidad.Reservada` para mitigar race condition en V2.
 - [ ] Reportes globales de inventario físico por estado.
 - [ ] Permisos finos de conciliación.

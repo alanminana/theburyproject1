@@ -1034,6 +1034,428 @@ public class DevolucionServiceTests : IDisposable
 
         Assert.Equal(int.MaxValue, dias);
     }
+
+    // -------------------------------------------------------------------------
+    // Fase 10.3 — Devolución simple con unidad física
+    // -------------------------------------------------------------------------
+
+    private async Task<ProductoUnidad> SeedProductoUnidadAsync(
+        int productoId,
+        EstadoUnidad estado = EstadoUnidad.Vendida)
+    {
+        var codigo = "U-" + Guid.NewGuid().ToString("N")[..8];
+        var unidad = new ProductoUnidad
+        {
+            ProductoId = productoId,
+            CodigoInternoUnidad = codigo,
+            Estado = estado,
+            FechaIngreso = DateTime.UtcNow
+        };
+        _context.ProductoUnidades.Add(unidad);
+        await _context.SaveChangesAsync();
+        return unidad;
+    }
+
+    private async Task<Venta> SeedVentaConDetalleYUnidadAsync(
+        int clienteId, int productoId, int productoUnidadId, int cantidad = 1)
+    {
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = clienteId,
+            Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = DateTime.UtcNow,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = productoId,
+                    Cantidad = cantidad,
+                    PrecioUnitario = 50m,
+                    Descuento = 0m,
+                    Subtotal = cantidad * 50m,
+                    CostoUnitarioAlMomento = 17.50m,
+                    CostoTotalAlMomento = cantidad * 17.50m,
+                    ProductoUnidadId = productoUnidadId
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        await _context.Entry(venta).ReloadAsync();
+        return venta;
+    }
+
+    [Fact]
+    public async Task Crear_SinUnidad_SigueFuncionandoIgualQueAntes()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Sin unidad"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1 }
+        };
+
+        var resultado = await _service.CrearDevolucionAsync(dev, detalles);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Null(detalles[0].ProductoUnidadId);
+    }
+
+    [Fact]
+    public async Task Crear_ConAutoInferencia_CopiaProductoUnidadIdDeVentaDetalle()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Con auto-inferencia"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1 }
+        };
+
+        await _service.CrearDevolucionAsync(dev, detalles);
+
+        Assert.Equal(unidad.Id, detalles[0].ProductoUnidadId);
+    }
+
+    [Fact]
+    public async Task Crear_ConUnidadExplicitaValida_PersisiteProductoUnidadId()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Con unidad explícita"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1, ProductoUnidadId = unidad.Id }
+        };
+
+        var resultado = await _service.CrearDevolucionAsync(dev, detalles);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal(unidad.Id, detalles[0].ProductoUnidadId);
+    }
+
+    [Fact]
+    public async Task Crear_UnidadDeOtroProducto_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto1 = await SeedProductoAsync();
+        var producto2 = await SeedProductoAsync();
+        var unidadDeProducto2 = await SeedProductoUnidadAsync(producto2.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto1.Id, 2);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Test"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto1.Id, Cantidad = 1, ProductoUnidadId = unidadDeProducto2.Id }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearDevolucionAsync(dev, detalles));
+    }
+
+    [Fact]
+    public async Task Crear_UnidadInexistente_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Test"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1, ProductoUnidadId = 99999 }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearDevolucionAsync(dev, detalles));
+    }
+
+    [Theory]
+    [InlineData(EstadoUnidad.Baja)]
+    [InlineData(EstadoUnidad.Faltante)]
+    [InlineData(EstadoUnidad.Anulada)]
+    [InlineData(EstadoUnidad.EnReparacion)]
+    public async Task Crear_UnidadConEstadoIncompatible_LanzaExcepcion(EstadoUnidad estadoIncompatible)
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, estadoIncompatible);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 2);
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Test"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1, ProductoUnidadId = unidad.Id }
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearDevolucionAsync(dev, detalles));
+    }
+
+    [Fact]
+    public async Task Crear_MultipleVentaDetallesParaMismoProducto_NoAutoInfiere()
+    {
+        // Cuando hay más de un VentaDetalle para el mismo ProductoId en la venta,
+        // la auto-inferencia es ambigua y no debe aplicarse
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var unidad1 = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var unidad2 = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = cliente.Id,
+            Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = DateTime.UtcNow,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = producto.Id, Cantidad = 1,
+                    PrecioUnitario = 50m, Descuento = 0m, Subtotal = 50m,
+                    CostoUnitarioAlMomento = 17.50m, CostoTotalAlMomento = 17.50m,
+                    ProductoUnidadId = unidad1.Id
+                },
+                new()
+                {
+                    ProductoId = producto.Id, Cantidad = 1,
+                    PrecioUnitario = 50m, Descuento = 0m, Subtotal = 50m,
+                    CostoUnitarioAlMomento = 17.50m, CostoTotalAlMomento = 17.50m,
+                    ProductoUnidadId = unidad2.Id
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var dev = new Devolucion
+        {
+            VentaId = venta.Id, ClienteId = cliente.Id,
+            Motivo = MotivoDevolucion.DefectoFabrica, Descripcion = "Test ambigüedad"
+        };
+        var detalles = new List<DevolucionDetalle>
+        {
+            new() { ProductoId = producto.Id, Cantidad = 1 }
+        };
+
+        await _service.CrearDevolucionAsync(dev, detalles);
+
+        // Con múltiples VentaDetalles para el mismo producto, no debe auto-inferir
+        Assert.Null(detalles[0].ProductoUnidadId);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadReintegrar_MarcaUnidadDevuelta()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var unidadBd = await _context.ProductoUnidades.FindAsync(unidad.Id);
+        Assert.Equal(EstadoUnidad.Devuelta, unidadBd!.Estado);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadCuarentena_MarcaUnidadDevuelta()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Cuarentena
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var unidadBd = await _context.ProductoUnidades.FindAsync(unidad.Id);
+        Assert.Equal(EstadoUnidad.Devuelta, unidadBd!.Estado);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadDescarte_NoMarcaUnidadDevuelta()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Descarte
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var unidadBd = await _context.ProductoUnidades.FindAsync(unidad.Id);
+        // Descarte no actualiza la unidad — sigue en Vendida
+        Assert.Equal(EstadoUnidad.Vendida, unidadBd!.Estado);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidad_RegistraProductoUnidadMovimiento()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var movimiento = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m =>
+                m.ProductoUnidadId == unidad.Id &&
+                m.EstadoNuevo == EstadoUnidad.Devuelta);
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(EstadoUnidad.Vendida, movimiento!.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.Devuelta, movimiento.EstadoNuevo);
+        Assert.Contains(dev.NumeroDevolucion, movimiento.Motivo);
+        Assert.Contains(dev.Id.ToString(), movimiento.OrigenReferencia);
+    }
+
+    [Fact]
+    public async Task Completar_SinUnidad_StockSigueFuncionandoYNoCreaMovimientoUnidad()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 3);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        var detalle = new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            Cantidad = 2,
+            PrecioUnitario = 50m,
+            Subtotal = 100m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        };
+        _context.DevolucionDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var productoBd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(12m, productoBd.StockActual);
+
+        var movimientos = await _context.ProductoUnidadMovimientos.AsNoTracking().ToListAsync();
+        Assert.Empty(movimientos);
+    }
 }
 
 // ---------------------------------------------------------------------------

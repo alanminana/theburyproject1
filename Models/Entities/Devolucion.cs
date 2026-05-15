@@ -101,10 +101,14 @@ public class DevolucionDetalle  : AuditableEntity
 
     public AccionProducto AccionRecomendada { get; set; } = AccionProducto.Cuarentena;
 
+    // Trazabilidad individual (Fase 10.3 — nullable para compatibilidad con devoluciones sin unidad)
+    public int? ProductoUnidadId { get; set; }
+
     // Navegación
     public virtual Devolucion Devolucion { get; set; } = null!;
     public virtual Producto Producto { get; set; } = null!;
     public virtual Garantia? Garantia { get; set; }
+    public virtual ProductoUnidad? ProductoUnidad { get; set; }
 }
 
 /// <summary>
