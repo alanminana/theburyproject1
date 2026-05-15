@@ -1105,6 +1105,218 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Empty(unidadesProducto);
     }
 
+    // =========================================================================
+    // Fase 8.2.U — Auditoría venta facturada con trazabilidad individual
+    // =========================================================================
+    // Deuda documentada:
+    //   - Cancelar venta Facturada revierte stock y unidades correctamente,
+    //     pero la Factura queda sin anular (Anulada=false). La política de
+    //     anulación de comprobantes es deuda para una fase de Comprobantes.
+    //   - El MovimientoCaja de ingreso no se revierte al cancelar una venta
+    //     Facturada. Es deuda para la fase de Caja real.
+    // =========================================================================
+
+    private static FacturaViewModel BuildFacturaVm() =>
+        new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow };
+
+    // 31. CancelarVenta Facturada con unidad → unidad vuelve a EnStock, vínculos limpios
+    [Fact]
+    public async Task CancelarVenta_Facturada_ConUnidad_RevierteUnidadAEnStock()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-CANC-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        var ventaFacturada = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Facturada, ventaFacturada.Estado);
+
+        var unidadTrasFacturar = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.Vendida, unidadTrasFacturar.Estado);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Cancelacion facturada 8.2.U");
+
+        Assert.True(resultado);
+
+        var unidadTrasCancel = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadTrasCancel.Estado);
+        Assert.Null(unidadTrasCancel.VentaDetalleId);
+        Assert.Null(unidadTrasCancel.ClienteId);
+        Assert.Null(unidadTrasCancel.FechaVenta);
+
+        var detalleTrasCancel = await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.VentaId == venta.Id);
+        Assert.Null(detalleTrasCancel.ProductoUnidadId);
+
+        var ventaCancelada = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaCancelada.Estado);
+    }
+
+    // 32. CancelarVenta Facturada con unidad → historial tiene CancelacionVenta:{ventaId}
+    [Fact]
+    public async Task CancelarVenta_Facturada_ConUnidad_HistorialTieneMovimientoConVentaId()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-HIST-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+        await _service.CancelarVentaAsync(venta.Id, "Auditoria 8.2.U historial");
+
+        var historial = await _context.ProductoUnidadMovimientos
+            .Where(m => m.ProductoUnidadId == unidad.Id)
+            .OrderBy(m => m.FechaCambio)
+            .ToListAsync();
+
+        var movCancelacion = historial.Last();
+        Assert.Equal(EstadoUnidad.Vendida, movCancelacion.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.EnStock, movCancelacion.EstadoNuevo);
+        Assert.NotNull(movCancelacion.OrigenReferencia);
+        Assert.Contains($"CancelacionVenta:{venta.Id}", movCancelacion.OrigenReferencia);
+    }
+
+    // 33. CancelarVenta Facturada con unidad → exactamente un movimiento de reversión (anti-dup)
+    [Fact]
+    public async Task CancelarVenta_Facturada_ConUnidad_ExactamenteUnMovimientoDeReversion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-NODUP-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+        await _service.CancelarVentaAsync(venta.Id, "Anti-dup facturada");
+
+        var movimientosReversion = await _context.ProductoUnidadMovimientos
+            .Where(m => m.ProductoUnidadId == unidad.Id
+                     && m.EstadoNuevo == EstadoUnidad.EnStock
+                     && m.EstadoAnterior == EstadoUnidad.Vendida)
+            .ToListAsync();
+
+        Assert.Single(movimientosReversion);
+    }
+
+    // 34. CancelarVenta Facturada con unidad → unidad vuelve a disponibles
+    [Fact]
+    public async Task CancelarVenta_Facturada_ConUnidad_UnidadVuelveADisponibles()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-DISP-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        var disponiblesTrasFact = (await _unidadService.ObtenerDisponiblesPorProductoAsync(producto.Id)).ToList();
+        Assert.Empty(disponiblesTrasFact);
+
+        await _service.CancelarVentaAsync(venta.Id, "Disp facturada");
+
+        var disponiblesTrasCancel = (await _unidadService.ObtenerDisponiblesPorProductoAsync(producto.Id)).ToList();
+        Assert.Single(disponiblesTrasCancel);
+        Assert.Equal(unidad.Id, disponiblesTrasCancel[0].Id);
+    }
+
+    // 35. CancelarVenta Facturada sin unidad trazable → funciona sin error
+    [Fact]
+    public async Task CancelarVenta_Facturada_SinUnidad_FuncionaSinError()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Sin unidad facturada");
+
+        Assert.True(resultado);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaDb.Estado);
+    }
+
+    // 36. CancelarVenta Facturada con mix trazable/no trazable → no rompe
+    [Fact]
+    public async Task CancelarVenta_Facturada_MixTrazableNoTrazable_NoRompe()
+    {
+        var (productoTrazable, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var (productoNormal, _) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(productoTrazable, "SN-FACT-MIX-001");
+
+        var n = Interlocked.Increment(ref _counter).ToString();
+        var venta = new Venta
+        {
+            ClienteId = cliente.Id,
+            Numero = $"VFMIX{n}",
+            Estado = EstadoVenta.Presupuesto,
+            TipoPago = TipoPago.Efectivo,
+            Total = 1_500m,
+            IsDeleted = false
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var detalleTrazable = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoTrazable.Id,
+            Cantidad = 1, PrecioUnitario = 500m, Subtotal = 500m,
+            ProductoUnidadId = unidad.Id, IsDeleted = false
+        };
+        var detalleNormal = new VentaDetalle
+        {
+            VentaId = venta.Id, ProductoId = productoNormal.Id,
+            Cantidad = 2, PrecioUnitario = 500m, Subtotal = 1_000m,
+            ProductoUnidadId = null, IsDeleted = false
+        };
+        _context.VentaDetalles.AddRange(detalleTrazable, detalleNormal);
+        await _context.SaveChangesAsync();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Mix facturada");
+
+        Assert.True(resultado);
+        var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadTras.Estado);
+        Assert.Null(unidadTras.VentaDetalleId);
+    }
+
+    // 37. CancelarVenta Facturada → factura queda sin anular (deuda documentada)
+    //     La política de anulación de comprobantes es futura. Este test documenta
+    //     el comportamiento actual esperado y evita regresiones no intencionadas.
+    [Fact]
+    public async Task CancelarVenta_Facturada_FacturaQuedaSinAnular_DeudaDocumentada()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-FAC-001");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        var facturaTrasFacturar = await _context.Facturas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
+        Assert.NotNull(facturaTrasFacturar);
+        Assert.False(facturaTrasFacturar!.Anulada);
+
+        await _service.CancelarVentaAsync(venta.Id, "Deuda comprobante");
+
+        // Comportamiento actual: la factura queda activa (Anulada=false)
+        // Deuda: en la fase de Comprobantes se deberá anular la factura al cancelar la venta.
+        var facturaTrasCancel = await _context.Facturas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
+        Assert.NotNull(facturaTrasCancel);
+        Assert.False(facturaTrasCancel!.Anulada);
+
+        // La unidad sí se revirtió correctamente (trazabilidad OK, comprobante es deuda separada)
+        var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadTras.Estado);
+    }
+
     // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,
     //     la unidad anterior queda EnStock intacta (Fase 8.2.S Caso 2).
     [Fact]
