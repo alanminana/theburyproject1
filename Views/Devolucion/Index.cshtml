@@ -7,41 +7,36 @@
 
     string DevState(EstadoDevolucion e) => e switch
     {
-        EstadoDevolucion.Pendiente => "bg-amber-500/15 text-amber-300",
-        EstadoDevolucion.EnRevision => "bg-sky-500/15 text-sky-300",
-        EstadoDevolucion.Aprobada => "bg-indigo-500/15 text-indigo-300",
-        EstadoDevolucion.Completada => "bg-emerald-500/15 text-emerald-300",
-        EstadoDevolucion.Rechazada => "bg-rose-500/15 text-rose-300",
-        _ => "bg-slate-100 text-slate-700 bg-slate-800 text-slate-300"
+        EstadoDevolucion.Pendiente  => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        EstadoDevolucion.EnRevision => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        EstadoDevolucion.Aprobada   => "border-indigo-500/30 bg-indigo-500/10 text-indigo-300",
+        EstadoDevolucion.Completada => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        EstadoDevolucion.Rechazada  => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        EstadoDevolucion.Cancelada  => "border-slate-600/30 bg-slate-600/10 text-slate-400",
+        _                           => "border-slate-600/30 bg-slate-600/10 text-slate-400"
     };
 
     string ResClass(TipoResolucionDevolucion t) => t switch
     {
-        TipoResolucionDevolucion.ReembolsoDinero => "bg-rose-500/15 text-rose-300",
-        TipoResolucionDevolucion.CambioMismoProducto => "bg-sky-500/15 text-sky-300",
-        TipoResolucionDevolucion.CambioOtroProducto => "bg-violet-500/15 text-violet-300",
-        _ => "bg-amber-500/15 text-amber-300"
+        TipoResolucionDevolucion.NotaCredito         => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        TipoResolucionDevolucion.ReembolsoDinero     => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        TipoResolucionDevolucion.CambioMismoProducto => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        TipoResolucionDevolucion.CambioOtroProducto  => "border-violet-500/30 bg-violet-500/10 text-violet-300",
+        _                                            => "border-slate-600/30 bg-slate-600/10 text-slate-400"
     };
 
     string GarClass(Garantia g)
     {
         var hoy = DateTime.UtcNow.Date;
         if (g.FechaVencimiento.Date < hoy || g.Estado == EstadoGarantia.Vencida)
-        {
-            return "bg-rose-500/15 text-rose-300";
-        }
-
+            return "border-rose-500/30 bg-rose-500/10 text-rose-300";
         if (g.Estado == EstadoGarantia.EnUso)
-        {
-            return "bg-sky-500/15 text-sky-300";
-        }
-
+            return "border-sky-500/30 bg-sky-500/10 text-sky-300";
+        if (g.Estado == EstadoGarantia.Utilizada || g.Estado == EstadoGarantia.Cancelada)
+            return "border-slate-600/30 bg-slate-600/10 text-slate-400";
         if (g.FechaVencimiento.Date <= hoy.AddDays(30))
-        {
-            return "bg-amber-500/15 text-amber-300";
-        }
-
-        return "bg-emerald-500/15 text-emerald-300";
+            return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+        return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
     }
 
     string Crit(Devolucion d) => d.RequiereRMA || d.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero || d.TotalDevolucion >= 1000m
@@ -52,9 +47,9 @@
 
     string CritClass(string crit) => crit switch
     {
-        "Alto" => "bg-rose-500/15 text-rose-300",
-        "Medio" => "bg-amber-500/15 text-amber-300",
-        _ => "bg-slate-100 text-slate-700 bg-slate-800 text-slate-300"
+        "Alto"  => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        "Medio" => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        _       => "border-slate-600/30 bg-slate-600/10 text-slate-400"
     };
 
     var tab = Model.ActiveTab == "garantias" ? "garantias" : "devoluciones";
@@ -365,13 +360,13 @@
                                                 <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@d.Venta?.Numero</td>
                                                 <td class="px-4 py-3 text-sm text-slate-300 sm:px-5">@(string.IsNullOrWhiteSpace(d.Descripcion) ? d.Motivo.GetDisplayName() : d.Descripcion.Length > 42 ? $"{d.Descripcion[..42]}..." : d.Descripcion)</td>
                                                 <td class="px-4 py-3 sm:px-5">
-                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span>
+                                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @ResClass(d.TipoResolucion)">@d.TipoResolucion.GetDisplayName()</span>
                                                 </td>
                                                 <td class="px-4 py-3 text-center sm:px-5">
-                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @CritClass(c)">@c</span>
+                                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @CritClass(c)">@c</span>
                                                 </td>
                                                 <td class="px-4 py-3 text-center sm:px-5">
-                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @DevState(d.Estado)">@d.Estado.GetDisplayName()</span>
+                                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @DevState(d.Estado)">@d.Estado.GetDisplayName()</span>
                                                 </td>
                                                 <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-white sm:px-5">@d.TotalDevolucion.ToString("C2")</td>
                                             </tr>
@@ -423,7 +418,7 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-4 py-3 text-center sm:px-5">
-                                                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span>
+                                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @GarClass(g)">@g.Estado.GetDisplayName()</span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@g.FechaInicio.ToString("dd/MM/yyyy")</td>
                                                 <td class="px-4 py-3 text-sm font-semibold text-slate-200 sm:px-5">@g.FechaVencimiento.ToString("dd/MM/yyyy")</td>
