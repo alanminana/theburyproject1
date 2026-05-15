@@ -731,6 +731,104 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(
+            int ventaId,
+            string ventaNumero,
+            string motivo,
+            string usuario)
+        {
+            try
+            {
+                // Buscar ingreso original por VentaId
+                var movimientoOriginal = await _context.MovimientosCaja
+                    .Where(m => m.VentaId == ventaId
+                             && m.Tipo == TipoMovimientoCaja.Ingreso
+                             && !m.IsDeleted)
+                    .OrderBy(m => m.Id)
+                    .FirstOrDefaultAsync();
+
+                // Fallback: buscar por ReferenciaId para movimientos anteriores sin VentaId directo
+                if (movimientoOriginal == null)
+                {
+                    movimientoOriginal = await _context.MovimientosCaja
+                        .Where(m => m.VentaId == null
+                                 && m.ReferenciaId == ventaId
+                                 && m.Tipo == TipoMovimientoCaja.Ingreso
+                                 && !m.IsDeleted)
+                        .OrderBy(m => m.Id)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (movimientoOriginal == null)
+                {
+                    _logger.LogInformation(
+                        "Venta {VentaNumero} no tiene MovimientoCaja de ingreso. No se crea contramovimiento.",
+                        ventaNumero);
+                    return null;
+                }
+
+                // Guard: evitar doble reversión
+                var yaRevertido = await _context.MovimientosCaja
+                    .AnyAsync(m => m.VentaId == ventaId
+                                && m.Tipo == TipoMovimientoCaja.Egreso
+                                && m.Concepto == ConceptoMovimientoCaja.ReversionVenta
+                                && !m.IsDeleted);
+
+                if (yaRevertido)
+                {
+                    _logger.LogWarning(
+                        "Venta {VentaNumero} ya tiene contramovimiento de reversión. No se duplica.",
+                        ventaNumero);
+                    return null;
+                }
+
+                // Verificar que la apertura existe
+                var apertura = await _context.AperturasCaja
+                    .FirstOrDefaultAsync(a => a.Id == movimientoOriginal.AperturaCajaId && !a.IsDeleted);
+
+                if (apertura == null)
+                {
+                    _logger.LogWarning(
+                        "Apertura {AperturaId} no encontrada para contramovimiento de venta {VentaNumero}. No se crea contramovimiento.",
+                        movimientoOriginal.AperturaCajaId, ventaNumero);
+                    return null;
+                }
+
+                var contramovimiento = new MovimientoCaja
+                {
+                    AperturaCajaId = movimientoOriginal.AperturaCajaId,
+                    FechaMovimiento = DateTime.UtcNow,
+                    Tipo = TipoMovimientoCaja.Egreso,
+                    Concepto = ConceptoMovimientoCaja.ReversionVenta,
+                    TipoPago = movimientoOriginal.TipoPago,
+                    VentaId = ventaId,
+                    Monto = movimientoOriginal.Monto,
+                    Descripcion = $"Reversión por cancelación de venta {ventaNumero}",
+                    Referencia = ventaNumero,
+                    ReferenciaId = ventaId,
+                    MedioPagoDetalle = movimientoOriginal.MedioPagoDetalle,
+                    Usuario = usuario,
+                    Observaciones = $"Contramovimiento del ingreso #{movimientoOriginal.Id}. Motivo: {motivo}",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.MovimientosCaja.Add(contramovimiento);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Contramovimiento de caja creado para venta {VentaNumero}: Egreso ${Monto:N2}",
+                    ventaNumero, contramovimiento.Monto);
+
+                return contramovimiento;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al registrar contramovimiento de venta {VentaNumero}", ventaNumero);
+                throw;
+            }
+        }
+
         public async Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(
             int devolucionId,
             int ventaId,

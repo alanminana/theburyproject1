@@ -30,6 +30,8 @@ file sealed class StubCajaTrazab : ICajaService
         => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
     public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario)
         => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    public Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(int ventaId, string ventaNumero, string motivo, string usuario)
+        => Task.FromResult<MovimientoCaja?>(null);
 
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
     public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();

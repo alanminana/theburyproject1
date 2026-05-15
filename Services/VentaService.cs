@@ -1015,6 +1015,8 @@ namespace TheBuryProject.Services
 
                 _validator.ValidarNoEstaCancelada(venta);
 
+                var estadoOriginal = venta.Estado;
+
                 if (venta.Estado == EstadoVenta.Confirmada || venta.Estado == EstadoVenta.Facturada)
                 {
                     await DevolverStock(venta, motivo);
@@ -1053,6 +1055,18 @@ namespace TheBuryProject.Services
                 venta.MotivoCancelacion = motivo;
 
                 await _context.SaveChangesAsync();
+
+                // Crear contramovimiento de caja para ventas que tuvieron ingreso inmediato
+                if (estadoOriginal == EstadoVenta.Confirmada || estadoOriginal == EstadoVenta.Facturada)
+                {
+                    var usuario = _currentUserService.GetUsername();
+                    await _cajaService.RegistrarContramovimientoVentaAsync(
+                        venta.Id,
+                        venta.Numero,
+                        motivo,
+                        usuario);
+                }
+
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("Venta {Id} cancelada. Motivo: {Motivo}", id, motivo);

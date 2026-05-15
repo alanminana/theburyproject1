@@ -100,6 +100,18 @@ namespace TheBuryProject.Services.Interfaces
             string usuario);
 
         /// <summary>
+        /// Registra un contramovimiento de egreso en caja para neutralizar el ingreso
+        /// generado por una venta que se está cancelando.
+        /// Retorna null si la venta no tenía ingreso de caja (crédito personal, cotización, etc.)
+        /// o si ya existía un contramovimiento previo (guard anti-duplicación).
+        /// </summary>
+        Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(
+            int ventaId,
+            string ventaNumero,
+            string motivo,
+            string usuario);
+
+        /// <summary>
         /// Registra el egreso de caja por reembolso al cliente al completar una devolución.
         /// </summary>
         Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(

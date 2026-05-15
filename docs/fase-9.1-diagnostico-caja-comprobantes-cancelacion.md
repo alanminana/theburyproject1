@@ -37,7 +37,7 @@
 - **Cotización/Presupuesto**: No descuentan stock, no crean movimiento de caja, no generan factura.
 - **Confirmada**: Stock descontado, unidades marcadas Vendidas, MovimientoCaja creado (contado).
 - **Facturada**: Igual que Confirmada + Factura emitida. Fallback de Caja si no se registró antes.
-- **Cancelada**: Revertida. Stock devuelto. Unidades revertidas. Crédito restaurado si aplica. **Sin reversión de Caja. Sin anulación de Factura.**
+- **Cancelada**: Revertida. Stock devuelto. Unidades revertidas. Crédito restaurado si aplica. Factura anulada si aplica (Fase 9.2). MovimientoCaja revertido con contramovimiento Egreso si aplica (Fase 9.3).
 
 ---
 
@@ -328,8 +328,8 @@ Razones:
 
 ### Pendientes producción (NO implementados en esta fase)
 
-- [ ] 9.2 — Anular Factura al cancelar venta facturada
-- [ ] 9.3 — Contramovimiento de Caja al cancelar venta
+- [x] 9.2 — Anular Factura al cancelar venta facturada — **Completado 2026-05-15**
+- [x] 9.3 — Contramovimiento de Caja al cancelar venta — **Completado 2026-05-15**
 - [ ] 9.4 — Estados de acreditación para Transferencia / MercadoPago
 - [ ] 9.5 — QA E2E flujo venta → factura → caja → cancelación
 

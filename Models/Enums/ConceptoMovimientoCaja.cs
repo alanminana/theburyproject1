@@ -15,6 +15,7 @@ namespace TheBuryProject.Models.Enums
         ExtraccionEfectivo = 11,
         DepositoEfectivo = 12,
         DevolucionCliente = 20,
+        ReversionVenta = 21,
         AjusteCaja = 30,
         Otro = 99
     }
