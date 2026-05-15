@@ -5,6 +5,8 @@
 **Agente:** Fase 10.3 — Devolución simple con unidad física  
 **Alcance:** Agregar `ProductoUnidadId` a `DevolucionDetalle`, auto-inferencia desde `VentaDetalle`, validaciones de negocio, actualización de `ProductoUnidad.Estado = Devuelta` y registro de `ProductoUnidadMovimiento` al completar. Sin cambios en Caja, comprobantes, garantía/reparación, VentaService ni flujo sin unidad.
 
+> **Actualización (Fase 10.4):** `Reparacion → EnReparacion` fue implementado en la Fase 10.4 mediante un helper privado `ActualizarEstadoUnidadDevolucionAsync`. `Descarte → Baja` sigue pendiente.
+
 ---
 
 ## A. Diagnóstico previo

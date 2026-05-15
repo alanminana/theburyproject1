@@ -484,47 +484,31 @@ public class DevolucionService : IDevolucionService
                     costos: costosCuarentenas);
             }
 
-            // Actualizar estado de unidades físicas (Fase 10.3)
-            var detallesConUnidad = devolucion.Detalles
+            // Actualizar estado de unidades físicas según AccionRecomendada
+            var detallesDevuelta = devolucion.Detalles
                 .Where(d => d.ProductoUnidadId.HasValue &&
                             (d.AccionRecomendada == AccionProducto.ReintegrarStock ||
                              d.AccionRecomendada == AccionProducto.Cuarentena))
                 .ToList();
 
-            if (detallesConUnidad.Count > 0)
-            {
-                var unidadIds = detallesConUnidad.Select(d => d.ProductoUnidadId!.Value).ToList();
-                var unidades = await _context.ProductoUnidades
-                    .Where(u => unidadIds.Contains(u.Id) && !u.IsDeleted)
-                    .ToListAsync();
+            var detallesReparacion = devolucion.Detalles
+                .Where(d => d.ProductoUnidadId.HasValue &&
+                            d.AccionRecomendada == AccionProducto.Reparacion)
+                .ToList();
 
-                foreach (var detalle in detallesConUnidad)
-                {
-                    var unidad = unidades.FirstOrDefault(u => u.Id == detalle.ProductoUnidadId!.Value);
-                    if (unidad == null) continue;
+            if (detallesDevuelta.Count > 0)
+                await ActualizarEstadoUnidadDevolucionAsync(
+                    detallesDevuelta, devolucion,
+                    EstadoUnidad.Devuelta,
+                    $"Devolución completada: {devolucion.NumeroDevolucion}",
+                    usuario);
 
-                    var estadoAnterior = unidad.Estado;
-                    unidad.Estado = EstadoUnidad.Devuelta;
-                    unidad.UpdatedAt = DateTime.UtcNow;
-
-                    _context.ProductoUnidadMovimientos.Add(new ProductoUnidadMovimiento
-                    {
-                        ProductoUnidadId = unidad.Id,
-                        EstadoAnterior = estadoAnterior,
-                        EstadoNuevo = EstadoUnidad.Devuelta,
-                        Motivo = $"Devolución completada: {devolucion.NumeroDevolucion}",
-                        OrigenReferencia = $"Devolucion:{devolucion.Id}",
-                        UsuarioResponsable = usuario,
-                        FechaCambio = DateTime.UtcNow
-                    });
-                }
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation(
-                    "Unidades físicas marcadas como Devuelta - Devolucion {Numero} - Unidades {Cantidad}",
-                    devolucion.NumeroDevolucion, detallesConUnidad.Count);
-            }
+            if (detallesReparacion.Count > 0)
+                await ActualizarEstadoUnidadDevolucionAsync(
+                    detallesReparacion, devolucion,
+                    EstadoUnidad.EnReparacion,
+                    $"Reparación iniciada por devolución: {devolucion.NumeroDevolucion}",
+                    usuario);
 
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.ReembolsoDinero && devolucion.RegistrarEgresoCaja)
             {
@@ -588,6 +572,46 @@ public class DevolucionService : IDevolucionService
         if (venta == null) return int.MaxValue;
 
         return (DateTime.UtcNow - venta.FechaVenta).Days;
+    }
+
+    private async Task ActualizarEstadoUnidadDevolucionAsync(
+        List<DevolucionDetalle> detalles,
+        Devolucion devolucion,
+        EstadoUnidad estadoDestino,
+        string motivo,
+        string usuario)
+    {
+        var unidadIds = detalles.Select(d => d.ProductoUnidadId!.Value).ToList();
+        var unidades = await _context.ProductoUnidades
+            .Where(u => unidadIds.Contains(u.Id) && !u.IsDeleted)
+            .ToListAsync();
+
+        foreach (var detalle in detalles)
+        {
+            var unidad = unidades.FirstOrDefault(u => u.Id == detalle.ProductoUnidadId!.Value);
+            if (unidad == null) continue;
+
+            var estadoAnterior = unidad.Estado;
+            unidad.Estado = estadoDestino;
+            unidad.UpdatedAt = DateTime.UtcNow;
+
+            _context.ProductoUnidadMovimientos.Add(new ProductoUnidadMovimiento
+            {
+                ProductoUnidadId = unidad.Id,
+                EstadoAnterior = estadoAnterior,
+                EstadoNuevo = estadoDestino,
+                Motivo = motivo,
+                OrigenReferencia = $"Devolucion:{devolucion.Id}",
+                UsuarioResponsable = usuario,
+                FechaCambio = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Unidades físicas marcadas como {Estado} - Devolucion {Numero} - Unidades {Cantidad}",
+            estadoDestino, devolucion.NumeroDevolucion, detalles.Count);
     }
 
     private async Task<Dictionary<int, decimal>> ObtenerCostosVentaPorProductoAsync(int ventaId)

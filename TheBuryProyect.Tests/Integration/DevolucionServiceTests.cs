@@ -1456,6 +1456,224 @@ public class DevolucionServiceTests : IDisposable
         var movimientos = await _context.ProductoUnidadMovimientos.AsNoTracking().ToListAsync();
         Assert.Empty(movimientos);
     }
+
+    // -------------------------------------------------------------------------
+    // Fase 10.4 — Garantía / reparación con unidad física
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Completar_ConUnidadReparacion_MarcaUnidadEnReparacion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Reparacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var unidadBd = await _context.ProductoUnidades.FindAsync(unidad.Id);
+        Assert.Equal(EstadoUnidad.EnReparacion, unidadBd!.Estado);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadReparacion_RegistraProductoUnidadMovimiento()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 5m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Reparacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var movimiento = await _context.ProductoUnidadMovimientos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m =>
+                m.ProductoUnidadId == unidad.Id &&
+                m.EstadoNuevo == EstadoUnidad.EnReparacion);
+
+        Assert.NotNull(movimiento);
+        Assert.Equal(EstadoUnidad.Vendida, movimiento!.EstadoAnterior);
+        Assert.Equal(EstadoUnidad.EnReparacion, movimiento.EstadoNuevo);
+        Assert.Contains(dev.NumeroDevolucion, movimiento.Motivo);
+        Assert.Contains(dev.Id.ToString(), movimiento.OrigenReferencia);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadReparacion_NoGeneraMovimientoStockAgregado()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Reparacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var productoBd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(10m, productoBd.StockActual);
+
+        var movimientosStock = await _context.MovimientosStock
+            .AsNoTracking()
+            .Where(m => m.ProductoId == producto.Id)
+            .ToListAsync();
+        Assert.Empty(movimientosStock);
+    }
+
+    [Fact]
+    public async Task Completar_SinUnidadReparacion_SigueFuncionando()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 3);
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            Cantidad = 1,
+            PrecioUnitario = 50m,
+            Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Reparacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
+
+        _context.ChangeTracker.Clear();
+        var movimientosUnidad = await _context.ProductoUnidadMovimientos.AsNoTracking().ToListAsync();
+        Assert.Empty(movimientosUnidad);
+    }
+
+    [Fact]
+    public async Task Completar_ConUnidadReparacion_NoAfectaOtrasAcciones()
+    {
+        // Valida no regresión del helper: ReintegrarStock sigue en Devuelta y Reparacion en EnReparacion
+        var cliente = await SeedClienteAsync();
+        var producto1 = await SeedProductoAsync(stockActual: 5m);
+        var producto2 = await SeedProductoAsync(stockActual: 5m);
+        var unidad1 = await SeedProductoUnidadAsync(producto1.Id, EstadoUnidad.Vendida);
+        var unidad2 = await SeedProductoUnidadAsync(producto2.Id, EstadoUnidad.Vendida);
+
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = cliente.Id,
+            Estado = EstadoVenta.Entregada,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = DateTime.UtcNow,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = producto1.Id, Cantidad = 1,
+                    PrecioUnitario = 50m, Descuento = 0m, Subtotal = 50m,
+                    CostoUnitarioAlMomento = 17.50m, CostoTotalAlMomento = 17.50m,
+                    ProductoUnidadId = unidad1.Id
+                },
+                new()
+                {
+                    ProductoId = producto2.Id, Cantidad = 1,
+                    PrecioUnitario = 50m, Descuento = 0m, Subtotal = 50m,
+                    CostoUnitarioAlMomento = 17.50m, CostoTotalAlMomento = 17.50m,
+                    ProductoUnidadId = unidad2.Id
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        await _context.Entry(venta).ReloadAsync();
+
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.CambioMismoProducto);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto1.Id,
+            ProductoUnidadId = unidad1.Id,
+            Cantidad = 1, PrecioUnitario = 50m, Subtotal = 50m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        });
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto2.Id,
+            ProductoUnidadId = unidad2.Id,
+            Cantidad = 1, PrecioUnitario = 50m, Subtotal = 50m,
+            AccionRecomendada = AccionProducto.Reparacion
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        _context.ChangeTracker.Clear();
+        var u1 = await _context.ProductoUnidades.FindAsync(unidad1.Id);
+        var u2 = await _context.ProductoUnidades.FindAsync(unidad2.Id);
+        Assert.Equal(EstadoUnidad.Devuelta, u1!.Estado);
+        Assert.Equal(EstadoUnidad.EnReparacion, u2!.Estado);
+    }
 }
 
 // ---------------------------------------------------------------------------
