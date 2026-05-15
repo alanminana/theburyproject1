@@ -1674,6 +1674,40 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(EstadoUnidad.Devuelta, u1!.Estado);
         Assert.Equal(EstadoUnidad.EnReparacion, u2!.Estado);
     }
+
+    // -------------------------------------------------------------------------
+    // Fase 10.4B — ObtenerDevolucionAsync incluye ProductoUnidad
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerDevolucion_ConProductoUnidad_IncluyeDatosUnidad()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var unidad = await SeedProductoUnidadAsync(producto.Id, EstadoUnidad.Vendida);
+        var venta = await SeedVentaConDetalleYUnidadAsync(cliente.Id, producto.Id, unidad.Id, 1);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            ProductoUnidadId = unidad.Id,
+            Cantidad = 1, PrecioUnitario = 100m, Subtotal = 100m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _service.ObtenerDevolucionAsync(dev.Id);
+
+        Assert.NotNull(resultado);
+        var detalle = Assert.Single(resultado!.Detalles);
+        Assert.NotNull(detalle.ProductoUnidad);
+        Assert.Equal(unidad.Id, detalle.ProductoUnidad!.Id);
+        Assert.Equal(unidad.CodigoInternoUnidad, detalle.ProductoUnidad.CodigoInternoUnidad);
+        Assert.Equal(EstadoUnidad.Vendida, detalle.ProductoUnidad.Estado);
+    }
 }
 
 // ---------------------------------------------------------------------------

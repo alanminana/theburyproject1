@@ -84,6 +84,8 @@ public class DevolucionService : IDevolucionService
             .Include(d => d.Venta)
             .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
                 .ThenInclude(dd => dd.Producto)
+            .Include(d => d.Detalles.Where(dd => !dd.IsDeleted && dd.Producto != null && !dd.Producto.IsDeleted))
+                .ThenInclude(dd => dd.ProductoUnidad)
             .Include(d => d.NotaCredito)
             .Include(d => d.RMA).ThenInclude(r => r!.Proveedor)
             .FirstOrDefaultAsync(d => d.Id == id && !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted);

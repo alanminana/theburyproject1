@@ -396,10 +396,24 @@ public class DevolucionController : Controller
     /// <summary>
     /// Ver detalles de una devolución
     /// </summary>
-    public IActionResult Detalles(int id)
+    public async Task<IActionResult> Detalles(int id)
     {
-        TempData["Info"] = "El detalle individual de devoluciones todavía no está disponible en esta superficie.";
-        return RedirectToAction(nameof(Index));
+        var devolucion = await _devolucionService.ObtenerDevolucionAsync(id);
+        if (devolucion == null)
+        {
+            TempData["Error"] = "Devolución no encontrada.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var viewModel = new DevolucionDetallesViewModel
+        {
+            Devolucion = devolucion,
+            Detalles = devolucion.Detalles.ToList(),
+            NotaCredito = devolucion.NotaCredito,
+            RMA = devolucion.RMA
+        };
+
+        return View(viewModel);
     }
 
     /// <summary>

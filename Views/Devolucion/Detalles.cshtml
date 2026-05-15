@@ -1,0 +1,401 @@
+@using TheBuryProject.Models.Entities
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Helpers
+@model TheBuryProject.ViewModels.DevolucionDetallesViewModel
+@{
+    ViewData["Title"] = $"Devolución {Model.Devolucion.NumeroDevolucion}";
+
+    var dev = Model.Devolucion;
+    var indexUrl = Url.Action("Index", "Devolucion");
+
+    string DevState(EstadoDevolucion e) => e switch
+    {
+        EstadoDevolucion.Pendiente   => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        EstadoDevolucion.EnRevision  => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        EstadoDevolucion.Aprobada    => "border-indigo-500/30 bg-indigo-500/10 text-indigo-300",
+        EstadoDevolucion.Completada  => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        EstadoDevolucion.Rechazada   => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        _                            => "border-slate-600/30 bg-slate-600/10 text-slate-400"
+    };
+
+    string ResClass(TipoResolucionDevolucion t) => t switch
+    {
+        TipoResolucionDevolucion.ReembolsoDinero     => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        TipoResolucionDevolucion.CambioMismoProducto => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        TipoResolucionDevolucion.CambioOtroProducto  => "border-violet-500/30 bg-violet-500/10 text-violet-300",
+        _                                            => "border-amber-500/30 bg-amber-500/10 text-amber-300"
+    };
+
+    string AccionClass(AccionProducto a) => a switch
+    {
+        AccionProducto.ReintegrarStock => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        AccionProducto.Cuarentena      => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        AccionProducto.Reparacion      => "border-purple-500/30 bg-purple-500/10 text-purple-300",
+        AccionProducto.DevolverProveedor => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        AccionProducto.Descarte        => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        _                              => "border-slate-600/30 bg-slate-600/10 text-slate-400"
+    };
+
+    string UnidadBadge(EstadoUnidad e) => e switch
+    {
+        EstadoUnidad.EnStock      => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        EstadoUnidad.Vendida      => "border-sky-500/30 bg-sky-500/10 text-sky-300",
+        EstadoUnidad.Entregada    => "border-blue-500/30 bg-blue-500/10 text-blue-300",
+        EstadoUnidad.Devuelta     => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        EstadoUnidad.EnReparacion => "border-purple-500/30 bg-purple-500/10 text-purple-300",
+        EstadoUnidad.Faltante     => "border-red-500/30 bg-red-500/10 text-red-300",
+        EstadoUnidad.Baja         => "border-slate-600/30 bg-slate-600/10 text-slate-400",
+        EstadoUnidad.Anulada      => "border-slate-600/30 bg-slate-600/10 text-slate-400",
+        EstadoUnidad.Reservada    => "border-orange-500/30 bg-orange-500/10 text-orange-300",
+        _                         => "border-slate-600/30 bg-slate-600/10 text-slate-400"
+    };
+
+    string UnidadLabel(EstadoUnidad e) => e switch
+    {
+        EstadoUnidad.EnStock      => "En stock",
+        EstadoUnidad.Vendida      => "Vendida",
+        EstadoUnidad.Entregada    => "Entregada",
+        EstadoUnidad.Devuelta     => "Devuelta",
+        EstadoUnidad.EnReparacion => "En reparación",
+        EstadoUnidad.Faltante     => "Faltante",
+        EstadoUnidad.Baja         => "Baja",
+        EstadoUnidad.Anulada      => "Anulada",
+        EstadoUnidad.Reservada    => "Reservada",
+        _                         => e.ToString()
+    };
+
+    var canAprobar   = dev.Estado == EstadoDevolucion.Pendiente || dev.Estado == EstadoDevolucion.EnRevision;
+    var canRechazar  = dev.Estado == EstadoDevolucion.Pendiente || dev.Estado == EstadoDevolucion.EnRevision;
+    var canCompletar = dev.Estado == EstadoDevolucion.Aprobada;
+    var rowVersionBase64 = Convert.ToBase64String(dev.RowVersion);
+}
+
+<div class="space-y-3">
+
+    @* Barra superior: breadcrumb + título *@
+    <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 shadow-sm sm:px-5">
+        <div class="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:justify-between">
+            <div class="flex min-w-0 items-center gap-2.5">
+                <a href="@indexUrl" class="inline-flex items-center gap-1 text-slate-400 no-underline hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                    <span class="text-xs font-bold">Devoluciones</span>
+                </a>
+                <span class="text-slate-700">/</span>
+                <div class="min-w-0">
+                    <h1 class="text-base font-black leading-tight text-white lg:text-lg">@dev.NumeroDevolucion</h1>
+                    <p class="text-[11px] font-medium text-slate-500">@(dev.Cliente?.ToDisplayName()) · @dev.FechaDevolucion.ToString("dd/MM/yyyy")</p>
+                </div>
+            </div>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @DevState(dev.Estado)">
+                    @dev.Estado.GetDisplayName()
+                </span>
+                <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] @ResClass(dev.TipoResolucion)">
+                    @dev.TipoResolucion.GetDisplayName()
+                </span>
+            </div>
+        </div>
+    </section>
+
+    @* Alertas *@
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 shadow-sm">
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 shadow-sm">
+            @TempData["Error"]
+        </div>
+    }
+    @if (TempData["Info"] != null)
+    {
+        <div class="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-300 shadow-sm">
+            @TempData["Info"]
+        </div>
+    }
+
+    <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(17rem,0.85fr)]">
+
+        @* Columna principal *@
+        <div class="space-y-3">
+
+            @* Tabla de detalles *@
+            <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
+                <div class="border-b border-slate-800 px-4 py-3 sm:px-5">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Productos devueltos</p>
+                </div>
+
+                <div class="overflow-x-auto overscroll-x-contain">
+                    <table class="min-w-[52rem] w-full text-left">
+                        <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
+                            <tr>
+                                <th class="px-4 py-2.5 sm:px-5">Producto</th>
+                                <th class="px-4 py-2.5 text-center sm:px-5">Cant.</th>
+                                <th class="px-4 py-2.5 sm:px-5">Estado producto</th>
+                                <th class="px-4 py-2.5 sm:px-5">Acción</th>
+                                <th class="px-4 py-2.5 sm:px-5">Unidad física</th>
+                                <th class="px-4 py-2.5 text-right sm:px-5">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var det in Model.Detalles)
+                            {
+                                <tr class="transition-colors hover:bg-slate-900/40">
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <div class="flex flex-col">
+                                            <span class="text-sm font-bold text-white">@det.Producto?.Nombre</span>
+                                            <span class="text-xs text-slate-400">@det.Producto?.Codigo</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-sm font-bold tabular-nums text-slate-200 sm:px-5">@det.Cantidad</td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <span class="text-xs font-semibold text-slate-300">@det.EstadoProducto.GetDisplayName()</span>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] @AccionClass(det.AccionRecomendada)">
+                                            @det.AccionRecomendada.GetDisplayName()
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 sm:px-5">
+                                        @if (det.ProductoUnidad != null)
+                                        {
+                                            <div class="flex flex-col gap-0.5">
+                                                <span class="text-xs font-black tabular-nums text-white">@det.ProductoUnidad.CodigoInternoUnidad</span>
+                                                @if (!string.IsNullOrWhiteSpace(det.ProductoUnidad.NumeroSerie))
+                                                {
+                                                    <span class="text-[11px] text-slate-400">S/N: @det.ProductoUnidad.NumeroSerie</span>
+                                                }
+                                                <span class="mt-0.5 inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] @UnidadBadge(det.ProductoUnidad.Estado)">
+                                                    @UnidadLabel(det.ProductoUnidad.Estado)
+                                                </span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-[11px] text-slate-500">Sin unidad física</span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-white sm:px-5">@det.Subtotal.ToString("C2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="border-t border-slate-700 bg-slate-950/40">
+                            <tr>
+                                <td colspan="5" class="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 sm:px-5">Total devolución</td>
+                                <td class="px-4 py-2.5 text-right text-sm font-black tabular-nums text-white sm:px-5">@dev.TotalDevolucion.ToString("C2")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            @* Observaciones técnicas *@
+            @{
+                var detallesConObs = Model.Detalles.Where(d => !string.IsNullOrWhiteSpace(d.ObservacionesTecnicas)).ToList();
+            }
+            @if (detallesConObs.Any())
+            {
+                <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
+                    <div class="border-b border-slate-800 px-4 py-3 sm:px-5">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Observaciones técnicas</p>
+                    </div>
+                    <div class="divide-y divide-slate-800">
+                        @foreach (var det in detallesConObs)
+                        {
+                            <div class="px-4 py-3 sm:px-5">
+                                <p class="text-xs font-bold text-slate-300">@det.Producto?.Nombre</p>
+                                <p class="mt-1 text-xs text-slate-400">@det.ObservacionesTecnicas</p>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            @* Acciones operativas *@
+            @if (canAprobar || canRechazar || canCompletar)
+            {
+                <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
+                    <div class="border-b border-slate-800 px-4 py-3 sm:px-5">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Acciones</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 px-4 py-3 sm:px-5">
+
+                        @if (canAprobar)
+                        {
+                            <form asp-action="Aprobar" method="post" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@dev.Id" />
+                                <input type="hidden" name="rowVersion" value="@rowVersionBase64" />
+                                <button type="submit"
+                                        class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-indigo-500">
+                                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    Aprobar
+                                </button>
+                            </form>
+                        }
+
+                        @if (canCompletar)
+                        {
+                            <form asp-action="Completar" method="post" class="inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@dev.Id" />
+                                <input type="hidden" name="rowVersion" value="@rowVersionBase64" />
+                                <button type="submit"
+                                        class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-emerald-600">
+                                    <span class="material-symbols-outlined text-[16px]">task_alt</span>
+                                    Completar
+                                </button>
+                            </form>
+                        }
+
+                        @if (canRechazar)
+                        {
+                            <button type="button"
+                                    onclick="document.getElementById('rechazar-panel').classList.toggle('hidden')"
+                                    class="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-300 transition-colors hover:bg-rose-500/20">
+                                <span class="material-symbols-outlined text-[16px]">cancel</span>
+                                Rechazar
+                            </button>
+                        }
+                    </div>
+
+                    @if (canRechazar)
+                    {
+                        <div id="rechazar-panel" class="hidden border-t border-slate-800 px-4 py-3 sm:px-5">
+                            <form asp-action="Rechazar" method="post" class="flex flex-wrap items-end gap-2">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@dev.Id" />
+                                <input type="hidden" name="rowVersion" value="@rowVersionBase64" />
+                                <div class="flex-1 min-w-[14rem]">
+                                    <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Motivo de rechazo</label>
+                                    <input type="text" name="motivo" required
+                                           placeholder="Indicá el motivo..."
+                                           class="w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
+                                </div>
+                                <button type="submit"
+                                        class="inline-flex items-center gap-1.5 rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-rose-600">
+                                    Confirmar rechazo
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </section>
+            }
+
+        </div>
+
+        @* Aside: info de la devolución *@
+        <aside class="space-y-3">
+
+            @* Datos generales *@
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Datos generales</p>
+                    <span class="material-symbols-outlined text-base text-primary">info</span>
+                </div>
+                <dl class="space-y-2">
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-[11px] font-semibold text-slate-500">Número</dt>
+                        <dd class="text-[11px] font-black tabular-nums text-white">@dev.NumeroDevolucion</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-[11px] font-semibold text-slate-500">Fecha</dt>
+                        <dd class="text-[11px] font-bold text-slate-200">@dev.FechaDevolucion.ToString("dd/MM/yyyy")</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-[11px] font-semibold text-slate-500">Cliente</dt>
+                        <dd class="text-[11px] font-bold text-slate-200">@dev.Cliente?.ToDisplayName()</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-[11px] font-semibold text-slate-500">Venta</dt>
+                        <dd class="text-[11px] font-bold text-primary tabular-nums">@dev.Venta?.Numero</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-[11px] font-semibold text-slate-500">Motivo</dt>
+                        <dd class="text-[11px] font-bold text-slate-200">@dev.Motivo.GetDisplayName()</dd>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(dev.Descripcion))
+                    {
+                        <div>
+                            <dt class="text-[11px] font-semibold text-slate-500">Descripción</dt>
+                            <dd class="mt-0.5 text-[11px] text-slate-300">@dev.Descripcion</dd>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(dev.AprobadoPor))
+                    {
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Aprobado por</dt>
+                            <dd class="text-[11px] font-bold text-slate-200">@dev.AprobadoPor</dd>
+                        </div>
+                    }
+                    @if (dev.FechaAprobacion.HasValue)
+                    {
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Fecha aprobación</dt>
+                            <dd class="text-[11px] font-bold text-slate-200">@dev.FechaAprobacion.Value.ToString("dd/MM/yyyy")</dd>
+                        </div>
+                    }
+                </dl>
+            </section>
+
+            @* Nota de crédito *@
+            @if (Model.NotaCredito != null)
+            {
+                <section class="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">Nota de crédito</p>
+                        <span class="material-symbols-outlined text-base text-amber-400">receipt</span>
+                    </div>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Número</dt>
+                            <dd class="text-[11px] font-black tabular-nums text-white">@Model.NotaCredito.NumeroNotaCredito</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Monto</dt>
+                            <dd class="text-[11px] font-black tabular-nums text-white">@Model.NotaCredito.MontoTotal.ToString("C2")</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Disponible</dt>
+                            <dd class="text-[11px] font-black tabular-nums text-emerald-300">@Model.NotaCredito.MontoDisponible.ToString("C2")</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Estado</dt>
+                            <dd class="text-[11px] font-bold text-slate-200">@Model.NotaCredito.Estado.GetDisplayName()</dd>
+                        </div>
+                    </dl>
+                </section>
+            }
+
+            @* RMA *@
+            @if (Model.RMA != null)
+            {
+                <section class="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 shadow-sm">
+                    <div class="mb-3 flex items-center justify-between gap-2">
+                        <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-sky-400">RMA</p>
+                        <span class="material-symbols-outlined text-base text-sky-400">sync_alt</span>
+                    </div>
+                    <dl class="space-y-2">
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Número</dt>
+                            <dd class="text-[11px] font-black tabular-nums text-white">@Model.RMA.NumeroRMA</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Proveedor</dt>
+                            <dd class="text-[11px] font-bold text-slate-200">@Model.RMA.Proveedor?.RazonSocial</dd>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-[11px] font-semibold text-slate-500">Estado</dt>
+                            <dd class="text-[11px] font-bold text-slate-200">@Model.RMA.Estado.GetDisplayName()</dd>
+                        </div>
+                    </dl>
+                </section>
+            }
+
+        </aside>
+    </div>
+
+</div>
