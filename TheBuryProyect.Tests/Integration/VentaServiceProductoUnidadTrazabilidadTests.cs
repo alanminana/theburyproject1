@@ -912,4 +912,46 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
 
         Assert.Contains("no requiere unidad individual", ex.Message);
     }
+
+    // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,
+    //     la unidad anterior queda EnStock intacta (Fase 8.2.S Caso 2).
+    [Fact]
+    public async Task UpdateAsync_CambiaUnidad_LuegoConfirmar_NuevaUnidadVendidaViejaEnStock()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 10);
+        var unidadA = await SeedUnidadEnStockAsync(producto, "SN-CASO2-A");
+        var unidadB = await SeedUnidadEnStockAsync(producto, "SN-CASO2-B");
+
+        // Venta inicial con unidad A
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidadA.Id);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+
+        // Editar: cambiar a unidad B
+        var vm = BuildVentaVM(ventaDb, new List<VentaDetalleViewModel>
+        {
+            new VentaDetalleViewModel
+            {
+                ProductoId = producto.Id,
+                Cantidad = 1,
+                PrecioUnitario = 500m,
+                Descuento = 0m,
+                Subtotal = 500m,
+                ProductoUnidadId = unidadB.Id
+            }
+        });
+
+        var resultado = await _service.UpdateAsync(venta.Id, vm);
+        Assert.NotNull(resultado);
+
+        // Confirmar la venta editada
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        // La unidad nueva (B) debe quedar Vendida
+        var unidadBActualizada = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadB.Id);
+        Assert.Equal(EstadoUnidad.Vendida, unidadBActualizada.Estado);
+
+        // La unidad anterior (A) debe seguir EnStock (nunca fue marcada)
+        var unidadAActualizada = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadA.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadAActualizada.Estado);
+    }
 }
