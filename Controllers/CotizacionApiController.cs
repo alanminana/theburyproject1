@@ -7,7 +7,7 @@ using TheBuryProject.Services.Models;
 namespace TheBuryProject.Controllers;
 
 /// <summary>
-/// API read-only para simulacion de cotizaciones no persistidas.
+/// API de cotizaciones: simulación, persistencia y conversión a venta.
 /// </summary>
 [Authorize]
 [ApiController]
@@ -17,15 +17,18 @@ public sealed class CotizacionApiController : ControllerBase
 {
     private readonly ICotizacionPagoCalculator _calculator;
     private readonly ICotizacionService _cotizacionService;
+    private readonly ICotizacionConversionService _conversionService;
     private readonly ILogger<CotizacionApiController> _logger;
 
     public CotizacionApiController(
         ICotizacionPagoCalculator calculator,
         ICotizacionService cotizacionService,
+        ICotizacionConversionService conversionService,
         ILogger<CotizacionApiController> logger)
     {
         _calculator = calculator;
         _cotizacionService = cotizacionService;
+        _conversionService = conversionService;
         _logger = logger;
     }
 
@@ -88,6 +91,58 @@ public sealed class CotizacionApiController : ControllerBase
         {
             _logger.LogError(ex, "Error al guardar cotizacion");
             return StatusCode(500, new { error = "No se pudo guardar la cotizacion." });
+        }
+    }
+
+    [HttpPost("{id:int}/conversion/preview")]
+    public async Task<IActionResult> ConversionPreview(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var resultado = await _conversionService.PreviewConversionAsync(id, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al calcular preview de conversion para cotizacion {Id}", id);
+            return StatusCode(500, new { error = "No se pudo calcular el preview de conversión." });
+        }
+    }
+
+    [HttpPost("{id:int}/conversion/convertir")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "create")]
+    public async Task<IActionResult> Convertir(
+        [FromRoute] int id,
+        [FromBody] CotizacionConversionRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+            return BadRequest(new { error = "El request de conversión es obligatorio." });
+
+        try
+        {
+            var usuario = User?.Identity?.Name ?? "System";
+            var resultado = await _conversionService.ConvertirAVentaAsync(id, request, usuario, cancellationToken);
+
+            if (!resultado.Exitoso)
+                return BadRequest(new { errores = resultado.Errores, advertencias = resultado.Advertencias });
+
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al convertir cotizacion {Id} a venta", id);
+            return StatusCode(500, new { error = "No se pudo convertir la cotización." });
         }
     }
 }

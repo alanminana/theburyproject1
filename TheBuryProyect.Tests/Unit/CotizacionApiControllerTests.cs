@@ -147,7 +147,7 @@ public sealed class CotizacionApiControllerTests
     }
 
     private static CotizacionApiController CreateController(StubCotizacionPagoCalculator? calculator = null) =>
-        new(calculator ?? new StubCotizacionPagoCalculator(), new StubCotizacionService(), NullLogger<CotizacionApiController>.Instance);
+        new(calculator ?? new StubCotizacionPagoCalculator(), new StubCotizacionService(), new StubCotizacionConversionService(), NullLogger<CotizacionApiController>.Instance);
 
     private static CotizacionSimulacionRequest RequestValido() =>
         new()
@@ -246,5 +246,20 @@ public sealed class CotizacionApiControllerTests
 
         public Task<CotizacionListadoResultado> ListarAsync(CotizacionFiltros filtros, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CotizacionListadoResultado());
+    }
+
+    private sealed class StubCotizacionConversionService : ICotizacionConversionService
+    {
+        public CotizacionConversionPreviewResultado PreviewResultado { get; init; } =
+            new() { Convertible = true, CotizacionId = 1 };
+
+        public CotizacionConversionResultado ConversionResultado { get; init; } =
+            new() { Exitoso = true, CotizacionId = 1, VentaId = 10, NumeroVenta = "COT-202501-1" };
+
+        public Task<CotizacionConversionPreviewResultado> PreviewConversionAsync(int cotizacionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(PreviewResultado);
+
+        public Task<CotizacionConversionResultado> ConvertirAVentaAsync(int cotizacionId, CotizacionConversionRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(ConversionResultado);
     }
 }

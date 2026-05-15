@@ -2,7 +2,7 @@
 
 **Agente:** Carlos — Cotización  
 **Rama:** `carlos/cotizacion-v1-contratos`  
-**Estado:** Diseño cerrado — sin implementación productiva  
+**Estado:** Diseño cerrado. V1.3 implementa la conversión controlada sin UI completa.  
 **Fecha:** 2026-05-15  
 
 ---
