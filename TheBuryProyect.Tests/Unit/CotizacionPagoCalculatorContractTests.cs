@@ -289,11 +289,32 @@ public sealed class CotizacionPagoCalculatorContractTests
     [Fact]
     public async Task Simular_CreditoPersonalSinCliente_DevuelveRequiereClienteOEvaluacion()
     {
-        var resultado = await CreateCalculator().SimularAsync(DefaultRequest(clienteId: null));
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(creditoService: creditoService).SimularAsync(DefaultRequest(clienteId: null));
 
         var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
         Assert.False(credito.Disponible);
         Assert.Equal(CotizacionOpcionPagoEstado.RequiereCliente, credito.Estado);
+        Assert.Equal(0, creditoService.CallCount);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonalSinCliente_NoInvocaServiciosDeCreditoDefinitivo()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+        var restriccionService = new FakeProductoCreditoRestriccionService();
+
+        var resultado = await CreateCalculator(
+            creditoService: creditoService,
+            restriccionService: restriccionService).SimularAsync(DefaultRequest(clienteId: null));
+
+        Assert.True(resultado.Exitoso);
+        Assert.Equal(0, creditoService.CallCount);
+        Assert.Equal(0, restriccionService.CallCount);
+        Assert.Contains(
+            resultado.Advertencias,
+            a => a.Contains("requiere cliente", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -307,25 +328,152 @@ public sealed class CotizacionPagoCalculatorContractTests
     }
 
     [Fact]
+    public async Task Simular_CreditoPersonalConCliente_SiNoPuedeEvaluar_DevuelveRequiereEvaluacion()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService
+        {
+            Resultado = CreditoSimulacionVentaResultado.Invalido("La tasa de interes de Credito Personal no esta configurada.")
+        };
+
+        var resultado = await CreateCalculator(
+            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            creditoService: creditoService).SimularAsync(DefaultRequest(clienteId: 44));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.False(credito.Disponible);
+        Assert.Equal(CotizacionOpcionPagoEstado.RequiereEvaluacion, credito.Estado);
+        Assert.Contains("evaluacion", credito.MotivoNoDisponible, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(3, creditoService.CallCount);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonalConCliente_CuandoServicioCanonicoSimula_DevuelvePlanes()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(
+            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            creditoService: creditoService).SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+        Assert.Equal(CotizacionOpcionPagoEstado.Disponible, credito.Estado);
+        var plan = Assert.Single(credito.Planes);
+        Assert.Equal(6, plan.CantidadCuotas);
+        Assert.Equal(5m, plan.TasaMensual);
+        Assert.Equal("CreditoPersonalReadOnly", plan.TipoCalculo);
+        Assert.Equal(1, creditoService.CallCount);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_ProductoBloqueado_DevuelveBloqueadoPorProducto()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(
+            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            creditoService: creditoService,
+            restriccionService: new FakeProductoCreditoRestriccionService
+            {
+                Resultado = new ProductoCreditoRestriccionResultado
+                {
+                    Permitido = false,
+                    ProductoIdsBloqueantes = new[] { 1 }
+                }
+            }).SimularAsync(DefaultRequest(clienteId: 44));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.False(credito.Disponible);
+        Assert.Equal(CotizacionOpcionPagoEstado.BloqueadoPorProducto, credito.Estado);
+        Assert.Equal(0, creditoService.CallCount);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_RespetaMaxCuotasProducto()
+    {
+        var resultado = await CreateCalculator(
+            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            restriccionService: new FakeProductoCreditoRestriccionService
+            {
+                Resultado = new ProductoCreditoRestriccionResultado
+                {
+                    MaxCuotasCredito = 6,
+                    ProductoIdsRestrictivos = new[] { 1 }
+                }
+            }).SimularAsync(DefaultRequest(clienteId: 44));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+        Assert.DoesNotContain(credito.Planes, p => p.CantidadCuotas > 6);
+        Assert.Contains(credito.Planes, p => p.CantidadCuotas == 6);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_MultiplesProductos_UsaRestriccionMasBaja()
+    {
+        var precios = DefaultPrecios();
+        precios[2] = new ProductoPrecioVentaResultado
+        {
+            ProductoId = 2,
+            Codigo = "P-2",
+            Nombre = "Producto 2",
+            PrecioVenta = 50_000m,
+            FuentePrecio = FuentePrecioVigente.ProductoPrecioBase,
+            StockActual = 5
+        };
+        var request = DefaultRequest(clienteId: 44);
+        request.Productos.Add(new CotizacionProductoRequest { ProductoId = 2, Cantidad = 1 });
+
+        var resultado = await CreateCalculator(
+            precios: precios,
+            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            restriccionService: new FakeProductoCreditoRestriccionService
+            {
+                Resultado = new ProductoCreditoRestriccionResultado
+                {
+                    MaxCuotasCredito = 3,
+                    ProductoIdsRestrictivos = new[] { 2 }
+                }
+            }).SimularAsync(request);
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+        Assert.DoesNotContain(credito.Planes, p => p.CantidadCuotas > 3);
+        Assert.Contains(resultado.Advertencias, a => a.Contains("hasta 3 cuotas", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Simular_NoCreaVenta_NoTocaStock_NoRegistraCaja()
     {
         var productoService = new FakeProductoService(DefaultPrecios());
         var configuracionService = new FakeConfiguracionPagoGlobalQueryService(DefaultConfiguracion());
-        var calculator = new CotizacionPagoCalculator(productoService, configuracionService);
+        var creditoService = new FakeCreditoSimulacionVentaService();
+        var restriccionService = new FakeProductoCreditoRestriccionService();
+        var calculator = new CotizacionPagoCalculator(
+            productoService,
+            configuracionService,
+            creditoService,
+            restriccionService);
 
         var resultado = await calculator.SimularAsync(DefaultRequest());
 
         Assert.True(resultado.Exitoso);
         Assert.Equal(1, productoService.ConsultasPrecio);
         Assert.Equal(1, configuracionService.ConsultasConfiguracion);
+        Assert.Equal(0, creditoService.CallCount);
+        Assert.Equal(0, restriccionService.CallCount);
     }
 
     private static CotizacionPagoCalculator CreateCalculator(
         Dictionary<int, ProductoPrecioVentaResultado?>? precios = null,
-        ConfiguracionPagoGlobalResultado? configuracion = null) =>
+        ConfiguracionPagoGlobalResultado? configuracion = null,
+        FakeCreditoSimulacionVentaService? creditoService = null,
+        FakeProductoCreditoRestriccionService? restriccionService = null) =>
         new(
             new FakeProductoService(precios ?? DefaultPrecios()),
-            new FakeConfiguracionPagoGlobalQueryService(configuracion ?? DefaultConfiguracion()));
+            new FakeConfiguracionPagoGlobalQueryService(configuracion ?? DefaultConfiguracion()),
+            creditoService ?? new FakeCreditoSimulacionVentaService(),
+            restriccionService ?? new FakeProductoCreditoRestriccionService());
 
     private static CotizacionSimulacionRequest DefaultRequest(
         int cantidad = 2,
@@ -361,7 +509,9 @@ public sealed class CotizacionPagoCalculatorContractTests
             }
         };
 
-    private static ConfiguracionPagoGlobalResultado DefaultConfiguracion(bool includeMercadoPago = true)
+    private static ConfiguracionPagoGlobalResultado DefaultConfiguracion(
+        bool includeMercadoPago = true,
+        bool includeCreditoPersonal = false)
     {
         var medios = new List<MedioPagoGlobalDto>
         {
@@ -452,6 +602,23 @@ public sealed class CotizacionPagoCalculatorContractTests
             });
         }
 
+        if (includeCreditoPersonal)
+        {
+            medios.Add(new MedioPagoGlobalDto
+            {
+                Id = 6,
+                TipoPago = TipoPago.CreditoPersonal,
+                NombreVisible = "Credito personal",
+                Activo = true,
+                Planes = new List<PlanPagoGlobalConfiguradoDto>
+                {
+                    Plan(7, 6, TipoPago.CreditoPersonal, cuotas: 3, ajuste: 0m, etiqueta: "3 cuotas"),
+                    Plan(8, 6, TipoPago.CreditoPersonal, cuotas: 6, ajuste: 0m, etiqueta: "6 cuotas"),
+                    Plan(9, 6, TipoPago.CreditoPersonal, cuotas: 12, ajuste: 0m, etiqueta: "12 cuotas")
+                }
+            });
+        }
+
         return new ConfiguracionPagoGlobalResultado { Medios = medios };
     }
 
@@ -530,6 +697,52 @@ public sealed class CotizacionPagoCalculatorContractTests
         public Task<bool> ToggleDestacadoAsync(int id) => throw new NotSupportedException();
         public Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad) => throw new NotSupportedException();
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeCreditoSimulacionVentaService : ICreditoSimulacionVentaService
+    {
+        public CreditoSimulacionVentaResultado Resultado { get; init; } =
+            CreditoSimulacionVentaResultado.Valido(new CreditoSimulacionVentaJson
+            {
+                montoFinanciado = 200_000m,
+                cuotaEstimada = 40_000m,
+                tasaAplicada = 5m,
+                interesTotal = 40_000m,
+                totalAPagar = 240_000m,
+                gastosAdministrativos = 0m,
+                totalPlan = 240_000m,
+                fechaPrimerPago = "2026-06-15",
+                semaforoEstado = "verde",
+                semaforoMensaje = "Condiciones preliminares saludables."
+            });
+
+        public int CallCount { get; private set; }
+        public List<CreditoSimulacionVentaRequest> Requests { get; } = new();
+
+        public Task<CreditoSimulacionVentaResultado> SimularAsync(
+            CreditoSimulacionVentaRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            Requests.Add(request);
+            return Task.FromResult(Resultado);
+        }
+    }
+
+    private sealed class FakeProductoCreditoRestriccionService : IProductoCreditoRestriccionService
+    {
+        public ProductoCreditoRestriccionResultado Resultado { get; init; } = new();
+        public int CallCount { get; private set; }
+        public List<int[]> Requests { get; } = new();
+
+        public Task<ProductoCreditoRestriccionResultado> ResolverAsync(
+            IEnumerable<int> productoIds,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            Requests.Add(productoIds.ToArray());
+            return Task.FromResult(Resultado);
+        }
     }
 }
 

@@ -116,6 +116,8 @@ Cobertura agregada:
 
 Nota V1C: `docs/fase-cotizacion-v1c-api-simulacion.md` expone el calculator mediante `POST /api/cotizacion/simular` en un controller read-only separado de Venta.
 
+Nota V1D: `docs/fase-cotizacion-v1d-credito-personal-readonly.md` agrega simulacion read-only de credito personal con restricciones por producto y planes calculados sin crear credito definitivo.
+
 Carlos:
 
 - [x] Diagnostico Ventas/Cotizacion cerrado.

@@ -84,7 +84,7 @@ No se agrego integration test con `WebApplicationFactory` porque los patrones ex
 - Falta permiso especifico de Cotizacion.
 - Falta UI separada para consumir `POST /api/cotizacion/simular`.
 - Falta contrato enriquecido con IDs de plan/tarjeta si la UI necesita seleccionar una opcion exacta.
-- Credito personal real sigue pendiente.
+- V1D agrega simulacion read-only de credito personal; sigue pendiente conversion a venta/credito definitivo.
 - Persistencia y conversion Cotizacion -> Venta siguen fuera de alcance.
 
 ## I. Checklist actualizado

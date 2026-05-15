@@ -88,6 +88,29 @@ public sealed class CotizacionApiControllerTests
     }
 
     [Fact]
+    public async Task Simular_ResultadoCreditoPersonal_SerializaCamposDePlanReadonly()
+    {
+        var controller = CreateController(new StubCotizacionPagoCalculator
+        {
+            Resultado = ResultadoExitosoConCreditoPersonal()
+        });
+
+        var result = await controller.Simular(RequestValido());
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        var credito = json.RootElement.GetProperty("opcionesPago")
+            .EnumerateArray()
+            .Single(o => o.GetProperty("medioPago").GetInt32() == (int)CotizacionMedioPagoTipo.CreditoPersonal);
+        var plan = credito.GetProperty("planes")[0];
+
+        Assert.Equal(6, plan.GetProperty("cantidadCuotas").GetInt32());
+        Assert.Equal(5m, plan.GetProperty("tasaMensual").GetDecimal());
+        Assert.Equal(40_000m, plan.GetProperty("costoFinancieroTotal").GetDecimal());
+        Assert.Equal("CreditoPersonalReadOnly", plan.GetProperty("tipoCalculo").GetString());
+    }
+
+    [Fact]
     public void Simular_NoTocaVentaNiCajaNiStock()
     {
         var constructor = Assert.Single(typeof(CotizacionApiController).GetConstructors());
@@ -162,6 +185,32 @@ public sealed class CotizacionApiControllerTests
         if (!string.IsNullOrWhiteSpace(advertencia))
             resultado.Advertencias.Add(advertencia);
 
+        return resultado;
+    }
+
+    private static CotizacionSimulacionResultado ResultadoExitosoConCreditoPersonal()
+    {
+        var resultado = ResultadoExitoso();
+        resultado.OpcionesPago.Add(new CotizacionMedioPagoResultado
+        {
+            MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+            NombreMedioPago = "Credito personal",
+            Disponible = true,
+            Estado = CotizacionOpcionPagoEstado.Disponible,
+            Planes =
+            {
+                new CotizacionPlanPagoResultado
+                {
+                    Plan = "6 cuotas",
+                    CantidadCuotas = 6,
+                    TasaMensual = 5m,
+                    CostoFinancieroTotal = 40_000m,
+                    TipoCalculo = "CreditoPersonalReadOnly",
+                    Total = 240_000m,
+                    ValorCuota = 40_000m
+                }
+            }
+        });
         return resultado;
     }
 

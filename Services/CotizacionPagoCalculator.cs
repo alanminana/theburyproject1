@@ -8,13 +8,19 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 {
     private readonly IProductoService _productoService;
     private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
+    private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
+    private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
 
     public CotizacionPagoCalculator(
         IProductoService productoService,
-        IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService)
+        IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
+        ICreditoSimulacionVentaService creditoSimulacionVentaService,
+        IProductoCreditoRestriccionService productoCreditoRestriccionService)
     {
         _productoService = productoService;
         _configuracionPagoGlobalQueryService = configuracionPagoGlobalQueryService;
+        _creditoSimulacionVentaService = creditoSimulacionVentaService;
+        _productoCreditoRestriccionService = productoCreditoRestriccionService;
     }
 
     public async Task<CotizacionSimulacionResultado> SimularAsync(
@@ -101,7 +107,14 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             AgregarOpcionesBasicas(request, configuracion, totalBase, opciones);
             AgregarOpcionesTarjeta(request, configuracion, totalBase, opciones);
             AgregarMercadoPago(request, configuracion, totalBase, opciones, advertencias);
-            AgregarCreditoPersonal(request, opciones, advertencias);
+            await AgregarCreditoPersonalAsync(
+                request,
+                configuracion,
+                fechaCalculo,
+                totalBase,
+                opciones,
+                advertencias,
+                cancellationToken);
         }
 
         return new CotizacionSimulacionResultado
@@ -277,30 +290,130 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             mostrarDisponibleSinConfiguracion: false));
     }
 
-    private static void AgregarCreditoPersonal(
+    private async Task AgregarCreditoPersonalAsync(
         CotizacionSimulacionRequest request,
+        ConfiguracionPagoGlobalResultado configuracion,
+        DateTime fechaCalculo,
+        decimal totalBase,
         List<CotizacionMedioPagoResultado> opciones,
-        List<string> advertencias)
+        List<string> advertencias,
+        CancellationToken cancellationToken)
     {
         if (!request.IncluirCreditoPersonal)
             return;
 
-        var sinCliente = !request.ClienteId.HasValue;
-        advertencias.Add(sinCliente
-            ? "Credito personal requiere evaluacion del cliente antes de confirmar."
-            : "Simulacion de credito personal queda para V1C/V1D.");
+        if (!request.ClienteId.HasValue)
+        {
+            const string advertenciaSinCliente = "Credito personal requiere cliente y evaluacion antes de confirmar.";
+            advertencias.Add(advertenciaSinCliente);
+
+            opciones.Add(new CotizacionMedioPagoResultado
+            {
+                MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                NombreMedioPago = "Credito personal",
+                Disponible = false,
+                Estado = CotizacionOpcionPagoEstado.RequiereCliente,
+                MotivoNoDisponible = "Credito personal requiere cliente para evaluacion."
+            });
+            return;
+        }
+
+        var restricciones = await _productoCreditoRestriccionService.ResolverAsync(
+            request.Productos.Select(p => p.ProductoId),
+            cancellationToken);
+
+        if (!restricciones.Permitido)
+        {
+            var productos = string.Join(", ", restricciones.ProductoIdsBloqueantes.Select(id => $"#{id}"));
+            var motivo = $"Credito personal bloqueado por producto(s): {productos}.";
+            advertencias.Add(motivo);
+
+            opciones.Add(new CotizacionMedioPagoResultado
+            {
+                MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                NombreMedioPago = "Credito personal",
+                Disponible = false,
+                Estado = CotizacionOpcionPagoEstado.BloqueadoPorProducto,
+                MotivoNoDisponible = motivo
+            });
+            return;
+        }
+
+        var medio = BuscarMedio(configuracion, TipoPago.CreditoPersonal);
+        if (medio == null)
+        {
+            const string motivo = "No hay configuracion activa para credito personal.";
+            advertencias.Add(motivo);
+            opciones.Add(CrearCreditoRequiereEvaluacion(motivo));
+            return;
+        }
+
+        var cuotasSolicitadas = request.CuotasSolicitadas?
+            .Where(c => c > 0)
+            .ToHashSet();
+
+        var planesConfigurados = medio.Planes
+            .Where(p => p.EsPlanGeneral)
+            .Where(p => cuotasSolicitadas == null || cuotasSolicitadas.Contains(p.CantidadCuotas))
+            .Where(p => !restricciones.MaxCuotasCredito.HasValue || p.CantidadCuotas <= restricciones.MaxCuotasCredito.Value)
+            .OrderBy(p => p.Orden)
+            .ThenBy(p => p.CantidadCuotas)
+            .ToList();
+
+        if (planesConfigurados.Count == 0)
+        {
+            var motivo = restricciones.MaxCuotasCredito.HasValue
+                ? $"No hay planes activos de credito personal dentro del limite por producto de {restricciones.MaxCuotasCredito.Value} cuotas."
+                : "No hay planes activos de credito personal para simular.";
+            advertencias.Add(motivo);
+            opciones.Add(CrearCreditoRequiereEvaluacion(motivo));
+            return;
+        }
+
+        var planes = new List<CotizacionPlanPagoResultado>();
+        var fechaPrimeraCuota = fechaCalculo.AddMonths(1).ToString("yyyy-MM-dd");
+
+        foreach (var planConfigurado in planesConfigurados)
+        {
+            var simulacion = await _creditoSimulacionVentaService.SimularAsync(
+                new CreditoSimulacionVentaRequest
+                {
+                    TotalVenta = totalBase,
+                    Anticipo = 0m,
+                    Cuotas = planConfigurado.CantidadCuotas,
+                    GastosAdministrativos = 0m,
+                    FechaPrimeraCuota = fechaPrimeraCuota
+                },
+                cancellationToken);
+
+            if (!simulacion.EsValido || simulacion.Plan is null)
+            {
+                advertencias.Add(simulacion.Error?.error ?? "No se pudo simular credito personal.");
+                continue;
+            }
+
+            planes.Add(CrearPlanCreditoPersonal(planConfigurado, simulacion.Plan, restricciones));
+        }
+
+        if (planes.Count == 0)
+        {
+            const string motivo = "Credito personal requiere evaluacion: no se pudo calcular un plan disponible.";
+            opciones.Add(CrearCreditoRequiereEvaluacion(motivo));
+            return;
+        }
+
+        if (restricciones.MaxCuotasCredito.HasValue)
+        {
+            advertencias.Add($"Credito personal limitado por producto hasta {restricciones.MaxCuotasCredito.Value} cuotas.");
+        }
 
         opciones.Add(new CotizacionMedioPagoResultado
         {
             MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
-            NombreMedioPago = "Credito personal",
-            Disponible = false,
-            Estado = sinCliente
-                ? CotizacionOpcionPagoEstado.RequiereCliente
-                : CotizacionOpcionPagoEstado.RequiereEvaluacion,
-            MotivoNoDisponible = sinCliente
-                ? "Credito personal requiere cliente para evaluacion."
-                : "Simulacion de credito personal queda para V1C/V1D."
+            NombreMedioPago = medio.NombreVisible,
+            Disponible = true,
+            Estado = CotizacionOpcionPagoEstado.Disponible,
+            Planes = planes
         });
     }
 
@@ -451,6 +564,43 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             Estado = CotizacionOpcionPagoEstado.NoDisponible,
             MotivoNoDisponible = motivo
         };
+
+    private static CotizacionMedioPagoResultado CrearCreditoRequiereEvaluacion(string motivo) =>
+        new()
+        {
+            MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+            NombreMedioPago = "Credito personal",
+            Disponible = false,
+            Estado = CotizacionOpcionPagoEstado.RequiereEvaluacion,
+            MotivoNoDisponible = motivo
+        };
+
+    private static CotizacionPlanPagoResultado CrearPlanCreditoPersonal(
+        PlanPagoGlobalConfiguradoDto planConfigurado,
+        CreditoSimulacionVentaJson plan,
+        ProductoCreditoRestriccionResultado restricciones)
+    {
+        var advertencias = new List<string>();
+        if (restricciones.MaxCuotasCredito.HasValue)
+        {
+            advertencias.Add($"Limite por producto: hasta {restricciones.MaxCuotasCredito.Value} cuotas.");
+        }
+
+        return new CotizacionPlanPagoResultado
+        {
+            Plan = string.IsNullOrWhiteSpace(planConfigurado.Etiqueta)
+                ? $"{planConfigurado.CantidadCuotas} cuota(s)"
+                : planConfigurado.Etiqueta!,
+            CantidadCuotas = planConfigurado.CantidadCuotas,
+            TasaMensual = plan.tasaAplicada,
+            InteresPorcentaje = plan.tasaAplicada,
+            CostoFinancieroTotal = plan.interesTotal,
+            TipoCalculo = "CreditoPersonalReadOnly",
+            Total = RedondearMoneda(plan.totalPlan),
+            ValorCuota = RedondearMoneda(plan.cuotaEstimada),
+            Advertencias = advertencias
+        };
+    }
 
     private static MedioPagoGlobalDto? BuscarMedio(
         ConfiguracionPagoGlobalResultado configuracion,
