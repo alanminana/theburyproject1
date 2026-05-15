@@ -1,36 +1,7 @@
 @model ProductoUnidadHistorialViewModel
-@using TheBuryProject.Models.Enums
 
 @{
     ViewData["Title"] = $"Historial - {Model.CodigoInternoUnidad}";
-
-    string BadgeCss(EstadoUnidad e) => e switch
-    {
-        EstadoUnidad.EnStock      => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-        EstadoUnidad.Vendida      => "border-sky-500/30 bg-sky-500/10 text-sky-300",
-        EstadoUnidad.Entregada    => "border-blue-500/30 bg-blue-500/10 text-blue-300",
-        EstadoUnidad.Devuelta     => "border-amber-500/30 bg-amber-500/10 text-amber-300",
-        EstadoUnidad.EnReparacion => "border-purple-500/30 bg-purple-500/10 text-purple-300",
-        EstadoUnidad.Faltante     => "border-red-500/30 bg-red-500/10 text-red-300",
-        EstadoUnidad.Baja         => "border-slate-600/30 bg-slate-600/10 text-slate-400",
-        EstadoUnidad.Anulada      => "border-slate-600/30 bg-slate-600/10 text-slate-400",
-        EstadoUnidad.Reservada    => "border-orange-500/30 bg-orange-500/10 text-orange-300",
-        _                         => "border-slate-600/30 bg-slate-600/10 text-slate-400"
-    };
-
-    string EstadoLabel(EstadoUnidad e) => e switch
-    {
-        EstadoUnidad.EnStock      => "En stock",
-        EstadoUnidad.Vendida      => "Vendida",
-        EstadoUnidad.Entregada    => "Entregada",
-        EstadoUnidad.Devuelta     => "Devuelta",
-        EstadoUnidad.EnReparacion => "En reparación",
-        EstadoUnidad.Faltante     => "Faltante",
-        EstadoUnidad.Baja         => "Baja",
-        EstadoUnidad.Anulada      => "Anulada",
-        EstadoUnidad.Reservada    => "Reservada",
-        _                         => e.ToString()
-    };
 }
 
 <div class="space-y-6">
@@ -51,9 +22,7 @@
                     }
                 </p>
             </div>
-            <span class="inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-bold @BadgeCss(Model.EstadoActual)">
-                @EstadoLabel(Model.EstadoActual)
-            </span>
+            <partial name="_EstadoUnidadBadge" model="Model.EstadoActual" />
         </div>
     </section>
 
@@ -78,16 +47,12 @@
                             <tr class="hover:bg-white/5">
                                 <td class="px-4 py-3 text-sm text-slate-300">@movimiento.FechaCambio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold @BadgeCss(movimiento.EstadoAnterior)">
-                                        @EstadoLabel(movimiento.EstadoAnterior)
-                                    </span>
+                                    <partial name="_EstadoUnidadBadge" model="movimiento.EstadoAnterior" />
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
                                         <span class="text-xs text-slate-600">→</span>
-                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold @BadgeCss(movimiento.EstadoNuevo)">
-                                            @EstadoLabel(movimiento.EstadoNuevo)
-                                        </span>
+                                        <partial name="_EstadoUnidadBadge" model="movimiento.EstadoNuevo" />
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-slate-300">@movimiento.Motivo</td>
