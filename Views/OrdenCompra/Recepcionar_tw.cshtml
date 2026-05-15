@@ -3,12 +3,8 @@
 @{
     ViewData["Title"] = $"Recepcionar - {Model.Numero}";
 
-    var estadoBadge = Model.Estado switch
-    {
-        EstadoOrdenCompra.Confirmada => ("bg-green-500/10 text-green-500 border-green-500/20", "Confirmada"),
-        EstadoOrdenCompra.EnTransito => ("bg-amber-500/10 text-amber-500 border-amber-500/20", "En Tránsito"),
-        _ => ("bg-slate-500/10 text-slate-500 border-slate-500/20", Model.Estado.ToString())
-    };
+    var estadoBadgeClass = OrdenCompraUiHelper.EstadoBadgeClass(Model.Estado);
+    var estadoNombre = OrdenCompraUiHelper.EstadoNombre(Model.Estado);
 
     var totalUnidades = Model.Detalles.Sum(d => d.Cantidad);
     var totalRecibidas = Model.Detalles.Sum(d => Math.Min(d.CantidadRecibida, d.Cantidad));
@@ -72,9 +68,7 @@
         <article class="ocr-stat-card">
             <span class="ocr-stat-label">Estado actual</span>
             <div class="mt-2">
-                <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide @estadoBadge.Item1">
-                    @estadoBadge.Item2
-                </span>
+                <span class="@estadoBadgeClass">@estadoNombre</span>
             </div>
         </article>
         <article class="ocr-stat-card">
@@ -110,10 +104,10 @@
                                 <span class="text-xs font-bold uppercase tracking-[0.16em] text-primary">Orden de Compra</span>
                                 <h2 class="text-3xl font-black tracking-tight text-white">@Model.Numero</h2>
                             </div>
-                            <div class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold @estadoBadge.Item1">
+                            <span class="@estadoBadgeClass">
                                 <span class="size-2 rounded-full bg-current @(Model.Estado == EstadoOrdenCompra.EnTransito ? "animate-pulse" : "")"></span>
-                                @estadoBadge.Item2
-                            </div>
+                                @estadoNombre
+                            </span>
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">

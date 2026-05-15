@@ -3,14 +3,8 @@
 @{
     ViewData["Title"] = $"Eliminar {Model.Numero}";
 
-    var estadoBadge = Model.Estado switch
-    {
-        EstadoOrdenCompra.Borrador => ("bg-slate-100 text-slate-700 border-slate-200 bg-slate-800 text-slate-300 border-slate-700", "Borrador"),
-        EstadoOrdenCompra.Enviada => ("bg-blue-900/30 text-blue-400 border-blue-900/40", "Enviada"),
-        EstadoOrdenCompra.Confirmada => ("bg-green-900/30 text-green-400 border-green-900/40", "Confirmada"),
-        EstadoOrdenCompra.Cancelada => ("bg-red-900/30 text-red-400 border-red-900/40", "Cancelada"),
-        _ => ("bg-slate-100 text-slate-700 border-slate-200 bg-slate-800 text-slate-300 border-slate-700", Model.Estado.ToString())
-    };
+    var estadoBadgeClass = OrdenCompraUiHelper.EstadoBadgeClass(Model.Estado);
+    var estadoNombre = OrdenCompraUiHelper.EstadoNombre(Model.Estado);
 }
 
 @if (TempData["Error"] is string errorMsg)
@@ -38,9 +32,7 @@
                 </p>
             </div>
         </div>
-        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide @estadoBadge.Item1">
-            @estadoBadge.Item2
-        </span>
+        <span class="@estadoBadgeClass">@estadoNombre</span>
     </header>
 
     <section class="rounded-xl border border-rose-900/40 bg-rose-950/20 p-5">

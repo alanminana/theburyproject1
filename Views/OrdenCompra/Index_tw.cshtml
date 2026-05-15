@@ -189,16 +189,6 @@
             {
                 @foreach (var o in ordenes)
                 {
-                    var estadoBadge = o.Estado switch
-                    {
-                        EstadoOrdenCompra.Borrador   => ("bg-slate-200 text-slate-700 bg-slate-800 text-slate-300",   "Borrador"),
-                        EstadoOrdenCompra.Enviada     => ("bg-blue-900/30 text-blue-400",    "Enviada"),
-                        EstadoOrdenCompra.Confirmada  => ("bg-green-900/30 text-green-400","Confirmada"),
-                        EstadoOrdenCompra.EnTransito  => ("bg-amber-900/30 text-amber-400","En tránsito"),
-                        EstadoOrdenCompra.Recibida    => ("bg-emerald-900/30 text-emerald-400","Recibida"),
-                        EstadoOrdenCompra.Cancelada   => ("bg-red-900/30 text-red-400",       "Cancelada"),
-                        _ => ("bg-slate-200 text-slate-700", o.Estado.ToString())
-                    };
                     var puedeRecepcionar = o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito;
                     var puedeEliminar = o.Estado != EstadoOrdenCompra.Recibida && o.Estado != EstadoOrdenCompra.EnTransito;
 
@@ -208,8 +198,8 @@
                         <td class="px-6 py-4 text-slate-400">@o.FechaEmision.ToString("dd MMM yyyy")</td>
                         <td class="px-6 py-4 text-slate-400">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold @estadoBadge.Item1">
-                                @estadoBadge.Item2
+                            <span class="@OrdenCompraUiHelper.EstadoBadgeClass(o.Estado)">
+                                @OrdenCompraUiHelper.EstadoNombre(o.Estado)
                             </span>
                         </td>
                         <td class="px-6 py-4">@o.TotalItems</td>
