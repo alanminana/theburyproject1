@@ -101,6 +101,12 @@ file sealed class StubCurrentUserFacturacion : ICurrentUserService
 /// - Happy path: retorna ventaId, factura queda Anulada, FechaAnulacion y MotivoAnulacion asignados
 /// - Única factura activa → venta regresa a Confirmada
 /// - Otra factura activa → venta permanece Facturada
+///
+/// Contrato Caja (Fase 9.6):
+/// AnularFacturaAsync NO genera ReversionVenta ni modifica el ingreso original de caja.
+/// El cobro sigue vigente porque la venta regresa a Confirmada, no se cancela.
+/// Verificado en VentaServiceE2ECancelacionTests.AnularFacturaManual_IngresoOriginalCaja_QuedaIntacto
+/// (usa CajaService real, no stub — estos tests no pueden verificarlo directamente).
 /// </summary>
 public class VentaServiceFacturacionTests : IDisposable
 {

@@ -96,6 +96,8 @@ file sealed class StubCreditoDisponibleE2E : ICreditoDisponibleService
 /// - Producto.StockActual revertido al valor previo
 /// - ProductoUnidad trazable: Vendida → EnStock, VentaDetalleId = null
 /// - AnularFacturaAsync manual: deja venta en Confirmada, no la cancela
+/// - AnularFacturaAsync manual: ingreso original de caja queda intacto (no ReversionVenta, no modificado)
+/// - Diferencia contractual: AnularFactura ≠ CancelarVenta (Fase 9.6)
 /// </summary>
 public class VentaServiceE2ECancelacionTests : IDisposable
 {
@@ -465,6 +467,59 @@ public class VentaServiceE2ECancelacionTests : IDisposable
                                    && m.Concepto == ConceptoMovimientoCaja.ReversionVenta
                                    && !m.IsDeleted);
         Assert.Null(egreso);
+    }
+
+    [Fact]
+    public async Task AnularFacturaManual_IngresoOriginalCaja_QuedaIntacto()
+    {
+        // Contrato 9.6: AnularFactura NO modifica ni elimina el MovimientoCaja de ingreso original.
+        // El cobro sigue vigente — solo el comprobante queda invalidado.
+        var (producto, cliente) = await SeedBaseAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto.Id, total: 450m);
+
+        await _ventaService.ConfirmarVentaAsync(venta.Id);
+
+        // Verificar que existe el ingreso de caja tras confirmar
+        var ingresoAntes = await _context.MovimientosCaja
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.VentaId == venta.Id
+                                   && m.Tipo == TipoMovimientoCaja.Ingreso
+                                   && !m.IsDeleted);
+        Assert.NotNull(ingresoAntes);
+        Assert.Equal(450m, ingresoAntes!.Monto);
+
+        await _ventaService.FacturarVentaAsync(
+            venta.Id,
+            new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow });
+
+        var factura = await _context.Facturas
+            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted && !f.Anulada);
+        Assert.NotNull(factura);
+
+        // Anular factura manualmente
+        await _ventaService.AnularFacturaAsync(factura!.Id, "Anulación manual contrato 9.6");
+
+        // Ingreso original de caja: intacto, mismo monto, no eliminado
+        var ingresoFinal = await _context.MovimientosCaja
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == ingresoAntes.Id && !m.IsDeleted);
+        Assert.NotNull(ingresoFinal);
+        Assert.Equal(450m, ingresoFinal!.Monto);
+        Assert.Equal(TipoMovimientoCaja.Ingreso, ingresoFinal.Tipo);
+
+        // Sin ReversionVenta egreso generado
+        var reversionVenta = await _context.MovimientosCaja
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.VentaId == venta.Id
+                                   && m.Tipo == TipoMovimientoCaja.Egreso
+                                   && m.Concepto == ConceptoMovimientoCaja.ReversionVenta
+                                   && !m.IsDeleted);
+        Assert.Null(reversionVenta);
+
+        // Total movimientos de caja para esta venta: solo el ingreso original
+        var totalMovimientos = await _context.MovimientosCaja
+            .CountAsync(m => m.VentaId == venta.Id && !m.IsDeleted);
+        Assert.Equal(1, totalMovimientos);
     }
 
     // -------------------------------------------------------------------------
