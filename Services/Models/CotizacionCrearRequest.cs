@@ -52,6 +52,10 @@ public sealed class CotizacionResultado
     public DateTime? FechaVencimiento { get; init; }
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();
+
+    // Trazabilidad: venta generada por conversión (null si no fue convertida aún)
+    public int? VentaConvertidaId { get; init; }
+    public string? NumeroVentaConvertida { get; init; }
 }
 
 public sealed class CotizacionDetalleResultado

@@ -175,11 +175,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         if (productoIds.Count > 0)
             preciosActuales = await _precioResolver.ResolverBatchAsync(productoIds, null, null, cancellationToken);
 
-        // Verificar productos activos
+        // Cargar productos con IVA (necesario para verificación de activos y cálculo de IVA en detalles)
+        Dictionary<int, Producto> productos = new();
         var productosInactivos = new List<string>();
         if (productoIds.Count > 0)
         {
-            var productos = await _context.Productos
+            productos = await _context.Productos
+                .Include(p => p.AlicuotaIVA)
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
                 .Where(p => productoIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, cancellationToken);
 
@@ -225,13 +229,14 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 VendedorNombre = usuario,
                 Observaciones = ConstruirObservaciones(cotizacionEnTx, request),
                 EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere,
-                RequiereAutorizacion = false
+                RequiereAutorizacion = false,
+                CotizacionOrigenId = cotizacionId
             };
 
-            var detalles = ConstruirDetalles(cotizacionEnTx, request, preciosActuales);
+            var detalles = ConstruirDetalles(cotizacionEnTx, request, preciosActuales, productos);
             venta.Subtotal = detalles.Sum(d => d.Subtotal);
             venta.Descuento = 0m;
-            venta.IVA = 0m;
+            venta.IVA = detalles.Sum(d => d.SubtotalIVA);
             venta.Total = venta.Subtotal;
 
             foreach (var detalle in detalles)
@@ -350,7 +355,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
     private static List<VentaDetalle> ConstruirDetalles(
         Cotizacion cotizacion,
         CotizacionConversionRequest request,
-        IReadOnlyDictionary<int, PrecioVigenteResultado> preciosActuales)
+        IReadOnlyDictionary<int, PrecioVigenteResultado> preciosActuales,
+        IReadOnlyDictionary<int, Producto> productos)
     {
         var detalles = new List<VentaDetalle>();
 
@@ -367,7 +373,44 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             int cantidad = (int)detalle.Cantidad;
             decimal descuento = detalle.DescuentoImporteSnapshot ?? 0m;
-            decimal subtotal = precioUnitario * cantidad - descuento;
+            decimal subtotal = Redondear(precioUnitario * cantidad - descuento);
+
+            // Resolver IVA desde la fuente canónica del producto
+            productos.TryGetValue(detalle.ProductoId, out var producto);
+            decimal porcentajeIva = producto is not null
+                ? ProductoIvaResolver.ResolverPorcentajeIVAProducto(producto)
+                : ProductoIvaResolver.PorcentajeDefault;
+
+            int? alicuotaId = null;
+            string? alicuotaNombre = null;
+            if (producto?.AlicuotaIVA is { Activa: true, IsDeleted: false })
+            {
+                alicuotaId = producto.AlicuotaIVAId;
+                alicuotaNombre = producto.AlicuotaIVA.Nombre;
+            }
+            else if (producto?.Categoria?.AlicuotaIVA is { Activa: true, IsDeleted: false })
+            {
+                alicuotaId = producto.Categoria.AlicuotaIVAId;
+                alicuotaNombre = producto.Categoria.AlicuotaIVA.Nombre;
+            }
+
+            // Descomponer precio (ya incluye IVA) en neto + IVA
+            decimal precioNeto, ivaUnitario, subtotalNeto, subtotalIva;
+            if (porcentajeIva > 0m)
+            {
+                var divisor = 1m + porcentajeIva / 100m;
+                precioNeto = Redondear(precioUnitario / divisor);
+                ivaUnitario = Redondear(precioUnitario - precioNeto);
+                subtotalNeto = Redondear(subtotal / divisor);
+                subtotalIva = Redondear(subtotal - subtotalNeto);
+            }
+            else
+            {
+                precioNeto = precioUnitario;
+                ivaUnitario = 0m;
+                subtotalNeto = subtotal;
+                subtotalIva = 0m;
+            }
 
             detalles.Add(new VentaDetalle
             {
@@ -376,13 +419,16 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 PrecioUnitario = precioUnitario,
                 Descuento = descuento,
                 Subtotal = subtotal,
-                PrecioUnitarioNeto = precioUnitario,
-                IVAUnitario = 0m,
-                SubtotalNeto = subtotal,
-                SubtotalIVA = 0m,
+                PorcentajeIVA = porcentajeIva,
+                AlicuotaIVAId = alicuotaId,
+                AlicuotaIVANombre = alicuotaNombre,
+                PrecioUnitarioNeto = precioNeto,
+                IVAUnitario = ivaUnitario,
+                SubtotalNeto = subtotalNeto,
+                SubtotalIVA = subtotalIva,
                 DescuentoGeneralProrrateado = 0m,
-                SubtotalFinalNeto = subtotal,
-                SubtotalFinalIVA = 0m,
+                SubtotalFinalNeto = subtotalNeto,
+                SubtotalFinalIVA = subtotalIva,
                 SubtotalFinal = subtotal,
                 CostoUnitarioAlMomento = 0m,
                 CostoTotalAlMomento = 0m
@@ -391,4 +437,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
         return detalles;
     }
+
+    private static decimal Redondear(decimal value) =>
+        Math.Round(value, 2, MidpointRounding.AwayFromZero);
 }

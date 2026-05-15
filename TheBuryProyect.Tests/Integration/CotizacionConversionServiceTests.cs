@@ -512,6 +512,182 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Contains(cotizacion.Numero, venta.Observaciones, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ─── V1.5: TRAZABILIDAD ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task Convertir_SetCotizacionOrigenIdEnVenta()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
+        Assert.NotNull(venta);
+        Assert.Equal(cotizacion.Id, venta.CotizacionOrigenId);
+    }
+
+    [Fact]
+    public async Task Convertir_PermiteEncontrarVentaPorCotizacionOrigen()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var ventaViaFK = await _context.Ventas
+            .FirstOrDefaultAsync(v => v.CotizacionOrigenId == cotizacion.Id);
+        Assert.NotNull(ventaViaFK);
+        Assert.Equal(resultado.VentaId, ventaViaFK.Id);
+    }
+
+    [Fact]
+    public async Task Convertir_NoPermiteDobleConversion()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var primera = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+        var segunda = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(primera.Exitoso);
+        Assert.False(segunda.Exitoso);
+        Assert.Contains(segunda.Errores, e => e.Contains("convertida", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Venta_CotizacionOrigenId_EsNullable_EnVentasNormales()
+    {
+        // Una venta creada sin conversión no tiene CotizacionOrigenId
+        var venta = new Venta
+        {
+            Numero = $"V-TEST-{Guid.NewGuid():N}"[..20],
+            ClienteId = _cliente.Id,
+            FechaVenta = DateTime.UtcNow,
+            Estado = EstadoVenta.Cotizacion,
+            TipoPago = TipoPago.Efectivo,
+            CotizacionOrigenId = null
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+
+        var ventaLeida = await _context.Ventas.FindAsync(venta.Id);
+        Assert.NotNull(ventaLeida);
+        Assert.Null(ventaLeida.CotizacionOrigenId);
+    }
+
+    // ─── V1.5: IVA EN VentaDetalle ───────────────────────────────────────
+
+    [Fact]
+    public async Task Convertir_IVAUnitario_NoEsCeroSiProductoTieneIVA()
+    {
+        // Producto con IVA 21% directo
+        _producto.PorcentajeIVA = 21m;
+        await _context.SaveChangesAsync();
+
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 121m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles
+            .FirstAsync(d => d.VentaId == resultado.VentaId);
+
+        Assert.Equal(21m, detalle.PorcentajeIVA);
+        Assert.True(detalle.IVAUnitario > 0m, "IVAUnitario debe ser mayor a cero para producto con IVA 21%");
+        Assert.True(detalle.PrecioUnitarioNeto < detalle.PrecioUnitario, "PrecioUnitarioNeto debe ser menor al precio con IVA");
+    }
+
+    [Fact]
+    public async Task Convertir_IVACero_SiProductoNoTieneIVA()
+    {
+        _producto.PorcentajeIVA = 0m;
+        await _context.SaveChangesAsync();
+
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 100m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles
+            .FirstAsync(d => d.VentaId == resultado.VentaId);
+
+        Assert.Equal(0m, detalle.IVAUnitario);
+        Assert.Equal(detalle.PrecioUnitario, detalle.PrecioUnitarioNeto);
+    }
+
+    [Fact]
+    public async Task Convertir_SubtotalCoherente_ConIVADescompuesto()
+    {
+        // precio 121, cantidad 2, IVA 21% → subtotal 242, neto 200, iva 42
+        _producto.PorcentajeIVA = 21m;
+        await _context.SaveChangesAsync();
+
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 121m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles
+            .FirstAsync(d => d.VentaId == resultado.VentaId);
+
+        // precio 121 / 1.21 = 100 neto; 121 - 100 = 21 iva
+        Assert.Equal(100m, detalle.PrecioUnitarioNeto);
+        Assert.Equal(21m, detalle.IVAUnitario);
+        Assert.Equal(200m, detalle.SubtotalNeto);    // 100 * 2
+        Assert.Equal(42m, detalle.SubtotalIVA);      // 21 * 2
+        Assert.Equal(242m, detalle.Subtotal);         // 121 * 2
+    }
+
+    [Fact]
+    public async Task Convertir_UsaAlicuotaIVA_SiProductoLaTiene()
+    {
+        // Configurar AlicuotaIVA activa en el producto
+        var alicuota = new AlicuotaIVA
+        {
+            Codigo = "IVA10.5",
+            Nombre = "IVA 10.5%",
+            Porcentaje = 10.5m,
+            Activa = true
+        };
+        _context.AlicuotasIVA.Add(alicuota);
+        await _context.SaveChangesAsync();
+
+        _producto.AlicuotaIVAId = alicuota.Id;
+        _producto.PorcentajeIVA = 21m; // debe ser ignorado si AlicuotaIVA activa
+        await _context.SaveChangesAsync();
+
+        // Precio 110.5 con IVA 10.5% → neto 100
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 110.5m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles
+            .FirstAsync(d => d.VentaId == resultado.VentaId);
+
+        Assert.Equal(10.5m, detalle.PorcentajeIVA);
+        Assert.Equal(alicuota.Id, detalle.AlicuotaIVAId);
+        Assert.Equal("IVA 10.5%", detalle.AlicuotaIVANombre);
+
+        // Limpiar
+        _producto.AlicuotaIVAId = null;
+        await _context.SaveChangesAsync();
+    }
+
     // ─── HELPERS ─────────────────────────────────────────────────────────
 
     private Cotizacion CotizacionEmitida(bool conCliente, decimal precioSnapshot = 100m) =>

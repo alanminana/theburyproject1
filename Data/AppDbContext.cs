@@ -1101,6 +1101,15 @@ namespace TheBuryProject.Data
                     .WithOne(f => f.Venta)
                     .HasForeignKey(f => f.VentaId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CotizacionOrigen)
+                    .WithMany()
+                    .HasForeignKey(e => e.CotizacionOrigenId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false);
+
+                entity.HasIndex(e => e.CotizacionOrigenId)
+                    .HasDatabaseName("IX_Ventas_CotizacionOrigenId");
             });
 
             // =======================

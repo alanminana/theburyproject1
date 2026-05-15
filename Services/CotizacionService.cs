@@ -124,7 +124,25 @@ public sealed class CotizacionService : ICotizacionService
             .Include(c => c.OpcionesPago.Where(o => !o.IsDeleted))
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
 
-        return cotizacion is null ? null : MapDetalle(cotizacion);
+        if (cotizacion is null)
+            return null;
+
+        // Resolver venta generada por conversión si corresponde
+        int? ventaConvertidaId = null;
+        string? numeroVentaConvertida = null;
+        if (cotizacion.Estado == EstadoCotizacion.ConvertidaAVenta)
+        {
+            var ventaLink = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.CotizacionOrigenId == id && !v.IsDeleted)
+                .Select(v => new { v.Id, v.Numero })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            ventaConvertidaId = ventaLink?.Id;
+            numeroVentaConvertida = ventaLink?.Numero;
+        }
+
+        return MapDetalle(cotizacion, ventaConvertidaId, numeroVentaConvertida);
     }
 
     public async Task<CotizacionListadoResultado> ListarAsync(
@@ -270,7 +288,10 @@ public sealed class CotizacionService : ICotizacionService
         };
     }
 
-    private static CotizacionResultado MapDetalle(Cotizacion cotizacion)
+    private static CotizacionResultado MapDetalle(
+        Cotizacion cotizacion,
+        int? ventaConvertidaId = null,
+        string? numeroVentaConvertida = null)
     {
         var clienteNombre = cotizacion.Cliente is null
             ? null
@@ -296,6 +317,8 @@ public sealed class CotizacionService : ICotizacionService
             TotalSeleccionado = cotizacion.TotalSeleccionado,
             ValorCuotaSeleccionada = cotizacion.ValorCuotaSeleccionada,
             FechaVencimiento = cotizacion.FechaVencimiento,
+            VentaConvertidaId = ventaConvertidaId,
+            NumeroVentaConvertida = numeroVentaConvertida,
             Detalles = cotizacion.Detalles
                 .OrderBy(d => d.Id)
                 .Select(d => new CotizacionDetalleResultado
