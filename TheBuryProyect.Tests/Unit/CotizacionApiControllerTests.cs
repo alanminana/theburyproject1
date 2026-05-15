@@ -142,12 +142,12 @@ public sealed class CotizacionApiControllerTests
 
         var permiso = typeof(CotizacionApiController).GetCustomAttribute<PermisoRequeridoAttribute>();
         Assert.NotNull(permiso);
-        Assert.Equal("ventas", permiso.Modulo);
+        Assert.Equal("cotizaciones", permiso.Modulo);
         Assert.Equal("view", permiso.Accion);
     }
 
     private static CotizacionApiController CreateController(StubCotizacionPagoCalculator? calculator = null) =>
-        new(calculator ?? new StubCotizacionPagoCalculator(), NullLogger<CotizacionApiController>.Instance);
+        new(calculator ?? new StubCotizacionPagoCalculator(), new StubCotizacionService(), NullLogger<CotizacionApiController>.Instance);
 
     private static CotizacionSimulacionRequest RequestValido() =>
         new()
@@ -234,5 +234,17 @@ public sealed class CotizacionApiControllerTests
             CallCount++;
             return Task.FromResult(Resultado);
         }
+    }
+
+    private sealed class StubCotizacionService : ICotizacionService
+    {
+        public Task<CotizacionResultado> CrearAsync(CotizacionCrearRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionResultado { Id = 1, Numero = "COT-TEST" });
+
+        public Task<CotizacionResultado?> ObtenerAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<CotizacionResultado?>(null);
+
+        public Task<CotizacionListadoResultado> ListarAsync(CotizacionFiltros filtros, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionListadoResultado());
     }
 }

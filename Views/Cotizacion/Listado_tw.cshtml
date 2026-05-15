@@ -1,0 +1,96 @@
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Services.Models
+@model CotizacionListadoResultado
+
+@{
+    ViewData["Title"] = "Cotizaciones guardadas";
+    var busqueda = ViewBag.Busqueda as string;
+    var estado = ViewBag.Estado as EstadoCotizacion?;
+    var fechaDesde = ViewBag.FechaDesde as DateTime?;
+    var fechaHasta = ViewBag.FechaHasta as DateTime?;
+}
+
+<div class="mx-auto w-full max-w-7xl space-y-6">
+    <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">Cotizaciones guardadas</h1>
+                <p class="mt-2 text-sm text-slate-400">Presupuestos persistidos sin venta, caja, factura ni stock.</p>
+            </div>
+            <a href="@Url.Action("Index", "Cotizacion")"
+               class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white transition-colors hover:bg-primary/90">
+                <span class="material-symbols-outlined text-lg">add</span>
+                Nueva cotizacion
+            </a>
+        </div>
+    </section>
+
+    <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+        <form method="get" class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_11rem_11rem_auto] lg:items-end">
+            <div>
+                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Buscar</label>
+                <input name="busqueda" value="@busqueda" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+            </div>
+            <div>
+                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</label>
+                <select name="estado" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white">
+                    <option value="">Todos</option>
+                    @foreach (var item in Enum.GetValues<EstadoCotizacion>())
+                    {
+                        <option value="@item" selected="@(estado == item)">@item</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Desde</label>
+                <input type="date" name="fechaDesde" value="@fechaDesde?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+            </div>
+            <div>
+                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Hasta</label>
+                <input type="date" name="fechaHasta" value="@fechaHasta?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+            </div>
+            <button type="submit" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700">
+                <span class="material-symbols-outlined text-lg">search</span>
+                Filtrar
+            </button>
+        </form>
+    </section>
+
+    <section class="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/60">
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[860px] text-left">
+                <thead class="bg-slate-800/60">
+                    <tr>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Numero</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total base</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Seleccionado</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Accion</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr class="hover:bg-white/5">
+                            <td class="px-4 py-3 text-sm font-bold text-white">@item.Numero</td>
+                            <td class="px-4 py-3 text-sm text-slate-300">@item.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="px-4 py-3 text-sm text-slate-300">@item.Cliente</td>
+                            <td class="px-4 py-3 text-sm text-slate-300">@item.Estado</td>
+                            <td class="px-4 py-3 text-right text-sm font-bold text-white">@item.TotalBase.ToString("C")</td>
+                            <td class="px-4 py-3 text-right text-sm text-slate-300">@(item.TotalSeleccionado?.ToString("C") ?? "-")</td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="@Url.Action("Detalles", "Cotizacion", new { id = item.Id })" class="text-sm font-bold text-primary hover:text-primary/80">Ver</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (!Model.Items.Any())
+        {
+            <div class="px-4 py-10 text-center text-sm text-slate-500">No hay cotizaciones guardadas para los filtros actuales.</div>
+        }
+    </section>
+</div>

@@ -1,0 +1,115 @@
+@using TheBuryProject.Services.Models
+@model CotizacionResultado
+
+@{
+    ViewData["Title"] = $"Cotizacion {Model.Numero}";
+    var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
+}
+
+<div class="mx-auto w-full max-w-7xl space-y-6">
+    <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Cotizacion guardada</div>
+                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
+                <p class="mt-2 text-sm text-slate-400">@cliente · @Model.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @Model.Estado</p>
+            </div>
+            <a href="@Url.Action("Listado", "Cotizacion")" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700">
+                <span class="material-symbols-outlined text-lg">arrow_back</span>
+                Volver
+            </a>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
+            <p class="mt-2 text-lg font-black text-white">@Model.Subtotal.ToString("C")</p>
+        </div>
+        <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descuento</p>
+            <p class="mt-2 text-lg font-black text-white">@Model.DescuentoTotal.ToString("C")</p>
+        </div>
+        <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total base</p>
+            <p class="mt-2 text-lg font-black text-white">@Model.TotalBase.ToString("C")</p>
+        </div>
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Opcion seleccionada</p>
+            <p class="mt-2 text-lg font-black text-white">@(Model.TotalSeleccionado?.ToString("C") ?? "-")</p>
+            <p class="mt-1 text-xs text-emerald-300">@Model.MedioPagoSeleccionado @Model.PlanSeleccionado</p>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+    {
+        <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+            <h2 class="text-base font-bold text-white">Observaciones</h2>
+            <p class="mt-2 whitespace-pre-line text-sm text-slate-300">@Model.Observaciones</p>
+        </section>
+    }
+
+    <section class="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/60">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <h2 class="text-base font-bold text-white">Productos cotizados</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] text-left">
+                <thead class="bg-slate-800/60">
+                    <tr>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Codigo</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cantidad</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Precio snapshot</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var item in Model.Detalles)
+                    {
+                        <tr>
+                            <td class="px-4 py-3 text-sm font-bold text-white">@item.NombreProductoSnapshot</td>
+                            <td class="px-4 py-3 text-sm font-mono text-slate-400">@item.CodigoProductoSnapshot</td>
+                            <td class="px-4 py-3 text-right text-sm text-slate-300">@item.Cantidad</td>
+                            <td class="px-4 py-3 text-right text-sm text-slate-300">@item.PrecioUnitarioSnapshot.ToString("C")</td>
+                            <td class="px-4 py-3 text-right text-sm font-bold text-white">@item.Subtotal.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/60">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <h2 class="text-base font-bold text-white">Opciones simuladas</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[980px] text-left">
+                <thead class="bg-slate-800/60">
+                    <tr>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Medio</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Plan</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Valor cuota</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    @foreach (var item in Model.OpcionesPago)
+                    {
+                        <tr class="@(item.Seleccionado ? "bg-emerald-500/10" : "")">
+                            <td class="px-4 py-3 text-sm font-bold text-white">@item.NombreMedioPago</td>
+                            <td class="px-4 py-3 text-sm text-slate-300">@(item.Plan ?? "-")</td>
+                            <td class="px-4 py-3 text-right text-sm text-slate-300">@(item.CantidadCuotas?.ToString() ?? "-")</td>
+                            <td class="px-4 py-3 text-right text-sm font-bold text-white">@item.Total.ToString("C")</td>
+                            <td class="px-4 py-3 text-right text-sm text-slate-300">@(item.ValorCuota?.ToString("C") ?? "-")</td>
+                            <td class="px-4 py-3 text-sm text-slate-300">@item.Estado @(item.Seleccionado ? "(seleccionada)" : "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

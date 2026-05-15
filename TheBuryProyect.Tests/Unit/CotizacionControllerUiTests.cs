@@ -22,7 +22,7 @@ public sealed class CotizacionControllerUiTests
 
         var permiso = typeof(CotizacionController).GetCustomAttribute<PermisoRequeridoAttribute>();
         Assert.NotNull(permiso);
-        Assert.Equal("ventas", permiso.Modulo);
+        Assert.Equal("cotizaciones", permiso.Modulo);
         Assert.Equal("view", permiso.Accion);
     }
 
@@ -43,6 +43,7 @@ public sealed class CotizacionControllerUiTests
         var constructor = Assert.Single(typeof(CotizacionController).GetConstructors());
         var parameterTypes = constructor.GetParameters().Select(p => p.ParameterType).ToArray();
 
+        Assert.Contains(typeof(ICotizacionService), parameterTypes);
         Assert.Contains(typeof(IProductoService), parameterTypes);
         Assert.Contains(typeof(IClienteService), parameterTypes);
         Assert.DoesNotContain(parameterTypes, t => t.Name.Contains("Venta", StringComparison.OrdinalIgnoreCase));
@@ -56,6 +57,7 @@ public sealed class CotizacionControllerUiTests
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Index_tw.cshtml"));
 
         Assert.Contains("data-simular-url=\"@Url.Content(\"~/api/cotizacion/simular\")\"", view);
+        Assert.Contains("data-guardar-url=\"@Url.Content(\"~/api/cotizacion/guardar\")\"", view);
         Assert.Contains("~/js/cotizacion-simulador.js", view);
         Assert.Contains("data-productos-url=\"@Url.Action(\"BuscarProductos\", \"Cotizacion\")\"", view);
         Assert.Contains("data-clientes-url=\"@Url.Action(\"BuscarClientes\", \"Cotizacion\")\"", view);
@@ -69,6 +71,8 @@ public sealed class CotizacionControllerUiTests
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
 
         Assert.Contains("JSON.stringify(buildRequest())", script);
+        Assert.Contains("opcionSeleccionada: state.opcionSeleccionada", script);
+        Assert.Contains("urls.guardar", script);
         Assert.Contains("method: 'POST'", script);
         Assert.Contains("data-cotizacion-medio", script);
         Assert.Contains("productos: state.productos.map", script);
@@ -88,7 +92,7 @@ public sealed class CotizacionControllerUiTests
     }
 
     private static CotizacionController CreateController() =>
-        new(new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
+        new(new StubCotizacionService(), new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
 
     private static string FindRepoRoot()
     {
@@ -122,6 +126,18 @@ public sealed class CotizacionControllerUiTests
         public Task<bool> ToggleDestacadoAsync(int id) => Task.FromResult(false);
         public Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad) => Task.CompletedTask;
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => Task.FromResult(false);
+    }
+
+    private sealed class StubCotizacionService : ICotizacionService
+    {
+        public Task<CotizacionResultado> CrearAsync(CotizacionCrearRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionResultado { Id = 1, Numero = "COT-TEST" });
+
+        public Task<CotizacionResultado?> ObtenerAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<CotizacionResultado?>(new CotizacionResultado { Id = id, Numero = "COT-TEST" });
+
+        public Task<CotizacionListadoResultado> ListarAsync(CotizacionFiltros filtros, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionListadoResultado());
     }
 
     private sealed class StubClienteService : IClienteService

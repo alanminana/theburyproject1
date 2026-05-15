@@ -6,6 +6,7 @@
 <div class="mx-auto w-full max-w-7xl space-y-6"
      data-cotizacion-simulador
      data-simular-url="@Url.Content("~/api/cotizacion/simular")"
+     data-guardar-url="@Url.Content("~/api/cotizacion/guardar")"
      data-productos-url="@Url.Action("BuscarProductos", "Cotizacion")"
      data-producto-resumen-url="@Url.Action("ProductoResumen", "Cotizacion")"
      data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")">
@@ -29,7 +30,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                    <span class="material-symbols-outlined text-sm">lock</span>No persiste
+                    <span class="material-symbols-outlined text-sm">save</span>Persistencia minima
                 </span>
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300">
                     <span class="material-symbols-outlined text-sm">inventory_2</span>No toca stock
@@ -37,6 +38,10 @@
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300">
                     <span class="material-symbols-outlined text-sm">point_of_sale</span>No registra caja
                 </span>
+                <a href="@Url.Action("Listado", "Cotizacion")"
+                   class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-700">
+                    <span class="material-symbols-outlined text-sm">list_alt</span>Ver guardadas
+                </a>
             </div>
         </div>
     </section>
@@ -252,6 +257,12 @@
             </section>
 
             <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+                <label for="cotizacion-observaciones" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
+                <textarea id="cotizacion-observaciones"
+                          rows="3"
+                          maxlength="1000"
+                          class="mb-4 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder="Notas internas opcionales para recuperar la cotizacion."></textarea>
                 <button id="cotizacion-simular"
                         type="button"
                         class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
@@ -259,6 +270,13 @@
                     Simular cotizacion
                 </button>
                 <p id="cotizacion-simular-estado" class="mt-3 text-xs text-slate-500" aria-live="polite">Listo para simular.</p>
+                <button id="cotizacion-guardar"
+                        type="button"
+                        disabled
+                        class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-black text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50">
+                    <span class="material-symbols-outlined text-lg">save</span>
+                    Guardar cotizacion
+                </button>
             </section>
         </aside>
     </div>

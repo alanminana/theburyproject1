@@ -17,11 +17,14 @@
         productos: [],
         productoSeleccionado: null,
         clienteSeleccionado: null,
+        ultimaSimulacion: null,
+        opcionSeleccionada: null,
         busy: false
     };
 
     const urls = {
         simular: root.dataset.simularUrl || '/api/cotizacion/simular',
+        guardar: root.dataset.guardarUrl || '/api/cotizacion/guardar',
         productos: root.dataset.productosUrl || '/Cotizacion/BuscarProductos',
         productoResumen: root.dataset.productoResumenUrl || '/Cotizacion/ProductoResumen',
         clientes: root.dataset.clientesUrl || '/Cotizacion/BuscarClientes'
@@ -49,7 +52,9 @@
         clienteNombre: $('#cotizacion-cliente-nombre'),
         clienteDoc: $('#cotizacion-cliente-doc'),
         limpiarCliente: $('#cotizacion-limpiar-cliente'),
+        observaciones: $('#cotizacion-observaciones'),
         simular: $('#cotizacion-simular'),
+        guardar: $('#cotizacion-guardar'),
         simularEstado: $('#cotizacion-simular-estado'),
         resultadosVacio: $('#cotizacion-resultados-vacio'),
         resultados: $('#cotizacion-resultados'),
@@ -109,6 +114,10 @@
         if (els.simular) {
             els.simular.disabled = value;
             els.simular.querySelector('.material-symbols-outlined').textContent = value ? 'progress_activity' : 'calculate';
+        }
+        if (els.guardar) {
+            els.guardar.disabled = value || !state.ultimaSimulacion?.exitoso;
+            els.guardar.querySelector('.material-symbols-outlined').textContent = value ? 'progress_activity' : 'save';
         }
         if (els.simularEstado) {
             els.simularEstado.textContent = value ? 'Simulando...' : 'Listo para simular.';
@@ -210,6 +219,9 @@
             });
         }
 
+        state.ultimaSimulacion = null;
+        state.opcionSeleccionada = null;
+        if (els.guardar) els.guardar.disabled = true;
         setProductoSeleccionado(null);
         if (els.cantidad) els.cantidad.value = '1';
         clearFeedback();
@@ -385,6 +397,8 @@
                 },
                 body: JSON.stringify(buildRequest())
             });
+            state.ultimaSimulacion = data;
+            state.opcionSeleccionada = null;
             renderResultado(data);
             if (data.exitoso === false) {
                 showFeedback('La simulacion devolvio observaciones que requieren revision.', 'warning');
@@ -393,6 +407,42 @@
             }
         } catch (error) {
             showFeedback(error.message || 'No se pudo simular la cotizacion.', 'error');
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function guardar() {
+        clearFeedback();
+        if (!state.ultimaSimulacion?.exitoso) {
+            showFeedback('Primero simula una cotizacion valida.', 'warning');
+            return;
+        }
+
+        setBusy(true);
+        try {
+            const payload = {
+                simulacion: buildRequest(),
+                opcionSeleccionada: state.opcionSeleccionada,
+                observaciones: els.observaciones?.value || null,
+                nombreClienteLibre: state.clienteSeleccionado ? null : (els.clienteBuscar?.value || null)
+            };
+
+            const data = await fetchJson(urls.guardar, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify(payload)
+            });
+
+            showFeedback(`Cotizacion ${data.numero} guardada correctamente.`, 'ok');
+            if (data.detalleUrl) {
+                window.location.assign(data.detalleUrl);
+            }
+        } catch (error) {
+            showFeedback(error.message || 'No se pudo guardar la cotizacion.', 'error');
         } finally {
             setBusy(false);
         }
@@ -414,6 +464,13 @@
             els.resultadosTbody.appendChild(tr);
         } else {
             rows.forEach(row => els.resultadosTbody.appendChild(renderResultadoRow(row)));
+            const recomendado = rows.find(row => row.plan?.recomendado) || rows.find(row => row.plan);
+            if (recomendado) {
+                state.opcionSeleccionada = toSeleccion(recomendado);
+                const radio = Array.from(els.resultadosTbody.querySelectorAll('[data-cotizacion-opcion-key]'))
+                    .find(input => input.dataset.cotizacionOpcionKey === optionKey(recomendado));
+                if (radio) radio.checked = true;
+            }
         }
 
         hide(els.resultadosVacio);
@@ -422,6 +479,10 @@
         const mensajes = [...(data.errores || []), ...(data.advertencias || [])];
         if (mensajes.length) {
             showFeedback(mensajes.join(' '), data.errores?.length ? 'error' : 'warning');
+        }
+
+        if (els.guardar) {
+            els.guardar.disabled = data.exitoso === false;
         }
     }
 
@@ -492,8 +553,15 @@
 
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-white/5';
+        const key = optionKey(row);
         tr.innerHTML = `
-            <td class="px-4 py-3 text-sm font-bold text-white">${esc(medioLabel(opcion.medioPago, opcion.nombreMedioPago))}</td>
+            <td class="px-4 py-3 text-sm font-bold text-white">
+                <label class="flex items-center gap-2">
+                    <input type="radio" name="cotizacion-opcion-pago" data-cotizacion-opcion-key="${esc(key)}"
+                           class="border-slate-600 bg-slate-800 text-primary focus:ring-primary" ${plan ? '' : 'disabled'} />
+                    <span>${esc(medioLabel(opcion.medioPago, opcion.nombreMedioPago))}</span>
+                </label>
+            </td>
             <td class="px-4 py-3">${estadoBadge(opcion.estado)}</td>
             <td class="px-4 py-3 text-sm text-slate-300">${esc(plan?.plan || '-')}</td>
             <td class="px-4 py-3 text-right text-sm text-slate-300">${plan?.cantidadCuotas ?? '-'}</td>
@@ -504,6 +572,19 @@
         return tr;
     }
 
+    function optionKey(row) {
+        return `${row.opcion.medioPago}|${row.plan?.plan || ''}|${row.plan?.cantidadCuotas || ''}`;
+    }
+
+    function toSeleccion(row) {
+        if (!row.plan) return null;
+        return {
+            medioPago: row.opcion.medioPago,
+            plan: row.plan.plan || null,
+            cantidadCuotas: row.plan.cantidadCuotas || null
+        };
+    }
+
     function bindEvents() {
         els.productoBuscar?.addEventListener('input', debounce(buscarProductos, 220));
         els.clienteBuscar?.addEventListener('input', debounce(buscarClientes, 220));
@@ -511,6 +592,7 @@
         els.agregarProducto?.addEventListener('click', () => agregarProducto(state.productoSeleccionado, els.cantidad?.value));
         els.agregarManual?.addEventListener('click', agregarProductoManual);
         els.simular?.addEventListener('click', simular);
+        els.guardar?.addEventListener('click', guardar);
 
         els.limpiarCliente?.addEventListener('click', () => {
             setCliente(null);
@@ -522,6 +604,9 @@
             if (!deleteButton) return;
             const index = Number(deleteButton.dataset.cotizacionEliminarIndex);
             state.productos.splice(index, 1);
+            state.ultimaSimulacion = null;
+            state.opcionSeleccionada = null;
+            if (els.guardar) els.guardar.disabled = true;
             renderProductos();
         });
 
@@ -532,7 +617,18 @@
             const qty = parsePositiveInt(input.value) || 1;
             state.productos[index].cantidad = qty;
             input.value = String(qty);
+            state.ultimaSimulacion = null;
+            state.opcionSeleccionada = null;
+            if (els.guardar) els.guardar.disabled = true;
             renderProductos();
+        });
+
+        els.resultadosTbody?.addEventListener('change', event => {
+            const input = event.target.closest('[data-cotizacion-opcion-key]');
+            if (!input) return;
+            const rows = flattenOpciones(state.ultimaSimulacion?.opcionesPago || []);
+            const row = rows.find(item => optionKey(item) === input.dataset.cotizacionOpcionKey);
+            state.opcionSeleccionada = row ? toSeleccion(row) : null;
         });
 
         document.addEventListener('click', event => {

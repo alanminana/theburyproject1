@@ -1,5 +1,7 @@
 # Fase Cotizacion V1E - UI read-only separada
 
+> Nota V1.1: la fase posterior agrega persistencia minima de cotizaciones con entidad propia, sin convertir a venta y sin tocar stock/caja/factura.
+
 Agente: Carlos - Cotizacion V1E UI separada read-only.
 
 ## A. Objetivo

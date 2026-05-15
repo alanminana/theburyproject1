@@ -2,23 +2,31 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Controllers;
 
 [Authorize]
-[PermisoRequerido(Modulo = "ventas", Accion = "view")]
+[PermisoRequerido(Modulo = ModuloCotizaciones, Accion = AccionVer)]
 public sealed class CotizacionController : Controller
 {
+    private const string ModuloCotizaciones = "cotizaciones";
+    private const string AccionVer = "view";
+
+    private readonly ICotizacionService _cotizacionService;
     private readonly IProductoService _productoService;
     private readonly IClienteService _clienteService;
     private readonly ILogger<CotizacionController> _logger;
 
     public CotizacionController(
+        ICotizacionService cotizacionService,
         IProductoService productoService,
         IClienteService clienteService,
         ILogger<CotizacionController> logger)
     {
+        _cotizacionService = cotizacionService;
         _productoService = productoService;
         _clienteService = clienteService;
         _logger = logger;
@@ -28,6 +36,44 @@ public sealed class CotizacionController : Controller
     public IActionResult Index()
     {
         return View("Index_tw");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Listado(
+        string? busqueda = null,
+        EstadoCotizacion? estado = null,
+        DateTime? fechaDesde = null,
+        DateTime? fechaHasta = null,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        var resultado = await _cotizacionService.ListarAsync(
+            new CotizacionFiltros
+            {
+                Busqueda = busqueda,
+                Estado = estado,
+                FechaDesde = fechaDesde,
+                FechaHasta = fechaHasta,
+                Page = page < 1 ? 1 : page,
+                PageSize = 25
+            },
+            cancellationToken);
+
+        ViewBag.Busqueda = busqueda;
+        ViewBag.Estado = estado;
+        ViewBag.FechaDesde = fechaDesde;
+        ViewBag.FechaHasta = fechaHasta;
+        return View("Listado_tw", resultado);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Detalles(int id, CancellationToken cancellationToken = default)
+    {
+        var cotizacion = await _cotizacionService.ObtenerAsync(id, cancellationToken);
+        if (cotizacion is null)
+            return NotFound();
+
+        return View("Detalles_tw", cotizacion);
     }
 
     [HttpGet]
