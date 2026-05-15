@@ -1,6 +1,6 @@
 # Fase 8.2.K - Conciliacion stock agregado vs unidades fisicas
 
-**Estado:** Diagnostico y decision funcional V1
+**Estado:** Implementado. Ver cierre en `docs/fase-8.2-cierre-trazabilidad-individual.md`
 **Fecha:** 2026-05-14
 **Agente:** Fase 8.2.K - Conciliacion stock agregado unidades
 **Alcance:** documentacion solamente. Sin cambios de codigo, migraciones, Caja, Seguridad, pagos, `VentaService`, `MovimientoStockService` ni reglas de transicion.

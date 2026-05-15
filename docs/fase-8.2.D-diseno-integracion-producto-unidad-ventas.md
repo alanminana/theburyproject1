@@ -1,7 +1,8 @@
 # Fase 8.2.D — Diseño: Integración ProductoUnidad con Ventas
 
-**Estado:** Diseño cerrado — pendiente de implementación en Fase 8.2.E  
-**Fecha:** 2026-05-14  
+**Estado:** Implementado. Ver cierre en `docs/fase-8.2-cierre-trazabilidad-individual.md`
+**Fecha:** 2026-05-14
+
 **Basado en:** Fases 8.2.A, 8.2.B, 8.2.C completadas
 
 ---
