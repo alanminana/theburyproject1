@@ -114,6 +114,8 @@ Cobertura agregada:
 
 ## K. Checklist actualizado
 
+Nota V1C: `docs/fase-cotizacion-v1c-api-simulacion.md` expone el calculator mediante `POST /api/cotizacion/simular` en un controller read-only separado de Venta.
+
 Carlos:
 
 - [x] Diagnostico Ventas/Cotizacion cerrado.
