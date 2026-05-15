@@ -42,8 +42,12 @@ file sealed class StubMovimientoStockCancelarCaja : IMovimientoStockService
     public Task<IEnumerable<MovimientoStock>> GetByProductoIdAsync(int productoId) => throw new NotImplementedException();
     public Task<IEnumerable<MovimientoStock>> GetByOrdenCompraIdAsync(int ordenCompraId) => throw new NotImplementedException();
     public Task<IEnumerable<MovimientoStock>> GetByTipoAsync(TipoMovimiento tipo) => throw new NotImplementedException();
-    public Task<PaginatedResult<MovimientoStockViewModel>> BuscarAsync(MovimientoStockFiltroViewModel filtro) => throw new NotImplementedException();
-    public Task<MovimientoStockResumenViewModel> ObtenerResumenAsync(int? productoId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
+    public Task<IEnumerable<MovimientoStock>> GetByFechaRangoAsync(DateTime fechaDesde, DateTime fechaHasta) => throw new NotImplementedException();
+    public Task<IEnumerable<MovimientoStock>> SearchAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc") => throw new NotImplementedException();
+    public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
+    public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
+    public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => Task.FromResult(true);
+    public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => Task.FromResult((true, string.Empty));
 }
 
 file sealed class StubAlertaStockCancelarCaja : IAlertaStockService
@@ -94,8 +98,13 @@ file sealed class StubCreditoDisponibleCancelarCaja : ICreditoDisponibleService
 file sealed class StubContratoVentaCreditoCancelarCaja : IContratoVentaCreditoService
 {
     public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(true);
-    public Task<byte[]> GenerarPdfAsync(int ventaId) => throw new NotImplementedException();
-    public Task MarcarComoGeneradoAsync(int ventaId) => throw new NotImplementedException();
+    public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => Task.FromResult(new ContratoVentaCreditoValidacionResult());
+    public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
+    public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
+    public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => Task.FromResult<ContratoVentaCreditoPdfArchivo?>(null);
+    public Task<bool> ExistePlantillaActivaAsync() => Task.FromResult(true);
+    public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => Task.FromResult<ContratoVentaCredito?>(null);
+    public Task<ContratoVentaCredito?> ObtenerContratoPorCreditoAsync(int creditoId) => Task.FromResult<ContratoVentaCredito?>(null);
 }
 
 file sealed class StubConfiguracionPagoCancelarCaja : IConfiguracionPagoService
@@ -437,10 +446,9 @@ public class VentaServiceCancelarCajaTests : IDisposable
             FechaConfirmacion = DateTime.UtcNow
         };
         _context.Ventas.Add(venta);
-        var detalle = new VentaDetalle { VentaId = 0, ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 200m, Subtotal = 200m };
-        _context.VentaDetalles.Add(detalle);
         await _context.SaveChangesAsync();
-        detalle.VentaId = venta.Id;
+        var detalle = new VentaDetalle { VentaId = venta.Id, ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 200m, Subtotal = 200m };
+        _context.VentaDetalles.Add(detalle);
         await _context.SaveChangesAsync();
 
         // Sin ingreso en caja para esta venta (CreditoPersonal)
@@ -485,6 +493,9 @@ public class VentaServiceCancelarCajaTests : IDisposable
     [Fact]
     public async Task RegistrarContramovimientoVenta_IngresoExistente_CreaEgresoReversionVenta()
     {
+        var (producto, cliente) = await SeedBaseAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto.Id);
+
         var ingreso = new MovimientoCaja
         {
             AperturaCajaId = _apertura.Id,
@@ -492,23 +503,23 @@ public class VentaServiceCancelarCajaTests : IDisposable
             Tipo = TipoMovimientoCaja.Ingreso,
             Concepto = ConceptoMovimientoCaja.VentaEfectivo,
             TipoPago = TipoPago.Efectivo,
-            VentaId = 9901,
+            VentaId = venta.Id,
             Monto = 300m,
-            Descripcion = "Venta V9901",
-            Referencia = "V9901",
-            ReferenciaId = 9901,
+            Descripcion = $"Venta {venta.Numero}",
+            Referencia = venta.Numero,
+            ReferenciaId = venta.Id,
             Usuario = "testcj"
         };
         _context.MovimientosCaja.Add(ingreso);
         await _context.SaveChangesAsync();
 
-        var resultado = await _cajaService.RegistrarContramovimientoVentaAsync(9901, "V9901", "Test cancel", "testcj");
+        var resultado = await _cajaService.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "Test cancel", "testcj");
 
         Assert.NotNull(resultado);
         Assert.Equal(TipoMovimientoCaja.Egreso, resultado.Tipo);
         Assert.Equal(ConceptoMovimientoCaja.ReversionVenta, resultado.Concepto);
         Assert.Equal(300m, resultado.Monto);
-        Assert.Equal(9901, resultado.VentaId);
+        Assert.Equal(venta.Id, resultado.VentaId);
         Assert.Equal(_apertura.Id, resultado.AperturaCajaId);
     }
 
@@ -531,17 +542,20 @@ public class VentaServiceCancelarCajaTests : IDisposable
     [Fact]
     public async Task RegistrarContramovimientoVenta_YaRevertido_RetornaNull()
     {
+        var (producto, cliente) = await SeedBaseAsync();
+        var venta = await SeedVentaAsync(cliente.Id, producto.Id);
+
         var ingreso = new MovimientoCaja
         {
             AperturaCajaId = _apertura.Id,
             FechaMovimiento = DateTime.UtcNow,
             Tipo = TipoMovimientoCaja.Ingreso,
             Concepto = ConceptoMovimientoCaja.VentaEfectivo,
-            VentaId = 9902,
+            VentaId = venta.Id,
             Monto = 80m,
-            Descripcion = "Venta V9902",
-            Referencia = "V9902",
-            ReferenciaId = 9902,
+            Descripcion = $"Venta {venta.Numero}",
+            Referencia = venta.Numero,
+            ReferenciaId = venta.Id,
             Usuario = "testcj"
         };
         var egresoPrevio = new MovimientoCaja
@@ -550,23 +564,23 @@ public class VentaServiceCancelarCajaTests : IDisposable
             FechaMovimiento = DateTime.UtcNow,
             Tipo = TipoMovimientoCaja.Egreso,
             Concepto = ConceptoMovimientoCaja.ReversionVenta,
-            VentaId = 9902,
+            VentaId = venta.Id,
             Monto = 80m,
-            Descripcion = "Reversión V9902",
-            Referencia = "V9902",
-            ReferenciaId = 9902,
+            Descripcion = $"Reversión {venta.Numero}",
+            Referencia = venta.Numero,
+            ReferenciaId = venta.Id,
             Usuario = "testcj"
         };
         _context.MovimientosCaja.AddRange(ingreso, egresoPrevio);
         await _context.SaveChangesAsync();
 
-        var resultado = await _cajaService.RegistrarContramovimientoVentaAsync(9902, "V9902", "duplicado", "testcj");
+        var resultado = await _cajaService.RegistrarContramovimientoVentaAsync(venta.Id, venta.Numero, "duplicado", "testcj");
 
         Assert.Null(resultado);
 
         // Sigue habiendo exactamente un egreso, no dos
         var egresos = await _context.MovimientosCaja
-            .CountAsync(m => m.VentaId == 9902 && m.Tipo == TipoMovimientoCaja.Egreso && !m.IsDeleted);
+            .CountAsync(m => m.VentaId == venta.Id && m.Tipo == TipoMovimientoCaja.Egreso && !m.IsDeleted);
         Assert.Equal(1, egresos);
     }
 }
