@@ -21,6 +21,8 @@
             ConceptoMovimientoCaja.VentaEfectivo => "Venta Efectivo",
             ConceptoMovimientoCaja.VentaTarjeta => "Venta Tarjeta",
             ConceptoMovimientoCaja.VentaCheque => "Venta Cheque",
+            ConceptoMovimientoCaja.VentaTransferencia => "Venta Transferencia",
+            ConceptoMovimientoCaja.VentaMercadoPago => "Venta Mercado Pago",
             ConceptoMovimientoCaja.CobroCuota => "Cobro Cuota",
             ConceptoMovimientoCaja.CancelacionCredito => "Cancelación Crédito",
             ConceptoMovimientoCaja.AnticipoCredito => "Anticipo Crédito",
@@ -28,9 +30,36 @@
             ConceptoMovimientoCaja.ExtraccionEfectivo => "Extracción Efectivo",
             ConceptoMovimientoCaja.DepositoEfectivo => "Depósito Efectivo",
             ConceptoMovimientoCaja.DevolucionCliente => "Devolución Cliente",
+            ConceptoMovimientoCaja.ReversionVenta => "Reversión Venta",
             ConceptoMovimientoCaja.AjusteCaja => "Ajuste Caja",
             ConceptoMovimientoCaja.Otro => "Otro",
             _ => concepto.ToString()
+        };
+    }
+
+    string FormatEstadoAcreditacion(TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja? estado)
+    {
+        return estado switch
+        {
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Acreditado => "Acreditado",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Pendiente => "Pendiente",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Rechazado => "Rechazado",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Anulado => "Anulado",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Revertido => "Revertido",
+            _ => ""
+        };
+    }
+
+    string ClaseEstadoAcreditacion(TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja? estado)
+    {
+        return estado switch
+        {
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Acreditado => "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Pendiente => "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Rechazado => "bg-rose-500/10 text-rose-400 border-rose-500/20",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Anulado => "bg-slate-500/10 text-slate-400 border-slate-500/20",
+            TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Revertido => "bg-slate-500/10 text-slate-400 border-slate-500/20",
+            _ => ""
         };
     }
 
@@ -477,6 +506,16 @@
                                                     <span class="inline-flex w-fit items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-300">
                                                         <span class="material-symbols-outlined text-[13px]">add_card</span>
                                                         Recargo débito: $@mov.RecargoDebitoAplicado.GetValueOrDefault().ToString("N2")
+                                                    </span>
+                                                }
+                                                @{
+                                                    var labelEstado = FormatEstadoAcreditacion(mov.EstadoAcreditacion);
+                                                    var claseEstado = ClaseEstadoAcreditacion(mov.EstadoAcreditacion);
+                                                }
+                                                @if (!string.IsNullOrEmpty(labelEstado))
+                                                {
+                                                    <span class="inline-flex w-fit items-center gap-1 rounded-full border @claseEstado px-2 py-0.5 text-[11px] font-bold">
+                                                        @labelEstado
                                                     </span>
                                                 }
                                             </div>

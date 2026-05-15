@@ -9,6 +9,8 @@ namespace TheBuryProject.Models.Enums
         VentaTarjeta = 1,
         VentaCheque = 2,
         CobroCuota = 3,
+        VentaTransferencia = 6,
+        VentaMercadoPago = 7,
         CancelacionCredito = 4,
         AnticipoCredito = 5,
         GastoOperativo = 10,

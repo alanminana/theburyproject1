@@ -571,14 +571,15 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("Venta no trazable: falta apertura y vendedor.");
                 }
 
-                // Determinar el concepto según el tipo de pago
-                // Nota: CreditoPersonal y CuentaCorriente ya fueron filtrados arriba
-                var concepto = tipoPago switch
+                // Determinar el concepto y estado de acreditación según el tipo de pago.
+                // Efectivo: acreditado inmediato. Transferencia/MP/Tarjeta: pendiente de confirmación bancaria.
+                var (concepto, estadoAcreditacion) = tipoPago switch
                 {
-                    TipoPago.Efectivo => ConceptoMovimientoCaja.VentaEfectivo,
-                    TipoPago.TarjetaDebito or TipoPago.TarjetaCredito or TipoPago.Tarjeta => ConceptoMovimientoCaja.VentaTarjeta,
-                    TipoPago.Cheque => ConceptoMovimientoCaja.VentaCheque,
-                    TipoPago.Transferencia or TipoPago.MercadoPago => ConceptoMovimientoCaja.VentaEfectivo, // Transferencias se registran como efectivo
+                    TipoPago.Efectivo => (ConceptoMovimientoCaja.VentaEfectivo, EstadoAcreditacionMovimientoCaja.Acreditado),
+                    TipoPago.Transferencia => (ConceptoMovimientoCaja.VentaTransferencia, EstadoAcreditacionMovimientoCaja.Pendiente),
+                    TipoPago.MercadoPago => (ConceptoMovimientoCaja.VentaMercadoPago, EstadoAcreditacionMovimientoCaja.Pendiente),
+                    TipoPago.TarjetaDebito or TipoPago.TarjetaCredito or TipoPago.Tarjeta => (ConceptoMovimientoCaja.VentaTarjeta, EstadoAcreditacionMovimientoCaja.Pendiente),
+                    TipoPago.Cheque => (ConceptoMovimientoCaja.VentaCheque, EstadoAcreditacionMovimientoCaja.Pendiente),
                     TipoPago.CreditoPersonal or TipoPago.CuentaCorriente => throw new InvalidOperationException(
                         $"Los pagos a crédito no deben llegar aquí, fueron filtrados previamente: {tipoPago}"),
                     _ => throw new NotSupportedException($"Tipo de pago no soportado para movimiento de caja: {tipoPago}")
@@ -590,6 +591,7 @@ namespace TheBuryProject.Services
                     FechaMovimiento = DateTime.UtcNow,
                     Tipo = TipoMovimientoCaja.Ingreso,
                     Concepto = concepto,
+                    EstadoAcreditacion = estadoAcreditacion,
                     TipoPago = tipoPago,
                     VentaId = ventaId,
                     Monto = monto,
@@ -801,6 +803,7 @@ namespace TheBuryProject.Services
                     FechaMovimiento = DateTime.UtcNow,
                     Tipo = TipoMovimientoCaja.Egreso,
                     Concepto = ConceptoMovimientoCaja.ReversionVenta,
+                    EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Revertido,
                     TipoPago = movimientoOriginal.TipoPago,
                     VentaId = ventaId,
                     Monto = movimientoOriginal.Monto,

@@ -37,6 +37,8 @@ namespace TheBuryProject.Models.Entities
 
         public TipoPago? TipoPago { get; set; }
 
+        public EstadoAcreditacionMovimientoCaja? EstadoAcreditacion { get; set; }
+
         public int? VentaId { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
