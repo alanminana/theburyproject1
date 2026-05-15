@@ -29,3 +29,10 @@ e2e/.auth/
 playwright-report/
 test-results/
 graphify-out/
+
+# Temporary build artifacts and local verification files
+obj2/
+*_build_check/
+npm-verificacion-*.txt
+package.backup-*.json
+C*Tempapp_out.txt
