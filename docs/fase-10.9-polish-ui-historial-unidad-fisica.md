@@ -152,3 +152,10 @@ Criterio de accesibilidad: badges incluyen siempre texto del estado — no depen
 
 **Badge en columna Estado de `Unidades.cshtml`** — mismo micro-lote, mismo patrón, bajo riesgo.  
 O bien definir el próximo bloque funcional mayor según prioridad de negocio.
+
+---
+
+## Continuación: Fase 10.10
+
+El mismo patrón visual (BadgeCss + EstadoLabel) fue aplicado en `Views/Producto/Unidades.cshtml` en la Fase 10.10.
+Ver: `docs/fase-10.10-polish-ui-unidades-estado-badge.md`
