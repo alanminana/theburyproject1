@@ -1283,11 +1283,9 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Null(unidadTras.VentaDetalleId);
     }
 
-    // 37. CancelarVenta Facturada → factura queda sin anular (deuda documentada)
-    //     La política de anulación de comprobantes es futura. Este test documenta
-    //     el comportamiento actual esperado y evita regresiones no intencionadas.
+    // 37. CancelarVenta Facturada → factura queda anulada (Fase 9.2)
     [Fact]
-    public async Task CancelarVenta_Facturada_FacturaQuedaSinAnular_DeudaDocumentada()
+    public async Task CancelarVenta_Facturada_FacturaQuedaAnulada()
     {
         var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
         var unidad = await SeedUnidadEnStockAsync(producto, "SN-FACT-FAC-001");
@@ -1296,25 +1294,91 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         await _service.ConfirmarVentaAsync(venta.Id);
         await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
 
-        var facturaTrasFacturar = await _context.Facturas
-            .AsNoTracking()
-            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
-        Assert.NotNull(facturaTrasFacturar);
-        Assert.False(facturaTrasFacturar!.Anulada);
+        await _service.CancelarVentaAsync(venta.Id, "Comprobante 9.2");
 
-        await _service.CancelarVentaAsync(venta.Id, "Deuda comprobante");
-
-        // Comportamiento actual: la factura queda activa (Anulada=false)
-        // Deuda: en la fase de Comprobantes se deberá anular la factura al cancelar la venta.
         var facturaTrasCancel = await _context.Facturas
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
         Assert.NotNull(facturaTrasCancel);
-        Assert.False(facturaTrasCancel!.Anulada);
+        Assert.True(facturaTrasCancel!.Anulada);
 
-        // La unidad sí se revirtió correctamente (trazabilidad OK, comprobante es deuda separada)
+        // La unidad también se revirtió correctamente
         var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
         Assert.Equal(EstadoUnidad.EnStock, unidadTras.Estado);
+    }
+
+    // 38. CancelarVenta Facturada → factura anulada tiene FechaAnulacion
+    [Fact]
+    public async Task CancelarVenta_Facturada_FacturaAnuladaTieneFechaAnulacion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        await _service.CancelarVentaAsync(venta.Id, "Test fecha anulacion");
+
+        var factura = await _context.Facturas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
+        Assert.NotNull(factura);
+        Assert.NotNull(factura!.FechaAnulacion);
+    }
+
+    // 39. CancelarVenta Facturada → factura anulada tiene MotivoAnulacion con "Venta cancelada: {motivo}"
+    [Fact]
+    public async Task CancelarVenta_Facturada_FacturaAnuladaTieneMotivoAnulacion()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        const string motivoCancelacion = "Devolucion cliente";
+        await _service.CancelarVentaAsync(venta.Id, motivoCancelacion);
+
+        var factura = await _context.Facturas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted);
+        Assert.NotNull(factura);
+        Assert.Equal($"Venta cancelada: {motivoCancelacion}", factura!.MotivoAnulacion);
+    }
+
+    // 40. CancelarVenta Facturada → venta termina en Cancelada, no en Confirmada
+    [Fact]
+    public async Task CancelarVenta_Facturada_VentaTerminaEnCancelada_NoEnConfirmada()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+        await _service.FacturarVentaAsync(venta.Id, BuildFacturaVm());
+
+        await _service.CancelarVentaAsync(venta.Id, "Verificar estado final");
+
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaDb.Estado);
+        Assert.NotEqual(EstadoVenta.Confirmada, ventaDb.Estado);
+    }
+
+    // 41. CancelarVenta Confirmada (sin factura) → no intenta anular factura, no rompe
+    [Fact]
+    public async Task CancelarVenta_Confirmada_SinFactura_NoIntentaAnularNada()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var resultado = await _service.CancelarVentaAsync(venta.Id, "Cancelar confirmada");
+
+        Assert.True(resultado);
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Cancelada, ventaDb.Estado);
+        var facturas = await _context.Facturas.AsNoTracking().Where(f => f.VentaId == venta.Id).ToListAsync();
+        Assert.Empty(facturas);
     }
 
     // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,

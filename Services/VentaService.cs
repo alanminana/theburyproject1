@@ -1037,6 +1037,17 @@ namespace TheBuryProject.Services
 
                 DesvincularUnidadesDeDetallesCancelados(venta);
 
+                if (venta.Estado == EstadoVenta.Facturada)
+                {
+                    var factura = await _context.Facturas
+                        .FirstOrDefaultAsync(f => f.VentaId == venta.Id && !f.IsDeleted && !f.Anulada);
+
+                    if (factura != null)
+                        MarcarFacturaAnulada(factura, $"Venta cancelada: {motivo}");
+                    else
+                        _logger.LogWarning("Venta {Id} está Facturada pero no tiene factura activa al cancelar.", id);
+                }
+
                 venta.Estado = EstadoVenta.Cancelada;
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
@@ -1257,6 +1268,14 @@ namespace TheBuryProject.Services
                 .ToDictionaryAsync(p => p.Id, p => p.Nombre);
         }
 
+        private static void MarcarFacturaAnulada(Factura factura, string motivo)
+        {
+            factura.Anulada = true;
+            factura.FechaAnulacion = DateTime.UtcNow;
+            factura.MotivoAnulacion = motivo.Trim();
+            factura.UpdatedAt = DateTime.UtcNow;
+        }
+
         public async Task<int?> AnularFacturaAsync(int facturaId, string motivo)
         {
             if (string.IsNullOrWhiteSpace(motivo))
@@ -1282,10 +1301,7 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La factura ya fue anulada.");
                 }
 
-                factura.Anulada = true;
-                factura.FechaAnulacion = DateTime.UtcNow;
-                factura.MotivoAnulacion = motivo.Trim();
-                factura.UpdatedAt = DateTime.UtcNow;
+                MarcarFacturaAnulada(factura, motivo);
 
                 var venta = factura.Venta;
                 if (venta != null && !venta.IsDeleted && venta.Estado == EstadoVenta.Facturada)
