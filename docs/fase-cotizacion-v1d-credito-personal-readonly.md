@@ -119,7 +119,7 @@ Casos agregados o reforzados:
 - La simulacion usa planes activos globales de `CreditoPersonal`; si el negocio necesita min/max por cliente/perfil en Cotizacion, conviene agregar un query read-only especifico antes de V1E.
 - `ICreditoSimulacionVentaService` no recibe `ClienteId`; por ahora la presencia de cliente habilita simulacion estimativa, no evaluacion crediticia persistida.
 - No se ejecuta scoring nuevo ni evaluacion guardada; esto es intencional para mantener read-only.
-- La futura UI puede requerir IDs de plan/configuracion si luego convierte cotizacion en venta.
+- V1E agrega UI separada read-only que consume el endpoint de simulacion. Una futura conversion a venta puede requerir IDs de plan/configuracion.
 
 ## K. Checklist actualizado
 

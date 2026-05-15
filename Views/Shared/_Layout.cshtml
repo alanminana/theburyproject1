@@ -103,6 +103,10 @@
                                         <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
                                         <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
                                     </a>
+                                    <a class="@NavClass(IsActive("Cotizacion"))" asp-controller="Cotizacion" asp-action="Index">
+                                        <span class="material-symbols-outlined text-lg shrink-0">request_quote</span>
+                                        <p class="@NavFont(IsActive("Cotizacion")) sidebar-label">Cotizaciones</p>
+                                    </a>
                                 }
                                 @if (canViewClientes)
                                 {
