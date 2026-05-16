@@ -471,6 +471,42 @@ public class VentaCreateUiContractTests
         Assert.Contains("TipoPago.MercadoPago", limpiar);
     }
 
+    // ── Carlos fix: regresión missing hdn-producto-requiere-numero-serie en modal ──────────
+
+    [Fact]
+    public void VentaCrearModal_TieneHiddenInputRequiereNumeroSerie()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+        Assert.Contains("id=\"hdn-producto-requiere-numero-serie\"", modal);
+    }
+
+    [Fact]
+    public void VentaCreate_View_TieneContenedorDetalleCobro()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        Assert.Contains("Detalle de cobro", view);
+        Assert.Contains("id=\"panel-tarjeta\"", view);
+        Assert.Contains("id=\"panel-cheque\"", view);
+    }
+
+    [Fact]
+    public void VentaCreate_View_TieneBotonOAccionAgregarProducto()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        Assert.True(
+            view.Contains("id=\"btn-agregar-produto\"") || view.Contains("id=\"btn-agregar-producto\""),
+            "Se esperaba id btn-agregar-produto o btn-agregar-producto en Create_tw.cshtml");
+    }
+
+    [Fact]
+    public void VentaCreateJs_ContieneHandlerAgregarProducto()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        Assert.Contains("btnAgregarProducto?.addEventListener", script);
+        Assert.Contains("renderDetalles()", script);
+        Assert.Contains("recalcularTotales()", script);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
