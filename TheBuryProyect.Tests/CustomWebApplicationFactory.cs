@@ -130,6 +130,18 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
+    /// User ID para tests que necesitan un usuario autenticado sin permisos en DB.
+    /// Al no estar seedeado, PermissionClaimsTransformation devuelve roles/permisos vacíos → 403 en endpoints con permiso requerido.
+    /// </summary>
+    public const string NoPermsUserId = "test-no-perms-id";
+
+    /// <summary>
+    /// User ID para tests que necesitan un usuario con cotizaciones.convert pero sin SuperAdmin.
+    /// Seedear con SeedUserWithConvertPermissionAsync antes de usar.
+    /// </summary>
+    public const string ConvertPermsUserId = "test-convert-perms-id";
+
+    /// <summary>
     /// Crea un HttpClient con el usuario de test autenticado (SuperAdmin).
     /// </summary>
     public HttpClient CreateAuthenticatedClient()
@@ -138,6 +150,109 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             AllowAutoRedirect = false
         });
+    }
+
+    /// <summary>
+    /// Crea un HttpClient autenticado con un userId específico (sobreescribe el default SuperAdmin via header).
+    /// Útil para tests de seguridad: si el userId no está en DB, PermissionClaimsTransformation vacía los permisos.
+    /// </summary>
+    public HttpClient CreateClientWithUserId(string userId)
+    {
+        var client = CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+        client.DefaultRequestHeaders.Add(TestAuthHandler.UserIdHeader, userId);
+        return client;
+    }
+
+    /// <summary>
+    /// Siembra en la BD de test un usuario con permiso cotizaciones.convert (sin SuperAdmin).
+    /// Diseñado para tests que verifican acceso por permiso específico, no por rol SuperAdmin.
+    /// Idempotente: no duplica si el usuario ya existe.
+    /// </summary>
+    public async Task SeedUserWithConvertPermissionAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == ConvertPermsUserId))
+            return;
+
+        const string roleId = "test-convert-role-id";
+        const int testModuloId = 9999;
+        const int testAccionId = 9999;
+
+        context.Roles.Add(new IdentityRole { Id = roleId, Name = "TestConvertRole", NormalizedName = "TESTCONVERTROLE" });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = ConvertPermsUserId,
+            UserName = "testuser-convert",
+            NormalizedUserName = "TESTUSER-CONVERT",
+            Email = "testconvert@test.com",
+            NormalizedEmail = "TESTCONVERT@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = ConvertPermsUserId, RoleId = roleId });
+        await context.SaveChangesAsync();
+
+        // EF Core SQLite activa PRAGMA foreign_keys = ON: los registros padre son obligatorios.
+        // Se usan IDs de test (9999) que no colisionan con el seed de producción.
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Cotizaciones",
+            Clave = "cotizaciones-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        // AccionModulo para "convert" (id=9999) y "view" (id=9998)
+        // CotizacionApiController requiere cotizaciones.view a nivel clase + cotizaciones.convert a nivel método.
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = testAccionId,
+            ModuloId = testModuloId,
+            Nombre = "Test Convert",
+            Clave = "convert-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = testAccionId - 1,
+            ModuloId = testModuloId,
+            Nombre = "Test View",
+            Clave = "view-test",
+            Orden = 1,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = testAccionId,
+            ClaimValue = "cotizaciones.convert",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = testAccionId - 1,
+            ClaimValue = "cotizaciones.view",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
     }
 
     protected override void Dispose(bool disposing)
