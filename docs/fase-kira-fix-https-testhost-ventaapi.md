@@ -108,7 +108,81 @@ Warning HTTPS eliminado post-fix. Build limpio en Release.
 El cambio solo afecta el entorno "Testing". Producción y Development no se ven afectados.
 
 **Deuda remanente:**  
-Ninguna en este scope. La condición `if (!app.Environment.IsDevelopment())` para HSTS (línea anterior) también se activa en Testing, pero HSTS en TestHost no causa problemas funcionales ya que el middleware solo agrega un header de respuesta sin redirigir.
+Ninguna. Con la limpieza HSTS (sección J), el middleware HTTP queda correctamente configurado para los tres entornos.
+
+---
+
+## J. Limpieza posterior — HSTS también excluye Testing
+
+**Fecha:** 2026-05-16  
+**Commit:** `Excluir HSTS en entorno Testing`
+
+### Motivo
+
+La condición original de HSTS era:
+
+```csharp
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+```
+
+El entorno "Testing" no es "Development", por lo tanto HSTS se activaba en TestHost. El middleware `UseHsts()` agrega el header `Strict-Transport-Security` a las respuestas — comportamiento de producción que no tiene sentido en un entorno de integración que no usa HTTPS real.
+
+### Cambio aplicado
+
+Se separó `UseExceptionHandler` y `UseHsts` en bloques independientes, aplicando el mismo patrón que `UseHttpsRedirection`:
+
+```csharp
+// Antes
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+// Después
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+}
+
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHsts();
+}
+```
+
+### Comportamiento por entorno
+
+| Entorno | UseExceptionHandler | UseHsts | UseHttpsRedirection |
+|---|---|---|---|
+| Production | activo | activo | activo |
+| Development | no | no | no |
+| Testing | activo | **no** | no |
+
+### Riesgo
+
+Bajo. `UseHsts()` solo agrega un header HTTP. Su ausencia en Testing no afecta rutas, autenticación, lógica de negocio ni ningún test existente.
+
+### Tests ejecutados post-cambio
+
+| Filtro | Resultado |
+|---|---|
+| `VentaApiController_ConfiguracionPagosGlobal` | 1/1 ✓ |
+| `VentaApiController\|ConfiguracionPago\|Seguridad\|Permiso` | 214/214 ✓ |
+
+Build Release: 0 errores, 0 advertencias.  
+`git diff --check`: limpio.
+
+### Nota sobre tests HSTS
+
+No existe infraestructura simple para validar ausencia del header `Strict-Transport-Security` en las respuestas del TestHost. La validación se considera cubierta por:
+- lectura directa de la condición en Program.cs
+- build limpio en Release
+- regresión completa 214/214
 
 ---
 
@@ -116,12 +190,17 @@ Ninguna en este scope. La condición `if (!app.Environment.IsDevelopment())` par
 
 - [x] Worktree kira/fix-https-testhost configurado
 - [x] Working tree limpio al inicio
-- [x] Build Release passing antes del fix
+- [x] Build Release passing antes del fix HTTPS
 - [x] Test reproducido con warning HTTPS identificado
 - [x] Causa raíz diagnosticada
-- [x] Fix mínimo aplicado en Program.cs
-- [x] Build Release passing post-fix
-- [x] Test específico passing sin warning HTTPS
+- [x] Fix UseHttpsRedirection aplicado en Program.cs
+- [x] Build Release passing post-fix HTTPS
+- [x] Test específico passing sin warning HTTPS (1/1)
 - [x] Filtro amplio 214/214 passing
-- [x] Documentación creada
+- [x] Limpieza HSTS aplicada — UseHsts excluye Testing
+- [x] Build Release passing post-limpieza HSTS
+- [x] Test específico 1/1 post-limpieza HSTS
+- [x] Filtro amplio 214/214 post-limpieza HSTS
+- [x] git diff --check limpio
+- [x] Documentación actualizada
 - [ ] Commit y push pendiente (siguiente paso)
