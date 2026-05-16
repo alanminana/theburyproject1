@@ -205,7 +205,7 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="text-sm @SignoColor(m.Tipo, m.StockAnterior, m.StockNuevo)">@Signo(m.Tipo, m.StockAnterior, m.StockNuevo)@m.Cantidad.ToString("N0")</span>
+                                <span class="text-sm @SignoColor(m.Tipo, m.StockAnterior, m.StockNuevo)">@Signo(m.Tipo, m.StockAnterior, m.StockNuevo)@Math.Abs(m.Cantidad).ToString("N0")</span>
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-sm text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</span>

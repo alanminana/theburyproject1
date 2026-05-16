@@ -88,6 +88,26 @@
         }
     </div>
 
+    <!-- Banner: producto eliminado (soft delete) — solo visible si el controller setea ViewBag.ProductoEliminado -->
+    @if (ViewBag.ProductoEliminado == true)
+    {
+        <div class="flex items-start gap-3 rounded-xl border border-slate-500/30 bg-slate-500/10 px-5 py-3">
+            <span class="material-symbols-outlined text-slate-400 mt-0.5 shrink-0">archive</span>
+            <p class="text-sm text-slate-400">
+                Producto eliminado — se muestra el historial de movimientos en modo solo lectura.
+            </p>
+        </div>
+    }
+    else if (producto != null && !producto.Activo)
+    {
+        <div class="flex items-start gap-3 rounded-xl border border-slate-500/30 bg-slate-500/10 px-5 py-3">
+            <span class="material-symbols-outlined text-slate-400 mt-0.5 shrink-0">visibility_off</span>
+            <p class="text-sm text-slate-400">
+                Producto inactivo — historial disponible en modo solo lectura.
+            </p>
+        </div>
+    }
+
     <!-- Banner: historial por SKU -->
     <div class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3">
         <span class="material-symbols-outlined text-amber-400 mt-0.5 shrink-0">info</span>

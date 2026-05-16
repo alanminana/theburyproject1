@@ -305,13 +305,13 @@
     function tipoBadge(tipo) {
         switch (tipo) {
             case 'Entrada':
-                return { cls: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400', label: 'Entrada' };
+                return { cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', label: 'Entrada' };
             case 'Salida':
-                return { cls: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400', label: 'Salida' };
+                return { cls: 'bg-rose-500/10 text-rose-400 border border-rose-500/20', label: 'Salida' };
             case 'Ajuste':
-                return { cls: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400', label: 'Ajuste' };
+                return { cls: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', label: 'Ajuste' };
             default:
-                return { cls: 'bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400', label: tipo };
+                return { cls: 'bg-slate-500/10 text-slate-400 border border-slate-700', label: tipo };
         }
     }
 
