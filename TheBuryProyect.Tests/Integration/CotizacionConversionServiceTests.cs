@@ -217,6 +217,79 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
+    // ─── V1.8: PREVIEW DIFERENCIAS DE PRECIO ────────────────────────────
+
+    [Fact]
+    public async Task Preview_ProductoSinCambioPrecio_DiferenciaEsCero()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 100m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        _precioResolver.SetPrecio(_producto.Id, precioActual: 100m);
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.False(detalle.PrecioCambio);
+        Assert.Equal(0m, detalle.DiferenciaUnitaria);
+        Assert.Equal(0m, detalle.DiferenciaTotal);
+    }
+
+    [Fact]
+    public async Task Preview_ProductoConCambioPrecio_IncluyeDiferenciaUnitaria()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 100m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        _precioResolver.SetPrecio(_producto.Id, precioActual: 150m);
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.True(detalle.PrecioCambio);
+        Assert.Equal(100m, detalle.PrecioCotizado);
+        Assert.Equal(150m, detalle.PrecioActual);
+        Assert.Equal(50m, detalle.DiferenciaUnitaria);
+    }
+
+    [Fact]
+    public async Task Preview_CambioPrecio_DiferenciaTotal_EsDiferenciaUnitariaPorCantidad()
+    {
+        // Cantidad fija = 2 (ver CotizacionEmitida helper)
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 100m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        _precioResolver.SetPrecio(_producto.Id, precioActual: 150m);
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.Equal(50m, detalle.DiferenciaUnitaria);
+        Assert.Equal(2, detalle.Cantidad);
+        Assert.Equal(100m, detalle.DiferenciaTotal); // 50 * 2
+    }
+
+    [Fact]
+    public async Task Preview_SinPrecioActual_DiferenciaEsNull()
+    {
+        // El resolver no tiene precio para el producto → precioActual = null
+        var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 100m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        // No llamar a _precioResolver.SetPrecio → sin precio configurado
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.Null(detalle.PrecioActual);
+        Assert.Null(detalle.DiferenciaUnitaria);
+        Assert.Null(detalle.DiferenciaTotal);
+    }
+
     // ─── CONVERSIÓN TESTS ────────────────────────────────────────────────
 
     [Fact]

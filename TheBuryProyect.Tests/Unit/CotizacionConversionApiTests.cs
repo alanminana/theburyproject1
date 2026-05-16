@@ -34,6 +34,45 @@ public sealed class CotizacionConversionApiTests
     }
 
     [Fact]
+    public async Task PreviewEndpoint_DevuelveDetalleConDiferencias()
+    {
+        var conversionService = new StubConversionService
+        {
+            PreviewResultado = new CotizacionConversionPreviewResultado
+            {
+                Convertible = true,
+                CotizacionId = 7,
+                HayCambiosDePrecios = true,
+                Detalles =
+                {
+                    new CotizacionConversionDetallePreview
+                    {
+                        ProductoId = 1,
+                        NombreProducto = "Producto Test",
+                        Cantidad = 3,
+                        PrecioCotizado = 100m,
+                        PrecioActual = 130m,
+                        PrecioCambio = true,
+                        DiferenciaUnitaria = 30m,
+                        DiferenciaTotal = 90m,
+                        ProductoActivo = true
+                    }
+                }
+            }
+        };
+        var controller = CreateController(conversionService);
+
+        var result = await controller.ConversionPreview(7);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var preview = Assert.IsType<CotizacionConversionPreviewResultado>(ok.Value);
+        Assert.True(preview.HayCambiosDePrecios);
+        var detalle = Assert.Single(preview.Detalles);
+        Assert.Equal(30m, detalle.DiferenciaUnitaria);
+        Assert.Equal(90m, detalle.DiferenciaTotal);
+    }
+
+    [Fact]
     public async Task PreviewEndpoint_CotizacionNoConvertible_DevuelveOkConErrores()
     {
         var conversionService = new StubConversionService

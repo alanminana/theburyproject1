@@ -104,6 +104,13 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 detalleAdvertencias.Add("Requiere selección de unidad física antes de confirmar la venta.");
             }
 
+            decimal? diferenciaUnitaria = precioActual.HasValue
+                ? precioActual.Value - detalle.PrecioUnitarioSnapshot
+                : null;
+            decimal? diferenciaTotal = diferenciaUnitaria.HasValue
+                ? diferenciaUnitaria.Value * (int)detalle.Cantidad
+                : null;
+
             detallesPreview.Add(new CotizacionConversionDetallePreview
             {
                 ProductoId = detalle.ProductoId,
@@ -115,6 +122,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 ProductoActivo = activo,
                 PrecioCambio = precioCambio,
                 RequiereUnidadFisica = requiereUnidad,
+                DiferenciaUnitaria = diferenciaUnitaria,
+                DiferenciaTotal = diferenciaTotal,
                 Advertencias = detalleAdvertencias
             });
         }

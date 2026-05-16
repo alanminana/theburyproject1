@@ -36,6 +36,7 @@
     const clienteDropdown = document.getElementById('cotizacion-override-clientes-dropdown');
     const clienteIdInput = document.getElementById('cotizacion-override-cliente-id');
     const clienteNombreEl = document.getElementById('cotizacion-override-cliente-nombre');
+    const detallesPreviewPanel = document.getElementById('cotizacion-detalles-preview-panel');
     const precioCotizadoRadio = document.getElementById('cotizacion-precio-cotizado');
     const precioActualRadio = document.getElementById('cotizacion-precio-actual');
     const confirmarAdvertenciasPanel = document.getElementById('cotizacion-confirmar-advertencias-panel');
@@ -89,6 +90,7 @@
         hide(clienteOverridePanel);
         hide(confirmarAdvertenciasPanel);
         hide(errorGeneralPanel);
+        if (detallesPreviewPanel) { clearChildren(detallesPreviewPanel); hide(detallesPreviewPanel); }
         clearChildren(erroresLista);
         clearChildren(advertenciasLista);
         clienteIdInput.value = '';
@@ -136,6 +138,108 @@
         }
     }
 
+    function renderTablaDetalles(detalles) {
+        if (!detallesPreviewPanel || !detalles || detalles.length === 0) return;
+
+        clearChildren(detallesPreviewPanel);
+
+        const titulo = document.createElement('p');
+        titulo.className = 'text-xs font-bold uppercase tracking-wider text-slate-500';
+        titulo.textContent = 'Detalle de productos';
+        detallesPreviewPanel.appendChild(titulo);
+
+        const hayCambios = detalles.some(function (d) { return d.precioCambio; });
+
+        if (!hayCambios) {
+            const msg = document.createElement('p');
+            msg.className = 'text-sm text-slate-400';
+            msg.textContent = 'No se detectaron cambios de precio.';
+            detallesPreviewPanel.appendChild(msg);
+            show(detallesPreviewPanel);
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'overflow-x-auto';
+
+        const table = document.createElement('table');
+        table.className = 'w-full text-sm border-collapse';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Producto', 'Cant.', 'Precio cotizado', 'Precio actual', 'Diferencia', 'Total dif.', 'Estado'].forEach(function (col) {
+            const th = document.createElement('th');
+            th.className = 'pb-2 pr-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap';
+            th.textContent = col;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        detalles.forEach(function (d) {
+            const tr = document.createElement('tr');
+            tr.className = 'border-t border-slate-700/50';
+
+            const tdNombre = document.createElement('td');
+            tdNombre.className = 'py-2 pr-3 font-medium ' + (d.precioCambio ? 'text-amber-200' : 'text-slate-300');
+            tdNombre.textContent = d.nombreProducto;
+            tr.appendChild(tdNombre);
+
+            const tdCant = document.createElement('td');
+            tdCant.className = 'py-2 pr-3 tabular-nums text-slate-300';
+            tdCant.textContent = d.cantidad;
+            tr.appendChild(tdCant);
+
+            const tdCotiz = document.createElement('td');
+            tdCotiz.className = 'py-2 pr-3 tabular-nums text-slate-300';
+            tdCotiz.textContent = formatCurrency(d.precioCotizado);
+            tr.appendChild(tdCotiz);
+
+            const tdActual = document.createElement('td');
+            tdActual.className = 'py-2 pr-3 tabular-nums text-slate-300';
+            tdActual.textContent = d.precioActual != null ? formatCurrency(d.precioActual) : 'No disponible';
+            tr.appendChild(tdActual);
+
+            const tdDifUnit = document.createElement('td');
+            tdDifUnit.className = 'py-2 pr-3 tabular-nums';
+            if (d.diferenciaUnitaria != null) {
+                tdDifUnit.textContent = formatCurrency(d.diferenciaUnitaria);
+                tdDifUnit.classList.add(d.diferenciaUnitaria > 0 ? 'text-red-400' : d.diferenciaUnitaria < 0 ? 'text-emerald-400' : 'text-slate-400');
+            } else {
+                tdDifUnit.textContent = '—';
+                tdDifUnit.classList.add('text-slate-500');
+            }
+            tr.appendChild(tdDifUnit);
+
+            const tdDifTotal = document.createElement('td');
+            tdDifTotal.className = 'py-2 pr-3 tabular-nums';
+            if (d.diferenciaTotal != null) {
+                tdDifTotal.textContent = formatCurrency(d.diferenciaTotal);
+                tdDifTotal.classList.add(d.diferenciaTotal > 0 ? 'text-red-400' : d.diferenciaTotal < 0 ? 'text-emerald-400' : 'text-slate-400');
+            } else {
+                tdDifTotal.textContent = '—';
+                tdDifTotal.classList.add('text-slate-500');
+            }
+            tr.appendChild(tdDifTotal);
+
+            const estados = [];
+            if (!d.productoActivo) estados.push('Inactivo');
+            if (d.precioCambio) estados.push('Precio cambió');
+            if (d.requiereUnidadFisica) estados.push('Req. unidad');
+            const tdEstado = document.createElement('td');
+            tdEstado.className = 'py-2 text-xs ' + (estados.length > 0 ? 'text-amber-400' : 'text-slate-500');
+            tdEstado.textContent = estados.length > 0 ? estados.join(', ') : '—';
+            tr.appendChild(tdEstado);
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        detallesPreviewPanel.appendChild(wrapper);
+        show(detallesPreviewPanel);
+    }
+
     function appendItems(lista, items) {
         clearChildren(lista);
         items.forEach(function (texto) {
@@ -163,6 +267,7 @@
 
         show(resumen);
         totalEl.textContent = formatCurrency(data.totalCotizado);
+        renderTablaDetalles(data.detalles);
 
         if (data.clienteFaltante) {
             show(clienteOverridePanel);

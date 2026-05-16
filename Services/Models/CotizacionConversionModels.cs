@@ -29,6 +29,8 @@ public sealed class CotizacionConversionDetallePreview
     public bool ProductoActivo { get; init; }
     public bool PrecioCambio { get; init; }
     public bool RequiereUnidadFisica { get; init; }
+    public decimal? DiferenciaUnitaria { get; init; }
+    public decimal? DiferenciaTotal { get; init; }
     public List<string> Advertencias { get; init; } = new();
 }
 
