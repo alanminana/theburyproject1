@@ -1021,7 +1021,7 @@
         hdnProductoCodigo.value = item.dataset.codigo;
         hdnProductoPrecio.value = item.dataset.precio;
         hdnProductoStock.value = item.dataset.stock;
-        hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';
+        if (hdnProductoRequiereNumeroSerie) hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';
         txtProductoSeleccionado.value = `${item.dataset.codigo} - ${item.dataset.nombre}`;
         txtCantidad.value = 1;
         txtCantidad.readOnly = requiereNumeroSerie;

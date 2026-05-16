@@ -507,6 +507,22 @@ public class VentaCreateUiContractTests
         Assert.Contains("recalcularTotales()", script);
     }
 
+    // ── Carlos cleanup: defensive JS + tabla modal ──────────────────────
+
+    [Fact]
+    public void VentaCreateJs_UsaNullGuardParaHdnProductoRequiereNumeroSerie()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        Assert.Contains("if (hdnProductoRequiereNumeroSerie) hdnProductoRequiereNumeroSerie.value =", script);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TablaDetalle_NoContieneHeaderLegacyTipoPagoPorItem()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+        Assert.DoesNotContain("tracking-wider text-slate-500 text-center\">Tipo de pago</th>", modal);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
