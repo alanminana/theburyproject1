@@ -76,13 +76,16 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void CreateView_NoExponePanelDiagnosticoCondicionesPagoProductoEnNuevaVenta()
+    public void CreateView_PanelDiagnosticoCondicionesPagoExisteOcultoEnNuevaVenta()
     {
+        // El panel existe en el DOM para que los refs JS resuelvan, pero empieza oculto.
+        // El diagnóstico no dispara en nueva venta (programarDiagnosticoCondicionesPago es stub),
+        // por lo que el panel permanece hidden durante toda la sesión de Create.
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.DoesNotContain("id=\"panel-diagnostico-condiciones-pago\"", view);
+        Assert.Contains("id=\"panel-diagnostico-condiciones-pago\"", view);
+        Assert.Contains("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
         Assert.DoesNotContain("data-diagnostico-condiciones-pago", view);
-        Assert.DoesNotContain("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
         Assert.DoesNotContain("Las cuotas disponibles fueron restringidas por condiciones del producto", view);
     }
 
@@ -148,6 +151,29 @@ public class VentaCreateUiContractTests
         Assert.Contains("No hay medios activos en la configuracion global.", cargar);
         Assert.Contains("No se pudo cargar la configuracion global. Se conserva el selector actual.", cargar);
         Assert.Contains("catch", cargar);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AplicarMediosGlobalesConservaFallbackCuandoListaVacia()
+    {
+        // Cuando la API devuelve medios vacíos, el selector no debe vaciarse.
+        // El guard medios.length === 0 preserva las opciones renderizadas por Razor.
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function aplicarMediosGlobalesAlSelector");
+
+        Assert.Contains("medios.length === 0", fn);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ConfiguracionPagosGlobalDisponibleSoloCuandoHayMediosActivos()
+    {
+        // configuracionPagosGlobalDisponible debe ser false cuando medios es vacío.
+        // Así las rutas gated por el flag (selector de tarjeta, planes, límites de cuotas)
+        // no ejecutan con datos vacíos y el fallback a Razor/API propia funciona correctamente.
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var cargar = ExtractFunction(script, "async function cargarConfiguracionPagosGlobal");
+
+        Assert.Contains("configuracionPagosGlobalDisponible = medios.length > 0", cargar);
     }
 
     [Fact]

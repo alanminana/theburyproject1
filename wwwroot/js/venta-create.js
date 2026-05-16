@@ -437,7 +437,9 @@
                 .filter(m => m.activo);
 
             configuracionPagosGlobal = { medios };
-            configuracionPagosGlobalDisponible = true;
+            // Solo marca disponible cuando hay medios activos; así las rutas
+            // gated por configuracionPagosGlobalDisponible no ejecutan con datos vacíos.
+            configuracionPagosGlobalDisponible = medios.length > 0;
             aplicarMediosGlobalesAlSelector(medios);
 
             if (medios.length === 0) {
@@ -455,7 +457,9 @@
     }
 
     function aplicarMediosGlobalesAlSelector(medios) {
-        if (!selectTipoPago || !Array.isArray(medios)) return;
+        // Si no hay medios activos, conservar las opciones renderizadas por Razor como fallback.
+        // De lo contrario replaceChildren() vaciaría el selector dejándolo sin opciones.
+        if (!selectTipoPago || !Array.isArray(medios) || medios.length === 0) return;
 
         const selectedBefore = selectTipoPago.value;
         selectTipoPago.replaceChildren();
