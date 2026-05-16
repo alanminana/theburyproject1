@@ -260,6 +260,7 @@ public sealed class CotizacionControllerUiTests
     {
         public Task<IEnumerable<Producto>> GetAllAsync() => Task.FromResult<IEnumerable<Producto>>(Array.Empty<Producto>());
         public Task<Producto?> GetByIdAsync(int id) => Task.FromResult<Producto?>(null);
+        public Task<Producto?> GetByIdParaHistorialAsync(int id) => Task.FromResult<Producto?>(null);
         public Task<IEnumerable<Producto>> GetByCategoriaAsync(int categoriaId) => Task.FromResult<IEnumerable<Producto>>(Array.Empty<Producto>());
         public Task<IEnumerable<Producto>> GetByMarcaAsync(int marcaId) => Task.FromResult<IEnumerable<Producto>>(Array.Empty<Producto>());
         public Task<IEnumerable<Producto>> GetProductosConStockBajoAsync() => Task.FromResult<IEnumerable<Producto>>(Array.Empty<Producto>());

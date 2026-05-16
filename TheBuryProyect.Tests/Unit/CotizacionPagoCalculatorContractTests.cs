@@ -681,6 +681,7 @@ public sealed class CotizacionPagoCalculatorContractTests
 
         public Task<IEnumerable<Producto>> GetAllAsync() => throw new NotSupportedException();
         public Task<Producto?> GetByIdAsync(int id) => throw new NotSupportedException();
+        public Task<Producto?> GetByIdParaHistorialAsync(int id) => throw new NotSupportedException();
         public Task<IEnumerable<Producto>> GetByCategoriaAsync(int categoriaId) => throw new NotSupportedException();
         public Task<IEnumerable<Producto>> GetByMarcaAsync(int marcaId) => throw new NotSupportedException();
         public Task<IEnumerable<Producto>> GetProductosConStockBajoAsync() => throw new NotSupportedException();
