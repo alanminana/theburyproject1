@@ -82,6 +82,9 @@ namespace TheBuryProject.Controllers
                 filtro.Documentos = documentos;
                 filtro.TotalResultados = total;
 
+                if (!filtro.ClienteId.HasValue)
+                    filtro.ClientesAgrupados = DocumentoClienteClienteResumenViewModel.FromDocumentos(documentos);
+
                 filtro.UploadModel = new DocumentoClienteViewModel
                 {
                     ClienteId = filtro.ClienteId ?? 0,

@@ -32,5 +32,8 @@ namespace TheBuryProject.ViewModels
 
         // Formulario embebido para carga rápida
         public DocumentoClienteViewModel UploadModel { get; set; } = new();
+
+        // Vista agrupada por cliente (se construye en el controller, vacía cuando hay filtro por ClienteId)
+        public List<DocumentoClienteClienteResumenViewModel> ClientesAgrupados { get; set; } = new();
     }
 }
