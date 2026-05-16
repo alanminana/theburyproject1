@@ -139,7 +139,7 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var producto = await _productoService.GetByIdAsync(id);
+                var producto = await _productoService.GetByIdParaHistorialAsync(id);
                 if (producto == null)
                 {
                     TempData["Error"] = "Producto no encontrado";
@@ -150,6 +150,7 @@ namespace TheBuryProject.Controllers
                 var viewModels = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos);
 
                 ViewBag.Producto = producto;
+                ViewBag.ProductoEliminado = producto.IsDeleted;
                 return View("Kardex_tw", viewModels);
             }
             catch (Exception ex)

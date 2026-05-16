@@ -33,7 +33,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(m => m.Producto)
                 .Include(m => m.OrdenCompra)
-                .Where(m => !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted)
+                .Where(m => !m.IsDeleted)
                 .OrderByDescending(m => m.CreatedAt)
                 .ToListAsync();
         }
@@ -44,7 +44,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(m => m.Producto)
                 .Include(m => m.OrdenCompra)
-                .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted);
+                .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
         }
 
         public async Task<IEnumerable<MovimientoStock>> GetByProductoIdAsync(int productoId)
@@ -62,7 +62,7 @@ namespace TheBuryProject.Services
             return await _context.MovimientosStock
                 .AsNoTracking()
                 .Include(m => m.Producto)
-                .Where(m => m.OrdenCompraId == ordenCompraId && !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted)
+                .Where(m => m.OrdenCompraId == ordenCompraId && !m.IsDeleted)
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync();
         }
@@ -73,7 +73,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(m => m.Producto)
                 .Include(m => m.OrdenCompra)
-                .Where(m => m.Tipo == tipo && !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted)
+                .Where(m => m.Tipo == tipo && !m.IsDeleted)
                 .OrderByDescending(m => m.CreatedAt)
                 .ToListAsync();
         }
@@ -84,7 +84,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(m => m.Producto)
                 .Include(m => m.OrdenCompra)
-                .Where(m => m.CreatedAt >= fechaDesde && m.CreatedAt <= fechaHasta && !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted)
+                .Where(m => m.CreatedAt >= fechaDesde && m.CreatedAt <= fechaHasta && !m.IsDeleted)
                 .OrderByDescending(m => m.CreatedAt)
                 .ToListAsync();
         }
@@ -101,7 +101,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .Include(m => m.Producto)
                 .Include(m => m.OrdenCompra)
-                .Where(m => !m.IsDeleted && m.Producto != null && !m.Producto.IsDeleted)
+                .Where(m => !m.IsDeleted)
                 .AsQueryable();
 
             if (productoId.HasValue)

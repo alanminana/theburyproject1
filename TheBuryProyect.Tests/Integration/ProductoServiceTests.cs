@@ -1450,6 +1450,83 @@ public class ProductoServiceTests : IDisposable
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.True(bd.RequiereNumeroSerie);
     }
+
+    // -------------------------------------------------------------------------
+    // Regresión: DeleteAsync no debe borrar MovimientoStock
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_ConMovimientoStock_PreservaMovimientos()
+    {
+        var producto = await SeedProductoAsync(stockActual: 20m);
+        _context.MovimientosStock.AddRange(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 10m, Motivo = "Entrada inicial" },
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Salida, Cantidad = 5m, Motivo = "Salida" }
+        );
+        await _context.SaveChangesAsync();
+
+        await _service.DeleteAsync(producto.Id);
+
+        _context.ChangeTracker.Clear();
+        var movimientos = await _context.MovimientosStock
+            .Where(m => m.ProductoId == producto.Id && !m.IsDeleted)
+            .ToListAsync();
+
+        Assert.Equal(2, movimientos.Count);
+    }
+
+    [Fact]
+    public async Task Delete_ConMovimientoStock_ProductoMarcadoIsDeleted()
+    {
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        _context.MovimientosStock.Add(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 10m, Motivo = "Historial" }
+        );
+        await _context.SaveChangesAsync();
+
+        await _service.DeleteAsync(producto.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.IgnoreQueryFilters().FirstAsync(p => p.Id == producto.Id);
+        Assert.True(bd.IsDeleted);
+
+        var movimientos = await _context.MovimientosStock
+            .Where(m => m.ProductoId == producto.Id && !m.IsDeleted)
+            .ToListAsync();
+        Assert.Single(movimientos);
+    }
+
+    [Fact]
+    public async Task GetByIdParaHistorial_ProductoActivo_RetornaProducto()
+    {
+        var producto = await SeedProductoAsync();
+
+        var resultado = await _service.GetByIdParaHistorialAsync(producto.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(producto.Id, resultado.Id);
+        Assert.False(resultado.IsDeleted);
+    }
+
+    [Fact]
+    public async Task GetByIdParaHistorial_ProductoEliminado_RetornaProducto()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.DeleteAsync(producto.Id);
+
+        var resultado = await _service.GetByIdParaHistorialAsync(producto.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(producto.Id, resultado.Id);
+        Assert.True(resultado.IsDeleted);
+    }
+
+    [Fact]
+    public async Task GetByIdParaHistorial_ProductoInexistente_RetornaNull()
+    {
+        var resultado = await _service.GetByIdParaHistorialAsync(99999);
+        Assert.Null(resultado);
+    }
 }
 
 // ---------------------------------------------------------------------------
