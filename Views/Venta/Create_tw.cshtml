@@ -531,6 +531,30 @@
                             </div>
                         </div>
 
+                        @* Panel diagnóstico condiciones de pago — oculto por defecto.
+                           El diagnóstico no dispara en nueva venta (programarDiagnosticoCondicionesPago es stub),
+                           pero el elemento existe para que los refs JS resuelvan correctamente. *@
+                        <div id="panel-diagnostico-condiciones-pago" class="hidden">
+                            <div class="flex items-start gap-3">
+                                <span id="diagnostico-condiciones-pago-icon"
+                                      class="material-symbols-outlined mt-0.5 text-primary">rule</span>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span id="diagnostico-condiciones-pago-estado"
+                                              class="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-widest border-slate-600 text-slate-300">
+                                            Pendiente
+                                        </span>
+                                    </div>
+                                    <p id="diagnostico-condiciones-pago-resumen"
+                                       class="mt-1 text-xs text-slate-400"></p>
+                                </div>
+                            </div>
+                            <p id="diagnostico-condiciones-pago-bloqueo"
+                               class="mt-2 text-xs font-bold text-red-400 hidden"></p>
+                            <div id="diagnostico-condiciones-pago-detalle"
+                                 class="mt-3 space-y-2 hidden"></div>
+                        </div>
+
                     </div>
                 </section>
 

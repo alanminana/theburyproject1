@@ -437,7 +437,9 @@
                 .filter(m => m.activo);
 
             configuracionPagosGlobal = { medios };
-            configuracionPagosGlobalDisponible = true;
+            // Solo marca disponible cuando hay medios activos; así las rutas
+            // gated por configuracionPagosGlobalDisponible no ejecutan con datos vacíos.
+            configuracionPagosGlobalDisponible = medios.length > 0;
             aplicarMediosGlobalesAlSelector(medios);
 
             if (medios.length === 0) {
