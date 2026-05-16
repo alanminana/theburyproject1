@@ -16,17 +16,20 @@ public sealed class CotizacionController : Controller
     private const string AccionVer = "view";
 
     private readonly ICotizacionService _cotizacionService;
+    private readonly ICotizacionPdfService _pdfService;
     private readonly IProductoService _productoService;
     private readonly IClienteService _clienteService;
     private readonly ILogger<CotizacionController> _logger;
 
     public CotizacionController(
         ICotizacionService cotizacionService,
+        ICotizacionPdfService pdfService,
         IProductoService productoService,
         IClienteService clienteService,
         ILogger<CotizacionController> logger)
     {
         _cotizacionService = cotizacionService;
+        _pdfService = pdfService;
         _productoService = productoService;
         _clienteService = clienteService;
         _logger = logger;
@@ -84,6 +87,18 @@ public sealed class CotizacionController : Controller
             return NotFound();
 
         return View("Imprimir_tw", cotizacion);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DescargarPdf(int id, CancellationToken cancellationToken = default)
+    {
+        var cotizacion = await _cotizacionService.ObtenerAsync(id, cancellationToken);
+        if (cotizacion is null)
+            return NotFound();
+
+        var bytes = _pdfService.Generar(cotizacion);
+        var fileName = $"Cotizacion-{cotizacion.Numero}.pdf";
+        return File(bytes, "application/pdf", fileName);
     }
 
     [HttpGet]

@@ -174,7 +174,7 @@ public sealed class CotizacionControllerUiTests
     public async Task Imprimir_CotizacionInexistente_DevuelveNotFound()
     {
         var controller = new CotizacionController(
-            new StubCotizacionServiceVacio(), new StubProductoService(), new StubClienteService(),
+            new StubCotizacionServiceVacio(), new StubNullPdfService(), new StubProductoService(), new StubClienteService(),
             NullLogger<CotizacionController>.Instance);
 
         var result = await controller.Imprimir(999);
@@ -218,7 +218,7 @@ public sealed class CotizacionControllerUiTests
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
 
         Assert.Contains("sujeta a disponibilidad", view);
-        Assert.Contains("Guardar como PDF", view);
+        Assert.Contains("Descargar PDF", view);
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class CotizacionControllerUiTests
     }
 
     private static CotizacionController CreateController() =>
-        new(new StubCotizacionService(), new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
+        new(new StubCotizacionService(), new StubNullPdfService(), new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
 
     private static string FindRepoRoot()
     {
@@ -327,5 +327,10 @@ public sealed class CotizacionControllerUiTests
         public Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null) => Task.FromResult(false);
         public Task<Cliente?> GetByDocumentoAsync(string tipoDocumento, string numeroDocumento) => Task.FromResult<Cliente?>(null);
         public Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo) => Task.CompletedTask;
+    }
+
+    private sealed class StubNullPdfService : ICotizacionPdfService
+    {
+        public byte[] Generar(CotizacionResultado cotizacion) => Array.Empty<byte>();
     }
 }
