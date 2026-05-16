@@ -40,6 +40,9 @@ public class Cotizacion : AuditableEntity
     public decimal? ValorCuotaSeleccionada { get; set; }
     public DateTime? FechaVencimiento { get; set; }
 
+    [StringLength(500)]
+    public string? MotivoCancelacion { get; set; }
+
     public virtual Cliente? Cliente { get; set; }
     public virtual ICollection<CotizacionDetalle> Detalles { get; set; } = new List<CotizacionDetalle>();
     public virtual ICollection<CotizacionPagoSimulado> OpcionesPago { get; set; } = new List<CotizacionPagoSimulado>();

@@ -246,6 +246,9 @@ public sealed class CotizacionApiControllerTests
 
         public Task<CotizacionListadoResultado> ListarAsync(CotizacionFiltros filtros, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CotizacionListadoResultado());
+
+        public Task<CotizacionCancelacionResultado> CancelarAsync(int id, CotizacionCancelacionRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionCancelacionResultado { Exitoso = true, CotizacionId = id });
     }
 
     private sealed class StubCotizacionConversionService : ICotizacionConversionService

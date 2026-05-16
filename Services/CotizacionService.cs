@@ -231,6 +231,68 @@ public sealed class CotizacionService : ICotizacionService
         };
     }
 
+    public async Task<CotizacionCancelacionResultado> CancelarAsync(
+        int id,
+        CotizacionCancelacionRequest request,
+        string usuario,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var motivo = request.Motivo?.Trim();
+        if (string.IsNullOrWhiteSpace(motivo))
+            return CotizacionCancelacionResultado.Fallido(id, ["El motivo de cancelación es obligatorio."]);
+
+        if (motivo.Length > 500)
+            motivo = motivo[..500];
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var cotizacion = await _context.Cotizaciones
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
+
+            if (cotizacion is null)
+                return CotizacionCancelacionResultado.Fallido(id, [$"La cotización {id} no existe."]);
+
+            var error = ValidarEstadoCancelable(cotizacion);
+            if (error is not null)
+                return CotizacionCancelacionResultado.Fallido(id, [error]);
+
+            cotizacion.Estado = EstadoCotizacion.Cancelada;
+            cotizacion.MotivoCancelacion = motivo;
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Cotizacion {Id} cancelada por {Usuario}. Motivo: {Motivo}",
+                id, usuario, motivo);
+
+            return new CotizacionCancelacionResultado
+            {
+                Exitoso = true,
+                CotizacionId = id,
+                MotivoCancelacion = motivo
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error al cancelar cotización {Id}", id);
+            return CotizacionCancelacionResultado.Fallido(id, ["Ocurrió un error interno al cancelar la cotización."]);
+        }
+    }
+
+    private static string? ValidarEstadoCancelable(Cotizacion cotizacion) =>
+        cotizacion.Estado switch
+        {
+            EstadoCotizacion.Cancelada => "La cotización ya está cancelada.",
+            EstadoCotizacion.ConvertidaAVenta => "La cotización ya fue convertida a venta y no puede cancelarse.",
+            EstadoCotizacion.Borrador => "Los borradores no pueden cancelarse.",
+            _ => null
+        };
+
     private async Task<string> GenerarNumeroAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
@@ -349,6 +411,7 @@ public sealed class CotizacionService : ICotizacionService
             TotalSeleccionado = cotizacion.TotalSeleccionado,
             ValorCuotaSeleccionada = cotizacion.ValorCuotaSeleccionada,
             FechaVencimiento = cotizacion.FechaVencimiento,
+            MotivoCancelacion = cotizacion.MotivoCancelacion,
             VentaConvertidaId = ventaConvertidaId,
             NumeroVentaConvertida = numeroVentaConvertida,
             Detalles = cotizacion.Detalles

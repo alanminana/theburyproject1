@@ -53,6 +53,8 @@ public sealed class CotizacionResultado
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();
 
+    public string? MotivoCancelacion { get; init; }
+
     // Trazabilidad: venta generada por conversión (null si no fue convertida aún)
     public int? VentaConvertidaId { get; init; }
     public string? NumeroVentaConvertida { get; init; }
@@ -107,4 +109,20 @@ public sealed class CotizacionListadoResultado
     public int Total { get; init; }
     public int Page { get; init; }
     public int PageSize { get; init; }
+}
+
+public sealed class CotizacionCancelacionRequest
+{
+    public string Motivo { get; init; } = string.Empty;
+}
+
+public sealed class CotizacionCancelacionResultado
+{
+    public bool Exitoso { get; init; }
+    public List<string> Errores { get; init; } = new();
+    public int CotizacionId { get; init; }
+    public string? MotivoCancelacion { get; init; }
+
+    public static CotizacionCancelacionResultado Fallido(int cotizacionId, IEnumerable<string> errores) =>
+        new() { Exitoso = false, CotizacionId = cotizacionId, Errores = errores.ToList() };
 }

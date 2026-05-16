@@ -116,6 +116,37 @@ public sealed class CotizacionApiController : ControllerBase
         }
     }
 
+    [HttpPost("{id:int}/cancelar")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "cancel")]
+    public async Task<IActionResult> Cancelar(
+        [FromRoute] int id,
+        [FromBody] CotizacionCancelacionRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+            return BadRequest(new { error = "El request de cancelación es obligatorio." });
+
+        try
+        {
+            var usuario = User?.Identity?.Name ?? "System";
+            var resultado = await _cotizacionService.CancelarAsync(id, request, usuario, cancellationToken);
+
+            if (!resultado.Exitoso)
+                return BadRequest(new { errores = resultado.Errores });
+
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cancelar cotización {Id}", id);
+            return StatusCode(500, new { error = "No se pudo cancelar la cotización." });
+        }
+    }
+
     [HttpPost("{id:int}/conversion/convertir")]
     [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
     public async Task<IActionResult> Convertir(
