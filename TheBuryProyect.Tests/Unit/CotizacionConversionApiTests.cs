@@ -252,5 +252,8 @@ public sealed class CotizacionConversionApiTests
 
         public Task<CotizacionCancelacionResultado> CancelarAsync(int id, CotizacionCancelacionRequest request, string usuario, CancellationToken cancellationToken = default) =>
             Task.FromResult(new CotizacionCancelacionResultado { Exitoso = true, CotizacionId = id });
+
+        public Task<CotizacionVencimientoResultado> VencerEmitidasAsync(DateTime fechaReferenciaUtc, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionVencimientoResultado { Exitoso = true });
     }
 }

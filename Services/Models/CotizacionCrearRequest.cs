@@ -126,3 +126,16 @@ public sealed class CotizacionCancelacionResultado
     public static CotizacionCancelacionResultado Fallido(int cotizacionId, IEnumerable<string> errores) =>
         new() { Exitoso = false, CotizacionId = cotizacionId, Errores = errores.ToList() };
 }
+
+public sealed class CotizacionVencimientoResultado
+{
+    public bool Exitoso { get; init; }
+    public int CantidadEvaluadas { get; init; }
+    public int CantidadVencidas { get; init; }
+    public List<int> CotizacionesVencidasIds { get; init; } = new();
+    public List<string> Advertencias { get; init; } = new();
+    public List<string> Errores { get; init; } = new();
+
+    public static CotizacionVencimientoResultado Fallido(IEnumerable<string> errores) =>
+        new() { Exitoso = false, Errores = errores.ToList() };
+}

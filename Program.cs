@@ -133,6 +133,7 @@ builder.Services.AddSignalR();
 builder.Services.AddHostedService<MoraBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
+builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
 
 // 6. MVC
 var mvcBuilder = builder.Services.AddControllersWithViews();

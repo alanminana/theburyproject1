@@ -147,6 +147,31 @@ public sealed class CotizacionApiController : ControllerBase
         }
     }
 
+    [HttpPost("vencer-expiradas")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "expire")]
+    public async Task<IActionResult> VencerExpiradas(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var usuario = User?.Identity?.Name ?? "System";
+            var resultado = await _cotizacionService.VencerEmitidasAsync(DateTime.UtcNow, usuario, cancellationToken);
+
+            if (!resultado.Exitoso)
+                return StatusCode(500, new { errores = resultado.Errores });
+
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al vencer cotizaciones expiradas");
+            return StatusCode(500, new { error = "No se pudo ejecutar el vencimiento de cotizaciones." });
+        }
+    }
+
     [HttpPost("{id:int}/conversion/convertir")]
     [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
     public async Task<IActionResult> Convertir(

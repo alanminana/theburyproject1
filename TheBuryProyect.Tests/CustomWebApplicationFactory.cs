@@ -26,6 +26,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         typeof(MoraBackgroundService),
         typeof(AlertaStockBackgroundService),
         typeof(DocumentoVencidoBackgroundService),
+        typeof(CotizacionVencimientoBackgroundService),
     ];
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -146,6 +147,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     /// Seedear con SeedUserWithCancelPermissionAsync antes de usar.
     /// </summary>
     public const string CancelPermsUserId = "test-cancel-perms-id";
+
+    /// <summary>
+    /// User ID para tests que necesitan un usuario con cotizaciones.expire pero sin SuperAdmin.
+    /// Seedear con SeedUserWithExpirePermissionAsync antes de usar.
+    /// </summary>
+    public const string ExpirePermsUserId = "test-expire-perms-id";
 
     /// <summary>
     /// Crea un HttpClient con el usuario de test autenticado (SuperAdmin).
@@ -331,6 +338,91 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ModuloId = testModuloId,
             AccionId = testAccionId,
             ClaimValue = "cotizaciones.cancel",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = testAccionId - 1,
+            ClaimValue = "cotizaciones.view",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Siembra en la BD de test un usuario con permiso cotizaciones.expire (sin SuperAdmin).
+    /// Diseñado para tests que verifican acceso por permiso específico, no por rol SuperAdmin.
+    /// Idempotente: no duplica si el usuario ya existe.
+    /// </summary>
+    public async Task SeedUserWithExpirePermissionAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == ExpirePermsUserId))
+            return;
+
+        const string roleId = "test-expire-role-id";
+        const int testModuloId = 9995;
+        const int testAccionId = 9995;
+
+        context.Roles.Add(new IdentityRole { Id = roleId, Name = "TestExpireRole", NormalizedName = "TESTEXPIREROLE" });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = ExpirePermsUserId,
+            UserName = "testuser-expire",
+            NormalizedUserName = "TESTUSER-EXPIRE",
+            Email = "testexpire@test.com",
+            NormalizedEmail = "TESTEXPIRE@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = ExpirePermsUserId, RoleId = roleId });
+        await context.SaveChangesAsync();
+
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Cotizaciones Expire",
+            Clave = "cotizaciones-expire-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = testAccionId,
+            ModuloId = testModuloId,
+            Nombre = "Test Expire",
+            Clave = "expire-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = testAccionId - 1,
+            ModuloId = testModuloId,
+            Nombre = "Test View Expire",
+            Clave = "view-expire-test",
+            Orden = 1,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = testAccionId,
+            ClaimValue = "cotizaciones.expire",
             IsDeleted = false,
             RowVersion = new byte[8]
         });

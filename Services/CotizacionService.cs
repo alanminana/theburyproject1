@@ -284,6 +284,51 @@ public sealed class CotizacionService : ICotizacionService
         }
     }
 
+    public async Task<CotizacionVencimientoResultado> VencerEmitidasAsync(
+        DateTime fechaReferenciaUtc,
+        string usuario,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var candidatas = await _context.Cotizaciones
+                .Where(c => !c.IsDeleted
+                    && c.Estado == EstadoCotizacion.Emitida
+                    && c.FechaVencimiento.HasValue
+                    && c.FechaVencimiento.Value < fechaReferenciaUtc)
+                .ToListAsync(cancellationToken);
+
+            var ids = new List<int>(candidatas.Count);
+            foreach (var cotizacion in candidatas)
+            {
+                cotizacion.Estado = EstadoCotizacion.Vencida;
+                ids.Add(cotizacion.Id);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "VencerEmitidasAsync ejecutado por {Usuario}: {CantidadEvaluadas} evaluadas, {CantidadVencidas} vencidas.",
+                usuario, candidatas.Count, ids.Count);
+
+            return new CotizacionVencimientoResultado
+            {
+                Exitoso = true,
+                CantidadEvaluadas = candidatas.Count,
+                CantidadVencidas = ids.Count,
+                CotizacionesVencidasIds = ids
+            };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error en VencerEmitidasAsync");
+            return CotizacionVencimientoResultado.Fallido(["Ocurrió un error interno al vencer cotizaciones."]);
+        }
+    }
+
     private static string? ValidarEstadoCancelable(Cotizacion cotizacion) =>
         cotizacion.Estado switch
         {
