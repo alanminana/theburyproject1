@@ -151,6 +151,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void VentaCreateJs_AplicarMediosGlobalesConservaFallbackCuandoListaVacia()
+    {
+        // Cuando la API devuelve medios vacíos, el selector no debe vaciarse.
+        // El guard medios.length === 0 preserva las opciones renderizadas por Razor.
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function aplicarMediosGlobalesAlSelector");
+
+        Assert.Contains("medios.length === 0", fn);
+    }
+
+    [Fact]
     public void VentaCreateJs_NoRenderizaBotonPagoPorItem()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));

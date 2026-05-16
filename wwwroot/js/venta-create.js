@@ -455,7 +455,9 @@
     }
 
     function aplicarMediosGlobalesAlSelector(medios) {
-        if (!selectTipoPago || !Array.isArray(medios)) return;
+        // Si no hay medios activos, conservar las opciones renderizadas por Razor como fallback.
+        // De lo contrario replaceChildren() vaciaría el selector dejándolo sin opciones.
+        if (!selectTipoPago || !Array.isArray(medios) || medios.length === 0) return;
 
         const selectedBefore = selectTipoPago.value;
         selectTipoPago.replaceChildren();
