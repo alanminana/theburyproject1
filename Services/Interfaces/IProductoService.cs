@@ -12,6 +12,12 @@ namespace TheBuryProject.Services.Interfaces
         // CRUD básico
         Task<IEnumerable<Producto>> GetAllAsync();
         Task<Producto?> GetByIdAsync(int id);
+
+        /// <summary>
+        /// Obtiene un producto por ID incluyendo los eliminados (soft-deleted).
+        /// Uso exclusivo para contextos históricos/auditoría (ej: Kardex de producto eliminado).
+        /// </summary>
+        Task<Producto?> GetByIdParaHistorialAsync(int id);
         Task<IEnumerable<Producto>> GetByCategoriaAsync(int categoriaId);
         Task<IEnumerable<Producto>> GetByMarcaAsync(int marcaId);
         Task<IEnumerable<Producto>> GetProductosConStockBajoAsync();

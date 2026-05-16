@@ -80,6 +80,23 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<Producto?> GetByIdParaHistorialAsync(int id)
+        {
+            try
+            {
+                return await _context.Productos
+                    .AsNoTracking()
+                    .Include(p => p.Categoria)
+                    .Include(p => p.Marca)
+                    .FirstOrDefaultAsync(p => p.Id == id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener producto para historial {Id}", id);
+                throw;
+            }
+        }
+
         public async Task<IEnumerable<Producto>> GetByCategoriaAsync(int categoriaId)
         {
             try

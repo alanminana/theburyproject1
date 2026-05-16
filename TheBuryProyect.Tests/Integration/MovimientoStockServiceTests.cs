@@ -787,4 +787,60 @@ public class MovimientoStockServiceTests : IDisposable
         Assert.Single(resultado);
         Assert.Equal("Visible", resultado.First().Motivo);
     }
+
+    // -------------------------------------------------------------------------
+    // Regresión: producto soft-deleted NO debe ocultar MovimientoStock
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetByProductoId_ProductoSoftDeleted_PreservaMovimientos()
+    {
+        var producto = await SeedProductoAsync(stockActual: 50m);
+        _context.Set<MovimientoStock>().Add(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 20m, Motivo = "Kardex" }
+        );
+        await _context.SaveChangesAsync();
+
+        producto.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByProductoIdAsync(producto.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal("Kardex", resultado.First().Motivo);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ProductoSoftDeleted_IncludeMovimientos()
+    {
+        var producto = await SeedProductoAsync(stockActual: 30m);
+        _context.Set<MovimientoStock>().Add(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 10m, Motivo = "Historial" }
+        );
+        await _context.SaveChangesAsync();
+
+        producto.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Contains(resultado, m => m.ProductoId == producto.Id && m.Motivo == "Historial");
+    }
+
+    [Fact]
+    public async Task SearchAsync_ProductoSoftDeleted_IncludeMovimientos()
+    {
+        var producto = await SeedProductoAsync(stockActual: 40m);
+        _context.Set<MovimientoStock>().Add(
+            new MovimientoStock { ProductoId = producto.Id, Tipo = TipoMovimiento.Entrada, Cantidad = 15m, Motivo = "BusquedaHistorial" }
+        );
+        await _context.SaveChangesAsync();
+
+        producto.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.SearchAsync(productoId: producto.Id);
+
+        Assert.Contains(resultado, m => m.Motivo == "BusquedaHistorial");
+    }
 }

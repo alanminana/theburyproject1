@@ -932,6 +932,7 @@ public class VentaApiControllerTests
 
         public Task<IEnumerable<Producto>> GetAllAsync() => throw new NotImplementedException();
         public Task<Producto?> GetByIdAsync(int id) => Task.FromResult(Producto?.Id == id ? Producto : null);
+        public Task<Producto?> GetByIdParaHistorialAsync(int id) => Task.FromResult(Producto?.Id == id ? Producto : null);
         public Task<IEnumerable<Producto>> GetByCategoriaAsync(int categoriaId) => throw new NotImplementedException();
         public Task<IEnumerable<Producto>> GetByMarcaAsync(int marcaId) => throw new NotImplementedException();
         public Task<IEnumerable<Producto>> GetProductosConStockBajoAsync() => throw new NotImplementedException();
