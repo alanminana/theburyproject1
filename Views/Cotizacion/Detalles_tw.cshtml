@@ -5,7 +5,7 @@
 @{
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
-    var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida;
+    var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso("cotizaciones", "convert");
 }
 
 <div class="mx-auto w-full max-w-7xl space-y-6">

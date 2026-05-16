@@ -95,6 +95,7 @@ public sealed class CotizacionApiController : ControllerBase
     }
 
     [HttpPost("{id:int}/conversion/preview")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
     public async Task<IActionResult> ConversionPreview(
         [FromRoute] int id,
         CancellationToken cancellationToken = default)
@@ -116,7 +117,7 @@ public sealed class CotizacionApiController : ControllerBase
     }
 
     [HttpPost("{id:int}/conversion/convertir")]
-    [PermisoRequerido(Modulo = "cotizaciones", Accion = "create")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
     public async Task<IActionResult> Convertir(
         [FromRoute] int id,
         [FromBody] CotizacionConversionRequest? request,

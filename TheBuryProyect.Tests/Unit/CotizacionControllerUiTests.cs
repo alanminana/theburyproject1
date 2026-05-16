@@ -110,6 +110,14 @@ public sealed class CotizacionControllerUiTests
     }
 
     [Fact]
+    public void DetallesView_BotonConvertir_VerificaPermisoConvert()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Detalles_tw.cshtml"));
+
+        Assert.Contains("TienePermiso(\"cotizaciones\", \"convert\")", view);
+    }
+
+    [Fact]
     public void DetallesView_MuestraBadgeParaEstadosNoConvertibles()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Detalles_tw.cshtml"));

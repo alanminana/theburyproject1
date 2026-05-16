@@ -1,6 +1,8 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
+using TheBuryProject.Filters;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -126,6 +128,30 @@ public sealed class CotizacionConversionApiTests
         await controller.Convertir(7, new CotizacionConversionRequest(), CancellationToken.None);
 
         Assert.Equal(7, conversionService.UltimaCotizacionId);
+    }
+
+    // ─── PERMISOS ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void PreviewEndpoint_RequierePermisoConvert()
+    {
+        var method = typeof(CotizacionApiController).GetMethod(nameof(CotizacionApiController.ConversionPreview));
+        var permiso = method?.GetCustomAttribute<PermisoRequeridoAttribute>();
+
+        Assert.NotNull(permiso);
+        Assert.Equal("cotizaciones", permiso.Modulo);
+        Assert.Equal("convert", permiso.Accion);
+    }
+
+    [Fact]
+    public void ConvertirEndpoint_RequierePermisoConvert_NoCreate()
+    {
+        var method = typeof(CotizacionApiController).GetMethod(nameof(CotizacionApiController.Convertir));
+        var permisos = method?.GetCustomAttributes<PermisoRequeridoAttribute>().ToList();
+
+        Assert.NotNull(permisos);
+        Assert.Contains(permisos, p => p.Modulo == "cotizaciones" && p.Accion == "convert");
+        Assert.DoesNotContain(permisos, p => p.Modulo == "cotizaciones" && p.Accion == "create");
     }
 
     // ─── CONSTRUCTOR / RUTAS ─────────────────────────────────────────────
