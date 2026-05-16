@@ -77,6 +77,16 @@ public sealed class CotizacionController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> Imprimir(int id, CancellationToken cancellationToken = default)
+    {
+        var cotizacion = await _cotizacionService.ObtenerAsync(id, cancellationToken);
+        if (cotizacion is null)
+            return NotFound();
+
+        return View("Imprimir_tw", cotizacion);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> BuscarProductos(string term, int take = 20, CancellationToken cancellationToken = default)
     {
         try

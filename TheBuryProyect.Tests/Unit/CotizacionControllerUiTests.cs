@@ -157,6 +157,91 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("appendItems", script);
     }
 
+    [Fact]
+    public async Task Imprimir_CotizacionExistente_DevuelveVistaImprimir_tw()
+    {
+        var controller = CreateController();
+
+        var result = await controller.Imprimir(42);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Imprimir_tw", view.ViewName);
+        var model = Assert.IsType<CotizacionResultado>(view.Model);
+        Assert.Equal(42, model.Id);
+    }
+
+    [Fact]
+    public async Task Imprimir_CotizacionInexistente_DevuelveNotFound()
+    {
+        var controller = new CotizacionController(
+            new StubCotizacionServiceVacio(), new StubProductoService(), new StubClienteService(),
+            NullLogger<CotizacionController>.Instance);
+
+        var result = await controller.Imprimir(999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public void ImprimirView_ContieneBotonImprimirYWindowPrint()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
+
+        Assert.Contains("window.print()", view);
+        Assert.Contains("Imprimir", view);
+        Assert.Contains("history.back()", view);
+    }
+
+    [Fact]
+    public void ImprimirView_TieneLayoutNullYNoDependeDeLayout()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
+
+        Assert.Contains("Layout = null", view);
+        Assert.DoesNotContain("_Layout", view);
+    }
+
+    [Fact]
+    public void ImprimirView_NoContieneBotonesOperativos()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
+
+        Assert.DoesNotContain("btn-convertir", view, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("btn-cancelar", view, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("asp-action", view, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CotizacionConversion", view, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ImprimirView_ContieneDisclaimerDeCotizacion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
+
+        Assert.Contains("sujeta a disponibilidad", view);
+        Assert.Contains("Guardar como PDF", view);
+    }
+
+    [Fact]
+    public void ImprimirView_UsaModeloCotizacionResultado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Imprimir_tw.cshtml"));
+
+        Assert.Contains("@model CotizacionResultado", view);
+        Assert.Contains("Model.Numero", view);
+        Assert.Contains("Model.Detalles", view);
+        Assert.Contains("Model.TotalBase", view);
+    }
+
+    [Fact]
+    public void DetallesView_ContieneEnlaceImprimir()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Detalles_tw.cshtml"));
+
+        Assert.Contains("Imprimir", view);
+        Assert.Contains("\"Imprimir\", \"Cotizacion\"", view);
+        Assert.Contains("target=\"_blank\"", view);
+    }
+
     private static CotizacionController CreateController() =>
         new(new StubCotizacionService(), new StubProductoService(), new StubClienteService(), NullLogger<CotizacionController>.Instance);
 
@@ -192,6 +277,24 @@ public sealed class CotizacionControllerUiTests
         public Task<bool> ToggleDestacadoAsync(int id) => Task.FromResult(false);
         public Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad) => Task.CompletedTask;
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => Task.FromResult(false);
+    }
+
+    private sealed class StubCotizacionServiceVacio : ICotizacionService
+    {
+        public Task<CotizacionResultado> CrearAsync(CotizacionCrearRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionResultado());
+
+        public Task<CotizacionResultado?> ObtenerAsync(int id, CancellationToken cancellationToken = default) =>
+            Task.FromResult<CotizacionResultado?>(null);
+
+        public Task<CotizacionListadoResultado> ListarAsync(CotizacionFiltros filtros, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionListadoResultado());
+
+        public Task<CotizacionCancelacionResultado> CancelarAsync(int id, CotizacionCancelacionRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionCancelacionResultado { CotizacionId = id });
+
+        public Task<CotizacionVencimientoResultado> VencerEmitidasAsync(DateTime fechaReferenciaUtc, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new CotizacionVencimientoResultado());
     }
 
     private sealed class StubCotizacionService : ICotizacionService
