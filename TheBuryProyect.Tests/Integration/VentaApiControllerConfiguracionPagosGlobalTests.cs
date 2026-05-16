@@ -3,6 +3,7 @@ using System.Text.Json;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Collection("HttpIntegration")]
 public sealed class VentaApiControllerConfiguracionPagosGlobalTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
