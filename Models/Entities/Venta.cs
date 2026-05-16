@@ -99,8 +99,12 @@ namespace TheBuryProject.Models.Entities
         [StringLength(500)]
         public string? MotivoCancelacion { get; set; }
 
+        // Trazabilidad: cotización origen (nullable — solo ventas generadas por conversión)
+        public int? CotizacionOrigenId { get; set; }
+
         // Navigation properties
         public virtual Cliente Cliente { get; set; } = null!;
+        public virtual Cotizacion? CotizacionOrigen { get; set; }
         public virtual Credito? Credito { get; set; }
         public virtual AperturaCaja? AperturaCaja { get; set; }
         public virtual ApplicationUser? VendedorUser { get; set; }

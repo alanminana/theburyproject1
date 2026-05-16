@@ -88,6 +88,9 @@ builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();
+builder.Services.AddScoped<ICotizacionPagoCalculator, CotizacionPagoCalculator>();
+builder.Services.AddScoped<ICotizacionService, CotizacionService>();
+builder.Services.AddScoped<ICotizacionConversionService, CotizacionConversionService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
 builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoService>();
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();
@@ -130,6 +133,7 @@ builder.Services.AddSignalR();
 builder.Services.AddHostedService<MoraBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
 builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
+builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
 
 // 6. MVC
 var mvcBuilder = builder.Services.AddControllersWithViews();

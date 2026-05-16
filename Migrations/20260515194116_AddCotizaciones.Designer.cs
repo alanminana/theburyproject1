@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515194116_AddCotizaciones")]
+    partial class AddCotizaciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -7039,9 +7042,6 @@ namespace TheBuryProject.Migrations
                     b.Property<int>("ClienteId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CotizacionOrigenId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -7188,9 +7188,6 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("AperturaCajaId");
 
                     b.HasIndex("ClienteId");
-
-                    b.HasIndex("CotizacionOrigenId")
-                        .HasDatabaseName("IX_Ventas_CotizacionOrigenId");
 
                     b.HasIndex("CreditoId");
 
@@ -8536,11 +8533,6 @@ namespace TheBuryProject.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("TheBuryProject.Models.Entities.Cotizacion", "CotizacionOrigen")
-                        .WithMany()
-                        .HasForeignKey("CotizacionOrigenId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("TheBuryProject.Models.Entities.Credito", "Credito")
                         .WithMany()
                         .HasForeignKey("CreditoId")
@@ -8559,8 +8551,6 @@ namespace TheBuryProject.Migrations
                     b.Navigation("AperturaCaja");
 
                     b.Navigation("Cliente");
-
-                    b.Navigation("CotizacionOrigen");
 
                     b.Navigation("Credito");
 

@@ -55,6 +55,9 @@ namespace TheBuryProject.Data
 
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<VentaDetalle> VentaDetalles { get; set; }
+        public DbSet<Cotizacion> Cotizaciones { get; set; }
+        public DbSet<CotizacionDetalle> CotizacionDetalles { get; set; }
+        public DbSet<CotizacionPagoSimulado> CotizacionPagosSimulados { get; set; }
         public DbSet<Factura> Facturas { get; set; }
         public DbSet<PlantillaContratoCredito> PlantillasContratoCredito { get; set; }
         public DbSet<ContratoVentaCredito> ContratosVentaCredito { get; set; }
@@ -1098,6 +1101,15 @@ namespace TheBuryProject.Data
                     .WithOne(f => f.Venta)
                     .HasForeignKey(f => f.VentaId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CotizacionOrigen)
+                    .WithMany()
+                    .HasForeignKey(e => e.CotizacionOrigenId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false);
+
+                entity.HasIndex(e => e.CotizacionOrigenId)
+                    .HasDatabaseName("IX_Ventas_CotizacionOrigenId");
             });
 
             // =======================
@@ -1187,6 +1199,97 @@ namespace TheBuryProject.Data
                     .IsUnique()
                     .HasDatabaseName("UX_VentaDetalles_ProductoUnidadId")
                     .HasFilter("[IsDeleted] = 0 AND [ProductoUnidadId] IS NOT NULL");
+            });
+
+            // =======================
+            // Cotizaciones
+            // =======================
+            modelBuilder.Entity<Cotizacion>(entity =>
+            {
+                entity.ToTable("Cotizaciones");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Numero).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.NombreClienteLibre).HasMaxLength(200);
+                entity.Property(e => e.TelefonoClienteLibre).HasMaxLength(30);
+                entity.Property(e => e.Observaciones).HasMaxLength(1000);
+                entity.Property(e => e.PlanSeleccionado).HasMaxLength(200);
+
+                entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.DescuentoTotal).HasPrecision(18, 2);
+                entity.Property(e => e.TotalBase).HasPrecision(18, 2);
+                entity.Property(e => e.TotalSeleccionado).HasPrecision(18, 2);
+                entity.Property(e => e.ValorCuotaSeleccionada).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.Numero)
+                    .IsUnique()
+                    .HasFilter("[IsDeleted] = 0");
+                entity.HasIndex(e => e.Fecha);
+                entity.HasIndex(e => e.ClienteId);
+                entity.HasIndex(e => e.Estado);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.Cliente)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClienteId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasMany(e => e.Detalles)
+                    .WithOne(e => e.Cotizacion)
+                    .HasForeignKey(e => e.CotizacionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(e => e.OpcionesPago)
+                    .WithOne(e => e.Cotizacion)
+                    .HasForeignKey(e => e.CotizacionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CotizacionDetalle>(entity =>
+            {
+                entity.ToTable("CotizacionDetalles");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.CodigoProductoSnapshot).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.NombreProductoSnapshot).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Cantidad).HasPrecision(18, 2);
+                entity.Property(e => e.PrecioUnitarioSnapshot).HasPrecision(18, 2);
+                entity.Property(e => e.DescuentoPorcentajeSnapshot).HasPrecision(5, 2);
+                entity.Property(e => e.DescuentoImporteSnapshot).HasPrecision(18, 2);
+                entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.CotizacionId);
+                entity.HasIndex(e => e.ProductoId);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.Producto)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CotizacionPagoSimulado>(entity =>
+            {
+                entity.ToTable("CotizacionPagosSimulados");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.NombreMedioPago).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Plan).HasMaxLength(200);
+                entity.Property(e => e.AdvertenciasJson)
+                    .HasColumnType(Database.IsSqlServer() ? "nvarchar(max)" : "TEXT");
+
+                entity.Property(e => e.RecargoPorcentaje).HasPrecision(8, 4);
+                entity.Property(e => e.DescuentoPorcentaje).HasPrecision(8, 4);
+                entity.Property(e => e.InteresPorcentaje).HasPrecision(8, 4);
+                entity.Property(e => e.TasaMensual).HasPrecision(8, 4);
+                entity.Property(e => e.CostoFinancieroTotal).HasPrecision(18, 2);
+                entity.Property(e => e.Total).HasPrecision(18, 2);
+                entity.Property(e => e.ValorCuota).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.CotizacionId);
+                entity.HasIndex(e => e.MedioPago);
+                entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
             // =======================
