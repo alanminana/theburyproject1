@@ -10,6 +10,8 @@ namespace TheBuryProject.Services;
 
 public sealed class CotizacionService : ICotizacionService
 {
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
+
     private readonly AppDbContext _context;
     private readonly ICotizacionPagoCalculator _calculator;
     private readonly ILogger<CotizacionService> _logger;
@@ -105,7 +107,23 @@ public sealed class CotizacionService : ICotizacionService
         }
 
         _context.Cotizaciones.Add(cotizacion);
-        await _context.SaveChangesAsync(cancellationToken);
+
+        const int maxReintentos = 3;
+        for (var intento = 0; intento < maxReintentos; intento++)
+        {
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+                break;
+            }
+            catch (DbUpdateException ex) when (EsColisionNumeroUnico(ex) && intento < maxReintentos - 1)
+            {
+                _logger.LogWarning(
+                    "Colisión de número de cotización {Numero} en intento {Intento}. Reintentando.",
+                    cotizacion.Numero, intento + 1);
+                cotizacion.Numero = await GenerarNumeroAsync(cancellationToken);
+            }
+        }
 
         _logger.LogInformation(
             "Cotizacion {Numero} guardada por {Usuario} sin crear venta.",
@@ -215,23 +233,37 @@ public sealed class CotizacionService : ICotizacionService
 
     private async Task<string> GenerarNumeroAsync(CancellationToken cancellationToken)
     {
-        var today = DateTime.UtcNow;
-        var prefix = $"COT-{today:yyyyMMdd}-";
-        var last = await _context.Cotizaciones
-            .AsNoTracking()
-            .Where(c => c.Numero.StartsWith(prefix))
-            .OrderByDescending(c => c.Numero)
-            .Select(c => c.Numero)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var next = 1;
-        if (!string.IsNullOrWhiteSpace(last) &&
-            int.TryParse(last[(last.LastIndexOf('-') + 1)..], out var parsed))
+        await _semaphore.WaitAsync(cancellationToken);
+        try
         {
-            next = parsed + 1;
-        }
+            var today = DateTime.UtcNow;
+            var prefix = $"COT-{today:yyyyMMdd}-";
+            var last = await _context.Cotizaciones
+                .AsNoTracking()
+                .Where(c => c.Numero.StartsWith(prefix))
+                .OrderByDescending(c => c.Numero)
+                .Select(c => c.Numero)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        return $"{prefix}{next:0000}";
+            var next = 1;
+            if (!string.IsNullOrWhiteSpace(last) &&
+                int.TryParse(last[(last.LastIndexOf('-') + 1)..], out var parsed))
+            {
+                next = parsed + 1;
+            }
+
+            return $"{prefix}{next:0000}";
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private static bool EsColisionNumeroUnico(DbUpdateException ex)
+    {
+        var msg = ex.InnerException?.Message ?? ex.Message;
+        return msg.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase);
     }
 
     private static (CotizacionMedioPagoResultado Opcion, CotizacionPlanPagoResultado? Plan)? ResolverSeleccion(
