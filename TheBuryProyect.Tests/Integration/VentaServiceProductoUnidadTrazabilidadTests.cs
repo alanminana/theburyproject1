@@ -1385,6 +1385,53 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         Assert.Empty(facturas);
     }
 
+    // =========================================================================
+    // Diagnóstico StockActual vs UnidadesEnStock
+    // Escenario: StockActual > ProductoUnidades.EnStock para producto trazable.
+    // Estos tests documentan que el sistema usa EnStock (unidades físicas), no
+    // StockActual, como autoridad para ventas trazables.
+    // =========================================================================
+
+    // 42. StockActual mayor que EnStock: venta con unidad física válida es permitida.
+    //     El stock agregado no bloquea ni habilita la venta — solo la unidad física cuenta.
+    [Fact]
+    public async Task ConfirmarVenta_ProductoTrazable_StockMayorAUnidades_PermiteVenderUnidadSeleccionada()
+    {
+        // Arrange: StockActual=5, pero solo 4 unidades físicas EnStock
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        var unidadValida = await SeedUnidadEnStockAsync(producto, "SN-STOCKMAY-001");
+        await SeedUnidadEnStockAsync(producto, "SN-STOCKMAY-002");
+        await SeedUnidadEnStockAsync(producto, "SN-STOCKMAY-003");
+        await SeedUnidadEnStockAsync(producto, "SN-STOCKMAY-004");
+        // La diferencia StockActual(5) vs EnStock(4) no debe impedir vender una unidad física válida
+
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidadValida.Id);
+
+        // Act + Assert: debe confirmarse sin error
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var unidadActualizada = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadValida.Id);
+        Assert.Equal(EstadoUnidad.Vendida, unidadActualizada.Estado);
+    }
+
+    // 43. StockActual alto, sin unidades físicas: el stock agregado no habilita venta trazable.
+    //     Aunque StockActual=5, sin ProductoUnidadId la venta es bloqueada.
+    [Fact]
+    public async Task ConfirmarVenta_ProductoTrazable_StockAltoSinUnidadFisica_BloqueaVenta()
+    {
+        // Arrange: StockActual=5, pero 0 ProductoUnidades creadas — no existe unidad física
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: true, stock: 5);
+        // No se crea ninguna ProductoUnidad — el StockActual no es sustituto de unidad física
+
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: null);
+
+        // Act + Assert: debe bloquearse; StockActual no autoriza la venta trazable
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("requiere selección de unidad individual", ex.Message);
+    }
+
     // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,
     //     la unidad anterior queda EnStock intacta (Fase 8.2.S Caso 2).
     [Fact]
