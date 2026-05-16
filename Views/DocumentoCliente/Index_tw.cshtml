@@ -211,10 +211,10 @@
                             {
                                 var estadoClasses = doc.Estado switch
                                 {
-                                    EstadoDocumento.Verificado => "bg-emerald-500/20 text-emerald-400",
-                                    EstadoDocumento.Rechazado => "bg-red-500/20 text-red-400",
-                                    EstadoDocumento.Vencido => "bg-orange-500/20 text-orange-400",
-                                    _ => "bg-amber-500/20 text-amber-400"
+                                    EstadoDocumento.Verificado => "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400",
+                                    EstadoDocumento.Rechazado => "border border-red-500/30 bg-red-500/20 text-red-400",
+                                    EstadoDocumento.Vencido => "border border-orange-500/30 bg-orange-500/20 text-orange-400",
+                                    _ => "border border-amber-500/30 bg-amber-500/20 text-amber-400"
                                 };
                                 var estadoIcon = doc.Estado switch
                                 {
@@ -225,7 +225,7 @@
                                 };
                                 var deleteLabel = $"el documento {doc.TipoDocumentoNombre} de {(doc.ClienteNombre ?? "cliente")}";
 
-                                <tr class="transition-colors hover:/50 hover:bg-slate-800/30">
+                                <tr class="transition-colors hover:bg-slate-800/30">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
                                             <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
