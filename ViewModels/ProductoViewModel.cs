@@ -152,6 +152,8 @@ namespace TheBuryProject.ViewModels
         public string? Subcategoria { get; set; }
         public string? Descripcion { get; set; }
         public decimal StockActual { get; set; }
+        public int UnidadesEnStock { get; set; }
+        public decimal StockSinIdentificar { get; set; }
         public decimal PrecioVenta { get; set; }
         public bool RequiereNumeroSerie { get; set; }
         public List<ProductoCaracteristicaDto> Caracteristicas { get; set; } = new();

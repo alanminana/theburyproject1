@@ -356,6 +356,29 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("ICondicionesPagoCarritoResolver", controller);
     }
 
+    [Fact]
+    public void VentaCreateJs_RenderizaStockBreakdown()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function renderStockInfo");
+
+        Assert.Contains("Stock total:", fn);
+        Assert.Contains("Identificadas:", fn);
+        Assert.Contains("Sin identificar:", fn);
+        Assert.Contains("unidadesEnStock", fn);
+        Assert.Contains("stockSinIdentificar", fn);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MuestraAdvertenciaConciliacionSiStockSinIdentificarNegativo()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function renderStockInfo");
+
+        Assert.Contains("stockSinIdentificar < 0", fn);
+        Assert.Contains("Revisar conciliación", fn);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

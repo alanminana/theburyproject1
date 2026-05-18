@@ -451,6 +451,86 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task BusquedaProductoVenta_DevuelveUnidadesEnStock()
+    {
+        var productoService = new StubProductoService
+        {
+            ProductosVenta =
+            {
+                new ProductoVentaDto { Id = 1, Nombre = "Prod", StockActual = 2, UnidadesEnStock = 1, StockSinIdentificar = 1 }
+            }
+        };
+        var controller = CreateController(productoService: productoService);
+
+        var result = await controller.BuscarProductos("prod");
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var item = ToJson(ok.Value).RootElement[0];
+        Assert.Equal(1, item.GetProperty("unidadesEnStock").GetInt32());
+    }
+
+    [Fact]
+    public async Task BusquedaProductoVenta_DevuelveStockSinIdentificar()
+    {
+        var productoService = new StubProductoService
+        {
+            ProductosVenta =
+            {
+                new ProductoVentaDto { Id = 2, Nombre = "Prod", StockActual = 2, UnidadesEnStock = 1, StockSinIdentificar = 1 }
+            }
+        };
+        var controller = CreateController(productoService: productoService);
+
+        var result = await controller.BuscarProductos("prod");
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var item = ToJson(ok.Value).RootElement[0];
+        Assert.Equal(1m, item.GetProperty("stockSinIdentificar").GetDecimal());
+    }
+
+    [Fact]
+    public async Task BusquedaProductoVenta_StockSinIdentificarPuedeSerNegativo()
+    {
+        // StockActual = 0, pero hay 1 unidad física EnStock → inconsistencia -1
+        var productoService = new StubProductoService
+        {
+            ProductosVenta =
+            {
+                new ProductoVentaDto { Id = 3, Nombre = "Prod", StockActual = 0, UnidadesEnStock = 1, StockSinIdentificar = -1 }
+            }
+        };
+        var controller = CreateController(productoService: productoService);
+
+        var result = await controller.BuscarProductos("prod");
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var item = ToJson(ok.Value).RootElement[0];
+        Assert.Equal(-1m, item.GetProperty("stockSinIdentificar").GetDecimal());
+        Assert.Equal(1, item.GetProperty("unidadesEnStock").GetInt32());
+    }
+
+    [Fact]
+    public async Task BusquedaProductoVenta_NoRompeProductoSinUnidades()
+    {
+        // Producto sin ProductoUnidad cargadas → unidadesEnStock = 0, stockSinIdentificar = stockActual
+        var productoService = new StubProductoService
+        {
+            ProductosVenta =
+            {
+                new ProductoVentaDto { Id = 4, Nombre = "Prod", StockActual = 5, UnidadesEnStock = 0, StockSinIdentificar = 5 }
+            }
+        };
+        var controller = CreateController(productoService: productoService);
+
+        var result = await controller.BuscarProductos("prod");
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var item = ToJson(ok.Value).RootElement[0];
+        Assert.Equal(0, item.GetProperty("unidadesEnStock").GetInt32());
+        Assert.Equal(5m, item.GetProperty("stockSinIdentificar").GetDecimal());
+    }
+
+    [Fact]
     public async Task GetTarjetasActivas_DevuelveCamposConsumidosPorJS()
     {
         var configuracionPago = new StubConfiguracionPagoService
