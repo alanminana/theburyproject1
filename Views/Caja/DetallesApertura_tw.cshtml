@@ -11,6 +11,9 @@
     var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
     var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
     var puedeOperar = esAdmin || apertura.UsuarioApertura == currentUser;
+    var ventasEfectivas = ventas.Where(v => v.Estado == EstadoVenta.Confirmada || v.Estado == EstadoVenta.Facturada || v.Estado == EstadoVenta.Entregada).ToList();
+    var ventasPendientes = ventas.Where(v => v.Estado == EstadoVenta.PendienteRequisitos || v.Estado == EstadoVenta.PendienteFinanciacion).ToList();
+    var ventasAuditoria = ventas.Where(v => v.Estado == EstadoVenta.Presupuesto || v.Estado == EstadoVenta.Cotizacion || v.Estado == EstadoVenta.Cancelada).ToList();
 }
 
 @functions {
@@ -60,6 +63,35 @@
             TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Anulado => "bg-slate-500/10 text-slate-400 border-slate-500/20",
             TheBuryProject.Models.Enums.EstadoAcreditacionMovimientoCaja.Revertido => "bg-slate-500/10 text-slate-400 border-slate-500/20",
             _ => ""
+        };
+    }
+
+    string BadgeClaseEstado(EstadoVenta estado)
+    {
+        return estado switch
+        {
+            EstadoVenta.Confirmada => "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+            EstadoVenta.Facturada or EstadoVenta.Entregada => "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+            EstadoVenta.Cancelada => "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+            EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion => "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+            EstadoVenta.Presupuesto or EstadoVenta.Cotizacion => "bg-slate-700/50 text-slate-400 border border-slate-700",
+            _ => "bg-slate-700 text-slate-300"
+        };
+    }
+
+    string LabelEstado(EstadoVenta estado)
+    {
+        return estado switch
+        {
+            EstadoVenta.Confirmada => "Confirmada",
+            EstadoVenta.Facturada => "Facturada",
+            EstadoVenta.Entregada => "Entregada",
+            EstadoVenta.Cancelada => "Cancelada",
+            EstadoVenta.PendienteRequisitos => "Pend. Requisitos",
+            EstadoVenta.PendienteFinanciacion => "Pend. Financiación",
+            EstadoVenta.Presupuesto => "Presupuesto",
+            EstadoVenta.Cotizacion => "Cotización",
+            _ => estado.ToString()
         };
     }
 
@@ -289,10 +321,10 @@
 </div>
 
 
-            <!-- Ventas vinculadas al turno -->
+            <!-- Ventas vinculadas al turno — agrupadas por impacto en caja -->
             @if (ventas.Any())
             {
-                <section class="space-y-4">
+                <section class="space-y-6">
                     <div class="caja-page-section-header caja-detalles-section-header">
                         <div class="space-y-2">
                             <div class="flex flex-wrap items-center gap-2">
@@ -300,129 +332,292 @@
                                 <h3 class="text-lg font-bold text-white">Ventas vinculadas al turno</h3>
                             </div>
                             <p class="text-sm text-slate-400">
-                                Ventas registradas durante esta apertura. Las pagadas con crédito personal o cuenta corriente
-                                <strong class="text-amber-400">no generan ingreso inmediato</strong> — el dinero entra cuando el cliente paga sus cuotas.
+                                Operaciones registradas durante esta apertura, agrupadas por impacto en caja.
                             </p>
                         </div>
                         <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
                             <span class="material-symbols-outlined text-sm text-primary">receipt_long</span>
-                            @ventas.Count @(ventas.Count == 1 ? "venta vinculada" : "ventas vinculadas")
+                            @ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta efectiva" : "ventas efectivas")
+                            @if (ventasPendientes.Any() || ventasAuditoria.Any())
+                            {
+                                <span class="text-slate-600 select-none">·</span>
+                                <span>@(ventasPendientes.Count + ventasAuditoria.Count) sin impacto inmediato</span>
+                            }
                         </div>
                     </div>
 
-                    <div class="card-erp-panel p-4"
-                         data-oc-scroll
-                         style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-                        <div data-oc-scroll-hint
-                             class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
-                             hidden>
-                            <div class="flex items-center gap-2 font-semibold">
-                                <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
-                                <span id="caja-detalles-ventas-scroll-hint">Deslizá la tabla para revisar fecha, pago y total de cada venta</span>
-                            </div>
-                            <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                Scroll horizontal
-                            </span>
-                        </div>
-
-                        <div class="relative" data-oc-scroll-shell>
-                            <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
-                            <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
-
-                            <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
-                                 data-oc-scroll-region
-                                 role="region"
-                                 aria-label="Tabla de operaciones del turno"
-                                 aria-describedby="caja-detalles-ventas-scroll-hint"
-                                 tabindex="0">
-                                <table data-oc-scroll-table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-800">
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Recargo débito</th>
-                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-800">
-                                @foreach (var v in ventas)
-                                {
-                                    var tipoPagoLabel = v.TipoPago switch {
-                                        TipoPago.Efectivo => "Efectivo",
-                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
-                                        TipoPago.Cheque => "Cheque",
-                                        TipoPago.Transferencia => "Transferencia",
-                                        TipoPago.MercadoPago => "MercadoPago",
-                                        TipoPago.CreditoPersonal => "Crédito Personal",
-                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
-                                        _ => v.TipoPago.ToString()
-                                    };
-                                    var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
-                                    var recargoDebito = v.DatosTarjeta?.TipoTarjeta == TipoTarjeta.Debito
-                                        ? v.DatosTarjeta.RecargoAplicado.GetValueOrDefault()
-                                        : 0m;
-                                    var estadoLabel = v.Estado switch {
-                                        EstadoVenta.Cotizacion => "Cotización",
-                                        EstadoVenta.Presupuesto => "Presupuesto",
-                                        EstadoVenta.Confirmada => "Confirmada",
-                                        EstadoVenta.Facturada => "Facturada",
-                                        EstadoVenta.Entregada => "Entregada",
-                                        EstadoVenta.Cancelada => "Cancelada",
-                                        EstadoVenta.PendienteRequisitos => "Pend. Requisitos",
-                                        EstadoVenta.PendienteFinanciacion => "Pend. Financiación",
-                                        _ => v.Estado.ToString()
-                                    };
-                                    <tr class="hover:bg-slate-800/50 transition-colors">
-                                        <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                        <td class="px-6 py-4 text-sm font-mono font-bold text-white">
-                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
-                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            @if (esCreditoSinIngreso)
-                                            {
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                    <span class="material-symbols-outlined text-[12px]">schedule</span>@tipoPagoLabel
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">@tipoPagoLabel</span>
-                                            }
-                                        </td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-0.5 rounded text-xs font-bold @(v.Estado == EstadoVenta.Facturada || v.Estado == EstadoVenta.Entregada ? "bg-emerald-100 text-emerald-700 bg-emerald-500/10 text-emerald-400" :
-                                                  v.Estado == EstadoVenta.Cancelada ? "bg-rose-100 text-rose-700 bg-rose-500/10 text-rose-400" :
-                                                  "bg-slate-100 text-slate-600 bg-slate-700 text-slate-300")">
-                                                @estadoLabel
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm font-semibold text-right text-amber-400">
-                                            $@recargoDebito.ToString("N2")
-                                        </td>
-                                        <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">
-                                            $@v.Total.ToString("N2")
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                            </div>
-                        </div>
-                    @if (ventas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
+                    @* Bloque 1: Ventas efectivas *@
+                    @if (ventasEfectivas.Any())
                     {
-                        <div class="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-400">
-                            <div class="flex items-start gap-2">
-                                <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
-                                <span>Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.</span>
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <span class="material-symbols-outlined text-[13px]">check_circle</span>
+                                    Ventas efectivas
+                                </span>
+                                <span class="text-xs text-slate-500">Ventas que impactan la caja del turno.</span>
+                            </div>
+                            <div class="card-erp-panel p-4"
+                                 data-oc-scroll
+                                 style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                                <div data-oc-scroll-hint
+                                     class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
+                                     hidden>
+                                    <div class="flex items-center gap-2 font-semibold">
+                                        <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                                        <span>Deslizá la tabla para revisar fecha, pago y total de cada venta</span>
+                                    </div>
+                                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Scroll horizontal</span>
+                                </div>
+                                <div class="relative" data-oc-scroll-shell>
+                                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+                                    <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                                         data-oc-scroll-region
+                                         role="region"
+                                         aria-label="Tabla de ventas efectivas del turno"
+                                         tabindex="0">
+                                        <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr class="bg-slate-800">
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Recargo débito</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-800">
+                                                @foreach (var v in ventasEfectivas)
+                                                {
+                                                    var tipoPagoLabel = v.TipoPago switch {
+                                                        TipoPago.Efectivo => "Efectivo",
+                                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                        TipoPago.Cheque => "Cheque",
+                                                        TipoPago.Transferencia => "Transferencia",
+                                                        TipoPago.MercadoPago => "MercadoPago",
+                                                        TipoPago.CreditoPersonal => "Crédito Personal",
+                                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                        _ => v.TipoPago.ToString()
+                                                    };
+                                                    var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
+                                                    var recargoDebito = v.DatosTarjeta?.TipoTarjeta == TipoTarjeta.Debito
+                                                        ? v.DatosTarjeta.RecargoAplicado.GetValueOrDefault()
+                                                        : 0m;
+                                                    <tr class="hover:bg-slate-800/50 transition-colors">
+                                                        <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                        <td class="px-6 py-4 text-sm font-mono font-bold text-white">
+                                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
+                                                        <td class="px-6 py-4 text-sm">
+                                                            @if (esCreditoSinIngreso)
+                                                            {
+                                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                    <span class="material-symbols-outlined text-[12px]">schedule</span>@tipoPagoLabel
+                                                                </span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">@tipoPagoLabel</span>
+                                                            }
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm">
+                                                            <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm font-semibold text-right text-amber-400">$@recargoDebito.ToString("N2")</td>
+                                                        <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">$@v.Total.ToString("N2")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                @if (ventasEfectivas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
+                                {
+                                    <div class="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-400">
+                                        <div class="flex items-start gap-2">
+                                            <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
+                                            <span>Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.</span>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
-                    </div>
+
+                    @* Bloque 2: Operaciones pendientes *@
+                    @if (ventasPendientes.Any())
+                    {
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    <span class="material-symbols-outlined text-[13px]">pending</span>
+                                    Operaciones pendientes
+                                </span>
+                                <span class="text-xs text-slate-500">Operaciones registradas sin ingreso inmediato.</span>
+                            </div>
+                            <div class="card-erp-panel p-4"
+                                 data-oc-scroll
+                                 style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                                <div class="relative" data-oc-scroll-shell>
+                                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+                                    <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                         data-oc-scroll-region
+                                         role="region"
+                                         aria-label="Tabla de operaciones pendientes del turno"
+                                         tabindex="0">
+                                        <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr class="bg-slate-800">
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Impacto caja</th>
+                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-800">
+                                                @foreach (var v in ventasPendientes)
+                                                {
+                                                    var tipoPagoLabel = v.TipoPago switch {
+                                                        TipoPago.Efectivo => "Efectivo",
+                                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                        TipoPago.Cheque => "Cheque",
+                                                        TipoPago.Transferencia => "Transferencia",
+                                                        TipoPago.MercadoPago => "MercadoPago",
+                                                        TipoPago.CreditoPersonal => "Crédito Personal",
+                                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                        _ => v.TipoPago.ToString()
+                                                    };
+                                                    <tr class="hover:bg-slate-800/50 transition-colors">
+                                                        <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                        <td class="px-6 py-4 text-sm font-mono font-bold text-white">
+                                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
+                                                        <td class="px-6 py-4 text-sm">
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-700">@tipoPagoLabel</span>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm">
+                                                            <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm text-right">
+                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                <span class="material-symbols-outlined text-[12px]">pending</span>
+                                                                Sin ingreso inmediato
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-6 py-4 text-sm font-bold text-right text-amber-400">$@v.Total.ToString("N2")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @* Bloque 3: Registros de auditoría — colapsado por defecto *@
+                    @if (ventasAuditoria.Any())
+                    {
+                        <details class="space-y-3">
+                            <summary class="flex flex-wrap items-center gap-2 cursor-pointer list-none select-none">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-400 border border-slate-700">
+                                    <span class="material-symbols-outlined text-[13px]">archive</span>
+                                    Registros de auditoría
+                                    (@ventasAuditoria.Count)
+                                </span>
+                                <span class="text-xs text-slate-500">Sin impacto en caja. Expandir para ver.</span>
+                            </summary>
+                            <div class="space-y-2 pt-1">
+                                <div class="card-erp-panel p-4 border-slate-700/50"
+                                     data-oc-scroll
+                                     style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                                    <div class="relative" data-oc-scroll-shell>
+                                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+                                        <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                             data-oc-scroll-region
+                                             role="region"
+                                             aria-label="Registros de auditoría del turno"
+                                             tabindex="0">
+                                            <table data-oc-scroll-table class="w-full text-left border-collapse opacity-75">
+                                                <thead>
+                                                    <tr class="bg-slate-800/60">
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Fecha</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">N° Venta</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Cliente</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tipo pago</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Estado</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Impacto caja</th>
+                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Total registrado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-800/60">
+                                                    @foreach (var v in ventasAuditoria)
+                                                    {
+                                                        var tipoPagoLabel = v.TipoPago switch {
+                                                            TipoPago.Efectivo => "Efectivo",
+                                                            TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                            TipoPago.Cheque => "Cheque",
+                                                            TipoPago.Transferencia => "Transferencia",
+                                                            TipoPago.MercadoPago => "MercadoPago",
+                                                            TipoPago.CreditoPersonal => "Crédito Personal",
+                                                            TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                            _ => v.TipoPago.ToString()
+                                                        };
+                                                        var esAnulada = v.Estado == EstadoVenta.Cancelada;
+                                                        <tr class="hover:bg-slate-800/30 transition-colors">
+                                                            <td class="px-6 py-4 text-sm text-slate-500">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                            <td class="px-6 py-4 text-sm font-mono font-bold text-slate-400">
+                                                                <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                                   class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                            </td>
+                                                            <td class="px-6 py-4 text-sm text-slate-500">@(v.Cliente?.Nombre ?? "—")</td>
+                                                            <td class="px-6 py-4 text-sm">
+                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">@tipoPagoLabel</span>
+                                                            </td>
+                                                            <td class="px-6 py-4 text-sm">
+                                                                <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                            </td>
+                                                            <td class="px-6 py-4 text-sm text-right">
+                                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">
+                                                                    <span class="material-symbols-outlined text-[12px]">block</span>
+                                                                    Sin impacto en caja
+                                                                </span>
+                                                            </td>
+                                                            <td class="px-6 py-4 text-sm font-bold text-right text-slate-500">
+                                                                @if (esAnulada)
+                                                                {
+                                                                    <span class="line-through">$@v.Total.ToString("N2")</span>
+                                                                    <span class="block text-[10px] text-rose-500/70 font-normal">Anulada</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span>$@v.Total.ToString("N2")</span>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate-600 px-1">Estos registros se muestran solo con fines de auditoría. No generan movimientos de caja.</p>
+                            </div>
+                        </details>
+                    }
+
                 </section>
             }
 
