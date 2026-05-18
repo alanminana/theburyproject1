@@ -27,6 +27,47 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void VentaCrearModal_MuestraTipoPagoPrincipalVisible()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+        var selectIndex = modal.IndexOf("id=\"select-tipo-pago\"", StringComparison.Ordinal);
+
+        Assert.Contains("Tipo de pago principal", modal);
+        Assert.True(selectIndex >= 0, "Se esperaba id select-tipo-pago en el modal.");
+
+        var immediateContextStart = Math.Max(0, selectIndex - 120);
+        var immediateContext = modal[immediateContextStart..selectIndex];
+        Assert.DoesNotContain("class=\"hidden\"", immediateContext);
+    }
+
+    [Fact]
+    public void VentaCrearModal_NoDiceQueTipoPagoSoloSeConfiguraDesdeCadaProducto()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.DoesNotContain("El tipo de pago se configura desde cada producto", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_AclaraPagoPrincipalYAjustePorProducto()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("tipo de pago principal", modal, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ajustar condiciones por producto", modal, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("tipo de pago principal de la venta", modal, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void VentaCreate_View_ConservaTipoPagoPrincipalVisible()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("<label class=\"venta-label\">Tipo de pago</label>", view);
+        Assert.Contains("id=\"select-tipo-pago\"", view);
+    }
+
+    [Fact]
     public void CreateView_NoMuestraAccionPagoPorItemEnTabla()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -127,6 +168,15 @@ public class VentaCreateUiContractTests
         Assert.Contains("isTarjeta ? show(panelTarjeta) : hide(panelTarjeta)", tipoPago);
         Assert.Contains("isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal)", tipoPago);
         Assert.Contains("renderDetalles()", tipoPago);
+    }
+
+    [Fact]
+    public void VentaCreateJs_SigueUsandoSelectTipoPago()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("select-tipo-pago", script);
+        Assert.Contains("selectTipoPago?.addEventListener('change', onTipoPagoChange)", script);
     }
 
     [Fact]
