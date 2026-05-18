@@ -827,7 +827,7 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
-    public void UnidadesView_MuestraPanelConciliacionSinBotonFuncional()
+    public void UnidadesView_MuestraPanelConciliacionConAccionesSeparadasPorSigno()
     {
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
@@ -851,8 +851,14 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.DoesNotContain("Total unidades activas", html);
         Assert.Contains("Ver Kardex SKU", html);
         Assert.Contains("Ver historial/listado de unidades", html);
-        Assert.Contains("ConciliarStockUnidades", html);
-        Assert.Contains("Conciliar stock agregado", html);
+        Assert.DoesNotContain("ConciliarStockUnidades", html);
+        Assert.DoesNotContain(">Conciliar stock agregado<", html);
+        Assert.Contains("AjustarStockAgregadoAUnidadesFisicas", html);
+        Assert.Contains("AjustarStockAgregadoHaciaAbajo", html);
+        Assert.Contains("Ajustar stock agregado a unidades fisicas", html);
+        Assert.Contains("Ajustar stock agregado hacia abajo", html);
+        Assert.Contains("Reduce stock agregado/sin identificar", html);
+        Assert.Contains("ajustar hacia arriba libera el stock agregado usando MovimientoStock", html);
         Assert.Contains("ajuste-asistido", html);
     }
 
@@ -909,6 +915,172 @@ public class ProductoControllerPrecioTests : IDisposable
         var model = Assert.IsType<ProductoUnidadesViewModel>(view.Model);
         Assert.False(model.Conciliacion.HayDiferencia);
         Assert.Equal(0m, model.Conciliacion.DiferenciaStockVsUnidadesEnStock);
+    }
+
+    [Fact]
+    public async Task AjustarStockAgregadoAUnidadesFisicas_DiferenciaNegativa_AjustaHaciaArribaYCreaMovimientoStock()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 1m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-3", "SN-3", EstadoUnidad.EnStock);
+
+        var result = await _controller.AjustarStockAgregadoAUnidadesFisicas(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Recuento fisico confirma unidades disponibles"
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ProductoController.Unidades), redirect.ActionName);
+        Assert.Equal(producto.Id, redirect.RouteValues!["productoId"]);
+
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimiento = await _context.MovimientosStock.AsNoTracking().SingleAsync(m => m.ProductoId == producto.Id);
+        var movimientosUnidad = await _context.ProductoUnidadMovimientos.AsNoTracking().CountAsync();
+
+        Assert.Equal(3m, productoActualizado.StockActual);
+        Assert.Equal(TipoMovimiento.Ajuste, movimiento.Tipo);
+        Assert.Equal(2m, movimiento.Cantidad);
+        Assert.Equal(1m, movimiento.StockAnterior);
+        Assert.Equal(3m, movimiento.StockNuevo);
+        Assert.Equal($"ConciliacionUnidad:{producto.Id}", movimiento.Referencia);
+        Assert.Equal("Recuento fisico confirma unidades disponibles", movimiento.Motivo);
+        Assert.Equal(0, movimientosUnidad);
+    }
+
+    [Fact]
+    public async Task AjustarStockAgregadoAUnidadesFisicas_DiferenciaPositiva_NoAplicaAccionDeSignoIncorrecto()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 5m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        await _controller.AjustarStockAgregadoAUnidadesFisicas(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Intento invalido"
+        });
+
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimientosStock = await _context.MovimientosStock.AsNoTracking().CountAsync(m => m.ProductoId == producto.Id);
+
+        Assert.Equal(5m, productoActualizado.StockActual);
+        Assert.Equal(0, movimientosStock);
+        Assert.Contains("solo aplica cuando hay mas unidades fisicas disponibles que stock agregado", _controller.TempData["Error"]?.ToString());
+    }
+
+    [Fact]
+    public async Task AjustarStockAgregadoHaciaAbajo_DiferenciaPositiva_AjustaSoloConAccionExplicita()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 5m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        await _controller.AjustarStockAgregadoHaciaAbajo(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Recuento confirma stock agregado inflado"
+        });
+
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimiento = await _context.MovimientosStock.AsNoTracking().SingleAsync(m => m.ProductoId == producto.Id);
+        var estadosUnidad = await _context.ProductoUnidades.AsNoTracking()
+            .Where(u => u.ProductoId == producto.Id)
+            .Select(u => u.Estado)
+            .ToListAsync();
+        var movimientosUnidad = await _context.ProductoUnidadMovimientos.AsNoTracking().CountAsync();
+
+        Assert.Equal(2m, productoActualizado.StockActual);
+        Assert.Equal(TipoMovimiento.Ajuste, movimiento.Tipo);
+        Assert.Equal(-3m, movimiento.Cantidad);
+        Assert.Equal(5m, movimiento.StockAnterior);
+        Assert.Equal(2m, movimiento.StockNuevo);
+        Assert.Equal($"ConciliacionUnidad:{producto.Id}", movimiento.Referencia);
+        Assert.Equal("Recuento confirma stock agregado inflado", movimiento.Motivo);
+        Assert.All(estadosUnidad, estado => Assert.Equal(EstadoUnidad.EnStock, estado));
+        Assert.Equal(0, movimientosUnidad);
+    }
+
+    [Fact]
+    public async Task AjustarStockAgregadoHaciaAbajo_DiferenciaNegativa_NoAplicaAccionDeSignoIncorrecto()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 1m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        await _controller.AjustarStockAgregadoHaciaAbajo(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Intento invalido"
+        });
+
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimientosStock = await _context.MovimientosStock.AsNoTracking().CountAsync(m => m.ProductoId == producto.Id);
+
+        Assert.Equal(1m, productoActualizado.StockActual);
+        Assert.Equal(0, movimientosStock);
+        Assert.Contains("solo aplica cuando el stock agregado es mayor que las unidades fisicas disponibles", _controller.TempData["Error"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ConciliarStockUnidades_EndpointLegacy_NoAjustaStock()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 1m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        var result = _controller.ConciliarStockUnidades(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Ruta legacy"
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        var productoActualizado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        var movimientosStock = await _context.MovimientosStock.AsNoTracking().CountAsync(m => m.ProductoId == producto.Id);
+
+        Assert.Equal(nameof(ProductoController.Unidades), redirect.ActionName);
+        Assert.Equal(1m, productoActualizado.StockActual);
+        Assert.Equal(0, movimientosStock);
+        Assert.Contains("acciones explicitas", _controller.TempData["Error"]?.ToString());
+    }
+
+    [Fact]
+    public async Task AjustarStockAgregadoHaciaAbajo_DiferenciaCero_NoCreaMovimientoStock()
+    {
+        var producto = await SeedProductoAsync(requiereNumeroSerie: true);
+        var entity = await _context.Productos.FindAsync(producto.Id);
+        entity!.StockActual = 2m;
+        await _context.SaveChangesAsync();
+        await SeedProductoUnidadAsync(producto.Id, "UNI-1", "SN-1", EstadoUnidad.EnStock);
+        await SeedProductoUnidadAsync(producto.Id, "UNI-2", "SN-2", EstadoUnidad.EnStock);
+
+        await _controller.AjustarStockAgregadoHaciaAbajo(new ProductoUnidadConciliarStockViewModel
+        {
+            ProductoId = producto.Id,
+            Motivo = "Sin diferencia"
+        });
+
+        var movimientosStock = await _context.MovimientosStock.AsNoTracking().CountAsync(m => m.ProductoId == producto.Id);
+
+        Assert.Equal(0, movimientosStock);
+        Assert.Contains("ya esta conciliado", _controller.TempData["Error"]?.ToString());
     }
 
     [Fact]

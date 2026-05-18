@@ -832,11 +832,44 @@ namespace TheBuryProject.Controllers
         [HttpPost("Producto/ConciliarStockUnidades")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
-        public async Task<IActionResult> ConciliarStockUnidades(ProductoUnidadConciliarStockViewModel vm)
+        public IActionResult ConciliarStockUnidades(ProductoUnidadConciliarStockViewModel vm)
+        {
+            TempData["Error"] = "La conciliacion generica fue reemplazada por acciones explicitas segun el signo de la diferencia.";
+            return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+        }
+
+        [HttpPost("Producto/AjustarStockAgregadoAUnidadesFisicas")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> AjustarStockAgregadoAUnidadesFisicas(ProductoUnidadConciliarStockViewModel vm)
+            => await AplicarAjusteStockAgregadoDesdeConciliacionAsync(
+                vm,
+                diferencia => diferencia < 0m,
+                "Esta accion solo aplica cuando hay mas unidades fisicas disponibles que stock agregado.",
+                "Error de validacion al ajustar stock agregado hacia arriba del producto {ProductoId}",
+                "Error al ajustar stock agregado hacia arriba. Intenta nuevamente.");
+
+        [HttpPost("Producto/AjustarStockAgregadoHaciaAbajo")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> AjustarStockAgregadoHaciaAbajo(ProductoUnidadConciliarStockViewModel vm)
+            => await AplicarAjusteStockAgregadoDesdeConciliacionAsync(
+                vm,
+                diferencia => diferencia > 0m,
+                "Esta accion solo aplica cuando el stock agregado es mayor que las unidades fisicas disponibles.",
+                "Error de validacion al ajustar stock agregado hacia abajo del producto {ProductoId}",
+                "Error al ajustar stock agregado hacia abajo. Intenta nuevamente.");
+
+        private async Task<IActionResult> AplicarAjusteStockAgregadoDesdeConciliacionAsync(
+            ProductoUnidadConciliarStockViewModel vm,
+            Func<decimal, bool> signoPermitido,
+            string mensajeSignoIncorrecto,
+            string logValidacion,
+            string mensajeErrorGeneral)
         {
             if (string.IsNullOrWhiteSpace(vm.Motivo))
             {
-                TempData["Error"] = "El motivo es obligatorio para conciliar el stock.";
+                TempData["Error"] = "El motivo es obligatorio para ajustar el stock agregado.";
                 return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
             }
 
@@ -857,6 +890,12 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
                 }
 
+                if (!signoPermitido(conciliacion.DiferenciaStockVsUnidadesEnStock))
+                {
+                    TempData["Error"] = mensajeSignoIncorrecto;
+                    return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
+                }
+
                 var nuevoStockAbsoluto = (decimal)conciliacion.UnidadesEnStock;
                 var referencia = $"ConciliacionUnidad:{vm.ProductoId}";
 
@@ -872,13 +911,13 @@ namespace TheBuryProject.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning(ex, "Error de validacion al conciliar stock del producto {ProductoId}", vm.ProductoId);
+                _logger.LogWarning(ex, logValidacion, vm.ProductoId);
                 TempData["Error"] = ex.Message;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al conciliar stock del producto {ProductoId}", vm.ProductoId);
-                TempData["Error"] = "Error al conciliar el stock. Intenta nuevamente.";
+                _logger.LogError(ex, "Error al ajustar stock agregado del producto {ProductoId}", vm.ProductoId);
+                TempData["Error"] = mensajeErrorGeneral;
             }
 
             return RedirectToAction(nameof(Unidades), new { productoId = vm.ProductoId });
