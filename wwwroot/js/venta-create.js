@@ -23,6 +23,8 @@
     let debounceTimer = null;
     let detalleScrollAffordance = null;
     let reintentandoSubmitConDatosTarjeta = false;
+    let productoActualUnidadesEnStock = 0;
+    let productoActualStockSinIdentificar = 0;
     let recargoDebitoPreview = null;
     let diagnosticoCondicionesTimer = null;
     let diagnosticoCondicionesRequestSeq = 0;
@@ -93,6 +95,7 @@
     const avisoSinUnidades = $('#aviso-sin-unidades');
     const linkGestionarUnidades = $('#link-gestionar-unidades');
     const stockError = $('#stock-error');
+    const advertenciaStockSinIdentificar = $('#advertencia-stock-sin-identificar');
     const btnAgregarProducto = $('#btn-agregar-producto');
     const tbodyDetalles = $('#tbody-detalles');
     const detallesVacio = $('#detalles-vacio');
@@ -1007,7 +1010,7 @@
 
             dropdownProductos.innerHTML = data.map(p => `
                 <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
-                     data-id="${p.id}" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre)}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}" data-requiere-numero-serie="${p.requiereNumeroSerie ? 'true' : 'false'}">
+                     data-id="${p.id}" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre)}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}" data-requiere-numero-serie="${p.requiereNumeroSerie ? 'true' : 'false'}" data-unidades-en-stock="${p.unidadesEnStock ?? 0}" data-stock-sin-identificar="${p.stockSinIdentificar ?? 0}">
                     <div class="flex items-center justify-between">
                         <p class="text-sm font-medium text-slate-900 dark:text-white">${esc(p.nombre)}</p>
                         <div class="flex items-center gap-2">
@@ -1033,6 +1036,8 @@
         hdnProductoPrecio.value = item.dataset.precio;
         hdnProductoStock.value = item.dataset.stock;
         hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';
+        productoActualUnidadesEnStock = parseInt(item.dataset.unidadesEnStock) || 0;
+        productoActualStockSinIdentificar = parseInt(item.dataset.stockSinIdentificar) || 0;
         txtProductoSeleccionado.value = `${item.dataset.codigo} - ${item.dataset.nombre}`;
         txtCantidad.value = 1;
         txtCantidad.readOnly = requiereNumeroSerie;
@@ -1044,6 +1049,7 @@
         show(panelAgregarProducto);
         hide(dropdownProductos);
         inputBuscarProducto.value = '';
+        actualizarAdvertenciaStockSinIdentificar();
 
         if (requiereNumeroSerie) {
             await cargarUnidadesDisponibles(parseInt(item.dataset.id));
@@ -1064,7 +1070,27 @@
             this.classList.remove('border-red-500', 'ring-red-500', 'text-red-500');
             hide(stockError);
         }
+        actualizarAdvertenciaStockSinIdentificar();
     });
+
+    function actualizarAdvertenciaStockSinIdentificar() {
+        if (!advertenciaStockSinIdentificar) return;
+        const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
+        if (requiereNumeroSerie || productoActualUnidadesEnStock <= 0) {
+            hide(advertenciaStockSinIdentificar);
+            return;
+        }
+        const cantidad = parseInt(txtCantidad?.value) || 0;
+        if (productoActualStockSinIdentificar < 0) {
+            advertenciaStockSinIdentificar.textContent = 'Revisar conciliación: hay más unidades físicas registradas que stock agregado disponible.';
+            show(advertenciaStockSinIdentificar);
+        } else if (cantidad > productoActualStockSinIdentificar) {
+            advertenciaStockSinIdentificar.textContent = 'Advertencia: la cantidad supera el stock sin identificar disponible. Hay unidades físicas registradas que no se asociarán automáticamente a esta venta.';
+            show(advertenciaStockSinIdentificar);
+        } else {
+            hide(advertenciaStockSinIdentificar);
+        }
+    }
 
     // ── 3. Add Product ────────────────────────────────────────────────
     selectProductoUnidad?.addEventListener('change', function () {
@@ -1157,6 +1183,9 @@
         txtProductoSeleccionado.value = '';
         txtCantidad.readOnly = false;
         txtCantidad.max = '';
+        productoActualUnidadesEnStock = 0;
+        productoActualStockSinIdentificar = 0;
+        hide(advertenciaStockSinIdentificar);
         limpiarSelectorUnidad();
 
         renderDetalles();
