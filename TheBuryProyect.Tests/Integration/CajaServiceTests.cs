@@ -119,7 +119,7 @@ public class CajaServiceTests : IDisposable
             "testuser");
     }
 
-    private async Task<Venta> SeedVentaAsync(AperturaCaja apertura, TipoPago tipoPago, decimal total = 1_000m, decimal? recargoDebito = null)
+    private async Task<Venta> SeedVentaAsync(AperturaCaja apertura, TipoPago tipoPago, decimal total = 1_000m, decimal? recargoDebito = null, EstadoVenta estado = EstadoVenta.Confirmada)
     {
         var cliente = new Cliente
         {
@@ -135,7 +135,7 @@ public class CajaServiceTests : IDisposable
             ClienteId = cliente.Id,
             AperturaCajaId = apertura.Id,
             Numero = $"VTA-{Guid.NewGuid():N}"[..12],
-            Estado = EstadoVenta.Confirmada,
+            Estado = estado,
             TipoPago = tipoPago,
             Total = total
         };
@@ -1310,6 +1310,79 @@ public class CajaServiceTests : IDisposable
     // =========================================================================
     // GenerarReporteCajaAsync
     // =========================================================================
+
+    // =========================================================================
+    // TotalesPorTipoPago y TotalRecargoDebito — solo ventas efectivas
+    // =========================================================================
+
+    [Fact]
+    public async Task CajaDetalle_NoSumaPresupuestosEnTotalesPorTipoPago()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 0m);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 1_000m, estado: EstadoVenta.Presupuesto);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Empty(resultado.TotalesPorTipoPago);
+        Assert.Equal(0m, resultado.TotalIngresos);
+        Assert.Equal(0m, resultado.SaldoActual);
+    }
+
+    [Fact]
+    public async Task CajaDetalle_NoSumaCanceladasEnTotalesPorTipoPago()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 0m);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 1_000m, estado: EstadoVenta.Cancelada);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Empty(resultado.TotalesPorTipoPago);
+    }
+
+    [Fact]
+    public async Task CajaDetalle_TotalRecargoDebitoExcluyePresupuesto()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 0m);
+        await SeedVentaAsync(apertura, TipoPago.TarjetaDebito, total: 1_100m, recargoDebito: 100m, estado: EstadoVenta.Presupuesto);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Equal(0m, resultado.TotalRecargoDebito);
+    }
+
+    [Fact]
+    public async Task CajaDetalle_TotalRecargoDebitoExcluyeCancelada()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 0m);
+        await SeedVentaAsync(apertura, TipoPago.TarjetaDebito, total: 1_100m, recargoDebito: 100m, estado: EstadoVenta.Cancelada);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Equal(0m, resultado.TotalRecargoDebito);
+    }
+
+    [Fact]
+    public async Task CajaDetalle_SumaConfirmadaFacturadaEntregadaEnTotalesPorTipoPago()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 0m);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 1_000m, estado: EstadoVenta.Confirmada);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 2_000m, estado: EstadoVenta.Facturada);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 3_000m, estado: EstadoVenta.Entregada);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 500m, estado: EstadoVenta.Presupuesto);
+        await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 700m, estado: EstadoVenta.Cancelada);
+
+        var resultado = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        var efectivo = Assert.Single(resultado.TotalesPorTipoPago);
+        Assert.Equal("Efectivo", efectivo.TipoPago);
+        Assert.Equal(6_000m, efectivo.Total);
+        Assert.Equal(3, efectivo.Cantidad);
+    }
 
     [Fact]
     public async Task GenerarReporteCaja_SinAperturas_RetornaReporteVacio()

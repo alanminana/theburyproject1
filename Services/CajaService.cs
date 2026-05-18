@@ -1136,6 +1136,13 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             .OrderByDescending(v => v.FechaVenta)
             .ToListAsync();
 
+        var ventasEfectivas = ventasDelTurno
+            .Where(v =>
+                v.Estado == EstadoVenta.Confirmada ||
+                v.Estado == EstadoVenta.Facturada ||
+                v.Estado == EstadoVenta.Entregada)
+            .ToList();
+
         var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
         var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
         var saldoReal = await CalcularSaldoRealAsync(aperturaId);
@@ -1150,7 +1157,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             .Sum(m => m.Monto);
         var saldoPendienteAcreditacion = ingresosPendientes;
 
-        var totalesPorTipoPago = ventasDelTurno
+        var totalesPorTipoPago = ventasEfectivas
             .GroupBy(v => v.TipoPago)
             .Select(g => new TotalPorTipoPagoViewModel
             {
@@ -1206,7 +1213,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             SaldoPendienteAcreditacion = saldoPendienteAcreditacion,
             TotalIngresos = totalIngresos,
             TotalEgresos = totalEgresos,
-            TotalRecargoDebito = ventasDelTurno.Sum(ResolverRecargoDebitoAplicado),
+            TotalRecargoDebito = ventasEfectivas.Sum(ResolverRecargoDebitoAplicado),
             CantidadMovimientos = movimientos.Count,
             TotalesPorTipoPago = totalesPorTipoPago,
             ResumenRealPorMedioPago = resumenRealPorMedioPago
