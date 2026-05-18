@@ -536,7 +536,8 @@ public class VentaCreateUiContractTests
     public void VentaCreateJs_UsaNullGuardParaHdnProductoRequiereNumeroSerie()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
-        Assert.Contains("if (hdnProductoRequiereNumeroSerie) hdnProductoRequiereNumeroSerie.value =", script);
+        Assert.Contains("if (hdnProductoRequiereNumeroSerie)", script);
+        Assert.Contains("hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';", script);
     }
 
     [Fact]
@@ -544,6 +545,56 @@ public class VentaCreateUiContractTests
     {
         var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
         Assert.DoesNotContain("tracking-wider text-slate-500 text-center\">Tipo de pago</th>", modal);
+    }
+
+    // ── Fase Kira — Advertencia stock sin identificar ────────────────────
+
+    [Fact]
+    public void VentaCreate_View_ContieneAdvertenciaStockSinIdentificar()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"advertencia-stock-sin-identificar\"", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ContieneFuncionActualizarAdvertenciaStockSinIdentificar()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function actualizarAdvertenciaStockSinIdentificar", script);
+        Assert.Contains("advertenciaStockSinIdentificar", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AdvertenciaEvaluaCantidadMayorAStockSinIdentificar()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function actualizarAdvertenciaStockSinIdentificar");
+
+        Assert.Contains("cantidad > productoActualStockSinIdentificar", fn);
+        Assert.Contains("productoActualStockSinIdentificar < 0", fn);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AdvertenciaSoloParaNoTrazablesConUnidades()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn = ExtractFunction(script, "function actualizarAdvertenciaStockSinIdentificar");
+
+        Assert.Contains("requiereNumeroSerie", fn);
+        Assert.Contains("productoActualUnidadesEnStock", fn);
+    }
+
+    [Fact]
+    public void VentaCreateJs_AdvertenciaNoBloqueaAgregarProducto()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var submit = ExtractFunction(script, "ventaForm.addEventListener");
+
+        // El submit/confirm no bloquea por la advertencia de stock sin identificar
+        Assert.DoesNotContain("advertenciaStockSinIdentificar", submit);
+        Assert.DoesNotContain("productoActualStockSinIdentificar", submit);
     }
 
     private static string ExtractFunction(string script, string signature)
