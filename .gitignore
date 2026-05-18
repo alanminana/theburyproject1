@@ -36,3 +36,6 @@ obj2/
 npm-verificacion-*.txt
 package.backup-*.json
 C*Tempapp_out.txt
+# Python cache
+__pycache__/
+*.pyc
