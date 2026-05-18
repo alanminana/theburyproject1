@@ -844,6 +844,24 @@ namespace TheBuryProject.Services
                 });
             }
 
+            // Enriquecer con conteo de unidades físicas: una sola query agrupada, sin N+1.
+            if (resultado.Count > 0)
+            {
+                var idsProductos = resultado.Select(r => r.Id).ToList();
+                var conteosUnidades = await _context.ProductoUnidades
+                    .AsNoTracking()
+                    .Where(u => idsProductos.Contains(u.ProductoId) && !u.IsDeleted && u.Estado == EstadoUnidad.EnStock)
+                    .GroupBy(u => u.ProductoId)
+                    .Select(g => new { ProductoId = g.Key, Conteo = g.Count() })
+                    .ToDictionaryAsync(x => x.ProductoId, x => x.Conteo);
+
+                foreach (var dto in resultado)
+                {
+                    dto.UnidadesEnStock = conteosUnidades.TryGetValue(dto.Id, out var cnt) ? cnt : 0;
+                    dto.StockSinIdentificar = dto.StockActual - dto.UnidadesEnStock;
+                }
+            }
+
             return resultado.Take(limite);
         }
 

@@ -969,6 +969,17 @@
     });
 
     // ── 2. Product Search ─────────────────────────────────────────────
+    function renderStockInfo(p) {
+        if (p.unidadesEnStock <= 0) return `Stock: ${p.stockActual}`;
+        const advertencia = p.stockSinIdentificar < 0
+            ? ' <span class="inline-block rounded px-1 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-500">Revisar conciliación</span>'
+            : '';
+        if (p.requiereNumeroSerie) {
+            return `Stock total: ${p.stockActual} · Unidades seleccionables: ${p.unidadesEnStock}${advertencia}`;
+        }
+        return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · Sin identificar: ${p.stockSinIdentificar}${advertencia}`;
+    }
+
     inputBuscarProducto?.addEventListener('input', debounce(async function () {
         const term = this.value.trim();
         if (term.length < 2) { hide(dropdownProductos); return; }
@@ -1004,7 +1015,7 @@
                             <span class="text-xs font-bold text-primary">${formatCurrency(p.precioVenta)}</span>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${p.marca ? '- ' + esc(p.marca) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - Stock: ${p.stockActual}</p>
+                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${p.marca ? '- ' + esc(p.marca) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - ${renderStockInfo(p)}</p>
                     ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5">${esc(p.caracteristicasResumen)}</p>` : ''}
                 </div>
             `).join('');
