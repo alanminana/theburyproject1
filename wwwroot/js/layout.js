@@ -51,34 +51,4 @@
         localStorage.setItem(STORAGE_KEY, willCollapse ? '1' : '0');
     });
 
-    // ── Simple dropdown toggle (notifications, user menu) ──
-    function setupDropdown(triggerId, menuId) {
-        const trigger = document.getElementById(triggerId);
-        const menu    = document.getElementById(menuId);
-        if (!trigger || !menu) return;
-
-        trigger.addEventListener('click', function (e) {
-            e.stopPropagation();
-            const isOpen = !menu.classList.contains('hidden');
-            closeAllDropdowns();
-            if (!isOpen) {
-                menu.classList.remove('hidden');
-                trigger.setAttribute('aria-expanded', 'true');
-            }
-        });
-    }
-
-    function closeAllDropdowns() {
-        document.querySelectorAll('[id$="Menu"]').forEach(function (el) {
-            el.classList.add('hidden');
-        });
-        document.querySelectorAll('[aria-expanded]').forEach(function (el) {
-            el.setAttribute('aria-expanded', 'false');
-        });
-    }
-
-    document.addEventListener('click', closeAllDropdowns);
-
-    setupDropdown('notificacionesDropdown', 'notificacionesMenu');
-    setupDropdown('userMenuBtn', 'userMenu');
 })();

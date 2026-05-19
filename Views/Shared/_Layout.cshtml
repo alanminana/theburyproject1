@@ -39,8 +39,8 @@
             (action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase));
 
         string NavClass(bool active) => active
-            ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary-on-dark"
-            : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer";
+            ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/20 text-primary-on-dark nav-item-active"
+            : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer";
 
         string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
 
@@ -72,19 +72,19 @@
 
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="w-64 shrink-0 border-r border-slate-800 flex flex-col transition-[width] duration-300 ease-in-out"
-               style="background-color:#101622;">
+               class="w-64 shrink-0 border-r border-slate-700 flex flex-col transition-[width] duration-300 ease-in-out"
+               style="background-color:#0c111e;">
 
             <!-- Brand -->
-            <a asp-controller="Home" asp-action="Index"
+            <a asp-controller="Home" asp-action="Index" title="TheBuryProject — Inicio"
                    class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
                 <div
-                    class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-800 flex items-center justify-center">
+                    class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center">
                     <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain" />
                 </div>
                 <div class="flex flex-col sidebar-label">
                     <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
-                    <p class="text-slate-400 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
+                    <p class="text-slate-300 text-xs mt-1 whitespace-nowrap">SISTEMA GESTIÓN</p>
                 </div>
             </a>
 
@@ -94,23 +94,23 @@
                 @if (showOperaciones)
                 {
                     <div>
-                        <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
                             Operaciones</p>
                             <div class="space-y-1">
                                 @if (canViewVentas)
                                 {
-                                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index">
+                                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index" title="Ventas">
                                         <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
                                         <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
                                     </a>
-                                    <a class="@NavClass(IsActive("Cotizacion"))" asp-controller="Cotizacion" asp-action="Index">
+                                    <a class="@NavClass(IsActive("Cotizacion"))" asp-controller="Cotizacion" asp-action="Index" title="Cotizaciones">
                                         <span class="material-symbols-outlined text-lg shrink-0">request_quote</span>
                                         <p class="@NavFont(IsActive("Cotizacion")) sidebar-label">Cotizaciones</p>
                                     </a>
                                 }
                                 @if (canViewClientes)
                                 {
-                                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index">
+                                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index" title="Clientes">
                                         <span class="material-symbols-outlined text-lg shrink-0">group</span>
                                         <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
                                     </a>
@@ -122,26 +122,26 @@
                     @if (showLogistica)
                     {
                         <div>
-                            <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                            <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
                                 Logística</p>
                                 <div class="space-y-1">
                                     @if (canViewInventario)
                                     {
-                                        <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index">
+                                        <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index" title="Inventario">
                                             <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
                                             <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
                                         </a>
                                     }
                                     @if (canViewProveedores)
                                     {
-                                        <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index">
+                                        <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index" title="Proveedores">
                                             <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
                                             <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
                                         </a>
                                     }
                                     @if (canViewCaja)
                                     {
-                                        <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index">
+                                        <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index" title="Cajas">
                                             <span class="material-symbols-outlined text-lg shrink-0">point_of_sale</span>
                                             <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
                                         </a>
@@ -153,10 +153,10 @@
                         @if (showReportes)
                         {
                             <div>
-                                <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                                <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
                                     Reportes</p>
                                     <div class="space-y-1">
-                                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index">
+                                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index" title="Reportes">
                                             <span class="material-symbols-outlined text-lg shrink-0">leaderboard</span>
                                             <p class="@NavFont(IsActive("Reporte", "Index")) sidebar-label">Reportes</p>
                                         </a>
@@ -171,13 +171,13 @@
                             @if (showSistemas)
                             {
                                 <div>
-                                    <p class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 sidebar-label">
+                                    <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
                                         Sistemas</p>
                                         <div class="space-y-1">
                                             @if (canViewSeguridad)
                                             {
                                                 <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
-                                                       asp-controller="Seguridad" asp-action="Index">
+                                                       asp-controller="Seguridad" asp-action="Index" title="Seguridad">
                                                     <span class="material-symbols-outlined text-lg shrink-0">security</span>
                                                     <p
                                                         class="@NavFont(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles")) sidebar-label">
@@ -186,7 +186,7 @@
                                                 }
                                                 @if (canViewTickets)
                                                 {
-                                                    <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index">
+                                                    <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index" title="Tickets">
                                                         <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
                                                         <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
                                                     </a>
@@ -194,7 +194,7 @@
                                                 @if (canViewConfiguracion)
                                                 {
                                                     <a class="@NavClass(IsActive("PlantillaContratoCredito"))"
-                                                           asp-controller="PlantillaContratoCredito" asp-action="Index">
+                                                           asp-controller="PlantillaContratoCredito" asp-action="Index" title="Plantillas contrato">
                                                         <span class="material-symbols-outlined text-lg shrink-0">contract</span>
                                                         <p class="@NavFont(IsActive("PlantillaContratoCredito")) sidebar-label">Plantillas contrato
                                                         </p>
@@ -207,7 +207,7 @@
                                 </nav>
 
                                 <!-- User info (bottom) -->
-                                <div class="p-4 border-t border-slate-800">
+                                <div class="p-4 border-t border-slate-700">
                                     @{
                                         var userRoles = User.Claims
                                             .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
@@ -217,13 +217,13 @@
                                     }
                                     <div class="flex items-center gap-3 p-2 overflow-hidden">
                                         <div
-                                            class="size-8 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                                            <span class="material-symbols-outlined text-slate-400 text-lg">account_circle</span>
+                                            class="size-8 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-slate-300 text-lg">account_circle</span>
                                         </div>
                                         <div class="flex flex-col sidebar-label min-w-0">
                                             <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">
                                                 @(User.Identity?.Name ?? "?")</p>
-                                                <p class="text-[10px] text-slate-400 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
+                                                <p class="text-xs text-slate-300 mt-1 whitespace-nowrap truncate">@roleDisplay</p>
                                             </div>
                                         </div>
                                         <form method="post" asp-area="Identity" asp-page="/Account/Logout"
@@ -238,7 +238,7 @@
                                     </div>
 
                                     <!-- Collapse toggle (desktop) -->
-                                    <div class="hidden lg:flex p-3 border-t border-slate-800 justify-center">
+                                    <div class="hidden lg:flex p-3 border-t border-slate-700 justify-center">
                                         <button id="collapseSidebar" type="button"
                                                 class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
                                                 aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
@@ -255,7 +255,7 @@
                                 <main class="flex-1 flex flex-col overflow-hidden">
 
                                     <!-- Header / Top Bar -->
-                                    <header class="h-16 border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8"
+                                    <header class="h-16 border-b border-slate-700 flex items-center justify-between px-4 sm:px-6 lg:px-8"
                                             style="background-color:#101622;">
 
                                         <div class="flex items-center gap-6">
@@ -273,18 +273,18 @@
                                             <div class="flex gap-3 hidden lg:flex">
                                                 <div
                                                     class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Dolar
+                                                    <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Dolar
                                                         Blue</span>
                                                         <span class="text-xs font-bold text-emerald-400">$1.245,00</span>
                                                     </div>
                                                     <div
                                                         class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Tarjeta</span>
+                                                        <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Tarjeta</span>
                                                         <span class="text-xs font-bold text-primary-on-dark">$1.482,50</span>
                                                     </div>
                                                     <div
                                                         class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Oficial</span>
+                                                        <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Oficial</span>
                                                         <span class="text-xs font-bold text-slate-300">$942,00</span>
                                                     </div>
                                                 </div>
@@ -294,15 +294,15 @@
                                                 <!-- Notifications -->
                                                 @if (canViewNotifications)
                                                 {
-                                                    <button class="p-2 text-slate-400 hover:text-white transition-colors relative">
-                                                        <span class="material-symbols-outlined">notifications</span>
+                                                    <button type="button" aria-label="Notificaciones" class="p-2 text-slate-400 hover:text-white transition-colors relative">
+                                                        <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
                                                         <span
                                                         class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"></span>
                                                     </button>
                                                 }
                                                 <!-- Search -->
-                                                <button class="p-2 text-slate-400 hover:text-white transition-colors">
-                                                    <span class="material-symbols-outlined">search</span>
+                                                <button type="button" aria-label="Buscar" class="p-2 text-slate-400 hover:text-white transition-colors">
+                                                    <span class="material-symbols-outlined" aria-hidden="true">search</span>
                                                 </button>
                                                 @if (canViewTickets)
                                                 {
@@ -314,9 +314,9 @@
                                                 }
                                                 <div class="h-8 w-px bg-slate-700"></div>
                                                 <!-- Help -->
-                                                <button
+                                                <button type="button" aria-label="Ayuda"
                                                     class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
-                                                    <span class="material-symbols-outlined">help</span>
+                                                    <span class="material-symbols-outlined" aria-hidden="true">help</span>
                                                 </button>
                                             </div>
                                         </header>

@@ -91,6 +91,27 @@
     }
 }
 
+/* ── Active nav item: left accent bar via inset box-shadow (follows border-radius) ── */
+.nav-item-active {
+    box-shadow: inset 3px 0 0 rgba(91, 141, 255, 0.75);
+}
+
+/* ── Focus-visible: sidebar interactive elements ── */
+#sidebar nav a:focus-visible,
+#sidebar button:focus-visible,
+#sidebar a:focus-visible {
+    outline: 2px solid #5b8dff;
+    outline-offset: -2px;
+    border-radius: 0.5rem;
+}
+
+/* ── Focus-visible: header buttons ── */
+header button:focus-visible {
+    outline: 2px solid #5b8dff;
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+}
+
 /* Custom scrollbar (dark) */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
