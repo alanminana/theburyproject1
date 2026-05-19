@@ -40,6 +40,11 @@
     }
     .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        font-size: 24px;        /* default; overridden by text-* utilities and icon-erp-* classes */
+        line-height: 1;         /* prevent extra vertical space from line box */
+        vertical-align: middle; /* align in non-flex inline contexts */
+        flex-shrink: 0;         /* don't shrink when inside flex containers */
+        user-select: none;      /* icons are not selectable text */
     }
 
     /* ── Design tokens globales (dark-first ERP) ──

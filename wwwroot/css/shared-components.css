@@ -1,5 +1,30 @@
 /* Shared component helpers */
 
+/* ══════════════════════════════════════════════════════════════
+   SISTEMA DE ÍCONOS — UI-5A
+   Base: normaliza comportamiento de Material Symbols Outlined.
+   Las reglas aquí actúan de inmediato para páginas con Layout.
+   La fuente canónica de futura compilación es tailwind-input.css.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Base: normalización global de todos los íconos */
+.material-symbols-outlined {
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+/* Tamaños semánticos del ERP */
+.icon-erp-sm { font-size: 16px; }   /* labels inline, checkboxes, indicadores pequeños */
+.icon-erp    { font-size: 18px; }   /* default ERP: nav, inputs, botones canónicos */
+.icon-erp-md { font-size: 20px; }   /* cards header, acciones destacadas */
+.icon-erp-lg { font-size: 24px; }   /* header, quick-actions, elementos prominentes */
+
+/* Roles de uso */
+.icon-erp-inline { vertical-align: -0.125em; }  /* ajuste para íconos en texto corrido */
+.icon-erp-muted  { opacity: 0.55; }              /* decorativo, no prioritario */
+
 /* ── Devolucion quick-modal layout ──
    Used by Views/Shared/_VentaDevolucionModal.cshtml
    (consumed in Venta/Index_tw and Venta/Details_tw)

@@ -235,7 +235,7 @@
                                     <div class="flex items-center gap-3 p-2 overflow-hidden">
                                         <div
                                             class="size-8 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-                                            <span class="material-symbols-outlined text-slate-300 text-lg">account_circle</span>
+                                            <span class="material-symbols-outlined text-slate-300 text-lg shrink-0">account_circle</span>
                                         </div>
                                         <div class="flex flex-col sidebar-label min-w-0">
                                             <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">
@@ -248,7 +248,7 @@
                                               class="sidebar-label mt-1">
                                             <button type="submit"
                                                     class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
-                                                <span class="material-symbols-outlined text-base">logout</span>
+                                                <span class="material-symbols-outlined icon-erp">logout</span>
                                                 Cerrar sesión
                                             </button>
                                         </form>
@@ -314,28 +314,28 @@
                                                 @if (canViewNotifications)
                                                 {
                                                     <button type="button" aria-label="Notificaciones" class="p-2 text-slate-400 hover:text-white transition-colors relative">
-                                                        <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+                                                        <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">notifications</span>
                                                         <span
                                                         class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"></span>
                                                     </button>
                                                 }
                                                 <!-- Search -->
                                                 <button type="button" aria-label="Buscar" class="p-2 text-slate-400 hover:text-white transition-colors">
-                                                    <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                                                    <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">search</span>
                                                 </button>
                                                 @if (canViewTickets)
                                                 {
                                                     <button id="btn-open-ticket-panel" type="button"
                                                             class="p-2 text-slate-400 hover:text-white transition-colors" title="Incidentes"
                                                             aria-label="Panel de incidentes">
-                                                        <span class="material-symbols-outlined">assignment</span>
+                                                        <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">assignment</span>
                                                     </button>
                                                 }
                                                 <div class="h-8 w-px bg-slate-700"></div>
                                                 <!-- Help -->
                                                 <button type="button" aria-label="Ayuda"
                                                     class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
-                                                    <span class="material-symbols-outlined" aria-hidden="true">help</span>
+                                                    <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
                                                 </button>
                                             </div>
                                         </header>
@@ -354,7 +354,7 @@
                                         bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
                                         text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
                                             title="Reportar una incidencia o mejora">
-                                        <span class="material-symbols-outlined text-base text-amber-400">bug_report</span>
+                                        <span class="material-symbols-outlined icon-erp text-amber-400" aria-hidden="true">bug_report</span>
                                         <span class="hidden sm:inline">Reportar incidencia</span>
                                     </button>
                                 }

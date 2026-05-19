@@ -2,6 +2,18 @@
  * Design tokens for standalone pages (Login, AccessDenied).
  * Pages that use Layout = null or don't load layout.css reference this file directly.
  */
+
+/* ── Normalización global de íconos — UI-5A ──
+   Refleja las reglas canónicas de shared-components.css para páginas sin Layout.
+   Aplica a Login, AccessDenied y cualquier vista con Layout = null.
+*/
+.material-symbols-outlined {
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+    user-select: none;
+}
+
 :root {
     --c-surface:            #0d131f;
     --c-surface-low:        #161c28;

@@ -39,3 +39,7 @@ C*Tempapp_out.txt
 # Python cache
 __pycache__/
 *.pyc
+
+# Temporary build directories (UI phases)
+tmpbuild*/
+theburyproject1tmpbuild*/
