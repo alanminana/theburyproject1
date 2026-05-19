@@ -373,6 +373,17 @@ public class LayoutUiContractTests
         Assert.Contains("#sidebarOverlay.active", css);
     }
 
+    // ── UI-4F: nav activo Dashboard ───────────────────────────────────────
+
+    [Fact]
+    public void Layout_TieneNavItemDashboard()
+    {
+        // UI-4F: el sidebar debe tener un enlace a Home/Index con lógica IsActive("Home").
+        var layout = ReadLayout();
+        Assert.Contains("IsActive(\"Home\")", layout);
+        Assert.Contains("asp-controller=\"Home\" asp-action=\"Index\"", layout);
+    }
+
     // ── UI-4C: contratos de accesibilidad mobile ──────────────────────────
 
     [Fact]

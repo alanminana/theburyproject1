@@ -346,20 +346,16 @@ test.describe('Teclado y accesibilidad desktop', () => {
         await shot(page, 'focus-visible-nav-desktop');
     });
 
-    test('sidebar activo visible en dashboard — hallazgo documentado', async ({ page }) => {
+    test('sidebar activo visible en dashboard — corregido UI-4F', async ({ page }) => {
         await page.setViewportSize(VIEWPORTS.desktop);
         const ok = await gotoAuthenticated(page, ROUTES.dashboard);
         if (!ok) { test.skip(); }
 
-        // El Dashboard (Home/Index) no tiene item propio en el nav lateral.
-        // Ningún IsActive("Home") está en los enlaces del nav — hallazgo UI-4E.
+        // UI-4F: Dashboard/Home debe tener exactamente un item nav-item-active en el sidebar.
         const activeItems = page.locator('.nav-item-active');
-        const count = await activeItems.count();
-        if (count === 0) {
-            console.warn('[UI-4E HALLAZGO] Dashboard no tiene item nav-item-active. Ningún enlace del sidebar queda marcado al entrar al Home/Index.');
-        }
+        await expect(activeItems).toHaveCount(1, { timeout: 5_000 });
+        await expect(activeItems.first()).toHaveAttribute('aria-current', 'page');
         await shot(page, 'nav-active-state-desktop');
-        // No falla — es un hallazgo de UX para documentar, no un bug bloqueante
     });
 });
 
