@@ -50,21 +50,21 @@
 <!-- TempData Alerts -->
 @if (TempData["Success"] != null)
 {
-    <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+    <div class="toast-msg alert-erp alert-erp-success" role="status">
         <span class="material-symbols-outlined">check_circle</span>
         @TempData["Success"]
     </div>
 }
 @if (TempData["Error"] != null)
 {
-    <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400" role="alert">
+    <div class="toast-msg alert-erp alert-erp-error" role="alert">
         <span class="material-symbols-outlined">error</span>
         @TempData["Error"]
     </div>
 }
 @if (TempData["Warning"] != null)
 {
-    <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-400" role="alert">
+    <div class="toast-msg alert-erp alert-erp-warning" role="alert">
         <span class="material-symbols-outlined">warning</span>
         @TempData["Warning"]
     </div>
@@ -236,16 +236,16 @@
             </div>
             <div class="flex gap-2">
                 <button type="submit"
-                        class="rounded-lg bg-primary/10 p-2.5 text-primary transition-colors hover:bg-primary hover:text-white"
+                        class="btn-erp-icon btn-erp-icon--primary"
                         title="Filtrar">
-                    <span class="material-symbols-outlined text-lg">filter_list</span>
+                    <span class="material-symbols-outlined">filter_list</span>
                 </button>
                 @if (filtroActivo)
                 {
                     <a asp-action="Index"
-                       class="rounded-lg bg-slate-800 p-2.5 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                       class="btn-erp-icon no-underline"
                        title="Limpiar filtros">
-                        <span class="material-symbols-outlined text-lg">clear_all</span>
+                        <span class="material-symbols-outlined">clear_all</span>
                     </a>
                 }
             </div>
@@ -278,25 +278,45 @@
             {
                 @foreach (var v in ventas)
                 {
-                    var estadoBadge = v.Estado switch
+                    var estadoBadgeVariant = v.Estado switch
                     {
-                        EstadoVenta.Cotizacion           => ("bg-slate-800 text-slate-300", "Cotización"),
-                        EstadoVenta.Presupuesto          => ("bg-blue-900/30 text-blue-400", "Presupuesto"),
-                        EstadoVenta.Confirmada           => ("bg-emerald-900/30 text-emerald-400", "Confirmada"),
-                        EstadoVenta.Facturada            => ("bg-emerald-900/30 text-emerald-400", "Facturada"),
-                        EstadoVenta.Entregada            => ("bg-emerald-900/30 text-emerald-400", "Entregada"),
-                        EstadoVenta.Cancelada            => ("bg-red-900/30 text-red-400", "Cancelada"),
-                        EstadoVenta.PendienteRequisitos  => ("bg-amber-900/30 text-amber-400", "Pend. Requisitos"),
-                        EstadoVenta.PendienteFinanciacion=> ("bg-amber-900/30 text-amber-400", "Pend. Financiación"),
-                        _ => ("bg-slate-800 text-slate-300", v.EstadoDisplay)
+                        EstadoVenta.Cotizacion            => "badge-erp-neutral",
+                        EstadoVenta.Presupuesto           => "badge-erp-info",
+                        EstadoVenta.Confirmada            => "badge-erp-success",
+                        EstadoVenta.Facturada             => "badge-erp-success",
+                        EstadoVenta.Entregada             => "badge-erp-success",
+                        EstadoVenta.Cancelada             => "badge-erp-danger",
+                        EstadoVenta.PendienteRequisitos   => "badge-erp-warning",
+                        EstadoVenta.PendienteFinanciacion => "badge-erp-warning",
+                        _ => "badge-erp-neutral"
                     };
-                    var autorizacionBadge = v.EstadoAutorizacion switch
+                    var estadoLabel = v.Estado switch
                     {
-                        EstadoAutorizacionVenta.NoRequiere              => ("text-slate-400", "bg-slate-500", "No Requiere"),
-                        EstadoAutorizacionVenta.PendienteAutorizacion   => ("text-amber-400", "bg-amber-500", "Pendiente"),
-                        EstadoAutorizacionVenta.Autorizada              => ("text-blue-400", "bg-blue-400", "Aprobado"),
-                        EstadoAutorizacionVenta.Rechazada               => ("text-red-400", "bg-red-400", "Rechazado"),
-                        _ => ("text-slate-400", "bg-slate-500", v.EstadoAutorizacionDisplay)
+                        EstadoVenta.Cotizacion            => "Cotización",
+                        EstadoVenta.Presupuesto           => "Presupuesto",
+                        EstadoVenta.Confirmada            => "Confirmada",
+                        EstadoVenta.Facturada             => "Facturada",
+                        EstadoVenta.Entregada             => "Entregada",
+                        EstadoVenta.Cancelada             => "Cancelada",
+                        EstadoVenta.PendienteRequisitos   => "Pend. Requisitos",
+                        EstadoVenta.PendienteFinanciacion => "Pend. Financiación",
+                        _ => v.EstadoDisplay
+                    };
+                    var autorizacionChipVariant = v.EstadoAutorizacion switch
+                    {
+                        EstadoAutorizacionVenta.NoRequiere            => "",
+                        EstadoAutorizacionVenta.PendienteAutorizacion => "chip-erp-warning",
+                        EstadoAutorizacionVenta.Autorizada            => "chip-erp-primary",
+                        EstadoAutorizacionVenta.Rechazada             => "chip-erp-danger",
+                        _ => ""
+                    };
+                    var autorizacionLabel = v.EstadoAutorizacion switch
+                    {
+                        EstadoAutorizacionVenta.NoRequiere            => "No Requiere",
+                        EstadoAutorizacionVenta.PendienteAutorizacion => "Pendiente",
+                        EstadoAutorizacionVenta.Autorizada            => "Aprobado",
+                        EstadoAutorizacionVenta.Rechazada             => "Rechazado",
+                        _ => v.EstadoAutorizacionDisplay
                     };
                     var esCancelada = v.Estado == EstadoVenta.Cancelada;
                     var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion && !esCancelada;
@@ -319,14 +339,13 @@
                         <td class="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">@v.FechaVenta.ToString("dd MMM yyyy")</td>
                         <td class="px-6 py-4 text-sm font-medium text-slate-100">@v.ClienteNombre</td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @estadoBadge.Item1 @(esCancelada ? "line-through" : "")">
-                                @estadoBadge.Item2
+                            <span class="badge-erp @estadoBadgeVariant @(esCancelada ? "line-through" : "")">
+                                @estadoLabel
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center gap-1.5 text-xs font-medium @autorizacionBadge.Item1">
-                                <span class="w-1.5 h-1.5 rounded-full @autorizacionBadge.Item2"></span>
-                                @autorizacionBadge.Item3
+                            <span class="chip-erp @autorizacionChipVariant">
+                                @autorizacionLabel
                             </span>
                         </td>
                         <td class="px-6 py-4 text-sm text-slate-300">@tipoPagoDisplay</td>

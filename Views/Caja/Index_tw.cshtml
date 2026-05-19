@@ -37,21 +37,21 @@
     <div id="caja-index-feedback-slot" class="space-y-3" aria-live="polite"></div>
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <div class="toast-msg alert-erp alert-erp-success" role="status">
             <span class="material-symbols-outlined">check_circle</span>
             @TempData["Success"]
         </div>
     }
     @if (TempData["Warning"] != null)
     {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-400" role="alert">
+        <div class="toast-msg alert-erp alert-erp-warning" role="alert">
             <span class="material-symbols-outlined">warning</span>
             @TempData["Warning"]
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+        <div class="toast-msg alert-erp alert-erp-error" role="alert">
             <span class="material-symbols-outlined">error</span>
             @TempData["Error"]
         </div>
@@ -67,14 +67,14 @@
                     <h2 class="text-lg font-bold text-white">
                         @(esAdmin ? "Cajas actualmente abiertas" : "Mi caja abierta")
                     </h2>
-                    <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">En vivo</span>
+                    <span class="badge-erp badge-erp-primary">En vivo</span>
                 </div>
                 <p class="text-sm text-slate-400">
                     Turnos en curso con accesos rápidos para registrar movimientos, revisar actividad y cerrar caja.
                 </p>
             </div>
-            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
-                <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
+            <div class="caja-index-section-badge chip-erp">
+                <span class="material-symbols-outlined text-primary">monitoring</span>
                 @aperturasMostradas.Count @(aperturasMostradas.Count == 1 ? "apertura visible" : "aperturas visibles")
             </div>
         </div>
@@ -163,7 +163,7 @@
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="flex flex-col gap-1">
-                                                <span class="px-2 py-0.5 rounded-full bg-slate-800 text-xs font-bold text-slate-400 w-fit">
+                                                <span class="chip-erp">
                                                     @cantMov @(cantMov == 1 ? "movimiento" : "movimientos")
                                                 </span>
                                                 @if (totalIngresos > 0 || totalEgresos > 0)
@@ -260,8 +260,8 @@
                     Terminales disponibles para apertura, con acceso a la apertura activa o a su gestión administrativa.
                 </p>
             </div>
-            <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
-                <span class="material-symbols-outlined text-sm text-primary">inventory_2</span>
+            <div class="caja-index-section-badge chip-erp">
+                <span class="material-symbols-outlined text-primary">inventory_2</span>
                 @activas.Count activas · @cajasDisponibles listas para abrir
             </div>
         </div>
@@ -328,17 +328,14 @@
                                         <td class="px-6 py-4">
                                             @if (estaAbierta)
                                             {
-                                                <div class="flex items-center gap-2 text-emerald-500">
-                                                    <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                    <span class="text-xs font-bold uppercase">Abierta</span>
-                                                </div>
+                                                <span class="chip-erp chip-erp-success">
+                                                    <span class="size-2 rounded-full bg-current animate-pulse"></span>
+                                                    Abierta
+                                                </span>
                                             }
                                             else
                                             {
-                                                <div class="flex items-center gap-2 text-slate-400">
-                                                    <span class="size-2 rounded-full bg-slate-400"></span>
-                                                    <span class="text-xs font-bold uppercase">Cerrada</span>
-                                                </div>
+                                                <span class="chip-erp">Cerrada</span>
                                             }
                                         </td>
                                         <td class="px-6 py-4 text-right">
@@ -430,8 +427,8 @@
                         Historial de cajas archivadas con acceso a reactivación o eliminación definitiva.
                     </p>
                 </div>
-                <div class="caja-index-section-badge inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
-                    <span class="material-symbols-outlined text-sm text-slate-500">inventory</span>
+                <div class="caja-index-section-badge chip-erp">
+                    <span class="material-symbols-outlined text-slate-500">inventory</span>
                     @inactivas.Count @(inactivas.Count == 1 ? "caja archivada" : "cajas archivadas")
                 </div>
             </div>
