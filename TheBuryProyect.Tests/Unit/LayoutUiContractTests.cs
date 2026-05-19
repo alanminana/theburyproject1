@@ -384,6 +384,16 @@ public class LayoutUiContractTests
         Assert.Contains("asp-controller=\"Home\" asp-action=\"Index\"", layout);
     }
 
+    [Fact]
+    public void Layout_NavDashboardActivoConControladorDashboard()
+    {
+        // UI-4G: Home redirige a Dashboard en runtime, por eso la condición cubre ambos controladores.
+        // Sin IsActive("Dashboard"), el nav-item-active no aparece al navegar al dashboard real.
+        var layout = ReadLayout();
+        Assert.Contains("IsActive(\"Dashboard\")", layout);
+        Assert.Contains("isDashboardActive", layout);
+    }
+
     // ── UI-4C: contratos de accesibilidad mobile ──────────────────────────
 
     [Fact]

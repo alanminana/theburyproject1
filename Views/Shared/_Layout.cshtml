@@ -63,6 +63,9 @@
         var canViewTickets = User.TienePermiso("tickets", "view");
         var canViewConfiguracion = User.TienePermiso("configuracion", "view");
 
+        // Dashboard activo tanto en Home como en Dashboard (Home redirige a Dashboard en runtime)
+        var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
+
         // Visibilidad de secciones
         var showOperaciones = canViewVentas || canViewClientes;
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
@@ -96,9 +99,9 @@
                 @if (canViewDashboard)
                 {
                     <div class="space-y-1">
-                        <a class="@NavClass(IsActive("Home"))" aria-current="@NavCurrent(IsActive("Home"))" asp-controller="Home" asp-action="Index" title="Dashboard">
+                        <a class="@NavClass(isDashboardActive)" aria-current="@NavCurrent(isDashboardActive)" asp-controller="Home" asp-action="Index" title="Dashboard">
                             <span class="material-symbols-outlined text-lg shrink-0">dashboard</span>
-                            <p class="@NavFont(IsActive("Home")) sidebar-label">Dashboard</p>
+                            <p class="@NavFont(isDashboardActive) sidebar-label">Dashboard</p>
                         </a>
                     </div>
                 }
