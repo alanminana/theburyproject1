@@ -415,6 +415,14 @@
 }
 .btn-erp-danger:hover { background-color: rgba(239, 68, 68, 0.2); }
 .btn-erp-danger:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.btn-erp-danger:disabled,
+.btn-erp-danger[aria-disabled="true"] {
+    background-color: transparent;
+    color: #475569;
+    border-color: #1e293b;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 /* Variante compacta (h-9 / 36px) — filtros, acciones de tabla */
 /* Soporta tanto .btn-sm como .btn-erp-sm (alias) */
@@ -790,4 +798,222 @@ select option {
    Solo actúa cuando no hay otra regla de módulo más específica. */
 select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credito-input):not(.venta-select):not(.venta-input):not(.vm-select) {
     color-scheme: dark;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INPUT/SELECT CANÓNICO — UI-5B
+   .input-erp  → inputs de formularios, modales y búsquedas
+   .select-erp → selects de formularios y modales
+   Diferencia con filter-input-erp: altura fija 44px (touch target
+   WCAG), borde más visible (#334155) para contextos de formulario.
+   ══════════════════════════════════════════════════════════════ */
+
+.input-erp,
+.select-erp {
+    width: 100%;
+    height: 2.75rem;              /* 44px — WCAG 2.5.5 touch target */
+    padding: 0.5rem 0.875rem;
+    background-color: #161c28;
+    border: 1px solid #334155;    /* más visible que filter-input-erp */
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    color: #dde2f4;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    appearance: none;
+}
+
+.input-erp::placeholder {
+    color: #475569;
+}
+
+.input-erp:focus,
+.select-erp:focus {
+    outline: none;
+    border-color: #135bec;
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+}
+
+.input-erp:disabled,
+.select-erp:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.select-erp {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.125rem;
+    padding-right: 2.25rem;
+    cursor: pointer;
+}
+
+.select-erp option {
+    background-color: #161c28;
+    color: #dde2f4;
+}
+
+/* Variante compacta — misma lógica que btn-erp-sm */
+.input-erp.input-erp-sm,
+.select-erp.select-erp-sm {
+    height: 2.25rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    border-radius: 0.5rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ALERT CANÓNICA — UI-5B
+   .alert-erp → clase base estructural
+   .alert-erp-success / error / warning / info → variantes semánticas
+   Nota: .toast-msg es el selector JS de auto-dismiss (shared-ui.js);
+   las vistas legadas lo combinan con Tailwind inline. Nueva práctica:
+   usar .alert-erp + variante, con .toast-msg como hook JS adicional.
+   ══════════════════════════════════════════════════════════════ */
+
+.alert-erp {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    padding: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.alert-erp .material-symbols-outlined {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.alert-erp-success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.alert-erp-error {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.alert-erp-warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.alert-erp-info {
+    background-color: rgba(14, 165, 233, 0.1);
+    color: #38bdf8;
+    border-color: rgba(14, 165, 233, 0.2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CHIP INFORMATIVO — UI-5B
+   .chip-erp → pill/chip para contadores y metadatos en headers
+   Diferencia con badge-erp: sin uppercase/tracking, más neutro,
+   para conteos y estados operativos rápidos (ej: "3 visibles").
+   ══════════════════════════════════════════════════════════════ */
+
+.chip-erp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid #334155;
+    background-color: #1e293b;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.6875rem;        /* 11px — metadato, no texto operativo */
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.chip-erp .material-symbols-outlined {
+    font-size: 14px;
+}
+
+/* Variantes semánticas de chip */
+.chip-erp-success { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border-color: rgba(16, 185, 129, 0.2); }
+.chip-erp-warning { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border-color: rgba(245, 158, 11, 0.2); }
+.chip-erp-danger  { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+.chip-erp-primary { background-color: rgba(19, 91, 236, 0.1);  color: #6ea3ff; border-color: rgba(19, 91, 236, 0.2); }
+
+/* ══════════════════════════════════════════════════════════════
+   BOTÓN ICONO CANÓNICO — UI-5B
+   .btn-erp-icon → icon-only, tamaño fijo 40×40px
+   Complementa row-action (que es para acciones de fila de tabla).
+   Uso: toolbar, header de sección, acciones flotantes.
+   ══════════════════════════════════════════════════════════════ */
+
+.btn-erp-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    background-color: transparent;
+    color: #64748b;
+    border: 1px solid #334155;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-erp-icon .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.btn-erp-icon:hover {
+    background-color: #1e293b;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+.btn-erp-icon:focus-visible {
+    outline: 2px solid #135bec;
+    outline-offset: 2px;
+}
+
+.btn-erp-icon:disabled,
+.btn-erp-icon[aria-disabled="true"] {
+    color: #334155;
+    border-color: #1e293b;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Variante primaria del icon button */
+.btn-erp-icon--primary:hover {
+    background-color: rgba(19, 91, 236, 0.12);
+    border-color: rgba(19, 91, 236, 0.3);
+    color: #6ea3ff;
+}
+
+/* Variante danger del icon button */
+.btn-erp-icon--danger:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GRUPO DE BOTONES — UI-5B
+   .btn-group-erp → toolbar compacta de botones relacionados
+   ══════════════════════════════════════════════════════════════ */
+
+.btn-group-erp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid #1e293b;
+    background-color: #0f172a;
+    padding: 0.25rem;
 }

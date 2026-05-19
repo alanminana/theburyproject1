@@ -211,8 +211,8 @@
                                             <td class="px-6 py-4 text-right">
                                                 <a asp-controller="Credito" asp-action="PagarCuota"
                                                    asp-route-id="@cuota.CreditoId" asp-route-cuotaId="@cuota.CuotaId"
-                                                   class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:justify-end no-underline" aria-label="Registrar pago">
-                                                    <span class="material-symbols-outlined text-xl">send_money</span>
+                                                   class="row-action row-action--primary no-underline" aria-label="Registrar pago">
+                                                    <span class="material-symbols-outlined icon-erp-md">send_money</span>
                                                 </a>
                                             </td>
                                         </tr>
@@ -248,8 +248,8 @@
                                                 }
                                             </td>
                                             <td class="px-6 py-4 text-right">
-                                                <button type="button" class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:justify-end" aria-label="Ver detalle de cuota">
-                                                    <span class="material-symbols-outlined text-xl">visibility</span>
+                                                <button type="button" class="row-action row-action--primary" aria-label="Ver detalle de cuota">
+                                                    <span class="material-symbols-outlined icon-erp-md">visibility</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -347,9 +347,9 @@
                         <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Notas rápidas</h2>
                     </div>
                     <button type="button" data-dashboard-action="save-note"
-                            class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                            class="btn-erp-ghost btn-erp-sm"
                             title="Guardar nota">
-                        <span class="material-symbols-outlined text-[14px]">add</span>
+                        <span class="material-symbols-outlined icon-erp-sm">add</span>
                         Guardar
                     </button>
                 </div>
@@ -360,8 +360,8 @@
                     <div class="flex items-center justify-between border-t border-primary/10 pt-2 mt-1">
                         <span id="notaStatus" data-dashboard-note-status class="text-[10px] text-slate-400"></span>
                         <button type="button" data-dashboard-action="save-note"
-                                class="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors">
-                            <span class="material-symbols-outlined text-[14px]">save</span>
+                                class="btn-erp-primary btn-erp-sm">
+                            <span class="material-symbols-outlined icon-erp-sm">save</span>
                             Guardar
                         </button>
                     </div>
