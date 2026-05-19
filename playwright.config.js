@@ -82,5 +82,34 @@ module.exports = defineConfig({
             },
             dependencies: ['setup'],
         },
+
+        // ── Viewports adicionales UI-4E ──────────────────────────────────
+        {
+            name: '1440x900',
+            use: {
+                ...devices['Desktop Chrome'],
+                viewport: { width: 1440, height: 900 },
+                storageState: AUTH_FILE,
+            },
+            dependencies: ['setup'],
+        },
+        {
+            name: '360x740',
+            use: {
+                ...devices['Desktop Chrome'],
+                viewport: { width: 360, height: 740 },
+                storageState: AUTH_FILE,
+            },
+            dependencies: ['setup'],
+        },
+        {
+            name: '412x915',
+            use: {
+                ...devices['Desktop Chrome'],
+                viewport: { width: 412, height: 915 },
+                storageState: AUTH_FILE,
+            },
+            dependencies: ['setup'],
+        },
     ],
 });
