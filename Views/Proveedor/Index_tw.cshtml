@@ -67,7 +67,7 @@
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
                     <input type="text" name="searchTerm" value="@Model.SearchTerm"
                            aria-label="Buscar proveedor por nombre, CUIT o razón social"
-                           class="w-full rounded-lg border-none bg-slate-800 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                           class="filter-input-erp filter-input-erp-icon"
                            placeholder="Nombre, CUIT o razón social" />
                 </div>
             </div>
@@ -97,7 +97,7 @@
             </div>
             <div class="flex gap-2">
                 <button type="submit"
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
+                        class="btn-erp-primary btn-sm"
                         title="Filtrar proveedores">
                     <span class="material-symbols-outlined text-lg">filter_list</span>
                     <span>Filtrar</span>
@@ -105,7 +105,7 @@
                 @if (filtroProvActivo)
                 {
                     <a asp-action="Index"
-                       class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                       class="btn-erp-secondary btn-sm no-underline"
                        title="Limpiar filtros">
                         <span class="material-symbols-outlined text-lg">clear_all</span>
                     </a>
@@ -163,11 +163,11 @@
                                     <div class="flex max-w-[18rem] flex-wrap gap-1">
                                         @foreach (var cat in categorias)
                                         {
-                                            <span class="inline-flex max-w-[9rem] items-center truncate rounded-md border border-slate-700 bg-slate-800/70 px-2 py-0.5 text-[11px] font-semibold text-slate-300">@cat</span>
+                                            <span class="chip-erp max-w-[9rem] truncate">@cat</span>
                                         }
                                         @if (categoriasRestantes > 0)
                                         {
-                                            <span class="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary-on-dark">+@categoriasRestantes</span>
+                                            <span class="chip-erp chip-erp-primary">+@categoriasRestantes</span>
                                         }
                                     </div>
                                 }
@@ -205,15 +205,15 @@
                             <td class="px-5 py-3">
                                 @if (p.Activo)
                                 {
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span class="chip-erp chip-erp-success">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                                         Activo
                                     </span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-400">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    <span class="chip-erp">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                                         Inactivo
                                     </span>
                                 }

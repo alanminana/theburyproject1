@@ -15,14 +15,14 @@
 <!-- TempData Alerts -->
 @if (TempData["Success"] != null)
 {
-    <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+    <div class="alert-erp alert-erp-success toast-msg" role="status">
         <span class="material-symbols-outlined">check_circle</span>
         @TempData["Success"]
     </div>
 }
 @if (TempData["Error"] != null)
 {
-    <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400" role="alert">
+    <div class="alert-erp alert-erp-error toast-msg" role="alert">
         <span class="material-symbols-outlined">error</span>
         @TempData["Error"]
     </div>
@@ -85,7 +85,7 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">
+                    <span class="badge-erp badge-erp-neutral">
                         <span id="productos-visible-count">@productos.Count</span>&nbsp;visibles
                     </span>
                     <button type="button" id="btn-crear-producto" data-catalogo-modal-open="producto"
@@ -107,7 +107,7 @@
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
                         <input id="catalogo-search-input" name="searchTerm" value="@Model.SearchTerm" type="text"
                                aria-label="Buscar producto por nombre o código"
-                               class="w-full bg-slate-800 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-colors text-white placeholder:text-slate-500"
+                               class="filter-input-erp filter-input-erp-icon"
                                placeholder="Nombre o código..." autocomplete="off" />
                     </div>
                 </div>
@@ -115,7 +115,7 @@
                     <label class="text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Categoría</label>
                     <select id="catalogo-select-categoria" name="categoriaId"
                             aria-label="Categoría"
-                            class="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-colors text-white">
+                            class="filter-select-erp">
                         <option value="">Todas</option>
                         @if (Model.CategoriasFiltro != null)
                         {
@@ -130,7 +130,7 @@
                     <label class="text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Marca</label>
                     <select id="catalogo-select-marca" name="marcaId"
                             aria-label="Marca"
-                            class="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-colors text-white">
+                            class="filter-select-erp">
                         <option value="">Todas</option>
                         @if (Model.MarcasFiltro != null)
                         {
@@ -145,7 +145,7 @@
                     <label class="text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Estado Stock</label>
                     <select id="catalogo-select-stock" name="stockBajo"
                             aria-label="Estado de stock"
-                            class="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-colors text-white">
+                            class="filter-select-erp">
                         <option value="false" selected="@(!Model.StockBajo ? "selected" : null)">Cualquiera</option>
                         <option value="true" selected="@(Model.StockBajo ? "selected" : null)">Stock Bajo</option>
                     </select>
@@ -156,7 +156,7 @@
                         <label class="text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Lista Precios</label>
                         <select id="catalogo-select-listaprecio" name="listaPrecioId"
                                 aria-label="Lista de precios"
-                                class="w-full bg-slate-800 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 transition-colors text-white">
+                                class="filter-select-erp">
                             <option value="">Predeterminada</option>
                             @foreach (var lp in Model.ListasPreciosFiltro)
                             {
@@ -167,14 +167,14 @@
                 }
                 <div class="flex gap-2">
                     <button type="submit"
-                            class="p-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-colors"
+                            class="btn-erp-icon btn-erp-icon--primary"
                             title="Filtrar">
                         <span class="material-symbols-outlined text-lg">filter_list</span>
                     </button>
                     @if (Model.TieneFiltrosActivos)
                     {
                         <a asp-controller="Catalogo" asp-action="Index"
-                           class="p-2.5 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors no-underline"
+                           class="btn-erp-icon no-underline"
                            title="Limpiar filtros">
                             <span class="material-symbols-outlined text-lg">clear_all</span>
                         </a>

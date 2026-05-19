@@ -22,14 +22,14 @@
     <!-- TempData Alerts -->
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
             <span class="material-symbols-outlined">check_circle</span>
             @TempData["Success"]
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400" role="alert">
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
             <span class="material-symbols-outlined">error</span>
             @TempData["Error"]
         </div>
@@ -109,7 +109,7 @@
                                value="@Model.SearchTerm"
                                type="text"
                                aria-label="Buscar cliente por nombre, documento o contacto"
-                               class="w-full rounded-lg border-none bg-slate-800 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:ring-2 focus:ring-primary/50"
+                               class="filter-input-erp filter-input-erp-icon"
                                placeholder="Nombre, documento o contacto..." />
                     </div>
                 </div>
@@ -169,7 +169,7 @@
                 </div>
                 <div class="flex gap-2">
                     <button type="submit"
-                            class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white"
+                            class="btn-erp-primary btn-sm"
                             title="Filtrar clientes">
                         <span class="material-symbols-outlined text-lg">filter_list</span>
                         <span>Filtrar</span>
@@ -177,7 +177,7 @@
                     @if (filtroClienteActivo)
                     {
                         <a asp-action="Index"
-                           class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
+                           class="btn-erp-secondary btn-sm no-underline"
                            title="Limpiar filtros">
                             <span class="material-symbols-outlined text-lg">clear_all</span>
                         </a>
@@ -266,14 +266,14 @@
                                     <td class="px-5 py-3">
                                         @if (c.Activo)
                                         {
-                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400">
+                                            <span class="chip-erp chip-erp-success">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                                                 Activo
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-400">
+                                            <span class="chip-erp">
                                                 <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
                                                 Inactivo
                                             </span>
