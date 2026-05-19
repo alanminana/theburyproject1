@@ -373,6 +373,82 @@ public class LayoutUiContractTests
         Assert.Contains("#sidebarOverlay.active", css);
     }
 
+    // ── UI-4C: contratos de accesibilidad mobile ──────────────────────────
+
+    [Fact]
+    public void Layout_TieneAriaExpandedEnToggleSidebar()
+    {
+        // layout.js sincroniza aria-expanded al abrir/cerrar el sidebar mobile.
+        var layout = ReadLayout();
+        Assert.Contains("aria-expanded=\"false\"", layout);
+    }
+
+    [Fact]
+    public void Layout_TieneAriaControlsEnToggleSidebar()
+    {
+        // aria-controls vincula el botón hamburguesa con el sidebar para lectores de pantalla.
+        var layout = ReadLayout();
+        Assert.Contains("aria-controls=\"sidebar\"", layout);
+    }
+
+    [Fact]
+    public void Layout_TieneSkipLink()
+    {
+        // Skip-link permite a usuarios de teclado saltar la navegación lateral al contenido.
+        var layout = ReadLayout();
+        Assert.Contains("skip-link", layout);
+        Assert.Contains("href=\"#main-content\"", layout);
+    }
+
+    [Fact]
+    public void Layout_TieneMainContentId()
+    {
+        // id="main-content" es el destino del skip-link y del role implícito de <main>.
+        var layout = ReadLayout();
+        Assert.Contains("id=\"main-content\"", layout);
+    }
+
+    [Fact]
+    public void Layout_TieneAriaCurrentEnNavLinks()
+    {
+        // NavCurrent() aplica aria-current="page" al ítem activo en el sidebar.
+        var layout = ReadLayout();
+        Assert.Contains("aria-current=", layout);
+        Assert.Contains("NavCurrent(", layout);
+    }
+
+    [Fact]
+    public void LayoutJs_SincronizaAriaExpanded()
+    {
+        // openSidebar/closeSidebar actualizan aria-expanded en el botón toggle.
+        var js = ReadJs("layout.js");
+        Assert.Contains("setAttribute('aria-expanded'", js);
+    }
+
+    [Fact]
+    public void LayoutJs_CierraConEscape()
+    {
+        // Escape cierra el sidebar mobile — accesibilidad teclado básica.
+        var js = ReadJs("layout.js");
+        Assert.Contains("'Escape'", js);
+    }
+
+    [Fact]
+    public void LayoutJs_DevuelveFocoAlCerrarMobile()
+    {
+        // Al cerrar el sidebar, el foco vuelve al botón que lo abrió.
+        var js = ReadJs("layout.js");
+        Assert.Contains("toggleBtn?.focus()", js);
+    }
+
+    [Fact]
+    public void LayoutCss_TieneSkipLink()
+    {
+        // El skip-link es invisible hasta recibir foco — requiere estilo en layout.css.
+        var css = ReadCss("layout.css");
+        Assert.Contains(".skip-link", css);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private static string ReadLayout() =>

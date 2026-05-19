@@ -30,6 +30,7 @@
 </head>
 
 <body class="text-slate-100 font-display" style="background-color:#101622;">
+    <a href="#main-content" class="skip-link">Ir al contenido principal</a>
     @{
         string? currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         string? currentAction = ViewContext.RouteData.Values["action"]?.ToString();
@@ -43,6 +44,7 @@
             : "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer";
 
         string NavFont(bool active) => active ? "text-sm font-semibold" : "text-sm font-medium";
+        string? NavCurrent(bool active) => active ? "page" : null;
 
         // Permisos de navegación — solo módulos con entrada propia en el nav
         var canViewDashboard = User.TienePermiso("dashboard", "view");
@@ -99,18 +101,18 @@
                             <div class="space-y-1">
                                 @if (canViewVentas)
                                 {
-                                    <a class="@NavClass(IsActive("Venta"))" asp-controller="Venta" asp-action="Index" title="Ventas">
+                                    <a class="@NavClass(IsActive("Venta"))" aria-current="@NavCurrent(IsActive("Venta"))" asp-controller="Venta" asp-action="Index" title="Ventas">
                                         <span class="material-symbols-outlined text-lg shrink-0">shopping_bag</span>
                                         <p class="@NavFont(IsActive("Venta")) sidebar-label">Ventas</p>
                                     </a>
-                                    <a class="@NavClass(IsActive("Cotizacion"))" asp-controller="Cotizacion" asp-action="Index" title="Cotizaciones">
+                                    <a class="@NavClass(IsActive("Cotizacion"))" aria-current="@NavCurrent(IsActive("Cotizacion"))" asp-controller="Cotizacion" asp-action="Index" title="Cotizaciones">
                                         <span class="material-symbols-outlined text-lg shrink-0">request_quote</span>
                                         <p class="@NavFont(IsActive("Cotizacion")) sidebar-label">Cotizaciones</p>
                                     </a>
                                 }
                                 @if (canViewClientes)
                                 {
-                                    <a class="@NavClass(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index" title="Clientes">
+                                    <a class="@NavClass(IsActive("Cliente"))" aria-current="@NavCurrent(IsActive("Cliente"))" asp-controller="Cliente" asp-action="Index" title="Clientes">
                                         <span class="material-symbols-outlined text-lg shrink-0">group</span>
                                         <p class="@NavFont(IsActive("Cliente")) sidebar-label">Clientes</p>
                                     </a>
@@ -127,21 +129,21 @@
                                 <div class="space-y-1">
                                     @if (canViewInventario)
                                     {
-                                        <a class="@NavClass(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index" title="Inventario">
+                                        <a class="@NavClass(IsActive("Catalogo"))" aria-current="@NavCurrent(IsActive("Catalogo"))" asp-controller="Catalogo" asp-action="Index" title="Inventario">
                                             <span class="material-symbols-outlined text-lg shrink-0">inventory_2</span>
                                             <p class="@NavFont(IsActive("Catalogo")) sidebar-label">Inventario</p>
                                         </a>
                                     }
                                     @if (canViewProveedores)
                                     {
-                                        <a class="@NavClass(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index" title="Proveedores">
+                                        <a class="@NavClass(IsActive("Proveedor"))" aria-current="@NavCurrent(IsActive("Proveedor"))" asp-controller="Proveedor" asp-action="Index" title="Proveedores">
                                             <span class="material-symbols-outlined text-lg shrink-0">local_shipping</span>
                                             <p class="@NavFont(IsActive("Proveedor")) sidebar-label">Proveedores</p>
                                         </a>
                                     }
                                     @if (canViewCaja)
                                     {
-                                        <a class="@NavClass(IsActive("Caja"))" asp-controller="Caja" asp-action="Index" title="Cajas">
+                                        <a class="@NavClass(IsActive("Caja"))" aria-current="@NavCurrent(IsActive("Caja"))" asp-controller="Caja" asp-action="Index" title="Cajas">
                                             <span class="material-symbols-outlined text-lg shrink-0">point_of_sale</span>
                                             <p class="@NavFont(IsActive("Caja")) sidebar-label">Cajas</p>
                                         </a>
@@ -156,7 +158,7 @@
                                 <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
                                     Reportes</p>
                                     <div class="space-y-1">
-                                        <a class="@NavClass(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index" title="Reportes">
+                                        <a class="@NavClass(IsActive("Reporte", "Index"))" aria-current="@NavCurrent(IsActive("Reporte", "Index"))" asp-controller="Reporte" asp-action="Index" title="Reportes">
                                             <span class="material-symbols-outlined text-lg shrink-0">leaderboard</span>
                                             <p class="@NavFont(IsActive("Reporte", "Index")) sidebar-label">Reportes</p>
                                         </a>
@@ -177,6 +179,7 @@
                                             @if (canViewSeguridad)
                                             {
                                                 <a class="@NavClass(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
+                                                       aria-current="@NavCurrent(IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles"))"
                                                        asp-controller="Seguridad" asp-action="Index" title="Seguridad">
                                                     <span class="material-symbols-outlined text-lg shrink-0">security</span>
                                                     <p
@@ -186,7 +189,7 @@
                                                 }
                                                 @if (canViewTickets)
                                                 {
-                                                    <a class="@NavClass(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index" title="Tickets">
+                                                    <a class="@NavClass(IsActive("Ticket"))" aria-current="@NavCurrent(IsActive("Ticket"))" asp-controller="Ticket" asp-action="Index" title="Tickets">
                                                         <span class="material-symbols-outlined text-lg shrink-0">bug_report</span>
                                                         <p class="@NavFont(IsActive("Ticket")) sidebar-label">Tickets</p>
                                                     </a>
@@ -194,6 +197,7 @@
                                                 @if (canViewConfiguracion)
                                                 {
                                                     <a class="@NavClass(IsActive("PlantillaContratoCredito"))"
+                                                           aria-current="@NavCurrent(IsActive("PlantillaContratoCredito"))"
                                                            asp-controller="PlantillaContratoCredito" asp-action="Index" title="Plantillas contrato">
                                                         <span class="material-symbols-outlined text-lg shrink-0">contract</span>
                                                         <p class="@NavFont(IsActive("PlantillaContratoCredito")) sidebar-label">Plantillas contrato
@@ -252,7 +256,7 @@
                                 <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" aria-hidden="true"></div>
 
                                 <!-- Main Content -->
-                                <main class="flex-1 flex flex-col overflow-hidden">
+                                <main id="main-content" class="flex-1 flex flex-col overflow-hidden">
 
                                     <!-- Header / Top Bar -->
                                     <header class="h-16 border-b border-slate-700 flex items-center justify-between px-4 sm:px-6 lg:px-8"
@@ -261,7 +265,9 @@
                                         <div class="flex items-center gap-6">
                                             <!-- Mobile toggle -->
                                             <button id="toggleSidebar" type="button" class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
-                                                    aria-label="Abrir/cerrar menú">
+                                                    aria-label="Abrir/cerrar menú"
+                                                    aria-expanded="false"
+                                                    aria-controls="sidebar">
                                                 <span class="material-symbols-outlined icon-size-22">menu</span>
                                             </button>
 

@@ -15,12 +15,15 @@
         sidebar?.classList.add('open');
         overlay?.classList.add('active');
         overlay?.classList.remove('hidden');
+        toggleBtn?.setAttribute('aria-expanded', 'true');
     }
 
     function closeSidebar() {
         sidebar?.classList.remove('open');
         overlay?.classList.remove('active');
         overlay?.classList.add('hidden');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
+        toggleBtn?.focus();
     }
 
     toggleBtn?.addEventListener('click', function () {
@@ -28,6 +31,40 @@
     });
 
     overlay?.addEventListener('click', closeSidebar);
+
+    // ── Keyboard: Escape para cerrar + focus-trap mientras sidebar mobile está abierto ──
+    function getFocusables() {
+        return Array.from(sidebar?.querySelectorAll(
+            'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (!sidebar?.classList.contains('open')) return;
+
+        if (e.key === 'Escape') {
+            closeSidebar();
+            return;
+        }
+
+        if (e.key === 'Tab') {
+            const focusables = getFocusables();
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last  = focusables[focusables.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        }
+    });
 
     // ── Sidebar collapse (desktop) ──
     function applySidebarState(collapsed) {
@@ -39,8 +76,9 @@
         }
     }
 
-    // Restore persisted state on load
-    if (window.matchMedia('(min-width: 1024px)').matches) {
+    // Restore persisted state — se omite en el rango donde CSS ya auto-colapsa (notebooks 125%)
+    const mediaAutoCollapse = window.matchMedia('(min-width: 1024px) and (max-width: 1600px)');
+    if (window.matchMedia('(min-width: 1024px)').matches && !mediaAutoCollapse.matches) {
         applySidebarState(localStorage.getItem(STORAGE_KEY) === '1');
     }
 

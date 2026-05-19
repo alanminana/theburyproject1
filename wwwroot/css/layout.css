@@ -2,6 +2,25 @@
    Layout: sidebar responsive, collapsible & scrollbar
    ======================================================== */
 
+/* ── Skip link: accesibilidad teclado — visible al recibir foco, oculto por defecto ── */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    z-index: 9999;
+    padding: 0.5rem 1rem;
+    background: #5b8dff;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 0 0 0.5rem 0;
+    text-decoration: none;
+    transition: top 0.15s ease;
+}
+.skip-link:focus {
+    top: 0;
+}
+
 /* ── Sidebar labels: nowrap + clip para evitar overflow silencioso en cualquier estado ── */
 #sidebar .sidebar-label {
     white-space: nowrap;
