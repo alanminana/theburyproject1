@@ -25,36 +25,26 @@
     </style>
 </head>
 <body style="background-color: var(--c-surface); color: var(--c-on-surface); font-family: 'Inter', sans-serif;"
-      class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden selection:bg-primary/30">
-
-    <!-- Background glow elements -->
-    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px]"
-             style="background-color: rgba(19,91,236,0.10);"></div>
-        <div class="absolute top-[20%] right-[5%] w-[30%] h-[30%] rounded-full blur-[100px]"
-             style="background-color: rgba(47,67,128,0.05);"></div>
-        <div class="absolute bottom-0 left-0 w-full h-[40%]"
-             style="background: linear-gradient(to top, #080e1a, transparent); opacity: 0.6;"></div>
-    </div>
+      class="min-h-screen flex flex-col items-center justify-center">
 
     <!-- Main canvas -->
-    <main class="relative z-10 w-full max-w-[440px] px-6 py-12">
+    <main class="w-full max-w-[440px] px-6 py-12">
 
         <!-- Brand -->
         <div class="flex flex-col items-center mb-10">
             <div class="w-16 h-16 mb-6 rounded-xl overflow-hidden flex items-center justify-center"
-                 style="background-color: var(--c-primary-container); box-shadow: 0 0 40px -5px rgba(19,91,236,0.35);">
+                 style="background-color: var(--c-primary-container); box-shadow: 0 4px 16px -4px rgba(19,91,236,0.2);">
                 <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain p-1" />
             </div>
-            <h1 class="text-3xl font-black tracking-tighter mb-2" style="color: var(--c-on-surface);">TheBuryProject</h1>
-            <p class="text-[10px] uppercase tracking-[0.2em] font-bold" style="color: var(--c-on-surface-var);">Sistema de Gestión Empresarial</p>
+            <h1 class="text-3xl font-black tracking-tight mb-2" style="color: var(--c-on-surface);">TheBuryProject</h1>
+            <p class="text-xs uppercase tracking-wider font-semibold" style="color: var(--c-on-surface-var);">Sistema de Gestión Empresarial</p>
         </div>
 
         <!-- Auth card -->
         <div class="p-8 rounded-xl relative overflow-hidden"
-             style="background-color: var(--c-surface-low); border: 1px solid rgba(67,70,85,0.15); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+             style="background-color: var(--c-surface-low); border: 1px solid rgba(67,70,85,0.30); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.3);">
 
-            <!-- Top highlight line -->
+            <!-- Top accent line -->
             <div class="absolute top-0 left-0 w-full h-[2px]"
                  style="background: linear-gradient(to right, transparent, rgba(19,91,236,0.4), transparent);"></div>
 
@@ -66,8 +56,9 @@
             @if (hasGlobalError)
             {
                 <div class="flex items-center gap-2 mb-6 px-4 py-3 rounded-lg text-sm font-medium"
-                     style="background-color: rgba(255,180,171,0.08); border: 1px solid rgba(255,180,171,0.2); color: #ffb4ab;">
-                    <span class="material-symbols-outlined text-[18px] shrink-0">error</span>
+                     role="alert"
+                     style="background-color: rgba(255,180,171,0.10); border: 1px solid rgba(255,180,171,0.30); color: #ffb4ab;">
+                    <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">error</span>
                     <span>@ModelState[string.Empty]!.Errors.First().ErrorMessage</span>
                 </div>
             }
@@ -77,83 +68,85 @@
                 <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
 
                 <!-- Usuario -->
-                <div class="space-y-2">
+                <div class="space-y-1.5">
                     <label asp-for="Input.UserName"
-                           class="block text-[11px] uppercase tracking-widest font-bold ml-1"
-                           style="color: var(--c-on-surface-var);">
+                           class="block text-[13px] uppercase tracking-wider font-semibold"
+                           style="color: var(--c-on-surface);">
                         Usuario
                     </label>
                     <div class="relative group">
-                        <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors"
-                             style="color: var(--c-on-surface-var);">
-                            <span class="material-symbols-outlined text-lg">person</span>
+                        <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none"
+                             style="color: var(--c-on-surface-var);" id="icon-username">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">person</span>
                         </div>
                         <input asp-for="Input.UserName"
                                type="text"
                                autocomplete="username"
                                placeholder="usuario"
-                               class="w-full rounded-lg py-4 pl-12 pr-4 text-sm border-0 transition-all focus:outline-none focus:ring-2"
-                               style="background-color: var(--c-surface-container); color: var(--c-on-surface); --tw-ring-color: rgba(19,91,236,0.4);" />
+                               class="w-full rounded-lg py-3.5 pl-12 pr-4 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
+                               style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);" />
                     </div>
-                    <span asp-validation-for="Input.UserName" class="text-xs font-medium" style="color: #ffb4ab;"></span>
+                    <span asp-validation-for="Input.UserName" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
                 </div>
 
                 <!-- Password -->
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center ml-1">
+                <div class="space-y-1.5">
+                    <div class="flex justify-between items-center">
                         <label asp-for="Input.Password"
-                               class="text-[11px] uppercase tracking-widest font-bold"
-                               style="color: var(--c-on-surface-var);">
+                               class="text-[13px] uppercase tracking-wider font-semibold"
+                               style="color: var(--c-on-surface);">
                             Contraseña
                         </label>
                         <a asp-page="./ForgotPassword"
-                           class="text-xs font-medium hover:underline transition-colors no-underline"
-                           style="color: var(--c-primary-light);">
+                           class="text-xs font-medium hover:underline transition-colors no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
+                           style="color: var(--c-primary-light); --tw-ring-color: rgba(19,91,236,0.5);">
                             ¿Olvidaste tu contraseña?
                         </a>
                     </div>
                     <div class="relative group">
                         <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none"
-                             style="color: var(--c-on-surface-var);">
-                            <span class="material-symbols-outlined text-lg">lock</span>
+                             style="color: var(--c-on-surface-var);" id="icon-password">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">lock</span>
                         </div>
                         <input asp-for="Input.Password"
                                type="password"
                                id="input-password"
                                autocomplete="current-password"
                                placeholder="••••••••"
-                               class="w-full rounded-lg py-4 pl-12 pr-12 text-sm border-0 transition-all focus:outline-none focus:ring-2"
-                               style="background-color: var(--c-surface-container); color: var(--c-on-surface); --tw-ring-color: rgba(19,91,236,0.4);" />
-                        <button type="button" id="btn-toggle-pwd"
-                                class="absolute inset-y-0 right-4 flex items-center transition-colors border-0 bg-transparent"
-                                style="color: var(--c-on-surface-var);">
-                            <span class="material-symbols-outlined text-lg" id="pwd-eye">visibility</span>
+                               class="w-full rounded-lg py-3.5 pl-12 pr-12 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
+                               style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);" />
+                        <button type="button"
+                                id="btn-toggle-pwd"
+                                aria-label="Mostrar u ocultar contraseña"
+                                class="absolute inset-y-0 right-4 flex items-center rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                                style="color: var(--c-on-surface-var); background: transparent; border: none; --tw-ring-color: rgba(19,91,236,0.5);">
+                            <span class="material-symbols-outlined text-lg" id="pwd-eye" aria-hidden="true">visibility</span>
                         </button>
                     </div>
-                    <span asp-validation-for="Input.Password" class="text-xs font-medium" style="color: #ffb4ab;"></span>
+                    <span asp-validation-for="Input.Password" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
                 </div>
 
                 <!-- Remember me -->
-                <div class="flex items-center justify-between text-xs pt-1">
-                    <label class="flex items-center gap-3 cursor-pointer group select-none">
+                <div class="flex items-center pt-1">
+                    <label class="flex items-center gap-3 cursor-pointer select-none">
                         <div class="relative flex items-center">
                             <input asp-for="Input.RememberMe"
                                    type="checkbox"
                                    id="remember-me"
-                                   class="peer appearance-none w-5 h-5 rounded focus:ring-0 transition-all cursor-pointer border-0"
-                                   style="background-color: var(--c-surface-container);"
+                                   class="peer appearance-none w-5 h-5 rounded cursor-pointer transition-[background-color,border-color,box-shadow] focus:outline-none focus:ring-2"
+                                   style="background-color: var(--c-surface-container); border: 1.5px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);"
                                    onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0'" />
                             <span class="material-symbols-outlined absolute text-sm pointer-events-none left-[3px]"
-                                  style="color: var(--c-on-primary); opacity: 0;" id="check-icon">check</span>
+                                  style="color: var(--c-on-primary); opacity: 0;" id="check-icon" aria-hidden="true">check</span>
                         </div>
-                        <span style="color: var(--c-on-surface-var);">Recordar usuario</span>
+                        <span class="text-sm" style="color: var(--c-on-surface-var);">Recordar usuario</span>
                     </label>
                 </div>
 
                 <!-- Submit -->
                 <button type="submit"
-                        class="w-full py-4 px-6 rounded-lg font-bold tracking-tight text-sm transition-all hover:brightness-110 active:scale-[0.98] mt-4"
-                        style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 10px 25px -5px rgba(19,91,236,0.25);">
+                        class="w-full py-4 px-6 rounded-lg font-bold text-sm transition-[background-color,box-shadow,transform] hover:brightness-110 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 mt-2"
+                        style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px rgba(19,91,236,0.3); --tw-ring-color: rgba(19,91,236,0.6);">
                     Iniciar Sesión
                 </button>
             </form>
@@ -163,29 +156,23 @@
         <div class="mt-8 text-center">
             <p class="text-sm" style="color: var(--c-on-surface-var);">
                 ¿No tenés acceso?
-                <span class="ml-1 font-bold" style="color: var(--c-on-surface-var);">Contactá al administrador.</span>
+                <span class="ml-1 font-semibold" style="color: var(--c-on-surface);">Contactá al administrador.</span>
             </p>
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="mt-auto py-8 w-full" style="border-top: 1px solid rgba(67,70,85,0.08);">
-        <div class="max-w-[1200px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-4"
-             style="color: rgba(195,197,216,0.35);">
+    <footer class="mt-auto py-6 w-full" style="border-top: 1px solid rgba(67,70,85,0.20);">
+        <div class="max-w-[1200px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-3"
+             style="color: rgba(195,197,216,0.55);">
             <div class="flex items-center gap-6">
-                <span class="text-[10px] uppercase tracking-widest font-bold tabular-nums">Sistema v1.0</span>
-                <span class="w-1 h-1 rounded-full" style="background-color: rgba(67,70,85,0.4);"></span>
-                <span class="text-[10px] uppercase tracking-widest font-bold">Acceso Restringido</span>
+                <span class="text-[11px] uppercase tracking-widest font-semibold tabular-nums">Sistema v1.0</span>
+                <span class="w-1 h-1 rounded-full" style="background-color: rgba(67,70,85,0.5);"></span>
+                <span class="text-[11px] uppercase tracking-widest font-semibold">Acceso Restringido</span>
             </div>
-            <p class="text-[10px] uppercase tracking-widest font-bold">© @DateTime.Now.Year TheBuryProject</p>
+            <p class="text-[11px] uppercase tracking-widest font-semibold">© @DateTime.Now.Year TheBuryProject</p>
         </div>
     </footer>
-
-    <!-- Decorative corner -->
-    <div class="fixed bottom-0 right-0 p-10 pointer-events-none" style="opacity: 0.15;">
-        <div class="w-32 h-32 rounded-br-3xl"
-             style="border-right: 1px solid rgba(19,91,236,0.4); border-bottom: 1px solid rgba(19,91,236,0.4);"></div>
-    </div>
 
     <script>
         const btn = document.getElementById('btn-toggle-pwd');
@@ -195,6 +182,7 @@
             const hidden = inp.type === 'password';
             inp.type = hidden ? 'text' : 'password';
             eye.textContent = hidden ? 'visibility_off' : 'visibility';
+            btn.setAttribute('aria-label', hidden ? 'Ocultar contraseña' : 'Mostrar contraseña');
         });
 
         // Sync checkbox visual on load
