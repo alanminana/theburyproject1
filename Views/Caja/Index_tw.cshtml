@@ -194,21 +194,22 @@
                                             {
                                                 <div class="flex min-w-max flex-wrap items-center justify-end gap-2">
                                                     <a asp-action="DetallesApertura" asp-route-id="@apertura.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-primary/10 text-slate-300 hover:text-primary text-xs font-bold border border-slate-700 transition-colors no-underline"
+                                                       class="row-action row-action--primary no-underline"
                                                        title="Ver movimientos y operaciones">
-                                                        <span class="material-symbols-outlined text-base">list_alt</span>
-                                                        <span class="caja-index-action-label">Ver movimientos</span>
+                                                        <span class="material-symbols-outlined">list_alt</span>
+                                                        <span class="row-action__label">Ver movimientos</span>
                                                     </a>
                                                     <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold border border-primary/20 hover:bg-primary hover:text-white transition-colors no-underline"
+                                                       class="row-action row-action--primary no-underline"
                                                        title="Registrar movimiento">
-                                                        <span class="material-symbols-outlined text-base">add_card</span>
-                                                        <span class="caja-index-action-label">Movimiento</span>
+                                                        <span class="material-symbols-outlined">add_card</span>
+                                                        <span class="row-action__label">Movimiento</span>
                                                     </a>
                                                     <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-colors no-underline">
-                                                        <span class="material-symbols-outlined text-base">lock</span>
-                                                        <span class="caja-index-action-label">Cerrar caja</span>
+                                                       class="row-action row-action--danger no-underline"
+                                                       title="Cerrar caja">
+                                                        <span class="material-symbols-outlined">lock</span>
+                                                        <span class="row-action__label">Cerrar caja</span>
                                                     </a>
                                                 </div>
                                             }
@@ -345,10 +346,10 @@
                                                     @if (aperturaActiva != null && (esAdmin || esMiApertura))
                                                     {
                                                         <a asp-action="DetallesApertura" asp-route-id="@aperturaActiva.Id"
-                                                           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-primary/10 hover:text-primary transition-colors no-underline"
+                                                           class="row-action row-action--primary no-underline"
                                                            title="Ver apertura activa">
-                                                            <span class="material-symbols-outlined text-base">open_in_new</span>
-                                                            <span class="caja-index-action-label">Ver apertura</span>
+                                                            <span class="material-symbols-outlined">open_in_new</span>
+                                                            <span class="row-action__label">Ver apertura</span>
                                                         </a>
                                                     }
                                                     else if (!esAdmin)
@@ -359,9 +360,9 @@
                                                 else
                                                 {
                                                     <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
-                                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-colors no-underline">
-                                                        <span class="material-symbols-outlined text-base">lock_open</span>
-                                                        <span class="caja-index-action-label">Abrir caja</span>
+                                                       class="row-action row-action--primary no-underline">
+                                                        <span class="material-symbols-outlined">lock_open</span>
+                                                        <span class="row-action__label">Abrir caja</span>
                                                     </a>
                                                 }
                                                 @if (esAdmin)
@@ -369,10 +370,10 @@
                                                     <button type="button"
                                                             data-caja-open-edit
                                                             data-caja-id="@caja.Id"
-                                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900/70 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-slate-800 transition-colors"
+                                                            class="row-action"
                                                             title="Editar">
-                                                        <span class="material-symbols-outlined text-base">edit</span>
-                                                        <span class="caja-index-action-label">Editar</span>
+                                                        <span class="material-symbols-outlined">edit</span>
+                                                        <span class="row-action__label">Editar</span>
                                                     </button>
                                                     @if (!estaAbierta)
                                                     {
@@ -384,10 +385,10 @@
                                                             <input type="hidden" name="id" value="@caja.Id" />
                                                             <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
                                                             <button type="submit"
-                                                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-colors"
+                                                                    class="row-action row-action--danger"
                                                                     title="Eliminar">
-                                                                <span class="material-symbols-outlined text-base">delete</span>
-                                                                <span class="caja-index-action-label">Eliminar</span>
+                                                                <span class="material-symbols-outlined">delete</span>
+                                                                <span class="row-action__label">Eliminar</span>
                                                             </button>
                                                         </form>
                                                     }
@@ -482,10 +483,10 @@
                                                 <button type="button"
                                                         data-caja-open-edit
                                                         data-caja-id="@caja.Id"
-                                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900/70 text-slate-300 text-xs font-bold border border-slate-700 hover:bg-slate-800 transition-colors"
+                                                        class="row-action"
                                                         title="Reactivar / Editar">
-                                                    <span class="material-symbols-outlined text-base">restore_from_trash</span>
-                                                    <span class="caja-index-action-label">Reactivar</span>
+                                                    <span class="material-symbols-outlined">restore_from_trash</span>
+                                                    <span class="row-action__label">Reactivar</span>
                                                 </button>
                                                 <form asp-action="Delete"
                                                       method="post"
@@ -495,10 +496,10 @@
                                                     <input type="hidden" name="id" value="@caja.Id" />
                                                     <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(caja.RowVersion)" />
                                                     <button type="submit"
-                                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-colors"
+                                                            class="row-action row-action--danger"
                                                             title="Eliminar permanentemente">
-                                                        <span class="material-symbols-outlined text-base">delete_forever</span>
-                                                        <span class="caja-index-action-label">Eliminar</span>
+                                                        <span class="material-symbols-outlined">delete_forever</span>
+                                                        <span class="row-action__label">Eliminar</span>
                                                     </button>
                                                 </form>
                                             </div>

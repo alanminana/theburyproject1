@@ -20,29 +20,27 @@
 
 @if (!puedeOperarVentas)
 {
-    <div id="panel-caja-cerrada" class="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-amber-100">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined mt-0.5 text-xl text-amber-300">point_of_sale</span>
-                <div>
-                    <p class="text-sm font-black uppercase tracking-wider">Sin caja abierta</p>
-                    <p class="mt-1 text-sm font-medium">
-                        No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.
-                    </p>
-                </div>
+    <div id="panel-caja-cerrada" class="alert-erp alert-erp-warning mb-6 flex-wrap justify-between" role="status">
+        <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined mt-0.5">point_of_sale</span>
+            <div>
+                <p class="text-sm font-black uppercase tracking-wider">Sin caja abierta</p>
+                <p class="mt-1 text-sm font-medium opacity-80">
+                    No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.
+                </p>
             </div>
-            <div class="flex items-center gap-2">
-                <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir"
-                   class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-amber-400 no-underline">
-                    <span class="material-symbols-outlined text-[18px]">lock_open</span>
-                    Abrir caja
-                </a>
-                <a asp-controller="Caja" asp-action="Index"
-                   class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 px-4 py-2.5 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20 no-underline">
-                    <span class="material-symbols-outlined text-[18px]">point_of_sale</span>
-                    Ver cajas
-                </a>
-            </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+            <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir"
+               class="btn-erp-warning btn-sm no-underline">
+                <span class="material-symbols-outlined">lock_open</span>
+                Abrir caja
+            </a>
+            <a asp-controller="Caja" asp-action="Index"
+               class="btn-erp-ghost btn-sm no-underline">
+                <span class="material-symbols-outlined">point_of_sale</span>
+                Ver cajas
+            </a>
         </div>
     </div>
 }

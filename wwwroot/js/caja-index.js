@@ -180,7 +180,7 @@
 
         var isEdit = form && form.querySelector('[name="Id"]') && form.querySelector('[name="Id"]').value !== '0';
         var sucursalUbicacionHtml = entity.sucursal
-            ? '<span class="text-sm text-slate-700 dark:text-slate-300">' + escapeHtml(entity.sucursal) + '</span>'
+            ? '<span class="text-sm text-slate-300">' + escapeHtml(entity.sucursal) + '</span>'
             : '<span class="text-sm text-slate-400">—</span>';
 
         var tbody = document.getElementById('cajas-activas-tbody');
@@ -199,14 +199,14 @@
         } else if (tbody) {
             var tr = document.createElement('tr');
             tr.setAttribute('data-caja-row-id', entity.id);
-            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors';
+            tr.className = 'hover:bg-slate-800/30 transition-colors';
             tr.innerHTML =
                 '<td class="px-6 py-4 text-sm font-mono text-slate-500">' + escapeHtml(entity.codigo) + '</td>' +
-                '<td class="px-6 py-4 text-sm font-bold text-slate-900 dark:text-white">' + escapeHtml(entity.nombre) + '</td>' +
+                '<td class="px-6 py-4 text-sm font-bold text-white">' + escapeHtml(entity.nombre) + '</td>' +
                 '<td class="px-6 py-4">' + sucursalUbicacionHtml + '</td>' +
-                '<td class="px-6 py-4"><div class="flex items-center gap-2 text-slate-400"><span class="size-2 rounded-full bg-slate-400"></span><span class="text-xs font-bold uppercase">Cerrada</span></div></td>' +
+                '<td class="px-6 py-4"><span class="chip-erp">Cerrada</span></td>' +
                 '<td class="px-6 py-4 text-right"><div class="flex min-w-max flex-wrap items-center justify-end gap-2">' +
-                  '<a href="/Caja/Abrir?cajaId=' + entity.id + '" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 transition-all no-underline"><span class="material-symbols-outlined text-base">lock_open</span><span class="caja-index-action-label">Abrir caja</span></a>' +
+                  '<a href="/Caja/Abrir?cajaId=' + entity.id + '" class="row-action row-action--primary no-underline" title="Abrir caja"><span class="material-symbols-outlined">lock_open</span><span class="row-action__label">Abrir caja</span></a>' +
                 '</div></td>';
             tbody.appendChild(tr);
             showPageFeedback('Caja creada: ' + entity.nombre, 'success');
