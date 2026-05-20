@@ -19,7 +19,9 @@ module.exports = defineConfig({
     testDir: './e2e',
     fullyParallel: false,
     forbidOnly: !!process.env.CI,
-    retries: 0,
+    // UI-5F: retries:1 documentado — fallos confirmados flaky por timing de red/fonts en CI local.
+    // Con el bloqueo de Google Fonts en beforeEach, el retry es solo safety-net para condiciones de carga.
+    retries: 1,
     workers: 1,
     reporter: [
         ['list'],

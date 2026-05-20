@@ -41,8 +41,18 @@ const ROUTES = {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
+// UI-5F: bloquear Google Fonts en todos los tests para evitar timeouts de screenshot.
+// page.screenshot() espera document.fonts.ready; con red lenta a Google > 10s → timeout.
+// Las vistas usan font-display:swap, el ERP renderiza con system fonts — estable y determinista.
+test.beforeEach(async ({ page }) => {
+    await page.route('**/fonts.googleapis.com/**', route => route.abort()).catch(() => null);
+    await page.route('**/fonts.gstatic.com/**', route => route.abort()).catch(() => null);
+});
+
 /** Guarda captura en qa-evidence/ui-4e-layout-visual/<nombre>.png */
 async function shot(page, name) {
+    // UI-5F: esperar fonts antes de cada screenshot para evitar falsos positivos por renders incompletos
+    await page.evaluate(() => document.fonts?.ready).catch(() => null);
     const p = path.join(OUT_DIR, `${name}.png`);
     await page.screenshot({ path: p, fullPage: false });
     return p;
@@ -51,6 +61,8 @@ async function shot(page, name) {
 /** Navega y espera que la página no sea la de login */
 async function gotoAuthenticated(page, url) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    // UI-5F: esperar fonts para estabilizar render antes de assertions post-navegación
+    await page.evaluate(() => document.fonts?.ready).catch(() => null);
     const current = page.url();
     // Si redirigió a login la sesión expiró
     return !current.toLowerCase().includes('login') && !current.toLowerCase().includes('account');
@@ -66,9 +78,9 @@ test.describe('Login visual', () => {
     test('login-mobile.png — 390x844', async ({ page }) => {
         await page.setViewportSize(VIEWPORTS.mobile);
         await page.goto('/Identity/Account/Login', { waitUntil: 'domcontentloaded', timeout: 20_000 });
+        // UI-5F: esperar visibilidad del campo antes del screenshot (evita captura de página a medio renderizar)
+        await expect(page.locator('input[type="text"], input[name="Input.UserName"]').first()).toBeVisible({ timeout: 10_000 });
         await shot(page, 'login-mobile');
-        // Verificar elementos de login visibles
-        await expect(page.locator('input[type="text"], input[name="Input.UserName"]').first()).toBeVisible();
         await expect(page.locator('input[type="password"]').first()).toBeVisible();
     });
 });
@@ -87,7 +99,8 @@ test.describe('Desktop — sidebar expandido y colapsado', () => {
         const isCollapsed = await sidebar.evaluate(el => el.classList.contains('collapsed'));
         if (isCollapsed) {
             await page.click('#collapseSidebar');
-            await page.waitForTimeout(400);
+            // UI-5F: esperar por clase en vez de timeout fijo — robusto ante variación de animación
+            await expect(sidebar).not.toHaveClass(/collapsed/, { timeout: 2_000 });
         }
         await expect(sidebar).toBeVisible();
         await shot(page, 'sidebar-desktop-expanded');
