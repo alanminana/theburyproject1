@@ -181,13 +181,34 @@
     }
 
     function renderProductos(data, tbody, footer, count, badge) {
-        tbody.innerHTML = data.map(producto => `
-            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                <td class="px-6 py-4 font-medium">${producto.nombre}</td>
-                <td class="px-6 py-4 text-center font-mono text-xs">${producto.codigo || '—'}</td>
-                <td class="px-6 py-4 text-center">${formatInteger(producto.stock)}</td>
-                <td class="px-6 py-4 text-right">$${formatInteger(producto.precio)}</td>
-            </tr>`).join('');
+        tbody.replaceChildren();
+
+        data.forEach(producto => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors';
+
+            const tdNombre = document.createElement('td');
+            tdNombre.className = 'px-6 py-4 font-medium';
+            tdNombre.textContent = producto.nombre;
+
+            const tdCodigo = document.createElement('td');
+            tdCodigo.className = 'px-6 py-4 text-center font-mono text-xs';
+            tdCodigo.textContent = producto.codigo || '—';
+
+            const tdStock = document.createElement('td');
+            tdStock.className = 'px-6 py-4 text-center';
+            tdStock.textContent = formatInteger(producto.stock);
+
+            const tdPrecio = document.createElement('td');
+            tdPrecio.className = 'px-6 py-4 text-right';
+            tdPrecio.textContent = '$' + formatInteger(producto.precio);
+
+            tr.appendChild(tdNombre);
+            tr.appendChild(tdCodigo);
+            tr.appendChild(tdStock);
+            tr.appendChild(tdPrecio);
+            tbody.appendChild(tr);
+        });
 
         const label = `${data.length} producto${data.length !== 1 ? 's' : ''} asociado${data.length !== 1 ? 's' : ''}`;
         footer.classList.remove('hidden');
