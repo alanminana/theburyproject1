@@ -179,33 +179,20 @@
     function showFeedback(message, tone) {
         if (!feedbackSlot || !message) return;
 
-        const palette = {
-            info: {
-                wrapper: 'border-primary/20 bg-primary/10 text-primary',
-                icon: 'info'
-            },
-            warning: {
-                wrapper: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                icon: 'warning'
-            },
-            error: {
-                wrapper: 'border-red-500/20 bg-red-500/10 text-red-500',
-                icon: 'error'
-            }
+        const typeMap = {
+            info:    { cls: 'alert-erp-info',    icon: 'info',         role: 'status' },
+            warning: { cls: 'alert-erp-warning', icon: 'warning',      role: 'alert'  },
+            error:   { cls: 'alert-erp-error',   icon: 'error',        role: 'alert'  }
         };
-
-        const variant = palette[tone] || palette.info;
+        const v = typeMap[tone] || typeMap.info;
         const toast = document.createElement('div');
-        toast.className = `toast-msg flex items-center gap-3 rounded-xl border p-4 text-sm font-semibold ${variant.wrapper}`;
-        toast.setAttribute('role', tone === 'error' ? 'alert' : 'status');
-        const icon = document.createElement('span');
-        icon.className = 'material-symbols-outlined text-lg';
-        icon.textContent = variant.icon;
-
-        const text = document.createElement('p');
-        text.textContent = message;
-
-        toast.append(icon, text);
+        toast.className = `toast-msg alert-erp ${v.cls}`;
+        toast.setAttribute('role', v.role);
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'material-symbols-outlined';
+        iconSpan.textContent = v.icon;
+        toast.appendChild(iconSpan);
+        toast.appendChild(document.createTextNode(message));
 
         feedbackSlot.hidden = false;
         feedbackSlot.className = '';
