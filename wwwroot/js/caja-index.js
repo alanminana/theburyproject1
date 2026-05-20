@@ -27,39 +27,20 @@
     function showPageFeedback(message, type) {
         if (!feedbackSlot || !message) return;
 
-        const variants = {
-            error: {
-                wrapper: 'bg-rose-500/10 border-rose-500/20 text-rose-500',
-                iconBg: 'bg-rose-500/20 text-rose-500',
-                title: 'Error',
-                icon: 'error'
-            },
-            warning: {
-                wrapper: 'bg-amber-500/10 border-amber-500/20 text-amber-500',
-                iconBg: 'bg-amber-500/20 text-amber-500',
-                title: 'Atención',
-                icon: 'warning'
-            },
-            success: {
-                wrapper: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-                iconBg: 'bg-emerald-500/20 text-emerald-600',
-                title: 'Listo',
-                icon: 'check_circle'
-            }
+        const typeMap = {
+            error:   { cls: 'alert-erp-error',   icon: 'error',        role: 'alert'  },
+            warning: { cls: 'alert-erp-warning',  icon: 'warning',      role: 'alert'  },
+            success: { cls: 'alert-erp-success',  icon: 'check_circle', role: 'status' }
         };
-
-        const variant = variants[type] || variants.error;
+        const v = typeMap[type] || typeMap.error;
         const toast = document.createElement('div');
-        toast.className = `toast-msg flex items-center gap-4 border p-4 rounded-xl ${variant.wrapper}`;
-        toast.setAttribute('role', 'alert');
-        toast.innerHTML =
-            `<div class="${variant.iconBg} p-2 rounded-lg">` +
-            `  <span class="material-symbols-outlined">${variant.icon}</span>` +
-            '</div>' +
-            '<div>' +
-            `  <p class="text-sm font-bold leading-tight">${variant.title}</p>` +
-            `  <p class="text-xs font-medium opacity-80">${escapeHtml(message)}</p>` +
-            '</div>';
+        toast.className = `toast-msg alert-erp ${v.cls}`;
+        toast.setAttribute('role', v.role);
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'material-symbols-outlined';
+        iconSpan.textContent = v.icon;
+        toast.appendChild(iconSpan);
+        toast.appendChild(document.createTextNode(message));
 
         feedbackSlot.replaceChildren(toast);
         TheBury.autoDismissToasts();
