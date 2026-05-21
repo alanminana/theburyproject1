@@ -243,6 +243,38 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await expect(page.locator('.payment-option-card--selected')).toBeVisible({ timeout: 3_000 });
     });
 
+    // ─── T6: Descuento por producto (COTIZ-1B) ───────────────────────────────
+
+    test('T6: Descuento por producto — inputs presentes y simulacion funciona', async ({ page }) => {
+        await page.setViewportSize(VIEWPORT_DESKTOP);
+        await gotoCotizacion(page);
+
+        const added = await agregarProductoSimulador(page);
+        test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
+
+        // Los inputs de descuento por producto deben estar visibles en la primera fila
+        const descPctInput    = page.locator('[data-cotizacion-desc-pct-index="0"]');
+        const descImporteInput = page.locator('[data-cotizacion-desc-importe-index="0"]');
+        await expect(descPctInput).toBeVisible({ timeout: 3_000 });
+        await expect(descImporteInput).toBeVisible({ timeout: 3_000 });
+
+        // Cargar descuento porcentaje 10%
+        await descPctInput.fill('10');
+
+        // Simular con descuento por producto cargado
+        await page.click('#cotizacion-simular');
+        await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
+
+        // Cards deben seguir apareciendo — el descuento por producto no rompe la simulacion
+        const cards = page.locator('.payment-option-card');
+        await expect(cards.first()).toBeVisible({ timeout: 5_000 });
+        expect(await cards.count()).toBeGreaterThan(0);
+
+        // El descuento total debe ser mayor a cero (el backend aplico el descuento)
+        const descuentoText = await page.locator('#cotizacion-descuento').textContent();
+        expect(descuentoText).not.toBe('$ 0,00');
+    });
+
     // ─── T4: Mobile 390px sin scroll horizontal ──────────────────────────────
 
     test('T4: Mobile 390px — sin scroll horizontal en resultados', async ({ page }) => {

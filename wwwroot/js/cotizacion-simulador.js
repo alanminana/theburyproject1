@@ -178,6 +178,22 @@
                            class="w-20 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </td>
                 <td class="px-4 py-3 text-right text-sm font-semibold text-slate-200">${formatCurrency(producto.precioUnitario)}</td>
+                <td class="px-4 py-3 text-right">
+                    <input type="number" min="0" max="100" step="0.01"
+                           value="${producto.descuentoPorcentaje ?? ''}"
+                           data-cotizacion-desc-pct-index="${index}"
+                           aria-label="Descuento porcentaje producto"
+                           class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                           placeholder="0" />
+                </td>
+                <td class="px-4 py-3 text-right">
+                    <input type="number" min="0" step="0.01"
+                           value="${producto.descuentoImporte ?? ''}"
+                           data-cotizacion-desc-importe-index="${index}"
+                           aria-label="Descuento importe producto"
+                           class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                           placeholder="0" />
+                </td>
                 <td class="px-4 py-3 text-right text-sm font-bold text-white">${formatCurrency(producto.precioUnitario * producto.cantidad)}</td>
                 <td class="px-4 py-3 text-right">
                     <button type="button" data-cotizacion-eliminar-index="${index}"
@@ -225,7 +241,9 @@
                 codigo: producto.codigo || '',
                 nombre: producto.nombre || `Producto ${producto.id}`,
                 cantidad: qty,
-                precioUnitario: Number(producto.precioVenta) || 0
+                precioUnitario: Number(producto.precioVenta) || 0,
+                descuentoPorcentaje: null,
+                descuentoImporte: null
             });
         }
 
@@ -385,7 +403,9 @@
             descuentoGeneralImporte: descImporte !== null && descImporte > 0 ? descImporte : null,
             productos: state.productos.map(p => ({
                 productoId: p.productoId,
-                cantidad: p.cantidad
+                cantidad: p.cantidad,
+                descuentoPorcentaje: (p.descuentoPorcentaje !== null && p.descuentoPorcentaje > 0) ? p.descuentoPorcentaje : null,
+                descuentoImporte: (p.descuentoImporte !== null && p.descuentoImporte > 0) ? p.descuentoImporte : null
             }))
         };
 
@@ -795,16 +815,38 @@
         });
 
         els.productosTbody?.addEventListener('input', event => {
-            const input = event.target.closest('[data-cotizacion-cantidad-index]');
-            if (!input) return;
-            const index = Number(input.dataset.cotizacionCantidadIndex);
-            const qty = parsePositiveInt(input.value) || 1;
-            state.productos[index].cantidad = qty;
-            input.value = String(qty);
-            state.ultimaSimulacion = null;
-            state.opcionSeleccionada = null;
-            if (els.guardar) els.guardar.disabled = true;
-            renderProductos();
+            const cantInput = event.target.closest('[data-cotizacion-cantidad-index]');
+            if (cantInput) {
+                const index = Number(cantInput.dataset.cotizacionCantidadIndex);
+                const qty = parsePositiveInt(cantInput.value) || 1;
+                state.productos[index].cantidad = qty;
+                cantInput.value = String(qty);
+                state.ultimaSimulacion = null;
+                state.opcionSeleccionada = null;
+                if (els.guardar) els.guardar.disabled = true;
+                renderProductos();
+                return;
+            }
+
+            const descPctInput = event.target.closest('[data-cotizacion-desc-pct-index]');
+            if (descPctInput) {
+                const index = Number(descPctInput.dataset.cotizacionDescPctIndex);
+                state.productos[index].descuentoPorcentaje = parseNonNegativeDecimal(descPctInput.value);
+                state.ultimaSimulacion = null;
+                state.opcionSeleccionada = null;
+                if (els.guardar) els.guardar.disabled = true;
+                return;
+            }
+
+            const descImporteInput = event.target.closest('[data-cotizacion-desc-importe-index]');
+            if (descImporteInput) {
+                const index = Number(descImporteInput.dataset.cotizacionDescImporteIndex);
+                state.productos[index].descuentoImporte = parseNonNegativeDecimal(descImporteInput.value);
+                state.ultimaSimulacion = null;
+                state.opcionSeleccionada = null;
+                if (els.guardar) els.guardar.disabled = true;
+                return;
+            }
         });
 
         els.resultadosTbody?.addEventListener('change', event => {
