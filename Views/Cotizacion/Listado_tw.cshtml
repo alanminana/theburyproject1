@@ -8,6 +8,30 @@
     var estado = ViewBag.Estado as EstadoCotizacion?;
     var fechaDesde = ViewBag.FechaDesde as DateTime?;
     var fechaHasta = ViewBag.FechaHasta as DateTime?;
+
+    string QuoteBadgeClass(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.Emitida        => "quote-state-badge quote-state-badge--emitida",
+        EstadoCotizacion.ConvertidaAVenta => "quote-state-badge quote-state-badge--convertida",
+        EstadoCotizacion.Cancelada      => "quote-state-badge quote-state-badge--cancelada",
+        EstadoCotizacion.Vencida        => "quote-state-badge quote-state-badge--vencida",
+        _                               => "quote-state-badge"
+    };
+
+    string QuoteBadgeLabel(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.ConvertidaAVenta => "Convertida",
+        _ => e.ToString()
+    };
+
+    string QuoteBadgeIcon(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.Emitida          => "pending",
+        EstadoCotizacion.ConvertidaAVenta => "check_circle",
+        EstadoCotizacion.Cancelada        => "cancel",
+        EstadoCotizacion.Vencida          => "schedule",
+        _                                 => "fiber_manual_record"
+    };
 }
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
@@ -77,7 +101,12 @@
                             <td class="px-4 py-3 text-sm font-bold text-white">@item.Numero</td>
                             <td class="px-4 py-3 text-sm text-slate-300">@item.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                             <td class="px-4 py-3 text-sm text-slate-300">@item.Cliente</td>
-                            <td class="px-4 py-3 text-sm text-slate-300">@item.Estado</td>
+                            <td class="px-4 py-3">
+                                <span class="@QuoteBadgeClass(item.Estado)">
+                                    <span class="material-symbols-outlined">@QuoteBadgeIcon(item.Estado)</span>
+                                    @QuoteBadgeLabel(item.Estado)
+                                </span>
+                            </td>
                             <td class="px-4 py-3 text-right text-sm font-bold text-white">@item.TotalBase.ToString("C")</td>
                             <td class="px-4 py-3 text-right text-sm text-slate-300">@(item.TotalSeleccionado?.ToString("C") ?? "-")</td>
                             <td class="px-4 py-3 text-right">

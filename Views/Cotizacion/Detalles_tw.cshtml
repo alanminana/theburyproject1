@@ -6,6 +6,30 @@
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
     var cliente = Model.ClienteNombre ?? Model.NombreClienteLibre ?? "Cliente mostrador";
     var puedeConvertir = Model.Estado == EstadoCotizacion.Emitida && User.TienePermiso("cotizaciones", "convert");
+
+    string QuoteBadgeClass(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.Emitida          => "quote-state-badge quote-state-badge--emitida",
+        EstadoCotizacion.ConvertidaAVenta => "quote-state-badge quote-state-badge--convertida",
+        EstadoCotizacion.Cancelada        => "quote-state-badge quote-state-badge--cancelada",
+        EstadoCotizacion.Vencida          => "quote-state-badge quote-state-badge--vencida",
+        _                                 => "quote-state-badge"
+    };
+
+    string QuoteBadgeLabel(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.ConvertidaAVenta => "Convertida",
+        _ => e.ToString()
+    };
+
+    string QuoteBadgeIcon(EstadoCotizacion e) => e switch
+    {
+        EstadoCotizacion.Emitida          => "pending",
+        EstadoCotizacion.ConvertidaAVenta => "check_circle",
+        EstadoCotizacion.Cancelada        => "cancel",
+        EstadoCotizacion.Vencida          => "schedule",
+        _                                 => "fiber_manual_record"
+    };
 }
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
@@ -14,7 +38,16 @@
             <div>
                 <div class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Cotizacion guardada</div>
                 <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
-                <p class="mt-2 text-sm text-slate-400">@cliente · @Model.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @Model.Estado</p>
+                <p class="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-slate-400">
+                    <span>@cliente</span>
+                    <span aria-hidden="true">·</span>
+                    <span>@Model.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                    <span aria-hidden="true">·</span>
+                    <span class="@QuoteBadgeClass(Model.Estado)">
+                        <span class="material-symbols-outlined">@QuoteBadgeIcon(Model.Estado)</span>
+                        @QuoteBadgeLabel(Model.Estado)
+                    </span>
+                </p>
             </div>
             <div class="flex items-center gap-2">
                 <a href="@Url.Action("DescargarPdf", "Cotizacion", new { id = Model.Id })"
