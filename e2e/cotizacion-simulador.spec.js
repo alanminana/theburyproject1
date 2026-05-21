@@ -2,11 +2,12 @@
 /**
  * COTIZ-QA — E2E Simulador de Cotización
  *
- * Valida el flujo del simulador post-COTIZ-3B:
+ * Valida el flujo del simulador post-COTIZ-3C:
  *   T1. Carga del simulador — estructura inicial
  *   T2. Simulación genera cards .payment-option-card
  *   T3. Selección aplica .payment-option-card--selected y radio checked
  *   T4. Mobile 390px — sin scroll horizontal en resultados
+ *   T5. Agrupación visual por medio de pago (COTIZ-3C)
  *
  * Prerrequisitos:
  *   - App corriendo en E2E_BASE_URL (default: http://localhost:5187)
@@ -212,6 +213,34 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         // El radio target debe quedar chequeado
         await expect(targetRadio).toBeChecked();
+    });
+
+    // ─── T5: Agrupación visual por medio de pago (COTIZ-3C) ──────────────────
+
+    test('T5: Agrupación visual — grupos de medio de pago con cards', async ({ page }) => {
+        await page.setViewportSize(VIEWPORT_DESKTOP);
+        await gotoCotizacion(page);
+
+        const added = await agregarProductoSimulador(page);
+        test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
+
+        await page.click('#cotizacion-simular');
+        await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
+        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+
+        // Existe al menos un grupo visual
+        const groups = page.locator('.payment-option-group');
+        const groupCount = await groups.count();
+        expect(groupCount, 'Debe haber al menos un grupo de medio de pago').toBeGreaterThan(0);
+
+        // Cada grupo contiene al menos una card
+        for (let i = 0; i < groupCount; i++) {
+            const cardsInGroup = await groups.nth(i).locator('.payment-option-card').count();
+            expect(cardsInGroup, `Grupo ${i} debe tener al menos una card`).toBeGreaterThan(0);
+        }
+
+        // La auto-selección o selección manual sigue funcionando
+        await expect(page.locator('.payment-option-card--selected')).toBeVisible({ timeout: 3_000 });
     });
 
     // ─── T4: Mobile 390px sin scroll horizontal ──────────────────────────────

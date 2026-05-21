@@ -464,7 +464,8 @@
             empty.textContent = 'No hay medios disponibles para los filtros seleccionados.';
             els.resultadosTbody.appendChild(empty);
         } else {
-            rows.forEach(row => els.resultadosTbody.appendChild(renderResultadoCard(row)));
+            const groups = groupByMedioPago(rows);
+            groups.forEach(group => els.resultadosTbody.appendChild(renderResultadoGroup(group)));
             const recomendado = rows.find(row => row.plan?.recomendado) || rows.find(row => row.plan);
             if (recomendado) {
                 state.opcionSeleccionada = toSeleccion(recomendado);
@@ -546,40 +547,19 @@
         }[medio] || 'Medio';
     }
 
-    function renderResultadoRow(row) {
-        const opcion = row.opcion;
-        const plan = row.plan;
-        const advertencias = [
-            opcion.motivoNoDisponible,
-            ...(plan?.advertencias || [])
-        ].filter(Boolean);
-        const recargo = plan
-            ? Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0), Number(plan.costoFinancieroTotal || 0))
-            : 0;
-        const recargoTexto = plan?.costoFinancieroTotal
-            ? formatCurrency(plan.costoFinancieroTotal)
-            : `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(recargo)}%`;
-
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-white/5 transition-colors';
-        const key = optionKey(row);
-        tr.dataset.cotizacionRowKey = key;
-        tr.innerHTML = `
-            <td class="px-4 py-3 text-sm font-bold text-white">
-                <label class="flex items-center gap-2">
-                    <input type="radio" name="cotizacion-opcion-pago" data-cotizacion-opcion-key="${esc(key)}"
-                           class="border-slate-600 bg-slate-800 text-primary focus:ring-primary" ${plan ? '' : 'disabled'} />
-                    <span>${esc(medioLabel(opcion.medioPago, opcion.nombreMedioPago))}</span>
-                </label>
-            </td>
-            <td class="px-4 py-3">${estadoBadge(opcion.estado)}</td>
-            <td class="px-4 py-3 text-sm text-slate-300">${esc(plan?.plan || '-')}</td>
-            <td class="px-4 py-3 text-right text-sm text-slate-300">${plan?.cantidadCuotas ?? '-'}</td>
-            <td class="px-4 py-3 text-right text-sm font-bold text-white">${plan ? formatCurrency(plan.total) : '-'}</td>
-            <td class="px-4 py-3 text-right text-sm text-slate-300">${plan?.valorCuota ? formatCurrency(plan.valorCuota) : '-'}</td>
-            <td class="px-4 py-3 text-right text-sm text-slate-300">${plan ? recargoTexto : '-'}</td>
-            <td class="px-4 py-3 text-xs text-slate-400">${esc(advertencias.join(' · ') || '-')}</td>`;
-        return tr;
+    function groupByMedioPago(rows) {
+        const groups = [];
+        const seen = new Map();
+        rows.forEach(row => {
+            const key = row.opcion.medioPago;
+            if (!seen.has(key)) {
+                const group = { medioPago: key, label: medioLabel(key, row.opcion.nombreMedioPago), rows: [] };
+                seen.set(key, group);
+                groups.push(group);
+            }
+            seen.get(key).rows.push(row);
+        });
+        return groups;
     }
 
     function renderResultadoCard(row) {
@@ -727,6 +707,35 @@
         }
 
         return div;
+    }
+
+    function renderResultadoGroup(group) {
+        const section = document.createElement('div');
+        section.className = 'payment-option-group';
+        Object.assign(section.style, { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.625rem' });
+
+        const hdr = document.createElement('div');
+        Object.assign(hdr.style, { display: 'flex', alignItems: 'center', gap: '0.625rem', paddingBottom: '0.375rem', borderBottom: '1px solid #1e293b' });
+
+        const title = document.createElement('span');
+        Object.assign(title.style, { fontSize: '0.8125rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8' });
+        title.textContent = group.label || 'Sin medio informado';
+
+        const countBadge = document.createElement('span');
+        const n = group.rows.length;
+        Object.assign(countBadge.style, { fontSize: '0.75rem', fontWeight: '600', color: '#475569', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '9999px', padding: '0.125rem 0.5rem' });
+        countBadge.textContent = `${n} ${n === 1 ? 'opción' : 'opciones'}`;
+
+        hdr.appendChild(title);
+        hdr.appendChild(countBadge);
+        section.appendChild(hdr);
+
+        const grid = document.createElement('div');
+        Object.assign(grid.style, { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' });
+        group.rows.forEach(row => grid.appendChild(renderResultadoCard(row)));
+        section.appendChild(grid);
+
+        return section;
     }
 
     function optionKey(row) {
