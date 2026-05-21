@@ -761,6 +761,76 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
+    // ─── COTIZ-QA-2: conversión con descuentos ───────────────────────────────
+
+    [Fact]
+    public async Task Convertir_ConDescuentoImporteSnapshot_AplicaDescuentoEnVentaDetalle()
+    {
+        // precio 100, cantidad 2, descuentoImporte 10 → subtotal = 100*2 - 10 = 190
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoImporte: 10m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
+        Assert.Equal(10m, detalle.Descuento);
+        Assert.Equal(190m, detalle.Subtotal);
+    }
+
+    [Fact]
+    public async Task Convertir_ConSoloDescuentoPorcentajeSnapshot_DescuentoDetalleEsCero()
+    {
+        // Por diseño: la conversión usa solo DescuentoImporteSnapshot.
+        // DescuentoPorcentajeSnapshot es solo snapshot/auditoría; no se recalcula al convertir.
+        var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoPorcentaje: 10m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
+        Assert.Equal(0m, detalle.Descuento);
+        Assert.Equal(200m, detalle.Subtotal); // 100 * 2 sin descuento aplicado
+    }
+
+    [Fact]
+    public async Task Convertir_ConAmbosDescuentosSnapshot_UsaImporte()
+    {
+        // Cuando hay porcentaje e importe, la conversión usa solo importe
+        var cotizacion = CotizacionEmitidaConDescuento(
+            conCliente: true, precioSnapshot: 100m,
+            descuentoPorcentaje: 10m, descuentoImporte: 15m);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
+        Assert.Equal(15m, detalle.Descuento);
+        Assert.Equal(185m, detalle.Subtotal); // 100 * 2 - 15
+    }
+
+    [Fact]
+    public async Task Convertir_DescuentoGeneralNoPropagaAVentaDescuento()
+    {
+        // venta.Descuento = 0 siempre; el descuento general de la cotizacion no se propaga
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.DescuentoTotal = 20m; // simula descuento general aplicado
+        cotizacion.TotalBase = 80m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "kira");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
+        Assert.Equal(0m, venta!.Descuento); // descuento general no propagado
+    }
+
     // ─── HELPERS ─────────────────────────────────────────────────────────
 
     private Cotizacion CotizacionEmitida(bool conCliente, decimal precioSnapshot = 100m) =>
@@ -785,6 +855,39 @@ public sealed class CotizacionConversionServiceTests : IDisposable
                 }
             }
         };
+
+    private Cotizacion CotizacionEmitidaConDescuento(
+        bool conCliente,
+        decimal precioSnapshot = 100m,
+        decimal? descuentoPorcentaje = null,
+        decimal? descuentoImporte = null)
+    {
+        var descuento = descuentoImporte ?? 0m;
+        return new Cotizacion
+        {
+            Numero = $"COT-TEST-{Guid.NewGuid():N}",
+            Fecha = DateTime.UtcNow,
+            Estado = EstadoCotizacion.Emitida,
+            ClienteId = conCliente ? _cliente.Id : null,
+            Subtotal = precioSnapshot * 2,
+            DescuentoTotal = descuento,
+            TotalBase = precioSnapshot * 2 - descuento,
+            Detalles =
+            {
+                new CotizacionDetalle
+                {
+                    ProductoId = _producto.Id,
+                    CodigoProductoSnapshot = _producto.Codigo,
+                    NombreProductoSnapshot = _producto.Nombre,
+                    Cantidad = 2,
+                    PrecioUnitarioSnapshot = precioSnapshot,
+                    DescuentoPorcentajeSnapshot = descuentoPorcentaje,
+                    DescuentoImporteSnapshot = descuentoImporte,
+                    Subtotal = precioSnapshot * 2 - descuento
+                }
+            }
+        };
+    }
 
     private static CotizacionConversionRequest RequestDefault() =>
         new() { UsarPrecioCotizado = true, ConfirmarAdvertencias = false };

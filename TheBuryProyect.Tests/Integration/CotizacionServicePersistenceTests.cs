@@ -167,6 +167,88 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
         Assert.Equal("Cliente, Cotizacion", listado.Items.Single().Cliente);
     }
 
+    // ─── COTIZ-QA-2: persistencia de descuentos ──────────────────────────────
+
+    [Fact]
+    public async Task CrearCotizacion_ConDescuentoPorcentaje_PersistSnapshotEnDetalle()
+    {
+        var request = RequestConDescuento(descuentoPorcentaje: 10m, descuentoImporte: null);
+        var resultado = await _service.CrearAsync(request, "kira");
+
+        var entity = await _context.Cotizaciones
+            .Include(c => c.Detalles)
+            .SingleAsync(c => c.Id == resultado.Id);
+
+        var detalle = entity.Detalles.Single();
+        Assert.Equal(10m, detalle.DescuentoPorcentajeSnapshot);
+        Assert.Null(detalle.DescuentoImporteSnapshot);
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_ConDescuentoImporte_PersistSnapshotEnDetalle()
+    {
+        var request = RequestConDescuento(descuentoPorcentaje: null, descuentoImporte: 5m);
+        var resultado = await _service.CrearAsync(request, "kira");
+
+        var entity = await _context.Cotizaciones
+            .Include(c => c.Detalles)
+            .SingleAsync(c => c.Id == resultado.Id);
+
+        var detalle = entity.Detalles.Single();
+        Assert.Null(detalle.DescuentoPorcentajeSnapshot);
+        Assert.Equal(5m, detalle.DescuentoImporteSnapshot);
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_SinDescuento_SnapshotsNulos()
+    {
+        var resultado = await _service.CrearAsync(Request(clienteId: _cliente.Id), "kira");
+
+        var entity = await _context.Cotizaciones
+            .Include(c => c.Detalles)
+            .SingleAsync(c => c.Id == resultado.Id);
+
+        var detalle = entity.Detalles.Single();
+        Assert.Null(detalle.DescuentoPorcentajeSnapshot);
+        Assert.Null(detalle.DescuentoImporteSnapshot);
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_ConDescuentoGeneral_DescuentoTotalReflejaCalculatorResult()
+    {
+        // El DescuentoGeneralPorcentaje se procesa en el calculator.
+        // El resultado se persiste en Cotizacion.DescuentoTotal.
+        // No existe campo separado por descuento general en la entidad.
+        var calculatorConDescuento = new StubCotizacionPagoCalculatorConDescuentoTotal(
+            _producto.Id, descuentoTotal: 10m, totalBase: 90m);
+        var service = new CotizacionService(
+            _context, calculatorConDescuento, NullLogger<CotizacionService>.Instance);
+
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                ClienteId = _cliente.Id,
+                DescuentoGeneralPorcentaje = 10m,
+                Productos =
+                {
+                    new CotizacionProductoRequest { ProductoId = _producto.Id, Cantidad = 1 }
+                }
+            },
+            OpcionSeleccionada = new CotizacionOpcionPagoSeleccionadaRequest
+            {
+                MedioPago = CotizacionMedioPagoTipo.Efectivo,
+                Plan = "1 pago",
+                CantidadCuotas = 1
+            }
+        };
+
+        var resultado = await service.CrearAsync(request, "kira");
+
+        Assert.Equal(10m, resultado.DescuentoTotal);
+        Assert.Equal(90m, resultado.TotalBase);
+    }
+
     public void Dispose()
     {
         _context.Dispose();
@@ -196,6 +278,93 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
                 CantidadCuotas = 1
             }
         };
+
+    private CotizacionCrearRequest RequestConDescuento(decimal? descuentoPorcentaje, decimal? descuentoImporte) =>
+        new()
+        {
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                ClienteId = _cliente.Id,
+                Productos =
+                {
+                    new CotizacionProductoRequest
+                    {
+                        ProductoId = _producto.Id,
+                        Cantidad = 1,
+                        DescuentoPorcentaje = descuentoPorcentaje,
+                        DescuentoImporte = descuentoImporte
+                    }
+                }
+            },
+            OpcionSeleccionada = new CotizacionOpcionPagoSeleccionadaRequest
+            {
+                MedioPago = CotizacionMedioPagoTipo.Efectivo,
+                Plan = "1 pago",
+                CantidadCuotas = 1
+            }
+        };
+
+    private sealed class StubCotizacionPagoCalculatorConDescuentoTotal : ICotizacionPagoCalculator
+    {
+        private readonly int _productoId;
+        private readonly decimal _descuentoTotal;
+        private readonly decimal _totalBase;
+
+        public StubCotizacionPagoCalculatorConDescuentoTotal(int productoId, decimal descuentoTotal, decimal totalBase)
+        {
+            _productoId = productoId;
+            _descuentoTotal = descuentoTotal;
+            _totalBase = totalBase;
+        }
+
+        public Task<CotizacionSimulacionResultado> SimularAsync(
+            CotizacionSimulacionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new CotizacionSimulacionResultado
+            {
+                Exitoso = true,
+                FechaCalculo = DateTime.Today,
+                Subtotal = 100m,
+                DescuentoTotal = _descuentoTotal,
+                TotalBase = _totalBase,
+                Productos =
+                {
+                    new CotizacionProductoResultado
+                    {
+                        ProductoId = _productoId,
+                        Codigo = "P-COT",
+                        Nombre = "Producto cotizado",
+                        Cantidad = 1,
+                        PrecioUnitario = 100m,
+                        Subtotal = _totalBase
+                    }
+                },
+                OpcionesPago =
+                {
+                    new CotizacionMedioPagoResultado
+                    {
+                        MedioPago = CotizacionMedioPagoTipo.Efectivo,
+                        NombreMedioPago = "Efectivo",
+                        Disponible = true,
+                        Estado = CotizacionOpcionPagoEstado.Disponible,
+                        Planes =
+                        {
+                            new CotizacionPlanPagoResultado
+                            {
+                                Plan = "1 pago",
+                                CantidadCuotas = 1,
+                                RecargoPorcentaje = 0m,
+                                Total = _totalBase,
+                                ValorCuota = _totalBase,
+                                Recomendado = true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
 
     private sealed class StubCotizacionPagoCalculator : ICotizacionPagoCalculator
     {

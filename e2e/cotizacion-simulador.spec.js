@@ -275,6 +275,70 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         expect(descuentoText).not.toBe('$ 0,00');
     });
 
+    // ─── T7: Guardar con descuento por producto (COTIZ-QA-2) ─────────────────
+
+    test('T7: Guardar cotización con descuento por producto — navega a detalles', async ({ page }) => {
+        await page.setViewportSize(VIEWPORT_DESKTOP);
+        await gotoCotizacion(page);
+
+        const added = await agregarProductoSimulador(page);
+        test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
+
+        // Cargar 10% de descuento en el primer producto
+        const descPctInput = page.locator('[data-cotizacion-desc-pct-index="0"]');
+        await expect(descPctInput).toBeVisible({ timeout: 3_000 });
+        await descPctInput.fill('10');
+
+        // Simular
+        await page.click('#cotizacion-simular');
+        await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
+        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+
+        // El botón guardar debe habilitarse después de simular
+        const guardarBtn = page.locator('#cotizacion-guardar');
+        await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
+
+        // Guardar y esperar navegación a página de detalles
+        await Promise.all([
+            page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
+            guardarBtn.click()
+        ]);
+
+        expect(page.url()).toMatch(/\/Cotizacion\/Detalles\/\d+/);
+    });
+
+    // ─── T8: Guardar con descuento general (COTIZ-QA-2) ──────────────────────
+
+    test('T8: Guardar cotización con descuento general — navega a detalles', async ({ page }) => {
+        await page.setViewportSize(VIEWPORT_DESKTOP);
+        await gotoCotizacion(page);
+
+        const added = await agregarProductoSimulador(page);
+        test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
+
+        // Cargar 5% de descuento general
+        const descGralPct = page.locator('#cotizacion-descuento-gral-pct');
+        await expect(descGralPct).toBeVisible({ timeout: 3_000 });
+        await descGralPct.fill('5');
+
+        // Simular
+        await page.click('#cotizacion-simular');
+        await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
+        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+
+        // El botón guardar debe habilitarse
+        const guardarBtn = page.locator('#cotizacion-guardar');
+        await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
+
+        // Guardar y esperar navegación
+        await Promise.all([
+            page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
+            guardarBtn.click()
+        ]);
+
+        expect(page.url()).toMatch(/\/Cotizacion\/Detalles\/\d+/);
+    });
+
     // ─── T4: Mobile 390px sin scroll horizontal ──────────────────────────────
 
     test('T4: Mobile 390px — sin scroll horizontal en resultados', async ({ page }) => {
