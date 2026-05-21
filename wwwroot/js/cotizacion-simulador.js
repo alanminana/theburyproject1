@@ -470,6 +470,7 @@
                 const radio = Array.from(els.resultadosTbody.querySelectorAll('[data-cotizacion-opcion-key]'))
                     .find(input => input.dataset.cotizacionOpcionKey === optionKey(recomendado));
                 if (radio) radio.checked = true;
+                updateSelectedRowHighlight(optionKey(recomendado));
             }
         }
 
@@ -500,15 +501,22 @@
 
     function estadoBadge(estado) {
         const label = estadoLabel(estado);
-        const tone = {
-            Disponible: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-            RequiereCliente: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-            RequiereEvaluacion: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-            BloqueadoPorProducto: 'border-red-500/20 bg-red-500/10 text-red-400',
-            NoDisponible: 'border-slate-700 bg-slate-800 text-slate-400'
-        }[label] || 'border-slate-700 bg-slate-800 text-slate-400';
+        const modifier = {
+            Disponible: 'payment-status-chip--available',
+            RequiereCliente: 'payment-status-chip--requires-client',
+            RequiereEvaluacion: 'payment-status-chip--requires-client',
+            BloqueadoPorProducto: 'payment-status-chip--blocked',
+            PlanInactivo: 'payment-status-chip--blocked',
+            CuotaInactiva: 'payment-status-chip--blocked',
+            NoDisponible: 'payment-status-chip--blocked'
+        }[label] || 'payment-status-chip--blocked';
+        return `<span class="payment-status-chip ${modifier}">${esc(label)}</span>`;
+    }
 
-        return `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${tone}">${esc(label)}</span>`;
+    function updateSelectedRowHighlight(selectedKey) {
+        Array.from(els.resultadosTbody?.querySelectorAll('tr[data-cotizacion-row-key]') || []).forEach(tr => {
+            tr.classList.toggle('bg-primary/10', tr.dataset.cotizacionRowKey === selectedKey);
+        });
     }
 
     function estadoLabel(estado) {
@@ -552,8 +560,9 @@
             : `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(recargo)}%`;
 
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-white/5';
+        tr.className = 'hover:bg-white/5 transition-colors';
         const key = optionKey(row);
+        tr.dataset.cotizacionRowKey = key;
         tr.innerHTML = `
             <td class="px-4 py-3 text-sm font-bold text-white">
                 <label class="flex items-center gap-2">
@@ -629,6 +638,7 @@
             const rows = flattenOpciones(state.ultimaSimulacion?.opcionesPago || []);
             const row = rows.find(item => optionKey(item) === input.dataset.cotizacionOpcionKey);
             state.opcionSeleccionada = row ? toSeleccion(row) : null;
+            updateSelectedRowHighlight(input.dataset.cotizacionOpcionKey || null);
         });
 
         document.addEventListener('click', event => {
