@@ -459,11 +459,12 @@
         const rows = flattenOpciones(data.opcionesPago || []);
 
         if (!rows.length) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="8" class="px-4 py-8 text-center text-sm text-slate-500">No hay medios disponibles para los filtros seleccionados.</td>';
-            els.resultadosTbody.appendChild(tr);
+            const empty = document.createElement('div');
+            empty.className = 'col-span-full px-4 py-8 text-center text-sm text-slate-500';
+            empty.textContent = 'No hay medios disponibles para los filtros seleccionados.';
+            els.resultadosTbody.appendChild(empty);
         } else {
-            rows.forEach(row => els.resultadosTbody.appendChild(renderResultadoRow(row)));
+            rows.forEach(row => els.resultadosTbody.appendChild(renderResultadoCard(row)));
             const recomendado = rows.find(row => row.plan?.recomendado) || rows.find(row => row.plan);
             if (recomendado) {
                 state.opcionSeleccionada = toSeleccion(recomendado);
@@ -514,8 +515,8 @@
     }
 
     function updateSelectedRowHighlight(selectedKey) {
-        Array.from(els.resultadosTbody?.querySelectorAll('tr[data-cotizacion-row-key]') || []).forEach(tr => {
-            tr.classList.toggle('bg-primary/10', tr.dataset.cotizacionRowKey === selectedKey);
+        Array.from(els.resultadosTbody?.querySelectorAll('[data-cotizacion-row-key]') || []).forEach(el => {
+            el.classList.toggle('payment-option-card--selected', el.dataset.cotizacionRowKey === selectedKey);
         });
     }
 
@@ -579,6 +580,153 @@
             <td class="px-4 py-3 text-right text-sm text-slate-300">${plan ? recargoTexto : '-'}</td>
             <td class="px-4 py-3 text-xs text-slate-400">${esc(advertencias.join(' · ') || '-')}</td>`;
         return tr;
+    }
+
+    function renderResultadoCard(row) {
+        const opcion = row.opcion;
+        const plan = row.plan;
+        const key = optionKey(row);
+        const estadoStr = estadoLabel(opcion.estado);
+
+        const advertencias = [
+            opcion.motivoNoDisponible,
+            ...(plan?.advertencias || [])
+        ].filter(Boolean);
+
+        const recargo = plan
+            ? Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0), Number(plan.costoFinancieroTotal || 0))
+            : 0;
+        const recargoTexto = plan?.costoFinancieroTotal
+            ? formatCurrency(plan.costoFinancieroTotal)
+            : `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(recargo)}%`;
+
+        let cardModifier = '';
+        if (!plan) {
+            cardModifier = 'payment-option-card--blocked';
+        } else if (['RequiereCliente', 'RequiereEvaluacion'].includes(estadoStr) || advertencias.length) {
+            cardModifier = 'payment-option-card--warning';
+        }
+
+        const div = document.createElement('div');
+        div.className = `payment-option-card ${cardModifier}`.trim();
+        div.dataset.cotizacionRowKey = key;
+
+        // Header: radio+medio a la izquierda, total a la derecha
+        const header = document.createElement('div');
+        Object.assign(header.style, { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', width: '100%' });
+
+        const leftCol = document.createElement('div');
+        Object.assign(leftCol.style, { display: 'flex', flexDirection: 'column', gap: '0.375rem', minWidth: '0' });
+
+        const radioLabel = document.createElement('label');
+        Object.assign(radioLabel.style, { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: !plan ? 'not-allowed' : 'pointer' });
+
+        const radioInput = document.createElement('input');
+        radioInput.type = 'radio';
+        radioInput.name = 'cotizacion-opcion-pago';
+        radioInput.dataset.cotizacionOpcionKey = key;
+        radioInput.className = 'border-slate-600 bg-slate-800 text-primary focus:ring-primary';
+        if (!plan) radioInput.disabled = true;
+
+        const medioSpan = document.createElement('span');
+        Object.assign(medioSpan.style, { fontSize: '0.9375rem', fontWeight: '700' });
+        medioSpan.textContent = medioLabel(opcion.medioPago, opcion.nombreMedioPago);
+
+        radioLabel.appendChild(radioInput);
+        radioLabel.appendChild(medioSpan);
+
+        const chipModifier = {
+            Disponible: 'payment-status-chip--available',
+            RequiereCliente: 'payment-status-chip--requires-client',
+            RequiereEvaluacion: 'payment-status-chip--requires-client',
+            BloqueadoPorProducto: 'payment-status-chip--blocked',
+            PlanInactivo: 'payment-status-chip--blocked',
+            CuotaInactiva: 'payment-status-chip--blocked',
+            NoDisponible: 'payment-status-chip--blocked'
+        }[estadoStr] || 'payment-status-chip--blocked';
+
+        const estadoChip = document.createElement('span');
+        estadoChip.className = `payment-status-chip ${chipModifier}`;
+        estadoChip.textContent = estadoStr;
+
+        leftCol.appendChild(radioLabel);
+        leftCol.appendChild(estadoChip);
+
+        const rightCol = document.createElement('div');
+        Object.assign(rightCol.style, { textAlign: 'right', flexShrink: '0' });
+
+        if (plan?.recomendado) {
+            const recBadge = document.createElement('span');
+            recBadge.className = 'payment-status-chip payment-status-chip--selected';
+            recBadge.style.marginBottom = '0.25rem';
+            recBadge.textContent = 'Recomendado';
+            rightCol.appendChild(recBadge);
+        }
+
+        const totalEl = document.createElement('div');
+        Object.assign(totalEl.style, {
+            fontSize: plan ? '1.125rem' : '0.875rem',
+            fontWeight: plan ? '900' : '400',
+            marginTop: '0.25rem',
+            color: plan ? '' : '#475569'
+        });
+        totalEl.textContent = plan ? formatCurrency(plan.total) : 'Sin planes';
+        rightCol.appendChild(totalEl);
+
+        header.appendChild(leftCol);
+        header.appendChild(rightCol);
+        div.appendChild(header);
+
+        if (plan) {
+            const divider = document.createElement('div');
+            Object.assign(divider.style, { width: '100%', height: '1px', background: '#1e293b', marginTop: '0.5rem' });
+            div.appendChild(divider);
+
+            const grid = document.createElement('div');
+            Object.assign(grid.style, { width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem 1rem', marginTop: '0.125rem' });
+
+            const addField = (labelText, valueText) => {
+                const item = document.createElement('div');
+                const lbl = document.createElement('div');
+                Object.assign(lbl.style, { fontSize: '0.6875rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' });
+                lbl.textContent = labelText;
+                const val = document.createElement('div');
+                Object.assign(val.style, { fontSize: '0.8125rem', marginTop: '0.125rem' });
+                val.textContent = valueText;
+                item.appendChild(lbl);
+                item.appendChild(val);
+                grid.appendChild(item);
+            };
+
+            addField('Plan', plan.plan || '-');
+            const cuotasText = Number(plan.cantidadCuotas) > 1
+                ? `${plan.cantidadCuotas} x ${formatCurrency(plan.valorCuota)}`
+                : 'Pago único';
+            addField('Cuotas', cuotasText);
+            addField('Recargo / Interés', recargoTexto);
+
+            div.appendChild(grid);
+        }
+
+        if (advertencias.length) {
+            const advRow = document.createElement('div');
+            Object.assign(advRow.style, { display: 'flex', alignItems: 'flex-start', gap: '0.375rem', marginTop: '0.5rem', padding: '0.5rem 0.625rem', borderRadius: '0.375rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', width: '100%', boxSizing: 'border-box' });
+
+            const warnIcon = document.createElement('span');
+            warnIcon.className = 'material-symbols-outlined';
+            Object.assign(warnIcon.style, { fontSize: '14px', color: '#fbbf24', flexShrink: '0', marginTop: '1px' });
+            warnIcon.textContent = 'warning';
+
+            const advMsg = document.createElement('span');
+            Object.assign(advMsg.style, { fontSize: '0.75rem', color: '#fbbf24', lineHeight: '1.4' });
+            advMsg.textContent = advertencias.join(' · ');
+
+            advRow.appendChild(warnIcon);
+            advRow.appendChild(advMsg);
+            div.appendChild(advRow);
+        }
+
+        return div;
     }
 
     function optionKey(row) {
