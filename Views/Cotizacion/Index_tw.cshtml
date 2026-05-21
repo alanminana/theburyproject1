@@ -95,32 +95,38 @@
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_8rem_auto] lg:items-end">
-                        <div>
-                            <label for="cotizacion-producto-id-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">ProductoId manual</label>
-                            <input id="cotizacion-producto-id-manual"
-                                   type="number"
-                                   min="1"
-                                   step="1"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                   placeholder="Ej: 123" />
+                    <details class="rounded-lg border border-slate-800 bg-slate-950/40">
+                        <summary class="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-xs font-bold text-slate-500 hover:text-slate-300">
+                            <span class="material-symbols-outlined text-sm">tag</span>
+                            Agregar por ID (avanzado / soporte)
+                        </summary>
+                        <div class="grid grid-cols-1 gap-3 border-t border-slate-800 px-4 pb-4 pt-3 lg:grid-cols-[minmax(0,1fr)_8rem_auto] lg:items-end">
+                            <div>
+                                <label for="cotizacion-producto-id-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">ProductoId manual</label>
+                                <input id="cotizacion-producto-id-manual"
+                                       type="number"
+                                       min="1"
+                                       step="1"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                       placeholder="Ej: 123" />
+                            </div>
+                            <div>
+                                <label for="cotizacion-cantidad-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Cantidad</label>
+                                <input id="cotizacion-cantidad-manual"
+                                       type="number"
+                                       min="1"
+                                       step="1"
+                                       value="1"
+                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                            </div>
+                            <button id="cotizacion-agregar-manual"
+                                    type="button"
+                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700">
+                                <span class="material-symbols-outlined text-lg">tag</span>
+                                Usar ID
+                            </button>
                         </div>
-                        <div>
-                            <label for="cotizacion-cantidad-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Cantidad</label>
-                            <input id="cotizacion-cantidad-manual"
-                                   type="number"
-                                   min="1"
-                                   step="1"
-                                   value="1"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        </div>
-                        <button id="cotizacion-agregar-manual"
-                                type="button"
-                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700">
-                            <span class="material-symbols-outlined text-lg">tag</span>
-                            Usar ID
-                        </button>
-                    </div>
+                    </details>
 
                     <div class="overflow-x-auto rounded-lg border border-slate-800">
                         <table class="w-full min-w-[760px] text-left">
@@ -210,6 +216,28 @@
                     <button id="cotizacion-limpiar-cliente" type="button" class="mt-3 text-xs font-bold text-red-400 hover:text-red-300">Quitar cliente</button>
                 </div>
                 <p class="mt-3 text-xs leading-5 text-slate-500">El credito personal puede requerir cliente para evaluacion. Si lo dejas vacio, la simulacion lo marcara como requiere cliente.</p>
+                <div class="mt-4 space-y-3 border-t border-slate-800 pt-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Datos de contacto libres</p>
+                    <div>
+                        <label for="cotizacion-nombre-libre" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Nombre</label>
+                        <input id="cotizacion-nombre-libre"
+                               type="text"
+                               maxlength="200"
+                               autocomplete="off"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                               placeholder="Nombre del cliente o empresa..." />
+                        <p class="mt-1 text-xs text-slate-500">Se guarda si no hay cliente de sistema seleccionado.</p>
+                    </div>
+                    <div>
+                        <label for="cotizacion-telefono-libre" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Telefono</label>
+                        <input id="cotizacion-telefono-libre"
+                               type="tel"
+                               maxlength="30"
+                               autocomplete="off"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                               placeholder="Ej: 11 2345-6789" />
+                    </div>
+                </div>
             </section>
 
             <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
@@ -243,6 +271,40 @@
             </section>
 
             <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+                <h2 class="text-base font-bold text-white">Descuentos generales</h2>
+                <p class="mt-1 text-xs text-slate-400">Aplicados al total antes de calcular medios de pago.</p>
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="cotizacion-descuento-gral-pct" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">% Porcentaje</label>
+                        <input id="cotizacion-descuento-gral-pct"
+                               type="number"
+                               min="0"
+                               max="100"
+                               step="0.01"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                               placeholder="0" />
+                    </div>
+                    <div>
+                        <label for="cotizacion-descuento-gral-importe" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">$ Importe</label>
+                        <input id="cotizacion-descuento-gral-importe"
+                               type="number"
+                               min="0"
+                               step="0.01"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                               placeholder="0" />
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-slate-500">Completa solo los que correspondan. Si ambos tienen valor se suman.</p>
+            </section>
+
+            <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+                <div class="mb-4">
+                    <label for="cotizacion-fecha-vencimiento" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Vencimiento <span class="font-normal normal-case tracking-normal text-slate-600">(opcional)</span></label>
+                    <input id="cotizacion-fecha-vencimiento"
+                           type="date"
+                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <p class="mt-1 text-xs text-slate-500">Fecha hasta la que es valida la cotizacion.</p>
+                </div>
                 <label for="cotizacion-observaciones" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
                 <textarea id="cotizacion-observaciones"
                           rows="3"

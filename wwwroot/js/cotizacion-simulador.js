@@ -52,6 +52,11 @@
         clienteNombre: $('#cotizacion-cliente-nombre'),
         clienteDoc: $('#cotizacion-cliente-doc'),
         limpiarCliente: $('#cotizacion-limpiar-cliente'),
+        nombreLibre: $('#cotizacion-nombre-libre'),
+        telefonoLibre: $('#cotizacion-telefono-libre'),
+        descuentoGralPct: $('#cotizacion-descuento-gral-pct'),
+        descuentoGralImporte: $('#cotizacion-descuento-gral-importe'),
+        fechaVencimiento: $('#cotizacion-fecha-vencimiento'),
         observaciones: $('#cotizacion-observaciones'),
         simular: $('#cotizacion-simular'),
         guardar: $('#cotizacion-guardar'),
@@ -79,6 +84,11 @@
     function parsePositiveInt(value) {
         const number = parseInt(value, 10);
         return Number.isFinite(number) && number > 0 ? number : null;
+    }
+
+    function parseNonNegativeDecimal(value) {
+        const n = parseFloat(value);
+        return Number.isFinite(n) && n >= 0 ? n : null;
     }
 
     function normalize(value) {
@@ -365,8 +375,14 @@
     }
 
     function buildRequest() {
+        const descPct = parseNonNegativeDecimal(els.descuentoGralPct?.value);
+        const descImporte = parseNonNegativeDecimal(els.descuentoGralImporte?.value);
+
         const request = {
             clienteId: state.clienteSeleccionado?.id || null,
+            nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
+            descuentoGeneralPorcentaje: descPct !== null && descPct > 0 ? descPct : null,
+            descuentoGeneralImporte: descImporte !== null && descImporte > 0 ? descImporte : null,
             productos: state.productos.map(p => ({
                 productoId: p.productoId,
                 cantidad: p.cantidad
@@ -424,8 +440,10 @@
             const payload = {
                 simulacion: buildRequest(),
                 opcionSeleccionada: state.opcionSeleccionada,
-                observaciones: els.observaciones?.value || null,
-                nombreClienteLibre: state.clienteSeleccionado ? null : (els.clienteBuscar?.value || null)
+                observaciones: els.observaciones?.value?.trim() || null,
+                nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
+                telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
+                fechaVencimiento: els.fechaVencimiento?.value || null
             };
 
             const data = await fetchJson(urls.guardar, {
