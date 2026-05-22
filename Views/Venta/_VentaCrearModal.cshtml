@@ -545,6 +545,7 @@
                                             </p>
                                         </div>
                                         <div id="panel-cupo-insuficiente"
+                                             role="alert"
                                              class="hidden rounded-xl border border-red-500/30 bg-red-500/10 p-3">
                                             <p class="flex items-center gap-2 text-xs font-bold text-red-400">
                                                 <span class="material-symbols-outlined text-sm">block</span>
@@ -560,6 +561,7 @@
                                     </div>
 
                                     <div id="panel-alerta-mora"
+                                         role="alert"
                                          class="hidden rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                                         <p class="mb-2 flex items-center gap-2 text-xs font-bold text-red-400">
                                             <span class="material-symbols-outlined text-sm">warning</span>
@@ -767,9 +769,9 @@
         <p id="modal-pago-item-titulo" class="text-xs text-slate-400 mb-1 truncate"></p>
         <p class="text-[11px] text-slate-400 mb-4">Configura una condicion especifica para este producto. Si no cambias nada, se usara el tipo de pago principal de la venta.</p>
         <div class="mb-4">
-            <label class="vm-label">Tipo de pago para este producto</label>
+            <label class="vm-label" for="select-tipo-pago-item">Tipo de pago para este producto</label>
             <select id="select-tipo-pago-item" class="vm-select">
-                <option value="">Tipo predeterminado del sistema</option>
+                <option value="">Igual al pago principal de la venta</option>
                 <option value="0">Efectivo</option>
                 <option value="1">Transferencia</option>
                 <option value="2">Tarjeta Débito</option>

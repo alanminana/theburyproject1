@@ -20,7 +20,7 @@ public class VentaCreateUiContractTests
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
         Assert.Contains("id=\"select-tipo-pago\"", view);
-        Assert.Contains("<label class=\"venta-label\">Tipo de pago</label>", view);
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
         Assert.Contains("Selecciona el medio principal de cobro para toda la venta.", view);
         Assert.Contains("tipo de pago principal", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<div class=\"hidden\">\r\n                        <select asp-for=\"TipoPago\"", view);
@@ -63,7 +63,7 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("<label class=\"venta-label\">Tipo de pago</label>", view);
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
         Assert.Contains("id=\"select-tipo-pago\"", view);
     }
 
@@ -645,6 +645,88 @@ public class VentaCreateUiContractTests
         // El submit/confirm no bloquea por la advertencia de stock sin identificar
         Assert.DoesNotContain("advertenciaStockSinIdentificar", submit);
         Assert.DoesNotContain("productoActualStockSinIdentificar", submit);
+    }
+
+    // ── VENTAS-UX-1C — copy y accesibilidad ─────────────────────────────
+
+    [Fact]
+    public void CreateView_LabelTipoPagoPrincipalTieneForYTextoArmonizado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
+        Assert.DoesNotContain("<label class=\"venta-label\">Tipo de pago</label>", view);
+    }
+
+    [Fact]
+    public void CreateView_PanelAlertaMoraTieneRoleAlert()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        var idx = view.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-alerta-mora en la vista.");
+        var context = view[idx..(idx + 200)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
+    [Fact]
+    public void CreateView_PanelCupoInsuficienteTieneRoleAlert()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        var idx = view.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-cupo-insuficiente en la vista.");
+        var context = view[idx..(idx + 200)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
+    [Fact]
+    public void CreateView_LabelesTarjetaCuotasAutorizacionTienenFor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("for=\"select-tarjeta\"", view);
+        Assert.Contains("for=\"select-cuotas-tarjeta\"", view);
+        Assert.Contains("for=\"txt-num-autorizacion-tarjeta\"", view);
+    }
+
+    [Fact]
+    public void ModalPagoItem_LabelTipoPagoTieneForSelectTipoPagoItem()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("for=\"select-tipo-pago-item\"", modal);
+    }
+
+    [Fact]
+    public void ModalPagoItem_OpcionDefaultDiceIgualAlPagoPrincipal()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("<option value=\"\">Igual al pago principal de la venta</option>", modal);
+        Assert.DoesNotContain("Tipo predeterminado del sistema", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_PanelAlertaMoraTieneRoleAlert()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var idx = modal.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-alerta-mora en el modal.");
+        var context = modal[idx..(idx + 200)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
+    [Fact]
+    public void VentaCrearModal_PanelCupoInsuficienteTieneRoleAlert()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var idx = modal.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-cupo-insuficiente en el modal.");
+        var context = modal[idx..(idx + 200)];
+        Assert.Contains("role=\"alert\"", context);
     }
 
     private static string ExtractFunction(string script, string signature)

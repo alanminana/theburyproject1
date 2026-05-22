@@ -199,7 +199,7 @@
 
                         @* Tipo de pago principal de la venta *@
                         <div>
-                            <label class="venta-label">Tipo de pago</label>
+                            <label class="venta-label" for="select-tipo-pago">Tipo de pago principal</label>
                             <select asp-for="TipoPago" id="select-tipo-pago" class="venta-input">
                                 @if (tiposPago != null)
                                 {
@@ -406,7 +406,7 @@
                             </h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tarjeta</label>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1" for="select-tarjeta">Tarjeta</label>
                                     <select id="select-tarjeta" name="DatosTarjeta.ConfiguracionTarjetaId" class="venta-input">
                                         <option value="">Seleccione tarjeta...</option>
                                         @if (tarjetas != null)
@@ -421,7 +421,7 @@
                                     <input type="hidden" name="DatosTarjeta.TipoTarjeta" id="hdn-tarjeta-tipo" />
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cuotas</label>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1" for="select-cuotas-tarjeta">Cuotas</label>
                                     <select id="select-cuotas-tarjeta" name="DatosTarjeta.CantidadCuotas" class="venta-input">
                                         <option value="1">1 Pago</option>
                                     </select>
@@ -431,7 +431,7 @@
                                     </p>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">N° Autorización</label>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1" for="txt-num-autorizacion-tarjeta">N° Autorización</label>
                                     <input type="text" name="DatosTarjeta.NumeroAutorizacion" id="txt-num-autorizacion-tarjeta"
                                            class="venta-input" placeholder="000000" />
                                 </div>
@@ -621,7 +621,8 @@
                                 </p>
                             </div>
                             <div id="panel-cupo-insuficiente"
-                                 class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
+                                 class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden"
+                                 role="alert">
                                 <p class="text-xs font-bold text-red-500 flex items-center gap-2">
                                     <span class="material-symbols-outlined text-sm">block</span>
                                     Cupo insuficiente — operación bloqueada
@@ -638,7 +639,8 @@
 
                         @* Mora *@
                         <div id="panel-alerta-mora"
-                             class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
+                             class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 hidden"
+                             role="alert">
                             <p class="text-xs font-bold text-red-500 flex items-center gap-2 mb-2">
                                 <span class="material-symbols-outlined text-sm">warning</span> Alerta de Mora
                             </p>
