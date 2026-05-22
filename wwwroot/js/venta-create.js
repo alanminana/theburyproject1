@@ -1204,9 +1204,9 @@
 
         tbodyDetalles.innerHTML = detalles.map((d, i) => `
             <tr>
-                <td class="py-4 px-2 text-xs font-mono">${d.codigo}</td>
+                <td class="py-4 px-2 text-xs font-mono">${esc(d.codigo)}</td>
                 <td class="py-4 px-2 text-sm font-medium">
-                    <div>${d.nombre}</div>
+                    <div>${esc(d.nombre)}</div>
                     ${d.requiereNumeroSerie ? `<div class="mt-1 text-[11px] font-semibold text-amber-500">Unidad: ${esc(d.productoUnidadLabel)}</div>` : ''}
                 </td>
                 <td class="py-4 px-2 text-sm text-center">${d.cantidad}</td>

@@ -827,6 +827,29 @@ public class VentaCreateUiContractTests
         Assert.Contains(".replaceAll('\"', '&quot;')", script);
     }
 
+    // ── VENTAS-UX-1E-B — escape seguro en celdas dinámicas de renderDetalles ─────────────
+
+    [Fact]
+    public void VentaCreateJs_RenderDetalles_CeldaCodigoUsaEsc()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        // d.codigo se escapa antes de interpolarse en HTML — protege contra XSS en celda
+        Assert.Contains("esc(d.codigo)", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RenderDetalles_CeldaNombreUsaEscEnContenido()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        // esc(d.nombre) debe aparecer >= 2 veces: en contenido de celda y en aria-label del botón
+        var count = render.Split("esc(d.nombre)").Length - 1;
+        Assert.True(count >= 2, "esc(d.nombre) debe usarse en la celda de nombre y en el aria-label del botón eliminar.");
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
