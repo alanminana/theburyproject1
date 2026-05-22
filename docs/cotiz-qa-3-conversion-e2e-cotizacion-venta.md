@@ -79,8 +79,13 @@ const advertenciasOk = previewData.advertencias.length === 0 || checkAdvertencia
 btnConfirmar.disabled = !(clienteOk && advertenciasOk);
 ```
 
-**Conclusión:** Sin cliente explícito (mostrador) y pago no crediticio, la conversión procede
-sin requerir cliente. Solo `CreditoPersonal` sin cliente bloquea la conversión.
+**Comportamiento real auditado en `CotizacionConversionService.cs`:**
+```csharp
+var clienteFaltante = cotizacion.ClienteId is null; // SIEMPRE true sin cliente
+```
+La conversión **siempre** requiere `ClienteId`, independientemente del medio de pago.
+Los tests E2E asignan un cliente al crear la cotización (via `#cotizacion-cliente-buscar`)
+para que el flujo proceda sin intervención manual en el modal de override.
 
 ## D. Spec creado
 
