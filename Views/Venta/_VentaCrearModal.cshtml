@@ -73,7 +73,7 @@
                                     <div class="vm-step">1</div>
                                     <div>
                                         <h3 class="text-base font-bold text-white">Datos generales</h3>
-                                        <p class="mt-0.5 text-xs text-slate-400">Cliente y fecha. El tipo de pago se configura desde cada producto.</p>
+                                        <p class="mt-0.5 text-xs text-slate-400">Defini el cliente, la fecha y el tipo de pago principal. Luego podes ajustar condiciones por producto si corresponde.</p>
                                     </div>
                                 </div>
 
@@ -132,8 +132,12 @@
                                                value="@DateTime.Today.ToString("yyyy-MM-dd")" />
                                     </div>
 
-                                    @* Tipo de pago — oculto visualmente; fallback técnico para el POST *@
-                                    <div class="hidden">
+                                    @* Tipo de pago principal de la venta *@
+                                    <div>
+                                        <label class="vm-label" for="select-tipo-pago">
+                                            <span class="material-symbols-outlined text-[14px]">payments</span>
+                                            Tipo de pago principal
+                                        </label>
                                         <select name="TipoPago" id="select-tipo-pago" class="vm-select">
                                             @if (tiposPago != null)
                                             {
@@ -143,6 +147,9 @@
                                                 }
                                             }
                                         </select>
+                                        <p class="mt-1 text-xs text-slate-400">
+                                            Se aplica a la venta. Podes ajustar condiciones especificas por producto si corresponde.
+                                        </p>
                                     </div>
                                 </div>
 
@@ -344,7 +351,7 @@
                                     <div class="vm-step">3</div>
                                     <div>
                                         <h3 class="text-base font-bold text-white">Detalle de cobro</h3>
-                                        <p class="mt-0.5 text-xs text-slate-400">Campos adaptados según la forma de pago</p>
+                                        <p class="mt-0.5 text-xs text-slate-400">Los campos se adaptan segun el tipo de pago principal elegido.</p>
                                     </div>
                                 </div>
 
@@ -758,7 +765,7 @@
             </button>
         </div>
         <p id="modal-pago-item-titulo" class="text-xs text-slate-400 mb-1 truncate"></p>
-        <p class="text-[11px] text-slate-400 mb-4">Configurá cómo se cobra este producto. Si no cambiás nada, se usará el tipo predeterminado del sistema.</p>
+        <p class="text-[11px] text-slate-400 mb-4">Configura una condicion especifica para este producto. Si no cambias nada, se usara el tipo de pago principal de la venta.</p>
         <div class="mb-4">
             <label class="vm-label">Tipo de pago para este producto</label>
             <select id="select-tipo-pago-item" class="vm-select">
@@ -806,7 +813,7 @@
             </div>
         </div>
         <p class="text-[10px] text-slate-500 mb-4">
-            Solo afecta a este producto. El resto de los ítems usa el tipo predeterminado del sistema.
+            Solo afecta a este producto. El resto de los items usa el tipo de pago principal de la venta.
         </p>
         <div class="flex gap-3 justify-end">
             <button type="button" class="btn-cerrar-pago-item px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Cancelar</button>
