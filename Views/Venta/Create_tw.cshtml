@@ -648,7 +648,7 @@
                         </div>
 
                         @* Documentación faltante *@
-                        <div id="panel-documentacion-faltante" class="hidden">
+                        <div id="panel-documentacion-faltante" class="hidden" role="alert">
                             <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                                 <p class="text-xs font-bold text-amber-400 flex items-center gap-2 mb-3">
                                     <span class="material-symbols-outlined text-sm">folder_off</span>
@@ -818,6 +818,16 @@
                     <input type="hidden" asp-for="Descuento" id="hdn-descuento" />
                     <input type="hidden" asp-for="IVA"       id="hdn-iva" />
                     <input type="hidden" asp-for="Total"     id="hdn-total" />
+
+                    @* ── Recordatorio pre-confirmación (VENTAS-UX-1G) ── *@
+                    @if (!esCotizacion)
+                    {
+                        <div class="mb-4 flex items-start gap-2 rounded-lg border border-white/20 bg-white/10 p-3 text-xs text-white/80"
+                             role="note" aria-label="Revisá antes de confirmar">
+                            <span class="material-symbols-outlined text-sm shrink-0 mt-0.5 text-white/60" aria-hidden="true">checklist</span>
+                            <span>Verificá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o documentación, revisalas antes de continuar.</span>
+                        </div>
+                    }
 
                     <button type="submit" id="btn-confirmar"
                             class="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 text-sm font-black uppercase tracking-wider text-primary shadow-lg transition-all hover:bg-slate-100">

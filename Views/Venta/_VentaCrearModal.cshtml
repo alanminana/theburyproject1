@@ -586,7 +586,7 @@
                                         <p id="alerta-mora-texto" class="text-[11px] text-slate-400"></p>
                                     </div>
 
-                                    <div id="panel-documentacion-faltante" class="hidden">
+                                    <div id="panel-documentacion-faltante" class="hidden" role="alert">
                                         <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
                                             <p class="mb-3 flex items-center gap-2 text-xs font-bold text-amber-300">
                                                 <span class="material-symbols-outlined text-sm">folder_off</span>
@@ -745,6 +745,12 @@
                                 <input type="hidden" name="Descuento" id="hdn-descuento" />
                                 <input type="hidden" name="IVA"       id="hdn-iva" />
                                 <input type="hidden" name="Total"     id="hdn-total" />
+
+                                @* ── Recordatorio pre-confirmación (VENTAS-UX-1G) ── *@
+                                <div class="vm-preconfirm-reminder" role="note" aria-label="Revisá antes de confirmar">
+                                    <span class="material-symbols-outlined" aria-hidden="true">checklist</span>
+                                    <p>Revisá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o documentación, verificalas antes de continuar.</p>
+                                </div>
 
                                 <button type="button" id="btn-confirmar"
                                         onclick="VentaCrearModal.submit()"

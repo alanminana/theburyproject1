@@ -959,6 +959,76 @@ public class VentaCreateUiContractTests
         Assert.True(count >= 2, "esc(d.nombre) debe usarse en la celda de nombre y en el aria-label del botón eliminar.");
     }
 
+    // ── VENTAS-UX-1G — resumen pre-confirmación ─────────────────────────
+
+    [Fact]
+    public void CreateView_PanelDocumentacionFaltanteTieneRoleAlert()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        var idx = view.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-documentacion-faltante en la vista.");
+        var context = view[idx..(idx + 120)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
+    [Fact]
+    public void VentaCrearModal_PanelDocumentacionFaltanteTieneRoleAlert()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var idx = modal.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba id panel-documentacion-faltante en el modal.");
+        var context = modal[idx..(idx + 120)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TieneRecordatorioPreConfirmacion()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("vm-preconfirm-reminder", modal);
+        var reminderIdx = modal.IndexOf("vm-preconfirm-reminder", StringComparison.Ordinal);
+        var btnIdx = modal.IndexOf("id=\"btn-confirmar\"", StringComparison.Ordinal);
+        Assert.True(reminderIdx >= 0, "Se esperaba vm-preconfirm-reminder en el modal.");
+        Assert.True(reminderIdx < btnIdx, "El recordatorio pre-confirmación debe aparecer antes del btn-confirmar.");
+    }
+
+    [Fact]
+    public void CreateView_TieneRecordatorioPreConfirmacion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("Verificá cliente, tipo de pago y total", view);
+        var reminderIdx = view.IndexOf("Verificá cliente, tipo de pago y total", StringComparison.Ordinal);
+        var btnIdx = view.IndexOf("id=\"btn-confirmar\"", StringComparison.Ordinal);
+        Assert.True(reminderIdx < btnIdx, "El recordatorio pre-confirmación debe aparecer antes del btn-confirmar.");
+    }
+
+    [Fact]
+    public void VentaCrearModal_RecordatorioPreConfirmacion_TieneRoleNote()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var idx = modal.IndexOf("vm-preconfirm-reminder", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba vm-preconfirm-reminder en el modal.");
+        var context = modal[idx..(Math.Min(idx + 200, modal.Length))];
+        Assert.Contains("role=\"note\"", context);
+    }
+
+    [Fact]
+    public void CreateView_RecordatorioPreConfirmacion_TieneRoleNote()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("Verificá cliente, tipo de pago y total", view);
+        var idx = view.IndexOf("Verificá cliente, tipo de pago y total", StringComparison.Ordinal);
+        var contextStart = Math.Max(0, idx - 300);
+        var context = view[contextStart..idx];
+        Assert.Contains("role=\"note\"", context);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
