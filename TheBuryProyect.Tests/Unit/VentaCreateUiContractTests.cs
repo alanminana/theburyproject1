@@ -784,6 +784,49 @@ public class VentaCreateUiContractTests
         Assert.Contains("role=\"alert\"", context);
     }
 
+    // ── VENTAS-UX-1E-A — accesibilidad botones dinámicos en renderDetalles ─────────────
+
+    [Fact]
+    public void VentaCreateJs_RenderDetalles_BtnEliminarTieneAriaLabel()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        Assert.Contains("btn-eliminar-detalle", render);
+        Assert.Contains("aria-label=", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RenderDetalles_BtnEliminarAriaLabelUsaEscParaNombre()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        // aria-label usa esc() para escapar el nombre — protege contra XSS en atributo
+        Assert.Contains("esc(d.nombre)", render);
+        Assert.Contains("aria-label=", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_RenderDetalles_BtnEliminarConservaClasesYDataIndex()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var render = ExtractFunction(script, "function renderDetalles");
+
+        Assert.Contains("btn-eliminar-detalle", render);
+        Assert.Contains("data-index=", render);
+        Assert.Contains("type=\"button\"", render);
+    }
+
+    [Fact]
+    public void VentaCreateJs_FuncionEscExiste()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.Contains("function esc(", script);
+        Assert.Contains(".replaceAll('\"', '&quot;')", script);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);

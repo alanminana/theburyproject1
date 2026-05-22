@@ -1214,7 +1214,7 @@
                 <td class="py-4 px-2 text-sm text-right">${d.descuento}%</td>
                 <td class="py-4 px-2 text-sm font-bold text-right">${formatCurrency(d.subtotal)}</td>
                 <td class="py-4 px-2 text-right">
-                    <button type="button" class="btn-eliminar-detalle text-slate-400 hover:text-red-500 transition-colors" data-index="${i}">
+                    <button type="button" class="btn-eliminar-detalle text-slate-400 hover:text-red-500 transition-colors" data-index="${i}" aria-label="Eliminar ${esc(d.nombre)}">
                         <span class="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </td>
