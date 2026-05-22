@@ -729,6 +729,61 @@ public class VentaCreateUiContractTests
         Assert.Contains("role=\"alert\"", context);
     }
 
+    // ── VENTAS-UX-1D — accesibilidad tabla detalle modal ────────────────
+
+    [Fact]
+    public void VentaCrearModal_TablaDetalle_ThsTienenScopeCol()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        // Tabla principal de detalles: los th con texto visible deben tener scope="col"
+        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500\">Cód.", modal);
+        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500\">Producto", modal);
+        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center\">Cant.", modal);
+        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right\">Unitario", modal);
+        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right\">Subtotal", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TablaDetalle_ThAccionesTieneAriaLabel()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("scope=\"col\" aria-label=\"Acciones\"", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TablaDesglosePlan_ThsTienenScopeCol()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        // Tabla de desglose del plan en sub-modal de pago por ítem
+        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-left text-[9px] font-bold uppercase tracking-wider text-slate-500\">Producto", modal);
+        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Precio base", modal);
+        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-center text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Plan", modal);
+        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Total financiado", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TablaDetalle_ConservaIdTbodyDetalles()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"tbody-detalles\"", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TablaDetalle_ConservaRoleAlert_DesdeVentasUX1C()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        // role="alert" en panel-alerta-mora no fue eliminado
+        Assert.Contains("id=\"panel-alerta-mora\"", modal);
+        var idx = modal.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
+        var context = modal[idx..(idx + 200)];
+        Assert.Contains("role=\"alert\"", context);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
