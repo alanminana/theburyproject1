@@ -576,3 +576,74 @@
         width: auto;
     }
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE — Barra sticky de resumen y acceso rápido (VENTAS-UX-1F)
+   vm-mobile-summary-bar: visible solo en mobile (<768px).
+   Usada en el modal de Nueva Venta para que el botón de confirmar
+   sea accesible sin scrollear hasta el fondo del formulario.
+   ══════════════════════════════════════════════════════════════ */
+
+.vm-mobile-summary-bar {
+    position: sticky;
+    top: 4.75rem;   /* debajo del header modal (py-4 + h-11 ≈ 76px) */
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.625rem;
+    padding: 0.5rem 1.25rem;
+    background-color: rgba(13, 19, 31, 0.97);
+    border-bottom: 1px solid #1e293b;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+@media (min-width: 768px) {
+    .vm-mobile-summary-bar {
+        display: none;
+    }
+}
+
+.vm-mobile-summary-bar__info {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: #94a3b8;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.vm-mobile-summary-bar__info strong {
+    color: #f1f5f9;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+/* Botón compacto de confirmación — para barras sticky mobile */
+.vm-btn-confirm-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+    border-radius: 0.375rem;
+    background-color: #135bec;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+    min-height: 2.25rem;
+}
+
+.vm-btn-confirm-sm:hover  { background-color: #1a6aff; }
+.vm-btn-confirm-sm:active { background-color: #1050d4; }

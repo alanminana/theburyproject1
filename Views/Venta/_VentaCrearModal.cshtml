@@ -54,6 +54,22 @@
                 </div>
             </div>
 
+            @* ── RESUMEN MOBILE — barra sticky de acceso rápido (VENTAS-UX-1F) ── *@
+            <div class="vm-mobile-summary-bar" role="region" aria-label="Resumen de compra">
+                <div class="vm-mobile-summary-bar__info">
+                    <span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">receipt_long</span>
+                    <span>Total: <strong id="vm-modal-sticky-total">$0,00</strong></span>
+                </div>
+                <button type="button"
+                        class="vm-btn-confirm-sm"
+                        aria-hidden="true"
+                        tabindex="-1"
+                        onclick="VentaCrearModal.submit()">
+                    <span class="material-symbols-outlined" style="font-size:14px">point_of_sale</span>
+                    Confirmar
+                </button>
+            </div>
+
             @* ── FORMULARIO ────────────────────────────────────── *@
             <div class="p-6">
                 <form id="venta-form" method="post" action="/Venta/CreateAjax" novalidate>
@@ -752,6 +768,18 @@
         </div>
     </div>
 </div>
+
+@* ── Script: espejo de total-final → vm-modal-sticky-total (VENTAS-UX-1F) ── *@
+<script>
+(function () {
+    var src  = document.getElementById('total-final');
+    var dest = document.getElementById('vm-modal-sticky-total');
+    if (!src || !dest) return;
+    dest.textContent = src.textContent;
+    new MutationObserver(function () { dest.textContent = src.textContent; })
+        .observe(src, { childList: true, characterData: true, subtree: true });
+}());
+</script>
 
 @* ═══════════════════════════════════════════════════════════
    Sub-modal: Tipo de pago del producto (Fase 17.8)

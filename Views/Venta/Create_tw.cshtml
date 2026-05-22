@@ -849,6 +849,36 @@
 
         @* Inputs ocultos para el envío de detalles por POST *@
         <div id="detalles-hidden-inputs" class="hidden"></div>
+
+        @* ── Footer sticky mobile de confirmación (VENTAS-UX-1F) ── *@
+        @* Solo visible en mobile (<768px). Clase sticky-action-footer   *@
+        @* definida en shared-components.css: position:fixed, bottom:0.  *@
+        <div class="sticky-action-footer" role="region" aria-label="Resumen y confirmación">
+            <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+                <span style="font-size:0.625rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#64748b;">Total</span>
+                <span id="sticky-create-total" style="font-size:1rem;font-weight:900;color:#ffffff;font-variant-numeric:tabular-nums;">$0,00</span>
+            </div>
+            <button type="button"
+                    class="vm-btn-confirm-sm"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    onclick="document.getElementById('btn-confirmar').click()">
+                <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span>
+                @(esCotizacion ? "Guardar" : "Confirmar")
+            </button>
+        </div>
+        <script>
+        (function () {
+            var src  = document.getElementById('total-final');
+            var dest = document.getElementById('sticky-create-total');
+            if (!src || !dest) return;
+            dest.textContent = src.textContent;
+            new MutationObserver(function () { dest.textContent = src.textContent; })
+                .observe(src, { childList: true, characterData: true, subtree: true });
+        }());
+        </script>
+        @* Espaciador para que el sticky footer no tape el contenido inferior en mobile *@
+        <div class="h-20 md:hidden" aria-hidden="true"></div>
     </form>
 
 </div>

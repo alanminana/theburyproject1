@@ -429,6 +429,115 @@ public class VentaCreateUiContractTests
         Assert.Contains("Revisar conciliación", fn);
     }
 
+    // ── VENTAS-UX-1F — mobile sticky footer y barra de resumen ─────────────
+
+    [Fact]
+    public void CreateView_StickyFooterMobile_ExisteEnFormulario()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("sticky-action-footer", view);
+        Assert.Contains("id=\"sticky-create-total\"", view);
+    }
+
+    [Fact]
+    public void CreateView_StickyFooterMobile_BtnEsTypeButton()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        var idx = view.IndexOf("class=\"sticky-action-footer\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba class=\"sticky-action-footer\" en Create_tw.cshtml.");
+        var footerBlock = view[idx..(Math.Min(idx + 600, view.Length))];
+        Assert.Contains("type=\"button\"", footerBlock);
+        Assert.DoesNotContain("type=\"submit\"", footerBlock);
+    }
+
+    [Fact]
+    public void CreateView_StickyFooterMobile_BtnTieneAriaHiddenYTabindexNegativo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        var idx = view.IndexOf("class=\"sticky-action-footer\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba class=\"sticky-action-footer\" en Create_tw.cshtml.");
+        var footerBlock = view[idx..(Math.Min(idx + 1000, view.Length))];
+        Assert.Contains("aria-hidden=\"true\"", footerBlock);
+        Assert.Contains("tabindex=\"-1\"", footerBlock);
+    }
+
+    [Fact]
+    public void VentaCrearModal_MobileSummaryBar_Existe()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("vm-mobile-summary-bar", modal);
+        Assert.Contains("id=\"vm-modal-sticky-total\"", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_MobileSummaryBar_BtnTieneAriaHiddenYTabindexNegativo()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var idx = modal.IndexOf("vm-mobile-summary-bar", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba vm-mobile-summary-bar en _VentaCrearModal.cshtml.");
+        var barBlock = modal[idx..(Math.Min(idx + 600, modal.Length))];
+        Assert.Contains("aria-hidden=\"true\"", barBlock);
+        Assert.Contains("tabindex=\"-1\"", barBlock);
+        Assert.Contains("type=\"button\"", barBlock);
+    }
+
+    [Fact]
+    public void CreateView_TotalesConservanSusIds()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"total-final\"", view);
+        Assert.Contains("id=\"total-subtotal\"", view);
+        Assert.Contains("id=\"total-descuento\"", view);
+        Assert.Contains("id=\"total-iva\"", view);
+    }
+
+    [Fact]
+    public void CreateView_HiddenInputsTotalesConservados()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"hdn-subtotal\"", view);
+        Assert.Contains("id=\"hdn-descuento\"", view);
+        Assert.Contains("id=\"hdn-iva\"", view);
+        Assert.Contains("id=\"hdn-total\"", view);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TotalesConservanSusIds()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"total-final\"", modal);
+        Assert.Contains("id=\"total-subtotal\"", modal);
+        Assert.Contains("id=\"total-descuento\"", modal);
+        Assert.Contains("id=\"total-iva\"", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_BtnConfirmarConservaOnclickVentaCrearModalSubmit()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"btn-confirmar\"", modal);
+        Assert.Contains("onclick=\"VentaCrearModal.submit()\"", modal);
+        Assert.Contains("class=\"vm-btn-confirm\"", modal);
+    }
+
+    [Fact]
+    public void CreateView_BtnConfirmarPrincipalConservado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"btn-confirmar\"", view);
+        Assert.Contains("type=\"submit\"", view);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());
