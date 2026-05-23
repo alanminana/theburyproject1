@@ -723,7 +723,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
-                <div id="modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1014,7 +1014,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
-                <div id="prod-edit-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="prod-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1252,7 +1252,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
-                <div id="cat-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="cat-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1388,7 +1388,7 @@
             <input type="hidden" name="Id" id="cat-edit-id" />
             <input type="hidden" name="RowVersion" id="cat-edit-rowversion" />
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
-                <div id="cat-edit-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="cat-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1505,7 +1505,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
-                <div id="marca-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="marca-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1591,7 +1591,7 @@
             <input type="hidden" name="Id" id="marca-edit-id" />
             <input type="hidden" name="RowVersion" id="marca-edit-rowversion" />
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
-                <div id="marca-edit-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="marca-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1682,11 +1682,11 @@
             <input type="hidden" id="comision-modal-productoId" name="productoId" value="" />
 
             <div class="p-6 space-y-4">
-                <div id="comision-modal-validation" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="comision-modal-validation" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
                     <p id="comision-modal-validation-text" class="text-xs text-red-400/80 self-center"></p>
                 </div>
-                <div id="comision-modal-success" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex gap-3">
+                <div id="comision-modal-success" aria-live="polite" aria-atomic="true" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex gap-3">
                     <span class="material-symbols-outlined text-emerald-500 shrink-0">check_circle</span>
                     <p id="comision-modal-success-text" class="text-xs text-emerald-400/80 self-center"></p>
                 </div>
@@ -1764,7 +1764,7 @@
             </div>
         </header>
 
-        <div id="historial-precio-feedback" class="hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8"></div>
+        <div id="historial-precio-feedback" aria-live="polite" aria-atomic="true" class="hidden mx-6 mt-5 rounded-xl border px-4 py-3 text-sm font-medium sm:mx-8"></div>
 
         <!-- Table Content -->
         <div class="flex-1 overflow-y-auto px-6 pb-6 pt-4 sm:px-8">
@@ -1799,7 +1799,7 @@
             </div>
 
             <!-- Loading -->
-            <div id="historial-precio-loading" class="hidden py-16 text-center">
+            <div id="historial-precio-loading" aria-live="polite" aria-atomic="true" class="hidden py-16 text-center">
                 <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                 <span class="text-sm text-slate-400">Cargando historial...</span>
             </div>
@@ -1874,7 +1874,7 @@
         <div class="flex-1 overflow-y-auto p-6 modal-scroll-90-200">
 
             <!-- Validation Summary -->
-            <div id="precio-modal-validation-summary" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3 mb-6">
+            <div id="precio-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3 mb-6">
                 <span class="material-symbols-outlined text-red-500">error</span>
                 <div>
                     <h4 class="text-sm font-bold text-red-500">Error</h4>
@@ -2119,7 +2119,7 @@
                 </div>
 
                 <!-- Loading overlay for preview -->
-                <div id="precio-preview-loading" class="hidden flex items-center justify-center py-12">
+                <div id="precio-preview-loading" aria-live="polite" aria-atomic="true" class="hidden flex items-center justify-center py-12">
                     <div class="flex flex-col items-center gap-3">
                         <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
                         <span class="text-sm text-slate-400">Calculando precios...</span>
