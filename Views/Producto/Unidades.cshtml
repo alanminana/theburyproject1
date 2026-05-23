@@ -101,7 +101,7 @@
     </nav>
 
     <div id="modo-unidades" class="scroll-mt-32 space-y-4">
-        <div class="flex flex-col gap-2 border-t border-slate-800 pt-4 md:flex-row md:items-end md:justify-between">
+        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Unidades</p>
                 <h2 class="mt-1 text-lg font-black text-white">Listado operativo</h2>
@@ -116,13 +116,13 @@
         <h2 class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de unidades fisicas</h2>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades listadas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades listadas</p>
                 <p class="mt-1 text-2xl font-black text-white">@Model.Unidades.Count</p>
             </div>
             @foreach (var resumen in Model.ResumenEstados)
             {
                 <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">@resumen.Estado</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">@resumen.Estado</p>
                     <p class="mt-1 text-2xl font-black text-white">@resumen.Cantidad</p>
                 </div>
             }
@@ -133,13 +133,13 @@
           class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
         <div class="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto] lg:items-end">
             <label class="block">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Codigo interno o serie</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Codigo interno o serie</span>
                 <input type="search" name="texto" value="@Model.Filtros.Texto"
                        class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
                        placeholder="Buscar unidad..." />
             </label>
             <label class="block">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Estado</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</span>
                 <select name="estado" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary">
                     <option value="">Todos</option>
                     @foreach (var estado in estados)
@@ -211,32 +211,32 @@
                             @if (unidad.NumeroSerie != null)
                             {
                                 <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Serie</dt>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Serie</dt>
                                     <dd class="mt-0.5 break-all font-mono text-slate-300">@unidad.NumeroSerie</dd>
                                 </div>
                             }
                             @if (unidad.UbicacionActual != null)
                             {
                                 <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Ubicacion</dt>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Ubicacion</dt>
                                     <dd class="mt-0.5 text-slate-300">@unidad.UbicacionActual</dd>
                                 </div>
                             }
                             <div>
-                                <dt class="font-bold uppercase tracking-wider text-slate-500">Ingreso</dt>
+                                <dt class="font-bold uppercase tracking-wider text-slate-400">Ingreso</dt>
                                 <dd class="mt-0.5 text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yy HH:mm")</dd>
                             </div>
                             @if (unidad.ClienteAsociado != null)
                             {
                                 <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Cliente</dt>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Cliente</dt>
                                     <dd class="mt-0.5 text-slate-300">@unidad.ClienteAsociado</dd>
                                 </div>
                             }
                             @if (unidad.VentaDetalleId.HasValue)
                             {
                                 <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Venta</dt>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Venta</dt>
                                     <dd class="mt-0.5 text-slate-300">
                                         Detalle #@unidad.VentaDetalleId
                                         @if (unidad.FechaVenta.HasValue)
@@ -451,7 +451,7 @@
     </div>
 
     <div id="modo-carga" class="scroll-mt-32 space-y-4">
-        <div class="flex flex-col gap-2 border-t border-slate-800 pt-4 md:flex-row md:items-end md:justify-between">
+        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Carga</p>
                 <h2 class="mt-1 text-lg font-black text-white">Alta individual y carga masiva</h2>
@@ -625,7 +625,7 @@
     </div>
 
     <div id="modo-configuracion" class="scroll-mt-32 space-y-4">
-        <div class="flex flex-col gap-2 border-t border-slate-800 pt-4 md:flex-row md:items-end md:justify-between">
+        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Configuracion</p>
                 <h2 class="mt-1 text-lg font-black text-white">Trazabilidad y reglas del producto</h2>
@@ -703,7 +703,7 @@
     </div>
 
     <div id="modo-conciliacion" class="scroll-mt-32 space-y-4">
-        <div class="flex flex-col gap-2 border-t border-slate-800 pt-4 md:flex-row md:items-end md:justify-between">
+        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Conciliacion</p>
                 <h2 class="mt-1 text-lg font-black text-white">Conciliacion de stock y unidades</h2>
@@ -762,22 +762,22 @@
 
         <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock agregado actual</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Stock agregado actual</p>
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
                 <p class="mt-1 text-xs text-slate-500">Valor numerico del producto.</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades fisicas disponibles</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades fisicas disponibles</p>
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.UnidadesEnStock</p>
                 <p class="mt-1 text-xs text-slate-500">Unidades en estado EnStock.</p>
             </div>
             <div class="rounded-lg border @(conciliacion.HayDiferencia ? "border-amber-500/40 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10") p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Diferencia</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Diferencia</p>
                 <p class="mt-1 text-2xl font-black @(conciliacion.HayDiferencia ? "text-amber-200" : "text-emerald-200")">@diferenciaTexto</p>
                 <p class="mt-1 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-emerald-200/70")">@estadoConciliacionTexto</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades registradas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades registradas</p>
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.TotalUnidadesRegistradas</p>
                 <p class="mt-1 text-xs text-slate-500">Incluye estados no disponibles.</p>
             </div>
@@ -800,7 +800,7 @@
 
         @if (hayDesgloseVisible)
         {
-        <div class="mt-5 flex items-center gap-2 border-t border-slate-800 pt-4">
+        <div class="mt-5 flex items-center gap-2 border-t-2 border-slate-700 pt-4">
             <span class="material-symbols-outlined text-base text-slate-500">data_object</span>
             <h3 class="text-sm font-black text-slate-200">Desglose informativo de unidades registradas</h3>
         </div>
@@ -810,27 +810,27 @@
 
         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Vendidas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Vendidas</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesVendidas</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Faltantes</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Faltantes</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesFaltantes</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Baja</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Baja</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesBaja</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Devueltas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Devueltas</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesDevueltas</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Reservadas</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Reservadas</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesReservadas</p>
             </div>
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">En reparacion</p>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">En reparacion</p>
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesEnReparacion</p>
             </div>
         </div>
@@ -936,3 +936,26 @@
     </section>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    var ACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25';
+    var INACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white';
+    var nav = document.querySelector('[aria-label="Modos de trabajo de unidades"]');
+    if (!nav) return;
+    var links = Array.from(nav.querySelectorAll('a'));
+    function setActive(hash) {
+        var target = hash || '#modo-unidades';
+        links.forEach(function (link) {
+            link.className = link.getAttribute('href') === target ? ACTIVE : INACTIVE;
+        });
+    }
+    setActive(location.hash);
+    links.forEach(function (link) {
+        link.addEventListener('click', function () { setActive(link.getAttribute('href')); });
+    });
+    window.addEventListener('hashchange', function () { setActive(location.hash); });
+}());
+</script>
+}
