@@ -73,19 +73,26 @@
                     <p class="text-slate-400 text-sm mt-0.5">
                         <span class="font-semibold text-slate-300">@producto.Nombre</span>
                         <span class="mx-2 text-slate-600">·</span>
-                        <span class="font-mono text-xs tracking-wider text-slate-500">@producto.Codigo</span>
+                        <span class="font-mono text-xs tracking-wider text-slate-400">@producto.Codigo</span>
                     </p>
                 }
             </div>
         </div>
-        @if (producto != null)
-        {
-            <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
-               class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-                <span class="material-symbols-outlined text-base">add</span>
-                Registrar ajuste
+        <div class="flex flex-wrap items-center gap-2">
+            <a asp-controller="MovimientoStock" asp-action="Index"
+               class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:border-slate-500 transition-colors">
+                <span class="material-symbols-outlined text-base">list</span>
+                Volver a movimientos
             </a>
-        }
+            @if (producto != null)
+            {
+                <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
+                   class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-base">add</span>
+                    Registrar ajuste
+                </a>
+            }
+        </div>
     </div>
 
     <!-- Banner: producto eliminado (soft delete) — solo visible si el controller setea ViewBag.ProductoEliminado -->
@@ -160,16 +167,16 @@
             <table class="min-w-[1100px] w-full text-left border-collapse">
                 <thead>
                     <tr class="border-b border-slate-800 bg-slate-800/30">
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Fecha / Hora</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Tipo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Cantidad</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Costo unitario</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Costo total</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Motivo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Referencia</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Saldo post.</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-400 uppercase tracking-wide">Usuario</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Fecha / Hora</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Tipo</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Cantidad</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo unitario</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo total</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Motivo</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Referencia</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Stock resultante después del movimiento">Saldo post.</th>
+                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Usuario</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">
@@ -179,7 +186,7 @@
                             <td class="px-4 py-3">
                                 <div class="flex flex-col">
                                     <span class="text-sm font-medium text-slate-200">@m.Fecha.ToString("dd MMM yyyy")</span>
-                                    <span class="text-xs text-slate-500">@m.Fecha.ToString("HH:mm:ss")</span>
+                                    <span class="text-xs text-slate-400">@m.Fecha.ToString("HH:mm:ss")</span>
                                 </div>
                             </td>
                             <td class="px-4 py-3">
@@ -215,7 +222,7 @@
                             <td class="px-4 py-3 max-w-[180px]">
                                 @if (string.IsNullOrWhiteSpace(m.Motivo))
                                 {
-                                    <span class="text-sm italic text-slate-500">Sin motivo registrado</span>
+                                    <span class="text-sm italic text-slate-400">Sin motivo registrado</span>
                                 }
                                 else
                                 {

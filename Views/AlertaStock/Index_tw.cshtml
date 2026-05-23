@@ -273,6 +273,13 @@
                                                 <span class="material-symbols-outlined">visibility</span>
                                                 <span class="row-action__label">Ver</span>
                                             </a>
+                                            <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@a.ProductoId"
+                                               class="row-action row-action--primary no-underline"
+                                               title="Ver kardex"
+                                               aria-label="Ver kardex de @a.ProductoNombre">
+                                                <span class="material-symbols-outlined">receipt_long</span>
+                                                <span class="row-action__label">Kardex</span>
+                                            </a>
                                             @if (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso)
                                             {
                                                 <form asp-action="Resolver" method="post" class="inline">
