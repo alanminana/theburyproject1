@@ -1029,6 +1029,26 @@ public class VentaCreateUiContractTests
         Assert.Contains("role=\"note\"", context);
     }
 
+    // ── VENTAS-UX-MAINT-1 — labels accesibles en Create_tw ─────────────
+
+    [Fact]
+    public void CreateView_LabelBuscarClienteTieneFor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("for=\"input-buscar-cliente\"", view);
+        Assert.Contains("id=\"input-buscar-cliente\"", view);
+    }
+
+    [Fact]
+    public void CreateView_LabelFechaOperacionTieneFor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("for=\"FechaVenta\"", view);
+        Assert.Contains("asp-for=\"FechaVenta\"", view);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
