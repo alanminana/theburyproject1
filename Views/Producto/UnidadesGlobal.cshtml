@@ -98,8 +98,8 @@
         <form method="get" asp-controller="Producto" asp-action="UnidadesGlobal" class="space-y-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
-                    <label class="mb-1 block text-xs font-bold text-slate-400">Producto</label>
-                    <select name="productoId" class="input-erp w-full">
+                    <label for="filtro-producto" class="mb-1 block text-xs font-bold text-slate-400">Producto</label>
+                    <select id="filtro-producto" name="productoId" class="input-erp w-full">
                         <option value="">— Todos los productos —</option>
                         @foreach (SelectListItem item in ViewBag.ProductosDropdown)
                         {
@@ -108,8 +108,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs font-bold text-slate-400">Estado</label>
-                    <select name="estado" class="input-erp w-full">
+                    <label for="filtro-estado" class="mb-1 block text-xs font-bold text-slate-400">Estado</label>
+                    <select id="filtro-estado" name="estado" class="input-erp w-full">
                         <option value="">— Todos los estados —</option>
                         @foreach (SelectListItem item in ViewBag.EstadosDropdown)
                         {
@@ -118,8 +118,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-xs font-bold text-slate-400">Buscar</label>
-                    <input type="text" name="texto" value="@filtros.Texto"
+                    <label for="filtro-texto" class="mb-1 block text-xs font-bold text-slate-400">Buscar</label>
+                    <input id="filtro-texto" type="text" name="texto" value="@filtros.Texto"
                            placeholder="Código, serie, nombre de producto…"
                            class="input-erp w-full" />
                 </div>
@@ -196,15 +196,15 @@
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-900/40 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                            <th class="px-4 py-3">Producto</th>
-                            <th class="px-4 py-3">Código interno</th>
-                            <th class="px-4 py-3">N° serie</th>
-                            <th class="px-4 py-3">Estado</th>
-                            <th class="px-4 py-3">Ubicación</th>
-                            <th class="px-4 py-3">Cliente</th>
-                            <th class="px-4 py-3">Fecha venta</th>
-                            <th class="px-4 py-3">Ingreso</th>
-                            <th class="px-4 py-3 text-right">Acciones</th>
+                            <th scope="col" class="px-4 py-3">Producto</th>
+                            <th scope="col" class="px-4 py-3">Código interno</th>
+                            <th scope="col" class="px-4 py-3">N° serie</th>
+                            <th scope="col" class="px-4 py-3">Estado</th>
+                            <th scope="col" class="px-4 py-3">Ubicación</th>
+                            <th scope="col" class="px-4 py-3">Cliente</th>
+                            <th scope="col" class="px-4 py-3">Fecha venta</th>
+                            <th scope="col" class="px-4 py-3">Ingreso</th>
+                            <th scope="col" class="px-4 py-3 text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-800/60">

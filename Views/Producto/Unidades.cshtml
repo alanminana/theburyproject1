@@ -107,6 +107,7 @@
                     else
                     {
                         <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-bold text-slate-500 cursor-not-allowed"
+                              aria-disabled="true"
                               title="No se puede desactivar porque hay unidades físicas registradas">
                             <span class="material-symbols-outlined text-base">toggle_off</span>
                             Desactivar
@@ -461,9 +462,9 @@
                         <table class="min-w-full divide-y divide-slate-800">
                             <thead class="bg-slate-900/70">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
-                                    <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado inicial</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado inicial</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800">
@@ -534,15 +535,15 @@
             <table class="min-w-full divide-y divide-slate-800">
                 <thead class="bg-slate-900/70">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Unidad</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ubicacion</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ingreso</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Venta</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Unidad</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ubicacion</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ingreso</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Venta</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">
@@ -590,7 +591,8 @@
                                                     <form method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante" class="grid gap-1">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                                                        <input name="Motivo" maxlength="500" required
+                                                        <label for="motivo-faltante-@unidad.Id" class="sr-only">Motivo para marcar faltante</label>
+                                                        <input id="motivo-faltante-@unidad.Id" name="Motivo" maxlength="500" required
                                                                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
                                                                placeholder="Motivo obligatorio" />
                                                         <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
@@ -605,7 +607,8 @@
                                                     <form method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock" class="grid gap-1">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                                                        <input name="Motivo" maxlength="500" required
+                                                        <label for="motivo-reintegrar-@unidad.Id" class="sr-only">Motivo para reintegrar a stock</label>
+                                                        <input id="motivo-reintegrar-@unidad.Id" name="Motivo" maxlength="500" required
                                                                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
                                                                placeholder="Motivo obligatorio" />
                                                         <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
@@ -620,7 +623,8 @@
                                                     <form method="post" asp-controller="Producto" asp-action="DarUnidadBaja" class="grid gap-1">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                                                        <input name="Motivo" maxlength="500" required
+                                                        <label for="motivo-baja-@unidad.Id" class="sr-only">Motivo para dar de baja</label>
+                                                        <input id="motivo-baja-@unidad.Id" name="Motivo" maxlength="500" required
                                                                class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
                                                                placeholder="Motivo obligatorio" />
                                                         <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-200 transition-colors hover:bg-red-500/20">
@@ -642,7 +646,8 @@
                                                             <option value="Baja">Dar de baja (no reparable)</option>
                                                             <option value="Devuelta">Marcar como devuelta</option>
                                                         </select>
-                                                        <input name="Motivo" maxlength="500" required
+                                                        <label for="motivo-reparacion-@unidad.Id" class="sr-only">Motivo para finalizar reparacion</label>
+                                                        <input id="motivo-reparacion-@unidad.Id" name="Motivo" maxlength="500" required
                                                                class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-blue-400"
                                                                placeholder="Motivo obligatorio" />
                                                         <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1.5 text-xs font-bold text-blue-200 transition-colors hover:bg-blue-500/20">
