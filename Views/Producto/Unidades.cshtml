@@ -65,7 +65,7 @@
                 <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
                     <span class="material-symbols-outlined text-base">receipt_long</span>
-                    Ver kardex SKU
+                    Ver Kardex SKU
                 </a>
             </div>
         </div>
@@ -223,22 +223,48 @@
 
                                         @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
                                         {
-                                            <details class="rounded-lg border border-slate-700">
-                                                <summary class="flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200">
-                                                    <span class="material-symbols-outlined text-base">settings</span>
-                                                    Gestionar unidad
-                                                </summary>
-                                                <div class="grid gap-2 border-t border-slate-800 p-2">
+                                            var modalAccionesId = $"acciones-unidad-{unidad.Id}";
+                                            var modalAccionesTituloId = $"acciones-unidad-titulo-{unidad.Id}";
+
+                                            <button type="button"
+                                                    onclick="document.getElementById('@modalAccionesId').showModal()"
+                                                    class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                                                <span class="material-symbols-outlined text-base">more_vert</span>
+                                                Gestionar unidad
+                                            </button>
+
+                                            <dialog id="@modalAccionesId"
+                                                    role="dialog"
+                                                    aria-modal="true"
+                                                    aria-labelledby="@modalAccionesTituloId"
+                                                    class="w-[min(92vw,34rem)] rounded-lg border border-slate-700 bg-slate-950 p-0 text-left text-slate-200 shadow-2xl shadow-slate-950/70 backdrop:bg-slate-950/80">
+                                                <div class="border-b border-slate-800 p-4">
+                                                    <div class="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <p class="text-xs font-bold uppercase tracking-wider text-primary">Acciones operativas</p>
+                                                            <h3 id="@modalAccionesTituloId" class="mt-1 text-lg font-black text-white">Unidad @unidad.CodigoInternoUnidad</h3>
+                                                            <p class="mt-1 text-sm text-slate-400">Completa el motivo antes de aplicar un cambio de estado.</p>
+                                                        </div>
+                                                        <form method="dialog">
+                                                            <button type="submit"
+                                                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                                                                    aria-label="Cerrar acciones de unidad @unidad.CodigoInternoUnidad">
+                                                                <span class="material-symbols-outlined text-base">close</span>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                                <div class="grid gap-3 p-4">
                                                     @if (unidad.PuedeMarcarFaltante)
                                                     {
-                                                        <form method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante" class="grid gap-1">
+                                                        <form method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante" class="grid gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
                                                             @Html.AntiForgeryToken()
                                                             <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
                                                             <label for="motivo-faltante-@unidad.Id" class="sr-only">Motivo para marcar faltante</label>
                                                             <input id="motivo-faltante-@unidad.Id" name="Motivo" maxlength="500" required
-                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
                                                                    placeholder="Motivo obligatorio" />
-                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
+                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
                                                                 <span class="material-symbols-outlined text-base">inventory_2</span>
                                                                 Marcar faltante
                                                             </button>
@@ -247,14 +273,14 @@
 
                                                     @if (unidad.PuedeReintegrarAStock)
                                                     {
-                                                        <form method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock" class="grid gap-1">
+                                                        <form method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock" class="grid gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3">
                                                             @Html.AntiForgeryToken()
                                                             <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
                                                             <label for="motivo-reintegrar-@unidad.Id" class="sr-only">Motivo para reintegrar a stock</label>
                                                             <input id="motivo-reintegrar-@unidad.Id" name="Motivo" maxlength="500" required
-                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
                                                                    placeholder="Motivo obligatorio" />
-                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
                                                                 <span class="material-symbols-outlined text-base">assignment_return</span>
                                                                 Reintegrar a stock
                                                             </button>
@@ -263,14 +289,14 @@
 
                                                     @if (unidad.PuedeDarBaja)
                                                     {
-                                                        <form method="post" asp-controller="Producto" asp-action="DarUnidadBaja" class="grid gap-1">
+                                                        <form method="post" asp-controller="Producto" asp-action="DarUnidadBaja" class="grid gap-2 rounded-lg border border-red-500/25 bg-red-500/5 p-3">
                                                             @Html.AntiForgeryToken()
                                                             <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
                                                             <label for="motivo-baja-@unidad.Id" class="sr-only">Motivo para dar de baja</label>
                                                             <input id="motivo-baja-@unidad.Id" name="Motivo" maxlength="500" required
-                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-primary"
+                                                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
                                                                    placeholder="Motivo obligatorio" />
-                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-200 transition-colors hover:bg-red-500/20">
+                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-200 transition-colors hover:bg-red-500/20">
                                                                 <span class="material-symbols-outlined text-base">block</span>
                                                                 Dar de baja
                                                             </button>
@@ -279,11 +305,11 @@
 
                                                     @if (unidad.PuedeFinalizarReparacion)
                                                     {
-                                                        <form method="post" asp-controller="Producto" asp-action="FinalizarReparacionUnidad" class="grid gap-1">
+                                                        <form method="post" asp-controller="Producto" asp-action="FinalizarReparacionUnidad" class="grid gap-2 rounded-lg border border-blue-500/25 bg-blue-500/5 p-3">
                                                             @Html.AntiForgeryToken()
                                                             <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
                                                             <select name="EstadoDestino" required
-                                                                    class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-blue-400">
+                                                                    class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-blue-400">
                                                                 <option value="">Destino de la reparacion...</option>
                                                                 <option value="EnStock">Reintegrar a stock</option>
                                                                 <option value="Baja">Dar de baja (no reparable)</option>
@@ -291,16 +317,16 @@
                                                             </select>
                                                             <label for="motivo-reparacion-@unidad.Id" class="sr-only">Motivo para finalizar reparacion</label>
                                                             <input id="motivo-reparacion-@unidad.Id" name="Motivo" maxlength="500" required
-                                                                   class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-2.5 py-1.5 text-xs text-white outline-none transition-colors focus:border-blue-400"
+                                                                   class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-blue-400"
                                                                    placeholder="Motivo obligatorio" />
-                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1.5 text-xs font-bold text-blue-200 transition-colors hover:bg-blue-500/20">
+                                                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm font-bold text-blue-200 transition-colors hover:bg-blue-500/20">
                                                                 <span class="material-symbols-outlined text-base">build_circle</span>
                                                                 Finalizar reparacion
                                                             </button>
                                                         </form>
                                                     }
                                                 </div>
-                                            </details>
+                                            </dialog>
                                         }
                                     </div>
                                 </td>
@@ -584,6 +610,7 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="#listado-unidades"
+                   title="Ver historial/listado de unidades"
                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
                     <span class="material-symbols-outlined text-base">arrow_upward</span>
                     Volver al listado de unidades
