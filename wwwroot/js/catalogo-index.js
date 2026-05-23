@@ -529,15 +529,20 @@ if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerProdu
     function updateIcons(activeHeader) {
         headers.forEach(function (th) {
             var icon = th.querySelector('[data-sort-icon]');
-            if (!icon) return;
             if (th === activeHeader) {
-                icon.textContent = currentDir === 'asc' ? '↑' : '↓';
-                icon.classList.remove('text-slate-600');
-                icon.classList.add('text-slate-300');
+                th.setAttribute('aria-sort', currentDir === 'asc' ? 'ascending' : 'descending');
+                if (icon) {
+                    icon.textContent = currentDir === 'asc' ? '↑' : '↓';
+                    icon.classList.remove('text-slate-600');
+                    icon.classList.add('text-slate-300');
+                }
             } else {
-                icon.textContent = '↕';
-                icon.classList.remove('text-slate-300');
-                icon.classList.add('text-slate-600');
+                th.setAttribute('aria-sort', 'none');
+                if (icon) {
+                    icon.textContent = '↕';
+                    icon.classList.remove('text-slate-300');
+                    icon.classList.add('text-slate-600');
+                }
             }
         });
     }
