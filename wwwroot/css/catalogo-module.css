@@ -61,20 +61,20 @@ select.catalogo-input option {
     z-index: 50;
 }
 
-/* Botón Movimientos en rojo */
+/* Botón Movimientos — operacional, no destructivo */
 #btn-movimientos-inventario {
-    border-color: rgba(239, 68, 68, 0.4);
-    background-color: rgb(220, 38, 38);
-    color: #ffffff;
+    border-color: rgba(19, 91, 236, 0.35);
+    background-color: rgba(19, 91, 236, 0.08);
+    color: #93b4f8;
 }
 
 #btn-movimientos-inventario:hover {
-    border-color: rgba(239, 68, 68, 0.6);
-    background-color: rgb(185, 28, 28);
-    color: #ffffff;
+    border-color: rgba(19, 91, 236, 0.55);
+    background-color: rgba(19, 91, 236, 0.14);
+    color: #bfcffe;
 }
 
-#btn-movimientos-inventario:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+#btn-movimientos-inventario:focus-visible {
+    outline: 2px solid #135bec;
+    outline-offset: 2px;
 }
