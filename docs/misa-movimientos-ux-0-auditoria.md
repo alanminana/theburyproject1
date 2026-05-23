@@ -1,9 +1,9 @@
 # MISA-MOVIMIENTOS-UX-0 — Auditoría UX de Movimientos / Kardex / Movimientos diarios
 
-**Fase:** Audit-only  
-**Base:** `476bb20` — MISA-CATALOGO-CIERRE integrada  
-**Rama:** `misa/movimientos-ux-0-auditoria`  
-**Fecha:** 2026-05-23  
+**Fase:** Audit-only
+**Base:** `476bb20` — MISA-CATALOGO-CIERRE integrada
+**Rama:** `misa/movimientos-ux-0-auditoria`
+**Fecha:** 2026-05-23
 **Agente:** Misa
 
 ---
