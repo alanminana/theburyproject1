@@ -745,9 +745,11 @@
                     @if (puedeDelegarVendedor && vendedores != null)
                     {
                         <div class="mb-4">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2" for="VendedorUserId">
+                                Vendedor <span class="text-red-400" aria-hidden="true">*</span><span class="sr-only">obligatorio</span>
+                            </label>
                             <select asp-for="VendedorUserId" asp-items="vendedores"
-                                    class="venta-input text-sm">
+                                    class="venta-input text-sm" aria-required="true">
                                 <option value="">Seleccione vendedor...</option>
                             </select>
                         </div>

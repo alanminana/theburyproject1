@@ -1049,6 +1049,34 @@ public class VentaCreateUiContractTests
         Assert.Contains("asp-for=\"FechaVenta\"", view);
     }
 
+    // ── VENTAS-UX-MAINT-2 — indicador visual Vendedor requerido ─────────────
+
+    [Fact]
+    public void CreateView_LabelVendedorTieneFor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("for=\"VendedorUserId\"", view);
+        Assert.Contains("asp-for=\"VendedorUserId\"", view);
+    }
+
+    [Fact]
+    public void CreateView_LabelVendedorTieneIndicadorRequerido()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("aria-hidden=\"true\">*</span>", view);
+        Assert.Contains("sr-only", view);
+    }
+
+    [Fact]
+    public void CreateView_SelectVendedorTieneAriaRequired()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("aria-required=\"true\"", view);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
