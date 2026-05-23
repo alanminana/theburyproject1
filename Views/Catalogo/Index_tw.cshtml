@@ -677,7 +677,7 @@
 </div>
 
 <!-- Modal: Nuevo Producto -->
-<div id="modal-nuevo-producto" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-nuevo-producto" role="dialog" aria-modal="true" aria-labelledby="modal-nuevo-producto-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="producto"></div>
 
@@ -694,7 +694,7 @@
                     <span class="text-primary">Productos</span>
                 </div>
                 <div class="space-y-1">
-                    <h2 class="text-xl font-bold text-white sm:text-2xl">Nuevo Producto</h2>
+                    <h2 id="modal-nuevo-producto-title" class="text-xl font-bold text-white sm:text-2xl">Nuevo Producto</h2>
                     <p class="max-w-2xl text-sm text-slate-400">Completá la ficha principal, validá precios y dejá listo el stock inicial sin salir del índice.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -991,13 +991,13 @@
 </div>
 
 <!-- Modal: Editar Producto -->
-<div id="modal-editar-producto" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-editar-producto" role="dialog" aria-modal="true" aria-labelledby="modal-editar-producto-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-prod-edit-modal-close></div>
     <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl">
 
         <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
             <div>
-                <h2 class="text-xl font-bold text-white">Editar Producto</h2>
+                <h2 id="modal-editar-producto-title" class="text-xl font-bold text-white">Editar Producto</h2>
                 <p class="text-sm text-slate-400 mt-0.5">Modificá los datos del producto sin salir del catálogo.</p>
             </div>
             <button type="button" data-prod-edit-modal-close class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-800">
@@ -1221,7 +1221,7 @@
 </div>
 
 <!-- Modal: Nueva Categoría -->
-<div id="modal-nueva-categoria" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-nueva-categoria" role="dialog" aria-modal="true" aria-labelledby="modal-nueva-categoria-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="categoria"></div>
 
@@ -1236,7 +1236,7 @@
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                     <span class="text-primary">Categorías</span>
                 </div>
-                <h2 class="text-xl font-bold text-white">Nueva Categoría</h2>
+                <h2 id="modal-nueva-categoria-title" class="text-xl font-bold text-white">Nueva Categoría</h2>
                 <p class="text-sm text-slate-400">Administra las categorías de tus productos para organizar mejor tu inventario.</p>
             </div>
             <button type="button" data-catalogo-modal-close="categoria" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
@@ -1367,7 +1367,7 @@
 </div>
 
 <!-- Modal: Editar Categoría -->
-<div id="modal-editar-categoria" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-editar-categoria" role="dialog" aria-modal="true" aria-labelledby="modal-editar-categoria-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-cat-edit-modal-close></div>
     <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-[#111827] rounded-xl shadow-2xl border border-slate-800 flex flex-col">
         <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
@@ -1377,7 +1377,7 @@
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                     <span class="text-primary">Categorías</span>
                 </div>
-                <h2 class="text-xl font-bold text-white">Editar Categoría</h2>
+                <h2 id="modal-editar-categoria-title" class="text-xl font-bold text-white">Editar Categoría</h2>
             </div>
             <button type="button" data-cat-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                 <span class="material-symbols-outlined">close</span>
@@ -1474,7 +1474,7 @@
 </div>
 
 <!-- Modal: Nueva Marca -->
-<div id="modal-nueva-marca" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-nueva-marca" role="dialog" aria-modal="true" aria-labelledby="modal-nueva-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <!-- Backdrop -->
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="marca"></div>
 
@@ -1489,7 +1489,7 @@
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                     <span class="text-primary">Marcas</span>
                 </div>
-                <h2 class="text-xl font-bold text-white">Nueva Marca</h2>
+                <h2 id="modal-nueva-marca-title" class="text-xl font-bold text-white">Nueva Marca</h2>
                 <p class="text-sm text-slate-400">Registra una nueva marca o submarca en el sistema.</p>
             </div>
             <button type="button" data-catalogo-modal-close="marca" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
@@ -1570,7 +1570,7 @@
 </div>
 
 <!-- Modal: Editar Marca -->
-<div id="modal-editar-marca" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-editar-marca" role="dialog" aria-modal="true" aria-labelledby="modal-editar-marca-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-marca-edit-modal-close></div>
     <div class="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-[#111827] rounded-xl shadow-2xl border border-slate-800 flex flex-col">
         <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
@@ -1580,7 +1580,7 @@
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                     <span class="text-primary">Marcas</span>
                 </div>
-                <h2 class="text-xl font-bold text-white">Editar Marca</h2>
+                <h2 id="modal-editar-marca-title" class="text-xl font-bold text-white">Editar Marca</h2>
             </div>
             <button type="button" data-marca-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
                 <span class="material-symbols-outlined">close</span>
@@ -1659,7 +1659,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Asignar Comisión Vendedor
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-comision-vendedor" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-comision-vendedor" role="dialog" aria-modal="true" aria-labelledby="comision-modal-nombre" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-comision-modal-close></div>
     <div class="relative w-full max-w-md flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#111827] shadow-2xl">
 
@@ -1732,7 +1732,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Historial de Cambios de Precio (por producto)
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-historial-precio" class="fixed inset-0 z-50 hidden">
+<div id="modal-historial-precio" role="dialog" aria-modal="true" aria-labelledby="modal-historial-precio-title" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="historial-precio"></div>
 
@@ -1749,7 +1749,7 @@
                     <div class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">
                         Historial de precios
                     </div>
-                    <h2 class="mt-3 text-xl font-bold tracking-tight text-white sm:text-2xl">Cambios aplicados al producto</h2>
+                    <h2 id="modal-historial-precio-title" class="mt-3 text-xl font-bold tracking-tight text-white sm:text-2xl">Cambios aplicados al producto</h2>
                     <p class="mt-1 text-sm text-slate-400">Revisá fecha, usuario, variación y, si corresponde, revertí el ajuste desde el mismo panel.</p>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <span id="historial-producto-nombre" class="text-sm font-medium text-slate-300"></span>
@@ -1827,7 +1827,7 @@
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL: Aumento de Precios (3 pasos: Alcance → Configuración → Vista previa)
      ═══════════════════════════════════════════════════════════════ -->
-<div id="modal-aumento-precios" class="fixed inset-0 z-50 hidden">
+<div id="modal-aumento-precios" role="dialog" aria-modal="true" aria-labelledby="modal-aumento-precios-title" class="fixed inset-0 z-50 hidden">
     <!-- Backdrop -->
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-catalogo-modal-close="precio"></div>
 
@@ -1844,7 +1844,7 @@
                         <div class="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-400">
                             Ajuste masivo
                         </div>
-                        <h2 class="mt-3 text-xl font-bold text-white sm:text-2xl">Actualizar precios por alcance</h2>
+                        <h2 id="modal-aumento-precios-title" class="mt-3 text-xl font-bold text-white sm:text-2xl">Actualizar precios por alcance</h2>
                         <p class="mt-1 max-w-xl text-sm text-slate-400">Definí el universo afectado, configurá el ajuste y revisá la vista previa antes de aplicar cambios a precios de lista cuando corresponda.</p>
                     </div>
                 </div>
@@ -2159,13 +2159,13 @@
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <!-- Modal: Movimientos de Inventario                                 -->
 <!-- ══════════════════════════════════════════════════════════════════ -->
-<div id="modal-movimientos" class="hidden fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
+<div id="modal-movimientos" role="dialog" aria-modal="true" aria-labelledby="modal-movimientos-title" class="hidden fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
     <div class="bg-[#0f172a] rounded-2xl w-full max-w-[1280px] shadow-2xl border border-slate-800 animate-fade-in">
 
         <!-- Modal Header -->
         <div class="flex flex-wrap justify-between items-start gap-4 p-6 pb-0">
             <div class="flex flex-col gap-1">
-                <h1 class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h1>
+                <h1 id="modal-movimientos-title" class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h1>
                 <p class="text-slate-400 text-base font-normal">Historial completo de entradas, salidas y ajustes de stock.</p>
             </div>
             <button type="button" id="btn-cerrar-movimientos"
