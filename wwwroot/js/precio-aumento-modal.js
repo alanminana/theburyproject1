@@ -8,6 +8,7 @@ const PrecioModal = (() => {
     let simulationResult = null;
     let selectedProductIds = []; // IDs pre-selected from table checkboxes
     let selectedScopeSnapshot = [];
+    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -49,25 +50,38 @@ const PrecioModal = (() => {
     const selectedSummaryCount = () => document.getElementById('precio-selection-summary-count');
 
     // ─── Open / Close ──────────────────────────────────────────
-    function open() {
+    function open(trigger) {
+        _openTrigger = (trigger instanceof Element) ? trigger : null;
         reset();
         syncSelectionState(readCurrentSelection(), true);
         modal().classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         dispatchScrollRefresh();
+        setTimeout(function () {
+            var h2 = document.getElementById('modal-aumento-precios-title');
+            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
+        }, 50);
     }
 
-    function openWithSelection(ids) {
+    function openWithSelection(ids, trigger) {
+        _openTrigger = (trigger instanceof Element) ? trigger : null;
         reset();
         syncSelectionState(ids, true);
         modal().classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         dispatchScrollRefresh();
+        setTimeout(function () {
+            var h2 = document.getElementById('modal-aumento-precios-title');
+            if (h2) { h2.setAttribute('tabindex', '-1'); h2.focus(); }
+        }, 50);
     }
 
     function close() {
+        var trigger = _openTrigger;
+        _openTrigger = null;
         modal().classList.add('hidden');
         document.body.style.overflow = '';
+        if (trigger) trigger.focus();
     }
 
     function reset() {

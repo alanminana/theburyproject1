@@ -47,11 +47,13 @@
     // Estado de filtro por producto (apertura desde fila de catálogo)
     let productoIdFiltro = null;
     let productoNombreFiltro = null;
+    let _openTrigger = null;
 
     if (!modal || !btnOpen) return;
 
     /* ── Open / Close ── */
     btnOpen.addEventListener('click', () => {
+        _openTrigger = btnOpen;
         abrirModal(null, null);
     });
 
@@ -71,7 +73,10 @@
         if (!btn) return;
         const id = parseInt(btn.dataset.movimientosProductoId, 10);
         const nombre = btn.dataset.movimientosProductoNombre || '';
-        if (!isNaN(id)) abrirModal(id, nombre);
+        if (!isNaN(id)) {
+            _openTrigger = btn;
+            abrirModal(id, nombre);
+        }
     });
 
     if (btnVerTodos) {
@@ -85,6 +90,10 @@
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         fetchMovimientos();
+        setTimeout(function () {
+            var closeBtn = document.getElementById('btn-cerrar-movimientos');
+            if (closeBtn) closeBtn.focus();
+        }, 50);
     }
 
     function actualizarBannerProducto() {
@@ -100,6 +109,8 @@
     }
 
     function closeModal() {
+        var trigger = _openTrigger;
+        _openTrigger = null;
         modal.classList.add('hidden');
         document.body.style.overflow = '';
         productoIdFiltro = null;
@@ -108,6 +119,7 @@
             productoContexto.classList.add('hidden');
             productoContexto.classList.remove('flex');
         }
+        if (trigger) trigger.focus();
     }
 
     /* ── Fetch ── */

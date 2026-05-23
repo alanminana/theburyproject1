@@ -80,9 +80,9 @@
             if (!selectionPriceApi) return;
 
             if (typeof selectionPriceApi.openWithSelection === 'function') {
-                selectionPriceApi.openWithSelection(ids);
+                selectionPriceApi.openWithSelection(ids, trigger || null);
             } else if (typeof selectionPriceApi.open === 'function') {
-                selectionPriceApi.open();
+                selectionPriceApi.open(trigger || null);
             }
             return;
         }
@@ -95,13 +95,13 @@
                 ? parseInt(trigger.getAttribute('data-catalogo-producto-id'), 10)
                 : NaN;
             if (!isNaN(productoId) && typeof modalApi.open === 'function') {
-                modalApi.open(productoId);
+                modalApi.open(productoId, trigger || null);
             }
             return;
         }
 
         if (typeof modalApi.open === 'function') {
-            modalApi.open();
+            modalApi.open(trigger || null);
         }
     }
 

@@ -38,7 +38,9 @@
         if (!modal) return;
         modal.classList.remove('flex');
         modal.classList.add('hidden');
+        var btn = currentBtn;
         currentBtn = null;
+        if (btn) btn.focus();
     }
 
     function hideMessages() {

@@ -8,20 +8,28 @@
 
     var currentRow = null;
     var caractIndex = 0;
+    var _openTrigger = null;
 
     function el(id) { return document.getElementById(id); }
 
     // ── Abrir / Cerrar ──────────────────────────────────────────
 
-    function open(row) {
+    function open(row, trigger) {
         currentRow = row;
+        _openTrigger = (trigger instanceof Element) ? trigger : null;
         var modal = el(MODAL_ID);
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        setTimeout(function () {
+            var firstInput = el('prod-edit-codigo');
+            if (firstInput) firstInput.focus();
+        }, 50);
     }
 
     function close() {
+        var trigger = _openTrigger;
+        _openTrigger = null;
         var modal = el(MODAL_ID);
         modal.classList.add('hidden');
         modal.classList.remove('flex');
@@ -29,6 +37,7 @@
         currentRow = null;
         clearErrors();
         hideValidation();
+        if (trigger) trigger.focus();
     }
 
     // ── Populate ────────────────────────────────────────────────
@@ -468,7 +477,7 @@
                     });
                     if (!resp.ok) throw new Error();
                     populate(await resp.json());
-                    open(row);
+                    open(row, editBtn);
                 } catch (_) {
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
                         detail: { message: 'Error al cargar el producto.', type: 'error' }

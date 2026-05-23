@@ -10,6 +10,7 @@ const ProductoModal = (() => {
     const catalogoModule = typeof CatalogoModule !== 'undefined' ? CatalogoModule : null;
 
     let caracteristicaIndex = 0;
+    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -30,20 +31,28 @@ const ProductoModal = (() => {
     }
 
     // ── Abrir / Cerrar ──────────────────────────────────────
-    function open() {
+    function open(trigger) {
+        _openTrigger = (trigger instanceof Element) ? trigger : null;
         const modal = el('modal-nuevo-producto');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
         updateCaracteristicasUi();
+        setTimeout(function () {
+            var firstInput = document.querySelector('#form-nuevo-producto input[name="Codigo"]');
+            if (firstInput) firstInput.focus();
+        }, 50);
     }
 
     function close() {
+        const trigger = _openTrigger;
+        _openTrigger = null;
         const modal = el('modal-nuevo-producto');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.style.overflow = '';
         resetForm();
+        if (trigger) trigger.focus();
     }
 
     function resetForm() {

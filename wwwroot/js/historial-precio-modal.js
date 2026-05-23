@@ -15,6 +15,7 @@ const HistorialPrecioModal = (() => {
     const count = () => document.getElementById('historial-precio-count');
 
     let productoIdActual = null;
+    let _openTrigger = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -251,7 +252,8 @@ const HistorialPrecioModal = (() => {
         }
     }
 
-    function open(productoId) {
+    function open(productoId, trigger) {
+        _openTrigger = (trigger instanceof Element) ? trigger : null;
         productoIdActual = productoId;
         clearFeedback();
         nombre().textContent = '';
@@ -260,14 +262,21 @@ const HistorialPrecioModal = (() => {
         modal().classList.remove('hidden');
         dispatchScrollRefresh();
         fetchHistorial(productoId);
+        setTimeout(function () {
+            var closeBtn = document.querySelector('[data-catalogo-modal-close="historial-precio"]');
+            if (closeBtn) closeBtn.focus();
+        }, 50);
     }
 
     function close() {
+        var trigger = _openTrigger;
+        _openTrigger = null;
         modal().classList.add('hidden');
         tbody().innerHTML = '';
         clearFeedback();
         productoIdActual = null;
         updateCount(0);
+        if (trigger) trigger.focus();
     }
 
     document.addEventListener('keydown', function (event) {
