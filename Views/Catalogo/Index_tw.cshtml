@@ -2165,7 +2165,7 @@
         <!-- Modal Header -->
         <div class="flex flex-wrap justify-between items-start gap-4 p-6 pb-0">
             <div class="flex flex-col gap-1">
-                <h1 id="modal-movimientos-title" class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h1>
+                <h2 id="modal-movimientos-title" class="text-white text-3xl font-black leading-tight tracking-tight">Movimientos de Inventario</h2>
                 <p class="text-slate-400 text-base font-normal">Historial completo de entradas, salidas y ajustes de stock.</p>
             </div>
             <button type="button" id="btn-cerrar-movimientos"
@@ -2231,7 +2231,7 @@
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="flex flex-col gap-1.5">
-                        <label class="text-sm font-medium text-slate-400">Rango de Fechas</label>
+                        <label for="mov-fecha-desde" class="text-sm font-medium text-slate-400">Rango de Fechas</label>
                         <div class="flex items-center gap-2">
                             <input id="mov-fecha-desde" type="date" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" />
                             <span class="text-slate-400">-</span>
@@ -2239,7 +2239,7 @@
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <label class="text-sm font-medium text-slate-400">Tipo de Movimiento</label>
+                        <label for="mov-tipo" class="text-sm font-medium text-slate-400">Tipo de Movimiento</label>
                         <select id="mov-tipo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
                             <option value="">Todos los tipos</option>
                             <option value="Entrada">Entrada</option>
@@ -2248,14 +2248,14 @@
                         </select>
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <label class="text-sm font-medium text-slate-400">Producto (SKU/Nombre)</label>
+                        <label for="mov-producto" class="text-sm font-medium text-slate-400">Producto (SKU/Nombre)</label>
                         <div class="relative">
                             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                             <input id="mov-producto" type="text" class="w-full pl-10 rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white" placeholder="Ej: CPU-001..." />
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <label class="text-sm font-medium text-slate-400">Fuente de Costo</label>
+                        <label for="mov-fuente-costo" class="text-sm font-medium text-slate-400">Fuente de Costo</label>
                         <select id="mov-fuente-costo" class="w-full rounded-lg bg-slate-800 border-none text-sm focus:ring-2 focus:ring-primary text-white">
                             <option value="">Todas las fuentes</option>
                             <option value="VentaDetalleSnapshot">Venta</option>
@@ -2291,17 +2291,17 @@
                 <table class="min-w-[1180px] w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
-                            <th class="px-4 py-4 text-sm font-bold text-slate-300 text-right">Acción</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
+                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 text-right">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="mov-tbody" class="divide-y divide-slate-800">
