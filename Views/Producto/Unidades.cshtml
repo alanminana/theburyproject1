@@ -176,85 +176,172 @@
     </form>
 
     <section id="listado-unidades" class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-        <p class="px-4 pt-3 text-xs text-slate-500 lg:hidden" aria-hidden="true">Deslizá para ver más columnas →</p>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-800">
-                <thead class="bg-slate-900/70">
-                    <tr>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Unidad</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ubicacion</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ingreso</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Venta</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</th>
-                        <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800">
-                    @if (Model.Unidades.Any())
-                    {
-                        @foreach (var unidad in Model.Unidades)
-                        {
-                            <tr class="hover:bg-white/5">
-                                <td class="px-4 py-3 font-mono text-sm text-white">@unidad.CodigoInternoUnidad</td>
-                                <td class="px-4 py-3 text-sm text-slate-300">@(unidad.NumeroSerie ?? "-")</td>
-                                <td class="px-4 py-3">
+        <div class="divide-y divide-slate-800 lg:hidden">
+            @if (Model.Unidades.Any())
+            {
+                @foreach (var unidad in Model.Unidades)
+                {
+                    var cardModalId = $"acciones-unidad-{unidad.Id}";
+                    <div class="space-y-3 p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="break-all font-mono text-sm font-bold text-white">@unidad.CodigoInternoUnidad</p>
+                                <div class="mt-1.5">
                                     <partial name="_EstadoUnidadBadge" model="unidad.Estado" />
-                                </td>
-                                <td class="px-4 py-3 text-sm text-slate-300">@(unidad.UbicacionActual ?? "-")</td>
-                                <td class="px-4 py-3 text-sm text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                <td class="px-4 py-3 text-sm text-slate-300">@(unidad.ClienteAsociado ?? "-")</td>
-                                <td class="px-4 py-3 text-sm text-slate-300">
-                                    @if (unidad.VentaDetalleId.HasValue)
-                                    {
-                                        <span>Detalle #@unidad.VentaDetalleId</span>
+                                </div>
+                            </div>
+                            <div class="flex shrink-0 flex-col gap-2">
+                                <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
+                                   class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                                    <span class="material-symbols-outlined text-base">history</span>
+                                    Ver historial
+                                </a>
+                                @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
+                                {
+                                    <button type="button"
+                                            onclick="document.getElementById('@cardModalId').showModal()"
+                                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                                        <span class="material-symbols-outlined text-base">more_vert</span>
+                                        Gestionar
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                            @if (unidad.NumeroSerie != null)
+                            {
+                                <div>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Serie</dt>
+                                    <dd class="mt-0.5 break-all font-mono text-slate-300">@unidad.NumeroSerie</dd>
+                                </div>
+                            }
+                            @if (unidad.UbicacionActual != null)
+                            {
+                                <div>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Ubicacion</dt>
+                                    <dd class="mt-0.5 text-slate-300">@unidad.UbicacionActual</dd>
+                                </div>
+                            }
+                            <div>
+                                <dt class="font-bold uppercase tracking-wider text-slate-500">Ingreso</dt>
+                                <dd class="mt-0.5 text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yy HH:mm")</dd>
+                            </div>
+                            @if (unidad.ClienteAsociado != null)
+                            {
+                                <div>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Cliente</dt>
+                                    <dd class="mt-0.5 text-slate-300">@unidad.ClienteAsociado</dd>
+                                </div>
+                            }
+                            @if (unidad.VentaDetalleId.HasValue)
+                            {
+                                <div>
+                                    <dt class="font-bold uppercase tracking-wider text-slate-500">Venta</dt>
+                                    <dd class="mt-0.5 text-slate-300">
+                                        Detalle #@unidad.VentaDetalleId
                                         @if (unidad.FechaVenta.HasValue)
                                         {
-                                            <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                            <span class="block text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yy")</span>
                                         }
-                                    }
-                                    else
-                                    {
-                                        <span>-</span>
-                                    }
-                                </td>
-                                <td class="max-w-xs px-4 py-3 text-sm text-slate-300">@(unidad.Observaciones ?? "-")</td>
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex min-w-[14rem] flex-col items-stretch gap-2">
-                                        <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
-                                           class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
-                                            <span class="material-symbols-outlined text-base">history</span>
-                                            Ver historial
-                                        </a>
+                                    </dd>
+                                </div>
+                            }
+                        </dl>
+                        @if (unidad.Observaciones != null)
+                        {
+                            <p class="line-clamp-2 text-xs text-slate-400">@unidad.Observaciones</p>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="px-4 py-10 text-center text-sm text-slate-400">
+                    No hay unidades fisicas para los filtros seleccionados.
+                </div>
+            }
+        </div>
 
-                                        @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
+        <div class="hidden lg:block">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-800">
+                    <thead class="bg-slate-900/70">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Unidad</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ubicacion</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ingreso</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Venta</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</th>
+                            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @if (Model.Unidades.Any())
+                        {
+                            @foreach (var unidad in Model.Unidades)
+                            {
+                                <tr class="hover:bg-white/5">
+                                    <td class="px-4 py-3 font-mono text-sm text-white">@unidad.CodigoInternoUnidad</td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.NumeroSerie ?? "-")</td>
+                                    <td class="px-4 py-3">
+                                        <partial name="_EstadoUnidadBadge" model="unidad.Estado" />
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.UbicacionActual ?? "-")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.ClienteAsociado ?? "-")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">
+                                        @if (unidad.VentaDetalleId.HasValue)
                                         {
-                                            var modalAccionesId = $"acciones-unidad-{unidad.Id}";
-
-                                            <button type="button"
-                                                    onclick="document.getElementById('@modalAccionesId').showModal()"
-                                                    class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                                                <span class="material-symbols-outlined text-base">more_vert</span>
-                                                Gestionar unidad
-                                            </button>
+                                            <span>Detalle #@unidad.VentaDetalleId</span>
+                                            @if (unidad.FechaVenta.HasValue)
+                                            {
+                                                <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                            }
                                         }
-                                    </div>
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td class="max-w-xs px-4 py-3 text-sm text-slate-300">@(unidad.Observaciones ?? "-")</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <div class="flex min-w-[14rem] flex-col items-stretch gap-2">
+                                            <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
+                                               class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                                                <span class="material-symbols-outlined text-base">history</span>
+                                                Ver historial
+                                            </a>
+
+                                            @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
+                                            {
+                                                var modalAccionesId = $"acciones-unidad-{unidad.Id}";
+
+                                                <button type="button"
+                                                        onclick="document.getElementById('@modalAccionesId').showModal()"
+                                                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                                                    <span class="material-symbols-outlined text-base">more_vert</span>
+                                                    Gestionar unidad
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="px-4 py-10 text-center text-sm text-slate-400">
+                                    No hay unidades fisicas para los filtros seleccionados.
                                 </td>
                             </tr>
                         }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="9" class="px-4 py-10 text-center text-sm text-slate-400">
-                                No hay unidades fisicas para los filtros seleccionados.
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </section>
 
