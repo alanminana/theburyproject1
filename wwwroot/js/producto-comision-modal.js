@@ -113,7 +113,9 @@
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
+        if (!modal || modal.classList.contains('hidden')) return;
+        if (e.key === 'Escape') { closeModal(); return; }
+        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
     });
 
     document.addEventListener('submit', function (e) {

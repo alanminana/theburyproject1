@@ -596,11 +596,10 @@ const PrecioModal = (() => {
         if (btnPct) btnPct.addEventListener('click', function () { setTipoCambio('porcentaje'); });
         if (btnMonto) btnMonto.addEventListener('click', function () { setTipoCambio('monto'); });
 
-        // ESC key
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && !modal().classList.contains('hidden')) {
-                close();
-            }
+            if (modal().classList.contains('hidden')) return;
+            if (e.key === 'Escape') { close(); return; }
+            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal(), e);
         });
 
         // Initialize scope card visuals

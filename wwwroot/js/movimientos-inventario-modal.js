@@ -64,7 +64,9 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+        if (modal.classList.contains('hidden')) return;
+        if (e.key === 'Escape') { closeModal(); return; }
+        if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
     });
 
     // Apertura desde fila de catálogo (delegación sobre el documento)

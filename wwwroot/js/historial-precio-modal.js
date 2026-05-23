@@ -280,9 +280,10 @@ const HistorialPrecioModal = (() => {
     }
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && modal() && !modal().classList.contains('hidden')) {
-            close();
-        }
+        var m = modal();
+        if (!m || m.classList.contains('hidden')) return;
+        if (event.key === 'Escape') { close(); return; }
+        if (event.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(m, event);
     });
 
     document.addEventListener('click', function (event) {

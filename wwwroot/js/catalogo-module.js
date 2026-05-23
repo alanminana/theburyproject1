@@ -25,6 +25,30 @@
     window.CatalogoModule.getProductSelectionApi = function () {
         return productSelectionApi;
     };
+    window.CatalogoModule.trapFocus = function (modal, e) {
+        if (e.key !== 'Tab') return;
+        var focusable = Array.prototype.filter.call(
+            modal.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            ),
+            function (node) { return node.offsetParent !== null; }
+        );
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        var active = document.activeElement;
+        if (e.shiftKey) {
+            if (active === first || !modal.contains(active) || focusable.indexOf(active) === -1) {
+                e.preventDefault();
+                last.focus();
+            }
+        } else {
+            if (active === last || !modal.contains(active)) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    };
     window.CatalogoModule.requestScrollRefresh = function () {
         var eventName = window.CatalogoModule.events.refreshScroll;
 

@@ -197,10 +197,10 @@ const MarcaModal = (() => {
 
     function initEscKey() {
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const modal = el('modal-nueva-marca');
-                if (modal && !modal.classList.contains('hidden')) close();
-            }
+            const modal = el('modal-nueva-marca');
+            if (!modal || modal.classList.contains('hidden')) return;
+            if (e.key === 'Escape') { close(); return; }
+            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
         });
     }
 

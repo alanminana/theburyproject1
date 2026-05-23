@@ -536,12 +536,11 @@
         if (pv)  pv.addEventListener('input', calcularPrecioFinal);
         if (iva) iva.addEventListener('change', calcularPrecioFinal);
 
-        // Esc para cerrar
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                var modal = el(MODAL_ID);
-                if (modal && !modal.classList.contains('hidden')) close();
-            }
+            var modal = el(MODAL_ID);
+            if (!modal || modal.classList.contains('hidden')) return;
+            if (e.key === 'Escape') { close(); return; }
+            if (e.key === 'Tab' && window.CatalogoModule) window.CatalogoModule.trapFocus(modal, e);
         });
     }
 
