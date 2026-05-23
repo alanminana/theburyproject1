@@ -24,6 +24,12 @@
         : conciliacion.HayDiferencia
             ? "Con diferencia"
             : "Conciliado";
+    var hayDesgloseVisible = conciliacion.UnidadesVendidas > 0
+        || conciliacion.UnidadesFaltantes > 0
+        || conciliacion.UnidadesBaja > 0
+        || conciliacion.UnidadesDevueltas > 0
+        || conciliacion.UnidadesReservadas > 0
+        || conciliacion.UnidadesEnReparacion > 0;
 }
 
 <div class="space-y-6">
@@ -56,13 +62,10 @@
                         @(Model.RequiereNumeroSerie ? "Trazabilidad individual requerida" : "No requiere trazabilidad individual")
                     </span>
                 </div>
-                <p class="mt-2 text-xs text-slate-400">
-                    Stock agregado: cantidad numerica disponible del SKU en sistema. Unidades fisicas: elementos individuales con trazabilidad, serie o estado propio. La conciliacion muestra diferencias entre ambos.
-                </p>
                 @if (!Model.RequiereNumeroSerie)
                 {
-                    <p class="mt-3 max-w-3xl text-sm text-amber-200">
-                        Este producto no exige seleccion de unidad fisica en venta. Si tiene unidades cargadas, se muestran solo como trazabilidad operativa.
+                    <p class="mt-2 text-xs text-amber-200">
+                        No exige seleccion de unidad fisica en venta. Las unidades cargadas son trazabilidad operativa opcional.
                     </p>
                 }
             </div>
@@ -384,8 +387,8 @@
                         <p class="mt-1 text-sm text-slate-400">Para registrar una unidad especifica. El codigo interno se genera automaticamente. El numero de serie es opcional. La unidad se creara en estado EnStock.</p>
                         <p class="mt-1 text-xs text-amber-200">Crear una unidad fisica no ajusta el stock agregado. El stock agregado sigue bajo MovimientoStockService.</p>
                     </div>
-                    <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300">
-                        <span class="material-symbols-outlined text-base">looks_one</span>
+                    <span aria-hidden="true" class="inline-flex w-fit items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-xs font-bold text-slate-500">
+                        <span class="material-symbols-outlined text-sm">looks_one</span>
                         Una unidad
                     </span>
                 </div>
@@ -433,8 +436,8 @@
                         <p class="mt-1 text-sm text-slate-400">Genera varias unidades sin serie o pega una serie por linea. Primero se muestra una previsualizacion para confirmar.</p>
                         <p class="mt-1 text-xs text-amber-200">La carga masiva no ajusta el stock agregado y no crea movimientos de stock SKU.</p>
                     </div>
-                    <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300">
-                        <span class="material-symbols-outlined text-base">format_list_numbered</span>
+                    <span aria-hidden="true" class="inline-flex w-fit items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-xs font-bold text-slate-500">
+                        <span class="material-symbols-outlined text-sm">format_list_numbered</span>
                         Varias unidades
                     </span>
                 </div>
@@ -636,28 +639,21 @@
                         @(conciliacion.HayDiferencia ? "Diferencia detectada" : "Conciliado")
                     </span>
                 </div>
-                <p class="mt-2 max-w-4xl text-sm text-slate-400">
-                    Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.
-                </p>
-                <p class="mt-2 max-w-4xl text-sm text-slate-400">
-                    Primero muestra la diferencia y despues separa las acciones asistidas, porque ajustar modifica el stock agregado y actualiza Kardex.
-                </p>
                 <p class="mt-2 max-w-4xl text-xs text-slate-400">
-                    Unidades registradas incluye todas las unidades no eliminadas, aunque esten vendidas, faltantes, anuladas o dadas de baja. Unidades disponibles corresponde a unidades en estado EnStock.
+                    Compara stock agregado del SKU vs unidades fisicas en estado EnStock. Los ajustes modifican stock y actualizan Kardex.
                 </p>
                 @if (!conciliacion.RequiereNumeroSerie)
                 {
-                    <p class="mt-2 max-w-4xl text-sm text-amber-200">
-                        Este producto no requiere trazabilidad individual. Las unidades cargadas son trazabilidad operativa opcional.
+                    <p class="mt-1 max-w-4xl text-xs text-amber-200">
+                        Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.
                     </p>
                 }
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="#listado-unidades"
-                   title="Ver historial/listado de unidades"
-                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
+                   class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
                     <span class="material-symbols-outlined text-base">arrow_upward</span>
-                    Volver al listado de unidades
+                    Volver al listado
                 </a>
                 @if (puedeAjustarStockAgregado)
                 {
@@ -677,22 +673,7 @@
             </div>
         </div>
 
-        <div class="mt-5 grid gap-3 lg:grid-cols-3">
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock agregado</p>
-                <p class="mt-1 text-sm text-slate-300">Cantidad numerica disponible del producto en el sistema.</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades fisicas</p>
-                <p class="mt-1 text-sm text-slate-300">Unidades individuales registradas. Para la comparacion se usan las disponibles en estado EnStock.</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Diferencia</p>
-                <p class="mt-1 text-sm text-slate-300">Desvio entre stock agregado y unidades fisicas disponibles. No cambia nada por si solo.</p>
-            </div>
-        </div>
-
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock agregado actual</p>
                 <p class="mt-1 text-2xl font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
@@ -730,6 +711,8 @@
             }
         </div>
 
+        @if (hayDesgloseVisible)
+        {
         <div class="mt-5 flex items-center gap-2 border-t border-slate-800 pt-4">
             <span class="material-symbols-outlined text-base text-slate-500">data_object</span>
             <h3 class="text-sm font-black text-slate-200">Desglose informativo de unidades registradas</h3>
@@ -764,6 +747,7 @@
                 <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesEnReparacion</p>
             </div>
         </div>
+        }
 
         <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
             <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>

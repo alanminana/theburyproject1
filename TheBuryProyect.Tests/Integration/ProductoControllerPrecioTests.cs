@@ -844,13 +844,11 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("En reparacion", html);
         Assert.Contains("Conciliado", html);
         Assert.Contains("Diferencia detectada", html);
-        Assert.Contains("Este panel compara el stock agregado del SKU contra las unidades fisicas disponibles. No realiza ajustes automaticamente.", html);
-        Assert.Contains("Unidades registradas incluye todas las unidades no eliminadas, aunque esten vendidas, faltantes, anuladas o dadas de baja.", html);
-        Assert.Contains("Unidades disponibles corresponde a unidades en estado EnStock.", html);
-        Assert.Contains("Este producto no requiere trazabilidad individual. Las unidades cargadas son trazabilidad operativa opcional.", html);
+        Assert.Contains("Compara stock agregado del SKU vs unidades fisicas en estado EnStock. Los ajustes modifican stock y actualizan Kardex.", html);
+        Assert.Contains("Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.", html);
         Assert.DoesNotContain("Total unidades activas", html);
         Assert.Contains("Ver Kardex SKU", html);
-        Assert.Contains("Ver historial/listado de unidades", html);
+        Assert.Contains("Volver al listado", html);
         Assert.DoesNotContain("ConciliarStockUnidades", html);
         Assert.DoesNotContain(">Conciliar stock agregado<", html);
         Assert.Contains("AjustarStockAgregadoAUnidadesFisicas", html);
