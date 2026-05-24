@@ -79,28 +79,28 @@
         </div>
     </section>
 
-    <nav class="sticky top-0 z-10 rounded-lg border border-slate-800 bg-slate-950/95 p-2 shadow-lg shadow-slate-950/20 backdrop-blur" aria-label="Modos de trabajo de unidades">
+    <nav class="sticky top-0 z-10 rounded-lg border border-slate-800 bg-slate-950/95 p-2 shadow-lg shadow-slate-950/20 backdrop-blur" role="tablist" aria-label="Modos de unidades">
         <div class="flex gap-2 overflow-x-auto">
-            <a href="#modo-unidades" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25">
+            <button type="button" id="tab-modo-unidades" role="tab" data-tab-target="modo-unidades" aria-controls="modo-unidades" aria-selected="true" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25">
                 <span class="material-symbols-outlined text-base">table_rows</span>
                 Unidades
-            </a>
-            <a href="#modo-carga" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+            </button>
+            <button type="button" id="tab-modo-carga" role="tab" data-tab-target="modo-carga" aria-controls="modo-carga" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
                 <span class="material-symbols-outlined text-base">add_circle</span>
                 Carga
-            </a>
-            <a href="#modo-conciliacion" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+            </button>
+            <button type="button" id="tab-modo-conciliacion" role="tab" data-tab-target="modo-conciliacion" aria-controls="modo-conciliacion" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
                 <span class="material-symbols-outlined text-base">fact_check</span>
                 Conciliacion
-            </a>
-            <a href="#modo-configuracion" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+            </button>
+            <button type="button" id="tab-modo-configuracion" role="tab" data-tab-target="modo-configuracion" aria-controls="modo-configuracion" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
                 <span class="material-symbols-outlined text-base">tune</span>
                 Configuracion
-            </a>
+            </button>
         </div>
     </nav>
 
-    <div id="modo-unidades" class="scroll-mt-32 space-y-4">
+    <section id="modo-unidades" role="tabpanel" data-tab-panel="modo-unidades" aria-labelledby="tab-modo-unidades" class="scroll-mt-32 space-y-4">
         <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Unidades</p>
@@ -356,7 +356,8 @@
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="@modalAccionesTituloId"
-                    class="w-[min(92vw,34rem)] rounded-lg border border-slate-700 bg-slate-950 p-0 text-left text-slate-200 shadow-2xl shadow-slate-950/70 backdrop:bg-slate-950/80">
+                    style="margin: auto;"
+                    class="m-auto w-[min(92vw,34rem)] rounded-lg border border-slate-700 bg-slate-950 p-0 text-left text-slate-200 shadow-2xl shadow-slate-950/70 backdrop:bg-slate-950/80">
                 <div class="border-b border-slate-800 p-4">
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -448,9 +449,9 @@
             </dialog>
         }
     }
-    </div>
+    </section>
 
-    <div id="modo-carga" class="scroll-mt-32 space-y-4">
+    <section id="modo-carga" role="tabpanel" data-tab-panel="modo-carga" aria-labelledby="tab-modo-carga" class="scroll-mt-32 space-y-4" hidden>
         <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Carga</p>
@@ -622,9 +623,9 @@
                 </form>
             </section>
         </div>
-    </div>
+    </section>
 
-    <div id="modo-conciliacion" class="scroll-mt-32 space-y-4">
+    <section id="modo-conciliacion" role="tabpanel" data-tab-panel="modo-conciliacion" aria-labelledby="tab-modo-conciliacion" class="scroll-mt-32 space-y-4" hidden>
         <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Conciliacion</p>
@@ -856,9 +857,9 @@
             </div>
         }
     </section>
-    </div>
+    </section>
 
-    <div id="modo-configuracion" class="scroll-mt-32 space-y-4">
+    <section id="modo-configuracion" role="tabpanel" data-tab-panel="modo-configuracion" aria-labelledby="tab-modo-configuracion" class="scroll-mt-32 space-y-4" hidden>
         <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Configuracion</p>
@@ -934,7 +935,7 @@
             </div>
         </div>
     </section>
-    </div>
+    </section>
 </div>
 
 @section Scripts {
@@ -942,20 +943,85 @@
 (function () {
     var ACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25';
     var INACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white';
-    var nav = document.querySelector('[aria-label="Modos de trabajo de unidades"]');
-    if (!nav) return;
-    var links = Array.from(nav.querySelectorAll('a'));
-    function setActive(hash) {
-        var target = hash || '#modo-unidades';
-        links.forEach(function (link) {
-            link.className = link.getAttribute('href') === target ? ACTIVE : INACTIVE;
+    var panelByHash = {
+        'modo-unidades': 'modo-unidades',
+        'modo-carga': 'modo-carga',
+        'modo-conciliacion': 'modo-conciliacion',
+        'modo-configuracion': 'modo-configuracion',
+        'listado-unidades': 'modo-unidades',
+        'form-carga-masiva-unidades': 'modo-carga',
+        'ajuste-asistido': 'modo-conciliacion'
+    };
+    var tablist = document.querySelector('[role="tablist"][aria-label="Modos de unidades"]');
+    if (!tablist) return;
+    var tabs = Array.from(tablist.querySelectorAll('[role="tab"][data-tab-target]'));
+    var panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+
+    function normalizeHash(hash) {
+        return (hash || '').replace(/^#/, '');
+    }
+
+    function panelIdFromHash(hash) {
+        var requested = normalizeHash(hash);
+        return panelByHash[requested] || 'modo-unidades';
+    }
+
+    function setActivePanel(panelId) {
+        panels.forEach(function (panel) {
+            panel.hidden = panel.getAttribute('data-tab-panel') !== panelId;
+        });
+        tabs.forEach(function (tab) {
+            var selected = tab.getAttribute('data-tab-target') === panelId;
+            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+            tab.setAttribute('tabindex', selected ? '0' : '-1');
+            tab.className = selected ? ACTIVE : INACTIVE;
         });
     }
-    setActive(location.hash);
-    links.forEach(function (link) {
-        link.addEventListener('click', function () { setActive(link.getAttribute('href')); });
+
+    function updateHash(hash) {
+        if (!hash || location.hash === hash) return;
+        history.replaceState(null, '', hash);
+    }
+
+    function activateFromHash(hash, shouldUpdateHash) {
+        var targetPanelId = panelIdFromHash(hash);
+        setActivePanel(targetPanelId);
+        if (shouldUpdateHash) {
+            updateHash(hash || '#' + targetPanelId);
+        }
+    }
+
+    activateFromHash(location.hash, false);
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var targetPanelId = tab.getAttribute('data-tab-target');
+            activateFromHash('#' + targetPanelId, true);
+        });
+
+        tab.addEventListener('keydown', function (event) {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            var currentIndex = tabs.indexOf(tab);
+            var direction = event.key === 'ArrowRight' ? 1 : -1;
+            var nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
+            nextTab.focus();
+            activateFromHash('#' + nextTab.getAttribute('data-tab-target'), true);
+        });
     });
-    window.addEventListener('hashchange', function () { setActive(location.hash); });
+
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest('a[href^="#"]');
+        if (!link) return;
+        var hash = link.getAttribute('href');
+        if (!panelByHash[normalizeHash(hash)]) return;
+        event.preventDefault();
+        activateFromHash(hash, true);
+    });
+
+    window.addEventListener('hashchange', function () {
+        activateFromHash(location.hash, false);
+    });
 }());
 </script>
 }

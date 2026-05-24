@@ -798,6 +798,26 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public void UnidadesView_UsaTabsRealesParaModos()
+    {
+        var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
+
+        Assert.Contains("role=\"tablist\" aria-label=\"Modos de unidades\"", html);
+        Assert.Contains("type=\"button\" id=\"tab-modo-unidades\" role=\"tab\" data-tab-target=\"modo-unidades\"", html);
+        Assert.Contains("type=\"button\" id=\"tab-modo-carga\" role=\"tab\" data-tab-target=\"modo-carga\"", html);
+        Assert.Contains("type=\"button\" id=\"tab-modo-conciliacion\" role=\"tab\" data-tab-target=\"modo-conciliacion\"", html);
+        Assert.Contains("type=\"button\" id=\"tab-modo-configuracion\" role=\"tab\" data-tab-target=\"modo-configuracion\"", html);
+        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-unidades\"", html);
+        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-carga\"", html);
+        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-conciliacion\"", html);
+        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-configuracion\"", html);
+        Assert.Contains("panelByHash", html);
+        Assert.DoesNotContain("<a href=\"#modo-carga\" class=\"inline-flex min-h-[40px]", html);
+        Assert.DoesNotContain("<a href=\"#modo-conciliacion\" class=\"inline-flex min-h-[40px]", html);
+        Assert.DoesNotContain("<a href=\"#modo-configuracion\" class=\"inline-flex min-h-[40px]", html);
+    }
+
+    [Fact]
     public void UnidadesView_MuestraFormularioCargaMasivaConPreview()
     {
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
