@@ -1254,6 +1254,122 @@ public class VentaCreateUiContractTests
         Assert.Contains("if (heroCliente && heroClienteDetalle)", fn);
     }
 
+    // ── KIRA-VENTAS-MODAL-REWORK-1E — navegación inteligente del wizard ─────────
+
+    [Fact]
+    public void VentaModalReworkJs_ExponeFuncionesNavegacionInteligente()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        // API pública completa post-1E
+        Assert.Contains("refreshState:", script);
+        Assert.Contains("goToFirstInvalidStep:", script);
+        Assert.Contains("window.VentaModalRework", script);
+        // Funciones anteriores conservadas
+        Assert.Contains("activateStep:", script);
+        Assert.Contains("updateStepState:", script);
+        Assert.Contains("setOperationState:", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ImplementaEvaluacionDeEstadosPorPaso()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("function evaluateStepStates", script);
+        Assert.Contains("function refreshState", script);
+        Assert.Contains("function goToFirstInvalidStep", script);
+        // Todos los pasos deben actualizarse en refreshState
+        Assert.Contains("updateStepState('cliente'", script);
+        Assert.Contains("updateStepState('productos'", script);
+        Assert.Contains("updateStepState('pago'", script);
+        Assert.Contains("updateStepState('credito'", script);
+        Assert.Contains("updateStepState('revision'", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ObservaSelectoresClaveDeEstado()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        // Selectores observados para detectar cambios de estado sin tocar venta-create.js
+        Assert.Contains("info-cliente", script);
+        Assert.Contains("tbody-detalles", script);
+        Assert.Contains("select-tipo-pago", script);
+        Assert.Contains("panel-cupo-insuficiente", script);
+        Assert.Contains("panel-alerta-mora", script);
+        Assert.Contains("MutationObserver", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_NavegaAlPasoInvalidoEnSubmit()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function goToFirstInvalidStep");
+
+        // Debe navegar al primer paso inválido en orden de prioridad
+        Assert.Contains("activateStep('cliente')", fn);
+        Assert.Contains("activateStep('productos')", fn);
+        Assert.Contains("activateStep('credito')", fn);
+        // Devuelve el paso al que navegó (o null si todo OK)
+        Assert.Contains("return 'cliente'", fn);
+        Assert.Contains("return null", fn);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_InterceptaClickConfirmarParaNavegar()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        // Captura el click en capture phase antes del onclick="VentaCrearModal.submit()"
+        Assert.Contains("btn-confirmar", script);
+        Assert.Contains("goToFirstInvalidStep()", script);
+        // La función initSubmitNavigation NO llama preventDefault — deja proceder el submit
+        var fn = ExtractFunction(script, "function initSubmitNavigation");
+        Assert.DoesNotContain("preventDefault", fn);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_EvaluaClienteConInfoClientePanel()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function evaluateStepStates");
+
+        // Usa info-cliente (visible/hidden) como proxy del cliente seleccionado
+        // ya que venta-create.js hace show/hide del panel al seleccionar cliente
+        Assert.Contains("info-cliente", fn);
+        Assert.Contains("classList.contains('hidden')", fn);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_EvaluaCreditoConPanelesDeCreditoVisibles()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function evaluateStepStates");
+
+        // Estados crediticios se detectan via visibilidad de paneles
+        Assert.Contains("panel-cupo-insuficiente", fn);
+        Assert.Contains("panel-alerta-mora", fn);
+        Assert.Contains("panel-documentacion-faltante", fn);
+        Assert.Contains("panel-cupo-suficiente", fn);
+        Assert.Contains("requiereCredito", fn);
+    }
+
+    [Fact]
+    public void VentaCrearModal_InfoClientePanelExisteCon_id()
+    {
+        // Contrato estructural: info-cliente debe existir con id correcto
+        // para que los observers de 1E puedan detectar cambios de visibilidad
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"info-cliente\"", modal);
+        // Debe iniciar hidden (sin cliente al abrir el modal)
+        var idx = modal.IndexOf("id=\"info-cliente\"", StringComparison.Ordinal);
+        var tagEnd = modal.IndexOf('>', idx);
+        var tag = modal[idx..tagEnd];
+        Assert.Contains("hidden", tag, StringComparison.Ordinal);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);

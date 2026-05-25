@@ -1,6 +1,6 @@
 /**
  * venta-modal-rework.js
- * KIRA-VENTAS-MODAL-REWORK-1C
+ * KIRA-VENTAS-MODAL-REWORK-1C / 1E
  *
  * Wizard UI para el modal fullscreen de Nueva Venta.
  * Complementa venta-crear-modal.js y venta-create.js sin reemplazarlos.
@@ -11,6 +11,8 @@
  *   window.VentaModalRework.closeSubmodal(id)
  *   window.VentaModalRework.setOperationState(state)
  *   window.VentaModalRework.updateStepState(stepName, state)
+ *   window.VentaModalRework.refreshState()          ← 1E
+ *   window.VentaModalRework.goToFirstInvalidStep()  ← 1E
  *
  * Orden de carga requerido:
  *   horizontal-scroll-affordance.js → venta-module.js → venta-create.js
@@ -23,6 +25,9 @@
     if (!document.getElementById('modal-crear-venta')) return;
 
     var STEPS = ['cliente', 'productos', 'pago', 'credito', 'revision'];
+
+    // Tipos de pago que requieren verificación crediticia (coincide con TipoPago.cs enum)
+    var TIPO_PAGO_CREDITO = ['5', '7']; // CreditoPersonal = 5, CuentaCorriente = 7
 
 
     // ── Wizard Steps ──────────────────────────────────────────────────────────
@@ -49,7 +54,6 @@
                 if (isActive) {
                     panel.classList.remove('hidden');
                     panel.classList.add('vm-step-panel-active');
-                    // Quitar clase de animación después de que termina
                     setTimeout(function () {
                         panel.classList.remove('vm-step-panel-active');
                     }, 300);
@@ -59,6 +63,9 @@
                 }
             }
         });
+
+        // Re-aplicar clases de estado a tabs inactivos tras el cambio de paso
+        refreshState();
     }
 
     function getCurrentStepIndex() {
@@ -212,7 +219,214 @@
         document.addEventListener('venta-crear-modal:open', function () {
             activateStep(STEPS[0]);
             setOperationState('incompleta');
+            // Diferir refreshState para que venta-create.js tenga tiempo de resetear
+            // sus paneles de crédito/verificación antes de evaluar el estado
+            setTimeout(refreshState, 50);
         });
+    }
+
+
+    // ── 1E: Evaluación de estados de pasos ────────────────────────────────────
+
+    function evaluateStepStates() {
+        var infoClienteEl   = document.getElementById('info-cliente');
+        var tbody           = document.getElementById('tbody-detalles');
+        var selectTP        = document.getElementById('select-tipo-pago');
+        var panelCupoInsuf  = document.getElementById('panel-cupo-insuficiente');
+        var panelMora       = document.getElementById('panel-alerta-mora');
+        var panelDocFalt    = document.getElementById('panel-documentacion-faltante');
+        var panelCupoSuf    = document.getElementById('panel-cupo-suficiente');
+
+        // info-cliente visible === cliente seleccionado (venta-create.js lo muestra/oculta)
+        var tieneCliente   = infoClienteEl && !infoClienteEl.classList.contains('hidden');
+        var tieneProductos = tbody && tbody.children.length > 0;
+        var tipoPago       = selectTP ? selectTP.value : '';
+        var tienePago      = tipoPago !== '';
+
+        var requiereCredito = TIPO_PAGO_CREDITO.indexOf(tipoPago) !== -1;
+        var cupoInsuf       = panelCupoInsuf && !panelCupoInsuf.classList.contains('hidden');
+        var moraActiva      = panelMora && !panelMora.classList.contains('hidden');
+        var docFalt         = panelDocFalt && !panelDocFalt.classList.contains('hidden');
+        var cupoSuf         = panelCupoSuf && !panelCupoSuf.classList.contains('hidden');
+
+        // Paso Cliente
+        var estadoCliente;
+        if (tieneCliente) {
+            estadoCliente = 'complete';
+        } else if (requiereCredito) {
+            // Crédito/Cuenta Corriente requieren cliente; marca urgente
+            estadoCliente = 'warning';
+        } else {
+            estadoCliente = 'default';
+        }
+
+        // Paso Productos
+        var estadoProductos = tieneProductos ? 'complete' : 'default';
+
+        // Paso Pago (panel de detalle de cobro: tarjeta, cheque, planes)
+        var estadoPago;
+        if (!tienePago) {
+            estadoPago = 'default';
+        } else if (cupoInsuf) {
+            estadoPago = 'warning';
+        } else {
+            estadoPago = 'complete';
+        }
+
+        // Paso Crédito
+        var estadoCredito;
+        if (!requiereCredito) {
+            estadoCredito = 'complete'; // no aplica para este tipo de pago
+        } else if (cupoInsuf || moraActiva) {
+            estadoCredito = 'warning';
+        } else if (docFalt) {
+            estadoCredito = 'warning';
+        } else if (cupoSuf) {
+            estadoCredito = 'complete';
+        } else {
+            estadoCredito = 'default'; // requiere verificación pero aún no verificado
+        }
+
+        // Paso Revisión
+        var hayAlertas = cupoInsuf || moraActiva || docFalt;
+        var estadoRevision;
+        if (tieneCliente && tieneProductos && tienePago && !hayAlertas) {
+            estadoRevision = 'complete';
+        } else if (hayAlertas) {
+            estadoRevision = 'warning';
+        } else {
+            estadoRevision = 'default';
+        }
+
+        return {
+            cliente:  estadoCliente,
+            productos: estadoProductos,
+            pago:     estadoPago,
+            credito:  estadoCredito,
+            revision: estadoRevision
+        };
+    }
+
+    function refreshState() {
+        var estados = evaluateStepStates();
+
+        updateStepState('cliente',  estados.cliente);
+        updateStepState('productos', estados.productos);
+        updateStepState('pago',     estados.pago);
+        updateStepState('credito',  estados.credito);
+        updateStepState('revision', estados.revision);
+
+        // Badge global de operación
+        var hayAlertas  = estados.credito === 'warning' || estados.pago === 'warning' || estados.revision === 'warning';
+        var todoCritico = estados.cliente === 'complete' && estados.productos === 'complete' && estados.pago === 'complete';
+
+        if (todoCritico && !hayAlertas) {
+            setOperationState('lista');
+        } else if (hayAlertas) {
+            setOperationState('alerta');
+        } else {
+            setOperationState('incompleta');
+        }
+    }
+
+
+    // ── 1E: Navegación automática al paso inválido ────────────────────────────
+
+    function safelyFocus(id) {
+        var el = document.getElementById(id);
+        if (!el || typeof el.focus !== 'function') return;
+        // Diferir foco para que el panel esté visible antes de enfocar
+        setTimeout(function () { el.focus(); }, 60);
+    }
+
+    function goToFirstInvalidStep() {
+        var estados = evaluateStepStates();
+
+        // Prioridad: cliente → productos → crédito → pago
+        if (estados.cliente !== 'complete') {
+            activateStep('cliente');
+            safelyFocus('input-buscar-cliente');
+            return 'cliente';
+        }
+
+        if (estados.productos !== 'complete') {
+            activateStep('productos');
+            safelyFocus('input-buscar-producto');
+            return 'productos';
+        }
+
+        if (estados.credito === 'warning') {
+            activateStep('credito');
+            safelyFocus('btn-verificar-elegibilidad');
+            return 'credito';
+        }
+
+        if (estados.pago === 'warning') {
+            activateStep('pago');
+            return 'pago';
+        }
+
+        return null; // todo OK, dejar proceder el submit
+    }
+
+
+    // ── 1E: Observers y listeners de estado ──────────────────────────────────
+
+    function initStateObservers() {
+        // Cliente: observar visibilidad de #info-cliente
+        // venta-create.js hace show(infoCliente)/hide(infoCliente) al seleccionar/limpiar
+        var infoCliente = document.getElementById('info-cliente');
+        if (infoCliente) {
+            new MutationObserver(refreshState)
+                .observe(infoCliente, { attributes: true, attributeFilter: ['class'] });
+        }
+
+        // Productos: observar hijos de #tbody-detalles (renderDetalles() los reemplaza)
+        var tbody = document.getElementById('tbody-detalles');
+        if (tbody) {
+            new MutationObserver(refreshState)
+                .observe(tbody, { childList: true });
+        }
+
+        // Tipo de pago (change determina si se requiere crédito y qué paneles se muestran)
+        var selectTP = document.getElementById('select-tipo-pago');
+        if (selectTP) {
+            selectTP.addEventListener('change', refreshState);
+        }
+
+        // Paneles crediticios: observar clase hidden (venta-create.js los muestra/oculta)
+        var creditPanelIds = [
+            'panel-cupo-insuficiente',
+            'panel-alerta-mora',
+            'panel-documentacion-faltante',
+            'panel-cupo-suficiente'
+        ];
+        creditPanelIds.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                new MutationObserver(refreshState)
+                    .observe(el, { attributes: true, attributeFilter: ['class'] });
+            }
+        });
+
+        // Vendedor (si el selector delegado existe en la vista)
+        var vendedor = document.getElementById('VendedorUserId');
+        if (vendedor) {
+            vendedor.addEventListener('change', refreshState);
+        }
+    }
+
+
+    // ── 1E: Navegación al intentar confirmar ─────────────────────────────────
+
+    function initSubmitNavigation() {
+        // Fase de captura: se ejecuta antes de onclick="VentaCrearModal.submit()".
+        // Si hay pasos inválidos, navegar al primero; el submit sigue su curso normal.
+        // venta-create.js maneja su propia validación del formulario.
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#btn-confirmar') && !e.target.closest('.vm-btn-confirm-sm')) return;
+            goToFirstInvalidStep();
+        }, true);
     }
 
 
@@ -223,6 +437,10 @@
         initPagoItemSubmodal();
         initStickyTotalMirror();
         initModalOpenReset();
+        initStateObservers();
+        initSubmitNavigation();
+        // Estado inicial luego de que venta-create.js ejecuta su init
+        setTimeout(refreshState, 100);
     }
 
     if (document.readyState === 'loading') {
@@ -235,11 +453,13 @@
     // ── API pública ───────────────────────────────────────────────────────────
 
     window.VentaModalRework = {
-        activateStep:      activateStep,
-        openSubmodal:      openSubmodal,
-        closeSubmodal:     closeSubmodal,
-        setOperationState: setOperationState,
-        updateStepState:   updateStepState
+        activateStep:         activateStep,
+        openSubmodal:         openSubmodal,
+        closeSubmodal:        closeSubmodal,
+        setOperationState:    setOperationState,
+        updateStepState:      updateStepState,
+        refreshState:         refreshState,
+        goToFirstInvalidStep: goToFirstInvalidStep
     };
 
 }());
