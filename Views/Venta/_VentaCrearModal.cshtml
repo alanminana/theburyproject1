@@ -94,7 +94,7 @@
     <div class="vm-mobile-summary-bar" role="region" aria-label="Resumen de compra">
         <div class="vm-mobile-summary-bar__info">
             <span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">receipt_long</span>
-            <span>Total: <strong id="vm-modal-sticky-total">$0,00</strong></span>
+            <span>Total: <strong id="vm-modal-sticky-total" data-mobile-total>$0,00</strong></span>
         </div>
         <button type="button"
                 class="vm-btn-confirm-sm"
@@ -450,6 +450,14 @@
                                     <h3 class="text-base font-bold text-white">Detalle de cobro</h3>
                                     <p class="mt-0.5 text-xs text-slate-400">Los campos se adaptan segun el tipo de pago principal elegido.</p>
                                 </div>
+                            </div>
+
+                            <div class="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-blue-300">Pago principal</p>
+                                <p data-pago-summary class="mt-1 text-sm font-bold text-white">Sin definir</p>
+                                <p class="mt-1 text-xs text-slate-400">
+                                    Este medio se aplica a la venta completa. Los ajustes por producto se mantienen en su propio submodal.
+                                </p>
                             </div>
 
                             @* Estado configuración pagos global — usado por JS, siempre oculto *@
@@ -818,6 +826,40 @@
                                 <div id="revision-alertas-lista" class="hidden space-y-2"></div>
                             </div>
 
+                            <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cliente</p>
+                                    <p data-rev-cliente class="mt-1 text-sm font-bold text-white">Sin seleccionar</p>
+                                    <p data-rev-fecha class="mt-1 text-xs text-slate-400">Fecha sin definir</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pago</p>
+                                    <p data-rev-pago class="mt-1 text-sm font-bold text-white">Sin definir</p>
+                                    <p data-rev-items class="mt-1 text-xs text-slate-400">0 productos</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 md:col-span-2">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Totales</p>
+                                    <div class="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+                                        <div>
+                                            <p class="text-slate-500">Subtotal</p>
+                                            <p data-rev-subtotal class="mt-1 font-bold text-slate-200">$0,00</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-slate-500">Descuento</p>
+                                            <p data-rev-descuento class="mt-1 font-bold text-slate-200">-$0,00</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-slate-500">IVA</p>
+                                            <p data-rev-iva class="mt-1 font-bold text-slate-200">$0,00</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-slate-500">Total</p>
+                                            <p data-rev-total class="mt-1 font-bold text-white">$0,00</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 text-sm text-slate-400">
                                 <p class="mb-2 font-bold text-slate-300">Revisá antes de confirmar:</p>
                                 <ul class="list-inside list-disc space-y-1 text-xs">
@@ -908,23 +950,37 @@
                         </div>
 
                         <div class="mb-5 space-y-3 rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                            <div class="border-b border-slate-700/50 pb-3 text-xs">
+                                <div class="flex justify-between gap-3">
+                                    <span class="text-slate-400">Cliente</span>
+                                    <span data-side-cliente class="text-right font-semibold text-slate-200">Sin seleccionar</span>
+                                </div>
+                                <div class="mt-2 flex justify-between gap-3">
+                                    <span class="text-slate-400">Productos</span>
+                                    <span data-side-items class="text-right font-semibold text-slate-200">0 productos</span>
+                                </div>
+                                <div class="mt-2 flex justify-between gap-3">
+                                    <span class="text-slate-400">Pago</span>
+                                    <span data-side-pago class="text-right font-semibold text-slate-200">Sin definir</span>
+                                </div>
+                            </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-400">Subtotal Neto</span>
-                                <span id="total-subtotal" class="font-semibold text-slate-200">$0,00</span>
+                                <span id="total-subtotal" data-side-subtotal class="font-semibold text-slate-200">$0,00</span>
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-400">Descuento (<span id="total-descuento-label">0%</span>)</span>
-                                <span id="total-descuento" class="font-semibold text-slate-200">-$0,00</span>
+                                <span id="total-descuento" data-side-descuento class="font-semibold text-slate-200">-$0,00</span>
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-400">IVA total</span>
-                                <span id="total-iva" class="font-semibold text-slate-200">$0,00</span>
+                                <span id="total-iva" data-side-iva class="font-semibold text-slate-200">$0,00</span>
                             </div>
                             <div class="border-t border-slate-700/50 pt-3">
                                 <div class="flex items-center justify-between">
                                     <span class="text-base font-bold text-slate-100">TOTAL FINAL</span>
                                     <div class="text-right">
-                                        <span id="total-final" class="block text-3xl font-black text-white">$0,00</span>
+                                        <span id="total-final" data-side-total class="block text-3xl font-black text-white">$0,00</span>
                                         <span class="text-[10px] text-slate-500">ARS pesos argentinos</span>
                                     </div>
                                 </div>
@@ -939,7 +995,16 @@
                         @* ── Recordatorio pre-confirmación ── *@
                         <div class="vm-preconfirm-reminder" role="note" aria-label="Revisá antes de confirmar">
                             <span class="material-symbols-outlined" aria-hidden="true">checklist</span>
-                            <p>Revisá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o documentación, verificalas antes de continuar.</p>
+                            <p>
+                                Revisá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o documentación, verificalas antes de continuar.
+                                <span class="mt-2 block text-slate-300">
+                                    <span data-conf-cliente>Cliente sin seleccionar</span> ·
+                                    <span data-conf-items>0 productos</span> ·
+                                    <span data-conf-pago>Pago sin definir</span> ·
+                                    <span data-conf-total>$0,00</span> ·
+                                    <span data-conf-credito>Credito no requerido</span>
+                                </span>
+                            </p>
                         </div>
 
                         <button type="button" id="btn-confirmar"

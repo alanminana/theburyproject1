@@ -1,6 +1,6 @@
 /**
  * venta-modal-rework.js
- * KIRA-VENTAS-MODAL-REWORK-1C / 1E
+ * KIRA-VENTAS-MODAL-REWORK-1C / 1E / 1F
  *
  * Wizard UI para el modal fullscreen de Nueva Venta.
  * Complementa venta-crear-modal.js y venta-create.js sin reemplazarlos.
@@ -28,6 +28,199 @@
 
     // Tipos de pago que requieren verificación crediticia (coincide con TipoPago.cs enum)
     var TIPO_PAGO_CREDITO = ['5', '7']; // CreditoPersonal = 5, CuentaCorriente = 7
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function textOf(id, fallback) {
+        var el = byId(id);
+        var text = el ? el.textContent.trim() : '';
+        return text || fallback;
+    }
+
+    function valueOf(id, fallback) {
+        var el = byId(id);
+        var value = el ? el.value : '';
+        return value || fallback;
+    }
+
+    function setText(selector, value) {
+        document.querySelectorAll(selector).forEach(function (el) {
+            if (el.textContent === value) return;
+            el.textContent = value;
+        });
+    }
+
+    function isVisible(id) {
+        var el = byId(id);
+        return Boolean(el && !el.classList.contains('hidden'));
+    }
+
+    function getPaymentText() {
+        var selectTP = byId('select-tipo-pago');
+        var text = selectTP && selectTP.selectedOptions && selectTP.selectedOptions[0]
+            ? selectTP.selectedOptions[0].textContent.trim()
+            : '';
+        return text || 'Sin definir';
+    }
+
+    function getClientSummary() {
+        if (!isVisible('info-cliente')) return 'Sin seleccionar';
+
+        var name = textOf('info-cliente-nombre', '');
+        var doc = textOf('info-cliente-doc', '');
+
+        if (name && doc) return name + ' - ' + doc;
+        if (name) return name;
+        return 'Cliente seleccionado';
+    }
+
+    function getItemSummary() {
+        var badge = byId('detalle-items-badge');
+        var badgeText = badge ? badge.textContent.trim() : '';
+        var match = badgeText.match(/(\d+)\s+producto/);
+        if (match) return match[1] === '1' ? '1 producto' : match[1] + ' productos';
+
+        var tbody = byId('tbody-detalles');
+        var count = tbody ? tbody.children.length : 0;
+        return count === 1 ? '1 producto' : count + ' productos';
+    }
+
+    function getCreditSummary() {
+        var selectTP = byId('select-tipo-pago');
+        var tipoPago = selectTP ? selectTP.value : '';
+        var requiereCredito = TIPO_PAGO_CREDITO.indexOf(tipoPago) !== -1;
+
+        if (!requiereCredito) return 'Credito no requerido';
+        if (isVisible('panel-cupo-insuficiente')) return 'Credito con cupo insuficiente';
+        if (isVisible('panel-alerta-mora')) return 'Credito con alerta de mora';
+        if (isVisible('panel-documentacion-faltante')) return 'Credito con documentacion pendiente';
+        if (isVisible('panel-cupo-suficiente')) return 'Credito verificado';
+        return 'Credito pendiente de verificacion';
+    }
+
+    function getFechaSummary() {
+        var raw = valueOf('FechaVenta', '');
+        if (!raw) return 'Fecha sin definir';
+        var parts = raw.split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return raw;
+    }
+
+    function getAlertItems() {
+        var items = [];
+        if (isVisible('panel-cupo-insuficiente')) items.push('Cupo insuficiente para completar la venta.');
+        if (isVisible('panel-alerta-mora')) items.push('Cliente con alerta de mora activa.');
+        if (isVisible('panel-documentacion-faltante')) items.push('Documentacion crediticia pendiente.');
+        if (isVisible('venta-ajax-validation-summary')) items.push('Hay errores de validacion pendientes.');
+        if (isVisible('panel-diagnostico-condiciones-pago')) items.push('Hay diagnostico de condiciones de pago visible.');
+        return items;
+    }
+
+    function syncPaymentSummary() {
+        var paymentText = getPaymentText();
+        setText('[data-pago-summary]', paymentText);
+        setText('[data-rev-pago]', paymentText);
+        setText('[data-side-pago]', paymentText);
+        setText('[data-conf-pago]', paymentText);
+    }
+
+    function syncTotalsSummary() {
+        var subtotal = textOf('total-subtotal', '$0,00');
+        var descuento = textOf('total-descuento', '-$0,00');
+        var iva = textOf('total-iva', '$0,00');
+        var total = textOf('total-final', '$0,00');
+
+        setText('[data-side-subtotal]', subtotal);
+        setText('[data-side-descuento]', descuento);
+        setText('[data-side-iva]', iva);
+        setText('[data-side-total]', total);
+        setText('[data-rev-subtotal]', subtotal);
+        setText('[data-rev-descuento]', descuento);
+        setText('[data-rev-iva]', iva);
+        setText('[data-rev-total]', total);
+        setText('[data-mobile-total]', total);
+        setText('[data-conf-total]', total);
+    }
+
+    function syncReviewAlerts() {
+        var alerts = getAlertItems();
+        var badge = byId('revision-alertas-badge');
+        var empty = byId('revision-alertas-vacio');
+        var list = byId('revision-alertas-lista');
+
+        if (badge) {
+            badge.textContent = alerts.length === 1 ? '1 alerta' : alerts.length + ' alertas';
+            badge.classList.toggle('hidden', alerts.length === 0);
+        }
+
+        if (empty) {
+            empty.classList.toggle('hidden', alerts.length > 0);
+        }
+
+        if (list) {
+            list.replaceChildren();
+            alerts.forEach(function (message) {
+                var item = document.createElement('p');
+                item.className = 'rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs font-semibold text-red-300';
+                item.textContent = message;
+                list.appendChild(item);
+            });
+            list.classList.toggle('hidden', alerts.length === 0);
+        }
+    }
+
+    function syncReviewPanel() {
+        setText('[data-rev-cliente]', getClientSummary());
+        setText('[data-rev-fecha]', getFechaSummary());
+        setText('[data-rev-items]', getItemSummary());
+        syncPaymentSummary();
+        syncTotalsSummary();
+        syncReviewAlerts();
+    }
+
+    function syncConfirmationPanel() {
+        setText('[data-conf-cliente]', getClientSummary());
+        setText('[data-conf-items]', getItemSummary());
+        setText('[data-conf-pago]', getPaymentText());
+        setText('[data-conf-total]', textOf('total-final', '$0,00'));
+        setText('[data-conf-credito]', getCreditSummary());
+    }
+
+    function syncItemPaymentModal() {
+        var modal = byId('modal-pago-item');
+        if (!modal) return;
+
+        var title = byId('modal-pago-item-titulo');
+        if (title && !title.textContent.trim()) {
+            title.textContent = 'Ajuste opcional por producto';
+        }
+
+        var select = byId('select-tipo-pago-item');
+        if (select && select.options.length > 0 && select.options[0].value === '') {
+            select.options[0].textContent = 'Igual al pago principal: ' + getPaymentText();
+        }
+
+        var planes = byId('modal-pago-item-planes');
+        if (planes && planes.children.length === 0 && !planes.textContent.trim()) {
+            planes.textContent = 'Sin planes especificos cargados para este item.';
+        }
+    }
+
+    function syncSidebarSummary() {
+        setText('[data-side-cliente]', getClientSummary());
+        setText('[data-side-items]', getItemSummary());
+        syncPaymentSummary();
+        syncTotalsSummary();
+    }
+
+    function syncVisualSummaries() {
+        syncSidebarSummary();
+        syncReviewPanel();
+        syncConfirmationPanel();
+        syncItemPaymentModal();
+    }
 
 
     // ── Wizard Steps ──────────────────────────────────────────────────────────
@@ -327,6 +520,8 @@
         } else {
             setOperationState('incompleta');
         }
+
+        syncVisualSummaries();
     }
 
 
@@ -378,8 +573,16 @@
         var infoCliente = document.getElementById('info-cliente');
         if (infoCliente) {
             new MutationObserver(refreshState)
-                .observe(infoCliente, { attributes: true, attributeFilter: ['class'] });
+                .observe(infoCliente, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
         }
+
+        ['info-cliente-nombre', 'info-cliente-doc'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                new MutationObserver(refreshState)
+                    .observe(el, { childList: true, characterData: true, subtree: true });
+            }
+        });
 
         // Productos: observar hijos de #tbody-detalles (renderDetalles() los reemplaza)
         var tbody = document.getElementById('tbody-detalles');
@@ -388,10 +591,36 @@
                 .observe(tbody, { childList: true });
         }
 
+        var hiddenInputs = document.getElementById('detalles-hidden-inputs');
+        if (hiddenInputs) {
+            new MutationObserver(refreshState)
+                .observe(hiddenInputs, { childList: true, subtree: true });
+        }
+
         // Tipo de pago (change determina si se requiere crédito y qué paneles se muestran)
         var selectTP = document.getElementById('select-tipo-pago');
         if (selectTP) {
             selectTP.addEventListener('change', refreshState);
+        }
+
+        ['total-subtotal', 'total-descuento', 'total-iva', 'total-final'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                new MutationObserver(refreshState)
+                    .observe(el, { childList: true, characterData: true, subtree: true });
+            }
+        });
+
+        ['hdn-subtotal', 'hdn-descuento', 'hdn-iva', 'hdn-total'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', refreshState);
+            }
+        });
+
+        var fechaVenta = document.getElementById('FechaVenta');
+        if (fechaVenta) {
+            fechaVenta.addEventListener('change', refreshState);
         }
 
         // Paneles crediticios: observar clase hidden (venta-create.js los muestra/oculta)
@@ -459,7 +688,12 @@
         setOperationState:    setOperationState,
         updateStepState:      updateStepState,
         refreshState:         refreshState,
-        goToFirstInvalidStep: goToFirstInvalidStep
+        goToFirstInvalidStep: goToFirstInvalidStep,
+        syncPaymentSummary:   syncPaymentSummary,
+        syncTotalsSummary:    syncTotalsSummary,
+        syncReviewPanel:      syncReviewPanel,
+        syncConfirmationPanel: syncConfirmationPanel,
+        syncItemPaymentModal: syncItemPaymentModal
     };
 
 }());

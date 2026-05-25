@@ -1370,6 +1370,112 @@ public class VentaCreateUiContractTests
         Assert.Contains("hidden", tag, StringComparison.Ordinal);
     }
 
+    // ── KIRA-VENTAS-MODAL-REWORK-1F — pago principal y pago por producto ───────
+
+    [Fact]
+    public void VentaModalReworkJs_ExponeFuncionesDeSincronizacionVisual1F()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("function syncPaymentSummary", script);
+        Assert.Contains("function syncTotalsSummary", script);
+        Assert.Contains("function syncReviewPanel", script);
+        Assert.Contains("function syncConfirmationPanel", script);
+        Assert.Contains("function syncItemPaymentModal", script);
+        Assert.Contains("syncPaymentSummary:", script);
+        Assert.Contains("syncTotalsSummary:", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_RefreshStateSincronizaResumenesVisuales()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function refreshState");
+
+        Assert.Contains("syncVisualSummaries()", fn);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_NoRecalculaTotales_SoloLeeNodosExistentes()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function syncTotalsSummary");
+
+        Assert.Contains("textOf('total-subtotal'", fn);
+        Assert.Contains("textOf('total-descuento'", fn);
+        Assert.Contains("textOf('total-iva'", fn);
+        Assert.Contains("textOf('total-final'", fn);
+        Assert.DoesNotContain("parseFloat", fn);
+        Assert.DoesNotContain("postJson", fn);
+        Assert.DoesNotContain("fetch", fn);
+    }
+
+    [Fact]
+    public void VentaCrearModal_TieneHooksDePagoSidebarRevisionConfirmacion()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("data-pago-summary", modal);
+        Assert.Contains("data-side-cliente", modal);
+        Assert.Contains("data-side-items", modal);
+        Assert.Contains("data-side-pago", modal);
+        Assert.Contains("data-side-subtotal", modal);
+        Assert.Contains("data-side-descuento", modal);
+        Assert.Contains("data-side-iva", modal);
+        Assert.Contains("data-side-total", modal);
+        Assert.Contains("data-mobile-total", modal);
+        Assert.Contains("data-rev-cliente", modal);
+        Assert.Contains("data-rev-fecha", modal);
+        Assert.Contains("data-rev-pago", modal);
+        Assert.Contains("data-rev-items", modal);
+        Assert.Contains("data-conf-cliente", modal);
+        Assert.Contains("data-conf-items", modal);
+        Assert.Contains("data-conf-pago", modal);
+        Assert.Contains("data-conf-total", modal);
+        Assert.Contains("data-conf-credito", modal);
+    }
+
+    [Fact]
+    public void VentaCrearModal_PreservaSubmodalPagoPorProducto()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        Assert.Contains("id=\"modal-pago-item\"", modal);
+        Assert.Contains("id=\"modal-pago-item-titulo\"", modal);
+        Assert.Contains("id=\"select-tipo-pago-item\"", modal);
+        Assert.Contains("id=\"modal-pago-item-planes\"", modal);
+        Assert.Contains("id=\"modal-pago-item-resumen\"", modal);
+        Assert.Contains("id=\"btn-guardar-pago-item\"", modal);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ObservaCambiosDeTotalesProductosClienteYPago()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function initStateObservers");
+
+        Assert.Contains("total-subtotal", fn);
+        Assert.Contains("total-descuento", fn);
+        Assert.Contains("total-iva", fn);
+        Assert.Contains("total-final", fn);
+        Assert.Contains("detalles-hidden-inputs", fn);
+        Assert.Contains("FechaVenta", fn);
+        Assert.Contains("select-tipo-pago", fn);
+        Assert.Contains("info-cliente-nombre", fn);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_SincronizaAlertasSinInnerHtml()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var fn = ExtractFunction(script, "function syncReviewAlerts");
+
+        Assert.Contains("replaceChildren", fn);
+        Assert.Contains("document.createElement('p')", fn);
+        Assert.Contains("item.textContent = message", fn);
+        Assert.DoesNotContain("innerHTML", fn);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
