@@ -1,0 +1,330 @@
+/* ─────────────────────────────────────────────────────────────
+   venta-modal-rework.css
+   KIRA-VENTAS-MODAL-REWORK-1B
+   Estilos específicos del wizard fullscreen para Nueva Venta.
+   Complementa las clases vm-* de venta-module.css.
+   Debe cargarse DESPUÉS de venta-module.css.
+   ───────────────────────────────────────────────────────────── */
+
+
+/* ══════════════════════════════════════════════════════════════
+   LAYOUT — FULLSCREEN WIZARD
+   Correcciones de layout para el contenedor flex column fijo.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Evita overflow en flex — sin esto el main no respeta flex-1 */
+#modal-crear-venta > main {
+    min-height: 0;
+}
+
+/* Caja del grid principal — box-sizing explícito para móvil */
+#modal-crear-venta form > div.grid {
+    box-sizing: border-box;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   HEADER — TABLIST
+   Scroll horizontal suave sin scrollbar visible (iOS + desktop).
+   ══════════════════════════════════════════════════════════════ */
+
+#modal-crear-venta [role="tablist"] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+#modal-crear-venta [role="tablist"]::-webkit-scrollbar {
+    display: none;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   STEP TABS — clases canónicas del wizard
+   Definen los estados visual del paso activo / completado / alerta.
+   Usadas por el JS (fase 1C) para gestionar el paso visible.
+   Reemplazan las cadenas de utilidades Tailwind en el Razor.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Base ───────────────────────────────────────────────────────── */
+.vm-step-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    border-radius: 0.75rem;
+    border: 1px solid #334155;
+    background-color: rgba(30, 41, 59, 0.4);
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    transition: border-color 0.15s ease,
+                background-color 0.15s ease,
+                color 0.15s ease;
+    user-select: none;
+    min-height: 2.5rem;
+    line-height: 1;
+}
+
+.vm-step-tab:hover:not(.vm-step-tab--active):not(:disabled) {
+    border-color: #475569;
+    color: #94a3b8;
+    background-color: rgba(30, 41, 59, 0.6);
+}
+
+.vm-step-tab:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.6);
+    outline-offset: 2px;
+}
+
+/* Número del paso ───────────────────────────────────────────── */
+.vm-step-tab__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background-color: #334155;
+    font-size: 0.625rem;
+    font-weight: 900;
+    color: #64748b;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Badge contador (ej: "3" productos) ───────────────────────── */
+.vm-step-tab__badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background-color: rgba(51, 65, 85, 0.8);
+    padding: 0.125rem 0.375rem;
+    font-size: 0.5625rem;
+    font-weight: 900;
+    color: #94a3b8;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+
+/* Estado: activo / paso actual ─────────────────────────────── */
+.vm-step-tab--active {
+    border-color: rgba(59, 130, 246, 0.6);
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+
+.vm-step-tab--active .vm-step-tab__num {
+    background-color: #3b82f6;
+    color: #ffffff;
+}
+
+.vm-step-tab--active .vm-step-tab__badge {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+}
+
+
+/* Estado: completado ────────────────────────────────────────── */
+.vm-step-tab--complete {
+    border-color: rgba(16, 185, 129, 0.4);
+    background-color: rgba(16, 185, 129, 0.08);
+    color: #6ee7b7;
+}
+
+.vm-step-tab--complete .vm-step-tab__num {
+    background-color: #10b981;
+    color: #ffffff;
+}
+
+.vm-step-tab--complete .vm-step-tab__badge {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+}
+
+
+/* Estado: advertencia ──────────────────────────────────────── */
+.vm-step-tab--warning {
+    border-color: rgba(245, 158, 11, 0.4);
+    background-color: rgba(245, 158, 11, 0.08);
+    color: #fcd34d;
+}
+
+.vm-step-tab--warning .vm-step-tab__num {
+    background-color: #f59e0b;
+    color: #ffffff;
+}
+
+.vm-step-tab--warning .vm-step-tab__badge {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   STEP PANELS — transición de entrada
+   La clase .vm-step-panel-active la agrega el JS (fase 1C)
+   al mostrar un panel. La clase .hidden la quita/pone el JS.
+   ══════════════════════════════════════════════════════════════ */
+
+.vm-step-panel-active {
+    animation: vm-panel-fadein 0.18s ease-out both;
+}
+
+@keyframes vm-panel-fadein {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR — sticky en desktop
+   El aside está dentro del main overflow-y:auto, en un grid con
+   lg:items-start. La combinación habilita sticky correctamente.
+   ══════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1024px) {
+    #modal-crear-venta aside {
+        position: sticky;
+        top: 1.5rem;
+        align-self: start;
+        max-height: calc(100vh - 11rem); /* evita que supere el viewport */
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #334155 transparent;
+    }
+
+    #modal-crear-venta aside::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    #modal-crear-venta aside::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #modal-crear-venta aside::-webkit-scrollbar-thumb {
+        background-color: #334155;
+        border-radius: 2px;
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE SUMMARY BAR — ajuste para fullscreen flex
+   En el nuevo layout fullscreen la barra es un flex-child
+   directo del modal root (no está dentro de main). No necesita
+   position:sticky — ya es visible de forma natural.
+   Sobreescribe el valor de venta-module.css.
+   ══════════════════════════════════════════════════════════════ */
+
+.vm-mobile-summary-bar {
+    position: relative;
+    top: auto;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   TABLA DE DETALLES — zebra y row hover
+   ══════════════════════════════════════════════════════════════ */
+
+#tbody-detalles tr {
+    transition: background-color 0.1s ease;
+}
+
+#tbody-detalles tr:hover {
+    background-color: rgba(30, 41, 59, 0.5);
+}
+
+#tbody-detalles td {
+    padding: 0.625rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #cbd5e1;
+    vertical-align: middle;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ESTADO GLOBAL BADGE — colores semánticos
+   El JS (fase 1C) agrega/quita estas clases en #vm-estado-global.
+   ══════════════════════════════════════════════════════════════ */
+
+#vm-estado-global {
+    transition: border-color 0.2s ease,
+                background-color 0.2s ease,
+                color 0.2s ease;
+}
+
+#vm-estado-global.vm-estado--listo {
+    border-color: rgba(16, 185, 129, 0.4);
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #6ee7b7;
+}
+
+#vm-estado-global.vm-estado--alerta {
+    border-color: rgba(245, 158, 11, 0.4);
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #fcd34d;
+}
+
+#vm-estado-global.vm-estado--error {
+    border-color: rgba(239, 68, 68, 0.4);
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   SUBMODALES — overflow para viewport pequeño
+   Los z-index se manejan con Tailwind ([70], [60]).
+   Este bloque solo asegura scroll interno cuando es necesario.
+   ══════════════════════════════════════════════════════════════ */
+
+#modal-pago-item,
+#modal-documentacion {
+    overflow-y: auto;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   FILTROS COLLAPSIBLES — smooth expand
+   ══════════════════════════════════════════════════════════════ */
+
+#modal-crear-venta details > div {
+    animation: vm-details-open 0.18s ease-out both;
+}
+
+@keyframes vm-details-open {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE — ajustes menores de padding y overflow
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+    /* Reducir padding del grid en pantallas muy pequeñas */
+    #modal-crear-venta form > div.grid {
+        padding: 1rem;
+        gap: 1rem;
+    }
+
+    /* Submodales: ocupar todo el ancho en mobile */
+    #modal-pago-item > div {
+        padding: 1rem;
+    }
+}

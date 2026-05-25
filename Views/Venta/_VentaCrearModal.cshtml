@@ -48,34 +48,33 @@
         <div role="tablist" class="flex gap-1 overflow-x-auto px-6 pb-4" aria-label="Pasos de la venta">
             <button type="button" id="step-btn-cliente" role="tab"
                     aria-selected="true" aria-controls="step-panel-cliente" data-step="cliente"
-                    class="flex items-center gap-2 whitespace-nowrap rounded-xl border border-blue-500/60 bg-blue-500/15 px-4 py-2 text-xs font-bold text-blue-300 transition-all">
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-white">1</span>
+                    class="vm-step-tab vm-step-tab--active">
+                <span class="vm-step-tab__num">1</span>
                 Cliente
             </button>
             <button type="button" id="step-btn-productos" role="tab"
                     aria-selected="false" aria-controls="step-panel-productos" data-step="productos"
-                    class="flex items-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-2 text-xs font-bold text-slate-400 transition-all hover:border-slate-600 hover:text-slate-300">
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-slate-400">2</span>
+                    class="vm-step-tab">
+                <span class="vm-step-tab__num">2</span>
                 Productos
-                <span id="detalle-items-badge"
-                      class="inline-flex items-center rounded-full bg-slate-700 px-1.5 py-0.5 text-[9px] font-black text-slate-300">0</span>
+                <span id="detalle-items-badge" class="vm-step-tab__badge">0</span>
             </button>
             <button type="button" id="step-btn-pago" role="tab"
                     aria-selected="false" aria-controls="step-panel-pago" data-step="pago"
-                    class="flex items-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-2 text-xs font-bold text-slate-400 transition-all hover:border-slate-600 hover:text-slate-300">
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-slate-400">3</span>
+                    class="vm-step-tab">
+                <span class="vm-step-tab__num">3</span>
                 Pago
             </button>
             <button type="button" id="step-btn-credito" role="tab"
                     aria-selected="false" aria-controls="step-panel-credito" data-step="credito"
-                    class="flex items-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-2 text-xs font-bold text-slate-400 transition-all hover:border-slate-600 hover:text-slate-300">
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-slate-400">4</span>
+                    class="vm-step-tab">
+                <span class="vm-step-tab__num">4</span>
                 Crédito
             </button>
             <button type="button" id="step-btn-revision" role="tab"
                     aria-selected="false" aria-controls="step-panel-revision" data-step="revision"
-                    class="flex items-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-2 text-xs font-bold text-slate-400 transition-all hover:border-slate-600 hover:text-slate-300">
-                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-slate-400">5</span>
+                    class="vm-step-tab">
+                <span class="vm-step-tab__num">5</span>
                 Revisión
             </button>
         </div>
