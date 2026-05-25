@@ -964,17 +964,7 @@
 
 </div>
 
-@* ── Script: espejo de total-final → vm-modal-sticky-total ── *@
-<script>
-(function () {
-    var src  = document.getElementById('total-final');
-    var dest = document.getElementById('vm-modal-sticky-total');
-    if (!src || !dest) return;
-    dest.textContent = src.textContent;
-    new MutationObserver(function () { dest.textContent = src.textContent; })
-        .observe(src, { childList: true, characterData: true, subtree: true });
-}());
-</script>
+@* ── Espejo total-final → vm-modal-sticky-total: manejado por venta-modal-rework.js ── *@
 
 @* ═══════════════════════════════════════════════════════════
    Sub-modal: Tipo de pago del producto

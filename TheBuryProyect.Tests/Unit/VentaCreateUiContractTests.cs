@@ -1077,6 +1077,78 @@ public class VentaCreateUiContractTests
         Assert.Contains("aria-required=\"true\"", view);
     }
 
+    // ── KIRA-VENTAS-MODAL-REWORK-1C — contratos de venta-modal-rework.js ──────
+
+    [Fact]
+    public void VentaModalReworkJs_ExisteYExponeFuncionActivateStep()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("window.VentaModalRework", script);
+        Assert.Contains("activateStep", script);
+        Assert.Contains("vm-step-tab--active", script);
+        Assert.Contains("vm-step-panel-active", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ExponeFuncionesDeSubmodal()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("openSubmodal", script);
+        Assert.Contains("closeSubmodal", script);
+        Assert.Contains("btn-cerrar-pago-item", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ExponeFuncionesDeEstadoGlobal()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("setOperationState", script);
+        Assert.Contains("vm-estado--listo", script);
+        Assert.Contains("vm-estado--alerta", script);
+        Assert.Contains("vm-estado--error", script);
+        Assert.Contains("vm-estado-global", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_NoRedefineVentaCrearModal()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.DoesNotContain("const VentaCrearModal", script);
+        Assert.DoesNotContain("window.VentaCrearModal", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_TieneGuardDeSeguridadParaOtrasPaginas()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("modal-crear-venta", script);
+        // El guard evita que el archivo rompa páginas sin el modal
+        Assert.Contains("if (!document.getElementById('modal-crear-venta')) return;", script);
+    }
+
+    [Fact]
+    public void VentaCrearModal_NoTieneInlineScriptMutationObserver()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        // El inline script fue movido a venta-modal-rework.js
+        Assert.DoesNotContain("new MutationObserver", modal);
+        Assert.DoesNotContain("observe(src, { childList", modal);
+    }
+
+    [Fact]
+    public void IndexView_CargaVentaModalReworkJs()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.Contains("venta-modal-rework.js", view);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
