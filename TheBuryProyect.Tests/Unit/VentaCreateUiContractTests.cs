@@ -1149,6 +1149,111 @@ public class VentaCreateUiContractTests
         Assert.Contains("venta-modal-rework.js", view);
     }
 
+    // ── KIRA-VENTAS-MODAL-REWORK-1D — contratos de integración del wizard ─────
+
+    [Fact]
+    public void VentaCrearModal_BuscarClienteEstaEnPanelCliente()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var panelClienteStart   = modal.IndexOf("id=\"step-panel-cliente\"",   StringComparison.Ordinal);
+        var panelProductosStart = modal.IndexOf("id=\"step-panel-productos\"", StringComparison.Ordinal);
+        var clienteInputPos     = modal.IndexOf("id=\"input-buscar-cliente\"", StringComparison.Ordinal);
+        var dropdownClientesPos = modal.IndexOf("id=\"dropdown-clientes\"",    StringComparison.Ordinal);
+
+        Assert.True(panelClienteStart >= 0,   "step-panel-cliente debe existir.");
+        Assert.True(panelProductosStart > panelClienteStart, "step-panel-productos debe venir después de step-panel-cliente.");
+        Assert.True(clienteInputPos > panelClienteStart && clienteInputPos < panelProductosStart,
+            "input-buscar-cliente debe estar dentro de step-panel-cliente.");
+        Assert.True(dropdownClientesPos > panelClienteStart && dropdownClientesPos < panelProductosStart,
+            "dropdown-clientes debe estar dentro de step-panel-cliente.");
+    }
+
+    [Fact]
+    public void VentaCrearModal_TbodyDetallesEstaEnPanelProductos()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var panelProductosStart = modal.IndexOf("id=\"step-panel-productos\"", StringComparison.Ordinal);
+        var panelPagoStart      = modal.IndexOf("id=\"step-panel-pago\"",      StringComparison.Ordinal);
+        var tbodyPos            = modal.IndexOf("id=\"tbody-detalles\"",       StringComparison.Ordinal);
+
+        Assert.True(panelProductosStart >= 0, "step-panel-productos debe existir.");
+        Assert.True(panelPagoStart > panelProductosStart, "step-panel-pago debe venir después de step-panel-productos.");
+        Assert.True(tbodyPos > panelProductosStart && tbodyPos < panelPagoStart,
+            "tbody-detalles debe estar dentro de step-panel-productos.");
+    }
+
+    [Fact]
+    public void VentaCrearModal_TotalFinalEstaEnSidebar_FueraDeStepPanels()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var panelRevisionStart = modal.IndexOf("id=\"step-panel-revision\"", StringComparison.Ordinal);
+        var totalFinalPos      = modal.IndexOf("id=\"total-final\"",          StringComparison.Ordinal);
+
+        Assert.True(panelRevisionStart >= 0, "step-panel-revision debe existir.");
+        Assert.True(totalFinalPos >= 0,      "total-final debe existir en el modal.");
+        // total-final está en el aside/sidebar, que viene después de todos los step-panels
+        Assert.True(totalFinalPos > panelRevisionStart,
+            "total-final debe estar en el sidebar (después del último step panel).");
+    }
+
+    [Fact]
+    public void VentaCrearModal_DetalleBadgeEstaEnStepBtnProductos()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        var btnProductosStart = modal.IndexOf("id=\"step-btn-productos\"", StringComparison.Ordinal);
+        var btnPagoStart      = modal.IndexOf("id=\"step-btn-pago\"",      StringComparison.Ordinal);
+        var badgePos          = modal.IndexOf("id=\"detalle-items-badge\"", StringComparison.Ordinal);
+
+        Assert.True(btnProductosStart >= 0, "step-btn-productos debe existir.");
+        Assert.True(btnPagoStart > btnProductosStart, "step-btn-pago debe venir después de step-btn-productos.");
+        Assert.True(badgePos > btnProductosStart && badgePos < btnPagoStart,
+            "detalle-items-badge debe estar dentro del botón step-btn-productos (siempre visible).");
+    }
+
+    [Fact]
+    public void VentaCrearModal_PanelClienteVisiblePorDefecto_OtrosPanelesHidden()
+    {
+        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
+
+        // step-panel-cliente: tag de apertura no debe contener "hidden"
+        var idxCliente  = modal.IndexOf("id=\"step-panel-cliente\"", StringComparison.Ordinal);
+        Assert.True(idxCliente >= 0, "step-panel-cliente debe existir.");
+        var tagEndCliente = modal.IndexOf('>', idxCliente);
+        var tagCliente    = modal[idxCliente..tagEndCliente];
+        Assert.DoesNotContain("hidden", tagCliente, StringComparison.Ordinal);
+
+        // Pasos 2-5 deben iniciar ocultos
+        foreach (var stepId in new[] { "step-panel-productos", "step-panel-pago", "step-panel-credito", "step-panel-revision" })
+        {
+            var idx    = modal.IndexOf($"id=\"{stepId}\"", StringComparison.Ordinal);
+            Assert.True(idx >= 0, $"{stepId} debe existir.");
+            var tagEnd = modal.IndexOf('>', idx);
+            var tag    = modal[idx..tagEnd];
+            Assert.Contains("hidden", tag, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void VentaCreateJs_ActualizarResumenOperacion_ActualizaDetalleBadgeConNullGuardEnHero()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var fn     = ExtractFunction(script, "function actualizarResumenOperacion");
+
+        // El badge del wizard (siempre visible) se actualiza directamente
+        Assert.Contains("detalleItemsBadge.innerHTML", fn);
+        Assert.Contains("shopping_bag", fn);
+
+        // Los elementos hero (solo existen en Create_tw, no en el modal) usan guarda null
+        // para que la función no lance errores cuando no se encuentra el elemento
+        Assert.Contains("if (heroDetallesCount)", fn);
+        Assert.Contains("if (heroTipoPago)", fn);
+        Assert.Contains("if (heroCliente && heroClienteDetalle)", fn);
+    }
+
     private static string ExtractFunction(string script, string signature)
     {
         var start = script.IndexOf(signature, StringComparison.Ordinal);
