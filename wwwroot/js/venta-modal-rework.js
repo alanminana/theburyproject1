@@ -22,7 +22,10 @@
     'use strict';
 
     // Guard: ejecutar solo en superficies que contienen el wizard.
-    var wizardRoot = document.getElementById('venta-create-page') || document.getElementById('modal-crear-venta');
+    // La pagina es el camino canonico; el modal queda como compatibilidad legacy.
+    var pageWizardRoot = document.getElementById('venta-create-page');
+    var legacyModalRoot = document.getElementById('modal-crear-venta');
+    var wizardRoot = pageWizardRoot || legacyModalRoot;
     if (!wizardRoot) return;
 
     var STEPS = ['cliente', 'productos', 'pago', 'credito', 'revision'];
@@ -56,6 +59,10 @@
     function isVisible(id) {
         var el = byId(id);
         return Boolean(el && !el.classList.contains('hidden'));
+    }
+
+    function isLegacyModalOpen() {
+        return Boolean(legacyModalRoot && !legacyModalRoot.classList.contains('hidden'));
     }
 
     function getPaymentText() {
@@ -374,7 +381,7 @@
         var stillOpen = document.querySelector(
             '#modal-pago-item:not(.hidden), #modal-documentacion:not(.hidden)'
         );
-        if (!stillOpen) {
+        if (!stillOpen && !isLegacyModalOpen()) {
             document.body.style.overflow = '';
         }
     }
@@ -389,8 +396,8 @@
             }
         });
 
-        // Escape cierra el submodal superior (fase de captura, antes del handler
-        // de venta-crear-modal.js que cierra el modal principal)
+        // Escape cierra el submodal superior en fase de captura. En legacy evita
+        // que el handler del modal principal procese el mismo Escape.
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
             var pagoItem = document.getElementById('modal-pago-item');
@@ -418,10 +425,11 @@
 
 
     // ── Integración con VentaCrearModal ───────────────────────────────────────
-    // Cuando el modal se abre, resetear siempre al paso 1 (Cliente).
+    // Compatibilidad legacy: si el partial del modal vuelve a cargarse,
+    // su evento conserva el reset al paso 1. /Venta/Create no depende de esto.
 
-    function initModalOpenReset() {
-        if (!document.getElementById('modal-crear-venta')) return;
+    function initLegacyModalOpenReset() {
+        if (!legacyModalRoot) return;
 
         document.addEventListener('venta-crear-modal:open', function () {
             activateStep(STEPS[0]);
@@ -679,7 +687,7 @@
         initWizardTabs();
         initPagoItemSubmodal();
         initStickyTotalMirror();
-        initModalOpenReset();
+        initLegacyModalOpenReset();
         initStateObservers();
         initSubmitNavigation();
         // Estado inicial luego de que venta-create.js ejecuta su init

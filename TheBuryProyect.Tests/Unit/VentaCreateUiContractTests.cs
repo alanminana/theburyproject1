@@ -1126,11 +1126,34 @@ public class VentaCreateUiContractTests
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
 
-        Assert.Contains("modal-crear-venta", script);
+        Assert.Contains("legacyModalRoot", script);
+        Assert.Contains("pageWizardRoot", script);
         Assert.Contains("venta-create-page", script);
         // El guard evita que el archivo rompa paginas sin wizard, y soporta pagina + modal legacy.
-        Assert.Contains("var wizardRoot = document.getElementById('venta-create-page') || document.getElementById('modal-crear-venta');", script);
+        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
         Assert.Contains("if (!wizardRoot) return;", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_PriorizaRootPaginaYNoDependeExclusivamenteDelModal()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("var pageWizardRoot = document.getElementById('venta-create-page');", script);
+        Assert.Contains("var legacyModalRoot = document.getElementById('modal-crear-venta');", script);
+        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
+        Assert.DoesNotContain("if (!document.getElementById('modal-crear-venta')) return;", script);
+    }
+
+    [Fact]
+    public void VentaModalReworkCss_PriorizaSelectoresDePaginaYConservaCompatLegacy()
+    {
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-modal-rework.css"))
+            .Replace("\r\n", "\n");
+
+        Assert.Contains("#venta-create-page,\n#modal-crear-venta > main", css);
+        Assert.Contains("#venta-create-page form > div.grid,\n#modal-crear-venta form > div.grid", css);
+        Assert.Contains("#venta-create-page [role=\"tablist\"],\n#modal-crear-venta [role=\"tablist\"]", css);
     }
 
     [Fact]
