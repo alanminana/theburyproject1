@@ -1144,11 +1144,26 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void IndexView_CargaVentaModalReworkJs()
+    public void IndexView_NuevaVentaNavegaACreateSinHookModal()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
 
-        Assert.Contains("venta-modal-rework.js", view);
+        Assert.Contains("asp-controller=\"Venta\" asp-action=\"Create\"", view);
+        Assert.Contains("Nueva Venta", view);
+        Assert.DoesNotContain("id=\"btn-abrir-modal-crear-venta\"", view);
+        Assert.DoesNotContain("VentaCrearModal.open()", view);
+        Assert.DoesNotContain("data-venta-modal-target=\"crear-venta\"", view);
+    }
+
+    [Fact]
+    public void IndexView_NoRenderizaCrearVentaModalNiCargaScriptsDelModal()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.DoesNotContain("<partial name=\"_VentaCrearModal\" />", view);
+        Assert.DoesNotContain("venta-crear-modal.js", view);
+        Assert.DoesNotContain("venta-modal-rework.js", view);
+        Assert.DoesNotContain("venta-create.js", view);
     }
 
     // ── KIRA-VENTAS-MODAL-REWORK-1D — contratos de integración del wizard ─────
