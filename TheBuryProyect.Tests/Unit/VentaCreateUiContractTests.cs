@@ -436,8 +436,8 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("sticky-action-footer", view);
-        Assert.Contains("id=\"sticky-create-total\"", view);
+        Assert.Contains("vm-mobile-summary-bar", view);
+        Assert.Contains("id=\"vm-modal-sticky-total\"", view);
     }
 
     [Fact]
@@ -445,8 +445,8 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        var idx = view.IndexOf("class=\"sticky-action-footer\"", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba class=\"sticky-action-footer\" en Create_tw.cshtml.");
+        var idx = view.IndexOf("class=\"vm-mobile-summary-bar\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba class=\"vm-mobile-summary-bar\" en Create_tw.cshtml.");
         var footerBlock = view[idx..(Math.Min(idx + 600, view.Length))];
         Assert.Contains("type=\"button\"", footerBlock);
         Assert.DoesNotContain("type=\"submit\"", footerBlock);
@@ -457,8 +457,8 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        var idx = view.IndexOf("class=\"sticky-action-footer\"", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba class=\"sticky-action-footer\" en Create_tw.cshtml.");
+        var idx = view.IndexOf("class=\"vm-mobile-summary-bar\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "Se esperaba class=\"vm-mobile-summary-bar\" en Create_tw.cshtml.");
         var footerBlock = view[idx..(Math.Min(idx + 1000, view.Length))];
         Assert.Contains("aria-hidden=\"true\"", footerBlock);
         Assert.Contains("tabindex=\"-1\"", footerBlock);
@@ -1127,8 +1127,10 @@ public class VentaCreateUiContractTests
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
 
         Assert.Contains("modal-crear-venta", script);
-        // El guard evita que el archivo rompa páginas sin el modal
-        Assert.Contains("if (!document.getElementById('modal-crear-venta')) return;", script);
+        Assert.Contains("venta-create-page", script);
+        // El guard evita que el archivo rompa paginas sin wizard, y soporta pagina + modal legacy.
+        Assert.Contains("var wizardRoot = document.getElementById('venta-create-page') || document.getElementById('modal-crear-venta');", script);
+        Assert.Contains("if (!wizardRoot) return;", script);
     }
 
     [Fact]
@@ -1474,6 +1476,81 @@ public class VentaCreateUiContractTests
         Assert.Contains("document.createElement('p')", fn);
         Assert.Contains("item.textContent = message", fn);
         Assert.DoesNotContain("innerHTML", fn);
+    }
+
+    // ── KIRA-VENTAS-PAGE-REWORK-1A — pagina wizard /Venta/Create ─────────────
+
+    [Fact]
+    public void CreateView_EsPaginaWizardSinRootModalPrincipal()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"venta-create-page\"", view);
+        Assert.Contains("id=\"step-btn-cliente\"", view);
+        Assert.Contains("id=\"step-panel-cliente\"", view);
+        Assert.DoesNotContain("id=\"modal-crear-venta\"", view);
+        Assert.DoesNotContain("id=\"modal-crear-venta-backdrop\"", view);
+        Assert.DoesNotContain("id=\"btn-cerrar-modal-crear-venta\"", view);
+        Assert.DoesNotContain("aria-modal=\"true\"", view);
+        Assert.DoesNotContain("role=\"dialog\"", view);
+        Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
+    }
+
+    [Fact]
+    public void CreateView_FormSiguePosteandoCreateNativo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("<form id=\"venta-form\" asp-action=\"Create\" method=\"post\">", view);
+        Assert.Contains("@Html.AntiForgeryToken()", view);
+        Assert.DoesNotContain("CreateAjax", view);
+        Assert.DoesNotContain("VentaCrearModal.submit()", view);
+    }
+
+    [Fact]
+    public void CreateView_WizardTieneCincoPasosYPaneles()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        foreach (var step in new[] { "cliente", "productos", "pago", "credito", "revision" })
+        {
+            Assert.Contains($"id=\"step-btn-{step}\"", view);
+            Assert.Contains($"id=\"step-panel-{step}\"", view);
+            Assert.Contains($"aria-controls=\"step-panel-{step}\"", view);
+            Assert.Contains($"aria-labelledby=\"step-btn-{step}\"", view);
+        }
+    }
+
+    [Fact]
+    public void CreateView_ConservaContratosCriticosDeVenta()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        foreach (var id in new[]
+        {
+            "venta-form", "btn-confirmar", "input-buscar-cliente", "dropdown-clientes",
+            "hdn-cliente-id", "info-cliente", "input-buscar-producto", "dropdown-productos",
+            "panel-agregar-producto", "hdn-producto-id", "txt-cantidad", "txt-descuento-item",
+            "btn-agregar-producto", "tbody-detalles", "detalles-hidden-inputs",
+            "select-tipo-pago", "total-subtotal", "total-descuento", "total-iva",
+            "total-final", "hdn-subtotal", "hdn-descuento", "hdn-iva", "hdn-total",
+            "panel-alerta-mora", "panel-cupo-insuficiente", "panel-documentacion-faltante",
+            "VendedorUserId", "Observaciones"
+        })
+        {
+            Assert.Contains($"id=\"{id}\"", view);
+        }
+
+        Assert.Contains("asp-for=\"AplicarExcepcionDocumental\"", view);
+        Assert.Contains("asp-for=\"MotivoExcepcionDocumentalCreate\"", view);
+    }
+
+    [Fact]
+    public void CreateView_CargaJsWizardDePagina()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("venta-modal-rework.js", view);
     }
 
     private static string ExtractFunction(string script, string signature)

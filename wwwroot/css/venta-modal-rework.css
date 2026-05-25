@@ -13,12 +13,14 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* Evita overflow en flex — sin esto el main no respeta flex-1 */
-#modal-crear-venta > main {
+#modal-crear-venta > main,
+#venta-create-page {
     min-height: 0;
 }
 
 /* Caja del grid principal — box-sizing explícito para móvil */
-#modal-crear-venta form > div.grid {
+#modal-crear-venta form > div.grid,
+#venta-create-page form > div.grid {
     box-sizing: border-box;
 }
 
@@ -28,12 +30,14 @@
    Scroll horizontal suave sin scrollbar visible (iOS + desktop).
    ══════════════════════════════════════════════════════════════ */
 
-#modal-crear-venta [role="tablist"] {
+#modal-crear-venta [role="tablist"],
+#venta-create-page [role="tablist"] {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
 }
 
-#modal-crear-venta [role="tablist"]::-webkit-scrollbar {
+#modal-crear-venta [role="tablist"]::-webkit-scrollbar,
+#venta-create-page [role="tablist"]::-webkit-scrollbar {
     display: none;
 }
 
@@ -191,7 +195,8 @@
    ══════════════════════════════════════════════════════════════ */
 
 @media (min-width: 1024px) {
-    #modal-crear-venta aside {
+    #modal-crear-venta aside,
+    #venta-create-page aside {
         position: sticky;
         top: 1.5rem;
         align-self: start;
@@ -201,15 +206,18 @@
         scrollbar-color: #334155 transparent;
     }
 
-    #modal-crear-venta aside::-webkit-scrollbar {
+    #modal-crear-venta aside::-webkit-scrollbar,
+    #venta-create-page aside::-webkit-scrollbar {
         width: 4px;
     }
 
-    #modal-crear-venta aside::-webkit-scrollbar-track {
+    #modal-crear-venta aside::-webkit-scrollbar-track,
+    #venta-create-page aside::-webkit-scrollbar-track {
         background: transparent;
     }
 
-    #modal-crear-venta aside::-webkit-scrollbar-thumb {
+    #modal-crear-venta aside::-webkit-scrollbar-thumb,
+    #venta-create-page aside::-webkit-scrollbar-thumb {
         background-color: #334155;
         border-radius: 2px;
     }
@@ -296,7 +304,8 @@
    FILTROS COLLAPSIBLES — smooth expand
    ══════════════════════════════════════════════════════════════ */
 
-#modal-crear-venta details > div {
+#modal-crear-venta details > div,
+#venta-create-page details > div {
     animation: vm-details-open 0.18s ease-out both;
 }
 
@@ -318,7 +327,8 @@
 
 @media (max-width: 767px) {
     /* Reducir padding del grid en pantallas muy pequeñas */
-    #modal-crear-venta form > div.grid {
+    #modal-crear-venta form > div.grid,
+    #venta-create-page form > div.grid {
         padding: 1rem;
         gap: 1rem;
     }

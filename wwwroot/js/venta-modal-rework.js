@@ -21,8 +21,9 @@
 (function () {
     'use strict';
 
-    // Guard: ejecutar solo en páginas que contienen el wizard
-    if (!document.getElementById('modal-crear-venta')) return;
+    // Guard: ejecutar solo en superficies que contienen el wizard.
+    var wizardRoot = document.getElementById('venta-create-page') || document.getElementById('modal-crear-venta');
+    if (!wizardRoot) return;
 
     var STEPS = ['cliente', 'productos', 'pago', 'credito', 'revision'];
 
@@ -188,6 +189,16 @@
         setText('[data-conf-credito]', getCreditSummary());
     }
 
+    function syncCreditPlaceholder() {
+        var selectTP = byId('select-tipo-pago');
+        var tipoPago = selectTP ? selectTP.value : '';
+        var requiereCredito = TIPO_PAGO_CREDITO.indexOf(tipoPago) !== -1;
+        var placeholder = byId('panel-credito-no-requerido');
+        if (placeholder) {
+            placeholder.classList.toggle('hidden', requiereCredito);
+        }
+    }
+
     function syncItemPaymentModal() {
         var modal = byId('modal-pago-item');
         if (!modal) return;
@@ -216,6 +227,7 @@
     }
 
     function syncVisualSummaries() {
+        syncCreditPlaceholder();
         syncSidebarSummary();
         syncReviewPanel();
         syncConfirmationPanel();
@@ -286,7 +298,7 @@
     // ── Tab: click y teclado ──────────────────────────────────────────────────
 
     function initWizardTabs() {
-        var tablist = document.querySelector('#modal-crear-venta [role="tablist"]');
+        var tablist = wizardRoot.querySelector('[role="tablist"]');
         if (!tablist) return;
 
         // Click sobre un tab
@@ -409,6 +421,8 @@
     // Cuando el modal se abre, resetear siempre al paso 1 (Cliente).
 
     function initModalOpenReset() {
+        if (!document.getElementById('modal-crear-venta')) return;
+
         document.addEventListener('venta-crear-modal:open', function () {
             activateStep(STEPS[0]);
             setOperationState('incompleta');
