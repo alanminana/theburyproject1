@@ -524,6 +524,19 @@
                             <div id="lista-planes-pago" class="flex flex-wrap gap-2" role="radiogroup" aria-label="Plan de pago"></div>
                         </div>
 
+                        @* Mercado Pago *@
+                        <div id="panel-mercadopago" class="venta-sub-panel hidden">
+                            <h4 class="text-sm font-bold mb-3 flex items-center gap-2 text-white">
+                                <span class="material-symbols-outlined text-sm">qr_code_2</span> Mercado Pago
+                            </h4>
+                            <div class="flex items-start gap-3 rounded-lg border border-sky-500/20 bg-sky-500/10 p-4 text-sm">
+                                <span class="material-symbols-outlined mt-0.5 shrink-0 text-lg text-sky-300">payments</span>
+                                <p class="text-slate-300">
+                                    RegistrÃ¡ el cobro por Mercado Pago y revisÃ¡ los planes disponibles si la configuraciÃ³n global los informa.
+                                </p>
+                            </div>
+                        </div>
+
                         @* Cheque *@
                         <div id="panel-cheque" class="venta-sub-panel hidden">
                             <h4 class="text-sm font-bold mb-4 flex items-center gap-2 text-white">
@@ -744,7 +757,7 @@
                         @* Excepción documental (solo para usuarios con permiso) *@
                         @if (User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create"))
                         {
-                            <div class="pt-4 border-t border-slate-800">
+                            <div id="panel-excepcion-crediticia" class="hidden pt-4 border-t border-slate-800">
                                 <input type="hidden" asp-for="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
                                 <div id="panel-excepcion-inactiva">
                                     <button type="button" id="btn-aplicar-excepcion"

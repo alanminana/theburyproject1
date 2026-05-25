@@ -104,6 +104,7 @@
     const selectTipoPago = $('#select-tipo-pago');
     const panelTarjeta = $('#panel-tarjeta');
     const panelCheque = $('#panel-cheque');
+    const panelMercadoPago = $('#panel-mercadopago');
     const panelCreditoPersonal = $('#panel-credito-personal');
     const panelVerificacionCrediticia = $('#panel-verificacion-crediticia');
     const selectTarjeta = $('#select-tarjeta');
@@ -1350,6 +1351,11 @@
                tipoPago === TIPO_PAGO.MercadoPago;
     }
 
+    function esTipoPagoCredito(tipoPago) {
+        return tipoPago === TIPO_PAGO.CreditoPersonal ||
+               tipoPago === TIPO_PAGO.CuentaCorriente;
+    }
+
     function onTipoPagoChange() {
         invalidarVerificacionCrediticia();
 
@@ -1357,11 +1363,13 @@
 
         const isTarjeta = esTipoPagoTarjeta(val);
         const isCheque = val === TIPO_PAGO.Cheque;
-        const isCredito = val === TIPO_PAGO.CreditoPersonal;
+        const isMercadoPago = val === TIPO_PAGO.MercadoPago;
+        const isCredito = esTipoPagoCredito(val);
 
         // Individual sub-panels toggle
         isTarjeta ? show(panelTarjeta) : hide(panelTarjeta);
         isCheque ? show(panelCheque) : hide(panelCheque);
+        isMercadoPago ? show(panelMercadoPago) : hide(panelMercadoPago);
         isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal);
         isCredito ? show(panelVerificacionCrediticia) : hide(panelVerificacionCrediticia);
 
@@ -1652,7 +1660,7 @@
 
     function actualizarAvisoCredito(cupoDisponible) {
         const tipoPago = selectTipoPago?.value;
-        if (tipoPago !== TIPO_PAGO.CreditoPersonal) { hide(panelAvisoCredito); return; }
+        if (!esTipoPagoCredito(tipoPago)) { hide(panelAvisoCredito); return; }
         if (cupoDisponible === undefined || cupoDisponible === null) { hide(panelAvisoCredito); return; }
 
         const total = parseFloat(hdnTotal?.value) || 0;
@@ -1911,7 +1919,7 @@
     }
 
     $('#btn-verificar-elegibilidad')?.addEventListener('click', async function () {
-        if (selectTipoPago?.value !== TIPO_PAGO.CreditoPersonal) {
+        if (!esTipoPagoCredito(selectTipoPago?.value)) {
             return;
         }
 

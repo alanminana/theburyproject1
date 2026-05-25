@@ -166,6 +166,7 @@ public class VentaCreateUiContractTests
         Assert.Contains("const val = selectTipoPago.value", tipoPago);
         Assert.Contains("const isTarjeta = esTipoPagoTarjeta(val)", tipoPago);
         Assert.Contains("isTarjeta ? show(panelTarjeta) : hide(panelTarjeta)", tipoPago);
+        Assert.Contains("const isCredito = esTipoPagoCredito(val)", tipoPago);
         Assert.Contains("isCredito ? show(panelCreditoPersonal) : hide(panelCreditoPersonal)", tipoPago);
         Assert.Contains("renderDetalles()", tipoPago);
     }
@@ -1626,6 +1627,80 @@ public class VentaCreateUiContractTests
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
         Assert.Contains("venta-modal-rework.js", view);
+    }
+
+    // KIRA-VENTAS-PAGE-REWORK-1E - pago, credito, documentacion y excepcion
+
+    [Fact]
+    public void CreateView_ConservaPanelesPagoCreditoDocumentacionYExcepcion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        foreach (var id in new[]
+        {
+            "panel-tarjeta", "panel-cheque", "panel-mercadopago", "panel-credito-personal",
+            "panel-planes-pago", "lista-planes-pago", "configuracion-pagos-global-estado",
+            "hdn-configuracion-pago-plan-id", "panel-diagnostico-condiciones-pago",
+            "panel-verificacion-crediticia", "btn-verificar-elegibilidad",
+            "panel-resultado-verificacion", "panel-cupo-suficiente", "panel-cupo-insuficiente",
+            "panel-alerta-mora", "panel-documentacion-faltante", "lista-docs-faltantes",
+            "btn-cargar-documentacion", "modal-documentacion", "btn-subir-documento",
+            "panel-excepcion-crediticia", "hdn-aplicar-excepcion", "btn-aplicar-excepcion",
+            "panel-excepcion-inactiva", "panel-excepcion-activa", "txt-excepcion-documental",
+            "btn-cancelar-excepcion", "btn-confirmar-excepcion"
+        })
+        {
+            Assert.Contains($"id=\"{id}\"", view);
+        }
+
+        Assert.Contains("asp-for=\"AplicarExcepcionDocumental\"", view);
+        Assert.Contains("asp-for=\"MotivoExcepcionDocumentalCreate\"", view);
+    }
+
+    [Fact]
+    public void CreateView_NoReintroduceModalLegacyNiConfirmacionExtra()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("<form id=\"venta-form\" asp-action=\"Create\" method=\"post\">", view);
+        Assert.Contains("@Html.AntiForgeryToken()", view);
+        Assert.DoesNotContain("id=\"modal-crear-venta\"", view);
+        Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
+        Assert.DoesNotContain("CreateAjax", view);
+        Assert.DoesNotContain("VentaCrearModal.submit()", view);
+    }
+
+    [Fact]
+    public void VentaCreateJs_ContemplaMercadoPagoCreditoYCuentaCorrienteEnPagina()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var tipoPago = ExtractFunction(script, "function onTipoPagoChange");
+        var esCredito = ExtractFunction(script, "function esTipoPagoCredito");
+        var verificar = ExtractFunction(script, "$('#btn-verificar-elegibilidad')?.addEventListener");
+
+        Assert.Contains("panel-mercadopago", script);
+        Assert.Contains("const isMercadoPago = val === TIPO_PAGO.MercadoPago", tipoPago);
+        Assert.Contains("isMercadoPago ? show(panelMercadoPago) : hide(panelMercadoPago)", tipoPago);
+        Assert.Contains("tipoPago === TIPO_PAGO.CreditoPersonal", esCredito);
+        Assert.Contains("tipoPago === TIPO_PAGO.CuentaCorriente", esCredito);
+        Assert.Contains("!esTipoPagoCredito(selectTipoPago?.value)", verificar);
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ContemplaEstadosDePagoCreditoDocumentacion()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var estados = ExtractFunction(script, "function evaluateStepStates");
+        var resumenCredito = ExtractFunction(script, "function getCreditSummary");
+        var alerts = ExtractFunction(script, "function getAlertItems");
+
+        Assert.Contains("var TIPO_PAGO_CREDITO = ['5', '7']", script);
+        Assert.Contains("panel-cupo-suficiente", estados);
+        Assert.Contains("panel-cupo-insuficiente", estados);
+        Assert.Contains("panel-alerta-mora", estados);
+        Assert.Contains("panel-documentacion-faltante", estados);
+        Assert.Contains("Credito pendiente de verificacion", resumenCredito);
+        Assert.Contains("Documentacion crediticia pendiente", alerts);
     }
 
     private static string ExtractFunction(string script, string signature)
