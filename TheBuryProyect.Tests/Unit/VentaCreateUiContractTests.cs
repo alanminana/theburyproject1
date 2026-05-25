@@ -1584,6 +1584,43 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void CreateView_ConservaHooksDeSidebarRevisionYMobileSummary()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        foreach (var hook in new[]
+        {
+            "data-side-cliente", "data-side-items", "data-side-pago",
+            "data-side-subtotal", "data-side-descuento", "data-side-iva", "data-side-total",
+            "data-rev-cliente", "data-rev-fecha", "data-rev-pago", "data-rev-items",
+            "data-rev-subtotal", "data-rev-descuento", "data-rev-iva", "data-rev-total",
+            "data-conf-cliente", "data-conf-items", "data-conf-pago", "data-conf-total",
+            "data-conf-credito", "data-mobile-total"
+        })
+        {
+            Assert.Contains(hook, view);
+        }
+    }
+
+    [Fact]
+    public void VentaModalReworkJs_ConservaSincronizacionClienteProductosTotalesDePagina()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+
+        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
+        Assert.Contains("setText('[data-side-cliente]'", script);
+        Assert.Contains("setText('[data-side-items]'", script);
+        Assert.Contains("setText('[data-rev-cliente]'", script);
+        Assert.Contains("setText('[data-rev-items]'", script);
+        Assert.Contains("setText('[data-mobile-total]'", script);
+        Assert.Contains("'detalles-hidden-inputs'", script);
+        Assert.Contains("'hdn-subtotal'", script);
+        Assert.Contains("'hdn-descuento'", script);
+        Assert.Contains("'hdn-iva'", script);
+        Assert.Contains("'hdn-total'", script);
+    }
+
+    [Fact]
     public void CreateView_CargaJsWizardDePagina()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
