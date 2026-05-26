@@ -279,6 +279,25 @@
     }
 }
 
+@media (min-width: 1024px) {
+    #venta-create-page #venta-form > .grid,
+    #venta-edit-page #venta-form > .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+    }
+
+    #venta-create-page #venta-form > .grid > *,
+    #venta-edit-page #venta-form > .grid > * {
+        grid-column: auto;
+    }
+
+    #venta-edit-page #venta-form > .grid > :last-child {
+        position: sticky;
+        top: 9.25rem;
+        align-self: start;
+    }
+}
+
 @media (max-width: 767px) {
     #venta-create-page,
     #venta-edit-page {

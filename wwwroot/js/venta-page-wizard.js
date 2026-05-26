@@ -23,7 +23,9 @@
 
     function setText(selector, value) {
         root.querySelectorAll(selector).forEach((node) => {
-            node.textContent = value;
+            if (node.textContent !== value) {
+                node.textContent = value;
+            }
         });
     }
 
