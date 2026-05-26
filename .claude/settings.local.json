@@ -34,7 +34,17 @@
       "PowerShell(Stop-Process -Id 24064 -Force)",
       "PowerShell(Get-ChildItem -Path \"d:\\\\theburyproject1\\\\Views\\\\Catalogo\\\\\" | Where-Object { $_.Name -match \"ondicion|pago\" } | Select-Object Name, FullName)",
       "PowerShell(head -50)",
-      "PowerShell(ls d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | Select-Object Name; \\(Get-Content d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | ConvertFrom-Json\\).main)"
+      "PowerShell(ls d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | Select-Object Name; \\(Get-Content d:\\\\theburyproject1\\\\node_modules\\\\playwright\\\\package.json | ConvertFrom-Json\\).main)",
+      "PowerShell(cd E:\\\\theburyproject1; git diff --check; Write-Host \"EXIT:$LASTEXITCODE\"; git status --short)",
+      "PowerShell(cd E:\\\\theburyproject1; Start-Process -FilePath \"dotnet\" -ArgumentList \"run --configuration Release --urls http://localhost:5187\" -WindowStyle Hidden; Start-Sleep -Seconds 20; $response = try { Invoke-WebRequest -Uri \"http://localhost:5187\" -TimeoutSec 10 -UseBasicParsing; \"UP\" } catch { \"DOWN: $_\" }; Write-Host $response)",
+      "PowerShell(cd E:\\\\theburyproject1; $proc = Start-Process -FilePath \"dotnet\" -ArgumentList \"run --configuration Release --urls http://localhost:5187\" -PassThru -WindowStyle Hidden; Write-Host \"PID: $\\($proc.Id\\)\"; Start-Sleep -Seconds 30; $response = try { Invoke-WebRequest -Uri \"http://localhost:5187\" -TimeoutSec 10 -UseBasicParsing; \"UP\" } catch { \"DOWN: $_\" }; Write-Host $response)",
+      "PowerShell(cd E:\\\\theburyproject1; $job = Start-Job -ScriptBlock { Set-Location E:\\\\theburyproject1; dotnet run --configuration Release --urls \"http://localhost:5187\" 2>&1 }; Write-Host \"Job ID: $\\($job.Id\\)\"; Start-Sleep -Seconds 35; $response = try { Invoke-WebRequest -Uri \"http://localhost:5187\" -TimeoutSec 10 -UseBasicParsing; \"UP\" } catch { \"DOWN\" }; Write-Host \"App status: $response\"; Receive-Job $job -Keep | Select-Object -Last 20)",
+      "PowerShell(cd E:\\\\theburyproject1; $proc = Start-Process -FilePath \"dotnet\" -ArgumentList \"E:\\\\theburyproject1\\\\bin\\\\Release\\\\net8.0\\\\TheBuryProyect.dll --urls http://localhost:5187\" -WorkingDirectory \"E:\\\\theburyproject1\" -PassThru -WindowStyle Normal; Write-Host \"PID: $\\($proc.Id\\)\"; Start-Sleep -Seconds 25; $response = try { Invoke-WebRequest -Uri \"http://localhost:5187\" -TimeoutSec 10 -UseBasicParsing; \"UP: $\\($r.StatusCode\\)\" } catch { \"DOWN: $\\($_.Exception.Message\\)\" }; Write-Host $response)",
+      "PowerShell(cd E:\\\\theburyproject1; $env:E2E_USER=\"Admin\"; $env:E2E_PASS=\"Admin123!\"; npx.cmd playwright test e2e/ui-4e-layout-visual.spec.js 2>&1)",
+      "PowerShell(Get-Process -Name \"dotnet\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id 19508, 21412 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Test-Path \"E:\\\\theburyproject1\\\\keys\"; Test-Path \"$env:APPDATA\\\\ASP.NET\\\\DataProtection-Keys\"; Get-ChildItem \"$env:LOCALAPPDATA\\\\ASP.NET\\\\DataProtection-Keys\" -ErrorAction SilentlyContinue | Select-Object Name | Format-Table)",
+      "PowerShell(netstat -ano | Select-String \"LISTEN\" | ForEach-Object { $parts = $_ -split '\\\\s+'; $pid2 = $parts[-1]; $proc = Get-Process -Id $pid2 -ErrorAction SilentlyContinue; if \\($proc -and $proc.Name -eq \"dotnet\"\\) { \"$_  -> dotnet PID $pid2\" } })"
     ],
     "deny": [],
     "additionalDirectories": [

@@ -165,13 +165,13 @@ documentado como deuda de accesibilidad menor.
 
 ## L. Resultado de tests
 
-*(pendiente — se completará con los resultados reales)*
+- `LayoutUiContractTests`: **57/57 OK** ✅
 
 ---
 
 ## M. Resultado de build
 
-*(pendiente — se completará con los resultados reales)*
+- Build Release: **0 errores, 0 advertencias** ✅
 
 ---
 
@@ -230,12 +230,14 @@ No hay un contenedor de éxito dentro del modal propiamente dicho, lo cual es co
 ## T. Commit
 
 ```
-Agregar aria-live en mensajes de modales de catalogo (MISA-CATALOGO-UX-1G)
+dd777fc  Agregar aria-live en mensajes de modales de catalogo (MISA-CATALOGO-UX-1G)
 ```
 
 ## U. Push rama / Merge / Push main
 
-*(pendiente de resultados de build/tests)*
+- Rama `misa/catalogo-ux-1g-aria-live-modales` → commit `dd777fc`
+- Merge fast-forward a `main` ✅
+- Push `origin/main` ✅ (`2945ec3..dd777fc`)
 
 ## V. Próximo prompt recomendado
 

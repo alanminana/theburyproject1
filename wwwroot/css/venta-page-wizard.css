@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────
-   venta-modal-rework.css
-   KIRA-VENTAS-MODAL-REWORK-1B
+   venta-page-wizard.css
+   KIRA-VENTAS-PAGE-REWORK-RESET-0
    Estilos específicos del wizard fullscreen para Nueva Venta.
    Complementa las clases vm-* de venta-module.css.
    Debe cargarse DESPUÉS de venta-module.css.
@@ -13,14 +13,12 @@
    ══════════════════════════════════════════════════════════════ */
 
 /* Evita overflow en flex — sin esto el main no respeta flex-1 */
-#venta-create-page,
-#modal-crear-venta > main {
+#venta-create-page{
     min-height: 0;
 }
 
 /* Caja del grid principal — box-sizing explícito para móvil */
-#venta-create-page form > div.grid,
-#modal-crear-venta form > div.grid {
+#venta-create-page form > div.grid{
     box-sizing: border-box;
 }
 
@@ -30,14 +28,12 @@
    Scroll horizontal suave sin scrollbar visible (iOS + desktop).
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page [role="tablist"],
-#modal-crear-venta [role="tablist"] {
+#venta-create-page [role="tablist"]{
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
 }
 
-#venta-create-page [role="tablist"]::-webkit-scrollbar,
-#modal-crear-venta [role="tablist"]::-webkit-scrollbar {
+#venta-create-page [role="tablist"]::-webkit-scrollbar{
     display: none;
 }
 
@@ -196,31 +192,12 @@
 
 @media (min-width: 1024px) {
     #venta-create-page aside,
-    #modal-crear-venta aside {
-        position: sticky;
-        top: 1.5rem;
-        align-self: start;
-        max-height: calc(100vh - 11rem); /* evita que supere el viewport */
-        overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: #334155 transparent;
-    }
 
     #venta-create-page aside::-webkit-scrollbar,
-    #modal-crear-venta aside::-webkit-scrollbar {
-        width: 4px;
-    }
 
     #venta-create-page aside::-webkit-scrollbar-track,
-    #modal-crear-venta aside::-webkit-scrollbar-track {
-        background: transparent;
-    }
 
     #venta-create-page aside::-webkit-scrollbar-thumb,
-    #modal-crear-venta aside::-webkit-scrollbar-thumb {
-        background-color: #334155;
-        border-radius: 2px;
-    }
 }
 
 
@@ -304,8 +281,7 @@
    FILTROS COLLAPSIBLES — smooth expand
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page details > div,
-#modal-crear-venta details > div {
+#venta-create-page details > div{
     animation: vm-details-open 0.18s ease-out both;
 }
 
@@ -328,10 +304,6 @@
 @media (max-width: 767px) {
     /* Reducir padding del grid en pantallas muy pequeñas */
     #venta-create-page form > div.grid,
-    #modal-crear-venta form > div.grid {
-        padding: 1rem;
-        gap: 1rem;
-    }
 
     /* Submodales: ocupar todo el ancho en mobile */
     #modal-pago-item > div {

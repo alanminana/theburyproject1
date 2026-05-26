@@ -1726,9 +1726,6 @@
         clearFeedback();
     }
 
-    document.addEventListener('venta-crear-modal:open', invalidarVerificacionCrediticia);
-    document.addEventListener('venta-crear-modal:close', invalidarVerificacionCrediticia);
-
     function resetExcepcionCrediticia() {
         excepcionActiva = false;
 

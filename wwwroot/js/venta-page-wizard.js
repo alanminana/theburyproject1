@@ -1,31 +1,29 @@
 /**
- * venta-modal-rework.js
- * KIRA-VENTAS-MODAL-REWORK-1C / 1E / 1F
+ * venta-page-wizard.js
+ * KIRA-VENTAS-PAGE-REWORK-RESET-0
  *
- * Wizard UI para el modal fullscreen de Nueva Venta.
- * Complementa venta-crear-modal.js y venta-create.js sin reemplazarlos.
+ * Wizard UI para la pagina /Venta/Create.
+ * Complementa venta-create.js sin reemplazarlo.
  *
  * Expone:
- *   window.VentaModalRework.activateStep(stepName)
- *   window.VentaModalRework.openSubmodal(id)
- *   window.VentaModalRework.closeSubmodal(id)
- *   window.VentaModalRework.setOperationState(state)
- *   window.VentaModalRework.updateStepState(stepName, state)
- *   window.VentaModalRework.refreshState()          ← 1E
- *   window.VentaModalRework.goToFirstInvalidStep()  ← 1E
+ *   window.VentaPageWizard.activateStep(stepName)
+ *   window.VentaPageWizard.openSubmodal(id)
+ *   window.VentaPageWizard.closeSubmodal(id)
+ *   window.VentaPageWizard.setOperationState(state)
+ *   window.VentaPageWizard.updateStepState(stepName, state)
+ *   window.VentaPageWizard.refreshState()
+ *   window.VentaPageWizard.goToFirstInvalidStep()
  *
  * Orden de carga requerido:
- *   horizontal-scroll-affordance.js → venta-module.js → venta-create.js
- *   → venta-crear-modal.js → venta-modal-rework.js
+ *   horizontal-scroll-affordance.js -> venta-module.js -> venta-create.js
+ *   -> venta-page-wizard.js
  */
 (function () {
     'use strict';
 
     // Guard: ejecutar solo en superficies que contienen el wizard.
-    // La pagina es el camino canonico; el modal queda como compatibilidad legacy.
-    var pageWizardRoot = document.getElementById('venta-create-page');
-    var legacyModalRoot = document.getElementById('modal-crear-venta');
-    var wizardRoot = pageWizardRoot || legacyModalRoot;
+    // La pagina /Venta/Create es el camino canonico.
+    var wizardRoot = document.getElementById('venta-create-page');
     if (!wizardRoot) return;
 
     var STEPS = ['cliente', 'productos', 'pago', 'credito', 'revision'];
@@ -61,9 +59,6 @@
         return Boolean(el && !el.classList.contains('hidden'));
     }
 
-    function isLegacyModalOpen() {
-        return Boolean(legacyModalRoot && !legacyModalRoot.classList.contains('hidden'));
-    }
 
     function getPaymentText() {
         var selectTP = byId('select-tipo-pago');
@@ -381,7 +376,7 @@
         var stillOpen = document.querySelector(
             '#modal-pago-item:not(.hidden), #modal-documentacion:not(.hidden)'
         );
-        if (!stillOpen && !isLegacyModalOpen()) {
+        if (!stillOpen) {
             document.body.style.overflow = '';
         }
     }
@@ -396,8 +391,7 @@
             }
         });
 
-        // Escape cierra el submodal superior en fase de captura. En legacy evita
-        // que el handler del modal principal procese el mismo Escape.
+        // Escape cierra el submodal superior en fase de captura.
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
             var pagoItem = document.getElementById('modal-pago-item');
@@ -410,8 +404,8 @@
 
 
     // ── Sticky total mirror ───────────────────────────────────────────────────
-    // Espeja #total-final → #vm-modal-sticky-total vía MutationObserver.
-    // Reemplaza el inline <script> que existía en _VentaCrearModal.cshtml.
+    // Espeja #total-final en el total sticky mobile via MutationObserver.
+    // Mantiene sincronizado el resumen mobile de la pagina.
 
     function initStickyTotalMirror() {
         var src  = document.getElementById('total-final');
@@ -421,23 +415,6 @@
         new MutationObserver(function () {
             dest.textContent = src.textContent;
         }).observe(src, { childList: true, characterData: true, subtree: true });
-    }
-
-
-    // ── Integración con VentaCrearModal ───────────────────────────────────────
-    // Compatibilidad legacy: si el partial del modal vuelve a cargarse,
-    // su evento conserva el reset al paso 1. /Venta/Create no depende de esto.
-
-    function initLegacyModalOpenReset() {
-        if (!legacyModalRoot) return;
-
-        document.addEventListener('venta-crear-modal:open', function () {
-            activateStep(STEPS[0]);
-            setOperationState('incompleta');
-            // Diferir refreshState para que venta-create.js tenga tiempo de resetear
-            // sus paneles de crédito/verificación antes de evaluar el estado
-            setTimeout(refreshState, 50);
-        });
     }
 
 
@@ -671,8 +648,7 @@
     // ── 1E: Navegación al intentar confirmar ─────────────────────────────────
 
     function initSubmitNavigation() {
-        // Fase de captura: se ejecuta antes de onclick="VentaCrearModal.submit()".
-        // Si hay pasos inválidos, navegar al primero; el submit sigue su curso normal.
+        // Fase de captura: navega al primer paso incompleto antes del submit nativo.
         // venta-create.js maneja su propia validación del formulario.
         document.addEventListener('click', function (e) {
             if (!e.target.closest('#btn-confirmar') && !e.target.closest('.vm-btn-confirm-sm')) return;
@@ -687,7 +663,6 @@
         initWizardTabs();
         initPagoItemSubmodal();
         initStickyTotalMirror();
-        initLegacyModalOpenReset();
         initStateObservers();
         initSubmitNavigation();
         // Estado inicial luego de que venta-create.js ejecuta su init
@@ -703,7 +678,7 @@
 
     // ── API pública ───────────────────────────────────────────────────────────
 
-    window.VentaModalRework = {
+    window.VentaPageWizard = {
         activateStep:         activateStep,
         openSubmodal:         openSubmodal,
         closeSubmodal:        closeSubmodal,

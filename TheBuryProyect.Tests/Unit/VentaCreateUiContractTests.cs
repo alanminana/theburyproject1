@@ -25,40 +25,7 @@ public class VentaCreateUiContractTests
         Assert.Contains("tipo de pago principal", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<div class=\"hidden\">\r\n                        <select asp-for=\"TipoPago\"", view);
     }
-
-    [Fact]
-    public void VentaCrearModal_MuestraTipoPagoPrincipalVisible()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-        var selectIndex = modal.IndexOf("id=\"select-tipo-pago\"", StringComparison.Ordinal);
-
-        Assert.Contains("Tipo de pago principal", modal);
-        Assert.True(selectIndex >= 0, "Se esperaba id select-tipo-pago en el modal.");
-
-        var immediateContextStart = Math.Max(0, selectIndex - 120);
-        var immediateContext = modal[immediateContextStart..selectIndex];
-        Assert.DoesNotContain("class=\"hidden\"", immediateContext);
-    }
-
-    [Fact]
-    public void VentaCrearModal_NoDiceQueTipoPagoSoloSeConfiguraDesdeCadaProducto()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.DoesNotContain("El tipo de pago se configura desde cada producto", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_AclaraPagoPrincipalYAjustePorProducto()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("tipo de pago principal", modal, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ajustar condiciones por producto", modal, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("tipo de pago principal de la venta", modal, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
+[Fact]
     public void VentaCreate_View_ConservaTipoPagoPrincipalVisible()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -466,28 +433,6 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCrearModal_MobileSummaryBar_Existe()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("vm-mobile-summary-bar", modal);
-        Assert.Contains("id=\"vm-modal-sticky-total\"", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_MobileSummaryBar_BtnTieneAriaHiddenYTabindexNegativo()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var idx = modal.IndexOf("vm-mobile-summary-bar", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba vm-mobile-summary-bar en _VentaCrearModal.cshtml.");
-        var barBlock = modal[idx..(Math.Min(idx + 600, modal.Length))];
-        Assert.Contains("aria-hidden=\"true\"", barBlock);
-        Assert.Contains("tabindex=\"-1\"", barBlock);
-        Assert.Contains("type=\"button\"", barBlock);
-    }
-
-    [Fact]
     public void CreateView_TotalesConservanSusIds()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -507,27 +452,6 @@ public class VentaCreateUiContractTests
         Assert.Contains("id=\"hdn-descuento\"", view);
         Assert.Contains("id=\"hdn-iva\"", view);
         Assert.Contains("id=\"hdn-total\"", view);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TotalesConservanSusIds()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("id=\"total-final\"", modal);
-        Assert.Contains("id=\"total-subtotal\"", modal);
-        Assert.Contains("id=\"total-descuento\"", modal);
-        Assert.Contains("id=\"total-iva\"", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_BtnConfirmarConservaOnclickVentaCrearModalSubmit()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("id=\"btn-confirmar\"", modal);
-        Assert.Contains("onclick=\"VentaCrearModal.submit()\"", modal);
-        Assert.Contains("class=\"vm-btn-confirm\"", modal);
     }
 
     [Fact]
@@ -655,15 +579,7 @@ public class VentaCreateUiContractTests
     }
 
     // ── Carlos fix: regresión missing hdn-producto-requiere-numero-serie en modal ──────────
-
-    [Fact]
-    public void VentaCrearModal_TieneHiddenInputRequiereNumeroSerie()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-        Assert.Contains("id=\"hdn-producto-requiere-numero-serie\"", modal);
-    }
-
-    [Fact]
+[Fact]
     public void VentaCreate_View_TieneContenedorDetalleCobro()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -699,15 +615,7 @@ public class VentaCreateUiContractTests
         Assert.Contains("if (hdnProductoRequiereNumeroSerie)", script);
         Assert.Contains("hdnProductoRequiereNumeroSerie.value = requiereNumeroSerie ? 'true' : 'false';", script);
     }
-
-    [Fact]
-    public void VentaCrearModal_TablaDetalle_NoContieneHeaderLegacyTipoPagoPorItem()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-        Assert.DoesNotContain("tracking-wider text-slate-500 text-center\">Tipo de pago</th>", modal);
-    }
-
-    // ── Fase Kira — Advertencia stock sin identificar ────────────────────
+// ── Fase Kira — Advertencia stock sin identificar ────────────────────
 
     [Fact]
     public void VentaCreate_View_ContieneAdvertenciaStockSinIdentificar()
@@ -800,101 +708,8 @@ public class VentaCreateUiContractTests
         Assert.Contains("for=\"txt-num-autorizacion-tarjeta\"", view);
     }
 
-    [Fact]
-    public void ModalPagoItem_LabelTipoPagoTieneForSelectTipoPagoItem()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("for=\"select-tipo-pago-item\"", modal);
-    }
-
-    [Fact]
-    public void ModalPagoItem_OpcionDefaultDiceIgualAlPagoPrincipal()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("<option value=\"\">Igual al pago principal de la venta</option>", modal);
-        Assert.DoesNotContain("Tipo predeterminado del sistema", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_PanelAlertaMoraTieneRoleAlert()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var idx = modal.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba id panel-alerta-mora en el modal.");
-        var context = modal[idx..(idx + 200)];
-        Assert.Contains("role=\"alert\"", context);
-    }
-
-    [Fact]
-    public void VentaCrearModal_PanelCupoInsuficienteTieneRoleAlert()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var idx = modal.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba id panel-cupo-insuficiente en el modal.");
-        var context = modal[idx..(idx + 200)];
-        Assert.Contains("role=\"alert\"", context);
-    }
-
     // ── VENTAS-UX-1D — accesibilidad tabla detalle modal ────────────────
-
-    [Fact]
-    public void VentaCrearModal_TablaDetalle_ThsTienenScopeCol()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        // Tabla principal de detalles: los th con texto visible deben tener scope="col"
-        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500\">Cód.", modal);
-        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500\">Producto", modal);
-        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center\">Cant.", modal);
-        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right\">Unitario", modal);
-        Assert.Contains("scope=\"col\" class=\"py-3 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right\">Subtotal", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TablaDetalle_ThAccionesTieneAriaLabel()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("scope=\"col\" aria-label=\"Acciones\"", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TablaDesglosePlan_ThsTienenScopeCol()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        // Tabla de desglose del plan en sub-modal de pago por ítem
-        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-left text-[9px] font-bold uppercase tracking-wider text-slate-500\">Producto", modal);
-        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Precio base", modal);
-        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-center text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Plan", modal);
-        Assert.Contains("scope=\"col\" class=\"px-2 py-2 text-right text-[9px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap\">Total financiado", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TablaDetalle_ConservaIdTbodyDetalles()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("id=\"tbody-detalles\"", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TablaDetalle_ConservaRoleAlert_DesdeVentasUX1C()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        // role="alert" en panel-alerta-mora no fue eliminado
-        Assert.Contains("id=\"panel-alerta-mora\"", modal);
-        var idx = modal.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
-        var context = modal[idx..(idx + 200)];
-        Assert.Contains("role=\"alert\"", context);
-    }
-
-    // ── VENTAS-UX-1E-A — accesibilidad botones dinámicos en renderDetalles ─────────────
+// ── VENTAS-UX-1E-A — accesibilidad botones dinámicos en renderDetalles ─────────────
 
     [Fact]
     public void VentaCreateJs_RenderDetalles_BtnEliminarTieneAriaLabel()
@@ -974,29 +789,6 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCrearModal_PanelDocumentacionFaltanteTieneRoleAlert()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var idx = modal.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba id panel-documentacion-faltante en el modal.");
-        var context = modal[idx..(idx + 120)];
-        Assert.Contains("role=\"alert\"", context);
-    }
-
-    [Fact]
-    public void VentaCrearModal_TieneRecordatorioPreConfirmacion()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("vm-preconfirm-reminder", modal);
-        var reminderIdx = modal.IndexOf("vm-preconfirm-reminder", StringComparison.Ordinal);
-        var btnIdx = modal.IndexOf("id=\"btn-confirmar\"", StringComparison.Ordinal);
-        Assert.True(reminderIdx >= 0, "Se esperaba vm-preconfirm-reminder en el modal.");
-        Assert.True(reminderIdx < btnIdx, "El recordatorio pre-confirmación debe aparecer antes del btn-confirmar.");
-    }
-
-    [Fact]
     public void CreateView_TieneRecordatorioPreConfirmacion()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -1006,19 +798,7 @@ public class VentaCreateUiContractTests
         var btnIdx = view.IndexOf("id=\"btn-confirmar\"", StringComparison.Ordinal);
         Assert.True(reminderIdx < btnIdx, "El recordatorio pre-confirmación debe aparecer antes del btn-confirmar.");
     }
-
-    [Fact]
-    public void VentaCrearModal_RecordatorioPreConfirmacion_TieneRoleNote()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var idx = modal.IndexOf("vm-preconfirm-reminder", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Se esperaba vm-preconfirm-reminder en el modal.");
-        var context = modal[idx..(Math.Min(idx + 200, modal.Length))];
-        Assert.Contains("role=\"note\"", context);
-    }
-
-    [Fact]
+[Fact]
     public void CreateView_RecordatorioPreConfirmacion_TieneRoleNote()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
@@ -1078,23 +858,23 @@ public class VentaCreateUiContractTests
         Assert.Contains("aria-required=\"true\"", view);
     }
 
-    // ── KIRA-VENTAS-MODAL-REWORK-1C — contratos de venta-modal-rework.js ──────
+    // ── KIRA-VENTAS-MODAL-REWORK-1C — contratos de venta-page-wizard.js ──────
 
     [Fact]
-    public void VentaModalReworkJs_ExisteYExponeFuncionActivateStep()
+    public void VentaPageWizardJs_ExisteYExponeFuncionActivateStep()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
-        Assert.Contains("window.VentaModalRework", script);
+        Assert.Contains("window.VentaPageWizard", script);
         Assert.Contains("activateStep", script);
         Assert.Contains("vm-step-tab--active", script);
         Assert.Contains("vm-step-panel-active", script);
     }
 
     [Fact]
-    public void VentaModalReworkJs_ExponeFuncionesDeSubmodal()
+    public void VentaPageWizardJs_ExponeFuncionesDeSubmodal()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         Assert.Contains("openSubmodal", script);
         Assert.Contains("closeSubmodal", script);
@@ -1102,9 +882,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_ExponeFuncionesDeEstadoGlobal()
+    public void VentaPageWizardJs_ExponeFuncionesDeEstadoGlobal()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         Assert.Contains("setOperationState", script);
         Assert.Contains("vm-estado--listo", script);
@@ -1114,59 +894,46 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_NoRedefineVentaCrearModal()
+    public void VentaPageWizardJs_NoRedefineVentaCrearModalLegacy()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         Assert.DoesNotContain("const VentaCrearModal", script);
         Assert.DoesNotContain("window.VentaCrearModal", script);
     }
 
     [Fact]
-    public void VentaModalReworkJs_TieneGuardDeSeguridadParaOtrasPaginas()
+    public void VentaPageWizardJs_TieneGuardDeSeguridadParaOtrasPaginas()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
-        Assert.Contains("legacyModalRoot", script);
-        Assert.Contains("pageWizardRoot", script);
         Assert.Contains("venta-create-page", script);
-        // El guard evita que el archivo rompa paginas sin wizard, y soporta pagina + modal legacy.
-        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
+        Assert.Contains("var wizardRoot = document.getElementById('venta-create-page');", script);
         Assert.Contains("if (!wizardRoot) return;", script);
+        Assert.DoesNotContain("legacyModalRoot", script);
     }
 
     [Fact]
-    public void VentaModalReworkJs_PriorizaRootPaginaYNoDependeExclusivamenteDelModal()
+    public void VentaPageWizardJs_DependeSoloDelRootDePagina()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
-        Assert.Contains("var pageWizardRoot = document.getElementById('venta-create-page');", script);
-        Assert.Contains("var legacyModalRoot = document.getElementById('modal-crear-venta');", script);
-        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
-        Assert.DoesNotContain("if (!document.getElementById('modal-crear-venta')) return;", script);
+        Assert.Contains("var wizardRoot = document.getElementById('venta-create-page');", script);
+        Assert.DoesNotContain("modal-crear-venta", script);
+        Assert.DoesNotContain("venta-crear-modal:open", script);
     }
 
     [Fact]
-    public void VentaModalReworkCss_PriorizaSelectoresDePaginaYConservaCompatLegacy()
+    public void VentaPageWizardCss_UsaSelectoresDePaginaSinCompatModalLegacy()
     {
-        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-modal-rework.css"))
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-page-wizard.css"))
             .Replace("\r\n", "\n");
 
-        Assert.Contains("#venta-create-page,\n#modal-crear-venta > main", css);
-        Assert.Contains("#venta-create-page form > div.grid,\n#modal-crear-venta form > div.grid", css);
-        Assert.Contains("#venta-create-page [role=\"tablist\"],\n#modal-crear-venta [role=\"tablist\"]", css);
+        Assert.Contains("#venta-create-page", css);
+        Assert.Contains("#venta-create-page form > div.grid", css);
+        Assert.Contains("#venta-create-page [role=\"tablist\"]", css);
+        Assert.DoesNotContain("#modal-crear-venta", css);
     }
-
-    [Fact]
-    public void VentaCrearModal_NoTieneInlineScriptMutationObserver()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        // El inline script fue movido a venta-modal-rework.js
-        Assert.DoesNotContain("new MutationObserver", modal);
-        Assert.DoesNotContain("observe(src, { childList", modal);
-    }
-
     [Fact]
     public void IndexView_NuevaVentaNavegaACreateSinHookModal()
     {
@@ -1186,98 +953,87 @@ public class VentaCreateUiContractTests
 
         Assert.DoesNotContain("<partial name=\"_VentaCrearModal\" />", view);
         Assert.DoesNotContain("venta-crear-modal.js", view);
-        Assert.DoesNotContain("venta-modal-rework.js", view);
+        Assert.DoesNotContain("venta-page-wizard.js", view);
         Assert.DoesNotContain("venta-create.js", view);
     }
 
+    [Fact]
+    public void IndexView_Rework1A_ConservaContratosRazor()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.Contains("@model IEnumerable<TheBuryProject.ViewModels.VentaViewModel>", view);
+        Assert.Contains("@using TheBuryProject.Models.Enums", view);
+        Assert.Contains("var ventas = Model?.ToList()", view);
+        Assert.Contains("var filter = ViewBag.Filter", view);
+        Assert.Contains("var puedeCrear", view);
+        Assert.Contains("var puedeOperarVentas", view);
+        Assert.Contains("var puedeCrearDevoluciones", view);
+        Assert.Contains("var pendientesAutorizacion", view);
+        Assert.Contains("var ventasHoy", view);
+        Assert.Contains("var totalHoy", view);
+        Assert.Contains("var filtroActivo", view);
+        Assert.Contains("var fechaDesdeStr", view);
+        Assert.Contains("var fechaHastaStr", view);
+    }
+
+    [Fact]
+    public void IndexView_Rework1A_ConservaFiltrosListadoYAcciones()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.Contains("id=\"form-filtros\"", view);
+        Assert.Contains("name=\"Numero\"", view);
+        Assert.Contains("name=\"FechaDesde\"", view);
+        Assert.Contains("name=\"FechaHasta\"", view);
+        Assert.Contains("name=\"Estado\"", view);
+        Assert.Contains("name=\"TipoPago\"", view);
+        Assert.Contains("name=\"EstadoAutorizacion\"", view);
+        Assert.Contains("@foreach (var v in ventas)", view);
+        Assert.Contains("asp-action=\"Details\" asp-route-id=\"@v.Id\"", view);
+        Assert.Contains("data-open-devolucion-modal", view);
+        Assert.Contains("data-venta-id=\"@v.Id\"", view);
+        Assert.Contains("asp-action=\"Cancelar\" asp-route-id=\"@v.Id\"", view);
+    }
+
+    [Fact]
+    public void IndexView_Rework1A_NoReintroduceModalNuevaVentaNiDemo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.Contains("asp-controller=\"Venta\" asp-action=\"Create\"", view);
+        Assert.Contains("id=\"modal-recargo\"", view);
+        Assert.Contains("data-venta-modal=\"configuracion-pagos\"", view);
+        Assert.Contains("venta-index-rework.js", view);
+        Assert.DoesNotContain("btn-abrir-modal-crear-venta", view);
+        Assert.DoesNotContain("modal-nueva-venta", view);
+        Assert.DoesNotContain("modal-crear-venta", view);
+        Assert.DoesNotContain("VentaCrearModal.open", view);
+        Assert.DoesNotContain("VentaCrearModal.submit", view);
+        Assert.DoesNotContain("CreateAjax", view);
+        Assert.DoesNotContain("modal-confirmar-operacion", view);
+        Assert.DoesNotContain("V-000148", view);
+        Assert.DoesNotContain("<script>", view);
+    }
+
+    [Fact]
+    public void IndexView_Rework1A_ImplementaTabsAccesibles()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Index_tw.cshtml"));
+
+        Assert.Contains("role=\"tablist\"", view);
+        Assert.Contains("role=\"tab\"", view);
+        Assert.Contains("role=\"tabpanel\"", view);
+        Assert.Contains("aria-selected", view);
+        Assert.Contains("aria-controls", view);
+        Assert.Contains("Operaciones", view);
+        Assert.Contains("Pendientes", view);
+        Assert.Contains("Cotizaciones y presupuestos", view);
+        Assert.Contains("Devoluciones", view);
+        Assert.Contains("Configuración de pagos", view);
+    }
+
     // ── KIRA-VENTAS-MODAL-REWORK-1D — contratos de integración del wizard ─────
-
-    [Fact]
-    public void VentaCrearModal_BuscarClienteEstaEnPanelCliente()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var panelClienteStart   = modal.IndexOf("id=\"step-panel-cliente\"",   StringComparison.Ordinal);
-        var panelProductosStart = modal.IndexOf("id=\"step-panel-productos\"", StringComparison.Ordinal);
-        var clienteInputPos     = modal.IndexOf("id=\"input-buscar-cliente\"", StringComparison.Ordinal);
-        var dropdownClientesPos = modal.IndexOf("id=\"dropdown-clientes\"",    StringComparison.Ordinal);
-
-        Assert.True(panelClienteStart >= 0,   "step-panel-cliente debe existir.");
-        Assert.True(panelProductosStart > panelClienteStart, "step-panel-productos debe venir después de step-panel-cliente.");
-        Assert.True(clienteInputPos > panelClienteStart && clienteInputPos < panelProductosStart,
-            "input-buscar-cliente debe estar dentro de step-panel-cliente.");
-        Assert.True(dropdownClientesPos > panelClienteStart && dropdownClientesPos < panelProductosStart,
-            "dropdown-clientes debe estar dentro de step-panel-cliente.");
-    }
-
-    [Fact]
-    public void VentaCrearModal_TbodyDetallesEstaEnPanelProductos()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var panelProductosStart = modal.IndexOf("id=\"step-panel-productos\"", StringComparison.Ordinal);
-        var panelPagoStart      = modal.IndexOf("id=\"step-panel-pago\"",      StringComparison.Ordinal);
-        var tbodyPos            = modal.IndexOf("id=\"tbody-detalles\"",       StringComparison.Ordinal);
-
-        Assert.True(panelProductosStart >= 0, "step-panel-productos debe existir.");
-        Assert.True(panelPagoStart > panelProductosStart, "step-panel-pago debe venir después de step-panel-productos.");
-        Assert.True(tbodyPos > panelProductosStart && tbodyPos < panelPagoStart,
-            "tbody-detalles debe estar dentro de step-panel-productos.");
-    }
-
-    [Fact]
-    public void VentaCrearModal_TotalFinalEstaEnSidebar_FueraDeStepPanels()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var panelRevisionStart = modal.IndexOf("id=\"step-panel-revision\"", StringComparison.Ordinal);
-        var totalFinalPos      = modal.IndexOf("id=\"total-final\"",          StringComparison.Ordinal);
-
-        Assert.True(panelRevisionStart >= 0, "step-panel-revision debe existir.");
-        Assert.True(totalFinalPos >= 0,      "total-final debe existir en el modal.");
-        // total-final está en el aside/sidebar, que viene después de todos los step-panels
-        Assert.True(totalFinalPos > panelRevisionStart,
-            "total-final debe estar en el sidebar (después del último step panel).");
-    }
-
-    [Fact]
-    public void VentaCrearModal_DetalleBadgeEstaEnStepBtnProductos()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        var btnProductosStart = modal.IndexOf("id=\"step-btn-productos\"", StringComparison.Ordinal);
-        var btnPagoStart      = modal.IndexOf("id=\"step-btn-pago\"",      StringComparison.Ordinal);
-        var badgePos          = modal.IndexOf("id=\"detalle-items-badge\"", StringComparison.Ordinal);
-
-        Assert.True(btnProductosStart >= 0, "step-btn-productos debe existir.");
-        Assert.True(btnPagoStart > btnProductosStart, "step-btn-pago debe venir después de step-btn-productos.");
-        Assert.True(badgePos > btnProductosStart && badgePos < btnPagoStart,
-            "detalle-items-badge debe estar dentro del botón step-btn-productos (siempre visible).");
-    }
-
-    [Fact]
-    public void VentaCrearModal_PanelClienteVisiblePorDefecto_OtrosPanelesHidden()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        // step-panel-cliente: tag de apertura no debe contener "hidden"
-        var idxCliente  = modal.IndexOf("id=\"step-panel-cliente\"", StringComparison.Ordinal);
-        Assert.True(idxCliente >= 0, "step-panel-cliente debe existir.");
-        var tagEndCliente = modal.IndexOf('>', idxCliente);
-        var tagCliente    = modal[idxCliente..tagEndCliente];
-        Assert.DoesNotContain("hidden", tagCliente, StringComparison.Ordinal);
-
-        // Pasos 2-5 deben iniciar ocultos
-        foreach (var stepId in new[] { "step-panel-productos", "step-panel-pago", "step-panel-credito", "step-panel-revision" })
-        {
-            var idx    = modal.IndexOf($"id=\"{stepId}\"", StringComparison.Ordinal);
-            Assert.True(idx >= 0, $"{stepId} debe existir.");
-            var tagEnd = modal.IndexOf('>', idx);
-            var tag    = modal[idx..tagEnd];
-            Assert.Contains("hidden", tag, StringComparison.Ordinal);
-        }
-    }
-
     [Fact]
     public void VentaCreateJs_ActualizarResumenOperacion_ActualizaDetalleBadgeConNullGuardEnHero()
     {
@@ -1298,14 +1054,14 @@ public class VentaCreateUiContractTests
     // ── KIRA-VENTAS-MODAL-REWORK-1E — navegación inteligente del wizard ─────────
 
     [Fact]
-    public void VentaModalReworkJs_ExponeFuncionesNavegacionInteligente()
+    public void VentaPageWizardJs_ExponeFuncionesNavegacionInteligente()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         // API pública completa post-1E
         Assert.Contains("refreshState:", script);
         Assert.Contains("goToFirstInvalidStep:", script);
-        Assert.Contains("window.VentaModalRework", script);
+        Assert.Contains("window.VentaPageWizard", script);
         // Funciones anteriores conservadas
         Assert.Contains("activateStep:", script);
         Assert.Contains("updateStepState:", script);
@@ -1313,9 +1069,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_ImplementaEvaluacionDeEstadosPorPaso()
+    public void VentaPageWizardJs_ImplementaEvaluacionDeEstadosPorPaso()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         Assert.Contains("function evaluateStepStates", script);
         Assert.Contains("function refreshState", script);
@@ -1329,9 +1085,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_ObservaSelectoresClaveDeEstado()
+    public void VentaPageWizardJs_ObservaSelectoresClaveDeEstado()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         // Selectores observados para detectar cambios de estado sin tocar venta-create.js
         Assert.Contains("info-cliente", script);
@@ -1343,9 +1099,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_NavegaAlPasoInvalidoEnSubmit()
+    public void VentaPageWizardJs_NavegaAlPasoInvalidoEnSubmit()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function goToFirstInvalidStep");
 
         // Debe navegar al primer paso inválido en orden de prioridad
@@ -1358,11 +1114,11 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_InterceptaClickConfirmarParaNavegar()
+    public void VentaPageWizardJs_InterceptaClickConfirmarParaNavegar()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
-        // Captura el click en capture phase antes del onclick="VentaCrearModal.submit()"
+        // Captura el click en capture phase antes del submit nativo
         Assert.Contains("btn-confirmar", script);
         Assert.Contains("goToFirstInvalidStep()", script);
         // La función initSubmitNavigation NO llama preventDefault — deja proceder el submit
@@ -1371,9 +1127,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_EvaluaClienteConInfoClientePanel()
+    public void VentaPageWizardJs_EvaluaClienteConInfoClientePanel()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function evaluateStepStates");
 
         // Usa info-cliente (visible/hidden) como proxy del cliente seleccionado
@@ -1383,9 +1139,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_EvaluaCreditoConPanelesDeCreditoVisibles()
+    public void VentaPageWizardJs_EvaluaCreditoConPanelesDeCreditoVisibles()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function evaluateStepStates");
 
         // Estados crediticios se detectan via visibilidad de paneles
@@ -1395,28 +1151,12 @@ public class VentaCreateUiContractTests
         Assert.Contains("panel-cupo-suficiente", fn);
         Assert.Contains("requiereCredito", fn);
     }
+// ── KIRA-VENTAS-MODAL-REWORK-1F — pago principal y pago por producto ───────
 
     [Fact]
-    public void VentaCrearModal_InfoClientePanelExisteCon_id()
+    public void VentaPageWizardJs_ExponeFuncionesDeSincronizacionVisual1F()
     {
-        // Contrato estructural: info-cliente debe existir con id correcto
-        // para que los observers de 1E puedan detectar cambios de visibilidad
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("id=\"info-cliente\"", modal);
-        // Debe iniciar hidden (sin cliente al abrir el modal)
-        var idx = modal.IndexOf("id=\"info-cliente\"", StringComparison.Ordinal);
-        var tagEnd = modal.IndexOf('>', idx);
-        var tag = modal[idx..tagEnd];
-        Assert.Contains("hidden", tag, StringComparison.Ordinal);
-    }
-
-    // ── KIRA-VENTAS-MODAL-REWORK-1F — pago principal y pago por producto ───────
-
-    [Fact]
-    public void VentaModalReworkJs_ExponeFuncionesDeSincronizacionVisual1F()
-    {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
         Assert.Contains("function syncPaymentSummary", script);
         Assert.Contains("function syncTotalsSummary", script);
@@ -1428,18 +1168,18 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_RefreshStateSincronizaResumenesVisuales()
+    public void VentaPageWizardJs_RefreshStateSincronizaResumenesVisuales()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function refreshState");
 
         Assert.Contains("syncVisualSummaries()", fn);
     }
 
     [Fact]
-    public void VentaModalReworkJs_NoRecalculaTotales_SoloLeeNodosExistentes()
+    public void VentaPageWizardJs_NoRecalculaTotales_SoloLeeNodosExistentes()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function syncTotalsSummary");
 
         Assert.Contains("textOf('total-subtotal'", fn);
@@ -1452,47 +1192,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaCrearModal_TieneHooksDePagoSidebarRevisionConfirmacion()
+    public void VentaPageWizardJs_ObservaCambiosDeTotalesProductosClienteYPago()
     {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("data-pago-summary", modal);
-        Assert.Contains("data-side-cliente", modal);
-        Assert.Contains("data-side-items", modal);
-        Assert.Contains("data-side-pago", modal);
-        Assert.Contains("data-side-subtotal", modal);
-        Assert.Contains("data-side-descuento", modal);
-        Assert.Contains("data-side-iva", modal);
-        Assert.Contains("data-side-total", modal);
-        Assert.Contains("data-mobile-total", modal);
-        Assert.Contains("data-rev-cliente", modal);
-        Assert.Contains("data-rev-fecha", modal);
-        Assert.Contains("data-rev-pago", modal);
-        Assert.Contains("data-rev-items", modal);
-        Assert.Contains("data-conf-cliente", modal);
-        Assert.Contains("data-conf-items", modal);
-        Assert.Contains("data-conf-pago", modal);
-        Assert.Contains("data-conf-total", modal);
-        Assert.Contains("data-conf-credito", modal);
-    }
-
-    [Fact]
-    public void VentaCrearModal_PreservaSubmodalPagoPorProducto()
-    {
-        var modal = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaCrearModal.cshtml"));
-
-        Assert.Contains("id=\"modal-pago-item\"", modal);
-        Assert.Contains("id=\"modal-pago-item-titulo\"", modal);
-        Assert.Contains("id=\"select-tipo-pago-item\"", modal);
-        Assert.Contains("id=\"modal-pago-item-planes\"", modal);
-        Assert.Contains("id=\"modal-pago-item-resumen\"", modal);
-        Assert.Contains("id=\"btn-guardar-pago-item\"", modal);
-    }
-
-    [Fact]
-    public void VentaModalReworkJs_ObservaCambiosDeTotalesProductosClienteYPago()
-    {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function initStateObservers");
 
         Assert.Contains("total-subtotal", fn);
@@ -1506,9 +1208,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_SincronizaAlertasSinInnerHtml()
+    public void VentaPageWizardJs_SincronizaAlertasSinInnerHtml()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var fn = ExtractFunction(script, "function syncReviewAlerts");
 
         Assert.Contains("replaceChildren", fn);
@@ -1604,11 +1306,11 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_ConservaSincronizacionClienteProductosTotalesDePagina()
+    public void VentaPageWizardJs_ConservaSincronizacionClienteProductosTotalesDePagina()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
 
-        Assert.Contains("var wizardRoot = pageWizardRoot || legacyModalRoot;", script);
+        Assert.Contains("var wizardRoot = document.getElementById('venta-create-page');", script);
         Assert.Contains("setText('[data-side-cliente]'", script);
         Assert.Contains("setText('[data-side-items]'", script);
         Assert.Contains("setText('[data-rev-cliente]'", script);
@@ -1626,7 +1328,7 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("venta-modal-rework.js", view);
+        Assert.Contains("venta-page-wizard.js", view);
     }
 
     // KIRA-VENTAS-PAGE-REWORK-1E - pago, credito, documentacion y excepcion
@@ -1687,9 +1389,9 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void VentaModalReworkJs_ContemplaEstadosDePagoCreditoDocumentacion()
+    public void VentaPageWizardJs_ContemplaEstadosDePagoCreditoDocumentacion()
     {
-        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-modal-rework.js"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
         var estados = ExtractFunction(script, "function evaluateStepStates");
         var resumenCredito = ExtractFunction(script, "function getCreditSummary");
         var alerts = ExtractFunction(script, "function getAlertItems");
