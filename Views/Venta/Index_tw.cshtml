@@ -143,6 +143,11 @@
                 <span class="dot dot-green"></span>
                 Centro operativo
             </div>
+            <nav class="venta-breadcrumb" aria-label="Breadcrumb">
+                <a asp-controller="Venta" asp-action="Index" class="venta-breadcrumb__link">Ventas</a>
+                <span class="venta-breadcrumb__separator" aria-hidden="true">›</span>
+                <span class="venta-breadcrumb__current">Centro de ventas</span>
+            </nav>
             <div>
                 <h1>Centro de Ventas</h1>
                 <p>Seguimiento diario de operaciones, autorizaciones, presupuestos y devoluciones con datos reales del ERP.</p>
@@ -287,70 +292,82 @@
                 </div>
             </div>
 
-            <form asp-action="Index" method="get" id="form-filtros" class="filters-grid">
-                <div class="field field-wide">
-                    <label class="label" for="venta-filtro-numero">Buscar venta</label>
-                    <input id="venta-filtro-numero" type="text" name="Numero" value="@filter.Numero" placeholder="Número de venta" />
+            <form asp-action="Index" method="get" id="form-filtros" class="filters-shell">
+                <div class="filters-grid filters-grid--base">
+                    <div class="field field-wide">
+                        <label class="label" for="venta-filtro-numero">Buscar venta</label>
+                        <input id="venta-filtro-numero" type="text" name="Numero" value="@filter.Numero" placeholder="Número de venta" />
+                    </div>
+                    <div class="filters-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-symbols-outlined">filter_list</span>
+                            Filtrar
+                        </button>
+                        @if (filtroActivo)
+                        {
+                            <a asp-action="Index" class="btn btn-ghost no-underline">
+                                <span class="material-symbols-outlined">clear_all</span>
+                                Limpiar
+                            </a>
+                        }
+                    </div>
                 </div>
-                <div class="field">
-                    <label class="label" for="venta-filtro-desde">Desde</label>
-                    <input id="venta-filtro-desde" type="date" name="FechaDesde" value="@fechaDesdeStr" />
-                </div>
-                <div class="field">
-                    <label class="label" for="venta-filtro-hasta">Hasta</label>
-                    <input id="venta-filtro-hasta" type="date" name="FechaHasta" value="@fechaHastaStr" />
-                </div>
-                <div class="field">
-                    <label class="label" for="venta-filtro-estado">Estado</label>
-                    <select id="venta-filtro-estado" name="Estado">
-                        <option value="">Todos</option>
-                        <option value="@EstadoVenta.Cotizacion" selected="@(filter.Estado == EstadoVenta.Cotizacion)">Cotización</option>
-                        <option value="@EstadoVenta.Presupuesto" selected="@(filter.Estado == EstadoVenta.Presupuesto)">Presupuesto</option>
-                        <option value="@EstadoVenta.Confirmada" selected="@(filter.Estado == EstadoVenta.Confirmada)">Confirmada</option>
-                        <option value="@EstadoVenta.Facturada" selected="@(filter.Estado == EstadoVenta.Facturada)">Facturada</option>
-                        <option value="@EstadoVenta.Entregada" selected="@(filter.Estado == EstadoVenta.Entregada)">Entregada</option>
-                        <option value="@EstadoVenta.Cancelada" selected="@(filter.Estado == EstadoVenta.Cancelada)">Cancelada</option>
-                        <option value="@EstadoVenta.PendienteRequisitos" selected="@(filter.Estado == EstadoVenta.PendienteRequisitos)">Pend. requisitos</option>
-                        <option value="@EstadoVenta.PendienteFinanciacion" selected="@(filter.Estado == EstadoVenta.PendienteFinanciacion)">Pend. financiación</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="label" for="venta-filtro-pago">Pago</label>
-                    <select id="venta-filtro-pago" name="TipoPago">
-                        <option value="">Todos</option>
-                        <option value="@TipoPago.Efectivo" selected="@(filter.TipoPago == TipoPago.Efectivo)">Efectivo</option>
-                        <option value="@TipoPago.Transferencia" selected="@(filter.TipoPago == TipoPago.Transferencia)">Transferencia</option>
-                        <option value="@TipoPago.TarjetaDebito" selected="@(filter.TipoPago == TipoPago.TarjetaDebito)">Tarjeta débito</option>
-                        <option value="@TipoPago.TarjetaCredito" selected="@(filter.TipoPago == TipoPago.TarjetaCredito)">Tarjeta crédito</option>
-                        <option value="@TipoPago.Cheque" selected="@(filter.TipoPago == TipoPago.Cheque)">Cheque</option>
-                        <option value="@TipoPago.CreditoPersonal" selected="@(filter.TipoPago == TipoPago.CreditoPersonal)">Crédito personal</option>
-                        <option value="@TipoPago.MercadoPago" selected="@(filter.TipoPago == TipoPago.MercadoPago)">Mercado Pago</option>
-                        <option value="@TipoPago.CuentaCorriente" selected="@(filter.TipoPago == TipoPago.CuentaCorriente)">Cuenta corriente</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="label" for="venta-filtro-autorizacion">Autorización</label>
-                    <select id="venta-filtro-autorizacion" name="EstadoAutorizacion">
-                        <option value="">Todas</option>
-                        <option value="@EstadoAutorizacionVenta.NoRequiere" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.NoRequiere)">No requiere</option>
-                        <option value="@EstadoAutorizacionVenta.PendienteAutorizacion" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion)">Pendiente</option>
-                        <option value="@EstadoAutorizacionVenta.Autorizada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)">Autorizada</option>
-                        <option value="@EstadoAutorizacionVenta.Rechazada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)">Rechazada</option>
-                    </select>
-                </div>
-                <div class="filters-actions">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-symbols-outlined">filter_list</span>
-                        Filtrar
-                    </button>
-                    @if (filtroActivo)
-                    {
-                        <a asp-action="Index" class="btn btn-ghost no-underline">
-                            <span class="material-symbols-outlined">clear_all</span>
-                            Limpiar
-                        </a>
-                    }
-                </div>
+
+                <details class="advanced-filters">
+                    <summary class="advanced-filters__summary">
+                        <span>Filtros avanzados</span>
+                    </summary>
+                    <div class="advanced-filters__body">
+                        <div class="filters-grid filters-grid--advanced">
+                            <div class="field">
+                                <label class="label" for="venta-filtro-desde">Desde</label>
+                                <input id="venta-filtro-desde" type="date" name="FechaDesde" value="@fechaDesdeStr" />
+                            </div>
+                            <div class="field">
+                                <label class="label" for="venta-filtro-hasta">Hasta</label>
+                                <input id="venta-filtro-hasta" type="date" name="FechaHasta" value="@fechaHastaStr" />
+                            </div>
+                            <div class="field">
+                                <label class="label" for="venta-filtro-estado">Estado</label>
+                                <select id="venta-filtro-estado" name="Estado">
+                                    <option value="">Todos</option>
+                                    <option value="@EstadoVenta.Cotizacion" selected="@(filter.Estado == EstadoVenta.Cotizacion)">Cotización</option>
+                                    <option value="@EstadoVenta.Presupuesto" selected="@(filter.Estado == EstadoVenta.Presupuesto)">Presupuesto</option>
+                                    <option value="@EstadoVenta.Confirmada" selected="@(filter.Estado == EstadoVenta.Confirmada)">Confirmada</option>
+                                    <option value="@EstadoVenta.Facturada" selected="@(filter.Estado == EstadoVenta.Facturada)">Facturada</option>
+                                    <option value="@EstadoVenta.Entregada" selected="@(filter.Estado == EstadoVenta.Entregada)">Entregada</option>
+                                    <option value="@EstadoVenta.Cancelada" selected="@(filter.Estado == EstadoVenta.Cancelada)">Cancelada</option>
+                                    <option value="@EstadoVenta.PendienteRequisitos" selected="@(filter.Estado == EstadoVenta.PendienteRequisitos)">Pend. requisitos</option>
+                                    <option value="@EstadoVenta.PendienteFinanciacion" selected="@(filter.Estado == EstadoVenta.PendienteFinanciacion)">Pend. financiación</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="label" for="venta-filtro-pago">Pago</label>
+                                <select id="venta-filtro-pago" name="TipoPago">
+                                    <option value="">Todos</option>
+                                    <option value="@TipoPago.Efectivo" selected="@(filter.TipoPago == TipoPago.Efectivo)">Efectivo</option>
+                                    <option value="@TipoPago.Transferencia" selected="@(filter.TipoPago == TipoPago.Transferencia)">Transferencia</option>
+                                    <option value="@TipoPago.TarjetaDebito" selected="@(filter.TipoPago == TipoPago.TarjetaDebito)">Tarjeta débito</option>
+                                    <option value="@TipoPago.TarjetaCredito" selected="@(filter.TipoPago == TipoPago.TarjetaCredito)">Tarjeta crédito</option>
+                                    <option value="@TipoPago.Cheque" selected="@(filter.TipoPago == TipoPago.Cheque)">Cheque</option>
+                                    <option value="@TipoPago.CreditoPersonal" selected="@(filter.TipoPago == TipoPago.CreditoPersonal)">Crédito personal</option>
+                                    <option value="@TipoPago.MercadoPago" selected="@(filter.TipoPago == TipoPago.MercadoPago)">Mercado Pago</option>
+                                    <option value="@TipoPago.CuentaCorriente" selected="@(filter.TipoPago == TipoPago.CuentaCorriente)">Cuenta corriente</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="label" for="venta-filtro-autorizacion">Autorización</label>
+                                <select id="venta-filtro-autorizacion" name="EstadoAutorizacion">
+                                    <option value="">Todas</option>
+                                    <option value="@EstadoAutorizacionVenta.NoRequiere" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.NoRequiere)">No requiere</option>
+                                    <option value="@EstadoAutorizacionVenta.PendienteAutorizacion" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion)">Pendiente</option>
+                                    <option value="@EstadoAutorizacionVenta.Autorizada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)">Autorizada</option>
+                                    <option value="@EstadoAutorizacionVenta.Rechazada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)">Rechazada</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </form>
 
             <div id="ventas-index-scroll" data-oc-scroll class="table-shell">

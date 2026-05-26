@@ -107,6 +107,32 @@
     gap: 0.75rem;
 }
 
+#venta-index-rework .venta-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--vi-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+#venta-index-rework .venta-breadcrumb__link {
+    color: #bae6fd;
+    text-decoration: none;
+}
+
+#venta-index-rework .venta-breadcrumb__link:hover {
+    color: #e0f2fe;
+}
+
+#venta-index-rework .venta-breadcrumb__separator {
+    color: var(--vi-faint);
+}
+
+#venta-index-rework .venta-breadcrumb__current {
+    color: var(--vi-text);
+}
+
 #venta-index-rework .venta-hero__eyebrow,
 #venta-index-rework .venta-hero__chips,
 #venta-index-rework .venta-hero__actions {
@@ -404,16 +430,54 @@
     gap: 0.5rem;
 }
 
+#venta-index-rework .filters-shell {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
 #venta-index-rework .filters-grid {
     display: grid;
-    grid-template-columns: minmax(14rem, 1.5fr) repeat(5, minmax(9rem, 1fr)) auto;
     gap: 0.75rem;
     align-items: end;
-    margin-bottom: 1rem;
+}
+
+#venta-index-rework .filters-grid--base {
+    grid-template-columns: minmax(0, 1.5fr) auto;
     padding: 0.9rem;
     border: 1px solid var(--vi-line-soft);
     border-radius: 8px;
     background: rgba(2, 6, 23, 0.22);
+}
+
+#venta-index-rework .filters-grid--advanced {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#venta-index-rework .advanced-filters {
+    border: 1px solid var(--vi-line-soft);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, 0.22);
+    overflow: hidden;
+}
+
+#venta-index-rework .advanced-filters__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    color: var(--vi-text);
+    font-weight: 850;
+    cursor: pointer;
+}
+
+#venta-index-rework .advanced-filters__summary::-webkit-details-marker {
+    display: none;
+}
+
+#venta-index-rework .advanced-filters__body {
+    padding: 0 0.9rem 0.9rem;
 }
 
 #venta-index-rework .field {
@@ -692,13 +756,12 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    #venta-index-rework .filters-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    #venta-index-rework .filters-grid--base {
+        grid-template-columns: 1fr;
     }
 
-    #venta-index-rework .field-wide,
-    #venta-index-rework .filters-actions {
-        grid-column: span 3;
+    #venta-index-rework .filters-grid--advanced {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -719,14 +782,13 @@
         flex-direction: column;
     }
 
-    #venta-index-rework .kpi-grid,
-    #venta-index-rework .filters-grid {
+    #venta-index-rework .kpi-grid {
         grid-template-columns: 1fr 1fr;
     }
 
-    #venta-index-rework .field-wide,
-    #venta-index-rework .filters-actions {
-        grid-column: span 2;
+    #venta-index-rework .filters-grid--base,
+    #venta-index-rework .filters-grid--advanced {
+        grid-template-columns: 1fr;
     }
 
     #venta-index-rework .table-shell {
@@ -761,14 +823,8 @@
 }
 
 @media (max-width: 560px) {
-    #venta-index-rework .kpi-grid,
-    #venta-index-rework .filters-grid {
+    #venta-index-rework .kpi-grid {
         grid-template-columns: 1fr;
-    }
-
-    #venta-index-rework .field-wide,
-    #venta-index-rework .filters-actions {
-        grid-column: auto;
     }
 
     #venta-index-rework .filters-actions,
