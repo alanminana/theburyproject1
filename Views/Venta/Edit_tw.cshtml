@@ -14,9 +14,29 @@
     var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
     var esCotizacion = Model.Estado == EstadoVenta.Cotizacion;
     var estadoOperacionLabel = esCotizacion ? "Cotización" : "Venta";
+    var ventaInicialJson = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        detalles = Model.Detalles.Select(d => new
+        {
+            productoId = d.ProductoId,
+            codigo = d.ProductoCodigo ?? string.Empty,
+            nombre = d.ProductoNombre ?? string.Empty,
+            cantidad = d.Cantidad,
+            precioUnitario = d.PrecioUnitario,
+            descuento = d.Descuento,
+            subtotal = d.Subtotal,
+            stock = d.StockDisponible,
+            requiereNumeroSerie = d.RequiereNumeroSerie,
+            productoUnidadId = (object?)d.ProductoUnidadId,
+            productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty
+        })
+    }, new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    });
 }
 
-<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+<div id="venta-edit-page" class="mx-auto flex min-h-[calc(100dvh-5rem)] w-full flex-col px-4 py-4 sm:px-6 lg:px-8">
 
 <!-- Validation Errors -->
 @if (!ViewData.ModelState.IsValid)
@@ -69,6 +89,7 @@
     <input type="hidden" asp-for="Id" />
     <input type="hidden" asp-for="Estado" />
     <input type="hidden" asp-for="RowVersion" />
+    <input type="hidden" id="venta-inicial-json" data-seed-target="window.ventaInicial" value="@ventaInicialJson" />
 
     <!-- Header Section -->
     <section class="venta-hero-section sm:p-8">
@@ -117,7 +138,7 @@
             </div>
         </div>
 
-        <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div class="venta-edit-hero-metrics mt-6">
             <article class="venta-hero-metric">
                 <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</p>
                 <p id="hero-cliente" class="mt-3 text-sm font-bold text-white">Sin seleccionar</p>
@@ -139,14 +160,54 @@
                 <p class="mt-1 text-xs text-slate-400">El detalle cambia automáticamente según la forma de pago elegida.</p>
             </article>
         </div>
+
+        <div class="mt-6 flex items-center justify-between gap-3">
+            <div role="tablist" class="flex gap-1 overflow-x-auto" aria-label="Pasos de edicion de venta">
+                <button type="button" id="step-btn-cliente" role="tab" aria-selected="true" aria-controls="step-panel-cliente" data-step="cliente" class="vm-step-tab vm-step-tab--active">
+                    <span class="vm-step-tab__num">1</span>
+                    Cliente
+                </button>
+                <button type="button" id="step-btn-productos" role="tab" aria-selected="false" aria-controls="step-panel-productos" data-step="productos" class="vm-step-tab">
+                    <span class="vm-step-tab__num">2</span>
+                    Productos
+                    <span id="detalle-items-badge" class="vm-step-tab__badge">0</span>
+                </button>
+                <button type="button" id="step-btn-pago" role="tab" aria-selected="false" aria-controls="step-panel-pago" data-step="pago" class="vm-step-tab">
+                    <span class="vm-step-tab__num">3</span>
+                    Pago
+                </button>
+                <button type="button" id="step-btn-credito" role="tab" aria-selected="false" aria-controls="step-panel-credito" data-step="credito" class="vm-step-tab">
+                    <span class="vm-step-tab__num">4</span>
+                    Credito
+                </button>
+                <button type="button" id="step-btn-revision" role="tab" aria-selected="false" aria-controls="step-panel-revision" data-step="revision" class="vm-step-tab">
+                    <span class="vm-step-tab__num">5</span>
+                    Revision
+                </button>
+            </div>
+            <span id="vm-estado-global" class="hidden shrink-0 items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-[10px] font-bold text-slate-400 sm:inline-flex">
+                Edicion
+            </span>
+        </div>
     </section>
+
+    <div class="vm-mobile-summary-bar" role="region" aria-label="Resumen de edicion">
+        <div class="vm-mobile-summary-bar__info">
+            <span class="material-symbols-outlined vm-mobile-summary-bar__icon">receipt_long</span>
+            <span>Total: <strong data-mobile-total>$0,00</strong></span>
+        </div>
+        <button type="button" class="vm-btn-confirm-sm" data-wizard-submit-proxy="btn-confirmar">
+            <span class="material-symbols-outlined vm-btn-confirm-sm__icon">save</span>
+            Guardar
+        </button>
+    </div>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
         <!-- Left Column: Main Form -->
         <div class="lg:col-span-2 flex flex-col gap-8">
 
             <!-- 1. General Data Section -->
-            <section class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+            <section id="step-panel-cliente" role="tabpanel" aria-labelledby="step-btn-cliente" class="venta-wizard-tab-panel bg-slate-900/50 p-6 rounded-xl border border-slate-800">
                 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 1</p>
@@ -238,7 +299,7 @@
             </section>
 
             <!-- 2. Products Section -->
-            <section class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+            <section id="step-panel-productos" role="tabpanel" aria-labelledby="step-btn-productos" class="venta-wizard-tab-panel bg-slate-900/50 p-6 rounded-xl border border-slate-800 hidden">
                 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 2</p>
@@ -338,7 +399,7 @@
                 </div>
 
                 <!-- Product Table -->
-                <div id="venta-detalles-scroll" data-oc-scroll style="--oc-scroll-min-width: 46rem;">
+                <div id="venta-detalles-scroll" data-oc-scroll data-scroll-min-width="46rem">
                     <p data-oc-scroll-hint hidden class="mb-3 text-xs font-medium text-slate-400 lg:hidden">
                         Deslizá la tabla para revisar cantidades, descuentos y subtotales completos.
                     </p>
@@ -371,7 +432,7 @@
             </section>
 
             <!-- 3. Payment Details Section (Cards/Checks/Credit) -->
-            <section id="seccion-detalle-cobro" class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+            <section id="step-panel-pago" role="tabpanel" aria-labelledby="step-btn-pago" class="venta-wizard-tab-panel bg-slate-900/50 p-6 rounded-xl border border-slate-800 hidden">
                 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Paso 3</p>
@@ -534,7 +595,7 @@
         <div class="flex flex-col gap-8">
 
             <!-- 4. Credit Eligibility Verification -->
-            <section id="seccion-verificacion-crediticia" class="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+            <section id="step-panel-credito" role="tabpanel" aria-labelledby="step-btn-credito" class="venta-wizard-tab-panel bg-slate-900/50 p-6 rounded-xl border border-slate-800 hidden">
                 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Control operativo</p>
@@ -718,7 +779,7 @@
             </section>
 
             <!-- 6. Totals Panel -->
-            <section class="overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20">
+            <section id="step-panel-revision" role="tabpanel" aria-labelledby="step-btn-revision" class="venta-wizard-tab-panel overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20 hidden">
                 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p class="text-[11px] font-bold uppercase tracking-[0.2em] opacity-80">Cierre</p>
@@ -731,23 +792,37 @@
                     </span>
                 </div>
                 <div class="space-y-3 mb-6">
+                    <div class="mb-5 space-y-2 rounded-xl border border-white/15 bg-white/10 p-3 text-xs text-white/80">
+                        <div class="flex justify-between gap-3">
+                            <span>Cliente</span>
+                            <span data-side-cliente class="text-right font-semibold text-white">Sin seleccionar</span>
+                        </div>
+                        <div class="flex justify-between gap-3">
+                            <span>Productos</span>
+                            <span data-side-items class="text-right font-semibold text-white">0 productos</span>
+                        </div>
+                        <div class="flex justify-between gap-3">
+                            <span>Pago</span>
+                            <span data-side-pago class="text-right font-semibold text-white">Sin definir</span>
+                        </div>
+                    </div>
                     <div class="flex justify-between text-sm">
                         <span class="opacity-70">Subtotal Neto</span>
-                        <span id="total-subtotal" class="font-medium">$0,00</span>
+                        <span id="total-subtotal" data-side-subtotal class="font-medium">$0,00</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="opacity-70">Descuento Global (<span id="total-descuento-label">0%</span>)</span>
-                        <span id="total-descuento" class="font-medium">-$0,00</span>
+                        <span id="total-descuento" data-side-descuento class="font-medium">-$0,00</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="opacity-70">IVA total</span>
-                        <span id="total-iva" class="font-medium">$0,00</span>
+                        <span id="total-iva" data-side-iva class="font-medium">$0,00</span>
                     </div>
                     <div class="pt-3 border-t border-white/20">
                         <div class="flex justify-between items-center">
                             <span class="text-lg font-bold">TOTAL FINAL</span>
                             <div class="text-right">
-                                <span id="total-final" class="block text-3xl font-black">$0,00</span>
+                                <span id="total-final" data-side-total class="block text-3xl font-black">$0,00</span>
                                 <span class="text-[10px] opacity-70">ARS pesos argentinos</span>
                             </div>
                         </div>
@@ -855,32 +930,9 @@
     <partial name="_VentaModuleStyles" />
 }
 
-@{
-    var ventaInicialJson = System.Text.Json.JsonSerializer.Serialize(new
-    {
-        detalles = Model.Detalles.Select(d => new
-        {
-            productoId = d.ProductoId,
-            codigo = d.ProductoCodigo ?? string.Empty,
-            nombre = d.ProductoNombre ?? string.Empty,
-            cantidad = d.Cantidad,
-            precioUnitario = d.PrecioUnitario,
-            descuento = d.Descuento,
-            subtotal = d.Subtotal,
-            stock = d.StockDisponible,
-            requiereNumeroSerie = d.RequiereNumeroSerie,
-            productoUnidadId = (object?)d.ProductoUnidadId,
-            productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty
-        })
-    }, new System.Text.Json.JsonSerializerOptions
-    {
-        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-    });
-}
-
 @section Scripts {
-    <script>window.ventaInicial = @Html.Raw(ventaInicialJson);</script>
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/venta-module.js" asp-append-version="true"></script>
+    <script src="~/js/venta-page-wizard.js" asp-append-version="true"></script>
     <script src="~/js/venta-create.js" asp-append-version="true"></script>
 }

@@ -454,15 +454,16 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void CreateView_StickyFooterMobile_BtnTieneAriaHiddenYTabindexNegativo()
+    public void CreateView_StickyFooterMobile_BtnEsOperableComoProxyDeConfirmar()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
         var idx = view.IndexOf("class=\"vm-mobile-summary-bar\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba class=\"vm-mobile-summary-bar\" en Create_tw.cshtml.");
         var footerBlock = view[idx..(Math.Min(idx + 1000, view.Length))];
-        Assert.Contains("aria-hidden=\"true\"", footerBlock);
-        Assert.Contains("tabindex=\"-1\"", footerBlock);
+        Assert.Contains("data-wizard-submit-proxy=\"btn-confirmar\"", footerBlock);
+        Assert.DoesNotContain("aria-hidden=\"true\"", footerBlock);
+        Assert.DoesNotContain("tabindex=\"-1\"", footerBlock);
     }
 
     [Fact]
@@ -1626,7 +1627,9 @@ public class VentaCreateUiContractTests
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("venta-modal-rework.js", view);
+        Assert.Contains("venta-page-wizard.js", view);
+        Assert.DoesNotContain("venta-modal-rework.js", view);
+        Assert.DoesNotContain("venta-crear-modal.js", view);
     }
 
     // KIRA-VENTAS-PAGE-REWORK-1E - pago, credito, documentacion y excepcion
@@ -1664,10 +1667,62 @@ public class VentaCreateUiContractTests
 
         Assert.Contains("<form id=\"venta-form\" asp-action=\"Create\" method=\"post\">", view);
         Assert.Contains("@Html.AntiForgeryToken()", view);
+        Assert.Contains("id=\"venta-create-page\"", view);
+        Assert.Contains("venta-page-wizard.js", view);
+        Assert.Contains("id=\"btn-confirmar\"", view);
+        Assert.Contains("id=\"hdn-subtotal\"", view);
+        Assert.Contains("id=\"hdn-descuento\"", view);
+        Assert.Contains("id=\"hdn-iva\"", view);
+        Assert.Contains("id=\"hdn-total\"", view);
+        Assert.Contains("id=\"panel-documentacion-faltante\"", view);
+        Assert.Contains("id=\"panel-excepcion-crediticia\"", view);
         Assert.DoesNotContain("id=\"modal-crear-venta\"", view);
+        Assert.DoesNotContain("#modal-crear-venta", view);
         Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
+        Assert.DoesNotContain("#modal-confirmar-operacion", view);
+        Assert.DoesNotContain("role=\"dialog\"", view);
+        Assert.DoesNotContain("aria-modal=\"true\"", view);
+        Assert.DoesNotContain("action=\"/Venta/CreateAjax\"", view);
         Assert.DoesNotContain("CreateAjax", view);
         Assert.DoesNotContain("VentaCrearModal.submit()", view);
+        Assert.DoesNotContain("btn-cerrar-modal-crear-venta", view);
+        Assert.DoesNotContain("onclick=", view);
+        Assert.DoesNotContain("style=", view);
+    }
+
+    [Fact]
+    public void EditView_EsPaginaWizardYConservaContratoDeEdicion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+
+        Assert.Contains("id=\"venta-edit-page\"", view);
+        Assert.Contains("<form id=\"venta-form\" asp-action=\"Edit\" method=\"post\"", view);
+        Assert.Contains("@Html.AntiForgeryToken()", view);
+        Assert.Contains("asp-for=\"Id\"", view);
+        Assert.Contains("asp-for=\"Estado\"", view);
+        Assert.Contains("asp-for=\"RowVersion\"", view);
+        Assert.Contains("id=\"venta-inicial-json\"", view);
+        Assert.Contains("id=\"step-btn-cliente\"", view);
+        Assert.Contains("id=\"step-panel-cliente\"", view);
+        Assert.Contains("id=\"step-panel-productos\"", view);
+        Assert.Contains("id=\"step-panel-pago\"", view);
+        Assert.Contains("id=\"step-panel-credito\"", view);
+        Assert.Contains("id=\"step-panel-revision\"", view);
+        Assert.Contains("id=\"select-tipo-pago\"", view);
+        Assert.Contains("id=\"btn-confirmar\"", view);
+        Assert.Contains("asp-for=\"Observaciones\"", view);
+        Assert.Contains("venta-page-wizard.js", view);
+        Assert.DoesNotContain("id=\"modal-crear-venta\"", view);
+        Assert.DoesNotContain("#modal-crear-venta", view);
+        Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
+        Assert.DoesNotContain("#modal-confirmar-operacion", view);
+        Assert.DoesNotContain("VentaCrearModal.submit()", view);
+        Assert.DoesNotContain("CreateAjax", view);
+        Assert.DoesNotContain("venta-crear-modal.js", view);
+        Assert.DoesNotContain("venta-modal-rework.js", view);
+        Assert.DoesNotContain("<script>window.ventaInicial", view);
+        Assert.DoesNotContain("onclick=", view);
+        Assert.DoesNotContain("style=", view);
     }
 
     [Fact]

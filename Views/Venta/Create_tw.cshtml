@@ -179,15 +179,13 @@
            ══════════════════════════════════════════════════════════════════ *@
         <div class="vm-mobile-summary-bar" role="region" aria-label="Resumen de compra">
             <div class="vm-mobile-summary-bar__info">
-                <span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">receipt_long</span>
+                <span class="material-symbols-outlined vm-mobile-summary-bar__icon">receipt_long</span>
                 <span>Total: <strong id="vm-modal-sticky-total" data-mobile-total>$0,00</strong></span>
             </div>
             <button type="button"
                     class="vm-btn-confirm-sm"
-                    aria-hidden="true"
-                    tabindex="-1"
-                    onclick="document.getElementById('btn-confirmar').click()">
-                <span class="material-symbols-outlined" style="font-size:14px">point_of_sale</span>
+                    data-wizard-submit-proxy="btn-confirmar">
+                <span class="material-symbols-outlined vm-btn-confirm-sm__icon">point_of_sale</span>
                 @(esCotizacion ? "Guardar" : "Confirmar")
             </button>
         </div>

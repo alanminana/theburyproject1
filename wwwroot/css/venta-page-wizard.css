@@ -1,0 +1,301 @@
+:root {
+    --venta-wizard-bg: #0b111a;
+    --venta-wizard-card: rgba(15, 23, 42, 0.78);
+    --venta-wizard-card-strong: rgba(17, 24, 39, 0.94);
+    --venta-wizard-border: rgba(148, 163, 184, 0.18);
+    --venta-wizard-border-strong: rgba(56, 189, 248, 0.34);
+    --venta-wizard-text: #f8fafc;
+    --venta-wizard-muted: #94a3b8;
+    --venta-wizard-accent: #22c55e;
+    --venta-wizard-accent-2: #38bdf8;
+}
+
+#venta-create-page,
+#venta-edit-page {
+    max-width: 1400px;
+    color: var(--venta-wizard-text);
+}
+
+#venta-create-page .hero-erp,
+#venta-edit-page .venta-hero-section {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border: 1px solid var(--venta-wizard-border);
+    border-radius: 20px;
+    background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(12, 18, 28, 0.94)),
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 38%);
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(16px);
+    padding: 1rem;
+}
+
+.venta-hero-section {
+    margin-bottom: 1.25rem;
+}
+
+.venta-hero-metrics,
+.venta-edit-hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.venta-hero-metric,
+.card,
+.card-sub,
+.venta-section,
+#venta-edit-page .lg\:col-span-2 > section:not(.vm-totals),
+#venta-edit-page #seccion-detalle-cobro,
+#venta-edit-page #seccion-verificacion-crediticia {
+    border: 1px solid var(--venta-wizard-border);
+    border-radius: 18px;
+    background: var(--venta-wizard-card);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+}
+
+.venta-hero-metric,
+.card-sub {
+    padding: 0.95rem;
+}
+
+.venta-section,
+#venta-edit-page .lg\:col-span-2 > section:not(.vm-totals),
+#venta-edit-page #seccion-detalle-cobro,
+#venta-edit-page #seccion-verificacion-crediticia {
+    padding: 1.25rem;
+}
+
+.field,
+.venta-input,
+.venta-select,
+#venta-create-page input[type="text"],
+#venta-create-page input[type="number"],
+#venta-create-page input[type="date"],
+#venta-create-page select,
+#venta-create-page textarea,
+#venta-edit-page input[type="text"],
+#venta-edit-page input[type="number"],
+#venta-edit-page input[type="date"],
+#venta-edit-page select,
+#venta-edit-page textarea {
+    min-height: 2.65rem;
+    border-color: rgba(148, 163, 184, 0.22);
+    background-color: rgba(15, 23, 42, 0.82);
+    color: #f8fafc;
+}
+
+.label,
+.venta-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: #aab7c8;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.btn,
+.btn-erp-ghost,
+.vm-btn-confirm-sm,
+.step-btn,
+.vm-step-tab {
+    min-height: 2.55rem;
+    border-radius: 12px;
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.btn:active,
+.btn-erp-ghost:active,
+.vm-btn-confirm-sm:active,
+.step-btn:active,
+.vm-step-tab:active {
+    transform: translateY(1px);
+}
+
+.vm-step-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+    color: #cbd5e1;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.vm-step-tab:hover,
+.vm-step-tab:focus-visible {
+    border-color: var(--venta-wizard-border-strong);
+    background: rgba(14, 165, 233, 0.13);
+    color: #f8fafc;
+    outline: none;
+}
+
+.vm-step-tab--active,
+.vm-step-tab.is-active {
+    border-color: rgba(34, 197, 94, 0.46);
+    background: rgba(34, 197, 94, 0.15);
+    color: #dcfce7;
+}
+
+.vm-step-tab__num,
+.step-num {
+    display: inline-grid;
+    width: 1.45rem;
+    height: 1.45rem;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.14);
+    color: currentColor;
+    font-size: 0.72rem;
+}
+
+.vm-step-tab__badge,
+.pill {
+    display: inline-flex;
+    align-items: center;
+    min-width: 1.25rem;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.18);
+    color: #bae6fd;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.dropdown-list,
+#dropdown-clientes,
+#dropdown-productos {
+    border: 1px solid var(--venta-wizard-border);
+    background: #111827;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+}
+
+.dropdown-item,
+#dropdown-clientes > *,
+#dropdown-productos > * {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--venta-wizard-accent);
+}
+
+.vm-sidebar {
+    position: sticky;
+    top: 9.25rem;
+}
+
+.vm-totals,
+#venta-edit-page .lg\:col-span-2 > section.overflow-hidden,
+.total-display {
+    border-radius: 20px;
+    background:
+        linear-gradient(135deg, rgba(22, 163, 74, 0.98), rgba(14, 116, 144, 0.96));
+    color: #fff;
+}
+
+.vm-mobile-summary-bar {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 35;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid rgba(34, 197, 94, 0.32);
+    border-radius: 16px;
+    background: rgba(12, 18, 28, 0.94);
+    padding: 0.65rem;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(14px);
+}
+
+.vm-mobile-summary-bar__info {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.45rem;
+    color: #dbeafe;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.vm-mobile-summary-bar__icon {
+    flex-shrink: 0;
+    font-size: 15px;
+}
+
+.vm-btn-confirm-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    border: 0;
+    background: #22c55e;
+    color: #04130a;
+    padding: 0.52rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.vm-btn-confirm-sm__icon {
+    font-size: 14px;
+}
+
+.venta-wizard-tab-panel[hidden] {
+    display: none !important;
+}
+
+[data-oc-scroll][data-scroll-min-width="46rem"] {
+    --oc-scroll-min-width: 46rem;
+}
+
+@media (max-width: 1023px) {
+    #venta-create-page .hero-erp,
+    #venta-edit-page .venta-hero-section {
+        position: relative;
+        top: auto;
+    }
+
+    .vm-sidebar {
+        position: static;
+    }
+
+    .venta-hero-metrics,
+    .venta-edit-hero-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    #venta-create-page,
+    #venta-edit-page {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .vm-mobile-summary-bar {
+        display: flex;
+    }
+
+    .venta-hero-metrics,
+    .venta-edit-hero-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .vm-step-tab {
+        padding-inline: 0.65rem;
+    }
+}
