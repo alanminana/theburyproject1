@@ -1,0 +1,782 @@
+#venta-index-rework {
+    --vi-bg: #090d12;
+    --vi-panel: #101720;
+    --vi-panel-2: #141d29;
+    --vi-line: #243142;
+    --vi-line-soft: rgba(148, 163, 184, 0.16);
+    --vi-text: #f8fafc;
+    --vi-muted: #a8b3c4;
+    --vi-faint: #718096;
+    --vi-primary: #38bdf8;
+    --vi-primary-strong: #0284c7;
+    --vi-green: #34d399;
+    --vi-amber: #fbbf24;
+    --vi-red: #fb7185;
+    --vi-purple: #c084fc;
+    --vi-cyan: #22d3ee;
+    color: var(--vi-text);
+}
+
+#venta-index-rework.venta-index-shell {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .card {
+    border: 1px solid var(--vi-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(20, 29, 41, 0.98), rgba(12, 18, 27, 0.98));
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+#venta-index-rework .card-sub {
+    background: rgba(15, 23, 42, 0.72);
+    box-shadow: none;
+}
+
+#venta-index-rework .card-alert {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .card-alert__icon {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--vi-amber);
+}
+
+#venta-index-rework .card-alert__body {
+    flex: 1 1 auto;
+}
+
+#venta-index-rework .card-alert__body h2 {
+    margin: 0.1rem 0 0.25rem;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+#venta-index-rework .card-alert__body p {
+    margin: 0;
+    color: var(--vi-muted);
+}
+
+#venta-index-rework .card-alert__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .card-alert-green {
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+#venta-index-rework .card-alert-amber {
+    border-color: rgba(251, 191, 36, 0.35);
+}
+
+#venta-index-rework .card-alert-red {
+    border-color: rgba(251, 113, 133, 0.35);
+}
+
+#venta-index-rework .label {
+    margin: 0;
+    color: var(--vi-faint);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#venta-index-rework .venta-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.25rem;
+    padding: 1.25rem;
+}
+
+#venta-index-rework .venta-hero__content {
+    display: grid;
+    gap: 0.75rem;
+}
+
+#venta-index-rework .venta-hero__eyebrow,
+#venta-index-rework .venta-hero__chips,
+#venta-index-rework .venta-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .venta-hero__eyebrow {
+    color: var(--vi-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+#venta-index-rework .venta-hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 4.2rem);
+    font-weight: 950;
+    line-height: 0.95;
+    letter-spacing: 0;
+}
+
+#venta-index-rework .venta-hero p {
+    max-width: 62rem;
+    margin: 0.75rem 0 0;
+    color: var(--vi-muted);
+    font-size: 1rem;
+    line-height: 1.55;
+}
+
+#venta-index-rework .venta-hero__actions {
+    justify-content: flex-end;
+    align-content: start;
+}
+
+#venta-index-rework .btn {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.86rem;
+    font-weight: 800;
+    line-height: 1;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+    white-space: nowrap;
+}
+
+#venta-index-rework .btn:hover {
+    transform: translateY(-1px);
+}
+
+#venta-index-rework .btn:active {
+    transform: translateY(0);
+}
+
+#venta-index-rework .btn:focus-visible,
+#venta-index-rework input:focus-visible,
+#venta-index-rework select:focus-visible,
+#venta-index-rework .tab-btn:focus-visible {
+    outline: 2px solid var(--vi-primary);
+    outline-offset: 2px;
+}
+
+#venta-index-rework .btn .material-symbols-outlined {
+    font-size: 1.05rem;
+}
+
+#venta-index-rework .btn-primary {
+    background: var(--vi-primary);
+    color: #03111c;
+}
+
+#venta-index-rework .btn-primary:hover {
+    background: #7dd3fc;
+}
+
+#venta-index-rework .btn-success {
+    background: var(--vi-green);
+    color: #03130d;
+}
+
+#venta-index-rework .btn-amber {
+    background: rgba(251, 191, 36, 0.14);
+    border-color: rgba(251, 191, 36, 0.32);
+    color: #fde68a;
+}
+
+#venta-index-rework .btn-danger {
+    background: rgba(251, 113, 133, 0.14);
+    border-color: rgba(251, 113, 133, 0.32);
+    color: #fecdd3;
+}
+
+#venta-index-rework .btn-ghost {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.18);
+    color: var(--vi-text);
+}
+
+#venta-index-rework .btn-soft {
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.24);
+    color: #bae6fd;
+}
+
+#venta-index-rework .btn-xs {
+    min-height: 2rem;
+    padding: 0.42rem 0.62rem;
+    font-size: 0.76rem;
+}
+
+#venta-index-rework .is-disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+#venta-index-rework .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+#venta-index-rework .kpi-card {
+    display: grid;
+    min-height: 9.2rem;
+    gap: 0.35rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .kpi-card__icon {
+    color: var(--vi-primary);
+}
+
+#venta-index-rework .kpi-card strong {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.55rem;
+    font-weight: 950;
+}
+
+#venta-index-rework .kpi-card span:last-child {
+    color: var(--vi-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+#venta-index-rework .pill,
+#venta-index-rework .chip-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.32rem 0.58rem;
+    font-size: 0.72rem;
+    font-weight: 850;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#venta-index-rework .chip-filter {
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.82);
+    color: var(--vi-muted);
+}
+
+#venta-index-rework .chip-filter-active,
+#venta-index-rework .pill-blue {
+    background: rgba(56, 189, 248, 0.12);
+    color: #bae6fd;
+}
+
+#venta-index-rework .pill-green {
+    background: rgba(52, 211, 153, 0.13);
+    color: #bbf7d0;
+}
+
+#venta-index-rework .pill-amber {
+    background: rgba(251, 191, 36, 0.13);
+    color: #fde68a;
+}
+
+#venta-index-rework .pill-red {
+    background: rgba(251, 113, 133, 0.13);
+    color: #fecdd3;
+}
+
+#venta-index-rework .pill-purple {
+    background: rgba(192, 132, 252, 0.13);
+    color: #e9d5ff;
+}
+
+#venta-index-rework .pill-cyan {
+    background: rgba(34, 211, 238, 0.13);
+    color: #cffafe;
+}
+
+#venta-index-rework .pill-slate {
+    background: rgba(148, 163, 184, 0.12);
+    color: #cbd5e1;
+}
+
+#venta-index-rework .dot {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+}
+
+#venta-index-rework .dot-green {
+    background: var(--vi-green);
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+}
+
+#venta-index-rework .tabs-card {
+    overflow: hidden;
+}
+
+#venta-index-rework .tabs-bar {
+    border-bottom: 1px solid var(--vi-line);
+    background: rgba(2, 6, 23, 0.34);
+}
+
+#venta-index-rework .tabs-scroll {
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding: 0.65rem;
+    scrollbar-width: thin;
+}
+
+#venta-index-rework .tab-btn {
+    display: inline-flex;
+    min-height: 2.65rem;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    background: transparent;
+    color: var(--vi-muted);
+    font-size: 0.82rem;
+    font-weight: 850;
+    white-space: nowrap;
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+#venta-index-rework .tab-btn.is-active {
+    border-color: rgba(56, 189, 248, 0.26);
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--vi-text);
+}
+
+#venta-index-rework .tab-btn__count {
+    display: inline-grid;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    place-items: center;
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.18);
+    color: #fde68a;
+    font-size: 0.7rem;
+}
+
+#venta-index-rework .tab-panel {
+    padding: 1rem;
+}
+
+#venta-index-rework .panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+#venta-index-rework .panel-heading h2 {
+    margin: 0.15rem 0;
+    font-size: 1.2rem;
+    font-weight: 900;
+}
+
+#venta-index-rework .panel-heading p {
+    margin: 0;
+    color: var(--vi-muted);
+}
+
+#venta-index-rework .panel-heading__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .filters-grid {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1.5fr) repeat(5, minmax(9rem, 1fr)) auto;
+    gap: 0.75rem;
+    align-items: end;
+    margin-bottom: 1rem;
+    padding: 0.9rem;
+    border: 1px solid var(--vi-line-soft);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, 0.22);
+}
+
+#venta-index-rework .field {
+    display: grid;
+    gap: 0.35rem;
+}
+
+#venta-index-rework .field input,
+#venta-index-rework .field select {
+    width: 100%;
+    min-height: 2.6rem;
+    border: 1px solid var(--vi-line);
+    border-radius: 8px;
+    background: #0f172a;
+    color: var(--vi-text);
+    padding: 0.5rem 0.7rem;
+    font-size: 0.88rem;
+}
+
+#venta-index-rework .field input::placeholder {
+    color: #64748b;
+}
+
+#venta-index-rework .filters-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .table-shell {
+    position: relative;
+    border: 1px solid var(--vi-line-soft);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#venta-index-rework .scroll-hint {
+    margin: 0;
+    padding: 0.75rem 1rem 0;
+    color: var(--vi-muted);
+    font-size: 0.78rem;
+    font-weight: 750;
+}
+
+#venta-index-rework .table-scroll {
+    overflow-x: auto;
+}
+
+#venta-index-rework .ventas-table {
+    width: 100%;
+    min-width: 72rem;
+    border-collapse: collapse;
+}
+
+#venta-index-rework .ventas-table th,
+#venta-index-rework .ventas-table td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--vi-line-soft);
+    color: var(--vi-muted);
+    font-size: 0.86rem;
+    vertical-align: middle;
+}
+
+#venta-index-rework .ventas-table th {
+    background: rgba(15, 23, 42, 0.82);
+    color: #cbd5e1;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+#venta-index-rework .ventas-table tr:hover td {
+    background: rgba(56, 189, 248, 0.05);
+}
+
+#venta-index-rework .sale-number {
+    color: #7dd3fc;
+    font-weight: 900;
+}
+
+#venta-index-rework .total-cell,
+#venta-index-rework .total-display {
+    color: var(--vi-text);
+    font-variant-numeric: tabular-nums;
+    font-weight: 950;
+    text-align: right;
+}
+
+#venta-index-rework .is-muted {
+    color: var(--vi-faint);
+}
+
+#venta-index-rework .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+#venta-index-rework .truncate-1 {
+    display: block;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#venta-index-rework .mobile-sales-list {
+    display: none;
+}
+
+#venta-index-rework .sale-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.9rem;
+}
+
+#venta-index-rework .sale-card__top,
+#venta-index-rework .sale-card__client,
+#venta-index-rework .sale-card__meta,
+#venta-index-rework .sale-card__actions,
+#venta-index-rework .quote-card__top,
+#venta-index-rework .quote-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .sale-card__top {
+    justify-content: space-between;
+}
+
+#venta-index-rework .sale-card__top p,
+#venta-index-rework .sale-card__client {
+    margin: 0;
+    color: var(--vi-muted);
+    font-size: 0.82rem;
+}
+
+#venta-index-rework .sale-card__meta,
+#venta-index-rework .sale-card__actions {
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .compact-list,
+#venta-index-rework .quote-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+#venta-index-rework .quote-grid {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+#venta-index-rework .compact-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem;
+}
+
+#venta-index-rework .compact-item p,
+#venta-index-rework .quote-card p,
+#venta-index-rework .payment-summary p {
+    margin: 0.2rem 0 0;
+    color: var(--vi-muted);
+    font-size: 0.84rem;
+}
+
+#venta-index-rework .quote-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .quote-card__top {
+    justify-content: space-between;
+}
+
+#venta-index-rework .payment-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .payment-summary > .material-symbols-outlined {
+    color: var(--vi-primary);
+    font-size: 2rem;
+}
+
+#venta-index-rework .payment-summary h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+#venta-index-rework .empty-state {
+    display: grid;
+    min-height: 16rem;
+    place-items: center;
+    align-content: center;
+    gap: 0.65rem;
+    padding: 2rem;
+    color: var(--vi-muted);
+    text-align: center;
+}
+
+#venta-index-rework .empty-state .material-symbols-outlined {
+    color: var(--vi-faint);
+    font-size: 2.4rem;
+}
+
+#venta-index-rework .empty-state h3 {
+    margin: 0;
+    color: var(--vi-text);
+    font-size: 1.05rem;
+    font-weight: 900;
+}
+
+#venta-index-rework .empty-state p {
+    margin: 0;
+}
+
+#venta-index-rework .empty-state-compact {
+    min-height: 10rem;
+    border: 1px dashed var(--vi-line);
+    border-radius: 8px;
+}
+
+#venta-index-rework .mobile-sticky-bar {
+    display: none;
+}
+
+#venta-index-rework .menu-pop {
+    border: 1px solid var(--vi-line);
+    border-radius: 8px;
+    background: var(--vi-panel);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+#venta-index-rework .menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 0.75rem;
+    color: var(--vi-text);
+    font-size: 0.85rem;
+    font-weight: 750;
+}
+
+#venta-index-rework [data-oc-scroll-fade="left"],
+#venta-index-rework [data-oc-scroll-fade="right"] {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 2rem;
+    pointer-events: none;
+}
+
+#venta-index-rework [data-oc-scroll-fade="left"] {
+    left: 0;
+    background: linear-gradient(90deg, rgba(10, 15, 23, 0.96), rgba(10, 15, 23, 0));
+}
+
+#venta-index-rework [data-oc-scroll-fade="right"] {
+    right: 0;
+    background: linear-gradient(270deg, rgba(10, 15, 23, 0.96), rgba(10, 15, 23, 0));
+}
+
+@media (max-width: 1280px) {
+    #venta-index-rework .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #venta-index-rework .filters-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #venta-index-rework .field-wide,
+    #venta-index-rework .filters-actions {
+        grid-column: span 3;
+    }
+}
+
+@media (max-width: 900px) {
+    #venta-index-rework.venta-index-shell {
+        padding: 0.75rem;
+        padding-bottom: 5.5rem;
+    }
+
+    #venta-index-rework .venta-hero {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .venta-hero__actions,
+    #venta-index-rework .panel-heading,
+    #venta-index-rework .card-alert {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #venta-index-rework .kpi-grid,
+    #venta-index-rework .filters-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #venta-index-rework .field-wide,
+    #venta-index-rework .filters-actions {
+        grid-column: span 2;
+    }
+
+    #venta-index-rework .table-shell {
+        display: none;
+    }
+
+    #venta-index-rework .mobile-sales-list {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    #venta-index-rework .compact-item {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    #venta-index-rework .mobile-sticky-bar {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        left: 0.75rem;
+        z-index: 30;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        padding: 0.55rem;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 8px;
+        background: rgba(9, 13, 18, 0.95);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    }
+}
+
+@media (max-width: 560px) {
+    #venta-index-rework .kpi-grid,
+    #venta-index-rework .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .field-wide,
+    #venta-index-rework .filters-actions {
+        grid-column: auto;
+    }
+
+    #venta-index-rework .filters-actions,
+    #venta-index-rework .mobile-sticky-bar {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .btn {
+        width: 100%;
+    }
+}
