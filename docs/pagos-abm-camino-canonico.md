@@ -302,6 +302,36 @@ Endpoints existentes a documentar/conservar:
 - `POST ConfiguracionPago/CambiarEstadoPlanGlobal/{id}`
 - `GET /api/ventas/configuracion-pagos-global`
 
+## Validacion rapida de regresiones PAGOS-ABM
+
+Los tests focalizados del flujo usan:
+
+```csharp
+[Trait("Category", "PagosAbm")]
+```
+
+Comando recomendado:
+
+```powershell
+dotnet test .\TheBuryProyect.Tests\TheBuryProyect.Tests.csproj --configuration Release --filter "Category=PagosAbm" --no-build --no-restore --logger "console;verbosity=normal" --blame-hang --blame-hang-timeout 120s
+```
+
+Usar este filtro para validar cambios relacionados con:
+
+- medios de pago;
+- tarjetas configurables;
+- planes globales;
+- `ConfiguracionPagoPlan`;
+- `DatosTarjeta`;
+- recargo debito legacy vs plan global.
+
+Este filtro no reemplaza:
+
+- build principal;
+- build del proyecto de tests;
+- tests especificos adicionales cuando el cambio toca otro modulo;
+- suite amplia pre-merge.
+
 ## Siguiente micro-lote recomendado
 
 PAGOS-ABM-1B: completar contrato admin de tarjetas sin tocar venta. Deberia agregar comandos/servicio/endpoints para crear/editar/inactivar `ConfiguracionTarjeta`, validar duplicados y dejar `MediosPago_tw` preparado para administrar marcas. Si se requiere metadata visual de medios, decidir antes si se agrega migracion de `Icono`/`Orden`.
