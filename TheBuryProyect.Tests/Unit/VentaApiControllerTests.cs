@@ -241,6 +241,49 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task CalcularTotalesVenta_TarjetaDebitoConPlanGlobal_NoAplicaRecargoLegacy()
+    {
+        var ventaService = new StubVentaService
+        {
+            Totales = new CalculoTotalesVentaResponse
+            {
+                Total = 1_100m,
+                AjustePagoGlobalAplicado = 100m,
+                PorcentajeAjustePagoGlobalAplicado = 10m,
+                TotalConAjustePagoGlobal = 1_100m
+            }
+        };
+        var configuracionPago = new StubConfiguracionPagoService
+        {
+            TarjetaById = new ConfiguracionTarjetaViewModel
+            {
+                Id = 9,
+                Activa = true,
+                TipoTarjeta = TipoTarjeta.Debito,
+                TieneRecargoDebito = true,
+                PorcentajeRecargoDebito = 5m
+            }
+        };
+        var controller = CreateController(ventaService: ventaService, configuracionPagoService: configuracionPago);
+
+        var result = await controller.CalcularTotalesVenta(new CalcularTotalesVentaRequest
+        {
+            TarjetaId = 9,
+            ConfiguracionPagoPlanId = 55,
+            Detalles = { new DetalleCalculoVentaRequest { ProductoId = 1, Cantidad = 1, PrecioUnitario = 1_000m } }
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = ToJson(ok.Value);
+        Assert.Equal(1_100m, json.RootElement.GetProperty("total").GetDecimal());
+        Assert.Equal(100m, json.RootElement.GetProperty("ajustePagoGlobalAplicado").GetDecimal());
+        Assert.Equal(10m, json.RootElement.GetProperty("porcentajeAjustePagoGlobalAplicado").GetDecimal());
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("recargoDebitoAplicado").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("porcentajeRecargoDebitoAplicado").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("totalConRecargoDebito").ValueKind);
+    }
+
+    [Fact]
     public async Task CalcularTotalesVenta_TarjetaDebitoSinRecargo_NoDevuelveRecargo()
     {
         var ventaService = new StubVentaService

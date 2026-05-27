@@ -1060,6 +1060,91 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaDebitoConPlanGlobal_NoAplicaRecargoLegacy()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Debito,
+            nombre: "Maestro Debito Global",
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var (_, _, plan) = await SeedPlanGlobal(
+            TipoPago.TarjetaDebito,
+            ajustePorcentaje: 10m,
+            cantidadCuotas: 2,
+            tarjeta: tarjeta,
+            etiqueta: "Debito global +10");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            ConfiguracionPagoPlanId = plan.Id,
+            RecargoAplicado = 999m
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
+        Assert.Equal(2, datos.CantidadCuotas);
+        Assert.Equal(5_500m, datos.MontoCuota);
+        Assert.Equal(11_000m, datos.MontoTotalConInteres);
+        Assert.Equal("Debito global +10", datos.NombrePlanPagoSnapshot);
+    }
+
+    [Fact]
+    public async Task GuardarDatosTarjeta_TarjetaCreditoConPlanGlobal_AplicaSoloPlanGlobal()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Credito,
+            TipoCuotaTarjeta.SinInteres,
+            nombre: "Visa Global");
+        var (_, _, plan) = await SeedPlanGlobal(
+            TipoPago.TarjetaCredito,
+            ajustePorcentaje: 12m,
+            cantidadCuotas: 3,
+            tarjeta: tarjeta,
+            etiqueta: "Visa 3 +12");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id,
+            CantidadCuotas = 3
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_200m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Equal(12m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_200m, datos.MontoAjustePagoAplicado);
+        Assert.Equal(3, datos.CantidadCuotas);
+        Assert.Equal(3_733.33m, datos.MontoCuota);
+        Assert.Equal(11_200m, datos.MontoTotalConInteres);
+        Assert.Equal("Visa 3 +12", datos.NombrePlanPagoSnapshot);
+    }
+
+    [Fact]
     public async Task GuardarDatosTarjeta_PlanGlobalInactivo_Rechaza()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);

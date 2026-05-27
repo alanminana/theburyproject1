@@ -214,7 +214,8 @@ namespace TheBuryProject.Controllers
                     }
 
                     var tarjeta = await _configuracionPagoService.GetTarjetaByIdAsync(request.TarjetaId.Value);
-                    if (tarjeta is
+                    if (!request.ConfiguracionPagoPlanId.HasValue &&
+                        tarjeta is
                         {
                             Activa: true,
                             TipoTarjeta: TipoTarjeta.Debito,
