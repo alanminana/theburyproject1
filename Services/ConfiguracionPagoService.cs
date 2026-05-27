@@ -107,6 +107,113 @@ namespace TheBuryProject.Services
             };
         }
 
+        public async Task<IReadOnlyList<TarjetaGlobalAdminViewModel>> ListarTarjetasGlobalesAsync(int? configuracionPagoId = null)
+        {
+            var query = _context.ConfiguracionesTarjeta
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted);
+
+            if (configuracionPagoId.HasValue)
+                query = query.Where(t => t.ConfiguracionPagoId == configuracionPagoId.Value);
+
+            var tarjetas = await query
+                .OrderBy(t => t.ConfiguracionPagoId)
+                .ThenBy(t => t.TipoTarjeta)
+                .ThenBy(t => t.NombreTarjeta)
+                .ToListAsync();
+
+            return tarjetas.Select(MapTarjetaGlobalAdmin).ToList();
+        }
+
+        public async Task<TarjetaGlobalAdminViewModel?> ObtenerTarjetaGlobalAsync(int id)
+        {
+            var tarjeta = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+
+            return tarjeta == null ? null : MapTarjetaGlobalAdmin(tarjeta);
+        }
+
+        public async Task<TarjetaGlobalAdminViewModel> CrearTarjetaGlobalAsync(TarjetaGlobalCommandViewModel command)
+        {
+            ArgumentNullException.ThrowIfNull(command);
+
+            var medio = await ObtenerMedioPagoParaTarjetaAsync(command.ConfiguracionPagoId);
+            await ValidarTarjetaGlobalCommandAsync(command, medio, tarjetaId: null);
+
+            var ahora = DateTime.UtcNow;
+            var tarjeta = new ConfiguracionTarjeta
+            {
+                ConfiguracionPagoId = medio.Id,
+                NombreTarjeta = NormalizarNombreRequerido(command.NombreTarjeta),
+                TipoTarjeta = command.TipoTarjeta,
+                Activa = command.Activa,
+                Observaciones = NormalizarTexto(command.Observaciones),
+                CreatedAt = ahora,
+                UpdatedAt = ahora
+            };
+
+            _context.ConfiguracionesTarjeta.Add(tarjeta);
+            await _context.SaveChangesAsync();
+
+            return MapTarjetaGlobalAdmin(tarjeta);
+        }
+
+        public async Task<TarjetaGlobalAdminViewModel?> ActualizarTarjetaGlobalAsync(int id, TarjetaGlobalCommandViewModel command)
+        {
+            ArgumentNullException.ThrowIfNull(command);
+
+            var tarjeta = await _context.ConfiguracionesTarjeta
+                .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+
+            if (tarjeta == null)
+                return null;
+
+            var medio = await ObtenerMedioPagoParaTarjetaAsync(command.ConfiguracionPagoId);
+            await ValidarTarjetaGlobalCommandAsync(command, medio, tarjeta.Id);
+
+            tarjeta.ConfiguracionPagoId = medio.Id;
+            tarjeta.NombreTarjeta = NormalizarNombreRequerido(command.NombreTarjeta);
+            tarjeta.TipoTarjeta = command.TipoTarjeta;
+            tarjeta.Activa = command.Activa;
+            tarjeta.Observaciones = NormalizarTexto(command.Observaciones);
+            tarjeta.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return MapTarjetaGlobalAdmin(tarjeta);
+        }
+
+        public async Task<bool> CambiarEstadoTarjetaGlobalAsync(int id, bool activa)
+        {
+            var tarjeta = await _context.ConfiguracionesTarjeta
+                .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+
+            if (tarjeta == null)
+                return false;
+
+            if (activa)
+            {
+                var medio = await ObtenerMedioPagoParaTarjetaAsync(tarjeta.ConfiguracionPagoId);
+                await ValidarTarjetaGlobalCommandAsync(
+                    new TarjetaGlobalCommandViewModel
+                    {
+                        ConfiguracionPagoId = tarjeta.ConfiguracionPagoId,
+                        NombreTarjeta = tarjeta.NombreTarjeta,
+                        TipoTarjeta = tarjeta.TipoTarjeta,
+                        Activa = true,
+                        Observaciones = tarjeta.Observaciones
+                    },
+                    medio,
+                    tarjeta.Id);
+            }
+
+            tarjeta.Activa = activa;
+            tarjeta.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
         {
             ArgumentNullException.ThrowIfNull(command);
@@ -207,6 +314,58 @@ namespace TheBuryProject.Services
             return medio;
         }
 
+        private async Task<ConfiguracionPago> ObtenerMedioPagoParaTarjetaAsync(int configuracionPagoId)
+        {
+            var medio = await _context.ConfiguracionesPago
+                .FirstOrDefaultAsync(c => c.Id == configuracionPagoId && !c.IsDeleted);
+
+            if (medio == null)
+                throw new InvalidOperationException("El medio de pago global no existe.");
+
+            ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(medio.TipoPago);
+            return medio;
+        }
+
+        private async Task ValidarTarjetaGlobalCommandAsync(
+            TarjetaGlobalCommandViewModel command,
+            ConfiguracionPago medio,
+            int? tarjetaId)
+        {
+            var nombre = NormalizarNombreRequerido(command.NombreTarjeta);
+            if (!Enum.IsDefined(typeof(TipoTarjeta), command.TipoTarjeta))
+                throw new InvalidOperationException("El tipo de tarjeta indicado no es valido.");
+
+            if (command.TipoTarjeta == TipoTarjeta.Credito && medio.TipoPago != TipoPago.TarjetaCredito)
+                throw new InvalidOperationException("Las tarjetas de credito deben pertenecer al medio Tarjeta Credito.");
+
+            if (command.TipoTarjeta == TipoTarjeta.Debito && medio.TipoPago != TipoPago.TarjetaDebito)
+                throw new InvalidOperationException("Las tarjetas de debito deben pertenecer al medio Tarjeta Debito.");
+
+            if (command.Activa)
+                await ValidarDuplicadoActivoTarjetaGlobalAsync(medio.Id, command.TipoTarjeta, nombre, tarjetaId);
+        }
+
+        private async Task ValidarDuplicadoActivoTarjetaGlobalAsync(
+            int configuracionPagoId,
+            TipoTarjeta tipoTarjeta,
+            string nombreTarjeta,
+            int? tarjetaId)
+        {
+            var nombreNormalizado = NormalizarClaveNombre(nombreTarjeta);
+            var candidatas = await _context.ConfiguracionesTarjeta
+                .AsNoTracking()
+                .Where(t => t.ConfiguracionPagoId == configuracionPagoId
+                            && t.TipoTarjeta == tipoTarjeta
+                            && t.Activa
+                            && !t.IsDeleted
+                            && (!tarjetaId.HasValue || t.Id != tarjetaId.Value))
+                .Select(t => t.NombreTarjeta)
+                .ToListAsync();
+
+            if (candidatas.Any(n => NormalizarClaveNombre(n) == nombreNormalizado))
+                throw new InvalidOperationException("Ya existe una tarjeta activa con el mismo nombre y tipo.");
+        }
+
         private async Task ValidarPlanGlobalCommandAsync(
             PlanPagoGlobalCommandViewModel command,
             ConfiguracionPago medio,
@@ -291,6 +450,35 @@ namespace TheBuryProject.Services
                 Orden = plan.Orden,
                 Observaciones = plan.Observaciones
             };
+
+        private static TarjetaGlobalAdminViewModel MapTarjetaGlobalAdmin(ConfiguracionTarjeta tarjeta) =>
+            new()
+            {
+                Id = tarjeta.Id,
+                ConfiguracionPagoId = tarjeta.ConfiguracionPagoId,
+                Nombre = tarjeta.NombreTarjeta,
+                TipoTarjeta = tarjeta.TipoTarjeta,
+                Activa = tarjeta.Activa,
+                PermiteCuotas = tarjeta.PermiteCuotas,
+                CantidadMaximaCuotas = tarjeta.CantidadMaximaCuotas,
+                TipoCuota = tarjeta.TipoCuota,
+                TasaInteresesMensual = tarjeta.TasaInteresesMensual,
+                TieneRecargoDebito = tarjeta.TieneRecargoDebito,
+                PorcentajeRecargoDebito = tarjeta.PorcentajeRecargoDebito,
+                Observaciones = tarjeta.Observaciones
+            };
+
+        private static string NormalizarNombreRequerido(string? value)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+                throw new InvalidOperationException("El nombre de la tarjeta es requerido.");
+
+            return trimmed;
+        }
+
+        private static string NormalizarClaveNombre(string value) =>
+            NormalizarNombreRequerido(value).ToUpperInvariant();
 
         private static string? NormalizarTexto(string? value)
         {

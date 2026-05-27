@@ -109,6 +109,39 @@ public sealed class ConfiguracionPagoControllerTests
 
         public Task<ConfiguracionPagoGlobalAdminViewModel> ObtenerAdminGlobalAsync() => Task.FromResult(AdminModel);
 
+        public Task<IReadOnlyList<TarjetaGlobalAdminViewModel>> ListarTarjetasGlobalesAsync(int? configuracionPagoId = null) =>
+            Task.FromResult<IReadOnlyList<TarjetaGlobalAdminViewModel>>(AdminModel.Medios
+                .Where(m => !configuracionPagoId.HasValue || m.Id == configuracionPagoId.Value)
+                .SelectMany(m => m.Tarjetas)
+                .ToList());
+
+        public Task<TarjetaGlobalAdminViewModel?> ObtenerTarjetaGlobalAsync(int id) =>
+            Task.FromResult(AdminModel.Medios.SelectMany(m => m.Tarjetas).FirstOrDefault(t => t.Id == id));
+
+        public Task<TarjetaGlobalAdminViewModel> CrearTarjetaGlobalAsync(TarjetaGlobalCommandViewModel command) =>
+            Task.FromResult(new TarjetaGlobalAdminViewModel
+            {
+                Id = 1,
+                ConfiguracionPagoId = command.ConfiguracionPagoId,
+                Nombre = command.NombreTarjeta,
+                TipoTarjeta = command.TipoTarjeta,
+                Activa = command.Activa,
+                Observaciones = command.Observaciones
+            });
+
+        public Task<TarjetaGlobalAdminViewModel?> ActualizarTarjetaGlobalAsync(int id, TarjetaGlobalCommandViewModel command) =>
+            Task.FromResult<TarjetaGlobalAdminViewModel?>(new TarjetaGlobalAdminViewModel
+            {
+                Id = id,
+                ConfiguracionPagoId = command.ConfiguracionPagoId,
+                Nombre = command.NombreTarjeta,
+                TipoTarjeta = command.TipoTarjeta,
+                Activa = command.Activa,
+                Observaciones = command.Observaciones
+            });
+
+        public Task<bool> CambiarEstadoTarjetaGlobalAsync(int id, bool activa) => Task.FromResult(true);
+
         public Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
         {
             CrearPlanInvocado = true;

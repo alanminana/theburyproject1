@@ -46,6 +46,24 @@ public sealed class TarjetaGlobalAdminViewModel
     public string? Observaciones { get; set; }
 }
 
+public sealed class TarjetaGlobalCommandViewModel
+{
+    [Required]
+    public int ConfiguracionPagoId { get; set; }
+
+    [Required(ErrorMessage = "El nombre de la tarjeta es requerido.")]
+    [StringLength(100, ErrorMessage = "El nombre de la tarjeta no puede superar 100 caracteres.")]
+    public string NombreTarjeta { get; set; } = string.Empty;
+
+    [Required]
+    public TipoTarjeta TipoTarjeta { get; set; }
+
+    public bool Activa { get; set; } = true;
+
+    [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres.")]
+    public string? Observaciones { get; set; }
+}
+
 public sealed class PlanPagoGlobalAdminViewModel
 {
     public int Id { get; set; }
