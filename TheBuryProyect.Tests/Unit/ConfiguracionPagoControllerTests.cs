@@ -11,6 +11,7 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoControllerTests
 {
     [Fact]

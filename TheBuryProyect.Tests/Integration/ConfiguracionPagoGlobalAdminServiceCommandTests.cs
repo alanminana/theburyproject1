@@ -11,6 +11,7 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposable
 {
     private readonly SqliteConnection _connection;

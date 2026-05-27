@@ -382,6 +382,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_EfectivoAMercadoPagoConPlanGlobal_PersisteDatosTarjeta()
     {
         var cliente = await SeedClienteAsync();
@@ -424,6 +425,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Theory]
+    [Trait("Category", "PagosAbm")]
     [InlineData(TipoPago.TarjetaCredito, TipoTarjeta.Credito)]
     [InlineData(TipoPago.TarjetaDebito, TipoTarjeta.Debito)]
     public async Task UpdateAsync_EfectivoATarjeta_PersisteDatosTarjeta(TipoPago tipoPago, TipoTarjeta tipoTarjeta)
@@ -464,6 +466,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_DebitoConRecargoLegacyYPlanGlobal_AplicaSoloPlanGlobal()
     {
         var cliente = await SeedClienteAsync();
@@ -526,6 +529,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_DebitoConRecargoViejoLuegoPlanGlobal_LimpiaLegacyYSnapshotsIncompatibles()
     {
         var cliente = await SeedClienteAsync();
@@ -586,6 +590,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_QuitaPlanGlobalEnDebito_ReaplicaRecargoLegacyYLimpiaSnapshotGlobal()
     {
         var cliente = await SeedClienteAsync();
@@ -706,6 +711,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Theory]
+    [Trait("Category", "PagosAbm")]
     [InlineData(TipoPago.Efectivo)]
     [InlineData(TipoPago.Transferencia)]
     public async Task UpdateAsync_EfectivoTransferencia_NoMantienenDatosTarjeta(TipoPago tipoPago)

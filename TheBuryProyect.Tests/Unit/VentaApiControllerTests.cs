@@ -241,6 +241,7 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task CalcularTotalesVenta_TarjetaDebitoConPlanGlobal_NoAplicaRecargoLegacy()
     {
         var ventaService = new StubVentaService
