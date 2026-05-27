@@ -121,6 +121,42 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         Assert.Empty(_context.ConfiguracionPagoPlanes);
     }
 
+    [Fact]
+    public async Task CrearPlanGlobal_CreditoPersonal_Rechaza()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.CreditoPersonal);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearPlanGlobalAsync(new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                CantidadCuotas = 12,
+                AjustePorcentaje = 15m
+            }));
+
+        Assert.Contains("Credito Personal", ex.Message);
+        Assert.Empty(_context.ConfiguracionPagoPlanes);
+    }
+
+    [Fact]
+    public async Task CrearPlanGlobal_RechazaTarjetaIncoherenteConMedio()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaAsync(medio, TipoTarjeta.Debito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearPlanGlobalAsync(new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                ConfiguracionTarjetaId = tarjeta.Id,
+                CantidadCuotas = 3,
+                AjustePorcentaje = 5m
+            }));
+
+        Assert.Contains("debito", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_context.ConfiguracionPagoPlanes);
+    }
+
     [Theory]
     [InlineData(-100.0001)]
     [InlineData(1000)]
@@ -303,13 +339,15 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         return medio;
     }
 
-    private async Task<ConfiguracionTarjeta> SeedTarjetaAsync(ConfiguracionPago medio)
+    private async Task<ConfiguracionTarjeta> SeedTarjetaAsync(
+        ConfiguracionPago medio,
+        TipoTarjeta tipoTarjeta = TipoTarjeta.Credito)
     {
         var tarjeta = new ConfiguracionTarjeta
         {
             ConfiguracionPagoId = medio.Id,
             NombreTarjeta = "Visa",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = tipoTarjeta,
             Activa = true,
             PermiteCuotas = true,
             CantidadMaximaCuotas = 12

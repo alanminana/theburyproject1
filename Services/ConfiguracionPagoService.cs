@@ -281,6 +281,8 @@ namespace TheBuryProject.Services
         public async Task<bool> CambiarEstadoPlanGlobalAsync(int id, bool activo)
         {
             var plan = await _context.ConfiguracionPagoPlanes
+                .Include(p => p.ConfiguracionPago)
+                .Include(p => p.ConfiguracionTarjeta)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (plan == null)
@@ -288,6 +290,9 @@ namespace TheBuryProject.Services
 
             if (activo)
             {
+                ValidarTipoPagoPlanSoportado(plan.TipoPago);
+                ValidarCoherenciaTarjetaMedio(plan.ConfiguracionPago, plan.ConfiguracionTarjeta);
+
                 await ValidarDuplicadoActivoPlanGlobalAsync(
                     plan.ConfiguracionPagoId,
                     plan.TipoPago,
@@ -310,7 +315,7 @@ namespace TheBuryProject.Services
             if (medio == null)
                 throw new InvalidOperationException("El medio de pago global no existe.");
 
-            ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(medio.TipoPago);
+            ValidarTipoPagoPlanSoportado(medio.TipoPago);
             return medio;
         }
 
@@ -382,13 +387,16 @@ namespace TheBuryProject.Services
 
             if (command.ConfiguracionTarjetaId.HasValue)
             {
-                var tarjetaValida = await _context.ConfiguracionesTarjeta
-                    .AnyAsync(t => t.Id == command.ConfiguracionTarjetaId.Value
-                                   && t.ConfiguracionPagoId == medio.Id
-                                   && !t.IsDeleted);
+                var tarjeta = await _context.ConfiguracionesTarjeta
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == command.ConfiguracionTarjetaId.Value
+                                              && t.ConfiguracionPagoId == medio.Id
+                                              && !t.IsDeleted);
 
-                if (!tarjetaValida)
+                if (tarjeta == null)
                     throw new InvalidOperationException("La tarjeta indicada no pertenece al medio de pago global.");
+
+                ValidarCoherenciaTarjetaMedio(medio, tarjeta);
             }
 
             var validacionAjuste = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
@@ -670,6 +678,31 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException(
                     "TipoPago.Tarjeta es historico y ambiguo. Configure Tarjeta Credito o Tarjeta Debito.");
             }
+        }
+
+        private static void ValidarTipoPagoPlanSoportado(TipoPago tipoPago)
+        {
+            ValidarTipoPagoTarjetaNoPermitidoParaConfiguracionNueva(tipoPago);
+
+            if (tipoPago == TipoPago.CreditoPersonal)
+            {
+                throw new InvalidOperationException(
+                    "Credito Personal no usa ConfiguracionPagoPlan en esta fase. Configure sus perfiles y defaults desde Credito Personal.");
+            }
+        }
+
+        private static void ValidarCoherenciaTarjetaMedio(
+            ConfiguracionPago medio,
+            ConfiguracionTarjeta? tarjeta)
+        {
+            if (tarjeta == null)
+                return;
+
+            if (tarjeta.TipoTarjeta == TipoTarjeta.Credito && medio.TipoPago != TipoPago.TarjetaCredito)
+                throw new InvalidOperationException("Las tarjetas de credito deben pertenecer al medio Tarjeta Credito.");
+
+            if (tarjeta.TipoTarjeta == TipoTarjeta.Debito && medio.TipoPago != TipoPago.TarjetaDebito)
+                throw new InvalidOperationException("Las tarjetas de debito deben pertenecer al medio Tarjeta Debito.");
         }
 
         private static void ActualizarConfiguracionesTarjeta(
