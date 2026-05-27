@@ -26,6 +26,28 @@ public class DecimalModelBinderTests
         Assert.Empty(bindingContext.ModelState[nameof(ProductoComisionModel.ComisionPorcentaje)]!.Errors);
     }
 
+    [Theory]
+    [InlineData("-5.5", -5.5)]
+    [InlineData("-5,5", -5.5)]
+    [InlineData("10.25", 10.25)]
+    [InlineData("10,25", 10.25)]
+    public async Task BindModelAsync_AjustePorcentajeEsAr_BindeaDecimalFlexible(string raw, double esperado)
+    {
+        var bindingContext = CreateBindingContext(
+            raw,
+            nameof(PlanPagoGlobalModel.AjustePorcentaje),
+            typeof(PlanPagoGlobalModel),
+            nameof(PlanPagoGlobalModel.AjustePorcentaje),
+            CultureInfo.GetCultureInfo("es-AR"));
+        var binder = new DecimalModelBinder();
+
+        await binder.BindModelAsync(bindingContext);
+
+        Assert.True(bindingContext.Result.IsModelSet);
+        Assert.Equal(Convert.ToDecimal(esperado), bindingContext.Result.Model);
+        Assert.Empty(bindingContext.ModelState[nameof(PlanPagoGlobalModel.AjustePorcentaje)]!.Errors);
+    }
+
     [Fact]
     public async Task BindModelAsync_ValorInvalido_AgregaErrorDeModelState()
     {
@@ -40,17 +62,30 @@ public class DecimalModelBinderTests
     }
 
     private static DefaultModelBindingContext CreateBindingContext(string raw)
+        => CreateBindingContext(
+            raw,
+            nameof(ProductoComisionModel.ComisionPorcentaje),
+            typeof(ProductoComisionModel),
+            nameof(ProductoComisionModel.ComisionPorcentaje),
+            CultureInfo.InvariantCulture);
+
+    private static DefaultModelBindingContext CreateBindingContext(
+        string raw,
+        string key,
+        Type modelType,
+        string propertyName,
+        CultureInfo culture)
     {
         var valueProvider = new SingleValueProvider(
-            nameof(ProductoComisionModel.ComisionPorcentaje),
+            key,
             raw,
-            CultureInfo.InvariantCulture);
+            culture);
 
         return new DefaultModelBindingContext
         {
             ModelMetadata = new EmptyModelMetadataProvider()
-                .GetMetadataForProperty(typeof(ProductoComisionModel), nameof(ProductoComisionModel.ComisionPorcentaje)),
-            ModelName = nameof(ProductoComisionModel.ComisionPorcentaje),
+                .GetMetadataForProperty(modelType, propertyName),
+            ModelName = key,
             ModelState = new ModelStateDictionary(),
             ValueProvider = valueProvider
         };
@@ -59,6 +94,11 @@ public class DecimalModelBinderTests
     private sealed class ProductoComisionModel
     {
         public decimal ComisionPorcentaje { get; set; }
+    }
+
+    private sealed class PlanPagoGlobalModel
+    {
+        public decimal AjustePorcentaje { get; set; }
     }
 
     private sealed class SingleValueProvider : IValueProvider

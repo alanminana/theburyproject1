@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -89,6 +90,19 @@ public sealed class ConfiguracionPagoControllerTests
         Assert.Equal(nameof(ConfiguracionPagoController.MediosPago), redirect.ActionName);
         Assert.True(adminService.CrearPlanInvocado);
         Assert.Equal("Plan global creado correctamente.", controller.TempData["Success"]);
+    }
+
+    [Fact]
+    public void PlanPagoGlobalCommandViewModel_AjustePorcentaje_UsaDecimalModelBinder()
+    {
+        var property = typeof(PlanPagoGlobalCommandViewModel).GetProperty(nameof(PlanPagoGlobalCommandViewModel.AjustePorcentaje));
+
+        var attribute = property?.GetCustomAttributes(typeof(ModelBinderAttribute), inherit: false)
+            .Cast<ModelBinderAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(attribute);
+        Assert.Equal(typeof(DecimalModelBinder), attribute!.BinderType);
     }
 
     [Fact]

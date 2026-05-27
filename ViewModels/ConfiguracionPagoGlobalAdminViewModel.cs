@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels;
@@ -109,6 +111,7 @@ public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
     [Required]
     public TipoAjustePagoPlan TipoAjuste { get; set; } = TipoAjustePagoPlan.Porcentaje;
 
+    [ModelBinder(typeof(DecimalModelBinder))]
     public decimal AjustePorcentaje { get; set; }
 
     [StringLength(100, ErrorMessage = "La etiqueta no puede superar 100 caracteres.")]
