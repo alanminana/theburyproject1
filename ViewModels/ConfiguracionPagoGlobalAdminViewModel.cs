@@ -91,8 +91,11 @@ public sealed class PlanPagoGlobalAdminViewModel
     };
 }
 
-public sealed class PlanPagoGlobalCommandViewModel
+public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
 {
+    private const decimal AjustePorcentajeMinimo = -100.0000m;
+    private const decimal AjustePorcentajeMaximo = 999.9999m;
+
     [Required]
     public int ConfiguracionPagoId { get; set; }
 
@@ -106,7 +109,6 @@ public sealed class PlanPagoGlobalCommandViewModel
     [Required]
     public TipoAjustePagoPlan TipoAjuste { get; set; } = TipoAjustePagoPlan.Porcentaje;
 
-    [Range(typeof(decimal), "-100.0000", "999.9999", ErrorMessage = "El porcentaje debe estar entre -100.0000 y 999.9999.")]
     public decimal AjustePorcentaje { get; set; }
 
     [StringLength(100, ErrorMessage = "La etiqueta no puede superar 100 caracteres.")]
@@ -116,4 +118,14 @@ public sealed class PlanPagoGlobalCommandViewModel
 
     [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres.")]
     public string? Observaciones { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (AjustePorcentaje < AjustePorcentajeMinimo || AjustePorcentaje > AjustePorcentajeMaximo)
+        {
+            yield return new ValidationResult(
+                "El porcentaje debe estar entre -100.0000 y 999.9999.",
+                new[] { nameof(AjustePorcentaje) });
+        }
+    }
 }

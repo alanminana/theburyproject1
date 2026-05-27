@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -87,6 +89,42 @@ public sealed class ConfiguracionPagoControllerTests
         Assert.Equal(nameof(ConfiguracionPagoController.MediosPago), redirect.ActionName);
         Assert.True(adminService.CrearPlanInvocado);
         Assert.Equal("Plan global creado correctamente.", controller.TempData["Success"]);
+    }
+
+    [Fact]
+    public void PlanPagoGlobalCommandViewModel_ValidacionEsAr_AceptaAjustePorcentajeValido()
+    {
+        var culturaOriginal = CultureInfo.CurrentCulture;
+        var uiCulturaOriginal = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("es-AR");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("es-AR");
+
+            var command = new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = 1,
+                CantidadCuotas = 1,
+                AjustePorcentaje = -5m,
+                Activo = true
+            };
+            var resultados = new List<ValidationResult>();
+
+            var valido = Validator.TryValidateObject(
+                command,
+                new ValidationContext(command),
+                resultados,
+                validateAllProperties: true);
+
+            Assert.True(valido);
+            Assert.Empty(resultados);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = culturaOriginal;
+            CultureInfo.CurrentUICulture = uiCulturaOriginal;
+        }
     }
 
     private static ConfiguracionPagoController CrearController(FakeConfiguracionPagoGlobalAdminService adminService)
