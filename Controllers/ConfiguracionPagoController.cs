@@ -10,7 +10,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
-    [PermisoRequerido(Modulo = "configuraciones", Accion = "view")]
+    [PermisoRequerido(Modulo = "configuracion", Accion = "view")]
     public class ConfiguracionPagoController : Controller
     {
         private readonly IConfiguracionPagoService _configuracionPagoService;
@@ -99,7 +99,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CrearTarjetaGlobal(TarjetaGlobalCommandViewModel tarjeta)
         {
             if (!ModelState.IsValid)
@@ -124,7 +124,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EditarTarjetaGlobal(int id, TarjetaGlobalCommandViewModel tarjeta)
         {
             if (!ModelState.IsValid)
@@ -151,7 +151,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CambiarEstadoTarjetaGlobal(int id, bool activa, int medioId = 0)
         {
             try
@@ -172,7 +172,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CrearPlanGlobal(PlanPagoGlobalCommandViewModel plan)
         {
             if (!ModelState.IsValid)
@@ -197,7 +197,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EditarPlanGlobal(int id, PlanPagoGlobalCommandViewModel plan)
         {
             if (!ModelState.IsValid)
@@ -224,7 +224,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo, int medioId = 0)
         {
             try
@@ -541,7 +541,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CreditoPersonal(
             CreditoPersonalConfigViewModel config,
             string? nuevoPerfilNombre,

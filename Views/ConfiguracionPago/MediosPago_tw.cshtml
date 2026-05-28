@@ -3,7 +3,7 @@
 @model ConfiguracionPagoGlobalAdminViewModel
 @{
     ViewData["Title"] = "Configuracion de pagos";
-    var puedeEditar = User.TienePermiso("configuraciones", "update");
+    var puedeEditar = User.TienePermiso("configuracion", "update");
 
     static string TipoPagoDisplay(TipoPago tipoPago) => tipoPago switch
     {

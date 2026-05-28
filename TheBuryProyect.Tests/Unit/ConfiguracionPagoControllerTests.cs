@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
+using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -17,6 +19,73 @@ namespace TheBuryProject.Tests.Unit;
 [Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoControllerTests
 {
+    // -------------------------------------------------------------------------
+    // PAGOS-ABM-7A: Auditoría de módulo canónico de permisos
+    // El seeder define "configuracion" (singular). El controller debe coincidir.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ConfiguracionPagoController_AtributoClase_UsaModuloCanonicoSingular()
+    {
+        var attr = typeof(ConfiguracionPagoController)
+            .GetCustomAttribute<PermisoRequeridoAttribute>();
+
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("view", attr.Accion);
+    }
+
+    [Theory]
+    [InlineData(nameof(ConfiguracionPagoController.CrearTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.EditarTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CambiarEstadoTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CrearPlanGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.EditarPlanGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CambiarEstadoPlanGlobal))]
+    public void ConfiguracionPagoController_AccionesEscritura_UsanModuloCanonicoUpdate(string methodName)
+    {
+        var method = typeof(ConfiguracionPagoController).GetMethods()
+            .First(m => m.Name == methodName && m.GetCustomAttribute<HttpPostAttribute>() != null);
+
+        var attr = method.GetCustomAttribute<PermisoRequeridoAttribute>();
+
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("update", attr.Accion);
+    }
+
+    [Fact]
+    public void ConfiguracionPagoController_CreditoPersonalPost_UsaModuloCanonicoUpdate()
+    {
+        var methods = typeof(ConfiguracionPagoController).GetMethods()
+            .Where(m => m.Name == nameof(ConfiguracionPagoController.CreditoPersonal)
+                        && m.GetCustomAttribute<HttpPostAttribute>() != null)
+            .ToList();
+
+        Assert.Single(methods);
+        var attr = methods[0].GetCustomAttribute<PermisoRequeridoAttribute>();
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("update", attr.Accion);
+    }
+
+    [Fact]
+    public void ConfiguracionPagoController_NoContieneModuloPluralEnAtributos()
+    {
+        var classAttrs = typeof(ConfiguracionPagoController)
+            .GetCustomAttributes<PermisoRequeridoAttribute>()
+            .Where(a => a.Modulo == "configuraciones");
+
+        var methodAttrs = typeof(ConfiguracionPagoController)
+            .GetMethods()
+            .SelectMany(m => m.GetCustomAttributes<PermisoRequeridoAttribute>())
+            .Where(a => a.Modulo == "configuraciones");
+
+        Assert.Empty(classAttrs);
+        Assert.Empty(methodAttrs);
+    }
+
+
     [Fact]
     public async Task MediosPago_DevuelveVistaAdminConMediosTarjetasYPlanes()
     {

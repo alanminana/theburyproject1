@@ -6,7 +6,7 @@
         ? returnUrl
         : Url.Action("Index", "Credito") ?? "/Credito";
     var perfiles = Model.Perfiles ?? new List<PerfilCreditoViewModel>();
-    var puedeEditar = User.TienePermiso("configuraciones", "update");
+    var puedeEditar = User.TienePermiso("configuracion", "update");
 }
 
 @section Styles {
