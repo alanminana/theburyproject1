@@ -66,6 +66,7 @@
         ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaCredito)
         ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaDebito)
         ?? Model.Medios.FirstOrDefault();
+    var mostrarQuitadas = Context.Request.Query["mostrarQuitadas"].FirstOrDefault() == "true";
 }
 
 @section Styles {
@@ -485,6 +486,33 @@
             line-height: 1.4;
         }
 
+        .cards-quitadas-toggle {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding-top: .25rem;
+        }
+
+        .cards-list-quitadas {
+            opacity: .82;
+        }
+
+        .payment-card-quitada {
+            border-color: rgba(251, 113, 133, .22);
+        }
+
+        .cards-quitadas-header {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .3rem .2rem .1rem;
+            color: #fca5a5;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+
         .payment-card,
         .pay-details {
             border: 1px solid var(--pay-line);
@@ -896,7 +924,7 @@
                         {
                             var medio = Model.Medios[i];
                             var totalPlanesMetodo = medio.Planes.Count;
-                            var totalTarjetasMetodo = medio.Tarjetas.Count;
+                            var totalTarjetasMetodo = medio.Tarjetas.Count(t => t.Activa);
                             var esMedioSeleccionado = medioSeleccionado?.Id == medio.Id;
                             <a asp-controller="ConfiguracionPago"
                                asp-action="MediosPago"
@@ -920,9 +948,14 @@
                         var medio = medioSeleccionado;
                         var permiteTarjetas = medio.TipoPago == TipoPago.TarjetaCredito || medio.TipoPago == TipoPago.TarjetaDebito;
                         var permitePlanesGlobales = medio.TipoPago != TipoPago.CreditoPersonal && medio.TipoPago != TipoPago.Tarjeta;
-                        var tarjetas = medio.Tarjetas
-                            .OrderByDescending(t => t.Activa)
-                            .ThenBy(t => t.TipoTarjeta)
+                        var tarjetasActivas = medio.Tarjetas
+                            .Where(t => t.Activa)
+                            .OrderBy(t => t.TipoTarjeta)
+                            .ThenBy(t => t.Nombre)
+                            .ToList();
+                        var tarjetasQuitadas = medio.Tarjetas
+                            .Where(t => !t.Activa)
+                            .OrderBy(t => t.TipoTarjeta)
                             .ThenBy(t => t.Nombre)
                             .ToList();
                         var planesGenerales = medio.Planes
@@ -955,7 +988,11 @@
                                     }
                                 </div>
                                 <div class="method-stats">
-                                    <span class="pay-badge pay-badge-muted">@tarjetas.Count tarjeta@(tarjetas.Count == 1 ? "" : "s")</span>
+                                    <span class="pay-badge pay-badge-muted">@tarjetasActivas.Count tarjeta@(tarjetasActivas.Count == 1 ? "" : "s") activa@(tarjetasActivas.Count == 1 ? "" : "s")</span>
+                                    @if (tarjetasQuitadas.Count > 0)
+                                    {
+                                        <span class="pay-badge pay-badge-off">@tarjetasQuitadas.Count quitada@(tarjetasQuitadas.Count == 1 ? "" : "s")</span>
+                                    }
                                     <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
                                     @if (puedeEditar)
                                     {
@@ -988,8 +1025,8 @@
 
                             @if (permiteTarjetas)
                             {
-                                <div class="cards-list" aria-label="Tarjetas del metodo">
-                                    @foreach (var tarjeta in tarjetas)
+                                <div class="cards-list" aria-label="Tarjetas activas del metodo">
+                                    @foreach (var tarjeta in tarjetasActivas)
                                     {
                                         var planesTarjeta = medio.Planes
                                             .Where(p => p.ConfiguracionTarjetaId == tarjeta.Id)
@@ -1229,14 +1266,108 @@
                                         </details>
                                     }
 
-                                    @if (tarjetas.Count == 0)
+                                    @if (tarjetasActivas.Count == 0 && tarjetasQuitadas.Count == 0)
                                     {
                                         <div class="empty-state">
                                             <h3 class="text-base font-black text-white">Sin tarjetas configuradas</h3>
                                             <p class="empty-copy">Este metodo no tiene marcas o entidades asociadas.</p>
                                         </div>
                                     }
+                                    @if (tarjetasActivas.Count == 0 && tarjetasQuitadas.Count > 0)
+                                    {
+                                        <div class="empty-state">
+                                            <h3 class="text-base font-black text-white">Sin tarjetas activas</h3>
+                                            <p class="empty-copy">Todas las tarjetas de este metodo fueron quitadas.</p>
+                                        </div>
+                                    }
                                 </div>
+
+                                @if (tarjetasQuitadas.Count > 0)
+                                {
+                                    <div class="cards-quitadas-toggle px-4 pb-2">
+                                        @if (mostrarQuitadas)
+                                        {
+                                            <a asp-controller="ConfiguracionPago"
+                                               asp-action="MediosPago"
+                                               asp-route-medioId="@medio.Id"
+                                               class="pay-mini-button">
+                                                <span class="material-symbols-outlined text-[17px]">visibility_off</span>
+                                                Ocultar tarjetas quitadas
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a asp-controller="ConfiguracionPago"
+                                               asp-action="MediosPago"
+                                               asp-route-medioId="@medio.Id"
+                                               asp-route-mostrarQuitadas="true"
+                                               class="pay-mini-button">
+                                                <span class="material-symbols-outlined text-[17px]">visibility</span>
+                                                Ver @tarjetasQuitadas.Count tarjeta@(tarjetasQuitadas.Count == 1 ? "" : "s") quitada@(tarjetasQuitadas.Count == 1 ? "" : "s")
+                                            </a>
+                                        }
+                                    </div>
+                                }
+
+                                @if (mostrarQuitadas && tarjetasQuitadas.Count > 0)
+                                {
+                                    <div class="cards-list cards-list-quitadas" aria-label="Tarjetas quitadas del metodo">
+                                        <p class="cards-quitadas-header">
+                                            <span class="material-symbols-outlined text-[15px]">block</span>
+                                            Tarjetas quitadas — no disponibles para nuevas operaciones
+                                        </p>
+                                        @foreach (var tarjeta in tarjetasQuitadas)
+                                        {
+                                            var planesTarjeta = medio.Planes
+                                                .Where(p => p.ConfiguracionTarjetaId == tarjeta.Id)
+                                                .OrderByDescending(p => p.Activo)
+                                                .ThenBy(p => p.Orden)
+                                                .ThenBy(p => p.CantidadCuotas)
+                                                .ToList();
+                                            var planesActivosTarjeta = planesTarjeta.Count(p => p.Activo);
+                                            var planesInactivosTarjeta = planesTarjeta.Count(p => !p.Activo);
+
+                                            <details class="payment-card-accordion payment-card-quitada">
+                                                <summary class="payment-card-summary">
+                                                    <span class="payment-card-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                                                    <span class="payment-card-main">
+                                                        <strong class="card-title">@tarjeta.Nombre</strong>
+                                                        <span class="pay-badge pay-badge-muted">@TipoTarjetaDisplay(tarjeta.TipoTarjeta)</span>
+                                                        <span class="pay-badge pay-badge-off">Inactiva</span>
+                                                    </span>
+                                                    <span class="payment-card-meta">
+                                                        @if (planesActivosTarjeta > 0)
+                                                        {
+                                                            <span class="pay-badge pay-badge-muted">@planesActivosTarjeta cuota@(planesActivosTarjeta == 1 ? "" : "s")</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="pay-badge pay-badge-muted">Sin cuotas</span>
+                                                        }
+                                                    </span>
+                                                </summary>
+                                                <div class="payment-card-body">
+                                                    <p class="inactive-card-note">
+                                                        Quitada para nuevas operaciones. Reactivar para volver a ofrecerla en ventas.
+                                                    </p>
+                                                    @if (puedeEditar)
+                                                    {
+                                                        <div class="payment-card-footer">
+                                                            <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="activa" value="true" />
+                                                                <button type="submit" class="pay-mini-button">
+                                                                    <span class="material-symbols-outlined text-[17px]">toggle_on</span>
+                                                                    Reactivar tarjeta
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </details>
+                                        }
+                                    </div>
+                                }
 
                                 @if (puedeEditar)
                                 {
