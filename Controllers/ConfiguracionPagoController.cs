@@ -518,53 +518,7 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        /// <summary>
-        /// Obtiene todas las configuraciones de pago para el modal de configuración
-        /// </summary>
-        [HttpGet]
         #endregion
-
-        #region Configuraciones modal
-
-        public async Task<IActionResult> GetConfiguracionesModal()
-        {
-            try
-            {
-                var configuraciones = await _configuracionPagoService.GetAllAsync();
-                return Json(new { success = true, data = configuraciones });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener configuraciones para modal");
-                return Json(new { success = false, message = "Error al obtener configuraciones" });
-            }
-        }
-
-        /// <summary>
-        /// Guarda múltiples configuraciones de pago desde el modal
-        /// </summary>
-        [HttpPost]
-        [IgnoreAntiforgeryToken] // Se permite sin token porque ya requiere autenticación de rol
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
-        public async Task<IActionResult> GuardarConfiguracionesModal([FromBody] List<ConfiguracionPagoViewModel> configuraciones)
-        {
-            try
-            {
-                if (configuraciones == null || !configuraciones.Any())
-                {
-                    return Json(new { success = false, message = "No se recibieron configuraciones" });
-                }
-
-                await _configuracionPagoService.GuardarConfiguracionesModalAsync(configuraciones);
-
-                return Json(new { success = true, message = "Configuraciones guardadas exitosamente" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al guardar configuraciones desde modal");
-                return Json(new { success = false, message = "Error al guardar las configuraciones: " + ex.Message });
-            }
-        }
 
         private string ObtenerPrimerErrorModelState(string fallback)
         {
@@ -574,8 +528,6 @@ namespace TheBuryProject.Controllers
                 .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e))
                 ?? fallback;
         }
-
-        #endregion
 
         #region Crédito personal — Perfiles y configuración
 
