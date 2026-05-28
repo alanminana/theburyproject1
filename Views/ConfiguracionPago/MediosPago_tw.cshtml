@@ -834,6 +834,47 @@
                 width: auto;
             }
         }
+
+        .advanced-method-plans {
+            border: 1px solid rgba(148, 163, 184, .15);
+            border-radius: .9rem;
+            background: rgba(10, 19, 34, .35);
+            overflow: hidden;
+        }
+
+        .advanced-method-plans > summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .65rem;
+            padding: .65rem .9rem;
+            cursor: pointer;
+            list-style: none;
+            color: var(--pay-dim);
+            font-size: .8rem;
+            font-weight: 750;
+            user-select: none;
+            transition: background-color .15s ease, color .15s ease;
+        }
+
+        .advanced-method-plans > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .advanced-method-plans > summary:hover {
+            background: rgba(30, 41, 59, .35);
+            color: var(--pay-muted);
+        }
+
+        .advanced-method-plans-note {
+            margin: 0;
+            padding: .5rem .9rem .4rem;
+            border-top: 1px solid var(--pay-line);
+            background: rgba(15, 23, 42, .5);
+            color: var(--pay-dim);
+            font-size: .76rem;
+            line-height: 1.45;
+        }
     </style>
 }
 
@@ -1417,7 +1458,144 @@
                                 }
                             }
 
-                            @if (planesGenerales.Count > 0 || (puedeEditar && permitePlanesGlobales && !permiteTarjetas))
+                            @* Medios con tarjetas: planes generales degradados a sección avanzada plegada *@
+                            @if (permiteTarjetas && planesGenerales.Count > 0)
+                            {
+                                <details class="advanced-method-plans mx-4 mb-4">
+                                    <summary>
+                                        <span class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[17px]">tune</span>
+                                            Opciones avanzadas: planes generales del medio
+                                        </span>
+                                        <span class="pay-badge pay-badge-muted">@planesGenerales.Count plan@(planesGenerales.Count == 1 ? "" : "es")</span>
+                                    </summary>
+                                    <p class="advanced-method-plans-note">
+                                        Para tarjetas, configurá las cuotas dentro de cada tarjeta/entidad. Los planes generales del medio son una opción avanzada.
+                                    </p>
+                                    <div class="plan-list">
+                                        @foreach (var plan in planesGenerales)
+                                        {
+                                            <details class="plan-row">
+                                                <summary class="plan-summary">
+                                                    <span class="plan-main">
+                                                        <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
+                                                        <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
+                                                        <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
+                                                    </span>
+                                                    <span class="plan-actions">
+                                                        <span class="pay-mini-button">Editar</span>
+                                                    </span>
+                                                </summary>
+
+                                                @if (puedeEditar && permitePlanesGlobales)
+                                                {
+                                                    <div class="details-body">
+                                                        <form asp-controller="ConfiguracionPago" asp-action="EditarPlanGlobal" asp-route-id="@plan.Id" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                            <input type="hidden" name="TipoAjuste" value="@plan.TipoAjuste" />
+                                                            <div class="form-grid">
+                                                                <div>
+                                                                    <label class="pay-label">Cuotas</label>
+                                                                    <input name="CantidadCuotas" type="number" min="1" value="@plan.CantidadCuotas" required class="pay-field" />
+                                                                </div>
+                                                                <div>
+                                                                    <label class="pay-label">Ajuste %</label>
+                                                                    <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="@plan.AjustePorcentaje.ToString(CultureInfo.InvariantCulture)" required class="pay-field" />
+                                                                </div>
+                                                                <div>
+                                                                    <label class="pay-label">Orden</label>
+                                                                    <input name="Orden" type="number" value="@plan.Orden" class="pay-field" />
+                                                                </div>
+                                                                <label class="pay-check">
+                                                                    <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                    Activo
+                                                                </label>
+                                                                <div>
+                                                                    <label class="pay-label">Etiqueta</label>
+                                                                    <input name="Etiqueta" maxlength="100" value="@plan.Etiqueta" class="pay-field" />
+                                                                </div>
+                                                                <div class="span-2">
+                                                                    <label class="pay-label">Observaciones</label>
+                                                                    <input name="Observaciones" maxlength="500" value="@plan.Observaciones" class="pay-field" />
+                                                                </div>
+                                                            </div>
+                                                            <div class="pay-button-row">
+                                                                <button type="submit" class="pay-mini-button primary">
+                                                                    <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                    Guardar plan
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                        <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                            <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
+                                                                <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
+                                                                @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                }
+                                            </details>
+                                        }
+
+                                        @if (puedeEditar && permitePlanesGlobales)
+                                        {
+                                            <details class="pay-details">
+                                                <summary class="compact-summary">
+                                                    <span class="flex items-center gap-2">
+                                                        <span class="material-symbols-outlined">add_circle</span>
+                                                        Agregar plan general
+                                                    </span>
+                                                    <span class="pay-badge pay-badge-muted">cuota exacta</span>
+                                                </summary>
+                                                <div class="details-body">
+                                                    <form asp-controller="ConfiguracionPago" asp-action="CrearPlanGlobal" method="post">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                        <input type="hidden" name="TipoAjuste" value="@TipoAjustePagoPlan.Porcentaje" />
+                                                        <div class="form-grid">
+                                                            <div>
+                                                                <label class="pay-label">Cuotas</label>
+                                                                <input name="CantidadCuotas" type="number" min="1" value="1" required class="pay-field" />
+                                                            </div>
+                                                            <div>
+                                                                <label class="pay-label">Ajuste %</label>
+                                                                <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="0" required class="pay-field" />
+                                                            </div>
+                                                            <div>
+                                                                <label class="pay-label">Orden</label>
+                                                                <input name="Orden" type="number" value="0" class="pay-field" />
+                                                            </div>
+                                                            <label class="pay-check">
+                                                                <input name="Activo" type="checkbox" value="true" checked />
+                                                                Activo
+                                                            </label>
+                                                            <div>
+                                                                <label class="pay-label">Etiqueta</label>
+                                                                <input name="Etiqueta" maxlength="100" class="pay-field" />
+                                                            </div>
+                                                            <div class="span-2">
+                                                                <label class="pay-label">Observaciones</label>
+                                                                <input name="Observaciones" maxlength="500" class="pay-field" />
+                                                            </div>
+                                                        </div>
+                                                        <div class="pay-button-row">
+                                                            <button type="submit" class="pay-mini-button primary">
+                                                                <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                Crear plan
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </details>
+                                        }
+                                    </div>
+                                </details>
+                            }
+                            @* Medios simples (Efectivo, Transferencia, etc.): plan general visible como sección principal *@
+                            else if (!permiteTarjetas && (planesGenerales.Count > 0 || (puedeEditar && permitePlanesGlobales)))
                             {
                                 <div class="cards-grid">
                                     <article class="payment-card">
