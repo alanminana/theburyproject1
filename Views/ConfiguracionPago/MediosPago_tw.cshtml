@@ -60,6 +60,12 @@
         TipoPago.CuentaCorriente => "account_balance_wallet",
         _ => "tune"
     };
+
+    var medioIdQuery = Context.Request.Query["medioId"].FirstOrDefault();
+    var medioSeleccionado = Model.Medios.FirstOrDefault(m => m.Id.ToString() == medioIdQuery)
+        ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaCredito)
+        ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaDebito)
+        ?? Model.Medios.FirstOrDefault();
 }
 
 @section Styles {
@@ -91,10 +97,10 @@
         }
 
         .payments-shell-card {
-            width: min(100%, 1180px);
+            width: min(100%, 1240px);
             margin: 0 auto;
             border: 1px solid var(--pay-line);
-            border-radius: 28px;
+            border-radius: 22px;
             background: var(--pay-shell);
             box-shadow: 0 28px 90px rgba(2, 6, 23, .55);
             overflow: hidden;
@@ -193,8 +199,8 @@
 
         .payments-layout {
             display: grid;
-            grid-template-columns: 230px minmax(0, 1fr);
-            gap: 1rem;
+            grid-template-columns: 220px minmax(0, 1fr);
+            gap: .9rem;
             align-items: start;
             padding: 1.25rem;
         }
@@ -781,7 +787,12 @@
                             var medio = Model.Medios[i];
                             var totalPlanesMetodo = medio.Planes.Count;
                             var totalTarjetasMetodo = medio.Tarjetas.Count;
-                            <a href="#medio-@medio.Id" class="method-card @(i == 0 ? "is-selected" : "")">
+                            var esMedioSeleccionado = medioSeleccionado?.Id == medio.Id;
+                            <a asp-controller="ConfiguracionPago"
+                               asp-action="MediosPago"
+                               asp-route-medioId="@medio.Id"
+                               class="method-card @(esMedioSeleccionado ? "is-selected" : "")"
+                               aria-current="@(esMedioSeleccionado ? "page" : null)">
                                 <span class="material-symbols-outlined">@MetodoIcon(medio.TipoPago)</span>
                                 <span class="min-w-0">
                                     <span class="method-name">@TipoPagoDisplay(medio.TipoPago)</span>
@@ -794,8 +805,9 @@
                 </aside>
 
                 <main class="payments-main">
-                    @foreach (var medio in Model.Medios)
+                    @if (medioSeleccionado != null)
                     {
+                        var medio = medioSeleccionado;
                         var permiteTarjetas = medio.TipoPago == TipoPago.TarjetaCredito || medio.TipoPago == TipoPago.TarjetaDebito;
                         var permitePlanesGlobales = medio.TipoPago != TipoPago.CreditoPersonal && medio.TipoPago != TipoPago.Tarjeta;
                         var tarjetas = medio.Tarjetas
