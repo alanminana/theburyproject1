@@ -7,17 +7,10 @@
     <title>@ViewData["Title"] - TheBuryProject</title>
     <meta name="description"
           content="@(ViewData["MetaDescription"] as string ?? "Sistema de gestión integral TheBuryProject")" />
-    <link rel="icon" type="image/png" href="~/ico/bury.png" asp-append-version="true" />
+    <link rel="icon" type="image/png" href="~/ico/bury-logo-256.png" asp-append-version="true" />
 
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet" />
-
-    <!-- Material Symbols Outlined -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet" />
+    <!-- Fuentes locales: Inter + Material Symbols Outlined -->
+    <link rel="stylesheet" href="~/css/local-fonts.css" asp-append-version="true" />
 
     <!-- Tailwind CSS v4 -->
     <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
@@ -85,7 +78,7 @@
                    class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
                 <div
                     class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center">
-                    <img src="~/ico/bury.png" alt="TheBuryProject" class="w-full h-full object-contain" />
+                    <img src="~/ico/bury-logo-256.png" alt="TheBuryProject" class="w-full h-full object-contain" />
                 </div>
                 <div class="flex flex-col sidebar-label">
                     <h1 class="text-white text-sm font-bold leading-none whitespace-nowrap">TheBuryProject</h1>
@@ -378,8 +371,7 @@
                                 <script src="~/js/shared-ui.js" asp-append-version="true"></script>
                                 @if (canViewNotifications)
                                 {
-                                    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"
-                                            crossorigin="anonymous"></script>
+                                    <script src="~/lib/signalr/signalr.min.js" asp-append-version="true"></script>
                                     <script src="~/js/notificaciones.js" asp-append-version="true"></script>
                                 }
                                 <script src="~/js/layout.js" asp-append-version="true"></script>
