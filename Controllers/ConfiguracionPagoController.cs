@@ -119,7 +119,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = tarjeta.ConfiguracionPagoId });
         }
 
         [HttpPost]
@@ -146,19 +146,19 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = tarjeta.ConfiguracionPagoId });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
-        public async Task<IActionResult> CambiarEstadoTarjetaGlobal(int id, bool activa)
+        public async Task<IActionResult> CambiarEstadoTarjetaGlobal(int id, bool activa, int medioId = 0)
         {
             try
             {
                 var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoTarjetaGlobalAsync(id, activa);
                 TempData[actualizado ? "Success" : "Error"] = actualizado
-                    ? (activa ? "Tarjeta activada correctamente." : "Tarjeta inactivada correctamente.")
+                    ? (activa ? "Tarjeta activada correctamente." : "Tarjeta quitada correctamente.")
                     : "Tarjeta no encontrada.";
             }
             catch (Exception ex)
@@ -167,7 +167,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
         }
 
         [HttpPost]
@@ -192,7 +192,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = plan.ConfiguracionPagoId });
         }
 
         [HttpPost]
@@ -219,19 +219,19 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = plan.ConfiguracionPagoId });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
-        public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo)
+        public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo, int medioId = 0)
         {
             try
             {
                 var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoPlanGlobalAsync(id, activo);
                 TempData[actualizado ? "Success" : "Error"] = actualizado
-                    ? (activo ? "Plan global activado correctamente." : "Plan global inactivado correctamente.")
+                    ? (activo ? "Cuota activada correctamente." : "Cuota quitada correctamente.")
                     : "Plan global no encontrado.";
             }
             catch (Exception ex)
@@ -240,7 +240,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
         }
 
         // GET: ConfiguracionPago/Details/5

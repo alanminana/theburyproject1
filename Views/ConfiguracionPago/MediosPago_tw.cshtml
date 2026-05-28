@@ -849,10 +849,10 @@
                                     <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
                                     @if (puedeEditar)
                                     {
-                                        <a asp-controller="ConfiguracionPago" asp-action="Edit" asp-route-id="@medio.Id" class="pay-mini-button">
-                                            <span class="material-symbols-outlined text-[17px]">edit</span>
+                                        <span class="pay-badge pay-badge-muted" title="La edicion del metodo requiere una vista separada. Pendiente de implementacion.">
+                                            <span class="material-symbols-outlined" style="font-size:1rem">edit_off</span>
                                             Metodo
-                                        </a>
+                                        </span>
                                     }
                                 </div>
                             </header>
@@ -860,10 +860,21 @@
                             @if (medio.TipoPago == TipoPago.CreditoPersonal)
                             {
                                 <div class="credit-debt">
-                                    <strong>Credito personal requiere fase separada para reparar vista/partial.</strong>
-                                    <p class="mt-1 text-sm text-amber-100/80">No se muestra un enlace directo porque la vista actual intenta cargar un partial no disponible.</p>
+                                    <strong>Credito personal tiene configuracion propia por tasa, scoring y perfiles de credito.</strong>
+                                    <p class="mt-1 text-sm text-amber-100/80">Los cambios operativos se administran en la pantalla de configuracion de credito.</p>
+                                    @if (puedeEditar)
+                                    {
+                                        <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" class="pay-mini-button mt-2">
+                                            <span class="material-symbols-outlined text-[17px]">tune</span>
+                                            Administrar credito personal
+                                        </a>
+                                    }
                                 </div>
                             }
+
+                            <p class="px-4 py-2 text-xs text-slate-500">
+                                Quitar oculta el elemento para nuevas operaciones, pero conserva el historial. Si se vuelve a cargar el mismo dato, se reactiva.
+                            </p>
 
                             @if (permiteTarjetas)
                             {
@@ -889,12 +900,12 @@
                                                 </div>
                                                 @if (puedeEditar)
                                                 {
-                                                    <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" method="post">
+                                                    <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="activa" value="@(!tarjeta.Activa)" />
                                                         <button type="submit" class="pay-mini-button @(tarjeta.Activa ? "danger" : "")">
                                                             <span class="material-symbols-outlined text-[17px]">@(tarjeta.Activa ? "toggle_off" : "toggle_on")</span>
-                                                            @(tarjeta.Activa ? "Inactivar" : "Reactivar")
+                                                            @(tarjeta.Activa ? "Quitar tarjeta" : "Reactivar tarjeta")
                                                         </button>
                                                     </form>
                                                 }
@@ -962,12 +973,12 @@
                                                                             </button>
                                                                         </div>
                                                                     </form>
-                                                                    <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" method="post" class="pay-button-row">
+                                                                    <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                                         @Html.AntiForgeryToken()
                                                                         <input type="hidden" name="activo" value="@(!plan.Activo)" />
                                                                         <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
                                                                             <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
-                                                                            @(plan.Activo ? "Inactivar" : "Reactivar")
+                                                                            @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
                                                                         </button>
                                                                     </form>
                                                                 </div>
@@ -1204,12 +1215,12 @@
                                                                     </button>
                                                                 </div>
                                                             </form>
-                                                            <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" method="post" class="pay-button-row">
+                                                            <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                                 @Html.AntiForgeryToken()
                                                                 <input type="hidden" name="activo" value="@(!plan.Activo)" />
                                                                 <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
                                                                     <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
-                                                                    @(plan.Activo ? "Inactivar" : "Reactivar")
+                                                                    @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
                                                                 </button>
                                                             </form>
                                                         </div>

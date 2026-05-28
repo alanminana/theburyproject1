@@ -139,13 +139,37 @@ namespace TheBuryProject.Services
             ArgumentNullException.ThrowIfNull(command);
 
             var medio = await ObtenerMedioPagoParaTarjetaAsync(command.ConfiguracionPagoId);
+
+            var nombreNormalizado = NormalizarNombreRequerido(command.NombreTarjeta);
+            var claveNombre = NormalizarClaveNombre(nombreNormalizado);
+
+            var inactivas = await _context.ConfiguracionesTarjeta
+                .Where(t => t.ConfiguracionPagoId == medio.Id
+                            && t.TipoTarjeta == command.TipoTarjeta
+                            && !t.Activa
+                            && !t.IsDeleted)
+                .ToListAsync();
+
+            var existenteInactiva = inactivas.FirstOrDefault(t => NormalizarClaveNombre(t.NombreTarjeta) == claveNombre);
+
+            if (existenteInactiva != null)
+            {
+                await ValidarTarjetaGlobalCommandAsync(command, medio, existenteInactiva.Id);
+                existenteInactiva.TipoTarjeta = command.TipoTarjeta;
+                existenteInactiva.Activa = command.Activa;
+                existenteInactiva.Observaciones = NormalizarTexto(command.Observaciones);
+                existenteInactiva.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return MapTarjetaGlobalAdmin(existenteInactiva);
+            }
+
             await ValidarTarjetaGlobalCommandAsync(command, medio, tarjetaId: null);
 
             var ahora = DateTime.UtcNow;
             var tarjeta = new ConfiguracionTarjeta
             {
                 ConfiguracionPagoId = medio.Id,
-                NombreTarjeta = NormalizarNombreRequerido(command.NombreTarjeta),
+                NombreTarjeta = nombreNormalizado,
                 TipoTarjeta = command.TipoTarjeta,
                 Activa = command.Activa,
                 Observaciones = NormalizarTexto(command.Observaciones),
@@ -219,6 +243,34 @@ namespace TheBuryProject.Services
             ArgumentNullException.ThrowIfNull(command);
 
             var medio = await ObtenerMedioPagoParaPlanAsync(command.ConfiguracionPagoId);
+
+            var existenteInactivo = await _context.ConfiguracionPagoPlanes
+                .Include(p => p.ConfiguracionTarjeta)
+                .FirstOrDefaultAsync(p => p.ConfiguracionPagoId == medio.Id
+                                          && p.ConfiguracionTarjetaId == command.ConfiguracionTarjetaId
+                                          && p.CantidadCuotas == command.CantidadCuotas
+                                          && !p.Activo
+                                          && !p.IsDeleted);
+
+            if (existenteInactivo != null)
+            {
+                await ValidarPlanGlobalCommandAsync(command, medio, existenteInactivo.Id);
+                if (!command.Activo)
+                    await ValidarDuplicadoActivoPlanGlobalAsync(
+                        medio.Id, medio.TipoPago, command.ConfiguracionTarjetaId,
+                        command.CantidadCuotas, existenteInactivo.Id);
+
+                existenteInactivo.Activo = true;
+                existenteInactivo.AjustePorcentaje = command.AjustePorcentaje;
+                existenteInactivo.TipoAjuste = command.TipoAjuste;
+                existenteInactivo.Etiqueta = NormalizarTexto(command.Etiqueta);
+                existenteInactivo.Orden = command.Orden;
+                existenteInactivo.Observaciones = NormalizarTexto(command.Observaciones);
+                existenteInactivo.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return MapPlanGlobalAdmin(existenteInactivo);
+            }
+
             await ValidarPlanGlobalCommandAsync(command, medio, planId: null);
 
             var ahora = DateTime.UtcNow;
