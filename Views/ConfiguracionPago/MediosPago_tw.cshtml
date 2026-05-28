@@ -1,385 +1,1458 @@
 @using TheBuryProject.Models.Enums
+@using System.Globalization
 @model ConfiguracionPagoGlobalAdminViewModel
 @{
-    ViewData["Title"] = "Configuracion global de pagos";
-    var puedeEditar = User.TienePermiso("configuraciones", "update");
+    ViewData["Title"] = "Configuracion de pagos";
+    var puedeEditar = User.TienePermiso("configuracion", "update");
+
+    static string TipoPagoDisplay(TipoPago tipoPago) => tipoPago switch
+    {
+        TipoPago.Efectivo => "Efectivo",
+        TipoPago.Transferencia => "Transferencia",
+        TipoPago.TarjetaDebito => "Tarjeta debito",
+        TipoPago.TarjetaCredito => "Tarjeta credito",
+        TipoPago.Cheque => "Cheque",
+        TipoPago.CreditoPersonal => "Credito personal",
+        TipoPago.MercadoPago => "Mercado Pago",
+        TipoPago.CuentaCorriente => "Cuenta corriente",
+        TipoPago.Tarjeta => "Tarjeta legacy",
+        _ => tipoPago.ToString()
+    };
+
+    static string TipoTarjetaDisplay(TipoTarjeta tipoTarjeta) => tipoTarjeta switch
+    {
+        TipoTarjeta.Credito => "Credito",
+        TipoTarjeta.Debito => "Debito",
+        _ => tipoTarjeta.ToString()
+    };
+
+    static string AjusteFirmado(decimal ajuste) => ajuste > 0m
+        ? $"+{ajuste:0.##}%"
+        : $"{ajuste:0.##}%";
+
+    static string AjusteModo(decimal ajuste) => ajuste switch
+    {
+        > 0m => "recargo",
+        < 0m => "descuento",
+        _ => "sin ajuste"
+    };
+
+    static string AjusteClass(decimal ajuste) => ajuste switch
+    {
+        > 0m => "pay-badge pay-badge-warn",
+        < 0m => "pay-badge pay-badge-ok",
+        _ => "pay-badge pay-badge-muted"
+    };
+
+    static string EstadoClass(bool activo) => activo
+        ? "pay-badge pay-badge-ok"
+        : "pay-badge pay-badge-off";
+
+    static string MetodoIcon(TipoPago tipoPago) => tipoPago switch
+    {
+        TipoPago.Efectivo => "payments",
+        TipoPago.Transferencia => "account_balance",
+        TipoPago.TarjetaDebito => "credit_card",
+        TipoPago.TarjetaCredito => "credit_card",
+        TipoPago.Cheque => "receipt_long",
+        TipoPago.CreditoPersonal => "credit_score",
+        TipoPago.MercadoPago => "qr_code_2",
+        TipoPago.CuentaCorriente => "account_balance_wallet",
+        _ => "tune"
+    };
+
+    var medioIdQuery = Context.Request.Query["medioId"].FirstOrDefault();
+    var medioSeleccionado = Model.Medios.FirstOrDefault(m => m.Id.ToString() == medioIdQuery)
+        ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaCredito)
+        ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaDebito)
+        ?? Model.Medios.FirstOrDefault();
 }
 
-<div class="space-y-8">
-    <section class="card-erp-panel-padded">
-        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-4xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-500">/</span></li>
-                        <li class="text-slate-100">Configuracion global de pagos</li>
-                    </ol>
-                </nav>
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">payments</span>
-                        Administracion
-                    </span>
-                    <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Configuracion global de pagos</h1>
-                        <p class="max-w-3xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                            Administra medios, tarjetas y planes globales. En ventas futuras, los elementos inactivos no estaran disponibles para seleccionar.
-                        </p>
-                    </div>
-                </div>
-            </div>
+@section Styles {
+    <style>
+        .payments-page {
+            --pay-bg: #0b1220;
+            --pay-shell: #111827;
+            --pay-panel: #0f172a;
+            --pay-row: #0a1322;
+            --pay-line: #1e2a3d;
+            --pay-line-soft: rgba(148, 163, 184, .18);
+            --pay-text: #f8fafc;
+            --pay-soft: #cbd5e1;
+            --pay-muted: #94a3b8;
+            --pay-dim: #64748b;
+            --pay-accent: #3b82f6;
+            --pay-ok: #34d399;
+            --pay-warn: #fbbf24;
+            --pay-danger: #fb7185;
+            min-height: calc(100dvh - 5rem);
+            margin: -1rem;
+            padding: 1.25rem;
+            background: var(--pay-bg);
+            color: var(--pay-text);
+        }
 
-            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
-                <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal"
-                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
-                   class="btn-erp-secondary w-full sm:w-auto sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">credit_score</span>
-                    Credito personal
-                </a>
-                <a asp-controller="Home" asp-action="Index" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        .payments-page * {
+            box-sizing: border-box;
+        }
+
+        .payments-shell-card {
+            width: min(100%, 1240px);
+            margin: 0 auto;
+            border: 1px solid var(--pay-line);
+            border-radius: 22px;
+            background: var(--pay-shell);
+            box-shadow: 0 28px 90px rgba(2, 6, 23, .55);
+            overflow: hidden;
+        }
+
+        .payments-topbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 1rem;
+            align-items: start;
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--pay-line);
+            background: linear-gradient(180deg, rgba(15, 23, 42, .98), rgba(17, 24, 39, .98));
+        }
+
+        .payments-title {
+            margin: .35rem 0 0;
+            font-size: clamp(1.6rem, 3vw, 2.35rem);
+            line-height: 1.05;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 0;
+            text-wrap: balance;
+        }
+
+        .payments-subtitle {
+            max-width: 58rem;
+            margin: .6rem 0 0;
+            color: var(--pay-muted);
+            font-size: .92rem;
+            line-height: 1.6;
+        }
+
+        .payments-eyebrow,
+        .pay-label {
+            color: var(--pay-muted);
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .payments-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: .55rem;
+        }
+
+        .payments-credit-note {
+            display: inline-flex;
+            max-width: 17rem;
+            align-items: center;
+            gap: .45rem;
+            border: 1px solid rgba(251, 191, 36, .26);
+            border-radius: .75rem;
+            background: rgba(251, 191, 36, .08);
+            padding: .55rem .7rem;
+            color: #fde68a;
+            font-size: .76rem;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .payments-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .65rem;
+            padding: 1rem 1.25rem 0;
+        }
+
+        .payments-metric {
+            min-width: 0;
+            border: 1px solid var(--pay-line);
+            border-radius: .9rem;
+            background: #0f172a;
+            padding: .85rem;
+        }
+
+        .payments-metric strong {
+            display: block;
+            margin-top: .25rem;
+            color: #fff;
+            font-size: 1.55rem;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .payments-rule {
+            margin: 1rem 1.25rem 0;
+            border: 1px solid rgba(59, 130, 246, .34);
+            border-radius: 1rem;
+            background: rgba(59, 130, 246, .08);
+            padding: .85rem 1rem;
+        }
+
+        .payments-layout {
+            display: grid;
+            grid-template-columns: 220px minmax(0, 1fr);
+            gap: .9rem;
+            align-items: start;
+            padding: 1.25rem;
+        }
+
+        .methods-sidebar {
+            position: sticky;
+            top: 1rem;
+            border: 1px solid var(--pay-line);
+            border-radius: 1rem;
+            background: #0f172a;
+            padding: .75rem;
+        }
+
+        .methods-sidebar nav {
+            display: grid;
+            gap: .45rem;
+            margin-top: .65rem;
+        }
+
+        .method-card {
+            display: grid;
+            grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+            gap: .55rem;
+            align-items: center;
+            min-height: 3.1rem;
+            border: 1px solid transparent;
+            border-radius: .8rem;
+            background: #1e293b;
+            padding: .55rem;
+            color: var(--pay-soft);
+            text-decoration: none;
+            transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+        }
+
+        .method-card:hover,
+        .method-card:focus-visible {
+            border-color: rgba(59, 130, 246, .5);
+            background: rgba(30, 41, 59, .88);
+            color: #fff;
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .method-card.is-selected {
+            border-color: rgba(59, 130, 246, .58);
+            background: rgba(59, 130, 246, .18);
+            box-shadow: inset 3px 0 0 var(--pay-accent);
+        }
+
+        .method-card .material-symbols-outlined {
+            color: #93c5fd;
+            font-size: 1.15rem;
+        }
+
+        .method-name,
+        .card-title {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .method-name {
+            display: block;
+            font-size: .86rem;
+            font-weight: 850;
+        }
+
+        .method-meta {
+            display: block;
+            margin-top: .1rem;
+            color: var(--pay-dim);
+            font-size: .72rem;
+            font-weight: 650;
+        }
+
+        .method-count {
+            min-width: 1.65rem;
+            border-radius: .5rem;
+            background: rgba(10, 19, 34, .85);
+            padding: .2rem .35rem;
+            color: var(--pay-muted);
+            text-align: center;
+            font-size: .72rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .payments-main {
+            display: grid;
+            gap: .85rem;
+            min-width: 0;
+        }
+
+        .method-panel {
+            scroll-margin-top: 1rem;
+            border: 1px solid var(--pay-line);
+            border-radius: 1rem;
+            background: #0f172a;
+            overflow: hidden;
+        }
+
+        .method-panel-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: .85rem;
+            align-items: start;
+            padding: 1rem;
+            border-bottom: 1px solid var(--pay-line);
+            background: rgba(15, 23, 42, .72);
+        }
+
+        .method-heading {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .45rem;
+            align-items: center;
+        }
+
+        .method-heading h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.08rem;
+            font-weight: 900;
+        }
+
+        .method-copy {
+            max-width: 54rem;
+            margin: .45rem 0 0;
+            color: var(--pay-muted);
+            font-size: .83rem;
+            line-height: 1.45;
+        }
+
+        .method-stats {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: .45rem;
+        }
+
+        .pay-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .3rem;
+            min-height: 1.55rem;
+            border: 1px solid var(--pay-line-soft);
+            border-radius: .55rem;
+            padding: .22rem .5rem;
+            font-size: .72rem;
+            font-weight: 850;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .pay-badge-ok {
+            border-color: rgba(52, 211, 153, .32);
+            background: rgba(52, 211, 153, .1);
+            color: #a7f3d0;
+        }
+
+        .pay-badge-warn {
+            border-color: rgba(251, 191, 36, .34);
+            background: rgba(251, 191, 36, .1);
+            color: #fde68a;
+        }
+
+        .pay-badge-off {
+            border-color: rgba(251, 113, 133, .32);
+            background: rgba(251, 113, 133, .09);
+            color: #fecdd3;
+        }
+
+        .pay-badge-muted {
+            border-color: rgba(148, 163, 184, .22);
+            background: rgba(148, 163, 184, .08);
+            color: #cbd5e1;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+            padding: 1rem;
+        }
+
+        /* Lista de tarjetas acoplables — una columna */
+        .cards-list {
+            display: grid;
+            gap: .55rem;
+            padding: .85rem 1rem;
+        }
+
+        /* Accordion por tarjeta */
+        .payment-card-accordion {
+            border: 1px solid var(--pay-line);
+            border-radius: .9rem;
+            background: #0f172a;
+            overflow: hidden;
+            transition: border-color .18s ease;
+        }
+
+        .payment-card-accordion[open] {
+            border-color: rgba(59, 130, 246, .38);
+        }
+
+        .payment-card-summary {
+            display: grid;
+            grid-template-columns: 1.3rem minmax(0, 1fr) auto;
+            gap: .6rem;
+            align-items: center;
+            padding: .72rem .85rem;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            transition: background-color .15s ease;
+        }
+
+        .payment-card-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .payment-card-summary:hover {
+            background: rgba(30, 41, 59, .55);
+        }
+
+        .payment-card-summary:focus-visible {
+            outline: 2px solid var(--pay-accent);
+            outline-offset: -2px;
+            border-radius: .85rem;
+        }
+
+        .payment-card-chevron {
+            color: var(--pay-dim);
+            font-size: 1.15rem;
+            flex-shrink: 0;
+            transition: transform .18s ease;
+        }
+
+        .payment-card-accordion[open] .payment-card-chevron {
+            transform: rotate(90deg);
+        }
+
+        .payment-card-main {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .payment-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .3rem;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .payment-card-body {
+            border-top: 1px solid var(--pay-line);
+            background: rgba(10, 19, 34, .4);
+        }
+
+        .payment-card-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            padding: .65rem .85rem;
+            border-top: 1px solid var(--pay-line);
+            background: rgba(10, 19, 34, .3);
+        }
+
+        .inactive-card-note {
+            margin: .65rem .85rem .25rem;
+            padding-left: .6rem;
+            border-left: 3px solid rgba(251, 113, 133, .45);
+            color: #fecdd3;
+            font-size: .78rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .payment-card,
+        .pay-details {
+            border: 1px solid var(--pay-line);
+            border-radius: .9rem;
+            background: #0f172a;
+        }
+
+        .payment-card {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .payment-card-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: .65rem;
+            align-items: start;
+            padding: .8rem;
+            border-bottom: 1px solid var(--pay-line);
+        }
+
+        .card-title-row {
+            display: flex;
+            min-width: 0;
+            flex-wrap: wrap;
+            gap: .4rem;
+            align-items: center;
+        }
+
+        .card-title {
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 900;
+        }
+
+        .card-subtitle,
+        .empty-copy {
+            margin-top: .25rem;
+            color: var(--pay-dim);
+            font-size: .75rem;
+            line-height: 1.35;
+        }
+
+        .plan-list {
+            display: grid;
+            gap: .45rem;
+            padding: .65rem;
+        }
+
+        .plan-row {
+            border: 1px solid var(--pay-line);
+            border-radius: .65rem;
+            background: var(--pay-row);
+            overflow: hidden;
+        }
+
+        .plan-summary,
+        .compact-summary {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: .55rem;
+            align-items: center;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .plan-summary {
+            padding: .52rem .6rem;
+        }
+
+        .plan-summary::-webkit-details-marker,
+        .compact-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .plan-main {
+            display: flex;
+            min-width: 0;
+            flex-wrap: wrap;
+            gap: .35rem;
+            align-items: center;
+            color: var(--pay-soft);
+            font-size: .82rem;
+            font-weight: 800;
+        }
+
+        .plan-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: .35rem;
+        }
+
+        .details-body {
+            border-top: 1px solid var(--pay-line);
+            padding: .75rem;
+            background: rgba(15, 23, 42, .74);
+        }
+
+        .compact-summary {
+            padding: .7rem .8rem;
+            color: var(--pay-soft);
+            font-size: .82rem;
+            font-weight: 900;
+        }
+
+        .compact-summary .material-symbols-outlined {
+            color: #93c5fd;
+            font-size: 1.05rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .65rem;
+        }
+
+        .form-grid .span-2 {
+            grid-column: span 2;
+        }
+
+        .pay-field,
+        .pay-select {
+            width: 100%;
+            min-height: 2.45rem;
+            border: 1px solid rgba(148, 163, 184, .24);
+            border-radius: .65rem;
+            background: #0a1322;
+            color: #f8fafc;
+            padding: .52rem .65rem;
+            font-size: .86rem;
+            outline: none;
+        }
+
+        .pay-field:focus,
+        .pay-select:focus {
+            border-color: rgba(59, 130, 246, .8);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, .18);
+        }
+
+        .pay-check {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            min-height: 2.45rem;
+            border: 1px solid rgba(148, 163, 184, .24);
+            border-radius: .65rem;
+            background: rgba(10, 19, 34, .85);
+            padding: .52rem .65rem;
+            color: var(--pay-soft);
+            font-size: .84rem;
+            font-weight: 750;
+        }
+
+        .pay-button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            align-items: center;
+            margin-top: .75rem;
+        }
+
+        .pay-mini-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .35rem;
+            min-height: 2rem;
+            border: 1px solid rgba(148, 163, 184, .24);
+            border-radius: .6rem;
+            background: rgba(15, 23, 42, .78);
+            padding: .4rem .6rem;
+            color: var(--pay-soft);
+            font-size: .76rem;
+            font-weight: 850;
+            line-height: 1;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+        }
+
+        .pay-mini-button:hover,
+        .pay-mini-button:focus-visible {
+            border-color: rgba(59, 130, 246, .5);
+            background: rgba(59, 130, 246, .15);
+            color: #fff;
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .pay-mini-button.primary {
+            border-color: rgba(59, 130, 246, .6);
+            background: #2563eb;
+            color: #eff6ff;
+        }
+
+        .pay-mini-button.danger {
+            border-color: rgba(251, 113, 133, .34);
+            color: #fecdd3;
+        }
+
+        .empty-state,
+        .credit-debt {
+            margin: 1rem;
+            border: 1px solid var(--pay-line);
+            border-radius: .9rem;
+            background: rgba(10, 19, 34, .66);
+            padding: 1rem;
+        }
+
+        .credit-debt {
+            border-color: rgba(251, 191, 36, .28);
+            color: #fde68a;
+        }
+
+        .legacy-note {
+            margin-top: .5rem;
+            color: var(--pay-dim);
+            font-size: .72rem;
+        }
+
+        .toast-msg {
+            margin: 1rem 1.25rem 0;
+        }
+
+        @@media (max-width: 980px) {
+            .payments-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .methods-sidebar {
+                position: static;
+            }
+
+            .methods-sidebar nav {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .cards-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        @@media (max-width: 700px) {
+            .payments-page {
+                margin: -.75rem;
+                padding: .75rem;
+            }
+
+            .payments-shell-card {
+                border-radius: 18px;
+            }
+
+            .payments-topbar,
+            .method-panel-header,
+            .payment-card-header {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .payments-actions,
+            .method-stats,
+            .plan-actions {
+                justify-content: flex-start;
+            }
+
+            .payments-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .form-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .form-grid .span-2 {
+                grid-column: span 1;
+            }
+        }
+
+        @@media (max-width: 430px) {
+            .payments-topbar,
+            .payments-layout,
+            .cards-grid,
+            .cards-list,
+            .method-panel-header {
+                padding: .8rem;
+            }
+
+            .payments-metrics {
+                grid-template-columns: minmax(0, 1fr);
+                padding: .8rem .8rem 0;
+            }
+
+            .payments-rule {
+                margin: .8rem .8rem 0;
+            }
+
+            .methods-sidebar nav {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .plan-summary {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .payment-card-summary {
+                grid-template-columns: 1.3rem minmax(0, 1fr);
+            }
+
+            .payment-card-meta {
+                display: none;
+            }
+
+            .pay-mini-button,
+            .pay-button-row button {
+                width: 100%;
+            }
+
+            .payment-card-footer .pay-mini-button {
+                width: auto;
+            }
+        }
+    </style>
+}
+
+<div class="payments-page">
+    <section class="payments-shell-card" aria-labelledby="payments-title">
+        <header class="payments-topbar">
+            <div>
+                <div class="payments-eyebrow">Configuracion global de pagos</div>
+                <h1 id="payments-title" class="payments-title">Configuracion de pagos</h1>
+                <p class="payments-subtitle">
+                    Administra medios, tarjetas y planes reutilizables. El ajuste se aplica una sola vez sobre el total.
+                    Ajuste positivo = recargo, ajuste negativo = descuento. Cuotas indica la cantidad total de pagos.
+                </p>
+            </div>
+            <div class="payments-actions">
+                <span class="payments-credit-note">
+                    <span class="material-symbols-outlined text-[18px]">info</span>
+                    Credito personal se administra en una fase separada.
+                </span>
+                <a asp-controller="Home" asp-action="Index" class="pay-mini-button">
+                    <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                     Volver
                 </a>
             </div>
         </header>
-    </section>
 
-    @if (TempData["Error"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
-            <span class="material-symbols-outlined">error</span>
-            @TempData["Error"]
-        </div>
-    }
-    @if (TempData["Success"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
-            <span class="material-symbols-outlined">check_circle</span>
-            @TempData["Success"]
-        </div>
-    }
-
-    <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div class="card-erp-panel-padded">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Medios</p>
-            <p class="mt-2 text-3xl font-black text-white">@Model.TotalMedios</p>
-        </div>
-        <div class="card-erp-panel-padded">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Tarjetas</p>
-            <p class="mt-2 text-3xl font-black text-white">@Model.TotalTarjetas</p>
-        </div>
-        <div class="card-erp-panel-padded">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Planes/cuotas</p>
-            <p class="mt-2 text-3xl font-black text-white">@Model.TotalPlanes</p>
-        </div>
-        <div class="card-erp-panel-padded">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Inactivos visibles</p>
-            <p class="mt-2 text-3xl font-black text-amber-300">@Model.TotalInactivos</p>
-        </div>
-    </section>
-
-    <section class="card-erp-panel-padded">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="space-y-2">
-                <h2 class="text-xl font-bold text-white">Regla operativa</h2>
-                <p class="max-w-3xl text-sm leading-relaxed text-slate-400">
-                    El ajuste se aplica una sola vez sobre el total. Ajuste positivo = recargo, ajuste negativo = descuento, ajuste 0 = sin ajuste.
-                    Cuotas indica la cantidad total de pagos, no interes mensual.
-                </p>
+        @if (TempData["Error"] != null)
+        {
+            <div class="toast-msg flex items-center gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm font-semibold text-rose-200" role="alert">
+                <span class="material-symbols-outlined">error</span>
+                @TempData["Error"]
             </div>
-            @if (!puedeEditar)
-            {
-                <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">visibility</span>
-                    Solo lectura
-                </span>
-            }
-        </div>
-    </section>
+        }
+        @if (TempData["Success"] != null)
+        {
+            <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-200" role="status">
+                <span class="material-symbols-outlined">check_circle</span>
+                @TempData["Success"]
+            </div>
+        }
 
-    @if (Model.Medios.Count == 0)
-    {
-        <section class="card-erp-panel-padded text-center">
-            <span class="material-symbols-outlined text-5xl text-slate-600">payments</span>
-            <h2 class="mt-3 text-xl font-bold text-white">Sin medios configurados</h2>
-            <p class="mt-2 text-sm text-slate-400">Todavia no hay configuracion global de pagos para administrar.</p>
+        <section class="payments-metrics" aria-label="Resumen">
+            <article class="payments-metric">
+                <span class="payments-eyebrow">Medios</span>
+                <strong>@Model.TotalMedios</strong>
+            </article>
+            <article class="payments-metric">
+                <span class="payments-eyebrow">Tarjetas</span>
+                <strong>@Model.TotalTarjetas</strong>
+            </article>
+            <article class="payments-metric">
+                <span class="payments-eyebrow">Planes</span>
+                <strong>@Model.TotalPlanes</strong>
+            </article>
+            <article class="payments-metric">
+                <span class="payments-eyebrow">Inactivos</span>
+                <strong>@Model.TotalInactivos</strong>
+            </article>
         </section>
-    }
-    else
-    {
-        <section class="space-y-6">
-            @foreach (var medio in Model.Medios)
-            {
-                <article class="card-erp-panel overflow-hidden">
-                    <header class="border-b border-slate-800 bg-slate-950/40 p-5">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div class="min-w-0 space-y-2">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <h2 class="text-xl font-black text-white">@medio.Nombre</h2>
-                                    <span class="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-300">@medio.TipoPago</span>
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-bold @(medio.Activo ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300")">
-                                        @(medio.Activo ? "Activo" : "Inactivo")
-                                    </span>
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(medio.Descripcion))
-                                {
-                                    <p class="text-sm text-slate-400">@medio.Descripcion</p>
-                                }
-                            </div>
-                            <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:min-w-[34rem]">
-                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Descuento</p>
-                                    <p class="mt-1 font-semibold text-slate-100">@(medio.PermiteDescuento ? $"{medio.PorcentajeDescuentoMaximo:0.##}%" : "No")</p>
-                                </div>
-                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Recargo</p>
-                                    <p class="mt-1 font-semibold text-slate-100">@(medio.TieneRecargo ? $"{medio.PorcentajeRecargo:0.##}%" : "No")</p>
-                                </div>
-                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Tarjetas</p>
-                                    <p class="mt-1 font-semibold text-slate-100">@medio.Tarjetas.Count</p>
-                                </div>
-                                <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Planes</p>
-                                    <p class="mt-1 font-semibold text-slate-100">@medio.Planes.Count</p>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
 
-                    <div class="grid grid-cols-1 gap-0 xl:grid-cols-2">
-                        <div class="border-b border-slate-800 p-5 xl:border-b-0 xl:border-r">
-                            <div class="mb-4 flex items-center justify-between gap-3">
-                                <h3 class="text-base font-bold text-white">Tarjetas activas/inactivas</h3>
-                                <span class="text-xs font-semibold text-slate-500">Inactivas quedan visibles en admin</span>
-                            </div>
-                            @if (medio.Tarjetas.Count == 0)
-                            {
-                                <p class="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">Este medio no tiene tarjetas configuradas.</p>
-                            }
-                            else
-                            {
-                                <div data-oc-scroll style="--oc-scroll-min-width: 42rem;" class="table-erp-wrapper">
-                                    <table data-oc-scroll-table class="w-full text-left text-sm">
-                                        <thead>
-                                            <tr class="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
-                                                <th class="px-3 py-3">Tarjeta</th>
-                                                <th class="px-3 py-3">Tipo</th>
-                                                <th class="px-3 py-3">Estado</th>
-                                                <th class="px-3 py-3">Cuotas</th>
-                                                <th class="px-3 py-3">Observaciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-800">
-                                            @foreach (var tarjeta in medio.Tarjetas)
-                                            {
-                                                <tr>
-                                                    <td class="px-3 py-3 font-semibold text-slate-100">@tarjeta.Nombre</td>
-                                                    <td class="px-3 py-3 text-slate-300">@tarjeta.TipoTarjeta</td>
-                                                    <td class="px-3 py-3">
-                                                        <span class="rounded-full px-2 py-1 text-xs font-bold @(tarjeta.Activa ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300")">
-                                                            @(tarjeta.Activa ? "Activa" : "Inactiva")
-                                                        </span>
-                                                    </td>
-                                                    <td class="px-3 py-3 text-slate-300">
-                                                        @if (tarjeta.PermiteCuotas)
-                                                        {
-                                                            <span>@tarjeta.CantidadMaximaCuotas cuotas (@tarjeta.TipoCuota)</span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span>No permite</span>
-                                                        }
-                                                    </td>
-                                                    <td class="px-3 py-3 text-slate-400">@(tarjeta.Observaciones ?? "-")</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            }
-                        </div>
+        <section class="payments-rule">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="pay-badge pay-badge-ok">-5% descuento</span>
+                <span class="pay-badge pay-badge-muted">0% sin ajuste</span>
+                <span class="pay-badge pay-badge-warn">+5% recargo</span>
+                @if (!puedeEditar)
+                {
+                    <span class="pay-badge pay-badge-muted">Solo lectura</span>
+                }
+            </div>
+        </section>
 
-                        <div class="p-5">
-                            <div class="mb-4 flex items-center justify-between gap-3">
-                                <h3 class="text-base font-bold text-white">Planes/cuotas globales</h3>
-                                <span class="text-xs font-semibold text-slate-500">Plan inactivo no estara disponible en venta futura</span>
-                            </div>
+        @if (Model.Medios.Count == 0)
+        {
+            <section class="empty-state text-center">
+                <span class="material-symbols-outlined text-5xl text-slate-600">payments</span>
+                <h2 class="mt-2 text-xl font-black text-white">Sin medios configurados</h2>
+                <p class="empty-copy">Todavia no hay configuracion global de pagos para administrar.</p>
+            </section>
+        }
+        else
+        {
+            <div class="payments-layout">
+                <aside class="methods-sidebar" aria-label="Metodos de pago">
+                    <div class="payments-eyebrow">Metodos</div>
+                    <nav>
+                        @for (var i = 0; i < Model.Medios.Count; i++)
+                        {
+                            var medio = Model.Medios[i];
+                            var totalPlanesMetodo = medio.Planes.Count;
+                            var totalTarjetasMetodo = medio.Tarjetas.Count;
+                            var esMedioSeleccionado = medioSeleccionado?.Id == medio.Id;
+                            <a asp-controller="ConfiguracionPago"
+                               asp-action="MediosPago"
+                               asp-route-medioId="@medio.Id"
+                               class="method-card @(esMedioSeleccionado ? "is-selected" : "")"
+                               aria-current="@(esMedioSeleccionado ? "page" : null)">
+                                <span class="material-symbols-outlined">@MetodoIcon(medio.TipoPago)</span>
+                                <span class="min-w-0">
+                                    <span class="method-name">@TipoPagoDisplay(medio.TipoPago)</span>
+                                    <span class="method-meta">@totalTarjetasMetodo tarjeta@(totalTarjetasMetodo == 1 ? "" : "s")</span>
+                                </span>
+                                <span class="method-count" title="@totalPlanesMetodo planes">@totalPlanesMetodo</span>
+                            </a>
+                        }
+                    </nav>
+                </aside>
 
-                            @if (puedeEditar)
-                            {
-                                <form asp-controller="ConfiguracionPago" asp-action="CrearPlanGlobal" method="post"
-                                      class="mb-5 rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-4">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
-                                    <input type="hidden" name="TipoAjuste" value="@TipoAjustePagoPlan.Porcentaje" />
+                <main class="payments-main">
+                    @if (medioSeleccionado != null)
+                    {
+                        var medio = medioSeleccionado;
+                        var permiteTarjetas = medio.TipoPago == TipoPago.TarjetaCredito || medio.TipoPago == TipoPago.TarjetaDebito;
+                        var permitePlanesGlobales = medio.TipoPago != TipoPago.CreditoPersonal && medio.TipoPago != TipoPago.Tarjeta;
+                        var tarjetas = medio.Tarjetas
+                            .OrderByDescending(t => t.Activa)
+                            .ThenBy(t => t.TipoTarjeta)
+                            .ThenBy(t => t.Nombre)
+                            .ToList();
+                        var planesGenerales = medio.Planes
+                            .Where(p => p.ConfiguracionTarjetaId is null)
+                            .OrderByDescending(p => p.Activo)
+                            .ThenBy(p => p.Orden)
+                            .ThenBy(p => p.CantidadCuotas)
+                            .ToList();
+                        var totalPlanes = medio.Planes.Count;
 
-                                    <div class="mb-3 flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-primary">add_circle</span>
-                                        <h4 class="text-sm font-black uppercase tracking-wider text-slate-300">Nuevo plan global</h4>
+                        <section id="medio-@medio.Id" class="method-panel">
+                            <header class="method-panel-header">
+                                <div>
+                                    <div class="method-heading">
+                                        <span class="material-symbols-outlined text-blue-300">@MetodoIcon(medio.TipoPago)</span>
+                                        <h2>@TipoPagoDisplay(medio.TipoPago)</h2>
+                                        <span class="@EstadoClass(medio.Activo)">@(medio.Activo ? "Activo" : "Inactivo")</span>
+                                        <span class="pay-badge pay-badge-muted">@medio.Nombre</span>
                                     </div>
-
-                                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
-                                        <div class="flex flex-col gap-1.5 xl:col-span-2">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Alcance</label>
-                                            <select name="ConfiguracionTarjetaId" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0">
-                                                <option value="">Plan general del medio</option>
-                                                @foreach (var tarjeta in medio.Tarjetas)
-                                                {
-                                                    <option value="@tarjeta.Id">@tarjeta.Nombre (@tarjeta.TipoTarjeta)</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="flex flex-col gap-1.5">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</label>
-                                            <input name="CantidadCuotas" type="number" min="1" value="1" required class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                        </div>
-                                        <div class="flex flex-col gap-1.5">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Ajuste %</label>
-                                            <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="0" required class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                        </div>
-                                        <div class="flex flex-col gap-1.5">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
-                                            <input name="Orden" type="number" value="0" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                        </div>
-                                        <div class="flex items-end">
-                                            <label class="inline-flex h-11 w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300">
-                                                <input name="Activo" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-950 text-primary focus:ring-primary" />
-                                                Activo
-                                            </label>
-                                        </div>
-                                        <div class="flex flex-col gap-1.5 md:col-span-2 xl:col-span-3">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Etiqueta</label>
-                                            <input name="Etiqueta" maxlength="100" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" placeholder="Ej: 6 cuotas Visa" />
-                                        </div>
-                                        <div class="flex flex-col gap-1.5 md:col-span-2 xl:col-span-3">
-                                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
-                                            <input name="Observaciones" maxlength="500" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                        </div>
-                                    </div>
-
-                                    <p class="mt-3 text-xs leading-relaxed text-slate-500">
-                                        El ajuste se aplica una sola vez sobre el total: positivo recargo, negativo descuento.
+                                    <p class="method-copy">
+                                        @(!string.IsNullOrWhiteSpace(medio.Descripcion)
+                                            ? medio.Descripcion
+                                            : "Metodo global con historial preservado. Los planes usan cuotas exactas, no rangos.")
                                     </p>
-                                    <button type="submit" class="btn-erp-primary mt-4 w-full sm:w-auto">
-                                        <span class="material-symbols-outlined text-[20px]">save</span>
-                                        Crear plan
-                                    </button>
-                                </form>
+                                    @if (medio.TieneRecargo || medio.PermiteDescuento)
+                                    {
+                                        <p class="legacy-note">
+                                            Campos legacy de recargo/descuento conservados solo como compatibilidad; la configuracion operativa vive en planes.
+                                        </p>
+                                    }
+                                </div>
+                                <div class="method-stats">
+                                    <span class="pay-badge pay-badge-muted">@tarjetas.Count tarjeta@(tarjetas.Count == 1 ? "" : "s")</span>
+                                    <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
+                                    @if (puedeEditar)
+                                    {
+                                        <span class="pay-badge pay-badge-muted" title="La edicion del metodo requiere una vista separada. Pendiente de implementacion.">
+                                            <span class="material-symbols-outlined" style="font-size:1rem">edit_off</span>
+                                            Metodo
+                                        </span>
+                                    }
+                                </div>
+                            </header>
+
+                            @if (medio.TipoPago == TipoPago.CreditoPersonal)
+                            {
+                                <div class="credit-debt">
+                                    <strong>Credito personal tiene configuracion propia por tasa, scoring y perfiles de credito.</strong>
+                                    <p class="mt-1 text-sm text-amber-100/80">Los cambios operativos se administran en la pantalla de configuracion de credito.</p>
+                                    @if (puedeEditar)
+                                    {
+                                        <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" class="pay-mini-button mt-2">
+                                            <span class="material-symbols-outlined text-[17px]">tune</span>
+                                            Administrar credito personal
+                                        </a>
+                                    }
+                                </div>
                             }
 
-                            @if (medio.Planes.Count == 0)
+                            <p class="px-4 py-2 text-xs text-slate-500">
+                                Quitar oculta el elemento para nuevas operaciones, pero conserva el historial. Si se vuelve a cargar el mismo dato, se reactiva.
+                            </p>
+
+                            @if (permiteTarjetas)
                             {
-                                <p class="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">Este medio no tiene planes globales configurados.</p>
-                            }
-                            else
-                            {
-                                <div class="space-y-3">
-                                    @foreach (var plan in medio.Planes)
+                                <div class="cards-list" aria-label="Tarjetas del metodo">
+                                    @foreach (var tarjeta in tarjetas)
                                     {
-                                        <details class="rounded-lg border border-slate-800 bg-slate-950/40">
-                                            <summary class="flex cursor-pointer list-none flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                                <span class="flex flex-wrap items-center gap-2">
-                                                    <span class="font-semibold text-slate-100">@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s")</span>
-                                                    <span class="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-300">@plan.Alcance</span>
-                                                    <span class="rounded-full border border-slate-700 px-2.5 py-1 text-xs font-bold text-slate-300">@plan.AjusteDescripcion</span>
-                                                    <span class="rounded-full px-2.5 py-1 text-xs font-bold @(plan.Activo ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300")">
-                                                        @(plan.Activo ? "Activo" : "Inactivo")
-                                                    </span>
+                                        var planesTarjeta = medio.Planes
+                                            .Where(p => p.ConfiguracionTarjetaId == tarjeta.Id)
+                                            .OrderByDescending(p => p.Activo)
+                                            .ThenBy(p => p.Orden)
+                                            .ThenBy(p => p.CantidadCuotas)
+                                            .ToList();
+                                        var planesActivosTarjeta = planesTarjeta.Count(p => p.Activo);
+                                        var planesInactivosTarjeta = planesTarjeta.Count(p => !p.Activo);
+
+                                        <details class="payment-card-accordion">
+                                            <summary class="payment-card-summary">
+                                                <span class="payment-card-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                                                <span class="payment-card-main">
+                                                    <strong class="card-title">@tarjeta.Nombre</strong>
+                                                    <span class="pay-badge pay-badge-muted">@TipoTarjetaDisplay(tarjeta.TipoTarjeta)</span>
+                                                    <span class="@EstadoClass(tarjeta.Activa)">@(tarjeta.Activa ? "Activa" : "Inactiva")</span>
                                                 </span>
-                                                <span class="text-xs font-semibold text-slate-500">Orden @plan.Orden - @(plan.Etiqueta ?? plan.Observaciones ?? "Sin etiqueta")</span>
+                                                <span class="payment-card-meta">
+                                                    @if (planesActivosTarjeta > 0)
+                                                    {
+                                                        <span class="pay-badge pay-badge-ok">@planesActivosTarjeta cuota@(planesActivosTarjeta == 1 ? "" : "s") activa@(planesActivosTarjeta == 1 ? "" : "s")</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="pay-badge pay-badge-muted">Sin cuotas activas</span>
+                                                    }
+                                                    @if (planesInactivosTarjeta > 0)
+                                                    {
+                                                        <span class="pay-badge pay-badge-off">@planesInactivosTarjeta inactiva@(planesInactivosTarjeta == 1 ? "" : "s")</span>
+                                                    }
+                                                </span>
                                             </summary>
 
-                                            <div class="border-t border-slate-800 p-4">
+                                            <div class="payment-card-body">
+                                                @if (!tarjeta.Activa)
+                                                {
+                                                    <p class="inactive-card-note">
+                                                        Tarjeta quitada para nuevas operaciones. Puede reactivarse desde el footer de este bloque.
+                                                    </p>
+                                                }
+
+                                                <div class="plan-list">
+                                                    @if (planesTarjeta.Count == 0)
+                                                    {
+                                                        <p class="empty-copy px-1">
+                                                            Sin cuotas activas configuradas.
+                                                            Agregar una cuota para que este disponible en Nueva Venta.
+                                                        </p>
+                                                    }
+                                                    else
+                                                    {
+                                                        @foreach (var plan in planesTarjeta)
+                                                        {
+                                                            <details class="plan-row">
+                                                                <summary class="plan-summary">
+                                                                    <span class="plan-main">
+                                                                        <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
+                                                                        <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
+                                                                        <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
+                                                                    </span>
+                                                                    <span class="plan-actions">
+                                                                        <span class="pay-mini-button">Editar</span>
+                                                                    </span>
+                                                                </summary>
+
+                                                                @if (puedeEditar && permitePlanesGlobales)
+                                                                {
+                                                                    <div class="details-body">
+                                                                        <form asp-controller="ConfiguracionPago" asp-action="EditarPlanGlobal" asp-route-id="@plan.Id" method="post">
+                                                                            @Html.AntiForgeryToken()
+                                                                            <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                                            <input type="hidden" name="ConfiguracionTarjetaId" value="@tarjeta.Id" />
+                                                                            <input type="hidden" name="TipoAjuste" value="@plan.TipoAjuste" />
+                                                                            <div class="form-grid">
+                                                                                <div>
+                                                                                    <label class="pay-label">Cuotas</label>
+                                                                                    <input name="CantidadCuotas" type="number" min="1" value="@plan.CantidadCuotas" required class="pay-field" />
+                                                                                </div>
+                                                                                <div>
+                                                                                    <label class="pay-label">Ajuste %</label>
+                                                                                    <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="@plan.AjustePorcentaje.ToString(CultureInfo.InvariantCulture)" required class="pay-field" />
+                                                                                </div>
+                                                                                <div>
+                                                                                    <label class="pay-label">Orden</label>
+                                                                                    <input name="Orden" type="number" value="@plan.Orden" class="pay-field" />
+                                                                                </div>
+                                                                                <label class="pay-check">
+                                                                                    <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                                    Activo
+                                                                                </label>
+                                                                                <div>
+                                                                                    <label class="pay-label">Etiqueta</label>
+                                                                                    <input name="Etiqueta" maxlength="100" value="@plan.Etiqueta" class="pay-field" />
+                                                                                </div>
+                                                                                <div class="span-2">
+                                                                                    <label class="pay-label">Observaciones</label>
+                                                                                    <input name="Observaciones" maxlength="500" value="@plan.Observaciones" class="pay-field" />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="pay-button-row">
+                                                                                <button type="submit" class="pay-mini-button primary">
+                                                                                    <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                                    Guardar plan
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                        <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
+                                                                            @Html.AntiForgeryToken()
+                                                                            <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                                            <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
+                                                                                <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
+                                                                                @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
+                                                                            </button>
+                                                                        </form>
+                                                                    </div>
+                                                                }
+                                                            </details>
+                                                        }
+                                                    }
+
+                                                    @if (puedeEditar && permitePlanesGlobales)
+                                                    {
+                                                        <details class="pay-details">
+                                                            <summary class="compact-summary">
+                                                                <span class="flex items-center gap-2">
+                                                                    <span class="material-symbols-outlined">add_circle</span>
+                                                                    Agregar cuota
+                                                                </span>
+                                                                <span class="pay-badge pay-badge-muted">cuota exacta</span>
+                                                            </summary>
+                                                            <div class="details-body">
+                                                                <form asp-controller="ConfiguracionPago" asp-action="CrearPlanGlobal" method="post">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                                    <input type="hidden" name="ConfiguracionTarjetaId" value="@tarjeta.Id" />
+                                                                    <input type="hidden" name="TipoAjuste" value="@TipoAjustePagoPlan.Porcentaje" />
+                                                                    <div class="form-grid">
+                                                                        <div>
+                                                                            <label class="pay-label">Cuotas</label>
+                                                                            <input name="CantidadCuotas" type="number" min="1" value="1" required class="pay-field" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="pay-label">Ajuste %</label>
+                                                                            <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="0" required class="pay-field" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="pay-label">Orden</label>
+                                                                            <input name="Orden" type="number" value="0" class="pay-field" />
+                                                                        </div>
+                                                                        <label class="pay-check">
+                                                                            <input name="Activo" type="checkbox" value="true" checked />
+                                                                            Activo
+                                                                        </label>
+                                                                        <div>
+                                                                            <label class="pay-label">Etiqueta</label>
+                                                                            <input name="Etiqueta" maxlength="100" class="pay-field" />
+                                                                        </div>
+                                                                        <div class="span-2">
+                                                                            <label class="pay-label">Observaciones</label>
+                                                                            <input name="Observaciones" maxlength="500" class="pay-field" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="pay-button-row">
+                                                                        <button type="submit" class="pay-mini-button primary">
+                                                                            <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                            Crear cuota
+                                                                        </button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        </details>
+                                                    }
+
+                                                    @if (puedeEditar)
+                                                    {
+                                                        <details class="pay-details">
+                                                            <summary class="compact-summary">
+                                                                <span class="flex items-center gap-2">
+                                                                    <span class="material-symbols-outlined">edit</span>
+                                                                    Editar tarjeta
+                                                                </span>
+                                                            </summary>
+                                                            <div class="details-body">
+                                                                <form asp-controller="ConfiguracionPago" asp-action="EditarTarjetaGlobal" asp-route-id="@tarjeta.Id" method="post">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                                    <div class="form-grid">
+                                                                        <div class="span-2">
+                                                                            <label class="pay-label">Nombre</label>
+                                                                            <input name="NombreTarjeta" maxlength="100" value="@tarjeta.Nombre" required class="pay-field" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="pay-label">Tipo</label>
+                                                                            <select name="TipoTarjeta" class="pay-select">
+                                                                                @foreach (var tipoTarjeta in Enum.GetValues<TipoTarjeta>())
+                                                                                {
+                                                                                    <option value="@tipoTarjeta" selected="@(tipoTarjeta == tarjeta.TipoTarjeta)">@TipoTarjetaDisplay(tipoTarjeta)</option>
+                                                                                }
+                                                                            </select>
+                                                                        </div>
+                                                                        <label class="pay-check">
+                                                                            <input name="Activa" type="checkbox" value="true" checked="@tarjeta.Activa" />
+                                                                            Activa
+                                                                        </label>
+                                                                        <div class="span-2">
+                                                                            <label class="pay-label">Observaciones</label>
+                                                                            <input name="Observaciones" maxlength="500" value="@tarjeta.Observaciones" class="pay-field" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="pay-button-row">
+                                                                        <button type="submit" class="pay-mini-button primary">
+                                                                            <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                            Guardar tarjeta
+                                                                        </button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        </details>
+                                                    }
+                                                </div>
+
                                                 @if (puedeEditar)
                                                 {
-                                                    <form asp-controller="ConfiguracionPago" asp-action="EditarPlanGlobal" asp-route-id="@plan.Id" method="post" class="space-y-3">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
-                                                        <input type="hidden" name="TipoAjuste" value="@plan.TipoAjuste" />
-
-                                                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
-                                                            <div class="flex flex-col gap-1.5 xl:col-span-2">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Alcance</label>
-                                                                <select name="ConfiguracionTarjetaId" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0">
-                                                                    @if (plan.ConfiguracionTarjetaId is null)
-                                                                    {
-                                                                        <option value="" selected>Plan general del medio</option>
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        <option value="">Plan general del medio</option>
-                                                                    }
-                                                                    @foreach (var tarjeta in medio.Tarjetas)
-                                                                    {
-                                                                        if (plan.ConfiguracionTarjetaId == tarjeta.Id)
-                                                                        {
-                                                                            <option value="@tarjeta.Id" selected>@tarjeta.Nombre (@tarjeta.TipoTarjeta)</option>
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <option value="@tarjeta.Id">@tarjeta.Nombre (@tarjeta.TipoTarjeta)</option>
-                                                                        }
-                                                                    }
-                                                                </select>
-                                                            </div>
-                                                            <div class="flex flex-col gap-1.5">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</label>
-                                                                <input name="CantidadCuotas" type="number" min="1" value="@plan.CantidadCuotas" required class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                                            </div>
-                                                            <div class="flex flex-col gap-1.5">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Ajuste %</label>
-                                                                <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="@plan.AjustePorcentaje" required class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                                            </div>
-                                                            <div class="flex flex-col gap-1.5">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
-                                                                <input name="Orden" type="number" value="@plan.Orden" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                                            </div>
-                                                            <div class="flex items-end">
-                                                                <label class="inline-flex h-11 w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-300">
-                                                                    <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" class="rounded border-slate-600 bg-slate-950 text-primary focus:ring-primary" />
-                                                                    Activo
-                                                                </label>
-                                                            </div>
-                                                            <div class="flex flex-col gap-1.5 md:col-span-2 xl:col-span-3">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Etiqueta</label>
-                                                                <input name="Etiqueta" maxlength="100" value="@plan.Etiqueta" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                                            </div>
-                                                            <div class="flex flex-col gap-1.5 md:col-span-2 xl:col-span-3">
-                                                                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
-                                                                <input name="Observaciones" maxlength="500" value="@plan.Observaciones" class="h-11 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                                                            </div>
-                                                        </div>
-
-                                                        <button type="submit" class="btn-erp-secondary w-full sm:w-auto">
-                                                            <span class="material-symbols-outlined text-[20px]">edit</span>
-                                                            Guardar cambios
-                                                        </button>
-                                                    </form>
-
-                                                    <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" method="post" class="mt-3">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="activo" value="@(!plan.Activo)" />
-                                                        <button type="submit" class="btn-erp-ghost w-full sm:w-auto">
-                                                            <span class="material-symbols-outlined text-[20px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
-                                                            @(plan.Activo ? "Inactivar plan" : "Activar plan")
-                                                        </button>
-                                                    </form>
-                                                }
-                                                else
-                                                {
-                                                    <p class="text-sm text-slate-400">Sin permisos de edicion. El plan queda visible para auditoria administrativa.</p>
+                                                    <div class="payment-card-footer">
+                                                        <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="activa" value="@(!tarjeta.Activa)" />
+                                                            <button type="submit" class="pay-mini-button @(tarjeta.Activa ? "danger" : "")">
+                                                                <span class="material-symbols-outlined text-[17px]">@(tarjeta.Activa ? "toggle_off" : "toggle_on")</span>
+                                                                @(tarjeta.Activa ? "Quitar tarjeta" : "Reactivar tarjeta")
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 }
                                             </div>
                                         </details>
                                     }
+
+                                    @if (tarjetas.Count == 0)
+                                    {
+                                        <div class="empty-state">
+                                            <h3 class="text-base font-black text-white">Sin tarjetas configuradas</h3>
+                                            <p class="empty-copy">Este metodo no tiene marcas o entidades asociadas.</p>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (puedeEditar)
+                                {
+                                    <details class="pay-details mx-4 mb-4">
+                                        <summary class="compact-summary">
+                                            <span class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined">add_card</span>
+                                                Agregar tarjeta
+                                            </span>
+                                        </summary>
+                                        <div class="details-body">
+                                            <form asp-controller="ConfiguracionPago" asp-action="CrearTarjetaGlobal" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                <div class="form-grid">
+                                                    <div class="span-2">
+                                                        <label class="pay-label">Nombre</label>
+                                                        <input name="NombreTarjeta" maxlength="100" required class="pay-field" />
+                                                    </div>
+                                                    <div>
+                                                        <label class="pay-label">Tipo</label>
+                                                        <select name="TipoTarjeta" class="pay-select">
+                                                            @foreach (var tipoTarjeta in Enum.GetValues<TipoTarjeta>())
+                                                            {
+                                                                <option value="@tipoTarjeta">@TipoTarjetaDisplay(tipoTarjeta)</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                    <label class="pay-check">
+                                                        <input name="Activa" type="checkbox" value="true" checked />
+                                                        Activa
+                                                    </label>
+                                                    <div class="span-2">
+                                                        <label class="pay-label">Observaciones</label>
+                                                        <input name="Observaciones" maxlength="500" class="pay-field" />
+                                                    </div>
+                                                </div>
+                                                <div class="pay-button-row">
+                                                    <button type="submit" class="pay-mini-button primary">
+                                                        <span class="material-symbols-outlined text-[17px]">save</span>
+                                                        Crear tarjeta
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </details>
+                                }
+                            }
+
+                            @if (planesGenerales.Count > 0 || (puedeEditar && permitePlanesGlobales && !permiteTarjetas))
+                            {
+                                <div class="cards-grid">
+                                    <article class="payment-card">
+                                        <header class="payment-card-header">
+                                            <div>
+                                                <div class="card-title-row">
+                                                    <span class="card-title">Plan general del medio</span>
+                                                    <span class="pay-badge pay-badge-muted">@planesGenerales.Count plan@(planesGenerales.Count == 1 ? "" : "es")</span>
+                                                </div>
+                                                <p class="card-subtitle">Aplica al medio completo cuando no esta asociado a una tarjeta especifica.</p>
+                                            </div>
+                                        </header>
+                                        <div class="plan-list">
+                                            @foreach (var plan in planesGenerales)
+                                            {
+                                                <details class="plan-row">
+                                                    <summary class="plan-summary">
+                                                        <span class="plan-main">
+                                                            <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
+                                                            <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
+                                                            <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
+                                                        </span>
+                                                        <span class="plan-actions">
+                                                            <span class="pay-mini-button">Editar</span>
+                                                        </span>
+                                                    </summary>
+
+                                                    @if (puedeEditar && permitePlanesGlobales)
+                                                    {
+                                                        <div class="details-body">
+                                                            <form asp-controller="ConfiguracionPago" asp-action="EditarPlanGlobal" asp-route-id="@plan.Id" method="post">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                                <input type="hidden" name="TipoAjuste" value="@plan.TipoAjuste" />
+                                                                <div class="form-grid">
+                                                                    <div>
+                                                                        <label class="pay-label">Cuotas</label>
+                                                                        <input name="CantidadCuotas" type="number" min="1" value="@plan.CantidadCuotas" required class="pay-field" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="pay-label">Ajuste %</label>
+                                                                        <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="@plan.AjustePorcentaje.ToString(CultureInfo.InvariantCulture)" required class="pay-field" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="pay-label">Orden</label>
+                                                                        <input name="Orden" type="number" value="@plan.Orden" class="pay-field" />
+                                                                    </div>
+                                                                    <label class="pay-check">
+                                                                        <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
+                                                                        Activo
+                                                                    </label>
+                                                                    <div>
+                                                                        <label class="pay-label">Etiqueta</label>
+                                                                        <input name="Etiqueta" maxlength="100" value="@plan.Etiqueta" class="pay-field" />
+                                                                    </div>
+                                                                    <div class="span-2">
+                                                                        <label class="pay-label">Observaciones</label>
+                                                                        <input name="Observaciones" maxlength="500" value="@plan.Observaciones" class="pay-field" />
+                                                                    </div>
+                                                                </div>
+                                                                <div class="pay-button-row">
+                                                                    <button type="submit" class="pay-mini-button primary">
+                                                                        <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                        Guardar plan
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                            <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="activo" value="@(!plan.Activo)" />
+                                                                <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
+                                                                    <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
+                                                                    @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    }
+                                                </details>
+                                            }
+
+                                            @if (puedeEditar && permitePlanesGlobales)
+                                            {
+                                                <details class="pay-details">
+                                                    <summary class="compact-summary">
+                                                        <span class="flex items-center gap-2">
+                                                            <span class="material-symbols-outlined">add_circle</span>
+                                                            Agregar plan general
+                                                        </span>
+                                                        <span class="pay-badge pay-badge-muted">cuota exacta</span>
+                                                    </summary>
+                                                    <div class="details-body">
+                                                        <form asp-controller="ConfiguracionPago" asp-action="CrearPlanGlobal" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
+                                                            <input type="hidden" name="TipoAjuste" value="@TipoAjustePagoPlan.Porcentaje" />
+                                                            <div class="form-grid">
+                                                                <div>
+                                                                    <label class="pay-label">Cuotas</label>
+                                                                    <input name="CantidadCuotas" type="number" min="1" value="1" required class="pay-field" />
+                                                                </div>
+                                                                <div>
+                                                                    <label class="pay-label">Ajuste %</label>
+                                                                    <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="0" required class="pay-field" />
+                                                                </div>
+                                                                <div>
+                                                                    <label class="pay-label">Orden</label>
+                                                                    <input name="Orden" type="number" value="0" class="pay-field" />
+                                                                </div>
+                                                                <label class="pay-check">
+                                                                    <input name="Activo" type="checkbox" value="true" checked />
+                                                                    Activo
+                                                                </label>
+                                                                <div>
+                                                                    <label class="pay-label">Etiqueta</label>
+                                                                    <input name="Etiqueta" maxlength="100" class="pay-field" />
+                                                                </div>
+                                                                <div class="span-2">
+                                                                    <label class="pay-label">Observaciones</label>
+                                                                    <input name="Observaciones" maxlength="500" class="pay-field" />
+                                                                </div>
+                                                            </div>
+                                                            <div class="pay-button-row">
+                                                                <button type="submit" class="pay-mini-button primary">
+                                                                    <span class="material-symbols-outlined text-[17px]">save</span>
+                                                                    Crear plan
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </details>
+                                            }
+                                        </div>
+                                    </article>
                                 </div>
                             }
-                        </div>
-                    </div>
-                </article>
-            }
-        </section>
-    }
+                        </section>
+                    }
+                </main>
+            </div>
+        }
+    </section>
 </div>
+
+@section Scripts {
+    <script>
+        (() => {
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', () => {
+                    if (!form.checkValidity()) {
+                        return;
+                    }
+
+                    const button = form.querySelector('button[type="submit"]');
+                    if (!button) {
+                        return;
+                    }
+
+                    button.disabled = true;
+                    button.setAttribute('aria-busy', 'true');
+
+                    const icon = button.querySelector('.material-symbols-outlined');
+                    if (icon) {
+                        icon.textContent = 'hourglass_top';
+                    }
+                });
+            });
+        })();
+    </script>
+}

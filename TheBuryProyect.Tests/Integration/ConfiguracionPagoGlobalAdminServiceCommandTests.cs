@@ -11,6 +11,7 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -121,6 +122,42 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         Assert.Empty(_context.ConfiguracionPagoPlanes);
     }
 
+    [Fact]
+    public async Task CrearPlanGlobal_CreditoPersonal_Rechaza()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.CreditoPersonal);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearPlanGlobalAsync(new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                CantidadCuotas = 12,
+                AjustePorcentaje = 15m
+            }));
+
+        Assert.Contains("Credito Personal", ex.Message);
+        Assert.Empty(_context.ConfiguracionPagoPlanes);
+    }
+
+    [Fact]
+    public async Task CrearPlanGlobal_RechazaTarjetaIncoherenteConMedio()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaAsync(medio, TipoTarjeta.Debito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearPlanGlobalAsync(new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                ConfiguracionTarjetaId = tarjeta.Id,
+                CantidadCuotas = 3,
+                AjustePorcentaje = 5m
+            }));
+
+        Assert.Contains("debito", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_context.ConfiguracionPagoPlanes);
+    }
+
     [Theory]
     [InlineData(-100.0001)]
     [InlineData(1000)]
@@ -203,6 +240,92 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         Assert.Contains("Ya existe un plan activo", ex.Message);
     }
 
+    [Fact]
+    public async Task CrearTarjetaGlobal_CreaTarjetaValidaConNombreNormalizado()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+
+        var resultado = await _service.CrearTarjetaGlobalAsync(new TarjetaGlobalCommandViewModel
+        {
+            ConfiguracionPagoId = medio.Id,
+            NombreTarjeta = "  Visa  ",
+            TipoTarjeta = TipoTarjeta.Credito,
+            Observaciones = "  Promo banco  "
+        });
+
+        var tarjeta = await _context.ConfiguracionesTarjeta.SingleAsync();
+        Assert.Equal(resultado.Id, tarjeta.Id);
+        Assert.Equal("Visa", tarjeta.NombreTarjeta);
+        Assert.Equal("Promo banco", tarjeta.Observaciones);
+        Assert.True(tarjeta.Activa);
+    }
+
+    [Fact]
+    public async Task ObtenerTarjetaGlobal_DevuelveContratoAdmin()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaAsync(medio);
+
+        var resultado = await _service.ObtenerTarjetaGlobalAsync(tarjeta.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(tarjeta.Id, resultado.Id);
+        Assert.Equal("Visa", resultado.Nombre);
+        Assert.Equal(TipoTarjeta.Credito, resultado.TipoTarjeta);
+    }
+
+    [Fact]
+    public async Task CrearTarjetaGlobal_RechazaDuplicadoActivoNormalizado()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        await SeedTarjetaAsync(medio);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearTarjetaGlobalAsync(new TarjetaGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                NombreTarjeta = "  visa  ",
+                TipoTarjeta = TipoTarjeta.Credito,
+                Activa = true
+            }));
+
+        Assert.Contains("Ya existe una tarjeta activa", ex.Message);
+        Assert.Single(_context.ConfiguracionesTarjeta);
+    }
+
+    [Fact]
+    public async Task CrearTarjetaGlobal_RechazaTipoTarjetaQueNoCoincideConMedio()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaDebito);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearTarjetaGlobalAsync(new TarjetaGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = medio.Id,
+                NombreTarjeta = "Master",
+                TipoTarjeta = TipoTarjeta.Credito
+            }));
+
+        Assert.Contains("credito", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_context.ConfiguracionesTarjeta);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoTarjetaGlobal_InactivaSinBorrarAunqueTengaPlanes()
+    {
+        var medio = await SeedConfiguracionPagoAsync(TipoPago.TarjetaCredito);
+        var tarjeta = await SeedTarjetaAsync(medio);
+        await SeedPlanAsync(medio, cuotas: 3, activo: true, configuracionTarjetaId: tarjeta.Id);
+
+        var actualizado = await _service.CambiarEstadoTarjetaGlobalAsync(tarjeta.Id, activa: false);
+
+        Assert.True(actualizado);
+        var tarjetaDb = await _context.ConfiguracionesTarjeta.SingleAsync();
+        Assert.False(tarjetaDb.Activa);
+        Assert.False(tarjetaDb.IsDeleted);
+        Assert.True(await _context.ConfiguracionPagoPlanes.AnyAsync(p => p.ConfiguracionTarjetaId == tarjeta.Id && p.Activo));
+    }
+
     private async Task<ConfiguracionPago> SeedConfiguracionPagoAsync(TipoPago tipoPago)
     {
         var medio = new ConfiguracionPago
@@ -217,13 +340,15 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         return medio;
     }
 
-    private async Task<ConfiguracionTarjeta> SeedTarjetaAsync(ConfiguracionPago medio)
+    private async Task<ConfiguracionTarjeta> SeedTarjetaAsync(
+        ConfiguracionPago medio,
+        TipoTarjeta tipoTarjeta = TipoTarjeta.Credito)
     {
         var tarjeta = new ConfiguracionTarjeta
         {
             ConfiguracionPagoId = medio.Id,
             NombreTarjeta = "Visa",
-            TipoTarjeta = TipoTarjeta.Credito,
+            TipoTarjeta = tipoTarjeta,
             Activa = true,
             PermiteCuotas = true,
             CantidadMaximaCuotas = 12
@@ -234,11 +359,16 @@ public sealed class ConfiguracionPagoGlobalAdminServiceCommandTests : IDisposabl
         return tarjeta;
     }
 
-    private async Task<ConfiguracionPagoPlan> SeedPlanAsync(ConfiguracionPago medio, int cuotas, bool activo)
+    private async Task<ConfiguracionPagoPlan> SeedPlanAsync(
+        ConfiguracionPago medio,
+        int cuotas,
+        bool activo,
+        int? configuracionTarjetaId = null)
     {
         var plan = new ConfiguracionPagoPlan
         {
             ConfiguracionPagoId = medio.Id,
+            ConfiguracionTarjetaId = configuracionTarjetaId,
             TipoPago = medio.TipoPago,
             CantidadCuotas = cuotas,
             Activo = activo,

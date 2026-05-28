@@ -264,6 +264,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_TarjetaDebitoConRecargo_SumaRecargoAVentaTotal()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
@@ -497,6 +498,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_TarjetaCredito_ConPlanActivo_PersistePlanId()
     {
         var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -517,6 +519,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_TarjetaDebito_ConPlanActivo_PersistePlanId()
     {
         var venta = await SeedVenta(total: 5_000m, tipoPago: TipoPago.TarjetaDebito);
@@ -537,6 +540,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_MercadoPago_ConPlanActivo_PersistePlanId()
     {
         var venta = await SeedVenta(total: 3_000m, tipoPago: TipoPago.MercadoPago);
@@ -557,6 +561,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanInactivo_Rechaza()
     {
         var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -576,6 +581,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanEliminadoLogicamente_Rechaza()
     {
         var venta = await SeedVenta(total: 6_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -595,6 +601,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanDeTipoPagoIncorrecto_Rechaza()
     {
         // Plan configurado para TarjetaDebito, pero la venta es TarjetaCredito
@@ -615,6 +622,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanDeMedioNoTarjeta_Rechaza()
     {
         // Plan configurado para Efectivo — no es un medio válido para planes de tarjeta
@@ -785,6 +793,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_TarjetaDebito_RecargoYPlan_AplicaAmbosAjustes()
     {
         // Debito: 5% recargo de tarjeta sobre 10.000 = 500 → subtotal 10.500
@@ -861,6 +870,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanActivo_SnapshotPorcentajeGuardadoCorrectamente()
     {
         var venta = await SeedVenta(total: 12_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -880,6 +890,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanActivo_SnapshotMontoGuardadoCorrectamente()
     {
         // 15% de 12.000 = 1.800
@@ -900,6 +911,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanActivo_TotalYaAjustadoDisponibleParaCaja()
     {
         // Verifica que venta.Total queda modificado antes del SaveChanges,
@@ -922,6 +934,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task CalcularTotalesPreviewConPagoGlobal_Recargo10_AplicaSobreTotalBase()
     {
         var producto = await SeedProductoSimple("PG-PREV-REC");
@@ -947,6 +960,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task CalcularTotalesPreviewConPagoGlobal_IgnoraPlanProductoLegacy()
     {
         var producto = await SeedProductoSimple("PG-PREV-LEG");
@@ -976,6 +990,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task CalcularTotalesPreviewConPagoGlobal_Descuento10_AplicaSobreTotalBase()
     {
         var producto = await SeedProductoSimple("PG-PREV-DES");
@@ -998,6 +1013,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanGlobalIgnoraPlanProductoLegacyInactivo()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -1028,6 +1044,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanGlobalRecargo10_GuardaTotalYSnapshotGlobalSinLegacy()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
@@ -1060,6 +1077,94 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
+    public async Task GuardarDatosTarjeta_TarjetaDebitoConPlanGlobal_NoAplicaRecargoLegacy()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaDebito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Debito,
+            nombre: "Maestro Debito Global",
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var (_, _, plan) = await SeedPlanGlobal(
+            TipoPago.TarjetaDebito,
+            ajustePorcentaje: 10m,
+            cantidadCuotas: 2,
+            tarjeta: tarjeta,
+            etiqueta: "Debito global +10");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            ConfiguracionPagoPlanId = plan.Id,
+            RecargoAplicado = 999m
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_000m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_000m, datos.MontoAjustePagoAplicado);
+        Assert.Equal(2, datos.CantidadCuotas);
+        Assert.Equal(5_500m, datos.MontoCuota);
+        Assert.Equal(11_000m, datos.MontoTotalConInteres);
+        Assert.Equal("Debito global +10", datos.NombrePlanPagoSnapshot);
+    }
+
+    [Fact]
+    [Trait("Category", "PagosAbm")]
+    public async Task GuardarDatosTarjeta_TarjetaCreditoConPlanGlobal_AplicaSoloPlanGlobal()
+    {
+        var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
+        var tarjeta = await SeedConfiguracionTarjeta(
+            TipoTarjeta.Credito,
+            TipoCuotaTarjeta.SinInteres,
+            nombre: "Visa Global");
+        var (_, _, plan) = await SeedPlanGlobal(
+            TipoPago.TarjetaCredito,
+            ajustePorcentaje: 12m,
+            cantidadCuotas: 3,
+            tarjeta: tarjeta,
+            etiqueta: "Visa 3 +12");
+
+        var vm = new DatosTarjetaViewModel
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Credito,
+            ConfiguracionPagoPlanId = plan.Id,
+            CantidadCuotas = 3
+        };
+
+        var result = await _service.GuardarDatosTarjetaAsync(venta.Id, vm);
+
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        Assert.Equal(11_200m, ventaActualizada.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Equal(12m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(1_200m, datos.MontoAjustePagoAplicado);
+        Assert.Equal(3, datos.CantidadCuotas);
+        Assert.Equal(3_733.33m, datos.MontoCuota);
+        Assert.Equal(11_200m, datos.MontoTotalConInteres);
+        Assert.Equal("Visa 3 +12", datos.NombrePlanPagoSnapshot);
+    }
+
+    [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanGlobalInactivo_Rechaza()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
@@ -1079,6 +1184,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanGlobalDeOtroTipoPago_Rechaza()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);
@@ -1098,6 +1204,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_PlanGlobalDeTarjetaInactiva_Rechaza()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.TarjetaCredito);
@@ -1152,6 +1259,7 @@ public class VentaServiceGuardarDatosTarjetaTests : IDisposable
     ///   - ProductoCondicionPagoPlanId permanece null (flujo global, no legacy).
     /// </summary>
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task GuardarDatosTarjeta_SegundaLlamadaConPlanGlobal_NoDuplicaTotalYMantieneSinLegacy()
     {
         var venta = await SeedVenta(total: 10_000m, tipoPago: TipoPago.MercadoPago);

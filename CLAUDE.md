@@ -105,3 +105,35 @@ Antes de cerrar:
 - `docs/metodologia-agentes.md`: metodologia ampliada para agentes.
 - `docs/ui-rework-guia-operativa.md`: reglas del rework visual UI-1 en adelante.
 - `docs/ui-0d-cierre-diagnostico-rework-visual.md`: cierre del diagnostico UI-0.
+
+## Control de tiempo, timeouts y errores inesperados
+
+No ejecutar comandos largos indefinidamente.
+
+Reglas:
+
+1. Si un comando tarda más de lo razonable, cortar y diagnosticar.
+2. No repetir el mismo comando largo más de 2 veces.
+3. Si un build/test queda colgado:
+   - identificar procesos propios;
+   - cerrar solo procesos iniciados por esta ejecución;
+   - no matar procesos ajenos sin evidencia;
+   - reportar PIDs cerrados.
+4. Separar validaciones pesadas en pasos chicos:
+   - build proyecto principal;
+   - build proyecto tests;
+   - test filtrado;
+   - nunca suite completa salvo pre-merge o pedido explícito.
+5. Preferir comandos con menor riesgo de bloqueo:
+   - `--no-restore` si ya se restauró;
+   - `/nr:false` para evitar MSBuild nodes colgados;
+   - `--no-build` solo si el binario existe;
+   - `--blame-hang --blame-hang-timeout 120s` en tests sospechosos.
+6. Si una validación falla por timeout:
+   - no seguir relanzando a ciegas;
+   - documentar comando, duración aproximada y resultado;
+   - continuar solo si hay una validación alternativa segura.
+7. Si aparece error inesperado no relacionado con el cambio:
+   - detenerse;
+   - reportar evidencia;
+   - no ampliar alcance.

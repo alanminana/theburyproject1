@@ -34,6 +34,7 @@
     let limiteCuotasDiagnostico = null;
     let cuotasLimitadasPorDiagnostico = false;
     let planesDisponibles = [];
+    let ultimoResultadoTotales = null;
     let configuracionPagosGlobal = null;
     let configuracionPagosGlobalDisponible = false;
     const condicionesProductoCache = new Map();
@@ -653,6 +654,17 @@
         renderSelectorPlanesPago(planes, { mostrarVacio: true });
     }
 
+    function getPlanGlobalSeleccionado() {
+        const planId = parseInt(hdnConfiguracionPagoPlanId?.value);
+        if (!planId) return null;
+
+        return planesDisponibles.find(p => Number(p.id ?? getProp(p, 'id', 'Id')) === planId) || null;
+    }
+
+    function tienePlanGlobalSeleccionado() {
+        return Boolean(getPlanGlobalSeleccionado());
+    }
+
     function obtenerLimiteDiagnosticoCuotas(resultado) {
         const maxSinInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasSinInteres', 'MaxCuotasSinInteres'));
         const maxConInteres = normalizarLimiteCuotas(getProp(resultado, 'maxCuotasConInteres', 'MaxCuotasConInteres'));
@@ -1258,6 +1270,7 @@
 
     async function recalcularTotales() {
         if (detalles.length === 0) {
+            ultimoResultadoTotales = null;
             actualizarTotalesUI(0, 0, 0, 0);
             programarDiagnosticoCondicionesPago();
             return;
@@ -1281,9 +1294,11 @@
             };
 
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
+            ultimoResultadoTotales = result;
             actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total, result);
             aplicarLimiteCuotasSinInteres(result.maxCuotasSinInteresEfectivo ?? null, result.cuotasSinInteresLimitadasPorProducto ?? false);
         } catch {
+            ultimoResultadoTotales = null;
             // Fallback visual only: do not infer IVA in the UI.
             const total = detalles.reduce((acc, d) => acc + d.subtotal, 0);
             actualizarTotalesUI(total, 0, 0, total);
@@ -1303,12 +1318,13 @@
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
         const recargoDebito = Number(backendResult?.recargoDebitoAplicado) || 0;
         const porcentajeRecargoDebito = Number(backendResult?.porcentajeRecargoDebitoAplicado) || 0;
+        const planGlobalSeleccionado = tienePlanGlobalSeleccionado();
         const totalConAjustePagoGlobal = backendResult?.totalConAjustePagoGlobal;
         const totalConAjusteItems = backendResult?.totalConAjusteItems;
         const totalBase = totalConAjustePagoGlobal ?? totalConAjusteItems ?? total;
-        const totalDisplay = recargoDebito > 0
+        const totalDisplay = !planGlobalSeleccionado && recargoDebito > 0
             ? totalBase + recargoDebito
-            : (backendResult?.totalConRecargoDebito ?? totalBase);
+            : (!planGlobalSeleccionado ? (backendResult?.totalConRecargoDebito ?? totalBase) : totalBase);
 
         if (totalSubtotal) totalSubtotal.textContent = formatCurrency(subtotal);
         if (totalDescuento) totalDescuento.textContent = `-${formatCurrency(descuento)}`;
@@ -1330,6 +1346,10 @@
             tarjetaRecargo.textContent = formatRecargoDebitoPreview(recargoDebitoPreview);
         } else {
             recargoDebitoPreview = null;
+        }
+
+        if (planGlobalSeleccionado) {
+            actualizarResumenTarjetaDesdePlanGlobal(backendResult);
         }
 
         // Actualizar aviso de crédito si corresponde
@@ -1480,9 +1500,9 @@
         if (ajuste === 0) {
             ajusteLabel = 'sin ajuste';
         } else if (ajuste > 0) {
-            ajusteLabel = `+${formatPercent(ajuste)}% informativo`;
+            ajusteLabel = `+${formatPercent(ajuste)}% aplicado`;
         } else {
-            ajusteLabel = `${formatPercent(ajuste)}% informativo`;
+            ajusteLabel = `${formatPercent(ajuste)}% aplicado`;
         }
         return `${label} · ${ajusteLabel}`;
     }
@@ -1626,9 +1646,34 @@
         programarDiagnosticoCondicionesPago();
     });
 
-    selectCuotasTarjeta?.addEventListener('change', calcularCuotasTarjeta);
+    selectCuotasTarjeta?.addEventListener('change', function () {
+        if (!configuracionPagosGlobalDisponible || planesDisponibles.length === 0) {
+            calcularCuotasTarjeta();
+            return;
+        }
+
+        const cuotas = parseInt(selectCuotasTarjeta?.value) || 1;
+        const plan = planesDisponibles.find(p => {
+            const cantidad = Number(p.cantidadCuotas ?? getProp(p, 'cantidadCuotas', 'CantidadCuotas')) || 1;
+            return cantidad === cuotas;
+        });
+
+        if (plan) {
+            const planId = getProp(plan, 'id', 'Id');
+            const btn = listaPlanesPago?.querySelector(`.plan-pago-btn[data-plan-id="${planId}"]`);
+            seleccionarPlan(planId, btn);
+            return;
+        }
+
+        actualizarResumenTarjetaDesdePlanGlobal(ultimoResultadoTotales);
+    });
 
     async function calcularCuotasTarjeta() {
+        if (tienePlanGlobalSeleccionado()) {
+            actualizarResumenTarjetaDesdePlanGlobal(ultimoResultadoTotales);
+            return;
+        }
+
         const tarjetaId = parseInt(selectTarjeta?.value);
         const cuotas = parseInt(selectCuotasTarjeta?.value) || 1;
         const total = parseFloat(hdnTotal?.value) || 0;
@@ -1652,6 +1697,35 @@
         } catch {
             hide(panelTarjetaResumen);
         }
+    }
+
+    function actualizarResumenTarjetaDesdePlanGlobal(result) {
+        const plan = getPlanGlobalSeleccionado();
+        if (!plan || !result) {
+            hide(panelTarjetaResumen);
+            return;
+        }
+
+        const totalPlan = Number(result.totalConAjustePagoGlobal ?? result.total);
+        const montoCuota = Number(result.valorCuotaPagoGlobal) || 0;
+        const ajuste = Number(result.ajustePagoGlobalAplicado) || 0;
+        const porcentaje = Number(result.porcentajeAjustePagoGlobalAplicado) || 0;
+        const nombrePlan = result.nombrePlanPagoGlobal || formatearEtiquetaPlan(plan);
+
+        const montoCuotaEl = $('#tarjeta-monto-cuota');
+        const totalInteresEl = $('#tarjeta-total-interes');
+        const recargoEl = $('#tarjeta-recargo');
+
+        if (montoCuotaEl) montoCuotaEl.textContent = formatCurrency(montoCuota);
+        if (totalInteresEl) totalInteresEl.textContent = `${formatCurrency(totalPlan)} · ${nombrePlan}`;
+        if (recargoEl) {
+            const labelAjuste = porcentaje === 0
+                ? 'Sin ajuste'
+                : `${ajuste >= 0 ? '+' : '-'}${formatCurrency(Math.abs(ajuste))} (${porcentaje >= 0 ? '+' : '-'}${formatPercent(porcentaje)}%)`;
+            recargoEl.textContent = labelAjuste;
+        }
+
+        show(panelTarjetaResumen);
     }
 
     // ── 8. Credit Personal ────────────────────────────────────────────

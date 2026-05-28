@@ -382,6 +382,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "PagosAbm")]
     public async Task UpdateAsync_EfectivoAMercadoPagoConPlanGlobal_PersisteDatosTarjeta()
     {
         var cliente = await SeedClienteAsync();
@@ -424,6 +425,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Theory]
+    [Trait("Category", "PagosAbm")]
     [InlineData(TipoPago.TarjetaCredito, TipoTarjeta.Credito)]
     [InlineData(TipoPago.TarjetaDebito, TipoTarjeta.Debito)]
     public async Task UpdateAsync_EfectivoATarjeta_PersisteDatosTarjeta(TipoPago tipoPago, TipoTarjeta tipoTarjeta)
@@ -461,6 +463,198 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.Equal(tarjeta.NombreTarjeta, datos.NombreTarjeta);
         Assert.Equal(tipoTarjeta, datos.TipoTarjeta);
         Assert.Null(datos.ProductoCondicionPagoPlanId);
+    }
+
+    [Fact]
+    [Trait("Category", "PagosAbm")]
+    public async Task UpdateAsync_DebitoConRecargoLegacyYPlanGlobal_AplicaSoloPlanGlobal()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        var tarjeta = await SeedConfiguracionTarjetaAsync(
+            TipoPago.TarjetaDebito,
+            TipoTarjeta.Debito,
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var plan = await SeedPlanGlobalAsync(
+            TipoPago.TarjetaDebito,
+            ajustePorcentaje: 10m,
+            cantidadCuotas: 2,
+            tarjeta: tarjeta,
+            etiqueta: "Debito 2 cuotas +10");
+
+        venta.TipoPago = TipoPago.TarjetaDebito;
+        venta.DatosTarjeta = new DatosTarjeta
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            CantidadCuotas = 1
+        };
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.TarjetaDebito,
+            new DatosTarjetaViewModel
+            {
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = TipoTarjeta.Debito,
+                ConfiguracionPagoPlanId = plan.Id,
+                RecargoAplicado = 999m
+            });
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(1_100m, resultado!.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(tarjeta.Id, datos.ConfiguracionTarjetaId);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(100m, datos.MontoAjustePagoAplicado);
+        Assert.Equal("Debito 2 cuotas +10", datos.NombrePlanPagoSnapshot);
+        Assert.Equal(2, datos.CantidadCuotas);
+        Assert.Equal(550m, datos.MontoCuota);
+        Assert.Equal(1_100m, datos.MontoTotalConInteres);
+    }
+
+    [Fact]
+    [Trait("Category", "PagosAbm")]
+    public async Task UpdateAsync_DebitoConRecargoViejoLuegoPlanGlobal_LimpiaLegacyYSnapshotsIncompatibles()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        var tarjeta = await SeedConfiguracionTarjetaAsync(
+            TipoPago.TarjetaDebito,
+            TipoTarjeta.Debito,
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var plan = await SeedPlanGlobalAsync(
+            TipoPago.TarjetaDebito,
+            ajustePorcentaje: 10m,
+            cantidadCuotas: 2,
+            tarjeta: tarjeta);
+
+        venta.TipoPago = TipoPago.TarjetaDebito;
+        venta.DatosTarjeta = new DatosTarjeta
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            CantidadCuotas = 1,
+            RecargoAplicado = 50m,
+            PorcentajeAjustePlanAplicado = 40m,
+            MontoAjustePlanAplicado = 400m
+        };
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.TarjetaDebito,
+            new DatosTarjetaViewModel
+            {
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = TipoTarjeta.Debito,
+                ConfiguracionPagoPlanId = plan.Id,
+                ProductoCondicionPagoPlanId = 987_654,
+                RecargoAplicado = 999m
+            });
+
+        await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Equal(plan.Id, datos.ConfiguracionPagoPlanId);
+        Assert.Null(datos.RecargoAplicado);
+        Assert.Null(datos.ProductoCondicionPagoPlanId);
+        Assert.Null(datos.PorcentajeAjustePlanAplicado);
+        Assert.Null(datos.MontoAjustePlanAplicado);
+        Assert.Equal(10m, datos.PorcentajeAjustePagoAplicado);
+        Assert.Equal(100m, datos.MontoAjustePagoAplicado);
+    }
+
+    [Fact]
+    [Trait("Category", "PagosAbm")]
+    public async Task UpdateAsync_QuitaPlanGlobalEnDebito_ReaplicaRecargoLegacyYLimpiaSnapshotGlobal()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Presupuesto);
+        var producto = await SeedProductoAsync(precioVenta: 1_000m);
+        var tarjeta = await SeedConfiguracionTarjetaAsync(
+            TipoPago.TarjetaDebito,
+            TipoTarjeta.Debito,
+            tieneRecargoDebito: true,
+            porcentajeRecargoDebito: 5m);
+        var plan = await SeedPlanGlobalAsync(
+            TipoPago.TarjetaDebito,
+            ajustePorcentaje: 10m,
+            cantidadCuotas: 2,
+            tarjeta: tarjeta,
+            etiqueta: "Plan anterior");
+
+        venta.TipoPago = TipoPago.TarjetaDebito;
+        venta.DatosTarjeta = new DatosTarjeta
+        {
+            ConfiguracionTarjetaId = tarjeta.Id,
+            ConfiguracionPagoPlanId = plan.Id,
+            NombreTarjeta = tarjeta.NombreTarjeta,
+            TipoTarjeta = TipoTarjeta.Debito,
+            CantidadCuotas = 2,
+            PorcentajeAjustePagoAplicado = 10m,
+            MontoAjustePagoAplicado = 100m,
+            MontoCuota = 550m,
+            MontoTotalConInteres = 1_100m,
+            NombrePlanPagoSnapshot = "Plan anterior"
+        };
+        plan.Activo = false;
+        venta.RowVersion = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var ventaOriginal = await _context.Ventas.AsNoTracking().SingleAsync(v => v.Id == venta.Id);
+        var vm = CrearVentaUpdateVm(
+            ventaOriginal,
+            cliente.Id,
+            producto.Id,
+            TipoPago.TarjetaDebito,
+            new DatosTarjetaViewModel
+            {
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = TipoTarjeta.Debito,
+                CantidadCuotas = 1,
+                ConfiguracionPagoPlanId = null
+            });
+
+        var resultado = await _service.UpdateAsync(ventaOriginal.Id, vm);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(1_050m, resultado!.Total);
+
+        var datos = await _context.DatosTarjeta.AsNoTracking().SingleAsync(d => d.VentaId == venta.Id);
+        Assert.Null(datos.ConfiguracionPagoPlanId);
+        Assert.Equal(50m, datos.RecargoAplicado);
+        Assert.Null(datos.PorcentajeAjustePagoAplicado);
+        Assert.Null(datos.MontoAjustePagoAplicado);
+        Assert.Null(datos.NombrePlanPagoSnapshot);
+        Assert.Null(datos.MontoCuota);
+        Assert.Null(datos.MontoTotalConInteres);
     }
 
     [Fact]
@@ -517,6 +711,7 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     [Theory]
+    [Trait("Category", "PagosAbm")]
     [InlineData(TipoPago.Efectivo)]
     [InlineData(TipoPago.Transferencia)]
     public async Task UpdateAsync_EfectivoTransferencia_NoMantienenDatosTarjeta(TipoPago tipoPago)
@@ -546,7 +741,11 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.False(await _context.DatosTarjeta.AsNoTracking().AnyAsync(d => d.VentaId == venta.Id));
     }
 
-    private async Task<ConfiguracionTarjeta> SeedConfiguracionTarjetaAsync(TipoPago tipoPago, TipoTarjeta tipoTarjeta)
+    private async Task<ConfiguracionTarjeta> SeedConfiguracionTarjetaAsync(
+        TipoPago tipoPago,
+        TipoTarjeta tipoTarjeta,
+        bool tieneRecargoDebito = false,
+        decimal? porcentajeRecargoDebito = null)
     {
         var medio = new ConfiguracionPago
         {
@@ -565,6 +764,10 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             TipoTarjeta = tipoTarjeta,
             TipoCuota = TipoCuotaTarjeta.SinInteres,
             PermiteCuotas = tipoTarjeta == TipoTarjeta.Credito,
+            TieneRecargoDebito = tipoTarjeta == TipoTarjeta.Debito && tieneRecargoDebito,
+            PorcentajeRecargoDebito = tipoTarjeta == TipoTarjeta.Debito && tieneRecargoDebito
+                ? porcentajeRecargoDebito
+                : null,
             Activa = true,
             IsDeleted = false
         };
@@ -576,25 +779,34 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     private async Task<ConfiguracionPagoPlan> SeedPlanGlobalAsync(
         TipoPago tipoPago,
         decimal ajustePorcentaje,
-        int cantidadCuotas)
+        int cantidadCuotas,
+        ConfiguracionTarjeta? tarjeta = null,
+        string? etiqueta = null)
     {
-        var medio = new ConfiguracionPago
+        var medio = tarjeta == null
+            ? new ConfiguracionPago
+            {
+                TipoPago = tipoPago,
+                Nombre = $"Medio {tipoPago} {Interlocked.Increment(ref _counter)}",
+                Activo = true,
+                IsDeleted = false
+            }
+            : await _context.ConfiguracionesPago.SingleAsync(c => c.Id == tarjeta.ConfiguracionPagoId);
+
+        if (tarjeta == null)
         {
-            TipoPago = tipoPago,
-            Nombre = $"Medio {tipoPago} {Interlocked.Increment(ref _counter)}",
-            Activo = true,
-            IsDeleted = false
-        };
-        _context.ConfiguracionesPago.Add(medio);
-        await _context.SaveChangesAsync();
+            _context.ConfiguracionesPago.Add(medio);
+            await _context.SaveChangesAsync();
+        }
 
         var plan = new ConfiguracionPagoPlan
         {
             ConfiguracionPagoId = medio.Id,
+            ConfiguracionTarjetaId = tarjeta?.Id,
             TipoPago = tipoPago,
             CantidadCuotas = cantidadCuotas,
             AjustePorcentaje = ajustePorcentaje,
-            Etiqueta = $"{cantidadCuotas} cuotas",
+            Etiqueta = etiqueta ?? $"{cantidadCuotas} cuotas",
             Activo = true,
             IsDeleted = false
         };

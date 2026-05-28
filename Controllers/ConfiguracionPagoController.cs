@@ -10,7 +10,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
-    [PermisoRequerido(Modulo = "configuraciones", Accion = "view")]
+    [PermisoRequerido(Modulo = "configuracion", Accion = "view")]
     public class ConfiguracionPagoController : Controller
     {
         private readonly IConfiguracionPagoService _configuracionPagoService;
@@ -64,9 +64,115 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> ListarTarjetasGlobales(int? configuracionPagoId = null)
+        {
+            try
+            {
+                var tarjetas = await _configuracionPagoGlobalAdminService.ListarTarjetasGlobalesAsync(configuracionPagoId);
+                return Json(new { success = true, data = tarjetas });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al listar tarjetas globales");
+                return Json(new { success = false, message = "Error al listar tarjetas globales" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ObtenerTarjetaGlobal(int id)
+        {
+            try
+            {
+                var tarjeta = await _configuracionPagoGlobalAdminService.ObtenerTarjetaGlobalAsync(id);
+                if (tarjeta == null)
+                    return NotFound(new { success = false, message = "Tarjeta no encontrada." });
+
+                return Json(new { success = true, data = tarjeta });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener tarjeta global {TarjetaId}", id);
+                return StatusCode(500, new { success = false, message = "Error al obtener la tarjeta global" });
+            }
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> CrearTarjetaGlobal(TarjetaGlobalCommandViewModel tarjeta)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo crear la tarjeta.");
+                return RedirectToAction(nameof(MediosPago));
+            }
+
+            try
+            {
+                await _configuracionPagoGlobalAdminService.CrearTarjetaGlobalAsync(tarjeta);
+                TempData["Success"] = "Tarjeta creada correctamente.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al crear tarjeta global");
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago), new { medioId = tarjeta.ConfiguracionPagoId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> EditarTarjetaGlobal(int id, TarjetaGlobalCommandViewModel tarjeta)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo editar la tarjeta.");
+                return RedirectToAction(nameof(MediosPago));
+            }
+
+            try
+            {
+                var resultado = await _configuracionPagoGlobalAdminService.ActualizarTarjetaGlobalAsync(id, tarjeta);
+                TempData[resultado == null ? "Error" : "Success"] = resultado == null
+                    ? "Tarjeta no encontrada."
+                    : "Tarjeta actualizada correctamente.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al editar tarjeta global {TarjetaId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago), new { medioId = tarjeta.ConfiguracionPagoId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> CambiarEstadoTarjetaGlobal(int id, bool activa, int medioId = 0)
+        {
+            try
+            {
+                var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoTarjetaGlobalAsync(id, activa);
+                TempData[actualizado ? "Success" : "Error"] = actualizado
+                    ? (activa ? "Tarjeta activada correctamente." : "Tarjeta quitada correctamente.")
+                    : "Tarjeta no encontrada.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al cambiar estado de tarjeta global {TarjetaId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CrearPlanGlobal(PlanPagoGlobalCommandViewModel plan)
         {
             if (!ModelState.IsValid)
@@ -86,12 +192,12 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = plan.ConfiguracionPagoId });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> EditarPlanGlobal(int id, PlanPagoGlobalCommandViewModel plan)
         {
             if (!ModelState.IsValid)
@@ -113,19 +219,19 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), new { medioId = plan.ConfiguracionPagoId });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
-        public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo)
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo, int medioId = 0)
         {
             try
             {
                 var actualizado = await _configuracionPagoGlobalAdminService.CambiarEstadoPlanGlobalAsync(id, activo);
                 TempData[actualizado ? "Success" : "Error"] = actualizado
-                    ? (activo ? "Plan global activado correctamente." : "Plan global inactivado correctamente.")
+                    ? (activo ? "Cuota activada correctamente." : "Cuota quitada correctamente.")
                     : "Plan global no encontrado.";
             }
             catch (Exception ex)
@@ -134,7 +240,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = ex.Message;
             }
 
-            return RedirectToAction(nameof(MediosPago));
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
         }
 
         // GET: ConfiguracionPago/Details/5
@@ -412,53 +518,7 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        /// <summary>
-        /// Obtiene todas las configuraciones de pago para el modal de configuración
-        /// </summary>
-        [HttpGet]
         #endregion
-
-        #region Configuraciones modal
-
-        public async Task<IActionResult> GetConfiguracionesModal()
-        {
-            try
-            {
-                var configuraciones = await _configuracionPagoService.GetAllAsync();
-                return Json(new { success = true, data = configuraciones });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener configuraciones para modal");
-                return Json(new { success = false, message = "Error al obtener configuraciones" });
-            }
-        }
-
-        /// <summary>
-        /// Guarda múltiples configuraciones de pago desde el modal
-        /// </summary>
-        [HttpPost]
-        [IgnoreAntiforgeryToken] // Se permite sin token porque ya requiere autenticación de rol
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
-        public async Task<IActionResult> GuardarConfiguracionesModal([FromBody] List<ConfiguracionPagoViewModel> configuraciones)
-        {
-            try
-            {
-                if (configuraciones == null || !configuraciones.Any())
-                {
-                    return Json(new { success = false, message = "No se recibieron configuraciones" });
-                }
-
-                await _configuracionPagoService.GuardarConfiguracionesModalAsync(configuraciones);
-
-                return Json(new { success = true, message = "Configuraciones guardadas exitosamente" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al guardar configuraciones desde modal");
-                return Json(new { success = false, message = "Error al guardar las configuraciones: " + ex.Message });
-            }
-        }
 
         private string ObtenerPrimerErrorModelState(string fallback)
         {
@@ -468,8 +528,6 @@ namespace TheBuryProject.Controllers
                 .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e))
                 ?? fallback;
         }
-
-        #endregion
 
         #region Crédito personal — Perfiles y configuración
 
@@ -483,7 +541,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CreditoPersonal(
             CreditoPersonalConfigViewModel config,
             string? nuevoPerfilNombre,

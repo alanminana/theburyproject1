@@ -6,6 +6,7 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoPlanEfTests
 {
     [Fact]

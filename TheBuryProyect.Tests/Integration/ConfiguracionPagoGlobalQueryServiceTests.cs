@@ -7,6 +7,7 @@ using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Integration;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoGlobalQueryServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;

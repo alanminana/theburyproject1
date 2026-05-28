@@ -1652,7 +1652,8 @@ namespace TheBuryProject.Services
                 datosTarjetaEntity.MontoTotalConInteres = calculado.MontoTotalConInteres;
             }
 
-            if (tipoTarjeta == TipoTarjeta.Debito &&
+            if (planGlobal == null &&
+                tipoTarjeta == TipoTarjeta.Debito &&
                 configuracionTarjeta is
                 {
                     TieneRecargoDebito: true,

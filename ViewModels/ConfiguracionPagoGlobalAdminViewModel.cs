@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels;
@@ -46,6 +48,24 @@ public sealed class TarjetaGlobalAdminViewModel
     public string? Observaciones { get; set; }
 }
 
+public sealed class TarjetaGlobalCommandViewModel
+{
+    [Required]
+    public int ConfiguracionPagoId { get; set; }
+
+    [Required(ErrorMessage = "El nombre de la tarjeta es requerido.")]
+    [StringLength(100, ErrorMessage = "El nombre de la tarjeta no puede superar 100 caracteres.")]
+    public string NombreTarjeta { get; set; } = string.Empty;
+
+    [Required]
+    public TipoTarjeta TipoTarjeta { get; set; }
+
+    public bool Activa { get; set; } = true;
+
+    [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres.")]
+    public string? Observaciones { get; set; }
+}
+
 public sealed class PlanPagoGlobalAdminViewModel
 {
     public int Id { get; set; }
@@ -73,8 +93,11 @@ public sealed class PlanPagoGlobalAdminViewModel
     };
 }
 
-public sealed class PlanPagoGlobalCommandViewModel
+public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
 {
+    private const decimal AjustePorcentajeMinimo = -100.0000m;
+    private const decimal AjustePorcentajeMaximo = 999.9999m;
+
     [Required]
     public int ConfiguracionPagoId { get; set; }
 
@@ -88,7 +111,7 @@ public sealed class PlanPagoGlobalCommandViewModel
     [Required]
     public TipoAjustePagoPlan TipoAjuste { get; set; } = TipoAjustePagoPlan.Porcentaje;
 
-    [Range(typeof(decimal), "-100.0000", "999.9999", ErrorMessage = "El porcentaje debe estar entre -100.0000 y 999.9999.")]
+    [ModelBinder(typeof(DecimalModelBinder))]
     public decimal AjustePorcentaje { get; set; }
 
     [StringLength(100, ErrorMessage = "La etiqueta no puede superar 100 caracteres.")]
@@ -98,4 +121,14 @@ public sealed class PlanPagoGlobalCommandViewModel
 
     [StringLength(500, ErrorMessage = "Las observaciones no pueden superar 500 caracteres.")]
     public string? Observaciones { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (AjustePorcentaje < AjustePorcentajeMinimo || AjustePorcentaje > AjustePorcentajeMaximo)
+        {
+            yield return new ValidationResult(
+                "El porcentaje debe estar entre -100.0000 y 999.9999.",
+                new[] { nameof(AjustePorcentaje) });
+        }
+    }
 }

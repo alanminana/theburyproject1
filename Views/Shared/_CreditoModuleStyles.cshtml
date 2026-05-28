@@ -1,0 +1,33 @@
+@* Estilos de modulo de credito personal. Partial requerido por CreditoPersonal_tw.cshtml. *@
+<style>
+    .credito-section {
+        display: grid;
+        gap: 1.5rem;
+    }
+
+    .credito-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+    }
+
+    .credito-perfil-card {
+        border: 1px solid rgba(148, 163, 184, .16);
+        border-radius: .85rem;
+        background: rgba(15, 23, 42, .72);
+        padding: 1rem;
+    }
+
+    .credito-threshold-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .65rem;
+    }
+
+    @@media (max-width: 640px) {
+        .credito-grid,
+        .credito-threshold-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>

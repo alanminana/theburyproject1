@@ -1,8 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
+using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -11,8 +16,76 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
 
+[Trait("Category", "PagosAbm")]
 public sealed class ConfiguracionPagoControllerTests
 {
+    // -------------------------------------------------------------------------
+    // PAGOS-ABM-7A: Auditoría de módulo canónico de permisos
+    // El seeder define "configuracion" (singular). El controller debe coincidir.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ConfiguracionPagoController_AtributoClase_UsaModuloCanonicoSingular()
+    {
+        var attr = typeof(ConfiguracionPagoController)
+            .GetCustomAttribute<PermisoRequeridoAttribute>();
+
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("view", attr.Accion);
+    }
+
+    [Theory]
+    [InlineData(nameof(ConfiguracionPagoController.CrearTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.EditarTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CambiarEstadoTarjetaGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CrearPlanGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.EditarPlanGlobal))]
+    [InlineData(nameof(ConfiguracionPagoController.CambiarEstadoPlanGlobal))]
+    public void ConfiguracionPagoController_AccionesEscritura_UsanModuloCanonicoUpdate(string methodName)
+    {
+        var method = typeof(ConfiguracionPagoController).GetMethods()
+            .First(m => m.Name == methodName && m.GetCustomAttribute<HttpPostAttribute>() != null);
+
+        var attr = method.GetCustomAttribute<PermisoRequeridoAttribute>();
+
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("update", attr.Accion);
+    }
+
+    [Fact]
+    public void ConfiguracionPagoController_CreditoPersonalPost_UsaModuloCanonicoUpdate()
+    {
+        var methods = typeof(ConfiguracionPagoController).GetMethods()
+            .Where(m => m.Name == nameof(ConfiguracionPagoController.CreditoPersonal)
+                        && m.GetCustomAttribute<HttpPostAttribute>() != null)
+            .ToList();
+
+        Assert.Single(methods);
+        var attr = methods[0].GetCustomAttribute<PermisoRequeridoAttribute>();
+        Assert.NotNull(attr);
+        Assert.Equal("configuracion", attr!.Modulo);
+        Assert.Equal("update", attr.Accion);
+    }
+
+    [Fact]
+    public void ConfiguracionPagoController_NoContieneModuloPluralEnAtributos()
+    {
+        var classAttrs = typeof(ConfiguracionPagoController)
+            .GetCustomAttributes<PermisoRequeridoAttribute>()
+            .Where(a => a.Modulo == "configuraciones");
+
+        var methodAttrs = typeof(ConfiguracionPagoController)
+            .GetMethods()
+            .SelectMany(m => m.GetCustomAttributes<PermisoRequeridoAttribute>())
+            .Where(a => a.Modulo == "configuraciones");
+
+        Assert.Empty(classAttrs);
+        Assert.Empty(methodAttrs);
+    }
+
+
     [Fact]
     public async Task MediosPago_DevuelveVistaAdminConMediosTarjetasYPlanes()
     {
@@ -88,6 +161,55 @@ public sealed class ConfiguracionPagoControllerTests
         Assert.Equal("Plan global creado correctamente.", controller.TempData["Success"]);
     }
 
+    [Fact]
+    public void PlanPagoGlobalCommandViewModel_AjustePorcentaje_UsaDecimalModelBinder()
+    {
+        var property = typeof(PlanPagoGlobalCommandViewModel).GetProperty(nameof(PlanPagoGlobalCommandViewModel.AjustePorcentaje));
+
+        var attribute = property?.GetCustomAttributes(typeof(ModelBinderAttribute), inherit: false)
+            .Cast<ModelBinderAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(attribute);
+        Assert.Equal(typeof(DecimalModelBinder), attribute!.BinderType);
+    }
+
+    [Fact]
+    public void PlanPagoGlobalCommandViewModel_ValidacionEsAr_AceptaAjustePorcentajeValido()
+    {
+        var culturaOriginal = CultureInfo.CurrentCulture;
+        var uiCulturaOriginal = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("es-AR");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("es-AR");
+
+            var command = new PlanPagoGlobalCommandViewModel
+            {
+                ConfiguracionPagoId = 1,
+                CantidadCuotas = 1,
+                AjustePorcentaje = -5m,
+                Activo = true
+            };
+            var resultados = new List<ValidationResult>();
+
+            var valido = Validator.TryValidateObject(
+                command,
+                new ValidationContext(command),
+                resultados,
+                validateAllProperties: true);
+
+            Assert.True(valido);
+            Assert.Empty(resultados);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = culturaOriginal;
+            CultureInfo.CurrentUICulture = uiCulturaOriginal;
+        }
+    }
+
     private static ConfiguracionPagoController CrearController(FakeConfiguracionPagoGlobalAdminService adminService)
     {
         var httpContext = new DefaultHttpContext();
@@ -108,6 +230,39 @@ public sealed class ConfiguracionPagoControllerTests
         public bool CrearPlanInvocado { get; private set; }
 
         public Task<ConfiguracionPagoGlobalAdminViewModel> ObtenerAdminGlobalAsync() => Task.FromResult(AdminModel);
+
+        public Task<IReadOnlyList<TarjetaGlobalAdminViewModel>> ListarTarjetasGlobalesAsync(int? configuracionPagoId = null) =>
+            Task.FromResult<IReadOnlyList<TarjetaGlobalAdminViewModel>>(AdminModel.Medios
+                .Where(m => !configuracionPagoId.HasValue || m.Id == configuracionPagoId.Value)
+                .SelectMany(m => m.Tarjetas)
+                .ToList());
+
+        public Task<TarjetaGlobalAdminViewModel?> ObtenerTarjetaGlobalAsync(int id) =>
+            Task.FromResult(AdminModel.Medios.SelectMany(m => m.Tarjetas).FirstOrDefault(t => t.Id == id));
+
+        public Task<TarjetaGlobalAdminViewModel> CrearTarjetaGlobalAsync(TarjetaGlobalCommandViewModel command) =>
+            Task.FromResult(new TarjetaGlobalAdminViewModel
+            {
+                Id = 1,
+                ConfiguracionPagoId = command.ConfiguracionPagoId,
+                Nombre = command.NombreTarjeta,
+                TipoTarjeta = command.TipoTarjeta,
+                Activa = command.Activa,
+                Observaciones = command.Observaciones
+            });
+
+        public Task<TarjetaGlobalAdminViewModel?> ActualizarTarjetaGlobalAsync(int id, TarjetaGlobalCommandViewModel command) =>
+            Task.FromResult<TarjetaGlobalAdminViewModel?>(new TarjetaGlobalAdminViewModel
+            {
+                Id = id,
+                ConfiguracionPagoId = command.ConfiguracionPagoId,
+                Nombre = command.NombreTarjeta,
+                TipoTarjeta = command.TipoTarjeta,
+                Activa = command.Activa,
+                Observaciones = command.Observaciones
+            });
+
+        public Task<bool> CambiarEstadoTarjetaGlobalAsync(int id, bool activa) => Task.FromResult(true);
 
         public Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
         {
@@ -138,7 +293,6 @@ public sealed class ConfiguracionPagoControllerTests
         public Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel) => Task.FromResult(viewModel);
         public Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel) => Task.FromResult<ConfiguracionPagoViewModel?>(viewModel);
         public Task<bool> DeleteAsync(int id) => Task.FromResult(true);
-        public Task GuardarConfiguracionesModalAsync(IReadOnlyList<ConfiguracionPagoViewModel> configuraciones) => Task.CompletedTask;
         public Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync() => Task.FromResult(new List<ConfiguracionTarjetaViewModel>());
         public Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync() => Task.FromResult(new List<TarjetaActivaVentaResultado>());
         public Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id) => Task.FromResult<ConfiguracionTarjetaViewModel?>(null);
