@@ -74,6 +74,8 @@
         .chev { transition:transform .2s; }
         details[open] .chev { transform:rotate(180deg); }
         .cred-divider { height:1px; background:#1e293b; }
+        .cred-section { display: none; }
+        .cred-section.is-active { display: block; }
         .cred-field {
             width:100%; height:42px; border-radius:8px; border:1px solid #334155;
             background:#0f172a; color:#f1f5f9; padding:0 .75rem; font-size:.875rem; transition:border-color .15s;
@@ -185,7 +187,7 @@
         </div>
 
         <!-- ── S1: RESUMEN OPERATIVO ── -->
-        <div id="s1" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s1" class="cred-section is-active rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(6,182,212,.12);color:#67e8f9;">
                     <span class="material-symbols-outlined">dashboard</span>
@@ -231,7 +233,7 @@
         </div>
 
         <!-- ── S2: CONFIGURACIÓN FINANCIERA BASE ── -->
-        <div id="s2" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s2" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(59,130,246,.12);color:#60a5fa;">
                     <span class="material-symbols-outlined">calculate</span>
@@ -277,7 +279,7 @@
         </div>
 
         <!-- ── S3: MONTO DISPONIBLE POR PUNTAJE (placeholder bloqueado) ── -->
-        <div id="s3" class="rounded-xl bg-slate-900/50 p-5" style="border:1px solid rgba(6,182,212,.3);">
+        <div id="s3" class="cred-section rounded-xl bg-slate-900/50 p-5" style="border:1px solid rgba(6,182,212,.3);">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(6,182,212,.14);color:#67e8f9;">
                     <span class="material-symbols-outlined">leaderboard</span>
@@ -308,7 +310,7 @@
         </div>
 
         <!-- ── S4: REGLAS DE APROBACIÓN CREDITICIA ── -->
-        <div id="s4" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s4" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(16,185,129,.12);color:#34d399;">
                     <span class="material-symbols-outlined">rule</span>
@@ -377,7 +379,7 @@
         </div>
 
         <!-- ── S5: REQUISITOS Y GARANTE ── -->
-        <div id="s5" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s5" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(245,158,11,.12);color:#fbbf24;">
                     <span class="material-symbols-outlined">verified_user</span>
@@ -426,7 +428,7 @@
         </div>
 
         <!-- ── S6: PERFILES DE CRÉDITO ── -->
-        <div id="s6" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s6" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(168,85,247,.12);color:#c084fc;">
                     <span class="material-symbols-outlined">groups</span>
@@ -528,7 +530,7 @@
         </div>
 
         <!-- ── S7: SEMÁFORO DE SIMULACIÓN FINANCIERA ── -->
-        <div id="s7" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s7" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(16,185,129,.12);color:#34d399;">
                     <span class="material-symbols-outlined">traffic</span>
@@ -570,7 +572,7 @@
         </div>
 
         <!-- ── S8: CONFIGURACIÓN AVANZADA DEL MOTOR DE SCORING ── -->
-        <div id="s8" class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <div id="s8" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
             <div class="sec-head mb-4">
                 <div class="sec-ico" style="background:rgba(148,163,184,.12);color:#cbd5e1;">
                     <span class="material-symbols-outlined">settings_suggest</span>
@@ -803,46 +805,45 @@
         }
         window.creditoUpdateBand = creditoUpdateBand;
 
-        // ── Navegación por secciones ──
+        // ── Navegación por secciones (show/hide) ──
+        var CREDIT_SECTIONS = ['s1','s2','s3','s4','s5','s6','s7','s8'];
+
+        function showCreditSection(id) {
+            if (CREDIT_SECTIONS.indexOf(id) === -1) id = 's1';
+            CREDIT_SECTIONS.forEach(function(sid) {
+                var el = document.getElementById(sid);
+                if (el) el.classList.toggle('is-active', sid === id);
+            });
+            var nav = document.getElementById('sec-nav');
+            if (nav) {
+                nav.querySelectorAll('[data-target]').forEach(function(btn) {
+                    btn.classList.toggle('sec-active', btn.dataset.target === id);
+                });
+            }
+            var sel = document.getElementById('msel');
+            if (sel) sel.value = id;
+            try { history.replaceState(null, '', '#' + id); } catch(e) {}
+        }
+        window.showCreditSection = showCreditSection;
+
         var secNav = document.getElementById('sec-nav');
         if (secNav) {
-            secNav.addEventListener('click', function (e) {
+            secNav.addEventListener('click', function(e) {
                 var btn = e.target.closest('[data-target]');
-                if (!btn) return;
-                var target = document.getElementById(btn.dataset.target);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-                secNav.querySelectorAll('.sec-nav-link').forEach(function (b) { b.classList.remove('sec-active'); });
-                btn.classList.add('sec-active');
+                if (btn) showCreditSection(btn.dataset.target);
             });
         }
 
-        // ── Selector mobile ──
         var msel = document.getElementById('msel');
         if (msel) {
-            msel.addEventListener('change', function () {
-                var target = document.getElementById(msel.value);
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            msel.addEventListener('change', function() {
+                showCreditSection(msel.value);
             });
         }
 
-        // ── IntersectionObserver para marcar activo en nav ──
-        if (typeof IntersectionObserver !== 'undefined' && secNav) {
-            var sections = ['s1','s2','s3','s4','s5','s6','s7','s8'].map(function(id){ return document.getElementById(id); }).filter(Boolean);
-            var obs = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
-                    if (entry.isIntersecting) {
-                        var id = entry.target.id;
-                        secNav.querySelectorAll('.sec-nav-link').forEach(function(b) {
-                            b.classList.toggle('sec-active', b.dataset.target === id);
-                        });
-                        if (msel) msel.value = id;
-                    }
-                });
-            }, { threshold: 0.25 });
-            sections.forEach(function(s){ obs.observe(s); });
-        }
+        // Carga inicial: hash o s1
+        var initHash = window.location.hash.replace('#', '');
+        showCreditSection(CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1');
     })();
     </script>
 }
