@@ -6,9 +6,6 @@
     var estados = Enum.GetValues<EstadoUnidad>();
 
     var conciliacion = Model.Conciliacion;
-    var diferenciaCss = conciliacion.HayDiferencia
-        ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
-        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
     var diferenciaTexto = conciliacion.DiferenciaStockVsUnidadesEnStock > 0
         ? $"+{conciliacion.DiferenciaStockVsUnidadesEnStock:G29}"
         : conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29");
@@ -19,942 +16,1195 @@
     var textoAjuste = diferenciaPositiva
         ? $"Reducir stock agregado en {ajusteAbsoluto:G29}"
         : $"Aumentar stock agregado en {ajusteAbsoluto:G29}";
-    var estadoConciliacionTexto = diferenciaNegativa
-        ? "Requiere revision"
-        : conciliacion.HayDiferencia
-            ? "Con diferencia"
-            : "Conciliado";
     var hayDesgloseVisible = conciliacion.UnidadesVendidas > 0
         || conciliacion.UnidadesFaltantes > 0
         || conciliacion.UnidadesBaja > 0
         || conciliacion.UnidadesDevueltas > 0
         || conciliacion.UnidadesReservadas > 0
         || conciliacion.UnidadesEnReparacion > 0;
+
+    // Badge helpers locales — no modifica _EstadoUnidadBadge (usado en 3 vistas mas)
+    Func<EstadoUnidad, string> BChipClass = e => e switch {
+        EstadoUnidad.EnStock      => "pu-chip pu-chip-stock",
+        EstadoUnidad.Vendida      => "pu-chip pu-chip-sold",
+        EstadoUnidad.Entregada    => "pu-chip pu-chip-sold",
+        EstadoUnidad.Faltante     => "pu-chip pu-chip-missing",
+        EstadoUnidad.Baja         => "pu-chip pu-chip-baja",
+        EstadoUnidad.Anulada      => "pu-chip pu-chip-baja",
+        EstadoUnidad.Reservada    => "pu-chip pu-chip-reserved",
+        EstadoUnidad.EnReparacion => "pu-chip pu-chip-repair",
+        EstadoUnidad.Devuelta     => "pu-chip pu-chip-return",
+        _                         => "pu-chip pu-chip-neutral"
+    };
+    Func<EstadoUnidad, string> BChipLabel = e => e switch {
+        EstadoUnidad.EnStock      => "En Stock",
+        EstadoUnidad.Vendida      => "Vendida",
+        EstadoUnidad.Entregada    => "Entregada",
+        EstadoUnidad.Faltante     => "Faltante",
+        EstadoUnidad.Baja         => "Baja",
+        EstadoUnidad.Anulada      => "Anulada",
+        EstadoUnidad.Reservada    => "Reservada",
+        EstadoUnidad.EnReparacion => "En Reparacion",
+        EstadoUnidad.Devuelta     => "Devuelta",
+        _                         => e.ToString()
+    };
+    Func<EstadoUnidad, string> EstadoOpcionLabel = e => e switch {
+        EstadoUnidad.EnStock      => "En Stock",
+        EstadoUnidad.Vendida      => "Vendida",
+        EstadoUnidad.Entregada    => "Entregada",
+        EstadoUnidad.Faltante     => "Faltante",
+        EstadoUnidad.Baja         => "Baja",
+        EstadoUnidad.Anulada      => "Anulada",
+        EstadoUnidad.Reservada    => "Reservada",
+        EstadoUnidad.EnReparacion => "En Reparacion",
+        EstadoUnidad.Devuelta     => "Devuelta",
+        _                         => e.ToString()
+    };
+
+    // Estado inicial del radio de disponibilidad
+    var dispoFilter = Model.Filtros.SoloDisponibles ? "disponibles"
+                    : Model.Filtros.SoloVendidas    ? "vendidas"
+                    : "todas";
 }
 
-<div class="space-y-6">
+<style>
+/* pu = product-units: namespaced design system — paridad visual con standalone */
+.pu-page .pu-card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+}
+.pu-page .pu-card-header {
+  background: rgba(11,18,32,.4);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+}
+/* Chips de estado */
+.pu-page .pu-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .25rem .55rem; border-radius: 999px;
+  font-size: .75rem; font-weight: 500; border: 1px solid transparent;
+}
+.pu-page .pu-chip-neutral  { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.pu-page .pu-chip-stock    { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.25); }
+.pu-page .pu-chip-sold     { background: rgba(59,130,246,.10);  color: #60a5fa; border-color: rgba(59,130,246,.25); }
+.pu-page .pu-chip-missing  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.25); }
+.pu-page .pu-chip-baja     { background: rgba(148,163,184,.10); color: #94a3b8; border-color: rgba(148,163,184,.25); }
+.pu-page .pu-chip-reserved { background: rgba(168,85,247,.10);  color: #c084fc; border-color: rgba(168,85,247,.25); }
+.pu-page .pu-chip-repair   { background: rgba(244,114,182,.10); color: #f472b6; border-color: rgba(244,114,182,.25); }
+.pu-page .pu-chip-return   { background: rgba(20,184,166,.10);  color: #2dd4bf; border-color: rgba(20,184,166,.25); }
+/* Inputs */
+.pu-page .pu-field {
+  background: #0f172a; border: 1px solid #243044; color: #e2e8f0;
+  border-radius: 8px; padding: .55rem .75rem; width: 100%; font-size: .875rem;
+  outline: none;
+}
+.pu-page .pu-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+.pu-page .pu-field::placeholder { color: #475569; }
+.pu-page textarea.pu-field { min-height: 84px; resize: vertical; }
+.pu-page select.pu-field { cursor: pointer; }
+.pu-page .pu-label { display: block; font-size: .78rem; font-weight: 500; color: #94a3b8; margin-bottom: .35rem; }
+/* Botones */
+.pu-page .pu-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
+  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
+  text-decoration: none; white-space: nowrap;
+}
+.pu-page .pu-btn:disabled { opacity: .5; cursor: not-allowed; }
+.pu-page .pu-btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.pu-page .pu-btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+.pu-page .pu-btn-ghost   { background: transparent; color: #cbd5e1; border-color: #334155; }
+.pu-page .pu-btn-ghost:hover   { background: #1e293b; color: #fff; }
+.pu-page .pu-btn-soft    { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.pu-page .pu-btn-soft:hover    { background: #273549; }
+.pu-page .pu-btn-success { background: #16a34a; color: #fff; border-color: #16a34a; }
+.pu-page .pu-btn-success:hover:not(:disabled) { background: #15803d; }
+/* Amber solido — igual que standalone */
+.pu-page .pu-btn-amber   { background: #d97706; color: #fff; border-color: #d97706; }
+.pu-page .pu-btn-amber:hover:not(:disabled) { background: #b45309; border-color: #b45309; }
+/* Danger solido — igual que standalone */
+.pu-page .pu-btn-danger  { background: #dc2626; color: #fff; border-color: #dc2626; }
+.pu-page .pu-btn-danger:hover:not(:disabled)  { background: #b91c1c; border-color: #b91c1c; }
+.pu-page .pu-btn-sm { padding: .375rem .625rem; font-size: .75rem; min-height: 32px; }
+/* Truncate observaciones — 240px igual que standalone */
+.pu-page .pu-truncate { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Tab activo */
+.pu-page .tab-btn-active { color: #f8fafc !important; border-bottom-color: #3b82f6 !important; }
+/* Modal */
+@@keyframes puFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.pu-modal-card { animation: puFadeIn .18s ease; }
+/* Opcion de resolucion */
+.pu-reso-opt { transition: border-color .15s; }
+.pu-reso-opt:hover:not(.pu-disabled) { border-color: #334155; }
+</style>
+
+<div class="pu-page space-y-5">
+
+    @* SYSTEM BANNER *@
     @if (TempData["Success"] != null)
     {
-        <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">
-            @TempData["Success"]
+        <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
+            <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar notificacion">
+                <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
+            </button>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
-            @TempData["Error"]
+        <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
+            <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar notificacion">
+                <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
+            </button>
         </div>
     }
 
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-                <a asp-controller="Catalogo" asp-action="Index" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
-                    <span class="material-symbols-outlined text-base">arrow_back</span>
-                    Volver al Catalogo
-                </a>
-                <h1 class="mt-3 text-2xl font-black text-white">@Model.Nombre</h1>
-                <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-                    <span class="font-mono">@Model.Codigo</span>
-                    <span class="text-slate-700">/</span>
-                    <span>Stock agregado: <strong class="text-slate-200">@Model.StockActual.ToString("G29")</strong></span>
-                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold @(Model.RequiereNumeroSerie ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300")">
-                        @(Model.RequiereNumeroSerie ? "Trazabilidad individual requerida" : "No requiere trazabilidad individual")
-                    </span>
+    @* PRODUCT HEADER *@
+    <header class="pu-card-header px-4 sm:px-5 py-5">
+        <a asp-controller="Catalogo" asp-action="Index" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+            Volver al catalogo
+        </a>
+        <div class="mt-3 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="text-xl sm:text-2xl font-semibold text-white">@Model.Nombre</h1>
+                    <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">@Model.Codigo</span>
                 </div>
-                @if (!Model.RequiereNumeroSerie)
-                {
-                    <p class="mt-2 text-xs text-amber-200">
-                        No exige seleccion de unidad fisica en venta. Las unidades cargadas son trazabilidad operativa opcional.
-                    </p>
-                }
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium @(Model.RequiereNumeroSerie ? "bg-blue-500/10 text-blue-300 border border-blue-500/30" : "bg-amber-500/10 text-amber-300 border border-amber-500/30")">
+                        <span class="material-symbols-outlined" style="font-size:14px">@(Model.RequiereNumeroSerie ? "verified" : "warning")</span>
+                        @(Model.RequiereNumeroSerie ? "Requiere seleccion de unidad en venta" : "No requiere seleccion de unidad")
+                    </span>
+                    @if (conciliacion.HayDiferencia)
+                    {
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                            <span class="material-symbols-outlined" style="font-size:14px">warning</span>
+                            Con diferencia
+                        </span>
+                    }
+                </div>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-2 shrink-0">
                 <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
-                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-800">
-                    <span class="material-symbols-outlined text-base">receipt_long</span>
-                    Ver Kardex SKU
+                   class="pu-btn pu-btn-ghost">
+                    <span class="material-symbols-outlined" style="font-size:18px">receipt_long</span>
+                    Ver Kardex
                 </a>
+                <button type="button" onclick="activateTab('conciliar')"
+                        class="pu-btn pu-btn-soft">
+                    <span class="material-symbols-outlined" style="font-size:18px">balance</span>
+                    Conciliar stock
+                </button>
+                <button type="button" onclick="activateTab('agregar')"
+                        class="pu-btn pu-btn-primary">
+                    <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                    Agregar unidades
+                </button>
             </div>
         </div>
-    </section>
 
-    <nav class="sticky top-0 z-10 rounded-lg border border-slate-800 bg-slate-950/95 p-2 shadow-lg shadow-slate-950/20 backdrop-blur" role="tablist" aria-label="Modos de unidades">
-        <div class="flex gap-2 overflow-x-auto">
-            <button type="button" id="tab-modo-unidades" role="tab" data-tab-target="modo-unidades" aria-controls="modo-unidades" aria-selected="true" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25">
-                <span class="material-symbols-outlined text-base">table_rows</span>
-                Unidades
+        @* Summary cards *@
+        <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Stock del producto</div>
+                <div class="mt-1 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</div>
+                <div class="mt-0.5 text-xs text-slate-500">Valor logico</div>
+            </div>
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Unidades disponibles</div>
+                <div class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</div>
+                <div class="mt-0.5 text-xs text-slate-500">En estado "En Stock"</div>
+            </div>
+            <div class="pu-card p-4 @(conciliacion.HayDiferencia ? "!border-amber-500/40 !bg-amber-500/5" : "")">
+                <div class="text-xs uppercase tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500") font-medium">Diferencia</div>
+                <div class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">@diferenciaTexto</div>
+                <div class="mt-0.5 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-slate-500")">
+                    @(diferenciaPositiva ? "Stock > fisicas disponibles" : diferenciaNegativa ? "Fisicas > stock" : "Conciliado")
+                </div>
+            </div>
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Unidades registradas</div>
+                <div class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</div>
+                <div class="mt-0.5 text-xs text-slate-500">Total fisicas, todos los estados</div>
+            </div>
+        </div>
+    </header>
+
+    @* TABS — z-30 igual que standalone *@
+    <nav class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur" role="tablist" aria-label="Modos de unidades">
+        <div class="flex gap-1 overflow-x-auto" style="-ms-overflow-style:none;scrollbar-width:none;">
+            <button type="button" id="tab-ver" role="tab" data-tab-target="ver" aria-controls="ver" aria-selected="true" tabindex="0"
+                    class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-white border-b-2 border-blue-500 transition-colors whitespace-nowrap">
+                Ver unidades
             </button>
-            <button type="button" id="tab-modo-carga" role="tab" data-tab-target="modo-carga" aria-controls="modo-carga" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                <span class="material-symbols-outlined text-base">add_circle</span>
-                Carga
+            <button type="button" id="tab-agregar" role="tab" data-tab-target="agregar" aria-controls="agregar" aria-selected="false" tabindex="-1"
+                    class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap">
+                Agregar unidades
             </button>
-            <button type="button" id="tab-modo-conciliacion" role="tab" data-tab-target="modo-conciliacion" aria-controls="modo-conciliacion" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                <span class="material-symbols-outlined text-base">fact_check</span>
-                Conciliacion
+            <button type="button" id="tab-conciliar" role="tab" data-tab-target="conciliar" aria-controls="conciliar" aria-selected="false" tabindex="-1"
+                    class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap">
+                Conciliar stock
             </button>
-            <button type="button" id="tab-modo-configuracion" role="tab" data-tab-target="modo-configuracion" aria-controls="modo-configuracion" aria-selected="false" class="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                <span class="material-symbols-outlined text-base">tune</span>
-                Configuracion
+            <button type="button" id="tab-trazabilidad" role="tab" data-tab-target="trazabilidad" aria-controls="trazabilidad" aria-selected="false" tabindex="-1"
+                    class="tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap">
+                Trazabilidad
             </button>
         </div>
     </nav>
 
-    <section id="modo-unidades" role="tabpanel" data-tab-panel="modo-unidades" aria-labelledby="tab-modo-unidades" class="scroll-mt-32 space-y-4">
-        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Unidades</p>
-                <h2 class="mt-1 text-lg font-black text-white">Listado operativo</h2>
-            </div>
-            <a href="#modo-carga" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
-                <span class="material-symbols-outlined text-base">add_circle</span>
-                Agregar o cargar unidades
-            </a>
+    @* ================================================================
+       PANEL: VER UNIDADES
+       ================================================================ *@
+    <section id="ver" role="tabpanel" data-tab-panel="ver" aria-labelledby="tab-ver" class="space-y-5">
+        <div>
+            <h2 class="text-lg font-semibold text-white">Listado operativo</h2>
+            <p class="text-sm text-slate-400">Cada fila es una unidad fisica individual con su propia trazabilidad.</p>
         </div>
 
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-        <h2 class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen de unidades fisicas</h2>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades listadas</p>
-                <p class="mt-1 text-2xl font-black text-white">@Model.Unidades.Count</p>
-            </div>
-            @foreach (var resumen in Model.ResumenEstados)
+        @* Estado chips *@
+        <div class="flex flex-wrap gap-2">
+            <span class="pu-chip pu-chip-neutral">Mostrando: <strong class="ml-1">@Model.Unidades.Count</strong></span>
+            @foreach (var r in Model.ResumenEstados)
             {
-                <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">@resumen.Estado</p>
-                    <p class="mt-1 text-2xl font-black text-white">@resumen.Cantidad</p>
-                </div>
+                var estadoStr = r.Estado.ToString();
+                var chipClass = estadoStr switch {
+                    "EnStock"      => "pu-chip pu-chip-stock",
+                    "Vendida"      => "pu-chip pu-chip-sold",
+                    "Faltante"     => "pu-chip pu-chip-missing",
+                    "Baja"         => "pu-chip pu-chip-baja",
+                    "Devuelta"     => "pu-chip pu-chip-return",
+                    "Reservada"    => "pu-chip pu-chip-reserved",
+                    "EnReparacion" => "pu-chip pu-chip-repair",
+                    _              => "pu-chip pu-chip-neutral"
+                };
+                <span class="@chipClass">@BChipLabel(r.Estado) <strong class="ml-1">@r.Cantidad</strong></span>
             }
         </div>
-    </section>
 
-    <form method="get" asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-          class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-        <div class="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto] lg:items-end">
-            <label class="block">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Codigo interno o serie</span>
-                <input type="search" name="texto" value="@Model.Filtros.Texto"
-                       class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                       placeholder="Buscar unidad..." />
-            </label>
-            <label class="block">
-                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</span>
-                <select name="estado" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary">
-                    <option value="">Todos</option>
-                    @foreach (var estado in estados)
-                    {
-                        <option value="@estado" selected="@(Model.Filtros.Estado == estado)">@estado</option>
-                    }
-                </select>
-            </label>
-            <div class="flex flex-wrap gap-2">
-                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                    <span class="material-symbols-outlined text-base">filter_alt</span>
-                    Filtrar
-                </button>
+        @* Filter form — 12 columnas igual que standalone *@
+        <form method="get" asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+              class="pu-card p-4" id="filter-form">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div class="md:col-span-4">
+                    <label class="pu-label" for="f-texto">Buscar Unidad / Serie</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:18px">search</span>
+                        <input id="f-texto" type="search" name="texto" value="@Model.Filtros.Texto"
+                               class="pu-field pl-9"
+                               placeholder="UNI-000142, SN-9988..." />
+                    </div>
+                </div>
+                <div class="md:col-span-3">
+                    <label class="pu-label" for="f-estado">Estado</label>
+                    <select id="f-estado" name="estado" class="pu-field">
+                        <option value="">Todos</option>
+                        @foreach (var estado in estados)
+                        {
+                            <option value="@estado" selected="@(Model.Filtros.Estado == estado)">@EstadoOpcionLabel(estado)</option>
+                        }
+                    </select>
+                </div>
+                <div class="md:col-span-3">
+                    <span class="pu-label">Disponibilidad</span>
+                    <div class="flex flex-wrap gap-3 pt-1.5">
+                        <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
+                            <input type="radio" class="accent-blue-500" value="todas"
+                                   @(dispoFilter == "todas" ? "checked" : "")
+                                   onchange="puDispoChange('todas')" />
+                            Todas
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
+                            <input type="radio" class="accent-blue-500" value="disponibles"
+                                   @(dispoFilter == "disponibles" ? "checked" : "")
+                                   onchange="puDispoChange('disponibles')" />
+                            Disponibles
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer">
+                            <input type="radio" class="accent-blue-500" value="vendidas"
+                                   @(dispoFilter == "vendidas" ? "checked" : "")
+                                   onchange="puDispoChange('vendidas')" />
+                            Vendidas
+                        </label>
+                    </div>
+                    @* Checkboxes reales del backend — controlados por radios via JS *@
+                    <input type="checkbox" id="filter-soloDisponibles" name="soloDisponibles" value="true"
+                           style="display:none"
+                           checked="@Model.Filtros.SoloDisponibles"
+                           disabled="@(!Model.Filtros.SoloDisponibles)" />
+                    <input type="checkbox" id="filter-soloVendidas" name="soloVendidas" value="true"
+                           style="display:none"
+                           checked="@Model.Filtros.SoloVendidas"
+                           disabled="@(!Model.Filtros.SoloVendidas)" />
+                </div>
+                <div class="md:col-span-2">
+                    <span class="pu-label">Otros</span>
+                    <label class="inline-flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer pt-1.5">
+                        <input type="checkbox" name="soloSinNumeroSerie" value="true"
+                               checked="@Model.Filtros.SoloSinNumeroSerie"
+                               class="rounded border-slate-600 accent-blue-500" />
+                        Sin nro. serie
+                    </label>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
                 <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                   class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800">
+                   class="pu-btn pu-btn-ghost">
+                    <span class="material-symbols-outlined" style="font-size:18px">backspace</span>
                     Limpiar
                 </a>
+                <button type="submit" class="pu-btn pu-btn-primary">
+                    <span class="material-symbols-outlined" style="font-size:18px">filter_alt</span>
+                    Filtrar
+                </button>
             </div>
-        </div>
-        <div class="mt-3 flex flex-wrap gap-4 text-sm text-slate-300">
-            <label class="inline-flex items-center gap-2">
-                <input type="checkbox" name="soloDisponibles" value="true" checked="@Model.Filtros.SoloDisponibles" class="rounded border-slate-600 text-primary focus:ring-primary" />
-                Solo disponibles
-            </label>
-            <label class="inline-flex items-center gap-2">
-                <input type="checkbox" name="soloVendidas" value="true" checked="@Model.Filtros.SoloVendidas" class="rounded border-slate-600 text-primary focus:ring-primary" />
-                Solo vendidas
-            </label>
-            <label class="inline-flex items-center gap-2">
-                <input type="checkbox" name="soloSinNumeroSerie" value="true" checked="@Model.Filtros.SoloSinNumeroSerie" class="rounded border-slate-600 text-primary focus:ring-primary" />
-                Sin numero de serie
-            </label>
-        </div>
-    </form>
+        </form>
 
-    <section id="listado-unidades" class="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-        <div class="divide-y divide-slate-800 lg:hidden">
-            @if (Model.Unidades.Any())
-            {
-                @foreach (var unidad in Model.Unidades)
+        @* Unit list *@
+        <div id="listado-unidades" class="pu-card overflow-hidden">
+            @* Mobile *@
+            <div class="space-y-3 p-3 md:hidden">
+                @if (Model.Unidades.Any())
                 {
-                    var cardModalId = $"acciones-unidad-{unidad.Id}";
-                    <div class="space-y-3 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="break-all font-mono text-sm font-bold text-white">@unidad.CodigoInternoUnidad</p>
-                                <div class="mt-1.5">
-                                    <partial name="_EstadoUnidadBadge" model="unidad.Estado" />
+                    @foreach (var unidad in Model.Unidades)
+                    {
+                        var _hasMobileActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
+                        var _mCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
+                        var _mSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                        var _mLabel = BChipLabel(unidad.Estado);
+                        var _mChipClass = BChipClass(unidad.Estado);
+                        var _mActionsJson = new System.Text.StringBuilder("[");
+                        if (unidad.PuedeReintegrarAStock) _mActionsJson.Append("{value:'reintegrar',label:'Reintegrar a stock'},");
+                        if (unidad.PuedeDarBaja) _mActionsJson.Append("{value:'baja',label:'Dar de baja'},");
+                        if (unidad.PuedeMarcarFaltante) _mActionsJson.Append("{value:'faltante',label:'Marcar faltante'},");
+                        if (unidad.PuedeFinalizarReparacion) _mActionsJson.Append("{value:'reparacion',label:'Finalizar reparacion'},");
+                        var _mActStr = _mActionsJson.ToString().TrimEnd(',') + "]";
+                        <article class="pu-card p-4 space-y-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <span class="@BChipClass(unidad.Estado)">@BChipLabel(unidad.Estado)</span>
+                                    <p class="mt-2 break-all font-mono text-sm text-white">@unidad.CodigoInternoUnidad</p>
+                                    @if (unidad.NumeroSerie != null)
+                                    {
+                                        <p class="font-mono text-xs text-slate-400">@unidad.NumeroSerie</p>
+                                    }
                                 </div>
                             </div>
-                            <div class="flex shrink-0 flex-col gap-2">
+                            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                @if (unidad.UbicacionActual != null)
+                                {
+                                    <div>
+                                        <dt class="text-slate-500">Ubicacion</dt>
+                                        <dd class="mt-0.5 text-slate-200">@unidad.UbicacionActual</dd>
+                                    </div>
+                                }
+                                <div>
+                                    <dt class="text-slate-500">Ingreso</dt>
+                                    <dd class="mt-0.5 text-slate-200">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yy")</dd>
+                                </div>
+                                @if (unidad.ClienteAsociado != null)
+                                {
+                                    <div class="col-span-2">
+                                        <dt class="text-slate-500">Cliente / Venta</dt>
+                                        <dd class="mt-0.5 text-slate-200">
+                                            @unidad.ClienteAsociado
+                                            @if (unidad.VentaDetalleId.HasValue)
+                                            {
+                                                <span class="text-slate-400"> &middot; #@unidad.VentaDetalleId</span>
+                                            }
+                                        </dd>
+                                    </div>
+                                }
+                            </dl>
+                            @if (unidad.Observaciones != null)
+                            {
+                                <details class="group">
+                                    <summary class="cursor-pointer text-xs text-blue-300 flex items-center gap-1">
+                                        <span class="material-symbols-outlined" style="font-size:16px">expand_more</span>
+                                        Ver mas detalles
+                                    </summary>
+                                    <div class="mt-2 text-xs text-slate-400 border-t border-slate-800 pt-2">
+                                        <p><span class="text-slate-500">Observaciones:</span> @unidad.Observaciones</p>
+                                    </div>
+                                </details>
+                            }
+                            <div class="grid grid-cols-2 gap-2">
                                 <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
-                                   class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
-                                    <span class="material-symbols-outlined text-base">history</span>
-                                    Ver historial
+                                   class="pu-btn pu-btn-ghost pu-btn-sm justify-center">
+                                    <span class="material-symbols-outlined" style="font-size:16px">history</span>
+                                    Historial
                                 </a>
-                                @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
+                                @if (_hasMobileActions)
                                 {
                                     <button type="button"
-                                            onclick="document.getElementById('@cardModalId').showModal()"
-                                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                                        <span class="material-symbols-outlined text-base">more_vert</span>
+                                            onclick="puOpenManage('@unidad.Id','@_mCode','@_mSerial','@_mLabel','@_mChipClass',@_mActStr)"
+                                            class="pu-btn pu-btn-soft pu-btn-sm justify-center">
+                                        <span class="material-symbols-outlined" style="font-size:16px">settings</span>
                                         Gestionar
                                     </button>
                                 }
                             </div>
+                        </article>
+                    }
+                }
+                else
+                {
+                    <div class="pu-card p-8 text-center">
+                        <div class="mx-auto w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">search_off</span>
                         </div>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                            @if (unidad.NumeroSerie != null)
-                            {
-                                <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Serie</dt>
-                                    <dd class="mt-0.5 break-all font-mono text-slate-300">@unidad.NumeroSerie</dd>
-                                </div>
-                            }
-                            @if (unidad.UbicacionActual != null)
-                            {
-                                <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Ubicacion</dt>
-                                    <dd class="mt-0.5 text-slate-300">@unidad.UbicacionActual</dd>
-                                </div>
-                            }
-                            <div>
-                                <dt class="font-bold uppercase tracking-wider text-slate-400">Ingreso</dt>
-                                <dd class="mt-0.5 text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yy HH:mm")</dd>
-                            </div>
-                            @if (unidad.ClienteAsociado != null)
-                            {
-                                <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Cliente</dt>
-                                    <dd class="mt-0.5 text-slate-300">@unidad.ClienteAsociado</dd>
-                                </div>
-                            }
-                            @if (unidad.VentaDetalleId.HasValue)
-                            {
-                                <div>
-                                    <dt class="font-bold uppercase tracking-wider text-slate-400">Venta</dt>
-                                    <dd class="mt-0.5 text-slate-300">
-                                        Detalle #@unidad.VentaDetalleId
-                                        @if (unidad.FechaVenta.HasValue)
-                                        {
-                                            <span class="block text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yy")</span>
-                                        }
-                                    </dd>
-                                </div>
-                            }
-                        </dl>
-                        @if (unidad.Observaciones != null)
-                        {
-                            <p class="line-clamp-2 text-xs text-slate-400">@unidad.Observaciones</p>
-                        }
+                        <h3 class="mt-3 text-white font-medium">Sin resultados</h3>
+                        <p class="mt-1 text-sm text-slate-400">No hay unidades fisicas para los filtros seleccionados.</p>
+                        <div class="mt-4 flex justify-center gap-2">
+                            <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                               class="pu-btn pu-btn-ghost">
+                                Limpiar filtros
+                            </a>
+                            <button type="button" onclick="activateTab('agregar')"
+                                    class="pu-btn pu-btn-primary">
+                                Agregar unidad
+                            </button>
+                        </div>
                     </div>
                 }
-            }
-            else
-            {
-                <div class="px-4 py-10 text-center text-sm text-slate-400">
-                    No hay unidades fisicas para los filtros seleccionados.
-                </div>
-            }
-        </div>
+            </div>
 
-        <div class="hidden lg:block">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-800">
-                    <thead class="bg-slate-900/70">
-                        <tr>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Unidad</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ubicacion</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Ingreso</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Venta</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Observaciones</th>
-                            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800">
-                        @if (Model.Unidades.Any())
-                        {
+            @* Desktop *@
+            <div class="hidden md:block overflow-x-auto">
+                @if (Model.Unidades.Any())
+                {
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-900/60 text-slate-400 text-xs uppercase tracking-wide">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Unidad</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Serie</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Estado</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Ubicacion</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Ingreso</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Cliente / Venta</th>
+                                <th scope="col" class="px-4 py-3 text-left font-medium">Observaciones</th>
+                                <th scope="col" class="px-4 py-3 text-right font-medium">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
                             @foreach (var unidad in Model.Unidades)
                             {
-                                <tr class="hover:bg-white/5">
-                                    <td class="px-4 py-3 font-mono text-sm text-white">@unidad.CodigoInternoUnidad</td>
-                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.NumeroSerie ?? "-")</td>
+                                var _hasActions = unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion;
+                                var _dCode = unidad.CodigoInternoUnidad.Replace("'", "\\'");
+                                var _dSerial = (unidad.NumeroSerie ?? "—").Replace("'", "\\'");
+                                var _dLabel = BChipLabel(unidad.Estado);
+                                var _dChipClass = BChipClass(unidad.Estado);
+                                var _dActionsJson = new System.Text.StringBuilder("[");
+                                if (unidad.PuedeReintegrarAStock) _dActionsJson.Append("{value:'reintegrar',label:'Reintegrar a stock'},");
+                                if (unidad.PuedeDarBaja) _dActionsJson.Append("{value:'baja',label:'Dar de baja'},");
+                                if (unidad.PuedeMarcarFaltante) _dActionsJson.Append("{value:'faltante',label:'Marcar faltante'},");
+                                if (unidad.PuedeFinalizarReparacion) _dActionsJson.Append("{value:'reparacion',label:'Finalizar reparacion'},");
+                                var _dActStr = _dActionsJson.ToString().TrimEnd(',') + "]";
+                                <tr class="hover:bg-slate-900/40">
+                                    <td class="px-4 py-3 font-mono text-sm text-slate-200">@unidad.CodigoInternoUnidad</td>
+                                    <td class="px-4 py-3 font-mono text-sm text-slate-400">@(unidad.NumeroSerie ?? "—")</td>
                                     <td class="px-4 py-3">
-                                        <partial name="_EstadoUnidadBadge" model="unidad.Estado" />
+                                        <span class="@BChipClass(unidad.Estado)">@BChipLabel(unidad.Estado)</span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.UbicacionActual ?? "-")</td>
-                                    <td class="px-4 py-3 text-sm text-slate-300">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.ClienteAsociado ?? "-")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-300">@(unidad.UbicacionActual ?? "—")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-400">@unidad.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
                                     <td class="px-4 py-3 text-sm text-slate-300">
-                                        @if (unidad.VentaDetalleId.HasValue)
+                                        @if (unidad.ClienteAsociado != null || unidad.VentaDetalleId.HasValue)
                                         {
-                                            <span>Detalle #@unidad.VentaDetalleId</span>
+                                            <span>@(unidad.ClienteAsociado ?? "")</span>
+                                            @if (unidad.VentaDetalleId.HasValue)
+                                            {
+                                                <span class="text-slate-400"> &middot; #@unidad.VentaDetalleId</span>
+                                            }
                                             @if (unidad.FechaVenta.HasValue)
                                             {
-                                                <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                                <span class="block text-xs text-slate-500">@unidad.FechaVenta.Value.ToLocalTime().ToString("dd/MM/yyyy")</span>
                                             }
                                         }
                                         else
                                         {
-                                            <span>-</span>
+                                            <span class="text-slate-500">&mdash;</span>
                                         }
                                     </td>
-                                    <td class="max-w-xs px-4 py-3 text-sm text-slate-300">@(unidad.Observaciones ?? "-")</td>
+                                    <td class="px-4 py-3 text-sm text-slate-400">
+                                        @if (unidad.Observaciones != null)
+                                        {
+                                            <div class="pu-truncate" title="@unidad.Observaciones">@unidad.Observaciones</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-slate-500">&mdash;</span>
+                                        }
+                                    </td>
                                     <td class="px-4 py-3 text-right">
-                                        <div class="flex min-w-[14rem] flex-col items-stretch gap-2">
+                                        <div class="flex justify-end gap-1">
                                             <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@unidad.Id"
-                                               class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800">
-                                                <span class="material-symbols-outlined text-base">history</span>
-                                                Ver historial
+                                               class="pu-btn pu-btn-ghost pu-btn-sm">
+                                                <span class="material-symbols-outlined" style="font-size:16px">history</span>
+                                                Historial
                                             </a>
-
-                                            @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
+                                            @if (_hasActions)
                                             {
-                                                var modalAccionesId = $"acciones-unidad-{unidad.Id}";
-
                                                 <button type="button"
-                                                        onclick="document.getElementById('@modalAccionesId').showModal()"
-                                                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
-                                                    <span class="material-symbols-outlined text-base">more_vert</span>
-                                                    Gestionar unidad
+                                                        onclick="puOpenManage('@unidad.Id','@_dCode','@_dSerial','@_dLabel','@_dChipClass',@_dActStr)"
+                                                        class="pu-btn pu-btn-soft pu-btn-sm">
+                                                    <span class="material-symbols-outlined" style="font-size:16px">settings</span>
+                                                    Gestionar
                                                 </button>
                                             }
                                         </div>
                                     </td>
                                 </tr>
                             }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="9" class="px-4 py-10 text-center text-sm text-slate-400">
-                                    No hay unidades fisicas para los filtros seleccionados.
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    @foreach (var unidad in Model.Unidades)
-    {
-        @if (unidad.PuedeMarcarFaltante || unidad.PuedeDarBaja || unidad.PuedeReintegrarAStock || unidad.PuedeFinalizarReparacion)
-        {
-            var modalAccionesId = $"acciones-unidad-{unidad.Id}";
-            var modalAccionesTituloId = $"acciones-unidad-titulo-{unidad.Id}";
-
-            <dialog id="@modalAccionesId"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="@modalAccionesTituloId"
-                    style="margin: auto;"
-                    class="m-auto w-[min(92vw,34rem)] rounded-lg border border-slate-700 bg-slate-950 p-0 text-left text-slate-200 shadow-2xl shadow-slate-950/70 backdrop:bg-slate-950/80">
-                <div class="border-b border-slate-800 p-4">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-primary">Acciones operativas</p>
-                            <h3 id="@modalAccionesTituloId" class="mt-1 text-lg font-black text-white">Unidad @unidad.CodigoInternoUnidad</h3>
-                            <p class="mt-1 text-sm text-slate-400">Completa el motivo antes de aplicar un cambio de estado.</p>
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="px-4 py-12 text-center">
+                        <div class="mx-auto w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">search_off</span>
                         </div>
-                        <form method="dialog">
-                            <button type="submit"
-                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                                    aria-label="Cerrar acciones de unidad @unidad.CodigoInternoUnidad">
-                                <span class="material-symbols-outlined text-base">close</span>
+                        <h3 class="mt-3 text-white font-medium">Sin resultados</h3>
+                        <p class="mt-1 text-sm text-slate-400 max-w-md mx-auto">No encontramos unidades con estos filtros.</p>
+                        <div class="mt-4 flex justify-center gap-2">
+                            <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                               class="pu-btn pu-btn-ghost">
+                                Limpiar filtros
+                            </a>
+                            <button type="button" onclick="activateTab('agregar')"
+                                    class="pu-btn pu-btn-primary">
+                                Agregar unidad
                             </button>
-                        </form>
+                        </div>
                     </div>
-                </div>
-                <div class="grid gap-3 p-4">
-                    @if (unidad.PuedeMarcarFaltante)
-                    {
-                        <form method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante" class="grid gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                            <label for="motivo-faltante-@unidad.Id" class="sr-only">Motivo para marcar faltante</label>
-                            <input id="motivo-faltante-@unidad.Id" name="Motivo" maxlength="500" required
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                   placeholder="Motivo obligatorio" />
-                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
-                                <span class="material-symbols-outlined text-base">inventory_2</span>
-                                Marcar faltante
-                            </button>
-                        </form>
-                    }
-
-                    @if (unidad.PuedeReintegrarAStock)
-                    {
-                        <form method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock" class="grid gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                            <label for="motivo-reintegrar-@unidad.Id" class="sr-only">Motivo para reintegrar a stock</label>
-                            <input id="motivo-reintegrar-@unidad.Id" name="Motivo" maxlength="500" required
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                   placeholder="Motivo obligatorio" />
-                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
-                                <span class="material-symbols-outlined text-base">assignment_return</span>
-                                Reintegrar a stock
-                            </button>
-                        </form>
-                    }
-
-                    @if (unidad.PuedeDarBaja)
-                    {
-                        <form method="post" asp-controller="Producto" asp-action="DarUnidadBaja" class="grid gap-2 rounded-lg border border-red-500/25 bg-red-500/5 p-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                            <label for="motivo-baja-@unidad.Id" class="sr-only">Motivo para dar de baja</label>
-                            <input id="motivo-baja-@unidad.Id" name="Motivo" maxlength="500" required
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                   placeholder="Motivo obligatorio" />
-                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-200 transition-colors hover:bg-red-500/20">
-                                <span class="material-symbols-outlined text-base">block</span>
-                                Dar de baja
-                            </button>
-                        </form>
-                    }
-
-                    @if (unidad.PuedeFinalizarReparacion)
-                    {
-                        <form method="post" asp-controller="Producto" asp-action="FinalizarReparacionUnidad" class="grid gap-2 rounded-lg border border-blue-500/25 bg-blue-500/5 p-3">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
-                            <select name="EstadoDestino" required
-                                    class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-blue-400">
-                                <option value="">Destino de la reparacion...</option>
-                                <option value="EnStock">Reintegrar a stock</option>
-                                <option value="Baja">Dar de baja (no reparable)</option>
-                                <option value="Devuelta">Marcar como devuelta</option>
-                            </select>
-                            <label for="motivo-reparacion-@unidad.Id" class="sr-only">Motivo para finalizar reparacion</label>
-                            <input id="motivo-reparacion-@unidad.Id" name="Motivo" maxlength="500" required
-                                   class="w-full rounded-lg border border-blue-500/40 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-blue-400"
-                                   placeholder="Motivo obligatorio" />
-                            <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm font-bold text-blue-200 transition-colors hover:bg-blue-500/20">
-                                <span class="material-symbols-outlined text-base">build_circle</span>
-                                Finalizar reparacion
-                            </button>
-                        </form>
-                    }
-                </div>
-            </dialog>
-        }
-    }
+                }
+            </div>
+        </div>
     </section>
 
-    <section id="modo-carga" role="tabpanel" data-tab-panel="modo-carga" aria-labelledby="tab-modo-carga" class="scroll-mt-32 space-y-4" hidden>
-        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Carga</p>
-                <h2 class="mt-1 text-lg font-black text-white">Alta individual y carga masiva</h2>
-                <p class="mt-1 max-w-3xl text-sm text-slate-400">
-                    Usa alta individual para una unidad puntual. Usa carga masiva cuando necesites crear varias unidades y revisar un preview antes de confirmar.
-                </p>
-            </div>
-            <a href="#listado-unidades" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
-                <span class="material-symbols-outlined text-base">arrow_upward</span>
-                Volver al listado
-            </a>
+    @* ================================================================
+       PANEL: AGREGAR UNIDADES
+       ================================================================ *@
+    <section id="agregar" role="tabpanel" data-tab-panel="agregar" aria-labelledby="tab-agregar" class="space-y-5" hidden>
+        <div>
+            <h2 class="text-lg font-semibold text-white">Agregar unidades</h2>
+            <p class="text-sm text-slate-400">Registrar identificadores fisicos para unidades ya existentes en el inventario.</p>
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-            <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Alta individual</p>
-                        <h2 class="mt-1 text-base font-black text-white">Crear una unidad puntual</h2>
-                        <p class="mt-1 text-sm text-slate-400">Para registrar una unidad especifica. El codigo interno se genera automaticamente. El numero de serie es opcional. La unidad se creara en estado EnStock.</p>
-                        <p class="mt-1 text-xs text-amber-200">Crear una unidad fisica no ajusta el stock agregado. El stock agregado sigue bajo MovimientoStockService.</p>
-                    </div>
-                    <span aria-hidden="true" class="inline-flex w-fit items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-xs font-bold text-slate-500">
-                        <span class="material-symbols-outlined text-sm">looks_one</span>
-                        Una unidad
-                    </span>
-                </div>
+        <div class="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex gap-3">
+            <span class="material-symbols-outlined text-blue-300 shrink-0">info</span>
+            <p class="text-sm text-blue-100/90">
+                Crear unidades fisicas no modifica el stock del producto ni genera movimientos de Kardex. Esta accion solo registra identificadores para el seguimiento de unidades ya existentes en el inventario.
+            </p>
+        </div>
 
-                <form method="post" asp-controller="Producto" asp-action="CrearUnidad" class="mt-4">
+        <div class="grid gap-4 lg:grid-cols-2">
+            @* Alta individual *@
+            <div class="pu-card p-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-slate-400">person_add</span>
+                    <h3 class="font-semibold text-white">Alta individual</h3>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">Cargar una unidad fisica a la vez. El codigo interno se genera automaticamente. La unidad se creara en estado EnStock.</p>
+
+                <form method="post" asp-controller="Producto" asp-action="CrearUnidad">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="CrearUnidad.ProductoId" value="@Model.ProductoId" />
                     <div asp-validation-summary="ModelOnly" class="mb-3 text-sm font-semibold text-red-300"></div>
-
-                    <div class="grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_auto] xl:grid-cols-1">
-                        <label class="block">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Numero de serie</span>
-                            <input asp-for="CrearUnidad.NumeroSerie" maxlength="100"
-                                   class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                   placeholder="Opcional" />
+                    <div class="space-y-3">
+                        <div>
+                            <label class="pu-label" for="ind-serie">Numero de serie <span class="font-normal text-slate-600">(Opcional)</span></label>
+                            <input id="ind-serie" asp-for="CrearUnidad.NumeroSerie" maxlength="100"
+                                   class="pu-field"
+                                   placeholder="Ej. SN-9988234B" />
                             <span asp-validation-for="CrearUnidad.NumeroSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                        </label>
-                        <label class="block">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Ubicacion actual</span>
-                            <input asp-for="CrearUnidad.UbicacionActual" maxlength="200"
-                                   class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                        </div>
+                        <div>
+                            <label class="pu-label" for="ind-ubic">Ubicacion actual</label>
+                            <input id="ind-ubic" asp-for="CrearUnidad.UbicacionActual" maxlength="200"
+                                   class="pu-field"
                                    placeholder="Opcional" />
                             <span asp-validation-for="CrearUnidad.UbicacionActual" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                        </label>
-                        <label class="block">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</span>
-                            <input asp-for="CrearUnidad.Observaciones" maxlength="500"
-                                   class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                   placeholder="Opcional" />
+                        </div>
+                        <div>
+                            <label class="pu-label" for="ind-obs">Observaciones</label>
+                            <textarea id="ind-obs" asp-for="CrearUnidad.Observaciones" maxlength="500" rows="3"
+                                      class="pu-field"
+                                      placeholder="Notas internas, condicion, etc."></textarea>
                             <span asp-validation-for="CrearUnidad.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                        </label>
-                        <button type="submit" class="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90 lg:mt-5 xl:mt-0">
-                            <span class="material-symbols-outlined text-base">add_circle</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button type="submit" class="pu-btn pu-btn-primary">
+                            <span class="material-symbols-outlined" style="font-size:18px">add</span>
                             Agregar unidad
                         </button>
                     </div>
                 </form>
-            </section>
+            </div>
 
-            <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Carga masiva</p>
-                        <h2 class="mt-1 text-base font-black text-white">Carga masiva de unidades</h2>
-                        <p class="mt-1 text-sm text-slate-400">Genera varias unidades sin serie o pega una serie por linea. Primero se muestra una previsualizacion para confirmar.</p>
-                        <p class="mt-1 text-xs text-amber-200">La carga masiva no ajusta el stock agregado y no crea movimientos de stock SKU.</p>
-                    </div>
-                    <span aria-hidden="true" class="inline-flex w-fit items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-xs font-bold text-slate-500">
-                        <span class="material-symbols-outlined text-sm">format_list_numbered</span>
-                        Varias unidades
-                    </span>
+            @* Carga masiva *@
+            <div class="pu-card p-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-slate-400">stacks</span>
+                    <h3 class="font-semibold text-white">Carga masiva</h3>
                 </div>
+                <p class="text-xs text-slate-400 mb-4">Cargar varias unidades a la vez. Funciona en dos pasos: prepara y previsualizas antes de confirmar.</p>
 
-                <form id="form-carga-masiva-unidades" method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas" class="mt-4">
+                <form id="form-carga-masiva-unidades" method="post" asp-controller="Producto" asp-action="CrearUnidadesMasivas">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="CargaMasiva.ProductoId" value="@Model.ProductoId" />
 
-                    <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-primary">Paso 1</p>
-                        <p class="mt-1 text-sm font-bold text-white">Preparar unidades para preview</p>
-                        <div class="mt-3 grid gap-3 lg:grid-cols-[0.7fr_1.3fr_1fr_1.2fr]">
-                            <label class="block">
-                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Cantidad sin serie</span>
-                                <input asp-for="CargaMasiva.CantidadSinSerie" min="0" max="200" type="number"
-                                       class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary" />
+                    <div class="space-y-3">
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="pu-label" for="bulk-qty">Cantidad sin serie</label>
+                                <input id="bulk-qty" asp-for="CargaMasiva.CantidadSinSerie" min="0" max="200" type="number"
+                                       class="pu-field" />
                                 <span asp-validation-for="CargaMasiva.CantidadSinSerie" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                            </label>
-                            <label class="block">
-                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Numeros de serie</span>
-                                <textarea asp-for="CargaMasiva.NumerosSerieTexto" rows="5" maxlength="12000"
-                                          class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                          placeholder="Una serie por linea"></textarea>
-                                <span asp-validation-for="CargaMasiva.NumerosSerieTexto" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                            </label>
-                            <label class="block">
-                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Ubicacion actual</span>
-                                <input asp-for="CargaMasiva.UbicacionActual" maxlength="200"
-                                       class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
+                            </div>
+                            <div>
+                                <label class="pu-label" for="bulk-ubic">Ubicacion global</label>
+                                <input id="bulk-ubic" asp-for="CargaMasiva.UbicacionActual" maxlength="200"
+                                       class="pu-field"
                                        placeholder="Opcional" />
                                 <span asp-validation-for="CargaMasiva.UbicacionActual" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                            </label>
-                            <label class="block">
-                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</span>
-                                <textarea asp-for="CargaMasiva.Observaciones" rows="5" maxlength="500"
-                                          class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-primary"
-                                          placeholder="Opcional"></textarea>
-                                <span asp-validation-for="CargaMasiva.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
-                            </label>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-primary">Paso 2</p>
-                        <p class="mt-1 text-sm font-bold text-white">Previsualizar y confirmar</p>
-                        <p class="mt-1 text-xs text-slate-400">El boton Confirmar carga aparece solo cuando el preview esta listo y contiene unidades.</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
+                        <div>
+                            <label class="pu-label" for="bulk-series">Series multiples (una por linea)</label>
+                            <textarea id="bulk-series" asp-for="CargaMasiva.NumerosSerieTexto" rows="5" maxlength="12000"
+                                      class="pu-field font-mono text-xs"
+                                      placeholder="Una serie por linea"></textarea>
+                            <p class="mt-1 text-xs text-slate-500">Las unidades sin serie se cargaran como "Sin serie".</p>
+                            <span asp-validation-for="CargaMasiva.NumerosSerieTexto" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                        </div>
+                        <div>
+                            <label class="pu-label" for="bulk-obs">Observaciones</label>
+                            <textarea id="bulk-obs" asp-for="CargaMasiva.Observaciones" rows="2" maxlength="500"
+                                      class="pu-field"
+                                      placeholder="Opcional"></textarea>
+                            <span asp-validation-for="CargaMasiva.Observaciones" class="mt-1 block text-xs font-semibold text-red-300"></span>
+                        </div>
+                        <div class="flex justify-end">
                             <button type="submit" name="CargaMasiva.Confirmar" value="false"
-                                    class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                                <span class="material-symbols-outlined text-base">visibility</span>
+                                    class="pu-btn pu-btn-primary">
+                                <span class="material-symbols-outlined" style="font-size:18px">visibility</span>
                                 Previsualizar
                             </button>
-                            @if (Model.CargaMasiva.PreviewListo && Model.CargaMasiva.Preview.Any())
-                            {
-                                <button type="submit" name="CargaMasiva.Confirmar" value="true"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
-                                    <span class="material-symbols-outlined text-base">done_all</span>
-                                    Confirmar carga
-                                </button>
-                            }
                         </div>
                     </div>
 
                     @if (Model.CargaMasiva.PreviewListo && Model.CargaMasiva.Preview.Any())
                     {
-                        <div class="mt-4 overflow-hidden rounded-lg border border-emerald-500/30 bg-slate-950">
-                            <div class="border-b border-slate-800 px-4 py-3">
+                        <div class="mt-5 space-y-3">
+                            <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
                                 <p class="text-xs font-bold uppercase tracking-wider text-emerald-300">Preview listo</p>
-                                <p class="mt-1 text-sm font-bold text-white">Preview de carga: @Model.CargaMasiva.TotalUnidades unidades</p>
-                                <p class="mt-1 text-xs text-slate-400">Todas se crearan en estado EnStock con codigo interno automatico.</p>
+                                <p class="mt-0.5 text-sm font-semibold text-white">@Model.CargaMasiva.TotalUnidades unidades &mdash; todas en estado EnStock</p>
                             </div>
-                            <div class="max-h-72 overflow-x-auto overflow-y-auto">
-                                <table class="min-w-full divide-y divide-slate-800">
-                                    <thead class="bg-slate-900/70">
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5 text-center">
+                                    <div class="text-xs text-slate-400">Total</div>
+                                    <div class="text-lg font-semibold text-white">@Model.CargaMasiva.TotalUnidades</div>
+                                </div>
+                                <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5 text-center">
+                                    <div class="text-xs text-slate-400">Con serie</div>
+                                    <div class="text-lg font-semibold text-emerald-400">@Model.CargaMasiva.Preview.Count(p => p.NumeroSerie != null)</div>
+                                </div>
+                                <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5 text-center">
+                                    <div class="text-xs text-slate-400">Sin serie</div>
+                                    <div class="text-lg font-semibold text-amber-300">@Model.CargaMasiva.Preview.Count(p => p.NumeroSerie == null)</div>
+                                </div>
+                            </div>
+                            <div class="rounded-lg border border-slate-800 overflow-hidden max-h-64 overflow-y-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-slate-900/70 sticky top-0">
                                         <tr>
-                                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
-                                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Serie</th>
-                                            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Estado inicial</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-slate-400 w-10">#</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-slate-400">Serie</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-slate-400">Estado inicial</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-800">
+                                    <tbody class="divide-y divide-slate-800 text-xs">
                                         @foreach (var item in Model.CargaMasiva.Preview)
                                         {
                                             <tr>
-                                                <td class="px-4 py-2 text-sm text-slate-300">@item.Orden</td>
-                                                <td class="px-4 py-2 text-sm text-slate-300">@(item.NumeroSerie ?? "Sin numero de serie")</td>
-                                                <td class="px-4 py-2"><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)EstadoUnidad.EnStock" /></td>
+                                                <td class="px-3 py-2 text-slate-500">@item.Orden</td>
+                                                <td class="px-3 py-2 font-mono @(item.NumeroSerie != null ? "text-slate-200" : "text-slate-500 italic")">
+                                                    @(item.NumeroSerie ?? "(Sin serie)")
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                    <span class="pu-chip pu-chip-stock">En Stock</span>
+                                                </td>
                                             </tr>
                                         }
                                     </tbody>
                                 </table>
-            </div>
+                            </div>
+                            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                                   class="pu-btn pu-btn-ghost justify-center">
+                                    <span class="material-symbols-outlined" style="font-size:18px">edit</span>
+                                    Volver a editar
+                                </a>
+                                <button type="submit" name="CargaMasiva.Confirmar" value="true"
+                                        class="pu-btn pu-btn-success justify-center">
+                                    <span class="material-symbols-outlined" style="font-size:18px">check</span>
+                                    Confirmar carga
+                                </button>
+                            </div>
                         </div>
                     }
                 </form>
-            </section>
+            </div>
         </div>
     </section>
 
-    <section id="modo-conciliacion" role="tabpanel" data-tab-panel="modo-conciliacion" aria-labelledby="tab-modo-conciliacion" class="scroll-mt-32 space-y-4" hidden>
-        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Conciliacion</p>
-                <h2 class="mt-1 text-lg font-black text-white">Conciliacion de stock y unidades</h2>
-                <p class="mt-1 max-w-3xl text-sm text-slate-400">
-                    Compara el numero de stock del producto contra las unidades fisicas disponibles. Sirve para revisar desvios antes de tocar stock.
+    @* ================================================================
+       PANEL: CONCILIAR STOCK
+       ================================================================ *@
+    <section id="conciliar" role="tabpanel" data-tab-panel="conciliar" aria-labelledby="tab-conciliar" class="space-y-5" hidden>
+        <div>
+            <h2 class="text-lg font-semibold text-white">Conciliar stock</h2>
+            <p class="text-sm text-slate-400">Comparacion entre stock del producto y unidades fisicas disponibles (estado En Stock).</p>
+        </div>
+
+        @if (conciliacion.HayDiferencia)
+        {
+            <div class="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex gap-3">
+                <span class="material-symbols-outlined text-amber-300 shrink-0">warning</span>
+                <p class="text-sm text-amber-100/90">
+                    @if (diferenciaPositiva)
+                    {
+                        <text>El stock del producto es mayor que las unidades fisicas disponibles. Puede representar stock sin identificar o stock inflado. No se realizo ningun ajuste automatico.</text>
+                    }
+                    else
+                    {
+                        <text>Hay mas unidades fisicas disponibles que stock registrado. Conviene revisar el recuento antes de ajustar. No se realizo ningun ajuste automatico.</text>
+                    }
                 </p>
             </div>
-            <a href="#modo-unidades" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
-                <span class="material-symbols-outlined text-base">table_rows</span>
-                Ver unidades
-            </a>
-        </div>
+        }
+        else if (!Model.RequiereNumeroSerie)
+        {
+            <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex gap-3">
+                <span class="material-symbols-outlined text-amber-300 shrink-0">info</span>
+                <p class="text-sm text-amber-100/90">Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.</p>
+            </div>
+        }
+        else
+        {
+            <div class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 flex gap-3">
+                <span class="material-symbols-outlined text-emerald-300 shrink-0">check_circle</span>
+                <p class="text-sm text-emerald-100/90">Conciliado: el stock del producto coincide con las unidades fisicas disponibles.</p>
+            </div>
+        }
 
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="text-base font-black text-white">Conciliacion stock vs unidades fisicas</h2>
-                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold @diferenciaCss">
-                        @(conciliacion.HayDiferencia ? "Diferencia detectada" : "Conciliado")
-                    </span>
-                </div>
-                <p class="mt-2 max-w-4xl text-xs text-slate-400">
-                    Compara stock agregado del SKU vs unidades fisicas en estado EnStock. Los ajustes modifican stock y actualizan Kardex.
-                </p>
-                @if (!conciliacion.RequiereNumeroSerie)
-                {
-                    <p class="mt-1 max-w-4xl text-xs text-amber-200">
-                        Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.
-                    </p>
-                }
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Stock del producto</div>
+                <div class="mt-1 text-2xl font-semibold text-white">@conciliacion.StockActual.ToString("G29")</div>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="#listado-unidades"
-                   class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
-                    <span class="material-symbols-outlined text-base">arrow_upward</span>
-                    Volver al listado
-                </a>
-                @if (puedeAjustarStockAgregado)
-                {
-                    <a href="#ajuste-asistido"
-                       class="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
-                        <span class="material-symbols-outlined text-base">tune</span>
-                        Acciones de conciliacion
-                    </a>
-                }
-                else if (!conciliacion.HayDiferencia)
-                {
-                    <span class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200">
-                        <span class="material-symbols-outlined text-base">check_circle</span>
-                        Conciliado
-                    </span>
-                }
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Unidades disponibles</div>
+                <div class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</div>
             </div>
-        </div>
-
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Stock agregado actual</p>
-                <p class="mt-1 text-2xl font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
-                <p class="mt-1 text-xs text-slate-500">Valor numerico del producto.</p>
+            <div class="pu-card p-4 @(conciliacion.HayDiferencia ? "!border-amber-500/40 !bg-amber-500/5" : "!border-emerald-500/30 !bg-emerald-500/5")">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Diferencia</div>
+                <div class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-300")">@diferenciaTexto</div>
             </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades fisicas disponibles</p>
-                <p class="mt-1 text-2xl font-black text-white">@conciliacion.UnidadesEnStock</p>
-                <p class="mt-1 text-xs text-slate-500">Unidades en estado EnStock.</p>
+            <div class="pu-card p-4">
+                <div class="text-xs uppercase tracking-wide text-slate-500 font-medium">Unidades registradas</div>
+                <div class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</div>
             </div>
-            <div class="rounded-lg border @(conciliacion.HayDiferencia ? "border-amber-500/40 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10") p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Diferencia</p>
-                <p class="mt-1 text-2xl font-black @(conciliacion.HayDiferencia ? "text-amber-200" : "text-emerald-200")">@diferenciaTexto</p>
-                <p class="mt-1 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-emerald-200/70")">@estadoConciliacionTexto</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Unidades registradas</p>
-                <p class="mt-1 text-2xl font-black text-white">@conciliacion.TotalUnidadesRegistradas</p>
-                <p class="mt-1 text-xs text-slate-500">Incluye estados no disponibles.</p>
-            </div>
-        </div>
-
-        <div class="mt-3 rounded-lg border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-            @if (diferenciaPositiva)
-            {
-                <p><strong class="text-amber-200">Con diferencia:</strong> el stock agregado es mayor que las unidades fisicas disponibles en estado EnStock. Puede representar stock sin identificar o stock agregado inflado. No se realizo ningun ajuste automatico.</p>
-            }
-            else if (diferenciaNegativa)
-            {
-                <p><strong class="text-amber-200">Requiere revision:</strong> hay mas unidades fisicas disponibles en estado EnStock que stock agregado. Conviene revisar el recuento antes de ajustar. No se realizo ningun ajuste automatico.</p>
-            }
-            else
-            {
-                <p><strong class="text-emerald-200">Conciliado:</strong> el stock agregado coincide con las unidades fisicas disponibles en estado EnStock. No se realizo ningun ajuste.</p>
-            }
         </div>
 
         @if (hayDesgloseVisible)
         {
-        <div class="mt-5 flex items-center gap-2 border-t-2 border-slate-700 pt-4">
-            <span class="material-symbols-outlined text-base text-slate-500">data_object</span>
-            <h3 class="text-sm font-black text-slate-200">Desglose informativo de unidades registradas</h3>
-        </div>
-        <p class="mt-1 text-xs text-slate-500">
-            Estos estados ayudan a explicar el desvio, pero no son el valor usado como unidades disponibles para conciliar.
-        </p>
-
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Vendidas</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesVendidas</p>
+            <div class="pu-card p-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Desglose por estado</p>
+                <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">Vendidas</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesVendidas</p>
+                    </div>
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">Faltantes</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesFaltantes</p>
+                    </div>
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">Baja</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesBaja</p>
+                    </div>
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">Devueltas</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesDevueltas</p>
+                    </div>
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">Reservadas</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesReservadas</p>
+                    </div>
+                    <div class="pu-card p-3 text-center">
+                        <p class="text-xs text-slate-500">En reparacion</p>
+                        <p class="mt-1 text-xl font-semibold text-white">@conciliacion.UnidadesEnReparacion</p>
+                    </div>
+                </div>
             </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Faltantes</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesFaltantes</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Baja</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesBaja</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Devueltas</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesDevueltas</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Reservadas</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesReservadas</p>
-            </div>
-            <div class="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">En reparacion</p>
-                <p class="mt-1 text-xl font-black text-white">@conciliacion.UnidadesEnReparacion</p>
-            </div>
-        </div>
         }
 
-        <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
             <span>Ultimo movimiento stock: @(conciliacion.UltimoMovimientoStockFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
             <span>Ultimo movimiento unidad: @(conciliacion.UltimoMovimientoUnidadFecha?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin movimientos")</span>
         </div>
 
-        @if (puedeAjustarStockAgregado)
-        {
-            <div id="ajuste-asistido" class="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-wider text-amber-300">Accion sensible</p>
-                        <h3 class="mt-1 text-base font-black text-amber-100">Ajuste asistido de stock agregado</h3>
-                        <p class="mt-1 max-w-3xl text-sm text-amber-100/80">
-                            Estas acciones modifican el stock agregado y actualizan Kardex. Cada accion recalcula la conciliacion en servidor antes de aplicar y no cambia estados de unidades fisicas.
-                        </p>
-                    </div>
-                    <a href="#listado-unidades"
-                       class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 text-sm font-bold text-amber-100 transition-colors hover:bg-amber-500/20">
-                        <span class="material-symbols-outlined text-base">arrow_upward</span>
-                        Revisar listado antes de ajustar
-                    </a>
-                </div>
+        @* Opciones de Resolucion — estructura visual del standalone *@
+        <div class="pu-card p-5">
+            <h3 class="font-semibold text-white">Opciones de Resolucion</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Elegí como queres tratar la diferencia detectada.</p>
 
-                <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-                    <div class="rounded border border-slate-700 bg-slate-950 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Stock agregado actual</p>
-                        <p class="mt-1 font-black text-white">@conciliacion.StockActual.ToString("G29")</p>
-                    </div>
-                    <div class="rounded border border-slate-700 bg-slate-950 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Unidades disponibles</p>
-                        <p class="mt-1 font-black text-white">@conciliacion.UnidadesEnStock</p>
-                    </div>
-                    <div class="rounded border border-amber-500/30 bg-amber-500/10 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Ajuste requerido</p>
-                        <p class="mt-1 font-black text-amber-200">@textoAjuste</p>
-                    </div>
-                    <div class="rounded border border-emerald-500/30 bg-emerald-500/10 p-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-emerald-400">Resultado esperado</p>
-                        <p class="mt-1 font-black text-emerald-200">@conciliacion.UnidadesEnStock</p>
-                    </div>
-                </div>
+            <div class="mt-4 space-y-2.5">
 
-                @if (diferenciaNegativa)
-                {
-                    <div class="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
-                        Hay unidades fisicas disponibles sin stock agregado suficiente. Si el recuento confirma esas unidades, ajustar hacia arriba libera el stock agregado usando MovimientoStock.
+                @* Opcion 1 *@
+                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
+                       onclick="puSelectResolution(1)">
+                    <input type="radio" name="reso" value="1" class="mt-1 accent-blue-500" checked />
+                    <div class="flex-1">
+                        <div class="font-medium text-white">Mantener diferencia visible</div>
+                        <p class="text-sm text-slate-400 mt-0.5">No realizar cambios en stock ni en unidades fisicas por ahora.</p>
                     </div>
-                    <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoAUnidadesFisicas" class="mt-4">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="ProductoId" value="@conciliacion.ProductoId" />
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                            <label class="block flex-1">
-                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Motivo obligatorio</span>
-                                <input name="Motivo" maxlength="500" required
-                                       class="mt-1 w-full rounded-lg border border-amber-500/40 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-amber-400"
-                                       placeholder="Ej: Recuento fisico confirma unidades disponibles" />
-                            </label>
-                            <button type="submit"
-                                    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
-                                <span class="material-symbols-outlined text-base">add_task</span>
-                                Ajustar stock agregado a unidades fisicas
-                            </button>
-                        </div>
-                    </form>
-                }
-                else if (diferenciaPositiva)
-                {
-                    <div class="mt-4 grid gap-3 lg:grid-cols-3">
-                        <div class="rounded-lg border border-slate-700 bg-slate-950 p-3">
-                            <p class="text-sm font-bold text-white">Dejar stock sin identificar</p>
-                            <p class="mt-1 text-xs text-slate-400">No genera cambios. Mantiene el desvio visible para revision posterior.</p>
-                        </div>
-                        <a href="#form-carga-masiva-unidades"
-                           class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
+                </label>
+
+                @* Opcion 2 *@
+                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 cursor-pointer"
+                       onclick="puSelectResolution(2)">
+                    <input type="radio" name="reso" value="2" class="mt-1 accent-blue-500" />
+                    <div class="flex-1">
+                        <div class="font-medium text-white flex items-center gap-2">
                             Crear unidades fisicas faltantes
-                            <span class="mt-1 block text-xs font-medium text-emerald-200/70">Usa alta/carga masiva. No modifica StockActual.</span>
-                        </a>
-                        <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoHaciaAbajo" class="rounded-lg border border-amber-500/30 bg-slate-950 p-3">
+                            <span class="text-xs px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/30">Recomendado</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-0.5">Ir a la pestana de agregar unidades para registrar fisicamente el stock no identificado.</p>
+                        <button type="button" class="mt-2 pu-btn pu-btn-primary pu-btn-sm"
+                                onclick="event.stopPropagation(); activateTab('agregar')">
+                            <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
+                            Ir a Agregar unidades
+                        </button>
+                    </div>
+                </label>
+
+                @* Opcion 3 — ajuste de stock (puede estar disabled) *@
+                @{
+                    var opt3Disabled = !puedeAjustarStockAgregado;
+                    var opt3Label = diferenciaNegativa ? "Ajustar stock a unidades fisicas" : "Ajustar stock hacia abajo";
+                    var opt3Desc  = diferenciaNegativa
+                        ? $"Aumentar el stock al nivel de las {conciliacion.UnidadesEnStock} unidades fisicas disponibles. Generara movimiento en Kardex."
+                        : $"Igualar el stock del producto a las {conciliacion.UnidadesEnStock} unidades fisicas disponibles. Generara movimiento en Kardex.";
+                }
+                <label class="pu-reso-opt flex gap-3 items-start rounded-lg border border-slate-800 p-4 @(opt3Disabled ? "opacity-50" : "cursor-pointer")"
+                       @(opt3Disabled ? "" : "onclick=\"puSelectResolution(3)\"")>
+                    <input type="radio" name="reso" value="3" class="mt-1 accent-blue-500" @(opt3Disabled ? "disabled" : "") />
+                    <div class="flex-1">
+                        <div class="font-medium text-white">@opt3Label</div>
+                        <p class="text-sm text-slate-400 mt-0.5">@opt3Desc</p>
+                        @if (opt3Disabled)
+                        {
+                            <p class="mt-1 text-xs text-slate-500">
+                                @(!conciliacion.RequiereNumeroSerie ? "No disponible: el producto no usa trazabilidad individual." : "No disponible: no hay diferencia activa.")
+                            </p>
+                        }
+                    </div>
+                </label>
+            </div>
+
+            @* Panel de ajuste — visible cuando se selecciona opcion 3 *@
+            <div id="adjust-panel" class="hidden mt-5 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+                <h4 class="font-semibold text-amber-200 flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:20px">play_arrow</span>
+                    Ejecutar Ajuste
+                </h4>
+                <p class="text-xs text-amber-100/80 mt-1">
+                    Stock @conciliacion.StockActual.ToString("G29") &rarr; @conciliacion.UnidadesEnStock. Esta accion quedara registrada en Kardex.
+                </p>
+                @if (puedeAjustarStockAgregado)
+                {
+                    @if (diferenciaPositiva)
+                    {
+                        <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoHaciaAbajo" class="mt-3">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="ProductoId" value="@conciliacion.ProductoId" />
-                            <p class="mb-2 text-xs text-amber-200/70">Reduce stock agregado/sin identificar mediante MovimientoStock.</p>
-                            <label class="block">
-                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Motivo obligatorio</span>
-                                <input name="Motivo" maxlength="500" required
-                                       class="mt-1 w-full rounded-lg border border-amber-500/40 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-amber-400"
-                                       placeholder="Ej: Recuento confirma stock agregado inflado" />
-                            </label>
-                            <button type="submit"
-                                    class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-200 transition-colors hover:bg-amber-500/20">
-                                <span class="material-symbols-outlined text-base">remove_circle</span>
-                                Ajustar stock agregado hacia abajo
-                            </button>
+                            <div>
+                                <label class="pu-label" style="color:rgba(251,191,36,.8);">Motivo <span class="text-red-400">*</span></label>
+                                <textarea name="Motivo" maxlength="500" required rows="2"
+                                          class="pu-field" style="border-color:rgba(245,158,11,.4);"
+                                          placeholder="Ej. Recuento fisico confirma stock inflado"></textarea>
+                            </div>
+                            <div class="mt-3 flex justify-end">
+                                <button type="submit" class="pu-btn pu-btn-amber">
+                                    <span class="material-symbols-outlined" style="font-size:18px">south</span>
+                                    Ajustar stock hacia abajo
+                                </button>
+                            </div>
                         </form>
-                    </div>
+                    }
+                    else if (diferenciaNegativa)
+                    {
+                        <form method="post" asp-controller="Producto" asp-action="AjustarStockAgregadoAUnidadesFisicas" class="mt-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="ProductoId" value="@conciliacion.ProductoId" />
+                            <div>
+                                <label class="pu-label" style="color:rgba(251,191,36,.8);">Motivo <span class="text-red-400">*</span></label>
+                                <textarea name="Motivo" maxlength="500" required rows="2"
+                                          class="pu-field" style="border-color:rgba(245,158,11,.4);"
+                                          placeholder="Ej. Recuento fisico confirma unidades disponibles"></textarea>
+                            </div>
+                            <div class="mt-3 flex justify-end">
+                                <button type="submit" class="pu-btn pu-btn-amber">
+                                    <span class="material-symbols-outlined" style="font-size:18px">north</span>
+                                    Ajustar stock a unidades fisicas
+                                </button>
+                            </div>
+                        </form>
+                    }
                 }
             </div>
-        }
-    </section>
+        </div>
     </section>
 
-    <section id="modo-configuracion" role="tabpanel" data-tab-panel="modo-configuracion" aria-labelledby="tab-modo-configuracion" class="scroll-mt-32 space-y-4" hidden>
-        <div class="flex flex-col gap-2 border-t-2 border-slate-700 pt-4 md:flex-row md:items-end md:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-primary">Modo Configuracion</p>
-                <h2 class="mt-1 text-lg font-black text-white">Trazabilidad y reglas del producto</h2>
-            </div>
-            <a href="#modo-conciliacion" class="inline-flex items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white">
-                <span class="material-symbols-outlined text-base">fact_check</span>
-                Revisar conciliacion
-            </a>
+    @* ================================================================
+       PANEL: TRAZABILIDAD
+       ================================================================ *@
+    <section id="trazabilidad" role="tabpanel" data-tab-panel="trazabilidad" aria-labelledby="tab-trazabilidad" class="space-y-5" hidden>
+        <div>
+            <h2 class="text-lg font-semibold text-white">Trazabilidad</h2>
+            <p class="text-sm text-slate-400">Configura si este producto requiere identificar una unidad fisica especifica al vender.</p>
         </div>
 
-    <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
         @{
             var puedeDesactivar = Model.RequiereNumeroSerie && Model.Conciliacion.TotalUnidadesActivas == 0;
             var bloqueadaConUnidades = Model.RequiereNumeroSerie && Model.Conciliacion.TotalUnidadesActivas > 0;
         }
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h2 class="text-base font-black text-white">Trazabilidad individual</h2>
-                <p class="mt-1 text-sm text-slate-400">
-                    Controla si este producto exige selección de unidad física en cada venta.
-                </p>
+
+        @if (Model.RequiereNumeroSerie)
+        {
+            <div class="pu-card p-5">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-emerald-400">verified</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-semibold text-white">Trazabilidad Activada</h3>
+                            <span class="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">ON</span>
+                        </div>
+                        <p class="text-sm text-slate-300 mt-1">Este producto requiere seleccionar una unidad fisica al vender.</p>
+                    </div>
+                </div>
+
                 @if (bloqueadaConUnidades)
                 {
-                    <p class="mt-2 text-xs text-amber-300">
-                        Para desactivar, primero eliminá todas las unidades físicas registradas (@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")).
-                    </p>
+                    <div class="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 flex gap-2.5">
+                        <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:20px">warning</span>
+                        <div class="text-sm text-amber-100/90">
+                            No se puede desactivar todavia. Existen <strong>@Model.Conciliacion.TotalUnidadesActivas unidad@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "es" : "") activa@(Model.Conciliacion.TotalUnidadesActivas != 1 ? "s" : "")</strong>.
+                            Primero tenes que revisar, vender, dar de baja o resolver esas unidades.
+                            <div class="mt-1.5">
+                                <button type="button" onclick="activateTab('ver')" class="text-amber-300 underline underline-offset-2 hover:text-amber-200 text-sm">
+                                    Ver unidades activas &rarr;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2 items-center">
+                        <span class="pu-btn pu-btn-ghost opacity-50 cursor-not-allowed" aria-disabled="true">
+                            <span class="material-symbols-outlined" style="font-size:18px">power_off</span>
+                            Desactivar trazabilidad
+                        </span>
+                    </div>
                 }
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
-                @if (Model.RequiereNumeroSerie)
+                else if (puedeDesactivar)
                 {
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-bold text-emerald-300">
-                        <span class="material-symbols-outlined text-base">verified</span>
-                        Activada
-                    </span>
-                    @if (puedeDesactivar)
-                    {
+                    <div class="mt-4 flex flex-wrap gap-2 items-center">
                         <form method="post" asp-controller="Producto" asp-action="DesactivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
                             @Html.AntiForgeryToken()
-                            <button type="submit"
-                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 px-3 py-1.5 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800">
-                                <span class="material-symbols-outlined text-base">toggle_off</span>
-                                Desactivar
+                            <button type="submit" class="pu-btn pu-btn-ghost">
+                                <span class="material-symbols-outlined" style="font-size:18px">power_off</span>
+                                Desactivar trazabilidad
                             </button>
                         </form>
-                    }
-                    else
-                    {
-                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-bold text-slate-500 cursor-not-allowed"
-                              aria-disabled="true"
-                              title="No se puede desactivar porque hay unidades físicas registradas">
-                            <span class="material-symbols-outlined text-base">toggle_off</span>
-                            Desactivar
-                        </span>
-                    }
-                }
-                else
-                {
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-sm font-bold text-slate-400">
-                        <span class="material-symbols-outlined text-base">remove_circle</span>
-                        Desactivada
-                    </span>
-                    <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
-                        @Html.AntiForgeryToken()
-                        <button type="submit"
-                                class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20">
-                            <span class="material-symbols-outlined text-base">toggle_on</span>
-                            Activar
-                        </button>
-                    </form>
+                    </div>
                 }
             </div>
+        }
+        else
+        {
+            <div class="pu-card p-5">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-slate-400">block</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-semibold text-white">Trazabilidad Desactivada</h3>
+                            <span class="text-xs px-2 py-0.5 rounded-md bg-slate-700/40 text-slate-300 border border-slate-700">OFF</span>
+                        </div>
+                        <p class="text-sm text-slate-300 mt-1">Este producto no requiere seleccionar una unidad fisica al vender.</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2 items-center">
+                    <form method="post" asp-controller="Producto" asp-action="ActivarTrazabilidad" asp-route-productoId="@Model.ProductoId">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="pu-btn pu-btn-primary">
+                            <span class="material-symbols-outlined" style="font-size:18px">power_settings_new</span>
+                            Activar trazabilidad
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+    </section>
+
+    @* ================================================================
+       FORMULARIOS REALES OCULTOS — usados por modal gestionar
+       Preservan contratos POST exactos sin cambiar backend
+       ================================================================ *@
+    <div class="hidden" aria-hidden="true" id="pu-real-forms">
+        @foreach (var unidad in Model.Unidades)
+        {
+            @if (unidad.PuedeMarcarFaltante)
+            {
+                <form id="rmf-faltante-@unidad.Id" method="post" asp-controller="Producto" asp-action="MarcarUnidadFaltante">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                    <input type="hidden" name="Motivo" value="" />
+                </form>
+            }
+            @if (unidad.PuedeReintegrarAStock)
+            {
+                <form id="rmf-reintegrar-@unidad.Id" method="post" asp-controller="Producto" asp-action="ReintegrarUnidadAStock">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                    <input type="hidden" name="Motivo" value="" />
+                </form>
+            }
+            @if (unidad.PuedeDarBaja)
+            {
+                <form id="rmf-baja-@unidad.Id" method="post" asp-controller="Producto" asp-action="DarUnidadBaja">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                    <input type="hidden" name="Motivo" value="" />
+                </form>
+            }
+            @if (unidad.PuedeFinalizarReparacion)
+            {
+                <form id="rmf-reparacion-@unidad.Id" method="post" asp-controller="Producto" asp-action="FinalizarReparacionUnidad">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoUnidadId" value="@unidad.Id" />
+                    <input type="hidden" name="EstadoDestino" value="" />
+                    <input type="hidden" name="Motivo" value="" />
+                </form>
+            }
+        }
+    </div>
+
+    @* ================================================================
+       MODAL: GESTIONAR UNIDAD — replica estructura standalone
+       Un solo overlay, JS conecta con formularios reales ocultos
+       ================================================================ *@
+    <div id="modal-manage"
+         class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
+         onclick="if(event.target===this)puCloseModal('modal-manage')"
+         role="dialog" aria-modal="true" aria-labelledby="manage-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="pu-modal-card pu-card w-full max-w-md p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 id="manage-title" class="text-lg font-semibold text-white">Gestionar Unidad</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Aplicar cambio de estado a esta unidad.</p>
+                    </div>
+                    <button type="button" onclick="puCloseModal('modal-manage')" aria-label="Cerrar modal"
+                            class="p-1.5 rounded hover:bg-slate-800">
+                        <span class="material-symbols-outlined text-slate-400">close</span>
+                    </button>
+                </div>
+
+                <dl class="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-slate-900/60 border border-slate-800 p-3 text-xs">
+                    <div>
+                        <dt class="text-slate-500">Codigo</dt>
+                        <dd class="font-mono text-white mt-0.5" id="manage-code">&mdash;</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">Serie</dt>
+                        <dd class="font-mono text-slate-200 mt-0.5" id="manage-serial">&mdash;</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">Estado actual</dt>
+                        <dd class="mt-0.5"><span id="manage-current-state" class="pu-chip pu-chip-neutral">&mdash;</span></dd>
+                    </div>
+                </dl>
+
+                <div class="mt-4 space-y-3">
+                    <div>
+                        <label for="manage-action" class="pu-label">Accion a ejecutar</label>
+                        <select id="manage-action" class="pu-field" onchange="puUpdateManageAction()"></select>
+                    </div>
+                    <div id="manage-destino-wrap" class="hidden">
+                        <label for="manage-destino" class="pu-label">Destino de la reparacion</label>
+                        <select id="manage-destino" class="pu-field">
+                            <option value="EnStock">Reintegrar a stock</option>
+                            <option value="Baja">Dar de baja (no reparable)</option>
+                            <option value="Devuelta">Marcar como devuelta</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manage-motivo" class="pu-label">Motivo <span class="text-red-400">*</span></label>
+                        <textarea id="manage-motivo" rows="3" class="pu-field"
+                                  placeholder="Detalle de la accion, evidencia, contexto..."></textarea>
+                        <p id="manage-motivo-error" class="hidden mt-1 text-xs text-red-300">Motivo obligatorio.</p>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex flex-col-reverse sm:flex-row justify-end gap-2">
+                    <button type="button" class="pu-btn pu-btn-ghost" onclick="puCloseModal('modal-manage')">Cancelar</button>
+                    <button type="button" id="manage-confirm-btn" class="pu-btn pu-btn-success" onclick="puConfirmManage()">
+                        <span class="material-symbols-outlined" style="font-size:18px" id="manage-confirm-icon">undo</span>
+                        <span id="manage-confirm-label">Reintegrar a stock</span>
+                    </button>
+                </div>
+            </div>
         </div>
-    </section>
-    </section>
+    </div>
+
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    var ACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/15 px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/25';
-    var INACTIVE = 'inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white';
+    'use strict';
+
+    // ============================================================
+    // TABS
+    // ============================================================
+    var ACTIVE_CLS   = 'tab-btn shrink-0 px-4 py-3 text-sm font-medium text-white border-b-2 border-blue-500 transition-colors whitespace-nowrap';
+    var INACTIVE_CLS = 'tab-btn shrink-0 px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent transition-colors whitespace-nowrap';
+
     var panelByHash = {
-        'modo-unidades': 'modo-unidades',
-        'modo-carga': 'modo-carga',
-        'modo-conciliacion': 'modo-conciliacion',
-        'modo-configuracion': 'modo-configuracion',
-        'listado-unidades': 'modo-unidades',
-        'form-carga-masiva-unidades': 'modo-carga',
-        'ajuste-asistido': 'modo-conciliacion'
+        'ver':                        'ver',
+        'agregar':                    'agregar',
+        'conciliar':                  'conciliar',
+        'trazabilidad':               'trazabilidad',
+        'listado-unidades':           'ver',
+        'form-carga-masiva-unidades': 'agregar',
+        'adjust-panel':               'conciliar'
     };
+
     var tablist = document.querySelector('[role="tablist"][aria-label="Modos de unidades"]');
     if (!tablist) return;
-    var tabs = Array.from(tablist.querySelectorAll('[role="tab"][data-tab-target]'));
+    var tabs   = Array.from(tablist.querySelectorAll('[role="tab"][data-tab-target]'));
     var panels = Array.from(document.querySelectorAll('[data-tab-panel]'));
 
     function normalizeHash(hash) {
@@ -963,7 +1213,7 @@
 
     function panelIdFromHash(hash) {
         var requested = normalizeHash(hash);
-        return panelByHash[requested] || 'modo-unidades';
+        return panelByHash[requested] || 'ver';
     }
 
     function setActivePanel(panelId) {
@@ -974,7 +1224,7 @@
             var selected = tab.getAttribute('data-tab-target') === panelId;
             tab.setAttribute('aria-selected', selected ? 'true' : 'false');
             tab.setAttribute('tabindex', selected ? '0' : '-1');
-            tab.className = selected ? ACTIVE : INACTIVE;
+            tab.className = selected ? ACTIVE_CLS : INACTIVE_CLS;
         });
     }
 
@@ -986,27 +1236,23 @@
     function activateFromHash(hash, shouldUpdateHash) {
         var targetPanelId = panelIdFromHash(hash);
         setActivePanel(targetPanelId);
-        if (shouldUpdateHash) {
-            updateHash(hash || '#' + targetPanelId);
-        }
+        if (shouldUpdateHash) updateHash(hash || '#' + targetPanelId);
     }
 
     activateFromHash(location.hash, false);
 
     tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
-            var targetPanelId = tab.getAttribute('data-tab-target');
-            activateFromHash('#' + targetPanelId, true);
+            activateFromHash('#' + tab.getAttribute('data-tab-target'), true);
         });
-
         tab.addEventListener('keydown', function (event) {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
             event.preventDefault();
-            var currentIndex = tabs.indexOf(tab);
-            var direction = event.key === 'ArrowRight' ? 1 : -1;
-            var nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
-            nextTab.focus();
-            activateFromHash('#' + nextTab.getAttribute('data-tab-target'), true);
+            var idx = tabs.indexOf(tab);
+            var dir = event.key === 'ArrowRight' ? 1 : -1;
+            var next = tabs[(idx + dir + tabs.length) % tabs.length];
+            next.focus();
+            activateFromHash('#' + next.getAttribute('data-tab-target'), true);
         });
     });
 
@@ -1022,6 +1268,120 @@
     window.addEventListener('hashchange', function () {
         activateFromHash(location.hash, false);
     });
+
+    window.activateTab = function (name) {
+        activateFromHash('#' + name, true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // ============================================================
+    // MODAL HELPERS
+    // ============================================================
+    window.puOpenModal = function (id) {
+        document.getElementById(id).classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    };
+    window.puCloseModal = function (id) {
+        document.getElementById(id).classList.add('hidden');
+        document.body.style.overflow = '';
+    };
+
+    // Escape cierra modal-manage
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var m = document.getElementById('modal-manage');
+        if (m && !m.classList.contains('hidden')) puCloseModal('modal-manage');
+    });
+
+    // ============================================================
+    // MODAL: GESTIONAR UNIDAD
+    // ============================================================
+    var _manageUnidadId = null;
+
+    var ACTION_CFG = {
+        reintegrar: { label: 'Reintegrar a stock',   icon: 'undo',         cls: 'pu-btn pu-btn-success' },
+        baja:       { label: 'Dar de baja',           icon: 'block',        cls: 'pu-btn pu-btn-danger'  },
+        faltante:   { label: 'Marcar faltante',       icon: 'help',         cls: 'pu-btn pu-btn-amber'   },
+        reparacion: { label: 'Finalizar reparacion',  icon: 'build_circle', cls: 'pu-btn pu-btn-primary'  }
+    };
+
+    window.puOpenManage = function (unidadId, code, serial, stateLabel, chipClass, actions) {
+        _manageUnidadId = unidadId;
+        document.getElementById('manage-code').textContent   = code;
+        document.getElementById('manage-serial').textContent = serial;
+
+        var stChip = document.getElementById('manage-current-state');
+        stChip.textContent = stateLabel;
+        stChip.className   = chipClass;
+
+        var select = document.getElementById('manage-action');
+        select.innerHTML = '';
+        actions.forEach(function (a) {
+            var opt = document.createElement('option');
+            opt.value = a.value; opt.textContent = a.label;
+            select.appendChild(opt);
+        });
+
+        document.getElementById('manage-motivo').value = '';
+        document.getElementById('manage-motivo-error').classList.add('hidden');
+
+        puUpdateManageAction();
+        puOpenModal('modal-manage');
+    };
+
+    window.puUpdateManageAction = function () {
+        var v   = document.getElementById('manage-action').value;
+        var cfg = ACTION_CFG[v] || { label: 'Confirmar', icon: 'check', cls: 'pu-btn pu-btn-primary' };
+        document.getElementById('manage-confirm-btn').className     = cfg.cls;
+        document.getElementById('manage-confirm-label').textContent = cfg.label;
+        document.getElementById('manage-confirm-icon').textContent  = cfg.icon;
+        document.getElementById('manage-destino-wrap').classList.toggle('hidden', v !== 'reparacion');
+    };
+
+    window.puConfirmManage = function () {
+        var motivo = (document.getElementById('manage-motivo').value || '').trim();
+        if (!motivo) {
+            document.getElementById('manage-motivo-error').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('manage-motivo-error').classList.add('hidden');
+
+        var action = document.getElementById('manage-action').value;
+        var form   = document.getElementById('rmf-' + action + '-' + _manageUnidadId);
+        if (!form) return;
+
+        form.querySelector('[name="Motivo"]').value = motivo;
+        if (action === 'reparacion') {
+            form.querySelector('[name="EstadoDestino"]').value =
+                document.getElementById('manage-destino').value;
+        }
+        form.submit();
+    };
+
+    // ============================================================
+    // CONCILIAR: seleccion de opciones
+    // ============================================================
+    window.puSelectResolution = function (n) {
+        document.querySelectorAll('input[name="reso"]').forEach(function (r) {
+            if (!r.disabled) r.checked = (parseInt(r.value, 10) === n);
+        });
+        var panel = document.getElementById('adjust-panel');
+        if (panel) panel.classList.toggle('hidden', n !== 3);
+    };
+
+    // ============================================================
+    // FILTROS: radio disponibilidad <-> checkboxes backend
+    // ============================================================
+    window.puDispoChange = function (selected) {
+        var cbDispo   = document.getElementById('filter-soloDisponibles');
+        var cbVendidas = document.getElementById('filter-soloVendidas');
+        if (!cbDispo || !cbVendidas) return;
+        cbDispo.disabled    = (selected !== 'disponibles');
+        cbDispo.checked     = (selected === 'disponibles');
+        cbVendidas.disabled = (selected !== 'vendidas');
+        cbVendidas.checked  = (selected === 'vendidas');
+    };
+
 }());
 </script>
 }

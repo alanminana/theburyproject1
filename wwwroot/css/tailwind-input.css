@@ -17,7 +17,20 @@
 @layer utilities {
     /* Grid utilities not auto-detected by Tailwind scanner */
     .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+
+    /* sm: (640px) — clases usadas en vistas pero no generadas por el scanner */
+    @media (min-width: 640px) {
+        .sm\:px-5       { padding-inline: calc(var(--spacing) * 5); }
+        .sm\:text-2xl   { font-size: var(--text-2xl); line-height: var(--tw-leading, var(--text-2xl--line-height)); }
+        .sm\:flex-row   { flex-direction: row; }
+        .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    /* md: (768px) */
     @media (min-width: 768px) {
+        .md\:hidden      { display: none; }
+        .md\:block       { display: block; }
         .md\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
         .md\:col-span-1  { grid-column: span 1 / span 1; }
         .md\:col-span-2  { grid-column: span 2 / span 2; }
@@ -31,6 +44,16 @@
         .md\:col-span-10 { grid-column: span 10 / span 10; }
         .md\:col-span-11 { grid-column: span 11 / span 11; }
         .md\:col-span-12 { grid-column: span 12 / span 12; }
+    }
+
+    /* lg: (1024px) */
+    @media (min-width: 1024px) {
+        .lg\:flex-row        { flex-direction: row; }
+        .lg\:items-start     { align-items: flex-start; }
+        .lg\:justify-between { justify-content: space-between; }
+        .lg\:grid-cols-2     { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .lg\:grid-cols-4     { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .lg\:grid-cols-6     { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
 }
 
