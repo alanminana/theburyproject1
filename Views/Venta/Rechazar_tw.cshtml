@@ -131,13 +131,12 @@
                         Motivo <span class="text-rose-500">*</span>
                     </label>
                     <textarea id="motivo" name="motivo" rows="4" required maxlength="500"
-                              class="venta-input py-2.5"
+                              class="venta-input"
                               placeholder="Describí el motivo del rechazo…"></textarea>
                 </div>
 
-                <button type="submit"
-                        class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-lg shadow-rose-600/20 transition-colors hover:bg-rose-700">
-                    <span class="material-symbols-outlined text-lg">thumb_down</span>
+                <button type="submit" class="btn-erp-danger">
+                    <span class="material-symbols-outlined">thumb_down</span>
                     Confirmar rechazo
                 </button>
 
@@ -150,6 +149,10 @@
 
     </section>
 </div>
+
+@section Styles {
+    <partial name="_VentaModuleStyles" />
+}
 
 @section Scripts {
     <script src="~/js/shared-ui.js" asp-append-version="true"></script>

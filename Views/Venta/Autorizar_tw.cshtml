@@ -131,13 +131,12 @@
                         Motivo / referencia <span class="text-rose-500">*</span>
                     </label>
                     <textarea id="motivo" name="motivo" rows="4" required maxlength="500"
-                              class="venta-input py-2.5"
+                              class="venta-input"
                               placeholder="Ingresá el motivo o número de referencia de la aprobación…"></textarea>
                 </div>
 
-                <button type="submit"
-                        class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-700">
-                    <span class="material-symbols-outlined text-lg">thumb_up</span>
+                <button type="submit" class="btn-erp-success">
+                    <span class="material-symbols-outlined">thumb_up</span>
                     Confirmar autorización
                 </button>
 
@@ -150,6 +149,10 @@
 
     </section>
 </div>
+
+@section Styles {
+    <partial name="_VentaModuleStyles" />
+}
 
 @section Scripts {
     <script src="~/js/shared-ui.js" asp-append-version="true"></script>
