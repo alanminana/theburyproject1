@@ -22,6 +22,10 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<(List<DocumentoClienteViewModel> Documentos, int Total)> BuscarAsync(DocumentoClienteFilterViewModel filtro);
         /// <summary>
+        /// Busca y agrupa documentos por cliente con paginación por cliente (vista general sin ClienteId)
+        /// </summary>
+        Task<(List<DocumentoClienteClienteResumenViewModel> Grupos, int TotalClientes)> BuscarAgrupadoPorClienteAsync(DocumentoClienteFilterViewModel filtro);
+        /// <summary>
         /// Verifica todos los documentos pendientes de un cliente
         /// </summary>
         Task<int> VerificarTodosAsync(int clienteId, string verificadoPor, string? observaciones = null);
