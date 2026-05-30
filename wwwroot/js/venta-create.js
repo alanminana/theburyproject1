@@ -1059,13 +1059,17 @@
     // ── 2. Product Search ─────────────────────────────────────────────
     function renderStockInfo(p) {
         if (p.unidadesEnStock <= 0) return `Stock: ${p.stockActual}`;
-        const advertencia = p.stockSinIdentificar < 0
+        const advertenciaConc = p.stockSinIdentificar < 0
             ? ' <span class="inline-block rounded px-1 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-500">Revisar conciliación</span>'
             : '';
         if (p.requiereNumeroSerie) {
-            return `Stock total: ${p.stockActual} · Unidades seleccionables: ${p.unidadesEnStock}${advertencia}`;
+            return `Stock total: ${p.stockActual} · Unidades seleccionables: ${p.unidadesEnStock}${advertenciaConc}`;
         }
-        return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · Sin identificar: ${p.stockSinIdentificar}${advertencia}`;
+        if (p.stockSinIdentificar < 0) {
+            const diff = Math.abs(p.stockSinIdentificar);
+            return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · <span class="inline-block rounded px-1 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-500">Revisar conciliación · Físicas > stock lógico por ${diff}</span>`;
+        }
+        return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · Sin identificar: ${p.stockSinIdentificar}`;
     }
 
     inputBuscarProducto?.addEventListener('input', debounce(async function () {
