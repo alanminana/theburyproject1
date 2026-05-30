@@ -95,7 +95,6 @@
                     <input type="hidden" name="Items[${index}].ProductoCodigo" value="${escapeHtml(item.productoCodigo || '')}" />
                     <input type="hidden" name="Items[${index}].CantidadDisponible" value="${item.cantidadDisponible}" />
                     <input type="hidden" name="Items[${index}].PrecioUnitario" value="${item.precioUnitario}" />
-                    <input type="hidden" name="Items[${index}].Seleccionado" value="false" />
                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                         <input type="checkbox"
                                class="devolucion-item-check size-4 rounded border-slate-300 text-primary focus:ring-primary"
@@ -103,6 +102,7 @@
                                value="true" />
                         Incluir
                     </label>
+                    <input type="hidden" name="Items[${index}].Seleccionado" value="false" />
                 </td>
                 <td class="px-4 py-3">
                     <p class="font-bold text-slate-900 dark:text-white">${escapeHtml(item.productoNombre)}</p>
