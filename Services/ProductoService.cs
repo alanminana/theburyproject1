@@ -874,6 +874,9 @@ namespace TheBuryProject.Services
             var precioVigente = await _precioVigenteResolver.ResolverAsync(producto.Id);
             var precioVenta = precioVigente?.PrecioFinalConIva ?? producto.PrecioVenta;
 
+            var unidadesEnStock = await _context.ProductoUnidades
+                .CountAsync(u => u.ProductoId == producto.Id && u.Estado == EstadoUnidad.EnStock && !u.IsDeleted);
+
             return new ProductoPrecioVentaResultado
             {
                 ProductoId = producto.Id,
@@ -882,7 +885,10 @@ namespace TheBuryProject.Services
                 ListaId = precioVigente?.ListaId,
                 Codigo = producto.Codigo,
                 Nombre = producto.Nombre,
-                StockActual = producto.StockActual
+                StockActual = producto.StockActual,
+                RequiereNumeroSerie = producto.RequiereNumeroSerie,
+                UnidadesEnStock = unidadesEnStock,
+                StockNoTrazado = producto.StockActual - unidadesEnStock
             };
         }
 

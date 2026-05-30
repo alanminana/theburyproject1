@@ -375,13 +375,30 @@
                                 <input id="txt-cantidad" type="number" min="1" value="1" class="venta-input" />
                                 <p id="stock-error" class="hidden text-[9px] text-red-500 font-bold mt-1"></p>
                             </div>
+                            @* Panel de origen de stock — visible solo en productos flexibles con unidades físicas *@
+                            <div id="panel-origen-stock" class="hidden col-span-2 md:col-span-5">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Origen del stock</label>
+                                <div class="flex flex-wrap gap-3">
+                                    <label class="flex items-center gap-2 cursor-pointer rounded-lg border border-slate-600 bg-slate-700/50 px-3 py-2 hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                                        <input type="radio" id="radio-origen-no-trazado" name="origen-stock-radio" value="noTrazado" class="accent-primary" />
+                                        <span class="text-xs text-slate-300">Stock no trazado</span>
+                                        <span id="badge-stock-no-trazado" class="text-[10px] font-bold text-slate-400"></span>
+                                    </label>
+                                    <label id="label-origen-unidad" class="flex items-center gap-2 cursor-pointer rounded-lg border border-slate-600 bg-slate-700/50 px-3 py-2 hover:border-amber-500/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10">
+                                        <input type="radio" id="radio-origen-unidad" name="origen-stock-radio" value="unidadFisica" class="accent-amber-500" />
+                                        <span class="text-xs text-slate-300">Unidad física registrada</span>
+                                        <span id="badge-unidades-en-stock" class="text-[10px] font-bold text-amber-500"></span>
+                                    </label>
+                                </div>
+                                <p id="origen-stock-error" class="hidden mt-1 text-[11px] font-bold text-red-500"></p>
+                            </div>
                             <div id="panel-selector-unidad" class="hidden col-span-2 md:col-span-5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
                                 <label class="block text-[10px] font-bold text-amber-500 uppercase mb-1">Unidad física</label>
                                 <select id="select-producto-unidad" class="venta-input" aria-describedby="producto-unidad-ayuda producto-unidad-error">
                                     <option value="">Seleccione una unidad disponible...</option>
                                 </select>
                                 <p id="producto-unidad-ayuda" class="mt-2 text-[11px] font-semibold text-amber-500">
-                                    Producto con trazabilidad individual: debe seleccionar una unidad física.
+                                    Seleccioná una unidad física para vincularla a esta venta.
                                 </p>
                                 <p id="producto-unidad-error" class="hidden mt-1 text-[11px] font-bold text-red-500"></p>
                                 <div id="aviso-sin-unidades" class="hidden mt-2 rounded border border-amber-600/30 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-300">
