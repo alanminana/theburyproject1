@@ -1,267 +1,746 @@
 @model IEnumerable<TheBuryProject.ViewModels.MovimientoStockViewModel>
 @using TheBuryProject.Models.Enums
+
 @{
     var producto = ViewBag.Producto as TheBuryProject.Models.Entities.Producto;
     ViewData["Title"] = producto != null ? $"Kardex — {producto.Nombre}" : "Kardex de Movimientos";
-    var movimientos = Model?.ToList() ?? new List<TheBuryProject.ViewModels.MovimientoStockViewModel>();
-    var entradas = movimientos.Where(m => m.Tipo == TipoMovimiento.Entrada).Sum(m => m.Cantidad);
-    var salidas  = movimientos.Where(m => m.Tipo == TipoMovimiento.Salida).Sum(m => Math.Abs(m.Cantidad));
-    var ajustes  = movimientos.Count(m => m.Tipo == TipoMovimiento.Ajuste);
+    var movs = Model?.ToList() ?? new List<TheBuryProject.ViewModels.MovimientoStockViewModel>();
+    var movsDesc = movs.OrderByDescending(x => x.Fecha).ToList();
 
-    string TipoBadgeCls(TipoMovimiento t) => t switch
-    {
-        TipoMovimiento.Entrada => "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-        TipoMovimiento.Salida  => "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-        TipoMovimiento.Ajuste  => "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-        _ => "bg-slate-500/10 text-slate-400 border border-slate-700"
+    // KPIs
+    var totalEntradas = movs.Where(m => m.Tipo == TipoMovimiento.Entrada).Sum(m => m.Cantidad);
+    var totalSalidas  = movs.Where(m => m.Tipo == TipoMovimiento.Salida).Sum(m => Math.Abs(m.Cantidad));
+    var ultimoMov     = movsDesc.FirstOrDefault();
+    var ultimoCostoU  = ultimoMov?.CostoUnitarioAlMomento ?? 0m;
+    var stockActual   = producto?.StockActual ?? 0m;
+    var valorizSaldo  = stockActual * ultimoCostoU;
+
+    // Chip helpers
+    string ChipCls(TipoMovimiento t) => t switch {
+        TipoMovimiento.Entrada => "kdx-chip kdx-chip-entrada",
+        TipoMovimiento.Salida  => "kdx-chip kdx-chip-salida",
+        TipoMovimiento.Ajuste  => "kdx-chip kdx-chip-ajuste",
+        _                      => "kdx-chip kdx-chip-slate"
     };
-
-    string SignoColor(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
-    {
-        TipoMovimiento.Entrada => "text-emerald-400 font-bold",
-        TipoMovimiento.Salida  => "text-rose-400 font-bold",
-        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "text-emerald-400 font-bold"
-                                : stockNuevo < stockAnterior ? "text-rose-400 font-bold"
-                                : "text-slate-400 font-bold",
-        _                      => "text-slate-400 font-bold"
+    string ChipLbl(TipoMovimiento t) => t switch {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida  => "Salida",
+        TipoMovimiento.Ajuste  => "Ajuste",
+        _                      => t.ToString()
     };
-
-    string Signo(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
-    {
-        TipoMovimiento.Entrada => "+",
-        TipoMovimiento.Salida  => "-",
-        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "+"
-                                : stockNuevo < stockAnterior ? "-"
-                                : "",
+    string FuenteLbl(string? f) => f switch {
+        "VentaDetalleSnapshot" => "Venta",
+        "OrdenCompraDetalle"   => "OC",
+        "ProductoActual"       => "Costo actual",
+        "AjusteManual"         => "Ajuste manual",
+        "Legacy"               => "Histórico",
         _                      => ""
     };
+
+    bool EsEntrada(TipoMovimiento t, decimal ant, decimal nvo) =>
+        t == TipoMovimiento.Entrada || (t == TipoMovimiento.Ajuste && nvo > ant);
+    bool EsSalida(TipoMovimiento t, decimal ant, decimal nvo) =>
+        t == TipoMovimiento.Salida || (t == TipoMovimiento.Ajuste && nvo < ant);
+
+    // Totales footer
+    decimal footEnt = 0, footSal = 0;
+    foreach (var m in movsDesc) {
+        if (EsEntrada(m.Tipo, m.StockAnterior, m.StockNuevo)) footEnt += Math.Abs(m.Cantidad);
+        else if (EsSalida(m.Tipo, m.StockAnterior, m.StockNuevo)) footSal += Math.Abs(m.Cantidad);
+    }
+    var ultimoStock = movsDesc.FirstOrDefault()?.StockNuevo ?? 0m;
+    var ultimoValor = ultimoStock * ultimoCostoU;
+
+    // SVG chart — evolución del saldo
+    var movsAsc = movs.OrderBy(m => m.Fecha).ToList();
+    var chartPts = new List<(double x, double y, decimal stock)>();
+    if (movsAsc.Any())
+    {
+        double maxS = (double)movsAsc.Max(m => m.StockNuevo);
+        double minS = (double)movsAsc.Min(m => m.StockNuevo);
+        double rng = maxS - minS;
+        if (rng < 1) { rng = Math.Max(maxS * 0.2, 2); minS = Math.Max(0, maxS - rng); }
+        double lo = Math.Max(0, minS - rng * 0.15);
+        double hi = maxS + rng * 0.15;
+        double span = hi - lo < 0.001 ? 1 : hi - lo;
+        for (int i = 0; i < movsAsc.Count; i++)
+        {
+            double x = movsAsc.Count == 1 ? 160.0 : i / (double)(movsAsc.Count - 1) * 320.0;
+            double norm = ((double)movsAsc[i].StockNuevo - lo) / span;
+            double y = 10 + (1 - norm) * 120;
+            chartPts.Add((x, y, movsAsc[i].StockNuevo));
+        }
+    }
+    var polyStr  = string.Join(" ", chartPts.Select(p => $"{p.x:F0},{p.y:F0}"));
+    var areaSb   = new System.Text.StringBuilder();
+    if (chartPts.Any()) {
+        areaSb.Append($"M{chartPts[0].x:F0},{chartPts[0].y:F0}");
+        for (int i = 1; i < chartPts.Count; i++) areaSb.Append($" L{chartPts[i].x:F0},{chartPts[i].y:F0}");
+        areaSb.Append($" L{chartPts[^1].x:F0},140 L{chartPts[0].x:F0},140 Z");
+    }
+    var chartMinStk = chartPts.Any() ? chartPts.Min(p => p.stock) : 0;
+    var chartMaxStk = chartPts.Any() ? chartPts.Max(p => p.stock) : 0;
+    var chartLastX  = chartPts.Any() ? chartPts[^1].x.ToString("F0") : "320";
+    var chartLastY  = chartPts.Any() ? chartPts[^1].y.ToString("F0") : "70";
 
     string FormatMoney(decimal v) =>
         v.ToString("C", new System.Globalization.CultureInfo("es-AR"));
 }
 
-@section Styles {
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+<style>
+/* kdx = kardex: namespaced design system — paridad visual con standalone */
+.kdx-page .kdx-card {
+  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
+}
+.kdx-page .kdx-card-header {
+  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
+}
+.kdx-page .kdx-card-sub {
+  background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px;
 }
 
-<div class="space-y-6">
+/* KPI grid: 2 cols mobile → 5 cols desktop */
+.kdx-page .kdx-kpi-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+}
+@@media (min-width: 1024px) {
+  .kdx-page .kdx-kpi-grid { grid-template-columns: repeat(5, 1fr); }
+}
+@@media (max-width: 1023px) {
+  .kdx-page .kdx-kpi-grid > *:last-child { grid-column: span 2; }
+}
 
+/* Filtros + chart split: stacked → 1fr 360px */
+.kdx-page .kdx-split-grid {
+  display: grid; grid-template-columns: 1fr; gap: 1.25rem;
+}
+@@media (min-width: 1280px) {
+  .kdx-page .kdx-split-grid { grid-template-columns: 1fr 360px; }
+}
+
+/* Chips */
+.kdx-page .kdx-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .22rem .55rem; border-radius: 999px;
+  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
+}
+.kdx-page .kdx-chip-entrada { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+.kdx-page .kdx-chip-salida  { background: rgba(59,130,246,.10);  color: #60a5fa; border-color: rgba(59,130,246,.28); }
+.kdx-page .kdx-chip-ajuste  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.28); }
+.kdx-page .kdx-chip-slate   { background: rgba(148,163,184,.10); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
+
+/* Fields */
+.kdx-page .kdx-field {
+  background: #0f172a; border: 1px solid #243044; color: #e2e8f0;
+  border-radius: 8px; padding: .5rem .75rem; width: 100%; font-size: .85rem; outline: none;
+}
+.kdx-page .kdx-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+.kdx-page .kdx-field::placeholder { color: #475569; }
+.kdx-page .kdx-label { display: block; font-size: .75rem; font-weight: 500; color: #94a3b8; margin-bottom: .3rem; }
+
+/* Buttons */
+.kdx-page .kdx-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
+  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
+  text-decoration: none; white-space: nowrap;
+}
+.kdx-page .kdx-btn:disabled { opacity: .5; cursor: not-allowed; }
+.kdx-page .kdx-btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+.kdx-page .kdx-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
+.kdx-page .kdx-btn-ghost:hover { background: #1e293b; color: #fff; }
+.kdx-page .kdx-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.kdx-page .kdx-btn-soft:hover { background: #273549; }
+.kdx-page .kdx-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
+.kdx-page .kdx-btn-xs { padding: .3rem .6rem; font-size: .72rem; min-height: 30px; border-radius: 7px; }
+
+/* Segmented control */
+.kdx-page .kdx-seg {
+  display: inline-flex; background: #0a1322; border: 1px solid #243044;
+  border-radius: 9px; padding: 3px; gap: 2px;
+}
+.kdx-page .kdx-seg button {
+  padding: .375rem .7rem; border-radius: 6px; font-size: .78rem;
+  font-weight: 500; color: #94a3b8; transition: all .12s; cursor: pointer;
+}
+.kdx-page .kdx-seg button[aria-pressed="true"] { background: #2563eb; color: white; }
+
+/* KPI card */
+.kdx-page .kdx-kpi {
+  background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem 1.05rem;
+}
+.kdx-page .kdx-k-ico {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* Table */
+.kdx-page .kdx-tbl {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: .85rem; min-width: 920px;
+}
+.kdx-page .kdx-tbl thead th {
+  position: sticky; top: 0; z-index: 2; background: #0d1526;
+  color: #64748b; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .04em; font-weight: 600; text-align: left;
+  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
+}
+.kdx-page .kdx-tbl thead th.num { text-align: right; }
+.kdx-page .kdx-tbl tbody td {
+  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
+}
+.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(59,130,246,.04); }
+.kdx-page .kdx-tbl tfoot td {
+  padding: .7rem .75rem; border-top: 2px solid #1e2a3d;
+  background: #0d1526; font-weight: 600;
+}
+.kdx-page .kdx-tbl .num {
+  text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.kdx-page .kdx-tbl .col-in  { color: #34d399; }
+.kdx-page .kdx-tbl .col-out { color: #f87171; }
+
+/* Row hidden (JS filter) */
+.kdx-row-hidden { display: none !important; }
+
+/* Modal */
+@@keyframes kdxFadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.kdx-modal-card { animation: kdxFadeIn .18s ease; }
+
+/* Print */
+@@media print {
+  .kdx-no-print { display: none !important; }
+}
+</style>
+
+<div class="kdx-page space-y-5">
+
+    @* SUCCESS / ERROR BANNERS *@
     @if (TempData["Success"] != null)
     {
-        <div role="status" class="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400">
-            <span class="material-symbols-outlined">check_circle</span>@TempData["Success"]
+        <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
+            <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-emerald-600/20">
+                <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
+            </button>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div role="alert" class="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-400">
-            <span class="material-symbols-outlined">error</span>@TempData["Error"]
+        <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
+            <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-red-600/20">
+                <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
+            </button>
         </div>
     }
 
-    <!-- Header -->
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div class="flex items-start gap-3">
-            <a asp-controller="Catalogo" asp-action="Index"
-               class="mt-1 text-slate-400 hover:text-slate-200 transition-colors"
-               title="Volver al catálogo">
-                <span class="material-symbols-outlined">arrow_back</span>
-            </a>
-            <div>
-                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">receipt_long</span>
-                    Kardex de movimientos
-                </h1>
+    @* PRODUCT HEADER *@
+    <header class="kdx-card-header px-4 sm:px-5 py-5">
+        @* Breadcrumb *@
+        <nav aria-label="Miga de pan" class="text-xs text-slate-500 flex items-center gap-1.5">
+            <a asp-controller="Catalogo" asp-action="Index" class="hover:text-slate-300 transition-colors">Inventario</a>
+            <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+            @if (producto != null)
+            {
+                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                   class="hover:text-slate-300 transition-colors">@producto.Nombre</a>
+                <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+            }
+            <span class="text-slate-300">Kardex</span>
+        </nav>
+
+        <div class="mt-2 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div class="min-w-0">
                 @if (producto != null)
                 {
-                    <p class="text-slate-400 text-sm mt-0.5">
-                        <span class="font-semibold text-slate-300">@producto.Nombre</span>
-                        <span class="mx-2 text-slate-600">·</span>
-                        <span class="font-mono text-xs tracking-wider text-slate-400">@producto.Codigo</span>
-                    </p>
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                       class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+                        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+                        Volver a unidades del producto
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="Catalogo" asp-action="Index"
+                       class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+                        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+                        Volver al catálogo
+                    </a>
+                }
+
+                <div class="mt-2 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-blue-400">receipt_long</span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h1 class="text-xl sm:text-2xl font-semibold text-white">Kardex de inventario</h1>
+                            @if (producto != null)
+                            {
+                                <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">@producto.Codigo</span>
+                            }
+                        </div>
+                        @if (producto != null)
+                        {
+                            <p class="text-sm text-slate-400 mt-0.5">@producto.Nombre &middot; Libro de movimientos de stock</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 shrink-0 kdx-no-print">
+                @if (producto != null)
+                {
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@producto.Id"
+                       class="kdx-btn kdx-btn-soft kdx-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:18px">inventory_2</span>
+                        Ver unidades físicas
+                    </a>
+                }
+                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" onclick="window.print()">
+                    <span class="material-symbols-outlined" style="font-size:18px">print</span>
+                    Imprimir
+                </button>
+                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" onclick="kdxOpenModal('kdx-m-export')">
+                    <span class="material-symbols-outlined" style="font-size:18px">download</span>
+                    Exportar
+                </button>
+                @if (producto != null)
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
+                       class="kdx-btn kdx-btn-primary kdx-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                        Registrar ajuste
+                    </a>
                 }
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a asp-controller="MovimientoStock" asp-action="Index"
-               class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:border-slate-500 transition-colors">
-                <span class="material-symbols-outlined text-base">list</span>
-                Volver a movimientos
-            </a>
-            @if (producto != null)
-            {
-                <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
-                   class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-                    <span class="material-symbols-outlined text-base">add</span>
-                    Registrar ajuste
-                </a>
-            }
-        </div>
-    </div>
+    </header>
 
-    <!-- Banner: producto eliminado (soft delete) — solo visible si el controller setea ViewBag.ProductoEliminado -->
+    @* BANNERS: estado del producto *@
     @if (ViewBag.ProductoEliminado == true)
     {
-        <div class="flex items-start gap-3 rounded-xl border border-slate-500/30 bg-slate-500/10 px-5 py-3">
-            <span class="material-symbols-outlined text-slate-400 mt-0.5 shrink-0">archive</span>
-            <p class="text-sm text-slate-400">
-                Producto eliminado — se muestra el historial de movimientos en modo solo lectura.
-            </p>
+        <div class="rounded-lg border border-slate-500/30 bg-slate-500/10 px-4 py-3 flex gap-3">
+            <span class="material-symbols-outlined text-slate-400 shrink-0" style="font-size:20px">archive</span>
+            <p class="text-sm text-slate-400">Producto eliminado — historial de movimientos en modo solo lectura.</p>
         </div>
     }
     else if (producto != null && !producto.Activo)
     {
-        <div class="flex items-start gap-3 rounded-xl border border-slate-500/30 bg-slate-500/10 px-5 py-3">
-            <span class="material-symbols-outlined text-slate-400 mt-0.5 shrink-0">visibility_off</span>
-            <p class="text-sm text-slate-400">
-                Producto inactivo — historial disponible en modo solo lectura.
-            </p>
+        <div class="rounded-lg border border-slate-500/30 bg-slate-500/10 px-4 py-3 flex gap-3">
+            <span class="material-symbols-outlined text-slate-400 shrink-0" style="font-size:20px">visibility_off</span>
+            <p class="text-sm text-slate-400">Producto inactivo — historial disponible en modo solo lectura.</p>
         </div>
     }
 
-    <!-- Banner: historial por SKU -->
-    <div class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-3">
-        <span class="material-symbols-outlined text-amber-400 mt-0.5 shrink-0">info</span>
-        <p class="text-sm text-amber-300/80">
-            Este historial muestra movimientos por SKU/producto. No identifica unidades físicas individuales ni trazabilidad serial.
-        </p>
+    @* BANNER: historial por SKU *@
+    <div class="rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 flex gap-3">
+        <span class="material-symbols-outlined text-blue-400 shrink-0" style="font-size:20px">info</span>
+        <p class="text-sm text-blue-100/90">Este historial muestra movimientos por SKU/producto. No identifica unidades físicas individuales ni trazabilidad serial.</p>
     </div>
 
-    <!-- Stats -->
-    @if (producto != null)
-    {
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Stock actual</p>
-                <p class="text-2xl font-bold text-white">@producto.StockActual.ToString("N0") <span class="text-sm font-normal text-slate-400">uds</span></p>
+    @* KPIs *@
+    <section class="kdx-kpi-grid" aria-label="Resumen de stock">
+        <div class="kdx-kpi">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Saldo actual</span>
+                <span class="kdx-k-ico" style="background:rgba(59,130,246,.12);color:#60a5fa;">
+                    <span class="material-symbols-outlined" style="font-size:18px">inventory</span>
+                </span>
             </div>
-            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Entradas</p>
-                <p class="text-2xl font-bold text-emerald-400">@entradas.ToString("N0")</p>
+            <div class="mt-1.5 text-2xl font-semibold text-white font-mono">@stockActual.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
+            <div class="text-xs text-slate-500 mt-0.5">Stock del producto</div>
+        </div>
+        <div class="kdx-kpi">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Entradas</span>
+                <span class="kdx-k-ico" style="background:rgba(16,185,129,.12);color:#34d399;">
+                    <span class="material-symbols-outlined" style="font-size:18px">south_west</span>
+                </span>
             </div>
-            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Salidas</p>
-                <p class="text-2xl font-bold text-rose-400">@salidas.ToString("N0")</p>
+            <div class="mt-1.5 text-2xl font-semibold text-emerald-400 font-mono">+@totalEntradas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
+            <div class="text-xs text-slate-500 mt-0.5">Total período visible</div>
+        </div>
+        <div class="kdx-kpi">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Salidas</span>
+                <span class="kdx-k-ico" style="background:rgba(239,68,68,.12);color:#f87171;">
+                    <span class="material-symbols-outlined" style="font-size:18px">north_east</span>
+                </span>
             </div>
-            <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-                <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Ajustes</p>
-                <p class="text-2xl font-bold text-amber-400">@ajustes</p>
+            <div class="mt-1.5 text-2xl font-semibold text-red-400 font-mono">&minus;@totalSalidas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
+            <div class="text-xs text-slate-500 mt-0.5">Total período visible</div>
+        </div>
+        <div class="kdx-kpi">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Valorización saldo</span>
+                <span class="kdx-k-ico" style="background:rgba(168,85,247,.12);color:#c084fc;">
+                    <span class="material-symbols-outlined" style="font-size:18px">payments</span>
+                </span>
+            </div>
+            <div class="mt-1.5 text-xl font-semibold text-white font-mono">@FormatMoney(valorizSaldo)</div>
+            <div class="text-xs text-slate-500 mt-0.5">Stock × último costo</div>
+        </div>
+        <div class="kdx-kpi">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Costo promedio</span>
+                <span class="kdx-k-ico" style="background:rgba(6,182,212,.12);color:#67e8f9;">
+                    <span class="material-symbols-outlined" style="font-size:18px">sell</span>
+                </span>
+            </div>
+            <div class="mt-1.5 text-xl font-semibold text-white font-mono">@FormatMoney(ultimoCostoU)</div>
+            <div class="text-xs text-slate-500 mt-0.5">Por unidad (último registrado)</div>
+        </div>
+    </section>
+
+    @* FILTROS + GRÁFICO *@
+    <section class="kdx-split-grid kdx-no-print">
+        @* Filtros client-side *@
+        <div class="kdx-card p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-400" style="font-size:18px">filter_alt</span> Filtros
+                </h2>
+                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" onclick="kdxClearFilters()">
+                    <span class="material-symbols-outlined" style="font-size:14px">backspace</span> Limpiar
+                </button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="kdx-label" for="kdx-f-desde">Desde</label>
+                    <input id="kdx-f-desde" type="date" class="kdx-field" oninput="kdxApplyFilters()" />
+                </div>
+                <div>
+                    <label class="kdx-label" for="kdx-f-hasta">Hasta</label>
+                    <input id="kdx-f-hasta" type="date" class="kdx-field" oninput="kdxApplyFilters()" />
+                </div>
+                <div>
+                    <label class="kdx-label" for="kdx-f-tipo">Tipo</label>
+                    <select id="kdx-f-tipo" class="kdx-field" onchange="kdxApplyFilters()">
+                        <option value="">Todos</option>
+                        <option value="Entrada">Entradas</option>
+                        <option value="Salida">Salidas</option>
+                        <option value="Ajuste">Ajustes</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="kdx-label" for="kdx-f-busca">Referencia / Motivo</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:16px">search</span>
+                        <input id="kdx-f-busca" type="search" class="kdx-field" style="padding-left:2.25rem"
+                               placeholder="FAC-0001, ajuste…" oninput="kdxApplyFilters()" />
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between flex-wrap gap-2">
+                <span id="kdx-filter-info" class="text-xs text-slate-500"></span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Valorización:</span>
+                    <div class="kdx-seg" id="kdx-seg-val">
+                        <button type="button" aria-pressed="true" onclick="kdxSetVal(this)">Promedio pond.</button>
+                        <button type="button" aria-pressed="false" onclick="kdxSetVal(this)">PEPS (FIFO)</button>
+                    </div>
+                </div>
             </div>
         </div>
-    }
 
-    <!-- Tabla -->
-    <div data-oc-scroll style="--oc-scroll-min-width: 1100px;" class="table-erp-wrapper rounded-xl border border-slate-800 bg-slate-900/50">
-        <div class="border-b border-slate-800 px-5 py-4 flex items-center justify-between gap-4">
-            <div>
-                <h2 class="text-base font-bold text-white">Historial de movimientos</h2>
-                <p class="text-sm text-slate-400">@movimientos.Count movimiento@(movimientos.Count != 1 ? "s" : "") registrado@(movimientos.Count != 1 ? "s" : "")</p>
+        @* Gráfico evolución saldo *@
+        <div class="kdx-card p-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-400" style="font-size:18px">show_chart</span>
+                    Evolución del saldo
+                </h2>
+                <span class="kdx-chip kdx-chip-slate font-mono">@movs.Count mov.</span>
             </div>
+            @if (chartPts.Any())
+            {
+                <svg viewBox="0 0 320 140" class="w-full mt-3" preserveAspectRatio="none" style="height:140px" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="kdx-area-g" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35" />
+                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <line x1="0" y1="20" x2="320" y2="20" stroke="#1e2a3d" stroke-width="1" />
+                    <line x1="0" y1="60" x2="320" y2="60" stroke="#1e2a3d" stroke-width="1" />
+                    <line x1="0" y1="100" x2="320" y2="100" stroke="#1e2a3d" stroke-width="1" />
+                    <path d="@areaSb.ToString()" fill="url(#kdx-area-g)" />
+                    <polyline points="@polyStr" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+                    <circle cx="@chartLastX" cy="@chartLastY" r="4" fill="#60a5fa" stroke="#0b1220" stroke-width="2" />
+                </svg>
+                <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
+                    <span>Mín <span class="font-mono text-slate-300">@chartMinStk.ToString("G29")</span></span>
+                    <span>Máx <span class="font-mono text-slate-300">@chartMaxStk.ToString("G29")</span></span>
+                    <span>Actual <span class="font-mono text-blue-300">@stockActual.ToString("G29")</span></span>
+                </div>
+            }
+            else
+            {
+                <div class="flex items-center justify-center mt-3" style="height:140px">
+                    <p class="text-sm text-slate-500">Sin datos para graficar</p>
+                </div>
+            }
+        </div>
+    </section>
+
+    @* TABLA DE MOVIMIENTOS *@
+    <section class="kdx-card overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-400" style="font-size:18px">format_list_numbered</span>
+                Movimientos
+            </h2>
+            <span class="text-xs text-slate-500">
+                <span id="kdx-vis-count">@movsDesc.Count</span> movimiento@(movsDesc.Count != 1 ? "s" : "")
+                @if (movsDesc.Any())
+                {
+                    <span> · saldo final <span class="font-mono text-slate-200">@ultimoStock.ToString("G29") u</span></span>
+                }
+            </span>
         </div>
 
-        @if (!movimientos.Any())
+        @if (!movsDesc.Any())
         {
-            <div class="flex flex-col items-center gap-3 py-20 text-center opacity-50">
-                <span class="material-symbols-outlined text-5xl text-slate-500">swap_vert</span>
-                <p class="text-slate-400 font-semibold">Sin movimientos registrados para este producto</p>
+            <div class="flex flex-col items-center gap-3 py-20 text-center">
+                <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-slate-500" style="font-size:32px">swap_vert</span>
+                </div>
+                <div>
+                    <p class="text-white font-semibold">Sin movimientos registrados</p>
+                    <p class="text-sm text-slate-400 mt-1">No hay movimientos de stock para este producto.</p>
+                </div>
+                @if (producto != null)
+                {
+                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
+                       class="kdx-btn kdx-btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                        Registrar primer ajuste
+                    </a>
+                }
             </div>
         }
         else
         {
-            <div data-oc-scroll-shell class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
-                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Kardex de movimientos del producto">
-            <table data-oc-scroll-table class="min-w-[1100px] w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-800 bg-slate-800/30">
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Fecha / Hora</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Tipo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Cantidad</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo unitario</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo total</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Motivo</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Referencia</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Stock resultante después del movimiento">Saldo post.</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Usuario</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800">
-                    @foreach (var m in movimientos.OrderByDescending(x => x.Fecha))
-                    {
-                        <tr class="hover:bg-slate-800/20 transition-colors">
-                            <td class="px-4 py-3">
-                                <div class="flex flex-col">
-                                    <span class="text-sm font-medium text-slate-200">@m.Fecha.ToString("dd MMM yyyy")</span>
-                                    <span class="text-xs text-slate-400">@m.Fecha.ToString("HH:mm:ss")</span>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold @TipoBadgeCls(m.Tipo)">
-                                    @m.Tipo.ToString()
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm @SignoColor(m.Tipo, m.StockAnterior, m.StockNuevo)">@Signo(m.Tipo, m.StockAnterior, m.StockNuevo)@Math.Abs(m.Cantidad).ToString("N0")</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm font-semibold text-slate-200">@FormatMoney(m.CostoTotalAlMomento)</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">
-                                    @{
-                                        var fuenteLabel = m.FuenteCosto switch
-                                        {
-                                            "VentaDetalleSnapshot" => "Venta",
-                                            "OrdenCompraDetalle"   => "Orden de compra",
-                                            "ProductoActual"       => "Costo actual",
-                                            "AjusteManual"         => "Ajuste manual",
-                                            "Legacy"               => "Histórico migrado",
-                                            _                      => "No informado"
-                                        };
-                                    }
-                                    @fuenteLabel
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 max-w-[180px]">
-                                @if (string.IsNullOrWhiteSpace(m.Motivo))
-                                {
-                                    <span class="text-sm italic text-slate-400">Sin motivo registrado</span>
-                                }
-                                else
-                                {
-                                    <span class="text-sm text-slate-300 block truncate" title="@m.Motivo">@m.Motivo</span>
-                                }
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm text-slate-400">@(m.Referencia ?? "—")</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm font-bold text-slate-200">@m.StockNuevo.ToString("N0") uds</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-sm text-slate-400">@(m.CreatedBy ?? "—")</span>
-                            </td>
+            <div class="overflow-x-auto" style="max-height:560px;overflow-y:auto;">
+                <table class="kdx-tbl" id="kdx-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Comprobante</th>
+                            <th>Detalle / Motivo</th>
+                            <th>Usuario</th>
+                            <th class="num">Entrada</th>
+                            <th class="num">Salida</th>
+                            <th class="num">Saldo</th>
+                            <th class="num">Costo unit.</th>
+                            <th class="num">Saldo valorizado</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-                </div>
+                    </thead>
+                    <tbody id="kdx-tbody">
+                        @foreach (var m in movsDesc)
+                        {
+                            bool esEnt = EsEntrada(m.Tipo, m.StockAnterior, m.StockNuevo);
+                            bool esSal = EsSalida(m.Tipo, m.StockAnterior, m.StockNuevo);
+                            decimal saldoVal = m.StockNuevo * m.CostoUnitarioAlMomento;
+                            string fechaIso = m.Fecha.ToString("yyyy-MM-dd");
+                            string fuenteTag = FuenteLbl(m.FuenteCosto);
+
+                            <tr data-fecha="@fechaIso"
+                                data-tipo="@m.Tipo.ToString()"
+                                data-ref="@((m.Referencia ?? "").ToLower())"
+                                data-motivo="@((m.Motivo ?? "").ToLower())">
+                                <td class="font-mono text-slate-300 whitespace-nowrap">
+                                    @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")
+                                    <span class="block text-xs text-slate-500">@m.Fecha.ToLocalTime().ToString("HH:mm")</span>
+                                </td>
+                                <td><span class="@ChipCls(m.Tipo)">@ChipLbl(m.Tipo)</span></td>
+                                <td class="font-mono text-slate-400">@(m.Referencia ?? "—")</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(m.Motivo))
+                                    {
+                                        <span class="text-slate-300" style="max-width:200px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@m.Motivo">@m.Motivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-500 italic text-sm">Sin motivo</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(fuenteTag))
+                                    {
+                                        <span class="inline-flex items-center rounded-full bg-slate-800/70 px-2 py-0.5 text-xs text-slate-400 mt-0.5">@fuenteTag</span>
+                                    }
+                                </td>
+                                <td class="text-slate-400 text-sm">@(m.CreatedBy ?? "—")</td>
+                                <td class="num @(esEnt ? "col-in" : "text-slate-600")">
+                                    @(esEnt ? $"+{Math.Abs(m.Cantidad).ToString("G29")}" : "—")
+                                </td>
+                                <td class="num @(esSal ? "col-out" : "text-slate-600")">
+                                    @(esSal ? $"−{Math.Abs(m.Cantidad).ToString("G29")}" : "—")
+                                </td>
+                                <td class="num text-white">@m.StockNuevo.ToString("G29")</td>
+                                <td class="num text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</td>
+                                <td class="num text-slate-200">@FormatMoney(saldoVal)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="text-slate-400">Totales del período</td>
+                            <td class="num col-in">+@footEnt.ToString("G29")</td>
+                            <td class="num col-out">&minus;@footSal.ToString("G29")</td>
+                            <td class="num text-white">@ultimoStock.ToString("G29")</td>
+                            <td class="num text-slate-500">—</td>
+                            <td class="num text-white">@FormatMoney(ultimoValor)</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="px-4 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500 kdx-no-print">
+                <span>Mostrando <span id="kdx-showing">@movsDesc.Count</span> de @movsDesc.Count movimientos</span>
+                <a asp-controller="MovimientoStock" asp-action="Index"
+                   class="kdx-btn kdx-btn-ghost kdx-btn-xs">
+                    <span class="material-symbols-outlined" style="font-size:14px">list</span>
+                    Ver todos los movimientos
+                </a>
             </div>
         }
-    </div>
+    </section>
+
+    @* LEYENDA *@
+    <section class="kdx-card p-4 kdx-no-print">
+        <h3 class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2.5">Referencia de tipos de movimiento</h3>
+        <div class="flex flex-wrap gap-2">
+            <span class="kdx-chip kdx-chip-entrada">Entrada / Compra / Ingreso</span>
+            <span class="kdx-chip kdx-chip-salida">Salida / Venta / Egreso</span>
+            <span class="kdx-chip kdx-chip-ajuste">Ajuste +/−</span>
+        </div>
+        <p class="mt-3 text-xs text-slate-500">El saldo valorizado se calcula como StockNuevo × CostoUnitario en cada movimiento registrado.</p>
+    </section>
 
 </div>
 
+@* MODAL: EXPORTAR *@
+<div id="kdx-m-export"
+     class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+     style="backdrop-filter:blur(2px);"
+     onclick="if(event.target===this)kdxCloseModal('kdx-m-export')"
+     role="dialog" aria-modal="true" aria-labelledby="kdx-export-title">
+    <div class="kdx-modal-card kdx-card p-6 w-full max-w-md">
+        <header class="flex items-start justify-between gap-3 mb-4">
+            <div>
+                <h3 id="kdx-export-title" class="text-lg font-semibold text-white">Exportar Kardex</h3>
+                <p class="text-xs text-slate-500 mt-0.5">@movsDesc.Count movimiento@(movsDesc.Count != 1 ? "s" : "")</p>
+            </div>
+            <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" onclick="kdxCloseModal('kdx-m-export')" aria-label="Cerrar">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+        <div class="space-y-2">
+            <button type="button"
+                    class="w-full kdx-card-sub p-3 flex items-center gap-3 text-left transition-colors hover:border-blue-500/40"
+                    onclick="kdxCloseModal('kdx-m-export');window.print()">
+                <span class="w-9 h-9 rounded-lg bg-slate-700/60 border border-slate-700 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-slate-300" style="font-size:18px">print</span>
+                </span>
+                <span>
+                    <span class="block text-sm text-white font-medium">Imprimir / PDF</span>
+                    <span class="block text-xs text-slate-500">Usando el diálogo de impresión del navegador</span>
+                </span>
+            </button>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
-    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-    <script>
-        document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
-            window.TheBury?.initHorizontalScrollAffordance?.(root);
+<script>
+(function () {
+    'use strict';
+
+    // ── Modal ──────────────────────────────────────────
+    window.kdxOpenModal = function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+    };
+    window.kdxCloseModal = function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.classList.add('hidden'); document.body.style.overflow = ''; }
+    };
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var m = document.getElementById('kdx-m-export');
+        if (m && !m.classList.contains('hidden')) kdxCloseModal('kdx-m-export');
+    });
+
+    // ── Segmented valorización ──────────────────────────
+    window.kdxSetVal = function (btn) {
+        document.querySelectorAll('#kdx-seg-val button').forEach(function (b) {
+            b.setAttribute('aria-pressed', 'false');
         });
-    </script>
+        btn.setAttribute('aria-pressed', 'true');
+    };
+
+    // ── Client-side filters ─────────────────────────────
+    var _rows = null;
+    function getRows() {
+        if (!_rows) _rows = Array.from(document.querySelectorAll('#kdx-tbody tr'));
+        return _rows;
+    }
+
+    window.kdxApplyFilters = function () {
+        var desde  = (document.getElementById('kdx-f-desde')  || {}).value || '';
+        var hasta  = (document.getElementById('kdx-f-hasta')  || {}).value || '';
+        var tipo   = ((document.getElementById('kdx-f-tipo')  || {}).value || '').toLowerCase();
+        var busca  = ((document.getElementById('kdx-f-busca') || {}).value || '').toLowerCase().trim();
+
+        var rows    = getRows();
+        var visible = 0;
+
+        rows.forEach(function (row) {
+            var fecha  = row.getAttribute('data-fecha')  || '';
+            var rTipo  = (row.getAttribute('data-tipo')   || '').toLowerCase();
+            var rRef   = row.getAttribute('data-ref')    || '';
+            var rMot   = row.getAttribute('data-motivo') || '';
+
+            var ok = true;
+            if (desde && fecha < desde) ok = false;
+            if (hasta && fecha > hasta) ok = false;
+            if (tipo  && rTipo !== tipo) ok = false;
+            if (busca && !rRef.includes(busca) && !rMot.includes(busca)) ok = false;
+
+            row.classList.toggle('kdx-row-hidden', !ok);
+            if (ok) visible++;
+        });
+
+        var showEl = document.getElementById('kdx-showing');
+        if (showEl) showEl.textContent = visible;
+
+        var visEl = document.getElementById('kdx-vis-count');
+        if (visEl) visEl.textContent = visible;
+
+        var infoEl = document.getElementById('kdx-filter-info');
+        if (infoEl) {
+            infoEl.textContent = (desde || hasta || tipo || busca)
+                ? 'Mostrando ' + visible + ' de ' + rows.length
+                : '';
+        }
+    };
+
+    window.kdxClearFilters = function () {
+        ['kdx-f-desde', 'kdx-f-hasta', 'kdx-f-busca'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        var t = document.getElementById('kdx-f-tipo');
+        if (t) t.value = '';
+        kdxApplyFilters();
+    };
+
+}());
+</script>
 }

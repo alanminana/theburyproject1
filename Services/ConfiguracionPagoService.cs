@@ -330,6 +330,92 @@ namespace TheBuryProject.Services
             return MapPlanGlobalAdmin(plan);
         }
 
+        public async Task<bool> EliminarTarjetaGlobalAsync(int id)
+        {
+            var tarjeta = await _context.ConfiguracionesTarjeta
+                .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+
+            if (tarjeta == null)
+                return false;
+
+            var ahora = DateTime.UtcNow;
+
+            var planes = await _context.ConfiguracionPagoPlanes
+                .Where(p => p.ConfiguracionTarjetaId == id && !p.IsDeleted)
+                .ToListAsync();
+
+            foreach (var plan in planes)
+            {
+                plan.IsDeleted = true;
+                plan.Activo = false;
+                plan.UpdatedAt = ahora;
+            }
+
+            tarjeta.IsDeleted = true;
+            tarjeta.Activa = false;
+            tarjeta.UpdatedAt = ahora;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> EliminarMedioPagoAsync(int id)
+        {
+            var medio = await _context.ConfiguracionesPago
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+            if (medio == null)
+                return false;
+
+            var ahora = DateTime.UtcNow;
+
+            var planes = await _context.ConfiguracionPagoPlanes
+                .Where(p => p.ConfiguracionPagoId == id)
+                .ToListAsync();
+
+            foreach (var plan in planes)
+            {
+                plan.IsDeleted = true;
+                plan.Activo = false;
+                plan.UpdatedAt = ahora;
+            }
+
+            var tarjetas = await _context.ConfiguracionesTarjeta
+                .Where(t => t.ConfiguracionPagoId == id)
+                .ToListAsync();
+
+            foreach (var tarjeta in tarjetas)
+            {
+                tarjeta.IsDeleted = true;
+                tarjeta.Activa = false;
+                tarjeta.UpdatedAt = ahora;
+            }
+
+            medio.IsDeleted = true;
+            medio.Activo = false;
+            medio.UpdatedAt = ahora;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> EditarMedioPagoAsync(int id, MedioPagoGlobalEditViewModel command)
+        {
+            var medio = await _context.ConfiguracionesPago
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+            if (medio == null)
+                return false;
+
+            medio.Nombre = command.Nombre.Trim();
+            medio.Descripcion = string.IsNullOrWhiteSpace(command.Descripcion) ? null : command.Descripcion.Trim();
+            medio.Activo = command.Activo;
+            medio.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<bool> CambiarEstadoPlanGlobalAsync(int id, bool activo)
         {
             var plan = await _context.ConfiguracionPagoPlanes

@@ -1,149 +1,401 @@
 /* ========================================================
    Layout: sidebar responsive, collapsible & scrollbar
+   Ajustado para _Layout.cshtml de TheBuryProject
    ======================================================== */
 
-/* ── Skip link: accesibilidad teclado — visible al recibir foco, oculto por defecto ── */
+/* ─────────────────────────────────────────────
+   Variables
+───────────────────────────────────────────── */
+
+:root {
+    --layout-bg: #101622;
+    --layout-sidebar-bg: #0c111e;
+
+    --layout-sidebar-width: 16rem;
+    --layout-sidebar-collapsed-width: 4.5rem;
+    --layout-header-height: 4rem;
+
+    --layout-focus: #5b8dff;
+    --layout-scrollbar: #334155;
+    --layout-scrollbar-hover: #475569;
+
+    --layout-transition-fast: 150ms ease;
+    --layout-transition-base: 250ms ease;
+    --layout-transition-sidebar: 300ms ease;
+}
+
+/* ─────────────────────────────────────────────
+   Base
+───────────────────────────────────────────── */
+
+html,
+body {
+    min-height: 100%;
+}
+
+body.app-layout {
+    background-color: var(--layout-bg);
+}
+
+/* ─────────────────────────────────────────────
+   Material Symbols normalization
+───────────────────────────────────────────── */
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    vertical-align: middle;
+    flex-shrink: 0;
+    user-select: none;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'liga';
+
+    font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
+}
+
+/* Tamaños usados en tu Razor */
+
+.icon-erp {
+    width: 20px;
+    height: 20px;
+    font-size: 20px !important;
+    line-height: 20px !important;
+}
+
+.icon-erp-lg,
+.icon-size-22 {
+    width: 22px;
+    height: 22px;
+    font-size: 22px !important;
+    line-height: 22px !important;
+}
+
+/* Para íconos con text-lg de Tailwind dentro del sidebar */
+#sidebar .material-symbols-outlined.text-lg {
+    width: 20px;
+    height: 20px;
+    font-size: 20px !important;
+    line-height: 20px !important;
+}
+
+/* ─────────────────────────────────────────────
+   Skip link
+───────────────────────────────────────────── */
+
 .skip-link {
     position: absolute;
     top: -100%;
     left: 0;
     z-index: 9999;
+
     padding: 0.5rem 1rem;
-    background: #5b8dff;
+
+    background: var(--layout-focus);
     color: #fff;
+
     font-size: 0.875rem;
     font-weight: 600;
+    line-height: 1.2;
+
     border-radius: 0 0 0.5rem 0;
     text-decoration: none;
-    transition: top 0.15s ease;
+
+    transition: top var(--layout-transition-fast);
 }
-.skip-link:focus {
+
+.skip-link:focus,
+.skip-link:focus-visible {
     top: 0;
 }
 
-/* ── Sidebar labels: nowrap + clip para evitar overflow silencioso en cualquier estado ── */
+/* ─────────────────────────────────────────────
+   Sidebar base
+───────────────────────────────────────────── */
+
+#sidebar {
+    width: var(--layout-sidebar-width);
+    background-color: var(--layout-sidebar-bg);
+
+    transition:
+        width var(--layout-transition-sidebar),
+        transform var(--layout-transition-base);
+
+    will-change: width, transform;
+}
+
+/* Brand y labels */
 #sidebar .sidebar-label {
+    min-width: 0;
+    max-width: 100%;
+
     white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+
+    opacity: 1;
+
+    transition:
+        opacity var(--layout-transition-fast),
+        width var(--layout-transition-fast);
 }
 
-/* ── Auto-collapse sidebar en viewports medios (125% scaling en 1080p = ~1536px efectivos) ── */
-@media (min-width: 1024px) and (max-width: 1600px) {
-    #sidebar {
-        width: 4.5rem !important;
-    }
-    #sidebar .sidebar-label {
-        opacity: 0;
-        width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        pointer-events: none;
-    }
-    #sidebar nav a,
-    #sidebar nav > div > a {
-        justify-content: center;
-        padding-inline: 0;
-    }
-    #sidebar nav a span.material-symbols-outlined {
-        font-size: 22px;
-    }
-    #sidebar #collapseIcon {
-        transform: rotate(180deg);
-    }
+/* Links del nav */
+#sidebar nav a,
+#sidebar nav>div>a {
+    min-width: 0;
 }
 
-/* ── Sidebar collapse (desktop) ── */
+/* Evita márgenes inesperados si algún reset falla */
+#sidebar p,
+#sidebar h1 {
+    margin: 0;
+}
+
+/* Íconos del nav */
+#sidebar nav a .material-symbols-outlined,
+#sidebar nav>div>a .material-symbols-outlined {
+    flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   Sidebar collapsed desktop
+───────────────────────────────────────────── */
+
 @media (min-width: 1024px) {
-    #sidebar {
-        transition: width 0.3s ease;
-    }
     #sidebar.collapsed {
-        width: 4.5rem;   /* 72px — icon + padding */
+        width: var(--layout-sidebar-collapsed-width);
     }
+
     #sidebar.collapsed .sidebar-label {
-        opacity: 0;
         width: 0;
-        overflow: hidden;
-        white-space: nowrap;
+        opacity: 0;
         pointer-events: none;
-        transition: opacity 0.15s ease;
     }
-    #sidebar:not(.collapsed) .sidebar-label {
-        opacity: 1;
-        transition: opacity 0.25s 0.1s ease;
-    }
+
     #sidebar.collapsed nav a,
-    #sidebar.collapsed nav > div > a {
+    #sidebar.collapsed nav>div>a {
         justify-content: center;
         padding-inline: 0;
     }
-    #sidebar.collapsed nav a span.material-symbols-outlined {
-        font-size: 22px;
+
+    #sidebar.collapsed nav a .material-symbols-outlined,
+    #sidebar.collapsed nav>div>a .material-symbols-outlined {
+        width: 22px;
+        height: 22px;
+        font-size: 22px !important;
+        line-height: 22px !important;
     }
-    /* Tooltips on hover when collapsed */
-    #sidebar.collapsed nav a {
-        position: relative;
-    }
+
     #sidebar.collapsed #collapseIcon {
         transform: rotate(180deg);
     }
+
+    #sidebar.collapsed nav a {
+        position: relative;
+    }
+
     #toggleSidebar {
         display: none;
     }
 }
 
-/* ── Mobile: sidebar off-screen by default ── */
+/* ─────────────────────────────────────────────
+   Auto-collapse opcional
+   Solo funciona si body tiene .sidebar-auto-collapse
+───────────────────────────────────────────── */
+
+@media (min-width: 1024px) and (max-width: 1600px) {
+    body.sidebar-auto-collapse #sidebar {
+        width: var(--layout-sidebar-collapsed-width);
+    }
+
+    body.sidebar-auto-collapse #sidebar .sidebar-label {
+        width: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    body.sidebar-auto-collapse #sidebar nav a,
+    body.sidebar-auto-collapse #sidebar nav>div>a {
+        justify-content: center;
+        padding-inline: 0;
+    }
+
+    body.sidebar-auto-collapse #sidebar nav a .material-symbols-outlined,
+    body.sidebar-auto-collapse #sidebar nav>div>a .material-symbols-outlined {
+        width: 22px;
+        height: 22px;
+        font-size: 22px !important;
+        line-height: 22px !important;
+    }
+
+    body.sidebar-auto-collapse #sidebar #collapseIcon {
+        transform: rotate(180deg);
+    }
+}
+
+/* ─────────────────────────────────────────────
+   Mobile sidebar
+───────────────────────────────────────────── */
+
 @media (max-width: 1023px) {
     #sidebar {
         position: fixed;
         inset-block: 0;
         inset-inline-start: 0;
         z-index: 50;
+
+        width: min(var(--layout-sidebar-width), 85vw);
+
         transform: translateX(-100%);
-        transition: transform 0.25s ease;
+        transition: transform var(--layout-transition-base);
     }
+
     #sidebar.open {
         transform: translateX(0);
     }
+
+    #sidebarOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+
+        display: none;
+
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(2px);
+    }
+
     #sidebarOverlay.active {
         display: block !important;
     }
+
+    body.sidebar-mobile-open {
+        overflow: hidden;
+    }
 }
 
-/* ── Active nav item: left accent bar via inset box-shadow (follows border-radius) ── */
+/* ─────────────────────────────────────────────
+   Nav activo
+───────────────────────────────────────────── */
+
 .nav-item-active {
+    position: relative;
     box-shadow: inset 3px 0 0 rgba(91, 141, 255, 0.75);
 }
 
-/* ── Focus-visible: sidebar interactive elements ── */
-#sidebar nav a:focus-visible,
-#sidebar button:focus-visible,
-#sidebar a:focus-visible {
-    outline: 2px solid #5b8dff;
-    outline-offset: -2px;
-    border-radius: 0.5rem;
+/* ─────────────────────────────────────────────
+   Header
+───────────────────────────────────────────── */
+
+header {
+    min-height: var(--layout-header-height);
 }
 
-/* ── Focus-visible: header buttons ── */
-header button:focus-visible {
-    outline: 2px solid #5b8dff;
+header button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Evita que el grupo derecho del header se rompa feo */
+header>div:last-child {
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   Focus visible
+───────────────────────────────────────────── */
+
+#sidebar nav a:focus-visible,
+#sidebar button:focus-visible,
+#sidebar a:focus-visible,
+header button:focus-visible,
+header a:focus-visible {
+    outline: 2px solid var(--layout-focus);
     outline-offset: 2px;
     border-radius: 0.5rem;
 }
 
-/* Custom scrollbar (dark) */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+#sidebar nav a:focus:not(:focus-visible),
+#sidebar button:focus:not(:focus-visible),
+#sidebar a:focus:not(:focus-visible),
+header button:focus:not(:focus-visible),
+header a:focus:not(:focus-visible) {
+    outline: none;
+}
 
-/* Legacy scaffold styles — purgados. El dark theme es gestionado por Tailwind. */
+/* ─────────────────────────────────────────────
+   Scrollbar
+───────────────────────────────────────────── */
 
-/* ── Escala tipográfica reducida para viewports medianos (notebook 15" 125% scaling → ~1536px) ──
-   Tailwind usa rem, por lo que reducir font-size en html escala todo proporcionalmente.
-   Rango: 1400–1700px cubre exactamente el caso 1920×1080 al 125%.                          */
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--layout-scrollbar) transparent;
+}
+
+/* Chromium / Edge / Safari */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--layout-scrollbar);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--layout-scrollbar-hover);
+}
+
+/* ─────────────────────────────────────────────
+   Reduced motion
+───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ─────────────────────────────────────────────
+   Ajuste notebook / zoom alto
+───────────────────────────────────────────── */
+
 @media (min-width: 1400px) and (max-width: 1700px) {
-    html {
-        font-size: 13px;
+    body.app-layout {
+        --layout-sidebar-width: 15.5rem;
     }
 }

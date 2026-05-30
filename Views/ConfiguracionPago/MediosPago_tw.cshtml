@@ -895,8 +895,8 @@
                         @for (var i = 0; i < Model.Medios.Count; i++)
                         {
                             var medio = Model.Medios[i];
-                            var totalPlanesMetodo = medio.Planes.Count;
-                            var totalTarjetasMetodo = medio.Tarjetas.Count;
+                            var totalPlanesMetodo = medio.Planes.Count(p => p.Activo);
+                            var totalTarjetasMetodo = medio.Tarjetas.Count(t => t.Activa);
                             var esMedioSeleccionado = medioSeleccionado?.Id == medio.Id;
                             <a asp-controller="ConfiguracionPago"
                                asp-action="MediosPago"
@@ -912,6 +912,47 @@
                             </a>
                         }
                     </nav>
+                    @if (puedeEditar)
+                    {
+                        <details class="pay-details" style="margin-top:.65rem">
+                            <summary class="compact-summary">
+                                <span class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined">add_circle</span>
+                                    Agregar método
+                                </span>
+                            </summary>
+                            <div class="details-body">
+                                <form asp-controller="ConfiguracionPago" asp-action="CrearMedioPagoGlobal" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <div class="grid gap-2">
+                                        <div>
+                                            <label class="pay-label">Tipo</label>
+                                            <select name="TipoPago" class="pay-select">
+                                                @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta))
+                                                {
+                                                    <option value="@tipo">@TipoPagoDisplay(tipo)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="pay-label">Nombre</label>
+                                            <input name="Nombre" maxlength="100" required class="pay-field" />
+                                        </div>
+                                        <label class="pay-check">
+                                            <input name="Activo" type="checkbox" value="true" checked />
+                                            Activo
+                                        </label>
+                                    </div>
+                                    <div class="pay-button-row">
+                                        <button type="submit" class="pay-mini-button primary">
+                                            <span class="material-symbols-outlined text-[17px]">save</span>
+                                            Crear
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </details>
+                    }
                 </aside>
 
                 <main class="payments-main">
@@ -921,17 +962,11 @@
                         var permiteTarjetas = medio.TipoPago == TipoPago.TarjetaCredito || medio.TipoPago == TipoPago.TarjetaDebito;
                         var permitePlanesGlobales = medio.TipoPago != TipoPago.CreditoPersonal && medio.TipoPago != TipoPago.Tarjeta;
                         var tarjetas = medio.Tarjetas
-                            .OrderByDescending(t => t.Activa)
-                            .ThenBy(t => t.TipoTarjeta)
+                            .Where(t => t.Activa)
+                            .OrderBy(t => t.TipoTarjeta)
                             .ThenBy(t => t.Nombre)
                             .ToList();
-                        var planesGenerales = medio.Planes
-                            .Where(p => p.ConfiguracionTarjetaId is null)
-                            .OrderByDescending(p => p.Activo)
-                            .ThenBy(p => p.Orden)
-                            .ThenBy(p => p.CantidadCuotas)
-                            .ToList();
-                        var totalPlanes = medio.Planes.Count;
+                        var totalPlanes = medio.Planes.Count(p => p.Activo);
 
                         <section id="medio-@medio.Id" class="method-panel">
                             <header class="method-panel-header">
@@ -959,10 +994,14 @@
                                     <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
                                     @if (puedeEditar)
                                     {
-                                        <span class="pay-badge pay-badge-muted" title="La edicion del metodo requiere una vista separada. Pendiente de implementacion.">
-                                            <span class="material-symbols-outlined" style="font-size:1rem">edit_off</span>
-                                            Metodo
-                                        </span>
+                                        <form asp-controller="ConfiguracionPago" asp-action="EliminarMedioPagoGlobal" asp-route-id="@medio.Id" method="post" style="display:inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="pay-mini-button danger"
+                                                    onclick="return confirm('¿Eliminar este método de pago y todas sus tarjetas y planes? Esta acción no se puede deshacer.')">
+                                                <span class="material-symbols-outlined" style="font-size:1rem">delete</span>
+                                                Eliminar método
+                                            </button>
+                                        </form>
                                     }
                                 </div>
                             </header>
@@ -986,19 +1025,54 @@
                                 Quitar oculta el elemento para nuevas operaciones, pero conserva el historial. Si se vuelve a cargar el mismo dato, se reactiva.
                             </p>
 
+                            @if (puedeEditar)
+                            {
+                                <details class="pay-details mx-4 mb-3">
+                                    <summary class="compact-summary">
+                                        <span class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined">edit</span>
+                                            Editar método
+                                        </span>
+                                    </summary>
+                                    <div class="details-body">
+                                        <form asp-controller="ConfiguracionPago" asp-action="EditarMedioPagoGlobal" asp-route-id="@medio.Id" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <div class="form-grid">
+                                                <div class="span-2">
+                                                    <label class="pay-label">Nombre</label>
+                                                    <input name="Nombre" maxlength="100" value="@medio.Nombre" required class="pay-field" />
+                                                </div>
+                                                <div class="span-2">
+                                                    <label class="pay-label">Descripcion</label>
+                                                    <input name="Descripcion" maxlength="500" value="@medio.Descripcion" class="pay-field" />
+                                                </div>
+                                                <label class="pay-check">
+                                                    <input name="Activo" type="checkbox" value="true" checked="@medio.Activo" />
+                                                    Activo
+                                                </label>
+                                            </div>
+                                            <div class="pay-button-row">
+                                                <button type="submit" class="pay-mini-button primary">
+                                                    <span class="material-symbols-outlined text-[17px]">save</span>
+                                                    Guardar método
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </details>
+                            }
+
                             @if (permiteTarjetas)
                             {
                                 <div class="cards-list" aria-label="Tarjetas del metodo">
                                     @foreach (var tarjeta in tarjetas)
                                     {
                                         var planesTarjeta = medio.Planes
-                                            .Where(p => p.ConfiguracionTarjetaId == tarjeta.Id)
-                                            .OrderByDescending(p => p.Activo)
-                                            .ThenBy(p => p.Orden)
+                                            .Where(p => p.ConfiguracionTarjetaId == tarjeta.Id && p.Activo)
+                                            .OrderBy(p => p.Orden)
                                             .ThenBy(p => p.CantidadCuotas)
                                             .ToList();
-                                        var planesActivosTarjeta = planesTarjeta.Count(p => p.Activo);
-                                        var planesInactivosTarjeta = planesTarjeta.Count(p => !p.Activo);
+                                        var planesActivosTarjeta = planesTarjeta.Count;
 
                                         <details class="payment-card-accordion">
                                             <summary class="payment-card-summary">
@@ -1017,21 +1091,10 @@
                                                     {
                                                         <span class="pay-badge pay-badge-muted">Sin cuotas activas</span>
                                                     }
-                                                    @if (planesInactivosTarjeta > 0)
-                                                    {
-                                                        <span class="pay-badge pay-badge-off">@planesInactivosTarjeta inactiva@(planesInactivosTarjeta == 1 ? "" : "s")</span>
-                                                    }
                                                 </span>
                                             </summary>
 
                                             <div class="payment-card-body">
-                                                @if (!tarjeta.Activa)
-                                                {
-                                                    <p class="inactive-card-note">
-                                                        Tarjeta quitada para nuevas operaciones. Puede reactivarse desde el footer de este bloque.
-                                                    </p>
-                                                }
-
                                                 <div class="plan-list">
                                                     @if (planesTarjeta.Count == 0)
                                                     {
@@ -1049,7 +1112,6 @@
                                                                     <span class="plan-main">
                                                                         <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
                                                                         <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
-                                                                        <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
                                                                     </span>
                                                                     <span class="plan-actions">
                                                                         <span class="pay-mini-button">Editar</span>
@@ -1099,10 +1161,10 @@
                                                                         </form>
                                                                         <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
                                                                             @Html.AntiForgeryToken()
-                                                                            <input type="hidden" name="activo" value="@(!plan.Activo)" />
-                                                                            <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
-                                                                                <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
-                                                                                @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
+                                                                            <input type="hidden" name="activo" value="false" />
+                                                                            <button type="submit" class="pay-mini-button danger">
+                                                                                <span class="material-symbols-outlined text-[17px]">toggle_off</span>
+                                                                                Quitar cuota
                                                                             </button>
                                                                         </form>
                                                                     </div>
@@ -1217,10 +1279,18 @@
                                                     <div class="payment-card-footer">
                                                         <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
                                                             @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="activa" value="@(!tarjeta.Activa)" />
-                                                            <button type="submit" class="pay-mini-button @(tarjeta.Activa ? "danger" : "")">
-                                                                <span class="material-symbols-outlined text-[17px]">@(tarjeta.Activa ? "toggle_off" : "toggle_on")</span>
-                                                                @(tarjeta.Activa ? "Quitar tarjeta" : "Reactivar tarjeta")
+                                                            <input type="hidden" name="activa" value="false" />
+                                                            <button type="submit" class="pay-mini-button danger">
+                                                                <span class="material-symbols-outlined text-[17px]">toggle_off</span>
+                                                                Quitar tarjeta
+                                                            </button>
+                                                        </form>
+                                                        <form asp-controller="ConfiguracionPago" asp-action="EliminarTarjetaGlobal" asp-route-id="@tarjeta.Id" asp-route-medioId="@medio.Id" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <button type="submit" class="pay-mini-button danger"
+                                                                    onclick="return confirm('¿Eliminar definitivamente esta tarjeta y sus planes? Esta acción no se puede deshacer.')">
+                                                                <span class="material-symbols-outlined text-[17px]">delete</span>
+                                                                Eliminar
                                                             </button>
                                                         </form>
                                                     </div>
@@ -1286,142 +1356,6 @@
                                 }
                             }
 
-                            @if (planesGenerales.Count > 0 || (puedeEditar && permitePlanesGlobales && !permiteTarjetas))
-                            {
-                                <div class="cards-grid">
-                                    <article class="payment-card">
-                                        <header class="payment-card-header">
-                                            <div>
-                                                <div class="card-title-row">
-                                                    <span class="card-title">Plan general del medio</span>
-                                                    <span class="pay-badge pay-badge-muted">@planesGenerales.Count plan@(planesGenerales.Count == 1 ? "" : "es")</span>
-                                                </div>
-                                                <p class="card-subtitle">Aplica al medio completo cuando no esta asociado a una tarjeta especifica.</p>
-                                            </div>
-                                        </header>
-                                        <div class="plan-list">
-                                            @foreach (var plan in planesGenerales)
-                                            {
-                                                <details class="plan-row">
-                                                    <summary class="plan-summary">
-                                                        <span class="plan-main">
-                                                            <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
-                                                            <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
-                                                            <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
-                                                        </span>
-                                                        <span class="plan-actions">
-                                                            <span class="pay-mini-button">Editar</span>
-                                                        </span>
-                                                    </summary>
-
-                                                    @if (puedeEditar && permitePlanesGlobales)
-                                                    {
-                                                        <div class="details-body">
-                                                            <form asp-controller="ConfiguracionPago" asp-action="EditarPlanGlobal" asp-route-id="@plan.Id" method="post">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
-                                                                <input type="hidden" name="TipoAjuste" value="@plan.TipoAjuste" />
-                                                                <div class="form-grid">
-                                                                    <div>
-                                                                        <label class="pay-label">Cuotas</label>
-                                                                        <input name="CantidadCuotas" type="number" min="1" value="@plan.CantidadCuotas" required class="pay-field" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label class="pay-label">Ajuste %</label>
-                                                                        <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="@plan.AjustePorcentaje.ToString(CultureInfo.InvariantCulture)" required class="pay-field" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label class="pay-label">Orden</label>
-                                                                        <input name="Orden" type="number" value="@plan.Orden" class="pay-field" />
-                                                                    </div>
-                                                                    <label class="pay-check">
-                                                                        <input name="Activo" type="checkbox" value="true" checked="@plan.Activo" />
-                                                                        Activo
-                                                                    </label>
-                                                                    <div>
-                                                                        <label class="pay-label">Etiqueta</label>
-                                                                        <input name="Etiqueta" maxlength="100" value="@plan.Etiqueta" class="pay-field" />
-                                                                    </div>
-                                                                    <div class="span-2">
-                                                                        <label class="pay-label">Observaciones</label>
-                                                                        <input name="Observaciones" maxlength="500" value="@plan.Observaciones" class="pay-field" />
-                                                                    </div>
-                                                                </div>
-                                                                <div class="pay-button-row">
-                                                                    <button type="submit" class="pay-mini-button primary">
-                                                                        <span class="material-symbols-outlined text-[17px]">save</span>
-                                                                        Guardar plan
-                                                                    </button>
-                                                                </div>
-                                                            </form>
-                                                            <form asp-controller="ConfiguracionPago" asp-action="CambiarEstadoPlanGlobal" asp-route-id="@plan.Id" asp-route-medioId="@medio.Id" method="post" class="pay-button-row">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="activo" value="@(!plan.Activo)" />
-                                                                <button type="submit" class="pay-mini-button @(plan.Activo ? "danger" : "")">
-                                                                    <span class="material-symbols-outlined text-[17px]">@(plan.Activo ? "toggle_off" : "toggle_on")</span>
-                                                                    @(plan.Activo ? "Quitar cuota" : "Reactivar cuota")
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    }
-                                                </details>
-                                            }
-
-                                            @if (puedeEditar && permitePlanesGlobales)
-                                            {
-                                                <details class="pay-details">
-                                                    <summary class="compact-summary">
-                                                        <span class="flex items-center gap-2">
-                                                            <span class="material-symbols-outlined">add_circle</span>
-                                                            Agregar plan general
-                                                        </span>
-                                                        <span class="pay-badge pay-badge-muted">cuota exacta</span>
-                                                    </summary>
-                                                    <div class="details-body">
-                                                        <form asp-controller="ConfiguracionPago" asp-action="CrearPlanGlobal" method="post">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="ConfiguracionPagoId" value="@medio.Id" />
-                                                            <input type="hidden" name="TipoAjuste" value="@TipoAjustePagoPlan.Porcentaje" />
-                                                            <div class="form-grid">
-                                                                <div>
-                                                                    <label class="pay-label">Cuotas</label>
-                                                                    <input name="CantidadCuotas" type="number" min="1" value="1" required class="pay-field" />
-                                                                </div>
-                                                                <div>
-                                                                    <label class="pay-label">Ajuste %</label>
-                                                                    <input name="AjustePorcentaje" type="number" step="0.0001" min="-100.0000" max="999.9999" value="0" required class="pay-field" />
-                                                                </div>
-                                                                <div>
-                                                                    <label class="pay-label">Orden</label>
-                                                                    <input name="Orden" type="number" value="0" class="pay-field" />
-                                                                </div>
-                                                                <label class="pay-check">
-                                                                    <input name="Activo" type="checkbox" value="true" checked />
-                                                                    Activo
-                                                                </label>
-                                                                <div>
-                                                                    <label class="pay-label">Etiqueta</label>
-                                                                    <input name="Etiqueta" maxlength="100" class="pay-field" />
-                                                                </div>
-                                                                <div class="span-2">
-                                                                    <label class="pay-label">Observaciones</label>
-                                                                    <input name="Observaciones" maxlength="500" class="pay-field" />
-                                                                </div>
-                                                            </div>
-                                                            <div class="pay-button-row">
-                                                                <button type="submit" class="pay-mini-button primary">
-                                                                    <span class="material-symbols-outlined text-[17px]">save</span>
-                                                                    Crear plan
-                                                                </button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </details>
-                                            }
-                                        </div>
-                                    </article>
-                                </div>
-                            }
                         </section>
                     }
                 </main>

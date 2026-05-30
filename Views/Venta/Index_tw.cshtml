@@ -5,8 +5,8 @@
     ViewData["MetaDescription"] = "Gestión de ventas, cotizaciones, presupuestos, autorizaciones y devoluciones del sistema ERP TheBuryProject.";
 
     var ventas = Model?.ToList() ?? new List<TheBuryProject.ViewModels.VentaViewModel>();
-    var filter = ViewBag.Filter as TheBuryProject.ViewModels.VentaFilterViewModel ?? new TheBuryProject.ViewModels.VentaFilterViewModel();
-    var clientes = ViewBag.Clientes as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var filter = ViewBag.Filter as TheBuryProject.ViewModels.VentaFilterViewModel
+                 ?? new TheBuryProject.ViewModels.VentaFilterViewModel();
     var puedeCrear = (bool?)ViewBag.PuedeCrearVenta ?? false;
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
@@ -100,566 +100,617 @@
             <div class="card-alert__body">
                 <p class="label">Caja requerida</p>
                 <h2>Sin caja abierta</h2>
-                <p>No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.</p>
-            </div>
-            <div class="card-alert__actions">
-                <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir" class="btn btn-amber no-underline">
-                    <span class="material-symbols-outlined">lock_open</span>
-                    Abrir caja
-                </a>
-                <a asp-controller="Caja" asp-action="Index" class="btn btn-ghost no-underline">
-                    <span class="material-symbols-outlined">point_of_sale</span>
-                    Ver cajas
-                </a>
-            </div>
-        </section>
-    }
+                <p>No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ??
+                                                                                                                                                                                                                                                                    User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.</p>
+                </div>
+                <div class="card-alert__actions">
+                    <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir" class="btn btn-amber no-underline">
+                        <span class="material-symbols-outlined">lock_open</span>
+                        Abrir caja
+                    </a>
+                    <a asp-controller="Caja" asp-action="Index" class="btn btn-ghost no-underline">
+                        <span class="material-symbols-outlined">point_of_sale</span>
+                        Ver cajas
+                    </a>
+                </div>
+            </section>
+        }
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="toast-msg card card-alert card-alert-green" role="status">
-            <span class="material-symbols-outlined">check_circle</span>
-            <span>@TempData["Success"]</span>
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="toast-msg card card-alert card-alert-red" role="alert">
-            <span class="material-symbols-outlined">error</span>
-            <span>@TempData["Error"]</span>
-        </div>
-    }
-    @if (TempData["Warning"] != null)
-    {
-        <div class="toast-msg card card-alert card-alert-amber" role="alert">
-            <span class="material-symbols-outlined">warning</span>
-            <span>@TempData["Warning"]</span>
-        </div>
-    }
-
-    <section class="venta-hero card">
-        <div class="venta-hero__content">
-            <div class="venta-hero__eyebrow">
-                <span class="dot dot-green"></span>
-                Centro operativo
+        @if (TempData["Success"] != null)
+        {
+            <div class="toast-msg card card-alert card-alert-green" role="status">
+                <span class="material-symbols-outlined">check_circle</span>
+                <span>@TempData["Success"]</span>
             </div>
-            <nav class="venta-breadcrumb" aria-label="Breadcrumb">
-                <a asp-controller="Venta" asp-action="Index" class="venta-breadcrumb__link">Ventas</a>
-                <span class="venta-breadcrumb__separator" aria-hidden="true">›</span>
-                <span class="venta-breadcrumb__current">Centro de ventas</span>
-            </nav>
-            <div>
-                <h1>Centro de Ventas</h1>
-                <p>Seguimiento diario de operaciones, autorizaciones, presupuestos y devoluciones con datos reales del ERP.</p>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="toast-msg card card-alert card-alert-red" role="alert">
+                <span class="material-symbols-outlined">error</span>
+                <span>@TempData["Error"]</span>
             </div>
-            <div class="venta-hero__chips" aria-label="Resumen de filtros">
-                <span class="chip-filter">
-                    <span class="material-symbols-outlined">today</span>
-                    @ventasHoy.Count hoy
-                </span>
-                <span class="chip-filter">
-                    <span class="material-symbols-outlined">receipt_long</span>
-                    @ventas.Count registros
-                </span>
-                @if (filtroActivo)
-                {
-                    <span class="chip-filter chip-filter-active">
-                        <span class="material-symbols-outlined">filter_alt</span>
-                        Filtros activos
-                    </span>
-                }
+        }
+        @if (TempData["Warning"] != null)
+        {
+            <div class="toast-msg card card-alert card-alert-amber" role="alert">
+                <span class="material-symbols-outlined">warning</span>
+                <span>@TempData["Warning"]</span>
             </div>
-        </div>
-        <div class="venta-hero__actions">
-            @if (puedeConfigurarPagos)
-            {
-                <a asp-controller="ConfiguracionPago"
-                   asp-action="MediosPago"
-                   class="btn btn-soft no-underline"
-                   title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
-                    <span class="material-symbols-outlined">tune</span>
-                    Configurar medios de pago
-                </a>
-            }
-            @if (puedeVerDevoluciones)
-            {
-                <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones" class="btn btn-ghost no-underline">
-                    <span class="material-symbols-outlined">assignment_return</span>
-                    Devoluciones
-                </a>
-            }
-            @if (puedeCrear)
-            {
-                <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
-                    <span class="material-symbols-outlined">add</span>
-                    Nueva Venta
-                </a>
-            }
-            else if (!puedeOperarVentas)
-            {
-                <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
-                    <span class="material-symbols-outlined">add</span>
-                    Nueva Venta
-                </button>
-                <span id="msg-caja-cerrada" class="sr-only" aria-live="polite"></span>
-            }
-        </div>
-    </section>
+        }
 
-    <section class="kpi-grid" aria-label="Indicadores de ventas">
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">point_of_sale</span>
-            <p class="label">Operaciones hoy</p>
-            <strong>@ventasHoy.Count</strong>
-            <span>Ventas no canceladas del día</span>
-        </article>
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">payments</span>
-            <p class="label">Total vendido hoy</p>
-            <strong>$@totalHoy.ToString("N2")</strong>
-            <span>Importe acumulado real</span>
-        </article>
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">approval</span>
-            <p class="label">Pendientes autorización</p>
-            <strong>@pendientesAutorizacion</strong>
-            <span>Requieren revisión operativa</span>
-        </article>
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">dataset</span>
-            <p class="label">Registros totales</p>
-            <strong>@ventas.Count</strong>
-            <span>Resultado del filtro actual</span>
-        </article>
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">monitoring</span>
-            <p class="label">Ticket promedio hoy</p>
-            <strong>$@ticketPromedio.ToString("N2")</strong>
-            <span>Calculado sobre operaciones de hoy</span>
-        </article>
-        <article class="card card-sub kpi-card">
-            <span class="kpi-card__icon material-symbols-outlined">assignment_return</span>
-            <p class="label">Elegibles devolución</p>
-            <strong>@ventasConDevolucionDisponible</strong>
-            <span>@ventasCanceladas cancelada@(ventasCanceladas == 1 ? "" : "s") en vista</span>
-        </article>
-    </section>
-
-    <section class="card tabs-card">
-        <div class="tabs-bar">
-            <div class="tabs-scroll" role="tablist" aria-label="Secciones del Centro de Ventas">
-                <button type="button" id="tab-operaciones" class="tab-btn is-active" role="tab" aria-selected="true" aria-controls="panel-operaciones" data-venta-tab="operaciones">
-                    <span class="material-symbols-outlined">table_rows</span>
-                    Operaciones
-                </button>
-                <button type="button" id="tab-pendientes" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-pendientes" data-venta-tab="pendientes">
-                    <span class="material-symbols-outlined">pending_actions</span>
-                    Pendientes
-                    @if (pendientesAutorizacion > 0)
-                    {
-                        <span class="tab-btn__count">@pendientesAutorizacion</span>
-                    }
-                </button>
-                <button type="button" id="tab-cotizaciones" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-cotizaciones" data-venta-tab="cotizaciones">
-                    <span class="material-symbols-outlined">request_quote</span>
-                    Cotizaciones y presupuestos
-                </button>
-                <button type="button" id="tab-devoluciones" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-devoluciones" data-venta-tab="devoluciones">
-                    <span class="material-symbols-outlined">assignment_return</span>
-                    Devoluciones
-                </button>
-                <button type="button" id="tab-pagos" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-pagos" data-venta-tab="pagos">
-                    <span class="material-symbols-outlined">tune</span>
-                    Configuración de pagos
-                </button>
-            </div>
-        </div>
-
-        <section id="panel-operaciones" role="tabpanel" aria-labelledby="tab-operaciones" data-venta-tab-panel="operaciones" class="tab-panel">
-            <div class="panel-heading">
+        <section class="venta-hero card">
+            <div class="venta-hero__content">
+                <div class="venta-hero__eyebrow">
+                    <span class="dot dot-green"></span>
+                    Centro operativo
+                </div>
+                <nav class="venta-breadcrumb" aria-label="Breadcrumb">
+                    <a asp-controller="Venta" asp-action="Index" class="venta-breadcrumb__link">Ventas</a>
+                    <span class="venta-breadcrumb__separator" aria-hidden="true">›</span>
+                    <span class="venta-breadcrumb__current">Centro de ventas</span>
+                </nav>
                 <div>
-                    <p class="label">Listado principal</p>
-                    <h2>Operaciones</h2>
-                    <p>Consultá estado, autorización, medio de pago y acciones disponibles sobre cada venta.</p>
-                </div>
-                <div class="panel-heading__meta">
-                    <span class="pill pill-slate">@ventas.Count registros</span>
-                    @if (filtroActivo)
-                    {
-                        <span class="pill pill-blue">Filtros activos</span>
-                    }
-                </div>
-            </div>
-
-            <form asp-action="Index" method="get" id="form-filtros" class="filters-shell">
-                <div class="filters-grid filters-grid--base">
-                    <div class="field field-wide">
-                        <label class="label" for="venta-filtro-numero">Buscar venta</label>
-                        <input id="venta-filtro-numero" type="text" name="Numero" value="@filter.Numero" placeholder="Número de venta" />
+                    <h1>Centro de Ventas</h1>
+                    <p>Seguimiento diario de operaciones, autorizaciones, presupuestos y devoluciones con datos reales del
+                        ERP.</p>
                     </div>
-                    <div class="filters-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <span class="material-symbols-outlined">filter_list</span>
-                            Filtrar
-                        </button>
+                    <div class="venta-hero__chips" aria-label="Resumen de filtros">
+                        <span class="chip-filter">
+                            <span class="material-symbols-outlined">today</span>
+                            @ventasHoy.Count hoy
+                        </span>
+                        <span class="chip-filter">
+                            <span class="material-symbols-outlined">receipt_long</span>
+                            @ventas.Count registros
+                        </span>
                         @if (filtroActivo)
                         {
-                            <a asp-action="Index" class="btn btn-ghost no-underline">
-                                <span class="material-symbols-outlined">clear_all</span>
-                                Limpiar
+                            <span class="chip-filter chip-filter-active">
+                                <span class="material-symbols-outlined">filter_alt</span>
+                                Filtros activos
+                            </span>
+                        }
+                    </div>
+                </div>
+                <div class="venta-hero__actions">
+                    @if (puedeConfigurarPagos)
+                    {
+                        <div class="venta-hero__actions">
+                            <a asp-controller="ConfiguracionPago" asp-action="MediosPago" class="btn btn-soft no-underline"
+                               title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
+                                <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                                Configurar medios de pago
                             </a>
+                        </div>
+                    }
+
+                   
+                </div>
+            </section>
+
+            <section class="kpi-grid" aria-label="Indicadores de ventas">
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">point_of_sale</span>
+                    <p class="label">Operaciones hoy</p>
+                    <strong>@ventasHoy.Count</strong>
+                    <span>Ventas no canceladas del día</span>
+                </article>
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">payments</span>
+                    <p class="label">Total vendido hoy</p>
+                    <strong>$@totalHoy.ToString("N2")</strong>
+                    <span>Importe acumulado real</span>
+                </article>
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">approval</span>
+                    <p class="label">Pendientes autorización</p>
+                    <strong>@pendientesAutorizacion</strong>
+                    <span>Requieren revisión operativa</span>
+                </article>
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">dataset</span>
+                    <p class="label">Registros totales</p>
+                    <strong>@ventas.Count</strong>
+                    <span>Resultado del filtro actual</span>
+                </article>
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">monitoring</span>
+                    <p class="label">Ticket promedio hoy</p>
+                    <strong>$@ticketPromedio.ToString("N2")</strong>
+                    <span>Calculado sobre operaciones de hoy</span>
+                </article>
+                <article class="card card-sub kpi-card">
+                    <span class="kpi-card__icon material-symbols-outlined">assignment_return</span>
+                    <p class="label">Elegibles devolución</p>
+                    <strong>@ventasConDevolucionDisponible</strong>
+                    <span>@ventasCanceladas cancelada@(ventasCanceladas == 1 ? "" : "s") en vista</span>
+                </article>
+            </section>
+
+            <section class="card tabs-card">
+                <div class="tabs-bar">
+                    <div class="tabs-scroll" role="tablist" aria-label="Secciones del Centro de Ventas">
+                        <button type="button" id="tab-operaciones" class="tab-btn is-active" role="tab" aria-selected="true"
+                                aria-controls="panel-operaciones" data-venta-tab="operaciones">
+                            <span class="material-symbols-outlined">table_rows</span>
+                            Operaciones
+                        </button>
+                        <button type="button" id="tab-pendientes" class="tab-btn" role="tab" aria-selected="false"
+                                aria-controls="panel-pendientes" data-venta-tab="pendientes">
+                            <span class="material-symbols-outlined">pending_actions</span>
+                            Pendientes
+                            @if (pendientesAutorizacion > 0)
+                            {
+                                <span class="tab-btn__count">@pendientesAutorizacion</span>
+                            }
+                        </button>
+                        <button type="button" id="tab-cotizaciones" class="tab-btn" role="tab" aria-selected="false"
+                                aria-controls="panel-cotizaciones" data-venta-tab="cotizaciones">
+                            <span class="material-symbols-outlined">request_quote</span>
+                            Cotizaciones y presupuestos
+                        </button>
+                        <button type="button" id="tab-devoluciones" class="tab-btn" role="tab" aria-selected="false"
+                                aria-controls="panel-devoluciones" data-venta-tab="devoluciones">
+                            <span class="material-symbols-outlined">assignment_return</span>
+                            Devoluciones
+                        </button>
+
+                    </div>
+                    <div class="venta-hero__actions venta-tabs__actions" aria-label="Acciones rápidas de ventas">
+                        <a asp-controller="Cotizacion" asp-action="Index" class="btn btn-soft no-underline"
+                           title="Ver cotizaciones">
+                            <span class="material-symbols-outlined">request_quote</span>
+                            Cotizaciones
+                        </a>
+
+                        @if (puedeCrear)
+                        {
+                            <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
+                                <span class="material-symbols-outlined">add</span>
+                                Nueva Venta
+                            </a>
+                        }
+                        else if (!puedeOperarVentas)
+                        {
+                            <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
+                                <span class="material-symbols-outlined">add</span>
+                                Nueva Venta
+                            </button>
+                            <span id="msg-caja-cerrada" class="sr-only" aria-live="polite"></span>
                         }
                     </div>
                 </div>
 
-                <details class="advanced-filters">
-                    <summary class="advanced-filters__summary">
-                        <span>Filtros avanzados</span>
-                    </summary>
-                    <div class="advanced-filters__body">
-                        <div class="filters-grid filters-grid--advanced">
-                            <div class="field">
-                                <label class="label" for="venta-filtro-desde">Desde</label>
-                                <input id="venta-filtro-desde" type="date" name="FechaDesde" value="@fechaDesdeStr" />
-                            </div>
-                            <div class="field">
-                                <label class="label" for="venta-filtro-hasta">Hasta</label>
-                                <input id="venta-filtro-hasta" type="date" name="FechaHasta" value="@fechaHastaStr" />
-                            </div>
-                            <div class="field">
-                                <label class="label" for="venta-filtro-estado">Estado</label>
-                                <select id="venta-filtro-estado" name="Estado">
-                                    <option value="">Todos</option>
-                                    <option value="@EstadoVenta.Cotizacion" selected="@(filter.Estado == EstadoVenta.Cotizacion)">Cotización</option>
-                                    <option value="@EstadoVenta.Presupuesto" selected="@(filter.Estado == EstadoVenta.Presupuesto)">Presupuesto</option>
-                                    <option value="@EstadoVenta.Confirmada" selected="@(filter.Estado == EstadoVenta.Confirmada)">Confirmada</option>
-                                    <option value="@EstadoVenta.Facturada" selected="@(filter.Estado == EstadoVenta.Facturada)">Facturada</option>
-                                    <option value="@EstadoVenta.Entregada" selected="@(filter.Estado == EstadoVenta.Entregada)">Entregada</option>
-                                    <option value="@EstadoVenta.Cancelada" selected="@(filter.Estado == EstadoVenta.Cancelada)">Cancelada</option>
-                                    <option value="@EstadoVenta.PendienteRequisitos" selected="@(filter.Estado == EstadoVenta.PendienteRequisitos)">Pend. requisitos</option>
-                                    <option value="@EstadoVenta.PendienteFinanciacion" selected="@(filter.Estado == EstadoVenta.PendienteFinanciacion)">Pend. financiación</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label class="label" for="venta-filtro-pago">Pago</label>
-                                <select id="venta-filtro-pago" name="TipoPago">
-                                    <option value="">Todos</option>
-                                    <option value="@TipoPago.Efectivo" selected="@(filter.TipoPago == TipoPago.Efectivo)">Efectivo</option>
-                                    <option value="@TipoPago.Transferencia" selected="@(filter.TipoPago == TipoPago.Transferencia)">Transferencia</option>
-                                    <option value="@TipoPago.TarjetaDebito" selected="@(filter.TipoPago == TipoPago.TarjetaDebito)">Tarjeta débito</option>
-                                    <option value="@TipoPago.TarjetaCredito" selected="@(filter.TipoPago == TipoPago.TarjetaCredito)">Tarjeta crédito</option>
-                                    <option value="@TipoPago.Cheque" selected="@(filter.TipoPago == TipoPago.Cheque)">Cheque</option>
-                                    <option value="@TipoPago.CreditoPersonal" selected="@(filter.TipoPago == TipoPago.CreditoPersonal)">Crédito personal</option>
-                                    <option value="@TipoPago.MercadoPago" selected="@(filter.TipoPago == TipoPago.MercadoPago)">Mercado Pago</option>
-                                    <option value="@TipoPago.CuentaCorriente" selected="@(filter.TipoPago == TipoPago.CuentaCorriente)">Cuenta corriente</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label class="label" for="venta-filtro-autorizacion">Autorización</label>
-                                <select id="venta-filtro-autorizacion" name="EstadoAutorizacion">
-                                    <option value="">Todas</option>
-                                    <option value="@EstadoAutorizacionVenta.NoRequiere" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.NoRequiere)">No requiere</option>
-                                    <option value="@EstadoAutorizacionVenta.PendienteAutorizacion" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion)">Pendiente</option>
-                                    <option value="@EstadoAutorizacionVenta.Autorizada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)">Autorizada</option>
-                                    <option value="@EstadoAutorizacionVenta.Rechazada" selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)">Rechazada</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </details>
-            </form>
-
-            <div id="ventas-index-scroll" data-oc-scroll class="table-shell">
-                <p data-oc-scroll-hint hidden class="scroll-hint">Deslizá la tabla para revisar estados, autorización, totales y acciones completas.</p>
-                <div data-oc-scroll-shell class="relative">
-                    <div data-oc-scroll-fade="left" hidden></div>
-                    <div data-oc-scroll-fade="right" hidden></div>
-                    <div data-oc-scroll-region class="table-scroll" tabindex="0" role="region" aria-label="Listado principal de ventas">
-                        <table data-oc-scroll-table class="ventas-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Número</th>
-                                    <th scope="col">Fecha</th>
-                                    <th scope="col">Cliente</th>
-                                    <th scope="col">Estado</th>
-                                    <th scope="col">Autorización</th>
-                                    <th scope="col">Tipo de pago</th>
-                                    <th scope="col" class="text-right">Total</th>
-                                    <th scope="col" class="text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (ventas.Any())
-                                {
-                                    @foreach (var v in ventas)
-                                    {
-                                        var esCancelada = v.Estado == EstadoVenta.Cancelada;
-                                        var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion && !esCancelada;
-                                        var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
-
-                                        <tr>
-                                            <td>
-                                                <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                                            </td>
-                                            <td>@v.FechaVenta.ToString("dd/MM/yyyy")</td>
-                                            <td>
-                                                <span class="truncate-1">@v.ClienteNombre</span>
-                                            </td>
-                                            <td>
-                                                <span class="pill @EstadoPillClass(v.Estado) @(esCancelada ? "line-through" : "")">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
-                                            </td>
-                                            <td>
-                                                <span class="pill @AutorizacionPillClass(v.EstadoAutorizacion)">@AutorizacionLabel(v.EstadoAutorizacion, v.EstadoAutorizacionDisplay)</span>
-                                            </td>
-                                            <td>@TipoPagoLabel(v.TipoPago)</td>
-                                            <td class="total-cell @(esCancelada ? "is-muted" : "")">$@v.Total.ToString("N2")</td>
-                                            <td>
-                                                <div class="row-actions">
-                                                    <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">
-                                                        <span class="material-symbols-outlined">visibility</span>
-                                                        Ver
-                                                    </a>
-                                                    @if (puedeDevolver)
-                                                    {
-                                                        <button type="button" data-open-devolucion-modal data-venta-id="@v.Id" class="btn btn-xs btn-amber">
-                                                            <span class="material-symbols-outlined">assignment_return</span>
-                                                            Devolver
-                                                        </button>
-                                                    }
-                                                    else if (puedeCrearDevoluciones)
-                                                    {
-                                                        <span class="btn btn-xs btn-ghost is-disabled">Devolver</span>
-                                                    }
-                                                    @if (puedeCancelarVenta)
-                                                    {
-                                                        <a asp-action="Cancelar" asp-route-id="@v.Id" class="btn btn-xs btn-danger no-underline">
-                                                            <span class="material-symbols-outlined">block</span>
-                                                            Anular
-                                                        </a>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="btn btn-xs btn-ghost is-disabled">Anular</span>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mobile-sales-list" aria-label="Ventas en formato mobile">
-                @if (ventas.Any())
-                {
-                    @foreach (var v in ventas)
-                    {
-                        var esCancelada = v.Estado == EstadoVenta.Cancelada;
-                        var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion && !esCancelada;
-                        var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
-
-                        <article class="card card-sub sale-card">
-                            <div class="sale-card__top">
-                                <div>
-                                    <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                                    <p>@v.FechaVenta.ToString("dd/MM/yyyy")</p>
-                                </div>
-                                <strong class="total-display @(esCancelada ? "is-muted" : "")">$@v.Total.ToString("N2")</strong>
-                            </div>
-                            <div class="sale-card__client">
-                                <span class="material-symbols-outlined">person</span>
-                                <span class="truncate-1">@v.ClienteNombre</span>
-                            </div>
-                            <div class="sale-card__meta">
-                                <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
-                                <span class="pill @AutorizacionPillClass(v.EstadoAutorizacion)">@AutorizacionLabel(v.EstadoAutorizacion, v.EstadoAutorizacionDisplay)</span>
-                                <span class="pill pill-slate">@TipoPagoLabel(v.TipoPago)</span>
-                            </div>
-                            <div class="sale-card__actions">
-                                <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
-                                @if (puedeDevolver)
-                                {
-                                    <button type="button" data-open-devolucion-modal data-venta-id="@v.Id" class="btn btn-xs btn-amber">Devolver</button>
-                                }
-                                @if (puedeCancelarVenta)
-                                {
-                                    <a asp-action="Cancelar" asp-route-id="@v.Id" class="btn btn-xs btn-danger no-underline">Anular</a>
-                                }
-                            </div>
-                        </article>
-                    }
-                }
-            </div>
-
-            @if (!ventas.Any())
-            {
-                <div class="empty-state">
-                    <span class="material-symbols-outlined">search_off</span>
-                    <h3>No se encontraron ventas</h3>
-                    <p>No hay ventas que coincidan con los filtros aplicados.</p>
-                    <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
-                </div>
-            }
-        </section>
-
-        <section id="panel-pendientes" role="tabpanel" aria-labelledby="tab-pendientes" data-venta-tab-panel="pendientes" class="tab-panel" hidden>
-            <div class="panel-heading">
-                <div>
-                    <p class="label">Autorizaciones</p>
-                    <h2>Pendientes</h2>
-                    <p>Operaciones que necesitan autorización antes de continuar.</p>
-                </div>
-            </div>
-            <div class="compact-list">
-                @foreach (var v in ventas.Where(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion))
-                {
-                    <article class="card card-sub compact-item">
+                <section id="panel-operaciones" role="tabpanel" aria-labelledby="tab-operaciones"
+                         data-venta-tab-panel="operaciones" class="tab-panel">
+                    <div class="panel-heading">
                         <div>
-                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                            <p>@v.ClienteNombre · @v.FechaVenta.ToString("dd/MM/yyyy")</p>
+                            <p class="label">Listado principal</p>
+                            <h2>Operaciones</h2>
+                            <p>Consultá estado, autorización, medio de pago y acciones disponibles sobre cada venta.</p>
                         </div>
-                        <span class="pill pill-amber">@AutorizacionLabel(v.EstadoAutorizacion, v.EstadoAutorizacionDisplay)</span>
-                        <strong>$@v.Total.ToString("N2")</strong>
-                        <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
-                    </article>
-                }
-                @if (pendientesAutorizacion == 0)
-                {
-                    <div class="empty-state empty-state-compact">
-                        <span class="material-symbols-outlined">verified</span>
-                        <h3>Sin pendientes de autorización</h3>
+                        <div class="panel-heading__meta">
+                            <span class="pill pill-slate">@ventas.Count registros</span>
+                            @if (filtroActivo)
+                            {
+                                <span class="pill pill-blue">Filtros activos</span>
+                            }
+                        </div>
                     </div>
-                }
-            </div>
-        </section>
 
-        <section id="panel-cotizaciones" role="tabpanel" aria-labelledby="tab-cotizaciones" data-venta-tab-panel="cotizaciones" class="tab-panel" hidden>
-            <div class="panel-heading">
-                <div>
-                    <p class="label">Seguimiento comercial</p>
-                    <h2>Cotizaciones y presupuestos</h2>
-                    <p>Registros reales en estado cotización o presupuesto.</p>
-                </div>
-            </div>
-            <div class="quote-grid">
-                @foreach (var v in cotizacionesPresupuestos)
-                {
-                    <article class="card card-sub quote-card">
-                        <div class="quote-card__top">
-                            <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
-                            <strong>$@v.Total.ToString("N2")</strong>
+                    <form asp-action="Index" method="get" id="form-filtros" class="filters-shell">
+                        <div class="filters-grid filters-grid--base">
+                            <div class="field field-wide">
+                                <label class="label" for="venta-filtro-numero">Buscar venta</label>
+                                <input id="venta-filtro-numero" type="text" name="Numero" value="@filter.Numero"
+                                       placeholder="Número de venta" />
+                            </div>
+                            <div class="filters-actions">
+                                <button type="submit" class="btn btn-primary">
+                                    <span class="material-symbols-outlined">filter_list</span>
+                                    Filtrar
+                                </button>
+                                @if (filtroActivo)
+                                {
+                                    <a asp-action="Index" class="btn btn-ghost no-underline">
+                                        <span class="material-symbols-outlined">clear_all</span>
+                                        Limpiar
+                                    </a>
+                                }
+                            </div>
                         </div>
-                        <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                        <p>@v.ClienteNombre</p>
-                        <div class="quote-card__actions">
-                            <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
-                        </div>
-                    </article>
-                }
-                @if (!cotizacionesPresupuestos.Any())
-                {
-                    <div class="empty-state empty-state-compact">
-                        <span class="material-symbols-outlined">request_quote</span>
-                        <h3>Sin cotizaciones ni presupuestos en esta vista</h3>
-                    </div>
-                }
-            </div>
-        </section>
 
-        <section id="panel-devoluciones" role="tabpanel" aria-labelledby="tab-devoluciones" data-venta-tab-panel="devoluciones" class="tab-panel" hidden>
-            <div class="panel-heading">
-                <div>
-                    <p class="label">Postventa</p>
-                    <h2>Devoluciones</h2>
-                    <p>Ventas elegibles para abrir el modal real de devolución.</p>
-                </div>
-                @if (puedeVerDevoluciones)
-                {
-                    <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones" class="btn btn-ghost no-underline">Ver historial</a>
-                }
-            </div>
-            <div class="compact-list">
-                @foreach (var v in devolucionesElegibles)
-                {
-                    <article class="card card-sub compact-item">
-                        <div>
-                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                            <p>@v.ClienteNombre · @TipoPagoLabel(v.TipoPago)</p>
-                        </div>
-                        <strong>$@v.Total.ToString("N2")</strong>
-                        <button type="button" data-open-devolucion-modal data-venta-id="@v.Id" class="btn btn-xs btn-amber">Devolver</button>
-                    </article>
-                }
-                @if (!devolucionesElegibles.Any())
-                {
-                    <div class="empty-state empty-state-compact">
-                        <span class="material-symbols-outlined">assignment_return</span>
-                        <h3>Sin ventas elegibles para devolución</h3>
-                    </div>
-                }
-            </div>
-        </section>
+                        <details class="advanced-filters">
+                            <summary class="advanced-filters__summary">
+                                <span>Filtros avanzados</span>
+                            </summary>
+                            <div class="advanced-filters__body">
+                                <div class="filters-grid filters-grid--advanced">
+                                    <div class="field">
+                                        <label class="label" for="venta-filtro-desde">Desde</label>
+                                        <input id="venta-filtro-desde" type="date" name="FechaDesde" value="@fechaDesdeStr" />
+                                    </div>
+                                    <div class="field">
+                                        <label class="label" for="venta-filtro-hasta">Hasta</label>
+                                        <input id="venta-filtro-hasta" type="date" name="FechaHasta" value="@fechaHastaStr" />
+                                    </div>
+                                    <div class="field">
+                                        <label class="label" for="venta-filtro-estado">Estado</label>
+                                        <select id="venta-filtro-estado" name="Estado">
+                                            <option value="">Todos</option>
+                                            <option value="@EstadoVenta.Cotizacion"
+                                                    selected="@(filter.Estado == EstadoVenta.Cotizacion)">Cotización</option>
+                                            <option value="@EstadoVenta.Presupuesto"
+                                                    selected="@(filter.Estado == EstadoVenta.Presupuesto)">Presupuesto</option>
+                                            <option value="@EstadoVenta.Confirmada"
+                                                    selected="@(filter.Estado == EstadoVenta.Confirmada)">Confirmada</option>
+                                            <option value="@EstadoVenta.Facturada"
+                                                    selected="@(filter.Estado == EstadoVenta.Facturada)">Facturada</option>
+                                            <option value="@EstadoVenta.Entregada"
+                                                    selected="@(filter.Estado == EstadoVenta.Entregada)">Entregada</option>
+                                            <option value="@EstadoVenta.Cancelada"
+                                                    selected="@(filter.Estado == EstadoVenta.Cancelada)">Cancelada</option>
+                                            <option value="@EstadoVenta.PendienteRequisitos"
+                                                    selected="@(filter.Estado == EstadoVenta.PendienteRequisitos)">Pend. requisitos
+                                            </option>
+                                            <option value="@EstadoVenta.PendienteFinanciacion"
+                                                    selected="@(filter.Estado == EstadoVenta.PendienteFinanciacion)">Pend.
+                                                financiación</option>
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label class="label" for="venta-filtro-pago">Pago</label>
+                                            <select id="venta-filtro-pago" name="TipoPago">
+                                                <option value="">Todos</option>
+                                                <option value="@TipoPago.Efectivo"
+                                                        selected="@(filter.TipoPago == TipoPago.Efectivo)">Efectivo</option>
+                                                <option value="@TipoPago.Transferencia"
+                                                        selected="@(filter.TipoPago == TipoPago.Transferencia)">Transferencia</option>
+                                                <option value="@TipoPago.TarjetaDebito"
+                                                        selected="@(filter.TipoPago == TipoPago.TarjetaDebito)">Tarjeta débito</option>
+                                                <option value="@TipoPago.TarjetaCredito"
+                                                        selected="@(filter.TipoPago == TipoPago.TarjetaCredito)">Tarjeta crédito
+                                                </option>
+                                                <option value="@TipoPago.Cheque" selected="@(filter.TipoPago == TipoPago.Cheque)">
+                                                    Cheque</option>
+                                                    <option value="@TipoPago.CreditoPersonal"
+                                                            selected="@(filter.TipoPago == TipoPago.CreditoPersonal)">Crédito personal
+                                                    </option>
+                                                    <option value="@TipoPago.MercadoPago"
+                                                            selected="@(filter.TipoPago == TipoPago.MercadoPago)">Mercado Pago</option>
+                                                    <option value="@TipoPago.CuentaCorriente"
+                                                            selected="@(filter.TipoPago == TipoPago.CuentaCorriente)">Cuenta corriente
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="field">
+                                                <label class="label" for="venta-filtro-autorizacion">Autorización</label>
+                                                <select id="venta-filtro-autorizacion" name="EstadoAutorizacion">
+                                                    <option value="">Todas</option>
+                                                    <option value="@EstadoAutorizacionVenta.NoRequiere"
+                                                            selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.NoRequiere)">No
+                                                        requiere</option>
+                                                        <option value="@EstadoAutorizacionVenta.PendienteAutorizacion"
+                                                                selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion)">
+                                                            Pendiente</option>
+                                                            <option value="@EstadoAutorizacionVenta.Autorizada"
+                                                                    selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)">
+                                                                Autorizada</option>
+                                                                <option value="@EstadoAutorizacionVenta.Rechazada"
+                                                                        selected="@(filter.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada)">
+                                                                    Rechazada</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </details>
+                                            </form>
 
-        <section id="panel-pagos" role="tabpanel" aria-labelledby="tab-pagos" data-venta-tab-panel="pagos" class="tab-panel" hidden>
-            <div class="panel-heading">
-                <div>
-                    <p class="label">Administración centralizada</p>
-                    <h2>Configuración de pagos</h2>
-                    <p>Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.</p>
-                </div>
-                @if (puedeConfigurarPagos)
-                {
-                    <a asp-controller="ConfiguracionPago"
-                       asp-action="MediosPago"
-                       class="btn btn-primary no-underline">
-                        <span class="material-symbols-outlined">tune</span>
-                        Configurar medios de pago
-                    </a>
-                }
-            </div>
-        </section>
-    </section>
+                                            <div id="ventas-index-scroll" data-oc-scroll class="table-shell">
+                                                <p data-oc-scroll-hint hidden class="scroll-hint">Deslizá la tabla para revisar estados, autorización,
+                                                    totales y acciones completas.</p>
+                                                    <div data-oc-scroll-shell class="relative">
+                                                        <div data-oc-scroll-fade="left" hidden></div>
+                                                        <div data-oc-scroll-fade="right" hidden></div>
+                                                        <div data-oc-scroll-region class="table-scroll" tabindex="0" role="region"
+                                                             aria-label="Listado principal de ventas">
+                                                            <table data-oc-scroll-table class="ventas-table">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th scope="col">Número</th>
+                                                                        <th scope="col">Fecha</th>
+                                                                        <th scope="col">Cliente</th>
+                                                                        <th scope="col">Estado</th>
+                                                                        <th scope="col">Autorización</th>
+                                                                        <th scope="col">Tipo de pago</th>
+                                                                        <th scope="col" class="text-right">Total</th>
+                                                                        <th scope="col" class="text-center">Acciones</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @if (ventas.Any())
+                                                                    {
+                                                                        @foreach (var v in ventas)
+                                                                        {
+                                                                            var esCancelada = v.Estado == EstadoVenta.Cancelada;
+                                                                            var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones &&
+                                                                    v.PuedeCrearDevolucion && !esCancelada;
+                                                                            var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
 
-    <nav class="mobile-sticky-bar" aria-label="Acciones principales de ventas">
-        @if (puedeCrear)
-        {
-            <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
-                <span class="material-symbols-outlined">add</span>
-                Nueva Venta
-            </a>
-        }
-        else if (!puedeOperarVentas)
-        {
-            <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
-                <span class="material-symbols-outlined">add</span>
-                Nueva Venta
-            </button>
-        }
-        <a asp-action="Index" class="btn btn-ghost no-underline">
-            <span class="material-symbols-outlined">refresh</span>
-            Actualizar
-        </a>
-    </nav>
-</main>
+                                                                            <tr>
+                                                                                <td>
+                                                                                    <a asp-action="Details" asp-route-id="@v.Id"
+                                                                                       class="sale-number no-underline">@v.Numero</a>
+                                                                                </td>
+                                                                                <td>@v.FechaVenta.ToString("dd/MM/yyyy")</td>
+                                                                                <td>
+                                                                                    <span class="truncate-1">@v.ClienteNombre</span>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <span
+                                                                                        class="pill @EstadoPillClass(v.Estado) @(esCancelada ? "line-through" : "")">@EstadoLabel(v.Estado,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            v.EstadoDisplay)</span>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <span
+                                                                                            class="pill @AutorizacionPillClass(v.EstadoAutorizacion)">@AutorizacionLabel(v.EstadoAutorizacion,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            v.EstadoAutorizacionDisplay)</span>
+                                                                                        </td>
+                                                                                        <td>@TipoPagoLabel(v.TipoPago)</td>
+                                                                                        <td class="total-cell @(esCancelada ? "is-muted" : "")">$@v.Total.ToString("N2")
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <div class="row-actions">
+                                                                                                <a asp-action="Details" asp-route-id="@v.Id"
+                                                                                                   class="btn btn-xs btn-soft no-underline">
+                                                                                                    <span class="material-symbols-outlined">visibility</span>
+                                                                                                    Ver
+                                                                                                </a>
+                                                                                                @if (puedeDevolver)
+                                                                                                {
+                                                                                                    <button type="button" data-open-devolucion-modal data-venta-id="@v.Id"
+                                                                                                            class="btn btn-xs btn-amber">
+                                                                                                        <span class="material-symbols-outlined">assignment_return</span>
+                                                                                                        Devolver
+                                                                                                    </button>
+                                                                                                }
+                                                                                                else if (puedeCrearDevoluciones)
+                                                                                                {
+                                                                                                    <span class="btn btn-xs btn-ghost is-disabled">Devolver</span>
+                                                                                                }
+                                                                                                @if (puedeCancelarVenta)
+                                                                                                {
+                                                                                                    <a asp-action="Cancelar" asp-route-id="@v.Id"
+                                                                                                       class="btn btn-xs btn-danger no-underline">
+                                                                                                        <span class="material-symbols-outlined">block</span>
+                                                                                                        Anular
+                                                                                                    </a>
+                                                                                                }
+                                                                                                else
+                                                                                                {
+                                                                                                    <span class="btn btn-xs btn-ghost is-disabled">Anular</span>
+                                                                                                }
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                }
+                                                                            }
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="mobile-sales-list" aria-label="Ventas en formato mobile">
+                                                            @if (ventas.Any())
+                                                            {
+                                                                @foreach (var v in ventas)
+                                                                {
+                                                                    var esCancelada = v.Estado == EstadoVenta.Cancelada;
+                                                                    var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion &&
+                                                            !esCancelada;
+                                                                    var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+
+                                                                    <article class="card card-sub sale-card">
+                                                                        <div class="sale-card__top">
+                                                                            <div>
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                                <p>@v.FechaVenta.ToString("dd/MM/yyyy")</p>
+                                                                            </div>
+                                                                            <strong class="total-display @(esCancelada ? "is-muted" : "")">$@v.Total.ToString("N2")</strong>
+                                                                        </div>
+                                                                        <div class="sale-card__client">
+                                                                            <span class="material-symbols-outlined">person</span>
+                                                                            <span class="truncate-1">@v.ClienteNombre</span>
+                                                                        </div>
+                                                                        <div class="sale-card__meta">
+                                                                            <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
+                                                                            <span
+                                                                                class="pill @AutorizacionPillClass(v.EstadoAutorizacion)">@AutorizacionLabel(v.EstadoAutorizacion,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            v.EstadoAutorizacionDisplay)</span>
+                                                                                <span class="pill pill-slate">@TipoPagoLabel(v.TipoPago)</span>
+                                                                            </div>
+                                                                            <div class="sale-card__actions">
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                                @if (puedeDevolver)
+                                                                                {
+                                                                                    <button type="button" data-open-devolucion-modal data-venta-id="@v.Id"
+                                                                                            class="btn btn-xs btn-amber">Devolver</button>
+                                                                                }
+                                                                                @if (puedeCancelarVenta)
+                                                                                {
+                                                                                    <a asp-action="Cancelar" asp-route-id="@v.Id"
+                                                                                       class="btn btn-xs btn-danger no-underline">Anular</a>
+                                                                                }
+                                                                            </div>
+                                                                        </article>
+                                                                    }
+                                                                }
+                                                            </div>
+
+                                                            @if (!ventas.Any())
+                                                            {
+                                                                <div class="empty-state">
+                                                                    <span class="material-symbols-outlined">search_off</span>
+                                                                    <h3>No se encontraron ventas</h3>
+                                                                    <p>No hay ventas que coincidan con los filtros aplicados.</p>
+                                                                    <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                </div>
+                                                            }
+                                                        </section>
+
+                                                        <section id="panel-pendientes" role="tabpanel" aria-labelledby="tab-pendientes"
+                                                                 data-venta-tab-panel="pendientes" class="tab-panel" hidden>
+                                                            <div class="panel-heading">
+                                                                <div>
+                                                                    <p class="label">Autorizaciones</p>
+                                                                    <h2>Pendientes</h2>
+                                                                    <p>Operaciones que necesitan autorización antes de continuar.</p>
+                                                                </div>
+                                                            </div>
+                                                            <div class="compact-list">
+                                                                @foreach (var v in ventas.Where(v => v.EstadoAutorizacion ==
+                                                                EstadoAutorizacionVenta.PendienteAutorizacion))
+                                                                {
+                                                                    <article class="card card-sub compact-item">
+                                                                        <div>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <p>@v.ClienteNombre · @v.FechaVenta.ToString("dd/MM/yyyy")</p>
+                                                                        </div>
+                                                                        <span class="pill pill-amber">@AutorizacionLabel(v.EstadoAutorizacion,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        v.EstadoAutorizacionDisplay)</span>
+                                                                            <strong>$@v.Total.ToString("N2")</strong>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                        </article>
+                                                                    }
+                                                                    @if (pendientesAutorizacion == 0)
+                                                                    {
+                                                                        <div class="empty-state empty-state-compact">
+                                                                            <span class="material-symbols-outlined">verified</span>
+                                                                            <h3>Sin pendientes de autorización</h3>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </section>
+
+                                                            <section id="panel-cotizaciones" role="tabpanel" aria-labelledby="tab-cotizaciones"
+                                                                     data-venta-tab-panel="cotizaciones" class="tab-panel" hidden>
+                                                                <div class="panel-heading">
+                                                                    <div>
+                                                                        <p class="label">Seguimiento comercial</p>
+                                                                        <h2>Cotizaciones y presupuestos</h2>
+                                                                        <p>Registros reales en estado cotización o presupuesto.</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="quote-grid">
+                                                                    @foreach (var v in cotizacionesPresupuestos)
+                                                                    {
+                                                                        <article class="card card-sub quote-card">
+                                                                            <div class="quote-card__top">
+                                                                                <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
+                                                                                <strong>$@v.Total.ToString("N2")</strong>
+                                                                            </div>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <p>@v.ClienteNombre</p>
+                                                                            <div class="quote-card__actions">
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                            </div>
+                                                                        </article>
+                                                                    }
+                                                                    @if (!cotizacionesPresupuestos.Any())
+                                                                    {
+                                                                        <div class="empty-state empty-state-compact">
+                                                                            <span class="material-symbols-outlined">request_quote</span>
+                                                                            <h3>Sin cotizaciones ni presupuestos en esta vista</h3>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </section>
+
+                                                            <section id="panel-devoluciones" role="tabpanel" aria-labelledby="tab-devoluciones"
+                                                                     data-venta-tab-panel="devoluciones" class="tab-panel" hidden>
+                                                                <div class="panel-heading">
+                                                                    <div>
+                                                                        <p class="label">Postventa</p>
+                                                                        <h2>Devoluciones</h2>
+                                                                        <p>Ventas elegibles para abrir el modal real de devolución.</p>
+                                                                    </div>
+                                                                    @if (puedeVerDevoluciones)
+                                                                    {
+                                                                        <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
+                                                                           class="btn btn-ghost no-underline">Ver historial</a>
+                                                                    }
+                                                                </div>
+                                                                <div class="compact-list">
+                                                                    @foreach (var v in devolucionesElegibles)
+                                                                    {
+                                                                        <article class="card card-sub compact-item">
+                                                                            <div>
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                                <p>@v.ClienteNombre · @TipoPagoLabel(v.TipoPago)</p>
+                                                                            </div>
+                                                                            <strong>$@v.Total.ToString("N2")</strong>
+                                                                            <button type="button" data-open-devolucion-modal data-venta-id="@v.Id"
+                                                                                    class="btn btn-xs btn-amber">Devolver</button>
+                                                                        </article>
+                                                                    }
+                                                                    @if (!devolucionesElegibles.Any())
+                                                                    {
+                                                                        <div class="empty-state empty-state-compact">
+                                                                            <span class="material-symbols-outlined">assignment_return</span>
+                                                                            <h3>Sin ventas elegibles para devolución</h3>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </section>
+
+                                                           
+                                                        </section>
+
+                                                        <nav class="mobile-sticky-bar" aria-label="Acciones principales de ventas">
+                                                            @if (puedeCrear)
+                                                            {
+                                                                <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
+                                                                    <span class="material-symbols-outlined">add</span>
+                                                                    Nueva Venta
+                                                                </a>
+                                                            }
+                                                            else if (!puedeOperarVentas)
+                                                            {
+                                                                <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
+                                                                    <span class="material-symbols-outlined">add</span>
+                                                                    Nueva Venta
+                                                                </button>
+                                                            }
+                                                            <a asp-controller="Cotizacion" asp-action="Index" class="btn btn-soft no-underline">
+                                                                <span class="material-symbols-outlined">request_quote</span>
+                                                                Cotizaciones
+                                                            </a>
+                                                            <a asp-action="Index" class="btn btn-ghost no-underline">
+                                                                <span class="material-symbols-outlined">refresh</span>
+                                                                Actualizar
+                                                            </a>
+                                                        </nav>
+                                                    </main>
 
 
-@if (puedeCrearDevoluciones && puedeOperarVentas)
-{
-    <partial name="_VentaDevolucionModal" />
-}
+                                                    @if (puedeCrearDevoluciones && puedeOperarVentas)
+                                                    {
+                                                        <partial name="_VentaDevolucionModal" />
+                                                    }
 
-@section Styles {
-    <partial name="_VentaModuleStyles" />
-}
+                                                    @section Styles {
+                                                        <link rel="stylesheet" href="~/css/ventas-index.css" asp-append-version="true" />
+                                                    }
 
-@section Scripts {
-    <script src="~/js/module-index.js" asp-append-version="true"></script>
-    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-    <script src="~/js/venta-module.js" asp-append-version="true"></script>
-    <script src="~/js/venta-devolucion-modal.js" asp-append-version="true"></script>
-    <script src="~/js/venta-index.js" asp-append-version="true"></script>
-    <script src="~/js/venta-index-rework.js" asp-append-version="true"></script>
-}
+                                                    @section Scripts {
+                                                        <script src="~/js/module-index.js" asp-append-version="true"></script>
+                                                        <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+                                                        <script src="~/js/venta-index.js" asp-append-version="true"></script>
+                                                        <script src="~/js/venta-index-rework.js" asp-append-version="true"></script>
+
+                                                        @if (puedeCrearDevoluciones && puedeOperarVentas)
+                                                        {
+                                                            <script src="~/js/venta-devolucion-modal.js" asp-append-version="true"></script>
+                                                        }
+                                                    }

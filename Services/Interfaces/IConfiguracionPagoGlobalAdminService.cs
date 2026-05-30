@@ -13,4 +13,7 @@ public interface IConfiguracionPagoGlobalAdminService
     Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command);
     Task<PlanPagoGlobalAdminViewModel?> ActualizarPlanGlobalAsync(int id, PlanPagoGlobalCommandViewModel command);
     Task<bool> CambiarEstadoPlanGlobalAsync(int id, bool activo);
+    Task<bool> EliminarTarjetaGlobalAsync(int id);
+    Task<bool> EliminarMedioPagoAsync(int id);
+    Task<bool> EditarMedioPagoAsync(int id, MedioPagoGlobalEditViewModel command);
 }
