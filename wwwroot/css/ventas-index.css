@@ -1,0 +1,1410 @@
+/* ========================================================
+   Ventas Index
+   Página: Venta/Index.cshtml
+   Archivo: ventas-index.css
+   Scope: #venta-index-rework
+   ======================================================== */
+
+/* ─────────────────────────────────────────────
+   Base / Tokens
+───────────────────────────────────────────── */
+
+#venta-index-rework {
+    --venta-bg: #101622;
+    --venta-surface: #161c28;
+    --venta-surface-2: #1a202c;
+    --venta-surface-3: #1e293b;
+
+    --venta-border: rgba(148, 163, 184, 0.16);
+    --venta-border-strong: rgba(148, 163, 184, 0.28);
+
+    --venta-text: #dde2f4;
+    --venta-text-strong: #f8fafc;
+    --venta-muted: #94a3b8;
+    --venta-muted-2: #64748b;
+
+    --venta-primary: #135bec;
+    --venta-primary-hover: #1a6aff;
+    --venta-primary-soft: rgba(19, 91, 236, 0.16);
+
+    --venta-green: #22c55e;
+    --venta-green-soft: rgba(34, 197, 94, 0.14);
+
+    --venta-amber: #f59e0b;
+    --venta-amber-soft: rgba(245, 158, 11, 0.14);
+
+    --venta-red: #ef4444;
+    --venta-red-soft: rgba(239, 68, 68, 0.14);
+
+    --venta-cyan: #38bdf8;
+    --venta-cyan-soft: rgba(56, 189, 248, 0.14);
+
+    --venta-purple: #a78bfa;
+    --venta-purple-soft: rgba(167, 139, 250, 0.14);
+
+    --venta-radius-sm: 0.5rem;
+    --venta-radius-md: 0.75rem;
+    --venta-radius-lg: 1rem;
+    --venta-radius-xl: 1.25rem;
+
+    --venta-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
+    --venta-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.16);
+
+    color: var(--venta-text);
+}
+
+#venta-index-rework,
+#venta-index-rework * {
+    box-sizing: border-box;
+}
+
+#venta-index-rework a {
+    color: inherit;
+}
+
+#venta-index-rework p,
+#venta-index-rework h1,
+#venta-index-rework h2,
+#venta-index-rework h3 {
+    margin: 0;
+}
+
+#venta-index-rework .material-symbols-outlined {
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+/* ─────────────────────────────────────────────
+   Shell
+───────────────────────────────────────────── */
+
+#venta-index-rework.venta-index-shell {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: 5rem;
+}
+
+/* ─────────────────────────────────────────────
+   Cards
+───────────────────────────────────────────── */
+
+#venta-index-rework .card {
+    border: 1px solid var(--venta-border);
+    border-radius: var(--venta-radius-xl);
+    background:
+        linear-gradient(135deg, rgba(22, 28, 40, 0.98), rgba(15, 23, 42, 0.92));
+    box-shadow: var(--venta-shadow-soft);
+}
+
+#venta-index-rework .card-sub {
+    background: rgba(26, 32, 44, 0.88);
+    border-color: var(--venta-border);
+}
+
+#venta-index-rework .label {
+    display: block;
+    color: var(--venta-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ─────────────────────────────────────────────
+   Alertas / Toasts
+───────────────────────────────────────────── */
+
+#venta-index-rework .card-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+#venta-index-rework .card-alert__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+#venta-index-rework .card-alert__icon .material-symbols-outlined {
+    font-size: 1.35rem;
+}
+
+#venta-index-rework .card-alert__body {
+    min-width: 0;
+    flex: 1;
+}
+
+#venta-index-rework .card-alert__body h2 {
+    margin-top: 0.2rem;
+    color: var(--venta-text-strong);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+#venta-index-rework .card-alert__body p:not(.label) {
+    margin-top: 0.35rem;
+    color: var(--venta-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+#venta-index-rework .card-alert__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .card-alert-amber {
+    border-color: rgba(245, 158, 11, 0.32);
+    background:
+        linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(22, 28, 40, 0.95));
+}
+
+#venta-index-rework .card-alert-amber .card-alert__icon {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fcd34d;
+}
+
+#venta-index-rework .card-alert-green {
+    border-color: rgba(34, 197, 94, 0.32);
+    background:
+        linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(22, 28, 40, 0.95));
+    color: #86efac;
+}
+
+#venta-index-rework .card-alert-red {
+    border-color: rgba(239, 68, 68, 0.32);
+    background:
+        linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(22, 28, 40, 0.95));
+    color: #fca5a5;
+}
+
+#venta-index-rework .toast-msg {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.875rem 1rem;
+    border-radius: var(--venta-radius-lg);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+/* Highlight caja cerrada */
+
+@keyframes venta-caja-highlight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+        background-color: rgba(245, 158, 11, 0.10);
+    }
+
+    25% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.45);
+        background-color: rgba(245, 158, 11, 0.20);
+    }
+
+    60% {
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.20);
+        background-color: rgba(245, 158, 11, 0.15);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+        background-color: rgba(245, 158, 11, 0.10);
+    }
+}
+
+#venta-index-rework .caja-highlight-active {
+    animation: venta-caja-highlight 1.8s ease forwards;
+    border-color: rgba(245, 158, 11, 0.6) !important;
+}
+
+/* ─────────────────────────────────────────────
+   Botones
+───────────────────────────────────────────── */
+
+#venta-index-rework .btn {
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+        transform 140ms ease,
+        border-color 140ms ease,
+        background-color 140ms ease,
+        color 140ms ease,
+        opacity 140ms ease;
+}
+
+#venta-index-rework .btn:active {
+    transform: translateY(1px);
+}
+
+#venta-index-rework .btn:disabled,
+#venta-index-rework .btn.is-disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#venta-index-rework .btn .material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
+#venta-index-rework .btn-primary {
+    background: var(--venta-primary);
+    border-color: rgba(59, 130, 246, 0.42);
+    color: #fff;
+}
+
+#venta-index-rework .btn-primary:hover {
+    background: var(--venta-primary-hover);
+}
+
+#venta-index-rework .btn-soft {
+    background: var(--venta-primary-soft);
+    border-color: rgba(59, 130, 246, 0.28);
+    color: #bfdbfe;
+}
+
+#venta-index-rework .btn-soft:hover {
+    background: rgba(19, 91, 236, 0.24);
+    border-color: rgba(59, 130, 246, 0.42);
+}
+
+#venta-index-rework .btn-ghost {
+    background: transparent;
+    border-color: var(--venta-border-strong);
+    color: var(--venta-muted);
+}
+
+#venta-index-rework .btn-ghost:hover {
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--venta-text);
+}
+
+#venta-index-rework .btn-amber {
+    background: var(--venta-amber-soft);
+    border-color: rgba(245, 158, 11, 0.32);
+    color: #fcd34d;
+}
+
+#venta-index-rework .btn-amber:hover {
+    background: rgba(245, 158, 11, 0.22);
+}
+
+#venta-index-rework .btn-danger {
+    background: var(--venta-red-soft);
+    border-color: rgba(239, 68, 68, 0.32);
+    color: #fca5a5;
+}
+
+#venta-index-rework .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.22);
+}
+
+#venta-index-rework .btn-xs {
+    min-height: 2rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.6rem;
+    font-size: 0.72rem;
+}
+
+#venta-index-rework .btn-xs .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+/* ─────────────────────────────────────────────
+   Pills / Chips
+───────────────────────────────────────────── */
+
+#venta-index-rework .pill,
+#venta-index-rework .chip-filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: max-content;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#venta-index-rework .pill {
+    padding: 0.28rem 0.55rem;
+}
+
+#venta-index-rework .chip-filter {
+    min-height: 2rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.14);
+    color: var(--venta-muted);
+}
+
+#venta-index-rework .chip-filter .material-symbols-outlined {
+    font-size: 1rem;
+}
+
+#venta-index-rework .chip-filter-active {
+    background: var(--venta-primary-soft);
+    border-color: rgba(59, 130, 246, 0.32);
+    color: #bfdbfe;
+}
+
+#venta-index-rework .pill-slate {
+    background: rgba(148, 163, 184, 0.11);
+    border-color: rgba(148, 163, 184, 0.18);
+    color: #cbd5e1;
+}
+
+#venta-index-rework .pill-blue {
+    background: var(--venta-primary-soft);
+    border-color: rgba(59, 130, 246, 0.32);
+    color: #bfdbfe;
+}
+
+#venta-index-rework .pill-cyan {
+    background: var(--venta-cyan-soft);
+    border-color: rgba(56, 189, 248, 0.32);
+    color: #bae6fd;
+}
+
+#venta-index-rework .pill-green {
+    background: var(--venta-green-soft);
+    border-color: rgba(34, 197, 94, 0.32);
+    color: #86efac;
+}
+
+#venta-index-rework .pill-amber {
+    background: var(--venta-amber-soft);
+    border-color: rgba(245, 158, 11, 0.32);
+    color: #fcd34d;
+}
+
+#venta-index-rework .pill-red {
+    background: var(--venta-red-soft);
+    border-color: rgba(239, 68, 68, 0.32);
+    color: #fca5a5;
+}
+
+#venta-index-rework .pill-purple {
+    background: var(--venta-purple-soft);
+    border-color: rgba(167, 139, 250, 0.32);
+    color: #ddd6fe;
+}
+
+/* ─────────────────────────────────────────────
+   Hero
+───────────────────────────────────────────── */
+
+#venta-index-rework .venta-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    overflow: hidden;
+    position: relative;
+}
+
+#venta-index-rework .venta-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.08), transparent 36%);
+}
+
+#venta-index-rework .venta-hero__content,
+#venta-index-rework .venta-hero__actions {
+    position: relative;
+    z-index: 1;
+}
+
+#venta-index-rework .venta-hero__content {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+#venta-index-rework .venta-hero__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #86efac;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#venta-index-rework .dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    display: inline-block;
+    border-radius: 999px;
+}
+
+#venta-index-rework .dot-green {
+    background: var(--venta-green);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+}
+
+#venta-index-rework .venta-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--venta-muted-2);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+#venta-index-rework .venta-breadcrumb__link {
+    color: #93c5fd;
+    text-decoration: none;
+}
+
+#venta-index-rework .venta-breadcrumb__link:hover {
+    text-decoration: underline;
+}
+
+#venta-index-rework .venta-breadcrumb__separator {
+    color: var(--venta-muted-2);
+}
+
+#venta-index-rework .venta-breadcrumb__current {
+    color: var(--venta-muted);
+}
+
+#venta-index-rework .venta-hero h1 {
+    color: var(--venta-text-strong);
+    font-size: clamp(1.65rem, 2.6vw, 2.35rem);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}
+
+#venta-index-rework .venta-hero h1+p {
+    margin-top: 0.55rem;
+    max-width: 56rem;
+    color: var(--venta-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+#venta-index-rework .venta-hero__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+#venta-index-rework .venta-hero__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────
+   KPI Grid
+───────────────────────────────────────────── */
+
+#venta-index-rework .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+#venta-index-rework .kpi-card {
+    min-width: 0;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#venta-index-rework .kpi-card__icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.8rem;
+    background: rgba(59, 130, 246, 0.14);
+    color: #93c5fd;
+    font-size: 1.25rem;
+}
+
+#venta-index-rework .kpi-card strong {
+    color: var(--venta-text-strong);
+    font-size: 1.4rem;
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .kpi-card span:not(.kpi-card__icon) {
+    color: var(--venta-muted-2);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+/* ─────────────────────────────────────────────
+   Tabs
+───────────────────────────────────────────── */
+
+#venta-index-rework .tabs-card {
+    overflow: hidden;
+}
+
+#venta-index-rework .tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--venta-border);
+}
+
+#venta-index-rework .tabs-scroll {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+#venta-index-rework .tabs-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+#venta-index-rework .tab-btn {
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    flex: 0 0 auto;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.8rem;
+    border: 1px solid var(--venta-border);
+    background: rgba(15, 23, 42, 0.45);
+    color: var(--venta-muted);
+    font-size: 0.78rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        color 140ms ease;
+}
+
+#venta-index-rework .tab-btn:hover {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: var(--venta-border-strong);
+    color: var(--venta-text);
+}
+
+#venta-index-rework .tab-btn.is-active,
+#venta-index-rework .tab-btn[aria-selected="true"] {
+    background: var(--venta-primary-soft);
+    border-color: rgba(59, 130, 246, 0.38);
+    color: #bfdbfe;
+}
+
+#venta-index-rework .tab-btn .material-symbols-outlined {
+    font-size: 1.08rem;
+}
+
+#venta-index-rework .tab-btn__count {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.22);
+    color: #fcd34d;
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+#venta-index-rework .venta-tabs__actions {
+    flex-shrink: 0;
+}
+
+#venta-index-rework .tab-panel {
+    padding: 1.25rem;
+}
+
+#venta-index-rework .tab-panel[hidden] {
+    display: none !important;
+}
+
+/* ─────────────────────────────────────────────
+   Panel Heading
+───────────────────────────────────────────── */
+
+#venta-index-rework .panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+#venta-index-rework .panel-heading h2 {
+    margin-top: 0.25rem;
+    color: var(--venta-text-strong);
+    font-size: 1.25rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+}
+
+#venta-index-rework .panel-heading p:not(.label) {
+    margin-top: 0.35rem;
+    color: var(--venta-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+#venta-index-rework .panel-heading__meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────
+   Filtros
+───────────────────────────────────────────── */
+
+#venta-index-rework .filters-shell {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--venta-border);
+    border-radius: var(--venta-radius-lg);
+    background: rgba(15, 23, 42, 0.42);
+}
+
+#venta-index-rework .filters-grid {
+    display: grid;
+    gap: 0.85rem;
+}
+
+#venta-index-rework .filters-grid--base {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
+#venta-index-rework .filters-grid--advanced {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#venta-index-rework .field {
+    min-width: 0;
+}
+
+#venta-index-rework .field label {
+    margin-bottom: 0.45rem;
+}
+
+#venta-index-rework .field-wide {
+    min-width: 0;
+}
+
+#venta-index-rework input,
+#venta-index-rework select {
+    width: 100%;
+    min-height: 2.65rem;
+    border: 1px solid var(--venta-border-strong);
+    border-radius: 0.75rem;
+    background-color: rgba(15, 23, 42, 0.78);
+    color: var(--venta-text);
+    padding: 0.7rem 0.85rem;
+    font-size: 0.88rem;
+    outline: none;
+    transition:
+        border-color 140ms ease,
+        box-shadow 140ms ease,
+        background-color 140ms ease;
+}
+
+#venta-index-rework select {
+    cursor: pointer;
+}
+
+#venta-index-rework input::placeholder {
+    color: var(--venta-muted-2);
+}
+
+#venta-index-rework input:focus,
+#venta-index-rework select:focus {
+    border-color: rgba(59, 130, 246, 0.72);
+    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    background-color: rgba(15, 23, 42, 0.96);
+}
+
+#venta-index-rework select option {
+    background-color: #161c28;
+    color: var(--venta-text);
+}
+
+#venta-index-rework .filters-actions {
+    display: flex;
+    align-items: end;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .advanced-filters {
+    margin-top: 0.85rem;
+}
+
+#venta-index-rework .advanced-filters__summary {
+    width: max-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #bfdbfe;
+    font-size: 0.78rem;
+    font-weight: 900;
+    cursor: pointer;
+    user-select: none;
+}
+
+#venta-index-rework .advanced-filters__summary::-webkit-details-marker {
+    display: none;
+}
+
+#venta-index-rework .advanced-filters__summary::after {
+    content: "expand_more";
+    font-family: "Material Symbols Outlined";
+    font-size: 1.1rem;
+    line-height: 1;
+    transition: transform 140ms ease;
+}
+
+#venta-index-rework .advanced-filters[open] .advanced-filters__summary::after {
+    transform: rotate(180deg);
+}
+
+#venta-index-rework .advanced-filters__body {
+    margin-top: 0.85rem;
+    animation: venta-details-open 160ms ease both;
+}
+
+@keyframes venta-details-open {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ─────────────────────────────────────────────
+   Horizontal Scroll Affordance
+───────────────────────────────────────────── */
+
+#venta-index-rework [data-oc-scroll-hint][hidden],
+#venta-index-rework [data-oc-scroll-fade][hidden] {
+    display: none !important;
+}
+
+#venta-index-rework [data-oc-scroll-shell] {
+    position: relative;
+}
+
+#venta-index-rework [data-oc-scroll-region] {
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+}
+
+#venta-index-rework [data-oc-scroll-table] {
+    min-width: var(--oc-scroll-min-width, auto);
+}
+
+#venta-index-rework [data-oc-scroll-fade] {
+    position: absolute;
+    top: 0;
+    bottom: var(--oc-scroll-fade-bottom, 0);
+    width: var(--oc-scroll-fade-width, 2rem);
+    pointer-events: none;
+    z-index: 2;
+}
+
+#venta-index-rework [data-oc-scroll-fade="left"] {
+    left: 0;
+    background: linear-gradient(to right, var(--oc-scroll-fade-dark, rgba(16, 22, 34, 0.96)), transparent);
+}
+
+#venta-index-rework [data-oc-scroll-fade="right"] {
+    right: 0;
+    background: linear-gradient(to left, var(--oc-scroll-fade-dark, rgba(16, 22, 34, 0.96)), transparent);
+}
+
+#venta-index-rework #ventas-index-scroll {
+    --oc-scroll-min-width: 72rem;
+    --oc-scroll-fade-dark: rgba(16, 22, 34, 0.96);
+    --oc-scroll-fade-width: 2rem;
+}
+
+#venta-index-rework .scroll-hint {
+    margin-bottom: 0.6rem;
+    color: var(--venta-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────
+   Tabla desktop
+───────────────────────────────────────────── */
+
+#venta-index-rework .table-shell {
+    border: 1px solid var(--venta-border);
+    border-radius: var(--venta-radius-lg);
+    background: rgba(15, 23, 42, 0.35);
+    overflow: hidden;
+}
+
+#venta-index-rework .table-scroll {
+    width: 100%;
+}
+
+#venta-index-rework .table-scroll:focus {
+    outline: 2px solid rgba(59, 130, 246, 0.55);
+    outline-offset: -2px;
+}
+
+#venta-index-rework .ventas-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--venta-text);
+}
+
+#venta-index-rework .ventas-table th {
+    padding: 0.85rem 0.9rem;
+    border-bottom: 1px solid var(--venta-border);
+    background: rgba(15, 23, 42, 0.72);
+    color: var(--venta-muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+}
+
+#venta-index-rework .ventas-table td {
+    padding: 0.85rem 0.9rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    color: #cbd5e1;
+    font-size: 0.84rem;
+    vertical-align: middle;
+}
+
+#venta-index-rework .ventas-table tbody tr {
+    transition: background-color 120ms ease;
+}
+
+#venta-index-rework .ventas-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.06);
+}
+
+#venta-index-rework .ventas-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+#venta-index-rework .sale-number {
+    color: #93c5fd;
+    font-weight: 900;
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .sale-number:hover {
+    text-decoration: underline;
+}
+
+#venta-index-rework .truncate-1 {
+    display: block;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#venta-index-rework .total-cell,
+#venta-index-rework .total-display {
+    color: var(--venta-text-strong);
+    font-weight: 900;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .is-muted {
+    opacity: 0.55;
+}
+
+#venta-index-rework .line-through {
+    text-decoration: line-through;
+}
+
+#venta-index-rework .row-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: nowrap;
+}
+
+/* ─────────────────────────────────────────────
+   Mobile sales cards
+───────────────────────────────────────────── */
+
+#venta-index-rework .mobile-sales-list {
+    display: none;
+}
+
+#venta-index-rework .sale-card {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+#venta-index-rework .sale-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+#venta-index-rework .sale-card__top p {
+    margin-top: 0.25rem;
+    color: var(--venta-muted-2);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+#venta-index-rework .sale-card__client {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--venta-muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+#venta-index-rework .sale-card__client .material-symbols-outlined {
+    color: var(--venta-muted-2);
+    font-size: 1.1rem;
+}
+
+#venta-index-rework .sale-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .sale-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────
+   Compact lists / Quotes
+───────────────────────────────────────────── */
+
+#venta-index-rework .compact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#venta-index-rework .compact-item {
+    padding: 0.9rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+#venta-index-rework .compact-item p {
+    margin-top: 0.25rem;
+    color: var(--venta-muted);
+    font-size: 0.8rem;
+}
+
+#venta-index-rework .compact-item strong {
+    color: var(--venta-text-strong);
+    font-size: 0.9rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .quote-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+#venta-index-rework .quote-card {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#venta-index-rework .quote-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+#venta-index-rework .quote-card__top strong {
+    color: var(--venta-text-strong);
+    font-size: 0.95rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .quote-card p {
+    color: var(--venta-muted);
+    font-size: 0.85rem;
+}
+
+#venta-index-rework .quote-card__actions {
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* ─────────────────────────────────────────────
+   Empty states
+───────────────────────────────────────────── */
+
+#venta-index-rework .empty-state {
+    margin-top: 1rem;
+    padding: 2rem 1rem;
+    border: 1px dashed var(--venta-border-strong);
+    border-radius: var(--venta-radius-lg);
+    background: rgba(15, 23, 42, 0.35);
+    text-align: center;
+    color: var(--venta-muted);
+}
+
+#venta-index-rework .empty-state .material-symbols-outlined {
+    margin-bottom: 0.65rem;
+    color: var(--venta-muted-2);
+    font-size: 2.2rem;
+}
+
+#venta-index-rework .empty-state h3 {
+    color: var(--venta-text);
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+#venta-index-rework .empty-state p {
+    margin: 0.45rem auto 0;
+    max-width: 28rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+#venta-index-rework .empty-state .btn {
+    margin-top: 1rem;
+}
+
+#venta-index-rework .empty-state-compact {
+    margin-top: 0;
+    padding: 1.25rem;
+}
+
+/* ─────────────────────────────────────────────
+   Mobile sticky bar
+───────────────────────────────────────────── */
+
+#venta-index-rework .mobile-sticky-bar {
+    display: none;
+}
+
+/* ─────────────────────────────────────────────
+   Accesibilidad
+───────────────────────────────────────────── */
+
+#venta-index-rework button:focus-visible,
+#venta-index-rework a:focus-visible,
+#venta-index-rework input:focus-visible,
+#venta-index-rework select:focus-visible,
+#venta-index-rework summary:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.7);
+    outline-offset: 2px;
+}
+
+#venta-index-rework .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    white-space: nowrap;
+    border: 0;
+    clip: rect(0, 0, 0, 0);
+}
+
+/* ─────────────────────────────────────────────
+   Responsive
+───────────────────────────────────────────── */
+
+@media (max-width: 1279px) {
+    #venta-index-rework .kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #venta-index-rework .filters-grid--advanced {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #venta-index-rework .quote-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1023px) {
+    #venta-index-rework.venta-index-shell {
+        gap: 1rem;
+    }
+
+    #venta-index-rework .venta-hero {
+        flex-direction: column;
+    }
+
+    #venta-index-rework .venta-hero__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    #venta-index-rework .tabs-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #venta-index-rework .venta-tabs__actions {
+        justify-content: flex-start;
+    }
+
+    #venta-index-rework .compact-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+}
+
+@media (max-width: 767px) {
+    #venta-index-rework.venta-index-shell {
+        padding-bottom: 6.5rem;
+    }
+
+    #venta-index-rework .card-alert {
+        flex-direction: column;
+    }
+
+    #venta-index-rework .card-alert__actions {
+        width: 100%;
+    }
+
+    #venta-index-rework .card-alert__actions .btn {
+        flex: 1 1 auto;
+    }
+
+    #venta-index-rework .venta-hero {
+        padding: 1.1rem;
+        border-radius: 1rem;
+    }
+
+    #venta-index-rework .venta-hero h1 {
+        font-size: 1.55rem;
+    }
+
+    #venta-index-rework .venta-hero h1+p {
+        font-size: 0.88rem;
+    }
+
+    #venta-index-rework .venta-hero__actions .btn {
+        width: 100%;
+    }
+
+    #venta-index-rework .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    #venta-index-rework .kpi-card {
+        padding: 0.85rem;
+    }
+
+    #venta-index-rework .kpi-card strong {
+        font-size: 1.15rem;
+    }
+
+    #venta-index-rework .tabs-bar {
+        padding: 0.85rem;
+    }
+
+    #venta-index-rework .tab-panel {
+        padding: 0.9rem;
+    }
+
+    #venta-index-rework .panel-heading {
+        flex-direction: column;
+    }
+
+    #venta-index-rework .filters-shell {
+        padding: 0.85rem;
+    }
+
+    #venta-index-rework .filters-grid--base,
+    #venta-index-rework .filters-grid--advanced {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .filters-actions {
+        justify-content: stretch;
+    }
+
+    #venta-index-rework .filters-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    #venta-index-rework .table-shell {
+        display: none;
+    }
+
+    #venta-index-rework .mobile-sales-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+    }
+
+    #venta-index-rework .quote-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .compact-item {
+        display: flex;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    #venta-index-rework .compact-item .btn {
+        width: 100%;
+    }
+
+    #venta-index-rework .mobile-sticky-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 35;
+
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+
+        padding: 0.75rem;
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+
+        border-top: 1px solid var(--venta-border);
+        background: rgba(13, 19, 31, 0.96);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    #venta-index-rework .mobile-sticky-bar .btn {
+        width: 100%;
+        min-height: 2.65rem;
+        padding-inline: 0.6rem;
+        font-size: 0.74rem;
+    }
+
+    #venta-index-rework .mobile-sticky-bar .btn:first-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 480px) {
+    #venta-index-rework .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-index-rework .tab-btn {
+        padding-inline: 0.7rem;
+        font-size: 0.74rem;
+    }
+
+    #venta-index-rework .chip-filter {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* ─────────────────────────────────────────────
+   Reduced motion
+───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+
+    #venta-index-rework *,
+    #venta-index-rework *::before,
+    #venta-index-rework *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

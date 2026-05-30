@@ -225,6 +225,107 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> EliminarTarjetaGlobal(int id, int medioId = 0)
+        {
+            try
+            {
+                var eliminado = await _configuracionPagoGlobalAdminService.EliminarTarjetaGlobalAsync(id);
+                TempData[eliminado ? "Success" : "Error"] = eliminado
+                    ? "Tarjeta eliminada correctamente."
+                    : "Tarjeta no encontrada.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al eliminar tarjeta global {TarjetaId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago), medioId > 0 ? new { medioId } : null);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> CrearMedioPagoGlobal(MedioPagoGlobalCommandViewModel command)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo crear el método de pago.");
+                return RedirectToAction(nameof(MediosPago));
+            }
+
+            try
+            {
+                var vm = new ConfiguracionPagoViewModel
+                {
+                    TipoPago = command.TipoPago,
+                    Nombre = command.Nombre.Trim(),
+                    Descripcion = string.IsNullOrWhiteSpace(command.Descripcion) ? null : command.Descripcion.Trim(),
+                    Activo = command.Activo
+                };
+                var resultado = await _configuracionPagoService.CreateAsync(vm);
+                TempData["Success"] = "Método de pago creado correctamente.";
+                return RedirectToAction(nameof(MediosPago), new { medioId = resultado.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al crear método de pago global");
+                TempData["Error"] = ex.Message;
+                return RedirectToAction(nameof(MediosPago));
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> EditarMedioPagoGlobal(int id, MedioPagoGlobalEditViewModel command)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = ObtenerPrimerErrorModelState("No se pudo guardar el método de pago.");
+                return RedirectToAction(nameof(MediosPago), new { medioId = id });
+            }
+
+            try
+            {
+                var actualizado = await _configuracionPagoGlobalAdminService.EditarMedioPagoAsync(id, command);
+                TempData[actualizado ? "Success" : "Error"] = actualizado
+                    ? "Método de pago actualizado correctamente."
+                    : "Método de pago no encontrado.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al editar método de pago {MedioId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago), new { medioId = id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
+        public async Task<IActionResult> EliminarMedioPagoGlobal(int id)
+        {
+            try
+            {
+                var eliminado = await _configuracionPagoGlobalAdminService.EliminarMedioPagoAsync(id);
+                TempData[eliminado ? "Success" : "Error"] = eliminado
+                    ? "Método de pago eliminado correctamente."
+                    : "Método de pago no encontrado.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error al eliminar método de pago {MedioId}", id);
+                TempData["Error"] = ex.Message;
+            }
+
+            return RedirectToAction(nameof(MediosPago));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> CambiarEstadoPlanGlobal(int id, bool activo, int medioId = 0)
         {
             try

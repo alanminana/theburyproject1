@@ -93,6 +93,33 @@ public sealed class PlanPagoGlobalAdminViewModel
     };
 }
 
+public sealed class MedioPagoGlobalEditViewModel
+{
+    [Required(ErrorMessage = "El nombre es requerido.")]
+    [StringLength(100, ErrorMessage = "El nombre no puede superar 100 caracteres.")]
+    public string Nombre { get; set; } = string.Empty;
+
+    [StringLength(500)]
+    public string? Descripcion { get; set; }
+
+    public bool Activo { get; set; } = true;
+}
+
+public sealed class MedioPagoGlobalCommandViewModel
+{
+    [Required(ErrorMessage = "El tipo de pago es requerido.")]
+    public TipoPago TipoPago { get; set; }
+
+    [Required(ErrorMessage = "El nombre es requerido.")]
+    [StringLength(100, ErrorMessage = "El nombre no puede superar 100 caracteres.")]
+    public string Nombre { get; set; } = string.Empty;
+
+    [StringLength(500)]
+    public string? Descripcion { get; set; }
+
+    public bool Activo { get; set; } = true;
+}
+
 public sealed class PlanPagoGlobalCommandViewModel : IValidatableObject
 {
     private const decimal AjustePorcentajeMinimo = -100.0000m;

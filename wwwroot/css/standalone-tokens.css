@@ -3,27 +3,186 @@
  * Pages that use Layout = null or don't load layout.css reference this file directly.
  */
 
-/* ── Normalización global de íconos — UI-5A ──
-   Refleja las reglas canónicas de shared-components.css para páginas sin Layout.
-   Aplica a Login, AccessDenied y cualquier vista con Layout = null.
-*/
+/* ─────────────────────────────────────────────
+   Tokens
+───────────────────────────────────────────── */
+
+:root {
+    --c-surface: #0d131f;
+    --c-surface-low: #161c28;
+    --c-surface-lowest: #080e1a;
+    --c-surface-container: #1a202c;
+    --c-surface-high: #242a37;
+
+    --c-on-surface: #dde2f4;
+    --c-on-surface-var: #c3c5d8;
+
+    --c-primary-container: #135bec;
+    --c-on-primary: #e2e6ff;
+    --c-primary-light: #b4c5ff;
+
+    --c-outline-var: #434655;
+}
+
+/* ─────────────────────────────────────────────
+   Normalización global de Material Symbols
+───────────────────────────────────────────── */
+
 .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
     line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 20px;
+    height: 20px;
+
     vertical-align: middle;
     flex-shrink: 0;
     user-select: none;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'liga';
+
+    font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 20;
 }
 
-:root {
-    --c-surface:            #0d131f;
-    --c-surface-low:        #161c28;
-    --c-surface-lowest:     #080e1a;
-    --c-surface-container:  #1a202c;
-    --c-surface-high:       #242a37;
-    --c-on-surface:         #dde2f4;
-    --c-on-surface-var:     #c3c5d8;
-    --c-primary-container:  #135bec;
-    --c-on-primary:         #e2e6ff;
-    --c-primary-light:      #b4c5ff;
-    --c-outline-var:        #434655;
+/* ─────────────────────────────────────────────
+   Íconos dentro de inputs del login
+───────────────────────────────────────────── */
+
+.input-icon {
+    font-size: 20px !important;
+    line-height: 20px !important;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Contenedor del ícono izquierdo */
+#icon-username,
+#icon-password {
+    position: absolute !important;
+    left: 16px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+
+    width: 20px;
+    height: 20px;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    pointer-events: none;
+    z-index: 2;
+
+    color: var(--c-on-surface-var);
+}
+
+/* Ícono izquierdo */
+#icon-username .material-symbols-outlined,
+#icon-password .material-symbols-outlined {
+    font-size: 20px !important;
+    line-height: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Botón del ojo */
+#btn-toggle-pwd {
+    position: absolute !important;
+    right: 14px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+
+    width: 24px;
+    height: 24px;
+    padding: 0 !important;
+    margin: 0 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    background: transparent;
+    border: none;
+    color: var(--c-on-surface-var);
+    z-index: 2;
+}
+
+/* Ícono del ojo */
+#pwd-eye {
+    font-size: 20px !important;
+    line-height: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* ─────────────────────────────────────────────
+   Ajuste de inputs con íconos
+───────────────────────────────────────────── */
+
+#Input_UserName,
+#input-password {
+    padding-left: 48px !important;
+}
+
+#input-password {
+    padding-right: 48px !important;
+}
+
+/* Evita problemas visuales del autocompletado */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--c-on-surface);
+    box-shadow: 0 0 0 1000px var(--c-surface-container) inset;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+/* ─────────────────────────────────────────────
+   Checkbox del login
+───────────────────────────────────────────── */
+
+#remember-me {
+    position: relative;
+}
+
+#check-icon {
+    font-size: 16px !important;
+    line-height: 16px !important;
+    width: 20px;
+    height: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
