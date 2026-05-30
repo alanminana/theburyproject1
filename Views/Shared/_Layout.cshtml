@@ -53,8 +53,9 @@
         var canViewDashboard = User.TienePermiso("dashboard", "view");
         var canViewNotifications = User.TienePermiso("notificaciones", "view");
         var canViewVentas = User.TienePermiso("ventas", "view");
+        var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
         var canViewClientes = User.TienePermiso("clientes", "view");
-        var canViewInventario = User.TienePermiso("cotizaciones", "view");
+        var canViewInventario = canViewCotizaciones;
         var canViewProveedores = User.TienePermiso("proveedores", "view");
         var canViewCaja = User.TienePermiso("caja", "view");
         var canViewReportes = User.TienePermiso("reportes", "view");
@@ -72,7 +73,7 @@
 
         var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
 
-        var showOperaciones = canViewVentas || canViewClientes;
+        var showOperaciones = canViewVentas || canViewCotizaciones || canViewClientes;
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
         var showReportes = canViewReportes;
         var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
@@ -143,6 +144,20 @@
                                    title="Ventas">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">shopping_bag</span>
                                     <p class="@NavFont(active) sidebar-label">Ventas</p>
+                                </a>
+                            }
+
+                            @if (canViewCotizaciones)
+                            {
+                                var active = IsActive("Cotizacion");
+
+                                <a class="@NavClass(active)"
+                                   aria-current="@NavCurrent(active)"
+                                   asp-controller="Cotizacion"
+                                   asp-action="Index"
+                                   title="Cotizaciones">
+                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">request_quote</span>
+                                    <p class="@NavFont(active) sidebar-label">Cotizaciones</p>
                                 </a>
                             }
 
