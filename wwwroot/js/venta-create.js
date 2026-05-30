@@ -1246,8 +1246,8 @@
             return;
         }
 
-        // Validar stock total
-        if (cantidad > stock) {
+        // Validar stock total (solo para stock no trazado; unidad física ya fue validada por disponibilidad en cargarUnidadesDisponibles)
+        if (!origenEsUnidad && cantidad > stock) {
             if (stockError) { stockError.textContent = `Stock insuficiente (Máx: ${stock})`; show(stockError); }
             return;
         }
