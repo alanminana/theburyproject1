@@ -2,24 +2,78 @@
    MÓDULO CAJA — clases canónicas de UI (dark-first)
    ══════════════════════════════════════════════════════════════ */
 
+:root {
+    --caja-bg-panel: rgba(15, 23, 42, 0.92);
+    --caja-bg-field: #161c28;
+    --caja-bg-muted: #1e293b;
+    --caja-border: #1e293b;
+    --caja-border-strong: #334155;
+    --caja-text: #dde2f4;
+    --caja-text-muted: #94a3b8;
+    --caja-text-soft: #64748b;
+    --caja-primary: #135bec;
+    --caja-focus: rgba(19, 91, 236, 0.22);
+    --caja-danger: #f43f5e;
+    --caja-success: #34d399;
+    --caja-warning: #f59e0b;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORM CONTROLS
+   ══════════════════════════════════════════════════════════════ */
+
 .caja-input,
 .caja-select {
     width: 100%;
+    min-height: 2.75rem;
     padding: 0.75rem;
-    background-color: #161c28;
-    border: 1px solid #1e293b;
+    background-color: var(--caja-bg-field);
+    border: 1px solid var(--caja-border);
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    color: #dde2f4;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    line-height: 1.4;
+    color: var(--caja-text);
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background-color 0.15s ease;
 }
+
+.caja-input:hover,
+.caja-select:hover {
+    border-color: var(--caja-border-strong);
+}
+
 .caja-input:focus,
 .caja-select:focus {
     outline: none;
-    border-color: #135bec;
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: var(--caja-primary);
+    box-shadow: 0 0 0 3px var(--caja-focus);
 }
-.caja-input::placeholder { color: #475569; }
+
+.caja-input::placeholder {
+    color: #475569;
+}
+
+.caja-input:disabled,
+.caja-select:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    background-color: rgba(15, 23, 42, 0.72);
+}
+
+.caja-input[aria-invalid="true"],
+.caja-select[aria-invalid="true"],
+.caja-input.input-validation-error,
+.caja-select.input-validation-error {
+    border-color: rgb(244 63 94);
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16);
+}
+
+textarea.caja-input {
+    min-height: 7rem;
+    resize: vertical;
+}
 
 .caja-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
@@ -30,8 +84,11 @@
     cursor: pointer;
     appearance: none;
 }
-.caja-select option { background-color: #161c28; color: #dde2f4; }
 
+.caja-select option {
+    background-color: var(--caja-bg-field);
+    color: var(--caja-text);
+}
 
 /* ══════════════════════════════════════════════════════════════
    LAYOUT
@@ -63,12 +120,13 @@
 .caja-page-metrics {
     display: grid;
     gap: 1rem;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .caja-page-section-header {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 0.75rem;
 }
 
@@ -89,7 +147,20 @@
     gap: 1.5rem;
 }
 
+@media (min-width: 640px) {
+    .caja-page-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 768px) {
+    .caja-form-fields-grid--2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (min-width: 1024px) {
+
     .caja-page-header-layout,
     .caja-page-section-header {
         align-items: flex-end;
@@ -123,12 +194,6 @@
     }
 }
 
-@media (min-width: 768px) {
-    .caja-form-fields-grid--2 {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
 @media (min-width: 1280px) {
     .caja-page-metrics--4 {
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -143,14 +208,28 @@
     }
 }
 
-
 /* ══════════════════════════════════════════════════════════════
    INDEX
    ══════════════════════════════════════════════════════════════ */
 
+.caja-index-shell {
+    width: 100%;
+}
+
+.caja-index-section-header {
+    min-width: 0;
+}
+
 .caja-index-section-badge {
     display: inline-flex;
+    align-items: center;
     width: fit-content;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+.caja-index-scroll-hint {
+    animation: caja-scroll-hint-in 0.18s ease-out;
 }
 
 @media (min-width: 1024px) {
@@ -163,6 +242,44 @@
     }
 }
 
+@media (max-width: 767.98px) {
+    .caja-index-section-badge {
+        font-size: 0.75rem;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TABLE ENHANCEMENTS
+   ══════════════════════════════════════════════════════════════ */
+
+.caja-page-shell table th {
+    vertical-align: middle;
+}
+
+.caja-page-shell table td {
+    vertical-align: middle;
+}
+
+.caja-page-shell tbody tr {
+    outline: 0 solid transparent;
+}
+
+.caja-page-shell tbody tr:focus-within {
+    background: rgba(30, 41, 59, 0.42);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMPTY STATES
+   ══════════════════════════════════════════════════════════════ */
+
+.caja-empty-state {
+    display: flex;
+    min-height: 12rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
 
 /* ══════════════════════════════════════════════════════════════
    CERRAR
@@ -173,11 +290,6 @@
 .caja-cerrar-notes-grid {
     display: grid;
     gap: 1rem;
-}
-
-.caja-cerrar-input-grid,
-.caja-cerrar-result-grid,
-.caja-cerrar-notes-grid {
     grid-template-columns: minmax(0, 1fr);
 }
 
@@ -205,7 +317,6 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
-
 
 /* ══════════════════════════════════════════════════════════════
    DETALLES APERTURA
@@ -252,7 +363,6 @@
     }
 }
 
-
 /* ══════════════════════════════════════════════════════════════
    HISTORIAL
    ══════════════════════════════════════════════════════════════ */
@@ -276,7 +386,6 @@
         grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto auto;
     }
 }
-
 
 /* ══════════════════════════════════════════════════════════════
    REGISTRAR MOVIMIENTO
@@ -313,16 +422,25 @@
     justify-content: center;
     min-height: 2.75rem;
     padding: 0.75rem 1rem;
-    transition: all 0.2s ease;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
 }
 
-.tipo-btn[aria-pressed='true'][data-tipo='0'] {
+.tipo-btn:hover {
+    color: #e2e8f0;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.tipo-btn[aria-pressed="true"][data-tipo="0"] {
     background: rgb(15 23 42);
     box-shadow: 0 10px 25px -18px rgba(15, 118, 110, 0.6);
     color: rgb(52 211 153);
 }
 
-.tipo-btn[aria-pressed='true'][data-tipo='1'] {
+.tipo-btn[aria-pressed="true"][data-tipo="1"] {
     background: rgb(244 63 94);
     box-shadow: 0 10px 25px -18px rgba(244, 63, 94, 0.85);
     color: white;
@@ -333,9 +451,41 @@
     outline-offset: 2px;
 }
 
+.tipo-btn:active {
+    transform: translateY(1px);
+}
+
 @media (min-width: 1024px) {
+
     .caja-movimiento-type-grid,
     .caja-movimiento-money-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOTION SAFETY
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes caja-scroll-hint-in {
+    from {
+        opacity: 0;
+        transform: translateY(-0.25rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .caja-index-scroll-hint,
+    .tipo-btn,
+    .caja-input,
+    .caja-select {
+        animation: none !important;
+        transition: none !important;
     }
 }

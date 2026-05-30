@@ -32,7 +32,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <a href="@volverUrl"
-                           class="flex items-center justify-center rounded-lg h-10 px-5 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition-all font-bold text-sm no-underline">
+                           class="btn-erp-secondary no-underline">
                             <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
                             Volver
                         </a>
@@ -72,7 +72,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Fecha y hora de cierre</p>
-                                <p class="text-white font-medium">@Model.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy hh:mm tt")</p>
+                                <p class="text-white font-medium">@Model.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
                             </div>
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Usuario apertura</p>
@@ -193,7 +193,7 @@
             <!-- Ver apertura original -->
             <div class="flex justify-end">
                 <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-800 text-slate-700 text-white text-sm font-bold hover:bg-slate-700 transition-all border border-slate-700 no-underline">
+                   class="btn-erp-secondary btn-erp-sm no-underline">
                     <span class="material-symbols-outlined text-lg">open_in_new</span>
                     Ver apertura original
                 </a>
@@ -202,3 +202,7 @@
         </main>
     </div>
 </div>
+
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+}

@@ -10,8 +10,34 @@
 
 [data-oc-scroll-region] {
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-behavior: smooth;
     scrollbar-gutter: var(--oc-scrollbar-gutter, stable);
+    scrollbar-width: thin;
+    scrollbar-color: var(--oc-scroll-thumb, #475569) var(--oc-scroll-track, rgba(15, 23, 42, 0.35));
+}
+
+[data-oc-scroll-region]:focus-visible {
+    outline: 2px solid var(--oc-scroll-focus, rgba(19, 91, 236, 0.65));
+    outline-offset: 3px;
+}
+
+[data-oc-scroll-region]::-webkit-scrollbar {
+    height: var(--oc-scrollbar-height, 0.65rem);
+}
+
+[data-oc-scroll-region]::-webkit-scrollbar-track {
+    background: var(--oc-scroll-track, rgba(15, 23, 42, 0.35));
+    border-radius: 999px;
+}
+
+[data-oc-scroll-region]::-webkit-scrollbar-thumb {
+    background: var(--oc-scroll-thumb, #475569);
+    border-radius: 999px;
+}
+
+[data-oc-scroll-region]::-webkit-scrollbar-thumb:hover {
+    background: var(--oc-scroll-thumb-hover, #64748b);
 }
 
 [data-oc-scroll-table] {
@@ -29,18 +55,32 @@
 
 [data-oc-scroll-fade="left"] {
     left: 0;
-    background: linear-gradient(to right, var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)), transparent);
+    background: linear-gradient(to right,
+            var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)),
+            transparent);
 }
 
 [data-oc-scroll-fade="right"] {
     right: 0;
-    background: linear-gradient(to left, var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)), transparent);
+    background: linear-gradient(to left,
+            var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)),
+            transparent);
 }
 
 html.dark [data-oc-scroll-fade="left"] {
-    background: linear-gradient(to right, var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)), transparent);
+    background: linear-gradient(to right,
+            var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)),
+            transparent);
 }
 
 html.dark [data-oc-scroll-fade="right"] {
-    background: linear-gradient(to left, var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)), transparent);
+    background: linear-gradient(to left,
+            var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)),
+            transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-oc-scroll-region] {
+        scroll-behavior: auto;
+    }
 }
