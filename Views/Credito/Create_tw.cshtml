@@ -110,7 +110,7 @@
                                type="number"
                                step="100"
                                min="1000"
-                               class="credito-input pl-7"
+                               class="credito-input" style="padding-left: 1.75rem"
                                placeholder="Ej: 50000" />
                     </div>
                     <span asp-validation-for="MontoSolicitado" class="mt-1 text-xs text-red-500"></span>
@@ -126,7 +126,7 @@
                                step="0.01"
                                min="0"
                                max="100"
-                               class="credito-input pr-8"
+                               class="credito-input" style="padding-right: 2rem"
                                placeholder="Ej: 5" />
                         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
                     </div>
@@ -195,6 +195,10 @@
     </form>
 
 </div>
+
+@section Styles {
+    <partial name="_CreditoModuleStyles" />
+}
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
