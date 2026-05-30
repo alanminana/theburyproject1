@@ -26,7 +26,7 @@
             </div>
             <div class="caja-page-header-actions">
                 <a asp-action="Index"
-                   class="caja-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-700 transition-all no-underline text-slate-200 border border-slate-700">
+                   class="caja-page-header-action btn-erp-secondary no-underline">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Volver
                 </a>
@@ -93,7 +93,7 @@
                                 <select asp-for="CajaId"
                                         asp-items="cajas"
                                         data-caja-abrir-select
-                                        class="caja-input py-3 pl-10">
+                                        class="caja-select" style="padding-left: 2.5rem">
                                     <option value="">Seleccione la terminal de caja</option>
                                 </select>
                             </div>
@@ -110,7 +110,7 @@
                                        step="0.01"
                                        placeholder="0.00"
                                        data-caja-abrir-monto
-                                       class="caja-input py-3 pl-8" />
+                                       class="caja-input" style="padding-left: 2rem" />
                             </div>
                             <p class="text-xs text-slate-500">Ingresá el efectivo disponible al momento de abrir la caja.</p>
                             <span asp-validation-for="MontoInicial" class="text-rose-500 text-xs"></span>
@@ -123,7 +123,7 @@
                             <textarea asp-for="ObservacionesApertura"
                                       rows="5"
                                       placeholder="Notas adicionales sobre el estado de la caja o del turno..."
-                                      class="caja-input p-4"></textarea>
+                                      class="caja-input"></textarea>
                         </div>
                     </div>
                 </div>
@@ -131,11 +131,11 @@
                 <div class="border-t border-slate-800 px-6 py-5">
                     <div class="caja-page-footer-actions">
                         <a asp-action="Index"
-                           class="caja-page-footer-action inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-8 py-3 text-slate-300 font-bold hover:bg-slate-800 transition-colors no-underline">
+                           class="caja-page-footer-action btn-erp-secondary no-underline">
                             Cancelar
                         </a>
                         <button type="submit"
-                                class="caja-page-footer-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-10 py-3 text-white font-black shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all active:scale-95">
+                                class="caja-page-footer-action btn-erp-primary">
                             <span class="material-symbols-outlined">lock_open</span>
                             Abrir caja
                         </button>

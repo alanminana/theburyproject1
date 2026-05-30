@@ -192,12 +192,11 @@ namespace TheBuryProject.Controllers
 
         #region Cotizar / Crear
 
-        // GET: Venta/Cotizar
+        // GET: Venta/Cotizar — flujo legacy: las cotizaciones se gestionan desde CotizacionController.
         [HttpGet]
-        public async Task<IActionResult> Cotizar()
+        public IActionResult Cotizar()
         {
-            await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
-            return View("Create_tw", CrearVentaInicial(EstadoVenta.Cotizacion));
+            return RedirectToAction("Index", "Cotizacion");
         }
 
         // POST: Venta/Create

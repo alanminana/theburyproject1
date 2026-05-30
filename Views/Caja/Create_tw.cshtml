@@ -29,7 +29,7 @@
             </div>
             <div class="caja-page-header-actions">
                 <a asp-action="Index"
-                   class="caja-page-header-action inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-bold hover:bg-slate-700 transition-all no-underline text-slate-200 border border-slate-700">
+                   class="caja-page-header-action btn-erp-secondary no-underline">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Volver
                 </a>
@@ -103,7 +103,7 @@
                                            placeholder="Ej: C01-HQ"
                                            required
                                            data-caja-form-codigo
-                                           class="caja-input py-3 pl-10" />
+                                           class="caja-input" style="padding-left: 2.5rem" />
                                 </div>
                                 <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
                             </div>
@@ -119,7 +119,7 @@
                                            placeholder="Ej: Caja Principal 01"
                                            required
                                            data-caja-form-nombre
-                                           class="caja-input py-3 pl-10" />
+                                           class="caja-input" style="padding-left: 2.5rem" />
                                 </div>
                                 <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
                             </div>
@@ -134,7 +134,7 @@
                                            type="text"
                                            placeholder="Ej: Casa Central"
                                            data-caja-form-sucursal
-                                           class="caja-input py-3 pl-10" />
+                                           class="caja-input" style="padding-left: 2.5rem" />
                                 </div>
                             </div>
 
@@ -146,7 +146,7 @@
                                            type="text"
                                            placeholder="Ej: Planta baja - Zona A"
                                            data-caja-form-ubicacion
-                                           class="caja-input py-3 pl-10" />
+                                           class="caja-input" style="padding-left: 2.5rem" />
                                 </div>
                             </div>
                         </div>
@@ -156,7 +156,7 @@
                             <textarea asp-for="Descripcion"
                                       rows="4"
                                       placeholder="Detalles adicionales sobre esta terminal de caja..."
-                                      class="caja-input p-4">@descripcionActual</textarea>
+                                      class="caja-input">@descripcionActual</textarea>
                         </div>
 
                         <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5">
@@ -177,11 +177,11 @@
                 <div class="border-t border-slate-800 px-6 py-5">
                     <div class="caja-page-footer-actions">
                         <a asp-action="Index"
-                           class="caja-page-footer-action inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-8 py-3 text-slate-300 font-bold hover:bg-slate-800 transition-colors no-underline">
+                           class="caja-page-footer-action btn-erp-secondary no-underline">
                             Cancelar
                         </a>
                         <button type="submit"
-                                class="caja-page-footer-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-10 py-3 text-white font-black shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all active:scale-95">
+                                class="caja-page-footer-action btn-erp-primary">
                             <span class="material-symbols-outlined">add</span>
                             Crear caja
                         </button>

@@ -146,18 +146,18 @@
                         @if (!apertura.Cerrada && puedeOperar)
                         {
                             <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                               class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-primary text-white text-sm font-bold hover:bg-blue-700 transition-all no-underline">
+                               class="caja-page-header-action caja-detalles-header-action btn-erp-primary no-underline">
                                 <span class="material-symbols-outlined text-sm mr-2">lock</span>
                                 Cerrar caja
                             </a>
                             <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                               class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-slate-800 text-slate-700 text-white text-sm font-bold hover:bg-slate-700 transition-all border border-slate-700 no-underline">
+                               class="caja-page-header-action caja-detalles-header-action btn-erp-secondary no-underline">
                                 <span class="material-symbols-outlined text-sm mr-2">add</span>
                                 Nuevo movimiento
                             </a>
                         }
                         <a asp-action="Index"
-                           class="caja-page-header-action caja-detalles-header-action inline-flex h-11 items-center justify-center rounded-lg px-5 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition-all font-bold text-sm no-underline">
+                           class="caja-page-header-action caja-detalles-header-action btn-erp-secondary no-underline">
                             <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
                             Volver
                         </a>
@@ -199,7 +199,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Fecha y Hora</p>
-                                <p class="text-white font-medium">@apertura.FechaApertura.ToString("dd/MM/yyyy hh:mm tt")</p>
+                                <p class="text-white font-medium">@apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")</p>
                             </div>
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Última actualización</p>
@@ -218,7 +218,7 @@
                                         }
                                         else
                                         {
-                                            @ultimoMov.FechaMovimiento.ToString("dd/MM/yyyy hh:mm tt")
+                                            @ultimoMov.FechaMovimiento.ToString("dd/MM/yyyy HH:mm")
                                         }
                                     </p>
                                 }
@@ -653,11 +653,11 @@
                                 <div class="caja-detalles-filter-search relative w-full">
                                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                                     <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
-                                           class="caja-input h-10 pl-9" />
+                                           class="caja-input" style="padding-left: 2.25rem" />
                                 </div>
                                 <div class="caja-detalles-filter-select w-full">
                                     <select id="filtro-tipo"
-                                            class="caja-select h-10">
+                                            class="caja-select">
                                         <option value="">Todos</option>
                                         <option value="Ingreso">Ingresos</option>
                                         <option value="Egreso">Egresos</option>
@@ -718,11 +718,11 @@
                                         <td class="px-6 py-4 text-sm">
                                             @if (esIngreso)
                                             {
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ingreso</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ingreso</span>
                                             }
                                             else
                                             {
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 bg-rose-500/10 text-rose-400 border border-rose-500/20">Egreso</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Egreso</span>
                                             }
                                         </td>
                                         <td class="px-6 py-4 text-sm" data-concepto="@FormatConcepto(mov.Concepto)">
@@ -835,7 +835,7 @@
                     @if (!apertura.Cerrada && puedeOperar)
                     {
                         <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                           class="flex items-center justify-center rounded-lg h-12 px-8 bg-primary text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-primary/20 no-underline">
+                           class="btn-erp-primary no-underline">
                             <span class="material-symbols-outlined mr-2">add</span>
                             Registrar primer movimiento
                         </a>

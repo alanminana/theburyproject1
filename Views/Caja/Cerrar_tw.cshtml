@@ -24,7 +24,7 @@
             </div>
             <div class="caja-page-header-actions caja-cerrar-header-actions">
                 <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="caja-page-header-action caja-cerrar-header-action inline-flex items-center justify-center rounded-lg h-11 px-6 bg-slate-800 text-slate-700 text-white text-sm font-bold hover:bg-slate-700 transition-all border border-slate-700 no-underline">
+                   class="caja-page-header-action caja-cerrar-header-action btn-erp-secondary no-underline">
                     <span class="material-symbols-outlined mr-2 text-xl">arrow_back</span>
                     Volver
                 </a>
@@ -84,18 +84,18 @@
                         <h2 class="text-white text-xl font-bold">Información de apertura</h2>
                     </div>
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 border-slate-800">
+                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-800">
                             <span class="text-slate-400 text-sm">Caja</span>
                             <span class="text-right text-white text-sm font-semibold">@Model.CajaNombre</span>
                         </div>
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-100 border-slate-800">
+                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-800">
                             <span class="text-slate-400 text-sm">Usuario</span>
                             <span class="text-right text-white text-sm font-semibold">@Model.UsuarioApertura</span>
                         </div>
                         <div class="flex justify-between items-center gap-4 py-2">
                             <span class="text-slate-400 text-sm">Apertura</span>
                             <span class="text-right text-white text-sm font-semibold">
-                                @(Model.FechaApertura?.ToString("dd/MM/yyyy hh:mm tt") ?? "—")
+                                @(Model.FechaApertura?.ToString("dd/MM/yyyy HH:mm") ?? "—")
                             </span>
                         </div>
                     </div>
@@ -141,7 +141,7 @@
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
                             </div>
                             <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                         </div>
@@ -150,7 +150,7 @@
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="ChequesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
                             </div>
                             <span asp-validation-for="ChequesContados" class="text-rose-500 text-xs"></span>
                         </div>
@@ -159,7 +159,7 @@
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                                 <input asp-for="ValesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-8 pr-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none" />
+                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
                             </div>
                             <span asp-validation-for="ValesContados" class="text-rose-500 text-xs"></span>
                         </div>
@@ -206,7 +206,7 @@
                             </label>
                             <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="3" disabled
                                       placeholder="Explique el motivo del sobrante o faltante..."
-                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all disabled:opacity-50"></textarea>
+                                      class="caja-input"></textarea>
                             <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
                         </div>
                     </div>
@@ -216,13 +216,13 @@
                             <label asp-for="DetalleArqueo" class="text-sm font-semibold text-slate-300">Detalle de billetes y monedas</label>
                             <textarea asp-for="DetalleArqueo" rows="4"
                                       placeholder="Ej: 10 x $1000, 5 x $500..."
-                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
+                                      class="caja-input"></textarea>
                         </div>
                         <div class="flex flex-col gap-2">
                             <label asp-for="ObservacionesCierre" class="text-sm font-semibold text-slate-300">Observaciones generales</label>
                             <textarea asp-for="ObservacionesCierre" rows="4"
                                       placeholder="Notas adicionales sobre el cierre de turno..."
-                                      class="w-full bg-slate-800 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"></textarea>
+                                      class="caja-input"></textarea>
                         </div>
                     </div>
 
@@ -237,11 +237,11 @@
                 <div class="border-t border-slate-800 px-6 py-5">
                     <div class="caja-page-footer-actions caja-cerrar-footer-actions">
                         <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                           class="caja-page-footer-action caja-cerrar-footer-action inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/60 px-8 py-3 text-slate-300 font-bold hover:bg-slate-800 transition-colors no-underline">
+                           class="caja-page-footer-action caja-cerrar-footer-action btn-erp-secondary no-underline">
                             Cancelar
                         </a>
                         <button type="submit"
-                                class="caja-page-footer-action caja-cerrar-footer-action inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-10 py-3 text-white font-black shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all active:scale-95">
+                                class="caja-page-footer-action caja-cerrar-footer-action btn-erp-primary">
                             <span class="material-symbols-outlined">lock</span>
                             Cerrar caja
                         </button>

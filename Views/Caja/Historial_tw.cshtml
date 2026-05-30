@@ -147,7 +147,7 @@
             <div class="caja-historial-filter-field min-w-0">
                 <label class="block text-xs font-medium text-slate-400 mb-1.5">Seleccionar Caja</label>
                 <select name="cajaId"
-                        class="w-full h-10 rounded-lg border-slate-700 bg-slate-800 text-sm focus:ring-primary focus:border-primary text-slate-100">
+                        class="caja-select">
                     <option value="">Todas las cajas</option>
                     @if (cajas != null)
                     {
@@ -162,21 +162,21 @@
                 <label class="block text-xs font-medium text-slate-400 mb-1.5">Fecha Desde</label>
                 <input type="date" name="fechaDesde"
                        value="@(fechaDesde?.ToString("yyyy-MM-dd"))"
-                       class="w-full h-10 rounded-lg border-slate-700 bg-slate-800 text-sm focus:ring-primary focus:border-primary text-slate-100" />
+                       class="caja-input" />
             </div>
             <div class="caja-historial-filter-field min-w-0">
                 <label class="block text-xs font-medium text-slate-400 mb-1.5">Fecha Hasta</label>
                 <input type="date" name="fechaHasta"
                        value="@(fechaHasta?.ToString("yyyy-MM-dd"))"
-                       class="w-full h-10 rounded-lg border-slate-700 bg-slate-800 text-sm focus:ring-primary focus:border-primary text-slate-100" />
+                       class="caja-input" />
             </div>
             <button type="submit"
-                    class="caja-historial-filter-action inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-bold text-white hover:bg-primary/90 transition-all">
+                    class="caja-historial-filter-action btn-erp-primary">
                 <span class="material-symbols-outlined text-lg">filter_alt</span>
                 Filtrar
             </button>
             <a asp-action="Historial"
-               class="caja-historial-filter-action inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-700 px-4 text-sm font-semibold text-slate-400 hover:text-primary hover:border-primary/30 transition-colors no-underline">
+               class="caja-historial-filter-action btn-erp-secondary no-underline">
                 Limpiar
             </a>
         </form>
@@ -252,7 +252,7 @@
                         var esFaltante = dif < 0;
                         var esExacto = !cierre.TieneDiferencia;
 
-                        <tr class="hover:/50 hover:bg-slate-700/30 transition-colors">
+                        <tr class="hover:bg-slate-700/30 transition-colors">
                             <td class="px-6 py-4">
                                 <p class="text-sm font-medium">@cierre.FechaCierre.ToString("dd MMM yyyy")</p>
                                 <p class="text-xs text-slate-500">@cierre.FechaCierre.ToString("HH:mm") PM</p>
@@ -266,7 +266,7 @@
                             </td>
                             <td class="px-6 py-4 text-sm font-semibold">$@cierre.MontoEsperadoSistema.ToString("N2")</td>
                             <td class="px-6 py-4 text-sm font-semibold">$@cierre.MontoTotalReal.ToString("N2")</td>
-                            <td class="px-6 py-4 text-sm @(esSobrante ? "text-amber-500 font-bold" : esFaltante ? "text-red-500 font-bold" : "")">
+                            <td class="px-6 py-4 text-sm @(esSobrante ? "text-amber-500 font-bold" : esFaltante ? "text-rose-500 font-bold" : "")">
                                 @if (esSobrante)
                                 {
                                     @:+$@dif.ToString("N2")
@@ -289,14 +289,14 @@
                                 }
                                 else if (esSobrante)
                                 {
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
                                         <span class="h-1 w-1 rounded-full bg-amber-500"></span> Sobrante
                                     </span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400">
-                                        <span class="h-1 w-1 rounded-full bg-red-500"></span> Faltante
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-medium text-rose-400">
+                                        <span class="h-1 w-1 rounded-full bg-rose-500"></span> Faltante
                                     </span>
                                 }
                             </td>
@@ -351,18 +351,18 @@
         {
             <div class="card-erp-panel-padded">
                 <div class="flex items-center gap-2 mb-6">
-                    <span class="material-symbols-outlined text-red-500">trending_down</span>
+                    <span class="material-symbols-outlined text-rose-500">trending_down</span>
                     <h3 class="font-bold text-slate-100">Top cierres con faltante</h3>
                 </div>
                 <div class="space-y-4">
                     @foreach (var f in topFaltantes)
                     {
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-slate-700 border-l-4 border-red-500/50">
+                        <div class="flex items-center justify-between p-3 rounded-lg bg-slate-700 border-l-4 border-rose-500">
                             <div>
                                 <p class="text-sm font-medium text-slate-200">@f.FechaCierre.ToString("dd MMM") - @(f.AperturaCaja?.Caja?.Nombre ?? "—")</p>
                                 <p class="text-xs text-slate-400">Responsable: @f.UsuarioCierre</p>
                             </div>
-                            <span class="text-sm font-bold text-red-500">-$@Math.Abs(f.Diferencia).ToString("N2")</span>
+                            <span class="text-sm font-bold text-rose-500">-$@Math.Abs(f.Diferencia).ToString("N2")</span>
                         </div>
                     }
                 </div>

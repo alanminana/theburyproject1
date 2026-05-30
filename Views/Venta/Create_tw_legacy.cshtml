@@ -735,8 +735,8 @@
             <div class="venta-create-secondary-actions flex flex-col gap-3 sm:flex-row">
                 @if (!esCotizacion)
                 {
-                    <a asp-action="Cotizar" class="btn-erp-ghost w-full flex-1 sm:w-auto">
-                        <span class="material-symbols-outlined text-sm">description</span> Guardar como Cotización
+                    <a asp-controller="Cotizacion" asp-action="Index" class="btn-erp-ghost w-full flex-1 sm:w-auto">
+                        <span class="material-symbols-outlined text-sm">description</span> Ir al cotizador
                     </a>
                 }
                 <button type="button" id="btn-imprimir-borrador"
