@@ -116,7 +116,7 @@
                     <label asp-for="PrecioCompra" class="text-sm font-semibold text-slate-300"></label>
                     <div class="relative">
                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                        <input asp-for="PrecioCompra" type="number" step="0.01" min="0" class="catalogo-input pl-7" />
+                        <input asp-for="PrecioCompra" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
                     </div>
                     <span asp-validation-for="PrecioCompra" class="text-xs text-red-400"></span>
                 </div>
@@ -124,7 +124,7 @@
                     <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Precio base sin IVA</label>
                     <div class="relative">
                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                        <input asp-for="PrecioVenta" id="edit-precioVenta" type="number" step="0.01" min="0" class="catalogo-input pl-7" />
+                        <input asp-for="PrecioVenta" id="edit-precioVenta" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
                     </div>
                     <span asp-validation-for="PrecioVenta" class="text-xs text-red-400"></span>
                 </div>
