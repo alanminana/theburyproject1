@@ -246,11 +246,19 @@
 
     function limpiarOrigenStock() {
         hide(panelOrigenStock);
-        if (radioOrigenNoTrazado) radioOrigenNoTrazado.checked = false;
+        if (radioOrigenNoTrazado) {
+            radioOrigenNoTrazado.checked = false;
+            radioOrigenNoTrazado.disabled = false;
+        }
         if (radioOrigenUnidad) radioOrigenUnidad.checked = false;
         if (badgeStockNoTrazado) badgeStockNoTrazado.textContent = '';
         if (badgeUnidadesEnStock) badgeUnidadesEnStock.textContent = '';
         if (origenStockError) { origenStockError.textContent = ''; hide(origenStockError); }
+        const labelOrigenNoTrazado = radioOrigenNoTrazado?.closest('label');
+        if (labelOrigenNoTrazado) {
+            labelOrigenNoTrazado.style.opacity = '';
+            labelOrigenNoTrazado.style.pointerEvents = '';
+        }
     }
 
     function limpiarSelectorUnidad() {
@@ -271,7 +279,8 @@
         limpiarSelectorUnidad();
 
         if (requiereNumeroSerie) {
-            // Modo estricto: solo unidad física, sin opción de stock no trazado
+            // Modo estricto: solo unidad física, cantidad bloqueada en 1
+            actualizarCantidadSegunOrigen();
             cargarUnidadesDisponibles(parseInt(hdnProductoId?.value));
             return;
         }
@@ -284,10 +293,26 @@
 
         // Flexible con unidades físicas: mostrar selector de origen
         show(panelOrigenStock);
-        if (badgeStockNoTrazado) badgeStockNoTrazado.textContent = `(${stockNoTrazado})`;
+
+        const stockNegativo = stockNoTrazado < 0;
+        if (badgeStockNoTrazado) {
+            badgeStockNoTrazado.textContent = stockNegativo
+                ? '⚠ Revisar conciliación'
+                : `(${stockNoTrazado})`;
+        }
         if (badgeUnidadesEnStock) badgeUnidadesEnStock.textContent = `(${unidadesEnStock})`;
 
-        // Default: stock no trazado si hay disponible, sino forzar unidad
+        // Cuando stockNoTrazado negativo: deshabilitar la opción no-trazado
+        if (radioOrigenNoTrazado) {
+            radioOrigenNoTrazado.disabled = stockNegativo;
+        }
+        const labelOrigenNoTrazado = radioOrigenNoTrazado?.closest('label');
+        if (labelOrigenNoTrazado) {
+            labelOrigenNoTrazado.style.opacity = stockNegativo ? '0.45' : '';
+            labelOrigenNoTrazado.style.pointerEvents = stockNegativo ? 'none' : '';
+        }
+
+        // Default: stock no trazado si hay disponible y positivo, sino forzar unidad
         if (stockNoTrazado > 0) {
             if (radioOrigenNoTrazado) radioOrigenNoTrazado.checked = true;
         } else {
@@ -1233,6 +1258,15 @@
             if (productoUnidadError) {
                 productoUnidadError.textContent = 'La unidad seleccionada ya fue agregada en otra línea.';
                 show(productoUnidadError);
+            }
+            return;
+        }
+
+        // Bloquear venta desde stock no trazado cuando el saldo es negativo (inconsistencia de conciliación)
+        if (!origenEsUnidad && productoActualStockSinIdentificar < 0) {
+            if (stockError) {
+                stockError.textContent = 'No se puede vender desde stock no trazado: hay más unidades físicas registradas que stock lógico. Seleccioná una unidad física o usá Conciliación.';
+                show(stockError);
             }
             return;
         }
