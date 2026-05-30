@@ -12,6 +12,8 @@
     var diferenciaPositiva = conciliacion.DiferenciaStockVsUnidadesEnStock > 0;
     var diferenciaNegativa = conciliacion.DiferenciaStockVsUnidadesEnStock < 0;
     var puedeAjustarStockAgregado = conciliacion.RequiereNumeroSerie && conciliacion.HayDiferencia;
+    var stockNoTrazado = Model.StockActual - (decimal)conciliacion.UnidadesEnStock;
+    var altaComunBloqueada = (decimal)conciliacion.UnidadesEnStock >= Model.StockActual;
     var ajusteAbsoluto = Math.Abs(conciliacion.DiferenciaStockVsUnidadesEnStock);
     var textoAjuste = diferenciaPositiva
         ? $"Reducir stock agregado en {ajusteAbsoluto:G29}"
@@ -200,11 +202,22 @@
                     <span class="material-symbols-outlined" style="font-size:18px">balance</span>
                     Conciliar stock
                 </button>
-                <button type="button" onclick="activateTab('agregar')"
-                        class="pu-btn pu-btn-primary">
-                    <span class="material-symbols-outlined" style="font-size:18px">add</span>
-                    Agregar unidades
-                </button>
+                @if (altaComunBloqueada)
+                {
+                    <button type="button" onclick="activateTab('agregar')"
+                            class="pu-btn pu-btn-soft" title="Stock completo — usá Conciliación para agregar unidades adicionales">
+                        <span class="material-symbols-outlined" style="font-size:18px">block</span>
+                        Stock completo
+                    </button>
+                }
+                else
+                {
+                    <button type="button" onclick="activateTab('agregar')"
+                            class="pu-btn pu-btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                        Agregar unidades
+                    </button>
+                }
             </div>
         </div>
 
@@ -220,11 +233,11 @@
                 <div class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</div>
                 <div class="mt-0.5 text-xs text-slate-500">En estado "En Stock"</div>
             </div>
-            <div class="pu-card p-4 @(conciliacion.HayDiferencia ? "!border-amber-500/40 !bg-amber-500/5" : "")">
-                <div class="text-xs uppercase tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500") font-medium">Diferencia</div>
-                <div class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">@diferenciaTexto</div>
-                <div class="mt-0.5 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-slate-500")">
-                    @(diferenciaPositiva ? "Stock > fisicas disponibles" : diferenciaNegativa ? "Fisicas > stock" : "Conciliado")
+            <div class="pu-card p-4 @(stockNoTrazado > 0 ? "!border-blue-500/40 !bg-blue-500/5" : diferenciaNegativa ? "!border-amber-500/40 !bg-amber-500/5" : "")">
+                <div class="text-xs uppercase tracking-wide @(stockNoTrazado > 0 ? "text-blue-300/80" : diferenciaNegativa ? "text-amber-300/80" : "text-slate-500") font-medium">Stock no trazado</div>
+                <div class="mt-1 text-2xl font-semibold @(stockNoTrazado > 0 ? "text-blue-300" : diferenciaNegativa ? "text-amber-300" : "text-emerald-400")">@stockNoTrazado.ToString("G29")</div>
+                <div class="mt-0.5 text-xs @(stockNoTrazado > 0 ? "text-blue-200/70" : diferenciaNegativa ? "text-amber-200/70" : "text-slate-500")">
+                    @(stockNoTrazado > 0 ? "Sin identificar individualmente" : diferenciaNegativa ? "Fisicas > stock" : "Trazabilidad completa")
                 </div>
             </div>
             <div class="pu-card p-4">
@@ -596,14 +609,42 @@
             <p class="text-sm text-slate-400">Registrar identificadores fisicos para unidades ya existentes en el inventario.</p>
         </div>
 
-        <div class="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex gap-3">
-            <span class="material-symbols-outlined text-blue-300 shrink-0">info</span>
-            <p class="text-sm text-blue-100/90">
-                Crear unidades fisicas no modifica el stock del producto ni genera movimientos de Kardex. Esta accion solo registra identificadores para el seguimiento de unidades ya existentes en el inventario.
-            </p>
-        </div>
+        @if (altaComunBloqueada)
+        {
+            <div class="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-4 flex gap-3">
+                <span class="material-symbols-outlined text-amber-300 shrink-0">block</span>
+                <div>
+                    @if (Model.StockActual <= 0)
+                    {
+                        <p class="text-sm font-semibold text-amber-200">Alta bloqueada: stock lógico es 0</p>
+                        <p class="mt-1 text-sm text-amber-100/80">El stock lógico es 0. No hay unidades para registrar. Registrá una entrada en Kardex primero o usá Conciliación.</p>
+                    }
+                    else
+                    {
+                        <p class="text-sm font-semibold text-amber-200">Alta bloqueada: todas las unidades ya fueron registradas</p>
+                        <p class="mt-1 text-sm text-amber-100/80">No podés agregar más unidades físicas porque ya registraste todas las unidades disponibles según el stock lógico (@conciliacion.UnidadesEnStock de @Model.StockActual.ToString("G29")). Usá Conciliación si encontraste una unidad adicional.</p>
+                    }
+                    <div class="mt-3">
+                        <button type="button" onclick="activateTab('conciliar')"
+                                class="pu-btn pu-btn-amber pu-btn-sm">
+                            <span class="material-symbols-outlined" style="font-size:16px">balance</span>
+                            Ir a Conciliación
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex gap-3">
+                <span class="material-symbols-outlined text-blue-300 shrink-0">info</span>
+                <p class="text-sm text-blue-100/90">
+                    Crear unidades fisicas no modifica el stock del producto ni genera movimientos de Kardex. Esta accion solo registra identificadores para el seguimiento de unidades ya existentes en el inventario.
+                </p>
+            </div>
+        }
 
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid gap-4 lg:grid-cols-2" style="@(altaComunBloqueada ? "opacity:0.45;pointer-events:none" : "")">
             @* Alta individual *@
             <div class="pu-card p-5">
                 <div class="flex items-center gap-2 mb-1">
@@ -640,7 +681,7 @@
                         </div>
                     </div>
                     <div class="mt-4 flex justify-end">
-                        <button type="submit" class="pu-btn pu-btn-primary">
+                        <button type="submit" class="pu-btn pu-btn-primary" disabled="@altaComunBloqueada">
                             <span class="material-symbols-outlined" style="font-size:18px">add</span>
                             Agregar unidad
                         </button>
@@ -693,7 +734,7 @@
                         </div>
                         <div class="flex justify-end">
                             <button type="submit" name="CargaMasiva.Confirmar" value="false"
-                                    class="pu-btn pu-btn-primary">
+                                    class="pu-btn pu-btn-primary" disabled="@altaComunBloqueada">
                                 <span class="material-symbols-outlined" style="font-size:18px">visibility</span>
                                 Previsualizar
                             </button>
