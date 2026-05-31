@@ -1,5 +1,4 @@
 @model TheBuryProject.ViewModels.CajaViewModel
-@* Compatibilidad operativa: este modal se mantiene para el flujo del índice; la referencia principal es la vista full-page. *@
 
 <div id="modal-caja" class="lg:h-full">
     <!-- Backdrop (solo mobile) -->
@@ -14,9 +13,7 @@
                 <h3 class="text-xl font-extrabold text-white">Nueva caja</h3>
                 <p class="text-xs text-slate-400 mt-1">Registre una nueva terminal de caja en el sistema.</p>
             </div>
-            <button type="button"
-                    data-caja-close-modal
-                    aria-label="Cerrar modal"
+            <button type="button" data-caja-close-modal aria-label="Cerrar"
                     class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors">
                 <span class="material-symbols-outlined">close</span>
             </button>
@@ -31,83 +28,69 @@
             <div class="p-6 overflow-y-auto flex-1 space-y-5">
 
                 <!-- Código + Nombre -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div class="flex flex-col gap-1.5">
-                        <label asp-for="Codigo" class="text-sm font-semibold text-slate-300">
-                            Código <span class="text-rose-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">tag</span>
-                            <input asp-for="Codigo" type="text" placeholder="Ej: C01-HQ" required
-                                   class="caja-input" style="padding-left: 2.5rem" />
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label asp-for="Codigo" class="label">Código <span class="req">*</span></label>
+                        <div class="field-icon">
+                            <span class="material-symbols-outlined">tag</span>
+                            <input asp-for="Codigo" type="text" placeholder="Ej: C01-HQ" required class="field mono" />
                         </div>
                         <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label asp-for="Nombre" class="text-sm font-semibold text-slate-300">
-                            Nombre <span class="text-rose-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">point_of_sale</span>
-                            <input asp-for="Nombre" type="text" placeholder="Ej: Caja Principal 01" required
-                                   class="caja-input" style="padding-left: 2.5rem" />
+                    <div>
+                        <label asp-for="Nombre" class="label">Nombre <span class="req">*</span></label>
+                        <div class="field-icon">
+                            <span class="material-symbols-outlined">point_of_sale</span>
+                            <input asp-for="Nombre" type="text" placeholder="Ej: Caja Principal 01" required class="field" />
                         </div>
                         <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
                     </div>
                 </div>
 
                 <!-- Sucursal + Ubicación -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div class="flex flex-col gap-1.5">
-                        <label asp-for="Sucursal" class="text-sm font-semibold text-slate-300">Sucursal</label>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">store</span>
-                            <input asp-for="Sucursal" type="text" placeholder="Ej: Casa Central"
-                                   class="caja-input" style="padding-left: 2.5rem" />
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label asp-for="Sucursal" class="label">Sucursal</label>
+                        <div class="field-icon">
+                            <span class="material-symbols-outlined">store</span>
+                            <input asp-for="Sucursal" type="text" placeholder="Ej: Casa Central" class="field" />
                         </div>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-300">Ubicación</label>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">location_on</span>
-                            <input asp-for="Ubicacion" type="text" placeholder="Ej: Planta baja - Zona A"
-                                   class="caja-input" style="padding-left: 2.5rem" />
+                    <div>
+                        <label asp-for="Ubicacion" class="label">Ubicación</label>
+                        <div class="field-icon">
+                            <span class="material-symbols-outlined">location_on</span>
+                            <input asp-for="Ubicacion" type="text" placeholder="Ej: Planta baja - Zona A" class="field" />
                         </div>
                     </div>
                 </div>
 
                 <!-- Descripción -->
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="Descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
+                <div>
+                    <label asp-for="Descripcion" class="label">Descripción</label>
                     <textarea asp-for="Descripcion" rows="2"
                               placeholder="Detalles adicionales sobre esta terminal de caja..."
-                              class="caja-input"></textarea>
+                              class="field"></textarea>
                 </div>
 
-                <!-- Activa toggle -->
-                <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input asp-for="Activa" type="checkbox" class="sr-only peer" checked />
-                        <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
+                <!-- Activa -->
+                <div class="card-2 p-3 flex items-center justify-between gap-3">
                     <div>
-                        <p class="text-sm font-semibold text-slate-300">Caja activa</p>
-                        <p class="text-xs text-slate-400">La caja estará disponible para apertura y operaciones</p>
+                        <div class="text-sm font-semibold text-slate-300">Caja activa</div>
+                        <div class="text-xs muted-2">Disponible para apertura y operaciones</div>
                     </div>
+                    <label class="caja-switch">
+                        <input asp-for="Activa" type="checkbox" checked />
+                        <span class="caja-switch-track"></span>
+                    </label>
                 </div>
             </div>
 
             <!-- Footer -->
             <div class="flex gap-3 p-6 border-t border-slate-800 shrink-0 justify-end">
-                <button type="button"
-                        data-caja-close-modal
-                        class="btn-erp-secondary btn-erp-sm">
-                    Cancelar
-                </button>
-                <button type="submit" id="btnGuardarCaja"
-                        class="btn-erp-primary btn-erp-sm">
-                    <span class="material-symbols-outlined text-lg">add</span>
-                    Crear caja
+                <button type="button" data-caja-close-modal class="btn btn-ghost">Cancelar</button>
+                <button type="submit" id="btnGuardarCaja" class="btn btn-primary">
+                    <span class="material-symbols-outlined">add</span>Crear caja
                 </button>
             </div>
         </form>

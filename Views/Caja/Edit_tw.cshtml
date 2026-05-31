@@ -1,5 +1,4 @@
 @model TheBuryProject.ViewModels.CajaViewModel
-@* Superficie canónica de Caja: priorizar la evolución UX en full-page. *@
 @{
     ViewData["Title"] = "Editar Caja";
     var cajaId = Model?.Id ?? 0;
@@ -9,230 +8,144 @@
     var ubicacionActual = Model?.Ubicacion ?? string.Empty;
     var descripcionActual = Model?.Descripcion ?? string.Empty;
     var activa = Model?.Activa ?? false;
-    var ubicacionResumen = string.Join(" • ", new[] { sucursalActual, ubicacionActual }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    var ubicacionResumen = string.Join(" • ", new[] { sucursalActual, ubicacionActual }.Where(v => !string.IsNullOrWhiteSpace(v)));
 }
 
-<div class="caja-page-shell space-y-8">
+<div class="caja-page-shell" style="padding-bottom:3rem">
 
-    <header class="space-y-6">
-        <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
-            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
-            <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-white">Editar caja</span>
-        </div>
+    <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
+    </a>
 
-        <div class="caja-page-header-layout">
-            <div class="space-y-2">
-                <h1 class="text-white text-4xl font-black tracking-tight">Editar caja</h1>
-                <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
-                    Ajustá los datos de la terminal sin perder claridad sobre su identificación, disponibilidad operativa y ubicación física.
-                </p>
-            </div>
-            <div class="caja-page-header-actions">
-                <a asp-action="Index"
-                   class="caja-page-header-action btn-erp-secondary no-underline">
-                    <span class="material-symbols-outlined text-lg">arrow_back</span>
-                    Volver
-                </a>
-            </div>
+    <div class="page-head" style="margin-top:.85rem">
+        <div class="min-w-0">
+            <h1 class="page-title">Editar caja</h1>
+            <p class="page-sub">Ajustá los datos de la terminal. Los cambios impactan la configuración visible sin alterar el historial operativo.</p>
         </div>
-    </header>
+    </div>
 
     @if (TempData["Error"] != null)
     {
-        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
-            @TempData["Error"]
+        <div class="alert alert-bad" style="margin-top:1rem">
+            <span class="material-symbols-outlined">error</span>
+            <span>@TempData["Error"]</span>
         </div>
     }
 
-    <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden"
-         role="alert"></div>
-
-    <div class="caja-page-metrics caja-page-metrics--4">
-        <article class="card-erp-panel p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Código</p>
-            <p data-caja-preview-code class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(codigoActual) ? "Pendiente" : codigoActual)</p>
-            <p class="mt-1 text-xs text-slate-400">Identificador interno usado en listados y operaciones.</p>
-        </article>
-        <article class="card-erp-panel p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Nombre visible</p>
-            <p data-caja-preview-name class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(nombreActual) ? "Terminal sin nombre" : nombreActual)</p>
-            <p class="mt-1 text-xs text-slate-400">Cómo verán la caja los usuarios en el módulo operativo.</p>
-        </article>
-        <article data-caja-preview-status-card class="rounded-2xl border @(activa ? "border-emerald-500/20 bg-emerald-500/10" : "border-rose-500/20 bg-rose-500/10") p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(activa ? "text-emerald-400" : "text-rose-400")">Estado actual</p>
-            <p data-caja-preview-status class="mt-2 text-2xl font-black @(activa ? "text-emerald-400" : "text-rose-400")">@(activa ? "Activa" : "Inactiva")</p>
-            <p data-caja-preview-status-copy class="mt-1 text-xs @(activa ? "text-emerald-600/80 text-emerald-400/80" : "text-rose-600/80 text-rose-400/80")">
-                @(activa ? "Puede usarse para nuevas aperturas y flujos operativos." : "Quedará fuera del flujo operativo hasta volver a activarla.")
-            </p>
-        </article>
-        <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Ubicación operativa</p>
-            <p data-caja-preview-location class="mt-2 text-2xl font-black text-white">@(string.IsNullOrWhiteSpace(ubicacionResumen) ? "Sin definir" : ubicacionResumen)</p>
-            <p class="mt-1 text-xs text-slate-300">Sucursal y posición física para soporte y coordinación.</p>
-        </article>
+    <div class="grid-kpi" style="margin-top:1.5rem">
+        <div class="kpi">
+            <div class="kpi-label">Código</div>
+            <div data-caja-preview-code class="kpi-value mono">@(string.IsNullOrWhiteSpace(codigoActual) ? "Pendiente" : codigoActual)</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Nombre</div>
+            <div data-caja-preview-name class="kpi-value">@(string.IsNullOrWhiteSpace(nombreActual) ? "Nueva terminal" : nombreActual)</div>
+        </div>
+        <div data-caja-preview-status-card
+             class="rounded-2xl border p-4 shadow-sm @(activa ? "border-emerald-500/20 bg-emerald-500/10" : "border-rose-500/20 bg-rose-500/10")">
+            <div class="kpi-label">Estado actual</div>
+            <div data-caja-preview-status
+                 class="mt-2 text-2xl font-black @(activa ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">@(activa ? "Activa" : "Inactiva")</div>
+            <div data-caja-preview-status-copy
+                 class="mt-1 text-xs @(activa ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-rose-600/80 dark:text-rose-400/80")">
+                @(activa ? "Quedará disponible para aperturas y operaciones." : "Se mantendrá fuera del flujo operativo hasta volver a activarla.")
+            </div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Ubicación</div>
+            <div data-caja-preview-location class="kpi-value">@(string.IsNullOrWhiteSpace(ubicacionResumen) ? "Sin definir" : ubicacionResumen)</div>
+        </div>
     </div>
 
-    <form asp-action="Edit" asp-route-id="@cajaId" method="post" class="space-y-8" data-caja-form-page>
-        @Html.AntiForgeryToken()
-        <input type="hidden" asp-for="Id" />
-        <input type="hidden" asp-for="RowVersion" />
-        <input type="hidden" asp-for="Estado" />
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.5rem">
 
-        <div class="caja-page-main-grid caja-page-main-grid--aside-right">
-            <section class="card-erp-panel">
-                <div class="p-6 space-y-8">
-                    <div class="space-y-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">edit_square</span>
-                            <h2 class="text-white text-xl font-bold">Datos editables</h2>
-                        </div>
-                        <p class="text-sm text-slate-400">
-                            Actualizá la información visible de la terminal y revisá el estado operativo antes de guardar cambios.
-                        </p>
-                    </div>
+        <form asp-action="Edit" asp-route-id="@cajaId" method="post" class="lg:col-span-2 card card-pad">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="RowVersion" />
+            <input type="hidden" asp-for="Estado" />
 
-                    <div class="space-y-6">
-                        <div class="caja-form-fields-grid caja-form-fields-grid--2">
-                            <div class="flex flex-col gap-2">
-                                <label asp-for="Codigo" class="text-sm font-semibold text-slate-300">
-                                    Código <span class="text-rose-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">tag</span>
-                                    <input asp-for="Codigo"
-                                           type="text"
-                                           placeholder="Ej: C01-HQ"
-                                           required
-                                           data-caja-form-codigo
-                                           class="caja-input" style="padding-left: 2.5rem" />
-                                </div>
-                                <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
-                            </div>
+            <div asp-validation-summary="ModelOnly"
+                 class="alert alert-bad empty:hidden"
+                 role="alert"
+                 style="margin-bottom:1rem"></div>
 
-                            <div class="flex flex-col gap-2">
-                                <label asp-for="Nombre" class="text-sm font-semibold text-slate-300">
-                                    Nombre <span class="text-rose-500">*</span>
-                                </label>
-                                <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">point_of_sale</span>
-                                    <input asp-for="Nombre"
-                                           type="text"
-                                           placeholder="Ej: Caja Principal 01"
-                                           required
-                                           data-caja-form-nombre
-                                           class="caja-input" style="padding-left: 2.5rem" />
-                                </div>
-                                <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
-                            </div>
-                        </div>
+            <h2 class="font-semibold text-white">Datos de la caja</h2>
+            <p class="text-sm muted-2" style="margin-top:.2rem;margin-bottom:1.25rem">Actualizá la información de la terminal. El código identifica la caja en todo el módulo.</p>
 
-                        <div class="caja-form-fields-grid caja-form-fields-grid--2">
-                            <div class="flex flex-col gap-2">
-                                <label asp-for="Sucursal" class="text-sm font-semibold text-slate-300">Sucursal</label>
-                                <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">store</span>
-                                    <input asp-for="Sucursal"
-                                           type="text"
-                                           placeholder="Ej: Casa Central"
-                                           data-caja-form-sucursal
-                                           class="caja-input" style="padding-left: 2.5rem" />
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <label asp-for="Ubicacion" class="text-sm font-semibold text-slate-300">Ubicación</label>
-                                <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">location_on</span>
-                                    <input asp-for="Ubicacion"
-                                           type="text"
-                                           placeholder="Ej: Planta baja - Zona A"
-                                           data-caja-form-ubicacion
-                                           class="caja-input" style="padding-left: 2.5rem" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="Descripcion" class="text-sm font-semibold text-slate-300">Descripción</label>
-                            <textarea asp-for="Descripcion"
-                                      rows="4"
-                                      placeholder="Detalles adicionales sobre esta terminal de caja..."
-                                      class="caja-input">@descripcionActual</textarea>
-                        </div>
-
-                        <div class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5">
-                            <div class="flex items-center gap-3">
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input asp-for="Activa" type="checkbox" class="sr-only peer" data-caja-form-activa />
-                                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
-                                <div class="space-y-1">
-                                    <p class="text-sm font-semibold text-slate-300">Caja activa</p>
-                                    <p class="text-xs text-slate-400">Cambiar este estado impacta su disponibilidad para aperturas futuras, sin alterar historial previo.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label asp-for="Codigo" class="label">Código <span class="req">*</span></label>
+                    <input asp-for="Codigo" class="field mono" placeholder="Ej. CAJA-01" required data-caja-form-codigo />
+                    <span asp-validation-for="Codigo" class="text-rose-500 text-xs"></span>
                 </div>
-
-                <div class="border-t border-slate-800 px-6 py-5">
-                    <div class="caja-page-footer-actions">
-                        <a asp-action="Index"
-                           class="caja-page-footer-action btn-erp-secondary no-underline">
-                            Cancelar
-                        </a>
-                        <button type="submit"
-                                class="caja-page-footer-action btn-erp-primary">
-                            <span class="material-symbols-outlined">save</span>
-                            Guardar cambios
-                        </button>
-                    </div>
+                <div>
+                    <label asp-for="Nombre" class="label">Nombre <span class="req">*</span></label>
+                    <input asp-for="Nombre" class="field" placeholder="Ej. Caja Recepción" required data-caja-form-nombre />
+                    <span asp-validation-for="Nombre" class="text-rose-500 text-xs"></span>
                 </div>
-            </section>
+            </div>
 
-            <aside class="caja-form-panel-stack">
-                <section class="card-erp-panel-padded">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="material-symbols-outlined text-primary">shield</span>
-                        <h2 class="text-white text-lg font-bold">Edición controlada</h2>
-                    </div>
-                    <p class="text-sm text-slate-300 leading-relaxed">
-                        Los cambios impactarán la configuración visible de la caja, pero el historial operativo y la concurrencia siguen protegidos por validación del sistema.
-                    </p>
-                </section>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" style="margin-top:1rem">
+                <div>
+                    <label asp-for="Sucursal" class="label">Sucursal <span class="req">*</span></label>
+                    <input asp-for="Sucursal" class="field" placeholder="Ej. Casa Central" data-caja-form-sucursal />
+                </div>
+                <div>
+                    <label asp-for="Ubicacion" class="label">Ubicación operativa</label>
+                    <input asp-for="Ubicacion" class="field" placeholder="Ej. Mostrador / Recepción" data-caja-form-ubicacion />
+                </div>
+            </div>
 
-                <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined text-amber-500">rule</span>
-                        <h2 class="text-white text-lg font-bold">Antes de guardar</h2>
-                    </div>
-                    <ul class="space-y-3 text-sm text-slate-300">
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Verificá que código y nombre sigan siendo reconocibles para el equipo.
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Revisá sucursal y ubicación si la terminal fue reubicada físicamente.
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Si la desactivás, dejás de ofrecerla para nuevas aperturas sin borrar su historial.
-                        </li>
-                    </ul>
-                </section>
-            </aside>
-        </div>
-    </form>
+            <div style="margin-top:1rem">
+                <label asp-for="Descripcion" class="label">Descripción <span class="muted-2 font-normal">(opcional)</span></label>
+                <textarea asp-for="Descripcion" class="field" placeholder="Notas internas sobre el uso de esta caja.">@descripcionActual</textarea>
+            </div>
+
+            <div class="card-2 flex items-center justify-between" style="margin-top:1.25rem;padding:1rem">
+                <div>
+                    <div class="font-medium text-white text-sm">Caja activa</div>
+                    <div class="text-xs muted-2">Cambiar este estado impacta su disponibilidad para aperturas futuras, sin alterar historial previo.</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer" style="flex-shrink:0;margin-left:1rem">
+                    <input asp-for="Activa" type="checkbox" class="sr-only peer" data-caja-form-activa />
+                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2"
+                 style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1f2937">
+                <a asp-action="Index" class="btn btn-ghost" style="text-decoration:none">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-outlined">save</span>Guardar cambios
+                </button>
+            </div>
+        </form>
+
+        <aside class="space-y-4">
+            <div class="card card-pad">
+                <div class="flex items-center gap-2" style="margin-bottom:.75rem">
+                    <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">shield</span>
+                    <h3 class="font-semibold text-white">Edición controlada</h3>
+                </div>
+                <ul class="help-list">
+                    <li><span class="material-symbols-outlined">tag</span>Verificá que código y nombre sigan siendo reconocibles para el equipo.</li>
+                    <li><span class="material-symbols-outlined">store</span>Revisá sucursal y ubicación si la terminal fue reubicada físicamente.</li>
+                    <li><span class="material-symbols-outlined">archive</span>Si la desactivás, dejás de ofrecerla para nuevas aperturas sin borrar su historial.</li>
+                </ul>
+            </div>
+            <div class="alert alert-warn">
+                <span class="material-symbols-outlined">rule</span>
+                <div>Los cambios impactan la configuración visible. El historial operativo y la <strong>concurrencia quedan protegidos</strong> por validación del sistema.</div>
+            </div>
+        </aside>
+    </div>
+
 </div>
 
 @section Styles {
     <partial name="_CajaModuleStyles" />
 }
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/caja-form.js" asp-append-version="true"></script>

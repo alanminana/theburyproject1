@@ -8,182 +8,136 @@
     var terminalCodigo = !string.IsNullOrWhiteSpace(Model.CajaCodigo) ? Model.CajaCodigo : "Sin código cargado";
 }
 
-<div class="caja-page-shell space-y-8">
+<div class="caja-page-shell" style="padding-bottom:3rem">
 
-    <header class="space-y-6">
-        <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
-            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
-            <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-white">Abrir caja</span>
-        </div>
+    <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
+    </a>
 
-        <div class="caja-page-header-layout">
-            <div class="space-y-2">
-                <h1 class="text-white text-4xl font-black tracking-tight">Abrir caja</h1>
-                <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
-                    Iniciá una nueva jornada operativa seleccionando la terminal correcta, definiendo el fondo inicial y dejando contexto suficiente para el turno.
-                </p>
-            </div>
-            <div class="caja-page-header-actions">
-                <a asp-action="Index"
-                   class="caja-page-header-action btn-erp-secondary no-underline">
-                    <span class="material-symbols-outlined text-lg">arrow_back</span>
-                    Volver
-                </a>
-            </div>
+    <div class="page-head" style="margin-top:.85rem">
+        <div class="min-w-0">
+            <h1 class="page-title">Abrir caja</h1>
+            <p class="page-sub">Iniciá un turno declarando el fondo inicial. A partir de la apertura quedan registrados todos los movimientos hasta el cierre.</p>
         </div>
-    </header>
+    </div>
 
     @if (TempData["Error"] != null)
     {
-        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
-            @TempData["Error"]
+        <div class="alert alert-bad" style="margin-top:1rem">
+            <span class="material-symbols-outlined">error</span>
+            <span>@TempData["Error"]</span>
         </div>
     }
 
-    <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden"
-         role="alert"></div>
-
-    <div class="caja-page-metrics caja-page-metrics--4">
-        <article class="card-erp-panel p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Terminal objetivo</p>
-            <p data-caja-abrir-terminal-label class="mt-2 text-2xl font-black text-white">@terminalTexto</p>
-            <p data-caja-abrir-terminal-copy class="mt-1 text-xs text-slate-400">@terminalCodigo</p>
-        </article>
-        <article class="card-erp-panel p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Responsable</p>
-            <p class="mt-2 text-2xl font-black text-white">@usuarioActual</p>
-            <p class="mt-1 text-xs text-slate-400">El turno quedará vinculado al usuario autenticado.</p>
-        </article>
-        <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Fondo inicial</p>
-            <p data-caja-abrir-fondo-label class="mt-2 text-2xl font-black text-white">$@Model.MontoInicial.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-300">Base que estará disponible al momento de abrir la caja.</p>
-        </article>
-        <article class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">Trazabilidad</p>
-            <p class="mt-2 text-2xl font-black text-emerald-400">Auditado</p>
-            <p class="mt-1 text-xs text-emerald-600/80 text-emerald-400/80">Apertura, movimientos y cierre quedarán registrados en el historial.</p>
-        </article>
+    <div class="grid-kpi" style="margin-top:1.5rem">
+        <div class="kpi">
+            <div class="kpi-label">Terminal</div>
+            <div data-caja-abrir-terminal-label class="kpi-value">@terminalTexto</div>
+            <div data-caja-abrir-terminal-copy class="kpi-foot">@terminalCodigo</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Responsable</div>
+            <div class="kpi-value">@usuarioActual</div>
+            <div class="kpi-foot">Turno vinculado al usuario autenticado.</div>
+        </div>
+        <div class="kpi kpi--accent">
+            <div class="kpi-label">Fondo inicial</div>
+            <div data-caja-abrir-fondo-label class="kpi-value">$@Model.MontoInicial.ToString("N2")</div>
+            <div class="kpi-foot">Base para el arqueo al cierre.</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label">Apertura</div>
+            <div class="kpi-value num">@DateTime.Now.ToString("dd/MM · HH:mm")</div>
+            <div class="kpi-foot">Fecha y hora de inicio del turno.</div>
+        </div>
     </div>
 
-    <form asp-action="Abrir" method="post" class="space-y-8">
-        @Html.AntiForgeryToken()
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.5rem">
 
-        <div class="caja-page-main-grid caja-page-main-grid--aside-right">
-            <section class="card-erp-panel">
-                <div class="p-6 space-y-8">
-                    <div class="space-y-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">lock_open</span>
-                            <h2 class="text-white text-xl font-bold">Datos de apertura</h2>
-                        </div>
-                        <p class="text-sm text-slate-400">
-                            Confirmá la terminal, ingresá el efectivo base y dejá observaciones si necesitás documentar el estado inicial del turno.
-                        </p>
-                    </div>
+        <form asp-action="Abrir" method="post" class="lg:col-span-2 card card-pad">
+            @Html.AntiForgeryToken()
 
-                    <div class="space-y-6">
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="CajaId" class="text-sm font-semibold text-slate-300">Caja o terminal</label>
-                            <div class="relative">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">point_of_sale</span>
-                                <select asp-for="CajaId"
-                                        asp-items="cajas"
-                                        data-caja-abrir-select
-                                        class="caja-select" style="padding-left: 2.5rem">
-                                    <option value="">Seleccione la terminal de caja</option>
-                                </select>
-                            </div>
-                            <p class="text-xs text-slate-500">La terminal seleccionada recibirá todos los movimientos del nuevo turno hasta su cierre.</p>
-                            <span asp-validation-for="CajaId" class="text-rose-500 text-xs"></span>
-                        </div>
+            <div asp-validation-summary="ModelOnly"
+                 class="alert alert-bad empty:hidden"
+                 role="alert"
+                 style="margin-bottom:1rem"></div>
 
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="MontoInicial" class="text-sm font-semibold text-slate-300">Monto inicial</label>
-                            <div class="relative">
-                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 font-medium">$</span>
-                                <input asp-for="MontoInicial"
-                                       type="number"
-                                       step="0.01"
-                                       placeholder="0.00"
-                                       data-caja-abrir-monto
-                                       class="caja-input" style="padding-left: 2rem" />
-                            </div>
-                            <p class="text-xs text-slate-500">Ingresá el efectivo disponible al momento de abrir la caja.</p>
-                            <span asp-validation-for="MontoInicial" class="text-rose-500 text-xs"></span>
-                        </div>
+            <h2 class="font-semibold text-white">Datos de apertura</h2>
+            <p class="text-sm muted-2" style="margin-top:.2rem;margin-bottom:1.25rem">Confirmá la caja y el monto con el que arranca el turno.</p>
 
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="ObservacionesApertura" class="text-sm font-semibold text-slate-300">
-                                Observaciones de apertura <span class="text-slate-500 font-normal">(opcional)</span>
-                            </label>
-                            <textarea asp-for="ObservacionesApertura"
-                                      rows="5"
-                                      placeholder="Notas adicionales sobre el estado de la caja o del turno..."
-                                      class="caja-input"></textarea>
-                        </div>
-                    </div>
+            <div class="space-y-4">
+                <div>
+                    <label asp-for="CajaId" class="label">Caja a abrir <span class="req">*</span></label>
+                    <select asp-for="CajaId" asp-items="cajas" class="field" data-caja-abrir-select>
+                        <option value="">Seleccioná una caja disponible…</option>
+                    </select>
+                    <p class="hint">Solo se listan cajas disponibles (sin turno abierto).</p>
+                    <span asp-validation-for="CajaId" class="text-rose-500 text-xs"></span>
                 </div>
 
-                <div class="border-t border-slate-800 px-6 py-5">
-                    <div class="caja-page-footer-actions">
-                        <a asp-action="Index"
-                           class="caja-page-footer-action btn-erp-secondary no-underline">
-                            Cancelar
-                        </a>
-                        <button type="submit"
-                                class="caja-page-footer-action btn-erp-primary">
-                            <span class="material-symbols-outlined">lock_open</span>
-                            Abrir caja
-                        </button>
+                <div>
+                    <label asp-for="MontoInicial" class="label">Fondo inicial <span class="req">*</span></label>
+                    <div class="field-money">
+                        <span class="cur">$</span>
+                        <input asp-for="MontoInicial" type="number" step="0.01" min="0" class="field" placeholder="0.00" data-caja-abrir-monto />
                     </div>
+                    <p class="hint">Monto en efectivo con el que arranca la caja. Quedará como base del arqueo.</p>
+                    <span asp-validation-for="MontoInicial" class="text-rose-500 text-xs"></span>
                 </div>
-            </section>
 
-            <aside class="caja-form-panel-stack">
-                <section class="card-erp-panel-padded">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="material-symbols-outlined text-primary">info</span>
-                        <h2 class="text-white text-lg font-bold">Antes de abrir</h2>
-                    </div>
-                    <ul class="space-y-3 text-sm text-slate-300">
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-emerald-500 mt-0.5">check_circle</span>
-                            Verificá que la terminal seleccionada sea la correcta para el turno.
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-emerald-500 mt-0.5">check_circle</span>
-                            Registrá el efectivo inicial tal como quedó físicamente disponible.
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-emerald-500 mt-0.5">check_circle</span>
-                            Si la caja ya está operativa, el sistema bloqueará una nueva apertura.
-                        </li>
-                    </ul>
-                </section>
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setMonto(10000)">$ 10.000</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setMonto(15000)">$ 15.000</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setMonto(20000)">$ 20.000</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="setMonto(30000)">$ 30.000</button>
+                </div>
 
-                <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined text-amber-500">rule</span>
-                        <h2 class="text-white text-lg font-bold">Impacto del turno</h2>
-                    </div>
-                    <p class="text-sm text-slate-300 leading-relaxed">
-                        Una vez abierta la caja, todas las ventas, ingresos y egresos quedarán vinculados a este turno hasta su cierre y arqueo final.
-                    </p>
-                </section>
-            </aside>
-        </div>
-    </form>
+                <div>
+                    <label asp-for="ObservacionesApertura" class="label">Observaciones del turno <span class="muted-2 font-normal">(opcional)</span></label>
+                    <textarea asp-for="ObservacionesApertura" class="field" placeholder="Notas de apertura: novedades, billetes recibidos, etc."></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2"
+                 style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1f2937">
+                <a asp-action="Index" class="btn btn-ghost" style="text-decoration:none">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-symbols-outlined">lock_open</span>Abrir caja
+                </button>
+            </div>
+        </form>
+
+        <aside class="space-y-4">
+            <div class="card card-pad">
+                <div class="flex items-center gap-2" style="margin-bottom:.75rem">
+                    <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">tips_and_updates</span>
+                    <h3 class="font-semibold text-white">Buenas prácticas</h3>
+                </div>
+                <ul class="help-list">
+                    <li><span class="material-symbols-outlined">payments</span>Contá el efectivo físico antes de declarar el fondo inicial.</li>
+                    <li><span class="material-symbols-outlined">badge</span>El turno queda a tu nombre: vos sos responsable hasta el cierre.</li>
+                    <li><span class="material-symbols-outlined">schedule</span>Una caja solo puede tener un turno abierto a la vez.</li>
+                </ul>
+            </div>
+            <div class="alert alert-info">
+                <span class="material-symbols-outlined">info</span>
+                <div>Abrir la caja <strong>no genera asientos contables</strong>. Solo habilita el registro de ingresos y egresos del turno.</div>
+            </div>
+        </aside>
+    </div>
+
 </div>
 
 @section Styles {
     <partial name="_CajaModuleStyles" />
 }
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/caja-abrir.js" asp-append-version="true"></script>
+    <script>
+        function setMonto(v) {
+            const input = document.querySelector('[data-caja-abrir-monto]');
+            if (input) { input.value = v; input.dispatchEvent(new Event('input')); }
+        }
+    </script>
 }

@@ -40,27 +40,27 @@
         </div>
     }
 
-    <div class="caja-page-metrics caja-page-metrics--4 caja-cerrar-metrics">
-        <article class="card-erp-panel p-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Monto inicial</p>
-            <p class="mt-2 text-2xl font-black text-white">$@Model.MontoInicialSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-400">Base del turno al momento de la apertura.</p>
-        </article>
-        <article class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-400">Ingresos sistema</p>
-            <p class="mt-2 text-2xl font-black text-emerald-400">+$@Model.TotalIngresosSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-emerald-600/80 text-emerald-400/80">Movimientos que incrementaron el saldo esperado.</p>
-        </article>
-        <article class="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-rose-400">Egresos sistema</p>
-            <p class="mt-2 text-2xl font-black text-rose-400">-$@Model.TotalEgresosSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-rose-600/80 text-rose-400/80">Movimientos que redujeron el saldo esperado.</p>
-        </article>
-        <article class="rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm">
-            <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Monto esperado</p>
-            <p class="mt-2 text-2xl font-black text-white" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-300">Referencia final contra la que se valida el arqueo.</p>
-        </article>
+    <div class="grid-kpi">
+        <div class="kpi">
+            <div class="kpi-label">Monto inicial</div>
+            <div class="kpi-value">$@Model.MontoInicialSistema.ToString("N2")</div>
+            <div class="kpi-foot">Base del turno al momento de la apertura.</div>
+        </div>
+        <div class="kpi kpi--ok">
+            <div class="kpi-label">Ingresos sistema</div>
+            <div class="kpi-value">+$@Model.TotalIngresosSistema.ToString("N2")</div>
+            <div class="kpi-foot">Movimientos que incrementaron el saldo esperado.</div>
+        </div>
+        <div class="kpi kpi--bad">
+            <div class="kpi-label">Egresos sistema</div>
+            <div class="kpi-value">-$@Model.TotalEgresosSistema.ToString("N2")</div>
+            <div class="kpi-foot">Movimientos que redujeron el saldo esperado.</div>
+        </div>
+        <div class="kpi kpi--accent">
+            <div class="kpi-label">Esperado (sistema)</div>
+            <div class="kpi-value" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</div>
+            <div class="kpi-foot">Referencia final contra la que se valida el arqueo.</div>
+        </div>
     </div>
 
     <div asp-validation-summary="ModelOnly"
@@ -78,46 +78,44 @@
         <div class="caja-page-main-grid caja-page-main-grid--aside-left caja-cerrar-main-grid">
 
             <aside class="space-y-6">
-                <section class="card-erp-panel-padded">
+                <section class="card card-pad">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="material-symbols-outlined text-primary">info</span>
                         <h2 class="text-white text-xl font-bold">Información de apertura</h2>
                     </div>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-800">
-                            <span class="text-slate-400 text-sm">Caja</span>
-                            <span class="text-right text-white text-sm font-semibold">@Model.CajaNombre</span>
+                    <dl>
+                        <div class="defrow">
+                            <dt>Caja</dt>
+                            <dd>@Model.CajaNombre</dd>
                         </div>
-                        <div class="flex justify-between items-center gap-4 py-2 border-b border-slate-800">
-                            <span class="text-slate-400 text-sm">Usuario</span>
-                            <span class="text-right text-white text-sm font-semibold">@Model.UsuarioApertura</span>
+                        <div class="defrow">
+                            <dt>Usuario</dt>
+                            <dd>@Model.UsuarioApertura</dd>
                         </div>
-                        <div class="flex justify-between items-center gap-4 py-2">
-                            <span class="text-slate-400 text-sm">Apertura</span>
-                            <span class="text-right text-white text-sm font-semibold">
-                                @(Model.FechaApertura?.ToString("dd/MM/yyyy HH:mm") ?? "—")
-                            </span>
+                        <div class="defrow">
+                            <dt>Apertura</dt>
+                            <dd class="num">@(Model.FechaApertura?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
                         </div>
-                    </div>
+                    </dl>
                 </section>
 
-                <section class="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-6 shadow-sm">
+                <section class="card card-pad">
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined text-amber-500">rule</span>
-                        <h2 class="text-white text-lg font-bold">Checklist del cierre</h2>
+                        <span class="material-symbols-outlined" style="color:#60a5fa">balance</span>
+                        <h2 class="text-white text-lg font-bold">Cómo leer el arqueo</h2>
                     </div>
-                    <ul class="space-y-3 text-sm text-slate-300">
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Confirmá el efectivo contado, cheques y vales antes de cerrar.
+                    <ul class="help-list">
+                        <li>
+                            <span class="material-symbols-outlined" style="color:#34d399">add_circle</span>
+                            <span><strong>Sobrante:</strong> contaste más de lo esperado.</span>
                         </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Si hay diferencia, dejá una justificación clara y auditable.
+                        <li>
+                            <span class="material-symbols-outlined" style="color:#fb7185">remove_circle</span>
+                            <span><strong>Faltante:</strong> contaste menos de lo esperado.</span>
                         </li>
-                        <li class="flex items-start gap-2">
-                            <span class="material-symbols-outlined text-[18px] text-amber-500 mt-0.5">check_circle</span>
-                            Después del cierre no vas a poder seguir operando esta apertura.
+                        <li>
+                            <span class="material-symbols-outlined" style="color:#34d399">check_circle</span>
+                            <span><strong>Sin diferencia:</strong> el efectivo coincide exacto.</span>
                         </li>
                     </ul>
                 </section>
@@ -138,63 +136,61 @@
                     <div class="caja-cerrar-input-grid">
                         <div class="flex flex-col gap-2">
                             <label asp-for="EfectivoContado" class="text-sm font-semibold text-slate-300">Efectivo contado</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                            <div class="field-money">
+                                <span class="cur">$</span>
                                 <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
+                                       class="arqueo-input caja-input" />
                             </div>
                             <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                         </div>
                         <div class="flex flex-col gap-2">
                             <label asp-for="ChequesContados" class="text-sm font-semibold text-slate-300">Cheques contados</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                            <div class="field-money">
+                                <span class="cur">$</span>
                                 <input asp-for="ChequesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
+                                       class="arqueo-input caja-input" />
                             </div>
                             <span asp-validation-for="ChequesContados" class="text-rose-500 text-xs"></span>
                         </div>
                         <div class="flex flex-col gap-2">
                             <label asp-for="ValesContados" class="text-sm font-semibold text-slate-300">Vales u otros</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                            <div class="field-money">
+                                <span class="cur">$</span>
                                 <input asp-for="ValesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" style="padding-left: 2rem" />
+                                       class="arqueo-input caja-input" />
                             </div>
                             <span asp-validation-for="ValesContados" class="text-rose-500 text-xs"></span>
                         </div>
                     </div>
 
-                    <section class="rounded-2xl border border-slate-700 bg-slate-800/70 p-6">
-                        <div class="flex flex-col gap-3 pb-5">
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Resultado del arqueo</h3>
-                                <span id="diferencia-status"
-                                      class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-500">
-                                    Exacto
-                                </span>
-                            </div>
-                            <p id="diferencia-help" class="text-sm text-slate-400">
-                                Cuando el total contado coincide con el sistema, no hace falta justificar diferencias.
-                            </p>
+                    <section class="card card-pad">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Resultado del arqueo</h3>
+                            <span id="diferencia-status"
+                                  class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-500">
+                                Exacto
+                            </span>
                         </div>
+                        <p id="diferencia-help" class="text-sm muted mb-4">
+                            Cuando el total contado coincide con el sistema, no hace falta justificar diferencias.
+                        </p>
 
                         <div class="caja-cerrar-result-grid">
-                            <article class="caja-cerrar-result-card card-erp-panel p-4">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total real</p>
-                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-white" id="total-real">$0,00</p>
-                            </article>
-                            <article class="caja-cerrar-result-card card-erp-panel p-4">
-                                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Monto esperado</p>
-                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black text-white">$@Model.MontoEsperadoSistema.ToString("N2")</p>
-                            </article>
-                            <article class="caja-cerrar-result-card card-erp-panel p-4">
-                                <div class="flex items-center gap-2">
-                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Diferencia</p>
+                            <div class="result-card">
+                                <div class="result-label">Total real</div>
+                                <div class="result-value" id="total-real">$0,00</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">Monto esperado</div>
+                                <div class="result-value">$@Model.MontoEsperadoSistema.ToString("N2")</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">
+                                    Diferencia
                                     <span class="material-symbols-outlined text-lg" id="diferencia-icon">check_circle</span>
                                 </div>
-                                <p class="caja-cerrar-result-value mt-2 text-2xl font-black" id="diferencia-valor">$0,00</p>
-                            </article>
+                                <div class="result-value" id="diferencia-valor">$0,00</div>
+                            </div>
                         </div>
                     </section>
 
@@ -226,11 +222,9 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-4 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
-                        <span class="material-symbols-outlined text-amber-500 mt-0.5">warning</span>
-                        <p class="text-sm text-slate-300 leading-relaxed">
-                            <span class="font-bold text-amber-400">Aviso importante:</span> si existe diferencia entre el monto real y el esperado, debe justificarse obligatoriamente. Una vez cerrada la caja, no podrá realizar modificaciones.
-                        </p>
+                    <div class="alert alert-bad">
+                        <span class="material-symbols-outlined">warning</span>
+                        <div><strong>El cierre es irreversible.</strong> Una vez cerrada la caja no se pueden agregar ni editar movimientos. Si existe diferencia, la justificación es obligatoria.</div>
                     </div>
                 </div>
 

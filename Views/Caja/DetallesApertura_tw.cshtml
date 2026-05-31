@@ -113,582 +113,563 @@
     }
 }
 
-<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
-    <div class="layout-container flex h-full grow flex-col">
+<div class="caja-page-shell space-y-8">
 
-        <main class="caja-page-shell flex flex-col gap-8">
+    <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
+        <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-white">Detalles de apertura</span>
+    </div>
 
-            <!-- Breadcrumbs & Header -->
-            <header class="flex flex-col gap-6">
-                <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
-                    <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
-                    <span class="material-symbols-outlined text-xs">chevron_right</span>
-                    <span class="text-white">Detalles de apertura</span>
+    <div class="page-head">
+        <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="page-title">@(apertura.Caja?.Nombre ?? "Caja")</h1>
+                @if (!string.IsNullOrWhiteSpace(apertura.Caja?.Codigo))
+                {
+                    <span class="chip chip-neutral mono">@apertura.Caja.Codigo</span>
+                }
+                @if (!apertura.Cerrada)
+                {
+                    <span class="chip chip-live"><span class="dot"></span>Turno abierto</span>
+                }
+                else
+                {
+                    <span class="chip chip-neutral">Turno cerrado</span>
+                }
+            </div>
+            <p class="page-sub">Abierta por <strong>@apertura.UsuarioApertura</strong> · @apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")</p>
+        </div>
+        <div class="head-actions">
+            <button type="button" data-caja-print aria-label="Imprimir detalles de apertura" class="btn btn-ghost">
+                <span class="material-symbols-outlined">print</span>Imprimir
+            </button>
+            @if (!apertura.Cerrada && puedeOperar)
+            {
+                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                   class="btn btn-soft no-underline">
+                    <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
+                </a>
+                <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                   class="btn btn-primary no-underline">
+                    <span class="material-symbols-outlined">lock</span>Cerrar caja
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
+            <span class="material-symbols-outlined text-lg">error</span>
+            @TempData["Error"]
+        </div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium" role="status">
+            <span class="material-symbols-outlined text-lg">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    <div class="grid-kpi">
+        <div class="kpi">
+            <div class="kpi-label">Fondo inicial</div>
+            <div class="kpi-value">$@apertura.MontoInicial.ToString("N2")</div>
+            <div class="kpi-foot">declarado en apertura</div>
+        </div>
+        <div class="kpi kpi--ok">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">south_west</span>Ingresos</div>
+            <div class="kpi-value">+$@Model.TotalIngresos.ToString("N2")</div>
+            <div class="kpi-foot">@ingresos.Count @(ingresos.Count == 1 ? "movimiento" : "movimientos")</div>
+        </div>
+        <div class="kpi kpi--bad">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">north_east</span>Egresos</div>
+            <div class="kpi-value">-$@Model.TotalEgresos.ToString("N2")</div>
+            <div class="kpi-foot">@egresos.Count @(egresos.Count == 1 ? "movimiento" : "movimientos")</div>
+        </div>
+        <div class="kpi kpi--accent">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Efectivo esperado</div>
+            <div class="kpi-value">$@Model.SaldoActual.ToString("N2")</div>
+            <div class="kpi-foot">fondo + ingresos − egresos</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-emerald-500/5 border border-emerald-500/20">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="material-symbols-outlined text-emerald-400 text-base">verified</span>
+                <p class="text-emerald-400 text-xs font-bold uppercase tracking-tight">Saldo real acreditado</p>
+            </div>
+            <p class="text-emerald-400 text-2xl font-black leading-tight">$@Model.SaldoReal.ToString("N2")</p>
+            <p class="text-slate-500 text-[11px]">Solo dinero efectivamente recibido o acreditado</p>
+        </div>
+        @if (Model.SaldoPendienteAcreditacion > 0)
+        {
+            <div class="flex flex-col gap-1 rounded-2xl p-4 bg-amber-500/5 border border-amber-500/20">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-amber-400 text-base">pending</span>
+                    <p class="text-amber-400 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
                 </div>
-                <div class="caja-page-header-layout caja-detalles-header-layout">
-                    <div class="flex flex-col gap-2">
-                        <h1 class="text-white text-4xl font-black tracking-tight flex flex-wrap items-center gap-3">
-                            Detalles de apertura
-                            @if (!apertura.Cerrada)
+                <p class="text-amber-400 text-2xl font-black leading-tight">$@Model.SaldoPendienteAcreditacion.ToString("N2")</p>
+                <p class="text-slate-500 text-[11px]">Transferencias, tarjetas y MP aún no confirmados</p>
+            </div>
+        }
+        else
+        {
+            <div class="flex flex-col gap-1 rounded-2xl p-4 bg-slate-800/40 border border-slate-700/40">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-slate-500 text-base">check_circle</span>
+                    <p class="text-slate-500 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
+                </div>
+                <p class="text-slate-400 text-2xl font-black leading-tight">$0,00</p>
+                <p class="text-slate-600 text-[11px]">Sin movimientos pendientes</p>
+            </div>
+        }
+        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-amber-500/5 border border-amber-500/20">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="material-symbols-outlined text-amber-400 text-base">add_card</span>
+                <p class="text-amber-400 text-xs font-bold uppercase tracking-tight">Recargo débito</p>
+            </div>
+            <p class="text-amber-400 text-2xl font-black leading-tight">$@totalRecargoDebito.ToString("N2")</p>
+            <p class="text-slate-500 text-[11px]">Recargo aplicado en tarjetas débito</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 card card-pad">
+            <h3 class="font-semibold text-white mb-4">Información del turno</h3>
+            <dl>
+                <div class="defrow">
+                    <dt>Caja</dt>
+                    <dd>@apertura.Caja?.Nombre — @apertura.Caja?.Codigo</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Responsable</dt>
+                    <dd>@apertura.UsuarioApertura</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Apertura</dt>
+                    <dd class="num">@apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Última actividad</dt>
+                    <dd class="num">
+                        @if (movimientos.Any())
+                        {
+                            var ultimoMov = movimientos.OrderByDescending(m => m.FechaMovimiento).First();
+                            var diff = DateTime.Now - ultimoMov.FechaMovimiento;
+                            @if (diff.TotalMinutes < 60)
                             {
-                                <span class="bg-emerald-500/10 text-emerald-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-emerald-500/20">Abierta</span>
+                                @($"Hace {(int)diff.TotalMinutes} min")
+                            }
+                            else if (diff.TotalHours < 24)
+                            {
+                                @($"Hace {(int)diff.TotalHours} h")
                             }
                             else
                             {
-                                <span class="bg-slate-500/10 text-slate-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-slate-500/20">Cerrada</span>
+                                @ultimoMov.FechaMovimiento.ToString("dd/MM/yyyy HH:mm")
                             }
-                        </h1>
-                        <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
-                            Seguí el turno activo, revisá ventas y movimientos, y operá la caja sin perder contexto en mobile.
-                        </p>
-                    </div>
-                    <div class="caja-page-header-actions caja-detalles-header-actions">
-                        @if (!apertura.Cerrada && puedeOperar)
-                        {
-                            <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                               class="caja-page-header-action caja-detalles-header-action btn-erp-primary no-underline">
-                                <span class="material-symbols-outlined text-sm mr-2">lock</span>
-                                Cerrar caja
-                            </a>
-                            <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                               class="caja-page-header-action caja-detalles-header-action btn-erp-secondary no-underline">
-                                <span class="material-symbols-outlined text-sm mr-2">add</span>
-                                Nuevo movimiento
-                            </a>
-                        }
-                        <a asp-action="Index"
-                           class="caja-page-header-action caja-detalles-header-action btn-erp-secondary no-underline">
-                            <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
-                            Volver
-                        </a>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Toasts -->
-            @if (TempData["Error"] != null)
-            {
-                <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
-                    <span class="material-symbols-outlined text-lg">error</span>
-                    @TempData["Error"]
-                </div>
-            }
-            @if (TempData["Success"] != null)
-            {
-                <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium" role="status">
-                    <span class="material-symbols-outlined text-lg">check_circle</span>
-                    @TempData["Success"]
-                </div>
-            }
-
-            <!-- Box Information Panel -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 card-erp-panel">
-                    <div class="mx-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 md:mx-0 md:h-20 md:w-20">
-                        <span class="material-symbols-outlined text-primary text-5xl">point_of_sale</span>
-                    </div>
-                    <div class="flex flex-col justify-between grow gap-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6">
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Caja</p>
-                                <p class="text-white font-bold">@apertura.Caja?.Nombre - COD: @apertura.Caja?.Codigo</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Usuario de apertura</p>
-                                <p class="text-white font-medium">@apertura.UsuarioApertura</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Fecha y Hora</p>
-                                <p class="text-white font-medium">@apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Última actualización</p>
-                                @if (movimientos.Any())
-                                {
-                                    var ultimoMov = movimientos.OrderByDescending(m => m.FechaMovimiento).First();
-                                    var diff = DateTime.Now - ultimoMov.FechaMovimiento;
-                                    <p class="text-white font-medium">
-                                        @if (diff.TotalMinutes < 60)
-                                        {
-                                            @($"Hace {(int)diff.TotalMinutes} minutos")
-                                        }
-                                        else if (diff.TotalHours < 24)
-                                        {
-                                            @($"Hace {(int)diff.TotalHours} horas")
-                                        }
-                                        else
-                                        {
-                                            @ultimoMov.FechaMovimiento.ToString("dd/MM/yyyy HH:mm")
-                                        }
-                                    </p>
-                                }
-                                else
-                                {
-                                    <p class="text-slate-400 font-medium italic">Sin movimientos</p>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-6 card-erp-panel flex flex-col justify-between shadow-sm">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center">
-                            <span class="material-symbols-outlined text-sm mr-1">sticky_note_2</span> Observaciones
-                        </p>
-                        @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
-                        {
-                            <p class="text-slate-300 text-sm italic">"@apertura.ObservacionesApertura"</p>
                         }
                         else
                         {
-                            <p class="text-slate-400 text-sm italic">Sin observaciones registradas.</p>
+                            <span class="muted-2">Sin movimientos</span>
                         }
+                    </dd>
+                </div>
+            </dl>
+        </div>
+        <aside class="space-y-4">
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-1.5">Observaciones de apertura</h3>
+                @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
+                {
+                    <p class="text-sm muted leading-relaxed">"@apertura.ObservacionesApertura"</p>
+                }
+                else
+                {
+                    <p class="text-sm muted-2 italic">Sin observaciones registradas.</p>
+                }
+            </div>
+            @if (!apertura.Cerrada && puedeOperar)
+            {
+                <div class="card card-pad" style="border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.05)">
+                    <h3 class="font-semibold text-white flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">lock_clock</span>¿Terminando el turno?
+                    </h3>
+                    <p class="text-sm muted mb-3">Cerrá la caja para hacer el arqueo y comparar el efectivo real contra lo esperado.</p>
+                    <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary btn-block no-underline">
+                        <span class="material-symbols-outlined">lock</span>Cerrar turno ahora
+                    </a>
+                </div>
+            }
+        </aside>
+    </div>
+
+    @if (ventas.Any())
+    {
+        <section class="space-y-6">
+            <div class="caja-page-section-header caja-detalles-section-header">
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">shopping_bag</span>
+                        <h3 class="text-lg font-bold text-white">Ventas vinculadas al turno</h3>
                     </div>
+                    <p class="text-sm text-slate-400">
+                        Operaciones registradas durante esta apertura, agrupadas por impacto en caja.
+                    </p>
+                </div>
+                <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
+                    <span class="material-symbols-outlined text-sm text-primary">receipt_long</span>
+                    @ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta efectiva" : "ventas efectivas")
+                    @if (ventasPendientes.Any() || ventasAuditoria.Any())
+                    {
+                        <span class="text-slate-600 select-none">·</span>
+                        <span>@(ventasPendientes.Count + ventasAuditoria.Count) sin impacto inmediato</span>
+                    }
                 </div>
             </div>
 
-           <!-- Financial Summary KPIs -->
-<div class="caja-page-metrics caja-page-metrics--7 caja-detalles-metrics">
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Monto inicial</p>
-        <p class="text-white text-xl font-black leading-tight">$@apertura.MontoInicial.ToString("N2")</p>
-    </div>
-
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Total ingresos</p>
-        <p class="text-emerald-500 text-xl font-black leading-tight">+$@Model.TotalIngresos.ToString("N2")</p>
-    </div>
-
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. ingresos</p>
-        <p class="text-white text-xl font-black leading-tight">@ingresos.Count</p>
-    </div>
-
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Total egresos</p>
-        <p class="text-rose-500 text-xl font-black leading-tight">-$@Model.TotalEgresos.ToString("N2")</p>
-    </div>
-
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Cant. egresos</p>
-        <p class="text-white text-xl font-black leading-tight">@egresos.Count</p>
-    </div>
-
-    <div class="flex flex-col gap-1 rounded-2xl card-erp-panel p-4">
-        <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Recargo débito</p>
-        <p class="text-amber-400 text-xl font-black leading-tight">$@totalRecargoDebito.ToString("N2")</p>
-    </div>
-
-    <div class="col-span-2 flex flex-col gap-1 rounded-2xl p-4 bg-primary/10 border border-primary/30 shadow-sm xl:col-span-1">
-        <p class="text-primary text-xs font-bold uppercase tracking-tight">Saldo operativo</p>
-        <p class="text-primary text-xl font-black leading-tight">$@Model.SaldoActual.ToString("N2")</p>
-        <p class="text-slate-500 text-[10px]">Incluye pendientes</p>
-    </div>
-</div>
-
-<!-- Saldo real y pendiente de acreditación -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="flex flex-col gap-1 rounded-2xl p-4 bg-emerald-500/5 border border-emerald-500/20">
-        <div class="flex items-center gap-2 mb-1">
-            <span class="material-symbols-outlined text-emerald-400 text-base">verified</span>
-            <p class="text-emerald-400 text-xs font-bold uppercase tracking-tight">Saldo real acreditado</p>
-        </div>
-        <p class="text-emerald-400 text-2xl font-black leading-tight">$@Model.SaldoReal.ToString("N2")</p>
-        <p class="text-slate-500 text-[11px]">Solo dinero efectivamente recibido o acreditado</p>
-    </div>
-    @if (Model.SaldoPendienteAcreditacion > 0)
-    {
-        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-amber-500/5 border border-amber-500/20">
-            <div class="flex items-center gap-2 mb-1">
-                <span class="material-symbols-outlined text-amber-400 text-base">pending</span>
-                <p class="text-amber-400 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
-            </div>
-            <p class="text-amber-400 text-2xl font-black leading-tight">$@Model.SaldoPendienteAcreditacion.ToString("N2")</p>
-            <p class="text-slate-500 text-[11px]">Transferencias, tarjetas y MP aún no confirmados</p>
-        </div>
-    }
-    else
-    {
-        <div class="flex flex-col gap-1 rounded-2xl p-4 bg-slate-800/40 border border-slate-700/40">
-            <div class="flex items-center gap-2 mb-1">
-                <span class="material-symbols-outlined text-slate-500 text-base">check_circle</span>
-                <p class="text-slate-500 text-xs font-bold uppercase tracking-tight">Pendiente de acreditación</p>
-            </div>
-            <p class="text-slate-400 text-2xl font-black leading-tight">$0,00</p>
-            <p class="text-slate-600 text-[11px]">Sin movimientos pendientes</p>
-        </div>
-    }
-</div>
-
-
-            <!-- Ventas vinculadas al turno — agrupadas por impacto en caja -->
-            @if (ventas.Any())
+            @if (ventasEfectivas.Any())
             {
-                <section class="space-y-6">
-                    <div class="caja-page-section-header caja-detalles-section-header">
-                        <div class="space-y-2">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="material-symbols-outlined text-primary">shopping_bag</span>
-                                <h3 class="text-lg font-bold text-white">Ventas vinculadas al turno</h3>
-                            </div>
-                            <p class="text-sm text-slate-400">
-                                Operaciones registradas durante esta apertura, agrupadas por impacto en caja.
-                            </p>
-                        </div>
-                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
-                            <span class="material-symbols-outlined text-sm text-primary">receipt_long</span>
-                            @ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta efectiva" : "ventas efectivas")
-                            @if (ventasPendientes.Any() || ventasAuditoria.Any())
-                            {
-                                <span class="text-slate-600 select-none">·</span>
-                                <span>@(ventasPendientes.Count + ventasAuditoria.Count) sin impacto inmediato</span>
-                            }
-                        </div>
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span class="material-symbols-outlined text-[13px]">check_circle</span>
+                            Ventas efectivas
+                        </span>
+                        <span class="text-xs text-slate-500">Ventas que impactan la caja del turno.</span>
                     </div>
-
-                    @* Bloque 1: Ventas efectivas *@
-                    @if (ventasEfectivas.Any())
-                    {
-                        <div class="space-y-3">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                    <span class="material-symbols-outlined text-[13px]">check_circle</span>
-                                    Ventas efectivas
-                                </span>
-                                <span class="text-xs text-slate-500">Ventas que impactan la caja del turno.</span>
-                            </div>
-                            <div class="card-erp-panel p-4"
-                                 data-oc-scroll
-                                 style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-                                <div data-oc-scroll-hint
-                                     class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
-                                     hidden>
-                                    <div class="flex items-center gap-2 font-semibold">
-                                        <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
-                                        <span>Deslizá la tabla para revisar fecha, pago y total de cada venta</span>
-                                    </div>
-                                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Scroll horizontal</span>
-                                </div>
-                                <div class="relative" data-oc-scroll-shell>
-                                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
-                                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
-                                    <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
-                                         data-oc-scroll-region
-                                         role="region"
-                                         aria-label="Tabla de ventas efectivas del turno"
-                                         tabindex="0">
-                                        <table data-oc-scroll-table class="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr class="bg-slate-800">
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Recargo débito</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-slate-800">
-                                                @foreach (var v in ventasEfectivas)
-                                                {
-                                                    var tipoPagoLabel = v.TipoPago switch {
-                                                        TipoPago.Efectivo => "Efectivo",
-                                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
-                                                        TipoPago.Cheque => "Cheque",
-                                                        TipoPago.Transferencia => "Transferencia",
-                                                        TipoPago.MercadoPago => "MercadoPago",
-                                                        TipoPago.CreditoPersonal => "Crédito Personal",
-                                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
-                                                        _ => v.TipoPago.ToString()
-                                                    };
-                                                    var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
-                                                    var recargoDebito = v.DatosTarjeta?.TipoTarjeta == TipoTarjeta.Debito
-                                                        ? v.DatosTarjeta.RecargoAplicado.GetValueOrDefault()
-                                                        : 0m;
-                                                    <tr class="hover:bg-slate-800/50 transition-colors">
-                                                        <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                                        <td class="px-6 py-4 text-sm font-mono font-bold text-white">
-                                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
-                                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
-                                                        <td class="px-6 py-4 text-sm">
-                                                            @if (esCreditoSinIngreso)
-                                                            {
-                                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                                    <span class="material-symbols-outlined text-[12px]">schedule</span>@tipoPagoLabel
-                                                                </span>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">@tipoPagoLabel</span>
-                                                            }
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm">
-                                                            <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm font-semibold text-right text-amber-400">$@recargoDebito.ToString("N2")</td>
-                                                        <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">$@v.Total.ToString("N2")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                @if (ventasEfectivas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
-                                {
-                                    <div class="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-400">
-                                        <div class="flex items-start gap-2">
-                                            <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
-                                            <span>Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.</span>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    @* Bloque 2: Operaciones pendientes *@
-                    @if (ventasPendientes.Any())
-                    {
-                        <div class="space-y-3">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                    <span class="material-symbols-outlined text-[13px]">pending</span>
-                                    Operaciones pendientes
-                                </span>
-                                <span class="text-xs text-slate-500">Operaciones registradas sin ingreso inmediato.</span>
-                            </div>
-                            <div class="card-erp-panel p-4"
-                                 data-oc-scroll
-                                 style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-                                <div class="relative" data-oc-scroll-shell>
-                                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
-                                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
-                                    <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                                         data-oc-scroll-region
-                                         role="region"
-                                         aria-label="Tabla de operaciones pendientes del turno"
-                                         tabindex="0">
-                                        <table data-oc-scroll-table class="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr class="bg-slate-800">
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Impacto caja</th>
-                                                    <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-slate-800">
-                                                @foreach (var v in ventasPendientes)
-                                                {
-                                                    var tipoPagoLabel = v.TipoPago switch {
-                                                        TipoPago.Efectivo => "Efectivo",
-                                                        TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
-                                                        TipoPago.Cheque => "Cheque",
-                                                        TipoPago.Transferencia => "Transferencia",
-                                                        TipoPago.MercadoPago => "MercadoPago",
-                                                        TipoPago.CreditoPersonal => "Crédito Personal",
-                                                        TipoPago.CuentaCorriente => "Cuenta Corriente",
-                                                        _ => v.TipoPago.ToString()
-                                                    };
-                                                    <tr class="hover:bg-slate-800/50 transition-colors">
-                                                        <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                                        <td class="px-6 py-4 text-sm font-mono font-bold text-white">
-                                                            <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
-                                                               class="hover:text-primary transition-colors no-underline">@v.Numero</a>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
-                                                        <td class="px-6 py-4 text-sm">
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-700">@tipoPagoLabel</span>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm">
-                                                            <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm text-right">
-                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                                <span class="material-symbols-outlined text-[12px]">pending</span>
-                                                                Sin ingreso inmediato
-                                                            </span>
-                                                        </td>
-                                                        <td class="px-6 py-4 text-sm font-bold text-right text-amber-400">$@v.Total.ToString("N2")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    }
-
-                    @* Bloque 3: Registros de auditoría — colapsado por defecto *@
-                    @if (ventasAuditoria.Any())
-                    {
-                        <details class="space-y-3">
-                            <summary class="flex flex-wrap items-center gap-2 cursor-pointer list-none select-none">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-400 border border-slate-700">
-                                    <span class="material-symbols-outlined text-[13px]">archive</span>
-                                    Registros de auditoría
-                                    (@ventasAuditoria.Count)
-                                </span>
-                                <span class="text-xs text-slate-500">Sin impacto en caja. Expandir para ver.</span>
-                            </summary>
-                            <div class="space-y-2 pt-1">
-                                <div class="card-erp-panel p-4 border-slate-700/50"
-                                     data-oc-scroll
-                                     style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-                                    <div class="relative" data-oc-scroll-shell>
-                                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
-                                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
-                                        <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                                             data-oc-scroll-region
-                                             role="region"
-                                             aria-label="Registros de auditoría del turno"
-                                             tabindex="0">
-                                            <table data-oc-scroll-table class="w-full text-left border-collapse opacity-75">
-                                                <thead>
-                                                    <tr class="bg-slate-800/60">
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Fecha</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">N° Venta</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Cliente</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tipo pago</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Estado</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Impacto caja</th>
-                                                        <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Total registrado</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="divide-y divide-slate-800/60">
-                                                    @foreach (var v in ventasAuditoria)
-                                                    {
-                                                        var tipoPagoLabel = v.TipoPago switch {
-                                                            TipoPago.Efectivo => "Efectivo",
-                                                            TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
-                                                            TipoPago.Cheque => "Cheque",
-                                                            TipoPago.Transferencia => "Transferencia",
-                                                            TipoPago.MercadoPago => "MercadoPago",
-                                                            TipoPago.CreditoPersonal => "Crédito Personal",
-                                                            TipoPago.CuentaCorriente => "Cuenta Corriente",
-                                                            _ => v.TipoPago.ToString()
-                                                        };
-                                                        var esAnulada = v.Estado == EstadoVenta.Cancelada;
-                                                        <tr class="hover:bg-slate-800/30 transition-colors">
-                                                            <td class="px-6 py-4 text-sm text-slate-500">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                                            <td class="px-6 py-4 text-sm font-mono font-bold text-slate-400">
-                                                                <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
-                                                                   class="hover:text-primary transition-colors no-underline">@v.Numero</a>
-                                                            </td>
-                                                            <td class="px-6 py-4 text-sm text-slate-500">@(v.Cliente?.Nombre ?? "—")</td>
-                                                            <td class="px-6 py-4 text-sm">
-                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">@tipoPagoLabel</span>
-                                                            </td>
-                                                            <td class="px-6 py-4 text-sm">
-                                                                <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
-                                                            </td>
-                                                            <td class="px-6 py-4 text-sm text-right">
-                                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">
-                                                                    <span class="material-symbols-outlined text-[12px]">block</span>
-                                                                    Sin impacto en caja
-                                                                </span>
-                                                            </td>
-                                                            <td class="px-6 py-4 text-sm font-bold text-right text-slate-500">
-                                                                @if (esAnulada)
-                                                                {
-                                                                    <span class="line-through">$@v.Total.ToString("N2")</span>
-                                                                    <span class="block text-[10px] text-rose-500/70 font-normal">Anulada</span>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <span>$@v.Total.ToString("N2")</span>
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                                <p class="text-xs text-slate-600 px-1">Estos registros se muestran solo con fines de auditoría. No generan movimientos de caja.</p>
-                            </div>
-                        </details>
-                    }
-
-                </section>
-            }
-
-            <!-- Transaction Table -->
-            @if (movimientos.Any())
-            {
-                <section class="space-y-4">
-                    <div class="caja-page-section-header caja-detalles-section-header">
-                        <div class="space-y-2">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="material-symbols-outlined text-primary">list_alt</span>
-                                <h3 class="text-lg font-bold text-white">Historial de movimientos</h3>
-                            </div>
-                            <p class="text-sm text-slate-400">
-                                Filtrá ingresos y egresos del turno sin perder visibilidad sobre el saldo calculado.
-                            </p>
-                        </div>
-                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
-                            <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
-                            @movimientos.Count @(movimientos.Count == 1 ? "movimiento" : "movimientos")
-                        </div>
-                    </div>
-
-                    <div class="card-erp-panel p-4"
+                    <div class="card p-4"
                          data-oc-scroll
-                         style="--oc-scroll-min-width: 66rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-                        <div class="flex flex-col gap-4 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
-                            <div class="space-y-2">
-                                <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Filtros del turno</h4>
-                                <p class="text-sm text-slate-400">Buscá por concepto y limitá el listado por tipo de movimiento.</p>
-                            </div>
-                            <div class="caja-detalles-filter-tools flex w-full flex-col gap-2">
-                                <div class="caja-detalles-filter-search relative w-full">
-                                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-                                    <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
-                                           class="caja-input" style="padding-left: 2.25rem" />
-                                </div>
-                                <div class="caja-detalles-filter-select w-full">
-                                    <select id="filtro-tipo"
-                                            class="caja-select">
-                                        <option value="">Todos</option>
-                                        <option value="Ingreso">Ingresos</option>
-                                        <option value="Egreso">Egresos</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
+                         style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
                         <div data-oc-scroll-hint
-                             class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
+                             class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
                              hidden>
                             <div class="flex items-center gap-2 font-semibold">
                                 <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
-                                <span id="caja-detalles-movimientos-scroll-hint">Deslizá la tabla para revisar referencia, monto y responsable</span>
+                                <span>Deslizá la tabla para revisar fecha, pago y total de cada venta</span>
                             </div>
-                            <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                                Scroll horizontal
-                            </span>
+                            <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Scroll horizontal</span>
                         </div>
-
                         <div class="relative" data-oc-scroll-shell>
                             <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
                             <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
-
                             <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
                                  data-oc-scroll-region
                                  role="region"
-                                 aria-label="Tabla del historial de movimientos"
-                                 aria-describedby="caja-detalles-movimientos-scroll-hint"
+                                 aria-label="Tabla de ventas efectivas del turno"
                                  tabindex="0">
-                                <table data-oc-scroll-table class="w-full text-left border-collapse" id="tabla-movimientos">
+                                <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-800">
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Recargo débito</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var v in ventasEfectivas)
+                                        {
+                                            var tipoPagoLabel = v.TipoPago switch {
+                                                TipoPago.Efectivo => "Efectivo",
+                                                TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                TipoPago.Cheque => "Cheque",
+                                                TipoPago.Transferencia => "Transferencia",
+                                                TipoPago.MercadoPago => "MercadoPago",
+                                                TipoPago.CreditoPersonal => "Crédito Personal",
+                                                TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                _ => v.TipoPago.ToString()
+                                            };
+                                            var esCreditoSinIngreso = v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente;
+                                            var recargoDebito = v.DatosTarjeta?.TipoTarjeta == TipoTarjeta.Debito
+                                                ? v.DatosTarjeta.RecargoAplicado.GetValueOrDefault()
+                                                : 0m;
+                                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                                <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td class="px-6 py-4 text-sm font-mono font-bold text-white">
+                                                    <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                       class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
+                                                <td class="px-6 py-4 text-sm">
+                                                    @if (esCreditoSinIngreso)
+                                                    {
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                            <span class="material-symbols-outlined text-[12px]">schedule</span>@tipoPagoLabel
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">@tipoPagoLabel</span>
+                                                    }
+                                                </td>
+                                                <td class="px-6 py-4 text-sm">
+                                                    <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm font-semibold text-right text-amber-400">$@recargoDebito.ToString("N2")</td>
+                                                <td class="px-6 py-4 text-sm font-bold text-right @(esCreditoSinIngreso ? "text-amber-500" : "text-emerald-500")">$@v.Total.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        @if (ventasEfectivas.Any(v => v.TipoPago == TipoPago.CreditoPersonal || v.TipoPago == TipoPago.CuentaCorriente))
+                        {
+                            <div class="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-400">
+                                <div class="flex items-start gap-2">
+                                    <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
+                                    <span>Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato. El dinero ingresa cuando el cliente paga sus cuotas.</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (ventasPendientes.Any())
+            {
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            <span class="material-symbols-outlined text-[13px]">pending</span>
+                            Operaciones pendientes
+                        </span>
+                        <span class="text-xs text-slate-500">Operaciones registradas sin ingreso inmediato.</span>
+                    </div>
+                    <div class="card p-4"
+                         data-oc-scroll
+                         style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                        <div class="relative" data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                            <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+                            <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                 data-oc-scroll-region
+                                 role="region"
+                                 aria-label="Tabla de operaciones pendientes del turno"
+                                 tabindex="0">
+                                <table data-oc-scroll-table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-800">
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">N° Venta</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Cliente</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Tipo pago</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Impacto caja</th>
+                                            <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var v in ventasPendientes)
+                                        {
+                                            var tipoPagoLabel = v.TipoPago switch {
+                                                TipoPago.Efectivo => "Efectivo",
+                                                TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                TipoPago.Cheque => "Cheque",
+                                                TipoPago.Transferencia => "Transferencia",
+                                                TipoPago.MercadoPago => "MercadoPago",
+                                                TipoPago.CreditoPersonal => "Crédito Personal",
+                                                TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                _ => v.TipoPago.ToString()
+                                            };
+                                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                                <td class="px-6 py-4 text-sm text-slate-400">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td class="px-6 py-4 text-sm font-mono font-bold text-white">
+                                                    <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                       class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-slate-300">@(v.Cliente?.Nombre ?? "—")</td>
+                                                <td class="px-6 py-4 text-sm">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-700">@tipoPagoLabel</span>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm">
+                                                    <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-right">
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                        <span class="material-symbols-outlined text-[12px]">pending</span>
+                                                        Sin ingreso inmediato
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm font-bold text-right text-amber-400">$@v.Total.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (ventasAuditoria.Any())
+            {
+                <details class="space-y-3">
+                    <summary class="flex flex-wrap items-center gap-2 cursor-pointer list-none select-none">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-400 border border-slate-700">
+                            <span class="material-symbols-outlined text-[13px]">archive</span>
+                            Registros de auditoría
+                            (@ventasAuditoria.Count)
+                        </span>
+                        <span class="text-xs text-slate-500">Sin impacto en caja. Expandir para ver.</span>
+                    </summary>
+                    <div class="space-y-2 pt-1">
+                        <div class="card p-4 border-slate-700/50"
+                             data-oc-scroll
+                             style="--oc-scroll-min-width: 46rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                            <div class="relative" data-oc-scroll-shell>
+                                <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                                <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+                                <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                     data-oc-scroll-region
+                                     role="region"
+                                     aria-label="Registros de auditoría del turno"
+                                     tabindex="0">
+                                    <table data-oc-scroll-table class="w-full text-left border-collapse opacity-75">
+                                        <thead>
+                                            <tr class="bg-slate-800/60">
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Fecha</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">N° Venta</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Cliente</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Tipo pago</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">Estado</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Impacto caja</th>
+                                                <th class="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right whitespace-nowrap">Total registrado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-800/60">
+                                            @foreach (var v in ventasAuditoria)
+                                            {
+                                                var tipoPagoLabel = v.TipoPago switch {
+                                                    TipoPago.Efectivo => "Efectivo",
+                                                    TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "Tarjeta",
+                                                    TipoPago.Cheque => "Cheque",
+                                                    TipoPago.Transferencia => "Transferencia",
+                                                    TipoPago.MercadoPago => "MercadoPago",
+                                                    TipoPago.CreditoPersonal => "Crédito Personal",
+                                                    TipoPago.CuentaCorriente => "Cuenta Corriente",
+                                                    _ => v.TipoPago.ToString()
+                                                };
+                                                var esAnulada = v.Estado == EstadoVenta.Cancelada;
+                                                <tr class="hover:bg-slate-800/30 transition-colors">
+                                                    <td class="px-6 py-4 text-sm text-slate-500">@v.FechaVenta.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                    <td class="px-6 py-4 text-sm font-mono font-bold text-slate-400">
+                                                        <a asp-controller="Venta" asp-action="Details" asp-route-id="@v.Id"
+                                                           class="hover:text-primary transition-colors no-underline">@v.Numero</a>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-sm text-slate-500">@(v.Cliente?.Nombre ?? "—")</td>
+                                                    <td class="px-6 py-4 text-sm">
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">@tipoPagoLabel</span>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-sm">
+                                                        <span class="px-2 py-0.5 rounded text-xs font-bold @BadgeClaseEstado(v.Estado)">@LabelEstado(v.Estado)</span>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-sm text-right">
+                                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-700/40 text-slate-500 border border-slate-700/60">
+                                                            <span class="material-symbols-outlined text-[12px]">block</span>
+                                                            Sin impacto en caja
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 text-sm font-bold text-right text-slate-500">
+                                                        @if (esAnulada)
+                                                        {
+                                                            <span class="line-through">$@v.Total.ToString("N2")</span>
+                                                            <span class="block text-[10px] text-rose-500/70 font-normal">Anulada</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>$@v.Total.ToString("N2")</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-600 px-1">Estos registros se muestran solo con fines de auditoría. No generan movimientos de caja.</p>
+                    </div>
+                </details>
+            }
+
+        </section>
+    }
+
+    @if (movimientos.Any())
+    {
+        <section class="space-y-4">
+            <div class="caja-page-section-header caja-detalles-section-header">
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">list_alt</span>
+                        <h3 class="text-lg font-bold text-white">Historial de movimientos</h3>
+                    </div>
+                    <p class="text-sm text-slate-400">
+                        Filtrá ingresos y egresos del turno sin perder visibilidad sobre el saldo calculado.
+                    </p>
+                </div>
+                <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-300">
+                    <span class="material-symbols-outlined text-sm text-primary">monitoring</span>
+                    @movimientos.Count @(movimientos.Count == 1 ? "movimiento" : "movimientos")
+                </div>
+            </div>
+
+            <div class="card p-4"
+                 data-oc-scroll
+                 style="--oc-scroll-min-width: 66rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+                <div class="flex flex-col gap-4 border-b border-slate-800 pb-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="space-y-2">
+                        <h4 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Filtros del turno</h4>
+                        <p class="text-sm text-slate-400">Buscá por concepto y limitá el listado por tipo de movimiento.</p>
+                    </div>
+                    <div class="caja-detalles-filter-tools flex w-full flex-col gap-2">
+                        <div class="caja-detalles-filter-search relative w-full">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                            <input id="buscar-concepto" type="text" placeholder="Buscar concepto..."
+                                   class="caja-input" style="padding-left: 2.25rem" />
+                        </div>
+                        <div class="caja-detalles-filter-select w-full">
+                            <select id="filtro-tipo" class="caja-select">
+                                <option value="">Todos</option>
+                                <option value="Ingreso">Ingresos</option>
+                                <option value="Egreso">Egresos</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div data-oc-scroll-hint
+                     class="caja-page-scroll-hint caja-detalles-scroll-hint mb-3 mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
+                     hidden>
+                    <div class="flex items-center gap-2 font-semibold">
+                        <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                        <span id="caja-detalles-movimientos-scroll-hint">Deslizá la tabla para revisar referencia, monto y responsable</span>
+                    </div>
+                    <span class="rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        Scroll horizontal
+                    </span>
+                </div>
+
+                <div class="relative" data-oc-scroll-shell>
+                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5" hidden></div>
+                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8" hidden></div>
+
+                    <div class="overflow-x-auto rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                         data-oc-scroll-region
+                         role="region"
+                         aria-label="Tabla del historial de movimientos"
+                         aria-describedby="caja-detalles-movimientos-scroll-hint"
+                         tabindex="0">
+                        <table data-oc-scroll-table class="w-full text-left border-collapse" id="tabla-movimientos">
                             <thead>
                                 <tr class="bg-slate-800">
                                     <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha/Hora</th>
@@ -818,58 +799,30 @@
                                 </tr>
                             </tfoot>
                         </table>
-                            </div>
-                        </div>
                     </div>
-                </section>
-            }
-            else
+                </div>
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
+            <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
+            <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora. Comienza registrando un ingreso o egreso para ver el historial aquí.</p>
+            @if (!apertura.Cerrada && puedeOperar)
             {
-                <!-- Empty State -->
-                <div class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
-                    <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                        <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
-                    <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora. Comienza registrando un ingreso o egreso para ver el historial aquí.</p>
-                    @if (!apertura.Cerrada && puedeOperar)
-                    {
-                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                           class="btn-erp-primary no-underline">
-                            <span class="material-symbols-outlined mr-2">add</span>
-                            Registrar primer movimiento
-                        </a>
-                    }
-                </div>
+                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                   class="btn btn-primary no-underline">
+                    <span class="material-symbols-outlined">add</span>
+                    Registrar primer movimiento
+                </a>
             }
-        </main>
+        </div>
+    }
 
-        <!-- Bottom Action Footer -->
-        @if (!apertura.Cerrada && puedeOperar)
-        {
-            <footer class="max-w-7xl mx-auto w-full pb-10">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-blue-700 text-white shadow-xl shadow-primary/20">
-                    <div class="flex flex-col gap-1">
-                        <p class="text-white/80 text-sm font-medium">¿Todo listo para terminar el turno?</p>
-                        <p class="text-2xl font-black">Cierre de Caja Sugerido: $@Model.SaldoActual.ToString("N2")</p>
-                    </div>
-                    <div class="caja-page-footer-actions caja-detalles-footer-actions">
-                        <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                           class="flex-1 md:flex-none btn-erp-ghost no-underline">
-                            Cerrar Turno Ahora
-                        </a>
-                        <button type="button"
-                                data-caja-print
-                                aria-label="Imprimir detalles de apertura"
-                                class="caja-detalles-print inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/20 px-5 text-white hover:bg-white/30 transition-all">
-                            <span class="material-symbols-outlined">print</span>
-                            <span class="caja-detalles-print-label text-sm font-semibold">Imprimir</span>
-                        </button>
-                    </div>
-                </div>
-            </footer>
-        }
-    </div>
 </div>
 
 @section Styles {

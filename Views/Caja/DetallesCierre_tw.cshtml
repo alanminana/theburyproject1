@@ -6,201 +6,237 @@
     var diferencia = Model.Diferencia;
     var tieneSobrante = diferencia > 0;
     var tieneFaltante = diferencia < 0;
+
+    var cajaNombre = Model.AperturaCaja?.Caja?.Nombre ?? "Caja";
+    var cajaCodigo = Model.AperturaCaja?.Caja?.Codigo;
+    var cajaUbicacion = Model.AperturaCaja?.Caja?.Ubicacion;
+    var fechaApertura = Model.AperturaCaja != null
+        ? (DateTime?)Model.AperturaCaja.FechaApertura.ToLocalTime()
+        : null;
+    var fechaCierre = Model.FechaCierre.ToLocalTime();
+    var duracion = fechaApertura.HasValue
+        ? (TimeSpan?)(fechaCierre - fechaApertura.Value)
+        : null;
+
+    var diferenciaClass  = tieneSobrante ? "is-warn" : (tieneFaltante ? "is-bad" : "is-ok");
+    var chipClass        = tieneSobrante ? "chip-warn" : (tieneFaltante ? "chip-bad" : "chip-ok");
+    var chipIcon         = tieneSobrante ? "add_circle" : (tieneFaltante ? "remove_circle" : "check_circle");
+    var diferenciaLabel  = tieneSobrante ? "Sobrante" : (tieneFaltante ? "Faltante" : "Exacto");
+    var diferenciaSign   = tieneSobrante ? "+ " : (tieneFaltante ? "− " : "");
+    var diferenciaColor  = tieneSobrante ? "#fbbf24" : (tieneFaltante ? "#fb7185" : "#34d399");
 }
 
-<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
-    <div class="layout-container flex h-full grow flex-col">
+<div class="caja-page-shell" style="padding-bottom:3rem">
 
-        <main class="max-w-[1400px] mx-auto w-full p-4 lg:p-10 flex flex-col gap-6">
+    <!-- Back link -->
+    <a href="@volverUrl" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver al historial
+    </a>
 
-            <!-- Breadcrumbs & Header -->
-            <div class="flex flex-col gap-4">
-                <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
-                    <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
-                    <span class="material-symbols-outlined text-xs">chevron_right</span>
-                    <a asp-action="Historial" class="hover:text-primary transition-colors no-underline text-slate-400">Historial de cierres</a>
-                    <span class="material-symbols-outlined text-xs">chevron_right</span>
-                    <span class="text-white">Detalles de cierre</span>
-                </div>
-                <div class="flex flex-wrap justify-between items-center gap-4">
-                    <div class="flex flex-col gap-1">
-                        <h1 class="text-white text-3xl font-black tracking-tight flex items-center gap-3">
-                            Cierre de caja
-                            <span class="bg-slate-500/10 text-slate-500 text-xs font-bold uppercase px-2.5 py-1 rounded-full border border-slate-500/20">Cerrada</span>
-                        </h1>
-                        <p class="text-slate-400 text-base">Resumen del arqueo y cierre de turno</p>
+    <!-- Page head -->
+    <div class="page-head" style="margin-top:.85rem">
+        <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="page-title">Cierre de @cajaNombre</h1>
+                @if (cajaCodigo != null)
+                {
+                    <span class="chip mono chip-neutral">@cajaCodigo</span>
+                }
+                <span class="chip chip-neutral"><span class="material-symbols-outlined">lock</span>Cerrada</span>
+                @if (Model.TieneDiferencia)
+                {
+                    <span class="chip @chipClass"><span class="material-symbols-outlined">@chipIcon</span>@diferenciaLabel</span>
+                }
+                else
+                {
+                    <span class="chip chip-ok"><span class="material-symbols-outlined">check_circle</span>Exacto</span>
+                }
+            </div>
+            <p class="page-sub">
+                Turno del @(fechaApertura?.ToString("dd/MM/yyyy") ?? "—")
+                @if (cajaCodigo != null) { <text>· @cajaCodigo</text> }
+                @if (!string.IsNullOrWhiteSpace(cajaUbicacion)) { <text>· @cajaUbicacion</text> }
+            </p>
+        </div>
+        <div class="head-actions">
+            <button class="btn btn-ghost btn-sm" onclick="window.print()">
+                <span class="material-symbols-outlined">print</span>Imprimir
+            </button>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-ok" style="margin-top:1rem">
+            <span class="material-symbols-outlined">check_circle</span>
+            <span>@TempData["Success"]</span>
+        </div>
+    }
+
+    <!-- Result cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3" style="margin-top:1.5rem">
+        <div class="result-card">
+            <div class="result-label">Esperado por sistema</div>
+            <div class="result-value" style="color:#e2e8f0">$ @Model.MontoEsperadoSistema.ToString("N2")</div>
+        </div>
+        <div class="result-card">
+            <div class="result-label">Efectivo contado</div>
+            <div class="result-value" style="color:#e2e8f0">$ @Model.MontoTotalReal.ToString("N2")</div>
+        </div>
+        <div class="result-card @diferenciaClass">
+            <div class="flex items-center justify-between">
+                <div class="result-label">Diferencia · @diferenciaLabel</div>
+                <span class="chip @chipClass"><span class="material-symbols-outlined">@chipIcon</span>@diferenciaLabel</span>
+            </div>
+            <div class="result-value">@diferenciaSign$ @Math.Abs(diferencia).ToString("N2")</div>
+        </div>
+    </div>
+
+    <!-- Main content: desglose + trazabilidad -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
+
+        <!-- Desglose (col-span-2) -->
+        <section class="lg:col-span-2 space-y-4">
+
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-2">Composición del turno</h3>
+                <dl>
+                    <div class="defrow">
+                        <dt>Fondo inicial</dt>
+                        <dd class="num">$ @Model.MontoInicialSistema.ToString("N2")</dd>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <a href="@volverUrl"
-                           class="btn-erp-secondary no-underline">
-                            <span class="material-symbols-outlined mr-2 text-lg">arrow_back</span>
-                            Volver
-                        </a>
+                    <div class="defrow">
+                        <dt>Ingresos del turno</dt>
+                        <dd class="num" style="color:#34d399">+ $ @Model.TotalIngresosSistema.ToString("N2")</dd>
                     </div>
-                </div>
+                    <div class="defrow">
+                        <dt>Egresos del turno</dt>
+                        <dd class="num" style="color:#fb7185">− $ @Model.TotalEgresosSistema.ToString("N2")</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt class="font-medium" style="color:#e2e8f0">Efectivo esperado</dt>
+                        <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.MontoEsperadoSistema.ToString("N2")</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt class="font-medium" style="color:#e2e8f0">Efectivo contado</dt>
+                        <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.MontoTotalReal.ToString("N2")</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt class="font-medium" style="color:@diferenciaColor">Diferencia</dt>
+                        <dd class="num font-semibold" style="color:@diferenciaColor">@diferenciaSign$ @Math.Abs(diferencia).ToString("N2")</dd>
+                    </div>
+                </dl>
             </div>
 
-            @if (TempData["Success"] != null)
+            @if (!string.IsNullOrWhiteSpace(Model.JustificacionDiferencia))
             {
-                <div class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium">
-                    <span class="material-symbols-outlined text-lg">check_circle</span>
-                    @TempData["Success"]
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white" style="margin-bottom:.375rem">Justificación de la diferencia</h3>
+                    <p class="text-sm muted leading-relaxed">@Model.JustificacionDiferencia</p>
                 </div>
             }
 
-            <!-- Info Panel -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 flex flex-col md:flex-row gap-6 p-6 card-erp-panel">
-                    <div class="size-32 rounded-xl bg-slate-500/10 flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-slate-500 text-5xl">lock</span>
-                    </div>
-                    <div class="flex flex-col justify-between grow gap-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6">
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Caja</p>
-                                <p class="text-white font-bold">
-                                    @(Model.AperturaCaja?.Caja?.Nombre ?? "—")
-                                    @if (Model.AperturaCaja?.Caja?.Codigo != null)
-                                    {
-                                        <span class="text-slate-500 font-normal"> – COD: @Model.AperturaCaja.Caja.Codigo</span>
-                                    }
-                                </p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Usuario de cierre</p>
-                                <p class="text-white font-medium">@Model.UsuarioCierre</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Fecha y hora de cierre</p>
-                                <p class="text-white font-medium">@Model.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Usuario apertura</p>
-                                <p class="text-white font-medium">@(Model.AperturaCaja?.UsuarioApertura ?? "—")</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Diferencia / Observaciones -->
-                <div class="p-6 card-erp-panel flex flex-col gap-4">
-                    @if (Model.TieneDiferencia)
-                    {
-                        <div class="@(tieneSobrante ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border border-rose-500/20 text-rose-400") rounded-lg px-4 py-3">
-                            <p class="text-xs font-bold uppercase tracking-wider mb-1">@(tieneSobrante ? "Sobrante" : "Faltante")</p>
-                            <p class="text-2xl font-black">$@Math.Abs(diferencia).ToString("N2")</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
-                            <p class="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-1">Arqueo exacto</p>
-                            <p class="text-emerald-500 text-sm font-bold">Sin diferencia detectada</p>
-                        </div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(Model.JustificacionDiferencia))
-                    {
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Justificación de diferencia</p>
-                            <p class="text-slate-300 text-sm italic">"@Model.JustificacionDiferencia"</p>
-                        </div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(Model.ObservacionesCierre))
-                    {
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Observaciones</p>
-                            <p class="text-slate-300 text-sm italic">"@Model.ObservacionesCierre"</p>
-                        </div>
-                    }
-                    @if (string.IsNullOrWhiteSpace(Model.JustificacionDiferencia) && string.IsNullOrWhiteSpace(Model.ObservacionesCierre))
-                    {
-                        <p class="text-slate-400 text-sm italic">Sin observaciones registradas.</p>
-                    }
-                </div>
-            </div>
-
-            <!-- KPIs del arqueo -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div class="flex flex-col gap-1 rounded-xl card-erp-panel p-4">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Monto inicial</p>
-                    <p class="text-white text-xl font-black leading-tight">$@Model.MontoInicialSistema.ToString("N2")</p>
-                </div>
-                <div class="flex flex-col gap-1 rounded-xl card-erp-panel p-4">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Total ingresos</p>
-                    <p class="text-emerald-500 text-xl font-black leading-tight">+$@Model.TotalIngresosSistema.ToString("N2")</p>
-                </div>
-                <div class="flex flex-col gap-1 rounded-xl card-erp-panel p-4">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Total egresos</p>
-                    <p class="text-rose-500 text-xl font-black leading-tight">-$@Model.TotalEgresosSistema.ToString("N2")</p>
-                </div>
-                <div class="flex flex-col gap-1 rounded-xl card-erp-panel p-4">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Esperado sistema</p>
-                    <p class="text-white text-xl font-black leading-tight">$@Model.MontoEsperadoSistema.ToString("N2")</p>
-                </div>
-                <div class="flex flex-col gap-1 rounded-xl card-erp-panel p-4">
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-tight">Total real contado</p>
-                    <p class="text-white text-xl font-black leading-tight">$@Model.MontoTotalReal.ToString("N2")</p>
-                </div>
-                <div class="flex flex-col gap-1 rounded-xl p-4 @(Model.TieneDiferencia ? (tieneSobrante ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-rose-500/10 border border-rose-500/30") : "bg-primary/10 border border-primary/30")">
-                    <p class="@(Model.TieneDiferencia ? (tieneSobrante ? "text-emerald-500" : "text-rose-500") : "text-primary") text-xs font-bold uppercase tracking-tight">Diferencia</p>
-                    <p class="@(Model.TieneDiferencia ? (tieneSobrante ? "text-emerald-500" : "text-rose-500") : "text-primary") text-xl font-black leading-tight">
-                        @(tieneSobrante ? "+" : "")$@diferencia.ToString("N2")
-                    </p>
-                </div>
-            </div>
-
-            <!-- Desglose del arqueo físico -->
-            @if (Model.EfectivoContado > 0 || Model.ChequesContados > 0 || Model.ValesContados > 0)
-            {
-                <div class="card-erp-panel overflow-hidden">
-                    <div class="p-4 border-b border-slate-800 bg-slate-800">
-                        <h3 class="text-white font-bold flex items-center gap-2">
-                            <span class="material-symbols-outlined">payments</span> Desglose del arqueo físico
-                        </h3>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-800">
-                        <div class="p-6 flex flex-col gap-1">
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Efectivo contado</p>
-                            <p class="text-white text-2xl font-black">$@Model.EfectivoContado.ToString("N2")</p>
-                        </div>
-                        <div class="p-6 flex flex-col gap-1">
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Cheques contados</p>
-                            <p class="text-white text-2xl font-black">$@Model.ChequesContados.ToString("N2")</p>
-                        </div>
-                        <div class="p-6 flex flex-col gap-1">
-                            <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Vales contados</p>
-                            <p class="text-white text-2xl font-black">$@Model.ValesContados.ToString("N2")</p>
-                        </div>
-                    </div>
-                </div>
-            }
-
-            <!-- Detalle arqueo libre (JSON/texto) -->
             @if (!string.IsNullOrWhiteSpace(Model.DetalleArqueo))
             {
-                <div class="card-erp-panel overflow-hidden">
-                    <div class="p-4 border-b border-slate-800 bg-slate-800">
-                        <h3 class="text-white font-bold flex items-center gap-2">
-                            <span class="material-symbols-outlined">receipt_long</span> Detalle del arqueo
-                        </h3>
-                    </div>
-                    <div class="p-6">
-                        <pre class="text-sm text-slate-300 whitespace-pre-wrap font-mono bg-slate-800 p-4 rounded-lg">@Model.DetalleArqueo</pre>
-                    </div>
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white" style="margin-bottom:.375rem">Detalle del arqueo</h3>
+                    <pre class="text-sm muted leading-relaxed mono whitespace-pre-wrap" style="margin:0">@Model.DetalleArqueo</pre>
+                </div>
+            }
+            else if (Model.EfectivoContado > 0 || Model.ChequesContados > 0 || Model.ValesContados > 0)
+            {
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white" style="margin-bottom:.375rem">Desglose del arqueo físico</h3>
+                    <dl>
+                        @if (Model.EfectivoContado > 0)
+                        {
+                            <div class="defrow">
+                                <dt>Efectivo contado</dt>
+                                <dd class="num">$ @Model.EfectivoContado.ToString("N2")</dd>
+                            </div>
+                        }
+                        @if (Model.ChequesContados > 0)
+                        {
+                            <div class="defrow">
+                                <dt>Cheques contados</dt>
+                                <dd class="num">$ @Model.ChequesContados.ToString("N2")</dd>
+                            </div>
+                        }
+                        @if (Model.ValesContados > 0)
+                        {
+                            <div class="defrow">
+                                <dt>Vales contados</dt>
+                                <dd class="num">$ @Model.ValesContados.ToString("N2")</dd>
+                            </div>
+                        }
+                    </dl>
                 </div>
             }
 
-            <!-- Ver apertura original -->
+            @if (!string.IsNullOrWhiteSpace(Model.ObservacionesCierre))
+            {
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white" style="margin-bottom:.375rem">Observaciones del cierre</h3>
+                    <p class="text-sm muted leading-relaxed">@Model.ObservacionesCierre</p>
+                </div>
+            }
+
+        </section>
+
+        <!-- Trazabilidad (aside) -->
+        <aside class="space-y-4">
+
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-2">Apertura</h3>
+                <dl>
+                    <div class="defrow">
+                        <dt>Responsable</dt>
+                        <dd>@(Model.AperturaCaja?.UsuarioApertura ?? "—")</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Fecha</dt>
+                        <dd class="num">@(fechaApertura?.ToString("dd/MM · HH:mm") ?? "—")</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-2">Cierre</h3>
+                <dl>
+                    <div class="defrow">
+                        <dt>Responsable</dt>
+                        <dd>@Model.UsuarioCierre</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Fecha</dt>
+                        <dd class="num">@fechaCierre.ToString("dd/MM · HH:mm")</dd>
+                    </div>
+                    @if (duracion.HasValue)
+                    {
+                        <div class="defrow">
+                            <dt>Duración</dt>
+                            <dd class="num">@((int)duracion.Value.TotalHours) h @duracion.Value.Minutes min</dd>
+                        </div>
+                    }
+                </dl>
+            </div>
+
+            <div class="alert alert-info">
+                <span class="material-symbols-outlined">verified</span>
+                <div>Cierre auditado y firmado. Este registro es de solo lectura.</div>
+            </div>
+
             <div class="flex justify-end">
                 <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="btn-erp-secondary btn-erp-sm no-underline">
-                    <span class="material-symbols-outlined text-lg">open_in_new</span>
+                   class="btn btn-ghost btn-sm" style="text-decoration:none">
+                    <span class="material-symbols-outlined">open_in_new</span>
                     Ver apertura original
                 </a>
             </div>
 
-        </main>
+        </aside>
     </div>
+
 </div>
 
 @section Styles {

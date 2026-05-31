@@ -92,19 +92,21 @@
                     <div class="caja-movimiento-type-grid">
                         <div class="flex flex-col gap-3">
                             <label class="text-sm font-semibold text-slate-300">Tipo de movimiento</label>
-                            <div id="tipo-toggle" class="caja-movimiento-toggle" role="group" aria-label="Tipo de movimiento">
+                            <div id="tipo-toggle" class="segment" role="group" aria-label="Tipo de movimiento">
                                 <button type="button"
                                         data-tipo="0"
+                                        data-tone="in"
                                         aria-pressed="@((!esEgreso).ToString().ToLowerInvariant())"
                                         class="tipo-btn">
-                                    <span class="material-symbols-outlined text-base">trending_up</span>
+                                    <span class="material-symbols-outlined text-base">south_west</span>
                                     Ingreso
                                 </button>
                                 <button type="button"
                                         data-tipo="1"
+                                        data-tone="out"
                                         aria-pressed="@(esEgreso.ToString().ToLowerInvariant())"
                                         class="tipo-btn">
-                                    <span class="material-symbols-outlined text-base">trending_down</span>
+                                    <span class="material-symbols-outlined text-base">north_east</span>
                                     Egreso
                                 </button>
                             </div>
@@ -138,14 +140,14 @@
                     <div class="caja-movimiento-money-grid">
                         <div class="flex flex-col gap-2">
                             <label asp-for="Monto" class="text-sm font-semibold text-slate-300">Monto</label>
-                            <div class="relative">
-                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                            <div class="field-money">
+                                <span class="cur">$</span>
                                 <input asp-for="Monto"
                                        type="number"
                                        step="0.01"
                                        placeholder="0.00"
                                        required
-                                       class="caja-input" style="padding-left: 2rem" />
+                                       class="caja-input" />
                             </div>
                             <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
                         </div>
