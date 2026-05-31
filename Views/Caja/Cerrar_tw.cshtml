@@ -2,246 +2,142 @@
 @{
     ViewData["Title"] = "Cerrar Caja";
     var returnUrl = ViewBag.ReturnUrl as string;
+    var movimientosCount = Model.Movimientos?.Count ?? 0;
 }
 
 <div class="caja-page-shell space-y-8">
+    <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver al turno
+    </a>
 
-    <header class="space-y-6">
-        <div class="flex items-center gap-2 text-sm font-medium text-slate-400">
-            <a asp-action="Index" class="hover:text-primary transition-colors no-underline text-slate-400">Cajas</a>
-            <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="hover:text-primary transition-colors no-underline text-slate-400">Detalles de apertura</a>
-            <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-white">Cerrar caja</span>
+    <div class="page-head">
+        <div class="min-w-0">
+            <h1 class="page-title">Cerrar caja · Arqueo</h1>
+            <p class="page-sub">Contá el efectivo físico en la caja y registralo. Vamos a comparar contra lo esperado por el sistema.</p>
         </div>
-
-        <div class="caja-page-header-layout caja-cerrar-header-layout">
-            <div class="space-y-2">
-                <h1 class="text-white text-4xl font-black leading-tight tracking-tight">Cerrar caja</h1>
-                <p class="max-w-3xl text-sm text-slate-400 sm:text-base">
-                    Registrá el arqueo final del turno, compará el efectivo contado contra el sistema y dejá documentado cualquier desvío antes del cierre.
-                </p>
-            </div>
-            <div class="caja-page-header-actions caja-cerrar-header-actions">
-                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                   class="caja-page-header-action caja-cerrar-header-action btn-erp-secondary no-underline">
-                    <span class="material-symbols-outlined mr-2 text-xl">arrow_back</span>
-                    Volver
-                </a>
-            </div>
-        </div>
-    </header>
+    </div>
 
     @if (TempData["Error"] != null)
     {
         <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
-            @TempData["Error"]
+            <span class="material-symbols-outlined text-lg">error</span>@TempData["Error"]
         </div>
     }
 
     <div class="grid-kpi">
         <div class="kpi">
-            <div class="kpi-label">Monto inicial</div>
+            <div class="kpi-label">Fondo inicial</div>
             <div class="kpi-value">$@Model.MontoInicialSistema.ToString("N2")</div>
-            <div class="kpi-foot">Base del turno al momento de la apertura.</div>
         </div>
         <div class="kpi kpi--ok">
-            <div class="kpi-label">Ingresos sistema</div>
-            <div class="kpi-value">+$@Model.TotalIngresosSistema.ToString("N2")</div>
-            <div class="kpi-foot">Movimientos que incrementaron el saldo esperado.</div>
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-value">$@Model.TotalIngresosSistema.ToString("N2")</div>
         </div>
         <div class="kpi kpi--bad">
-            <div class="kpi-label">Egresos sistema</div>
-            <div class="kpi-value">-$@Model.TotalEgresosSistema.ToString("N2")</div>
-            <div class="kpi-foot">Movimientos que redujeron el saldo esperado.</div>
+            <div class="kpi-label">Egresos</div>
+            <div class="kpi-value">$@Model.TotalEgresosSistema.ToString("N2")</div>
         </div>
         <div class="kpi kpi--accent">
             <div class="kpi-label">Esperado (sistema)</div>
             <div class="kpi-value" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</div>
-            <div class="kpi-foot">Referencia final contra la que se valida el arqueo.</div>
         </div>
     </div>
 
-    <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden"
-         role="alert"></div>
+    <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400 empty:hidden" role="alert"></div>
 
-    <form asp-action="Cerrar" method="post" id="form-cerrar" class="space-y-8">
+    <form asp-action="Cerrar" method="post" id="form-cerrar">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="AperturaCajaId" />
+        <input type="hidden" asp-for="ChequesContados" value="0" />
+        <input type="hidden" asp-for="ValesContados" value="0" />
         @if (!string.IsNullOrEmpty(returnUrl))
         {
             <input type="hidden" name="returnUrl" value="@returnUrl" />
         }
 
-        <div class="caja-page-main-grid caja-page-main-grid--aside-left caja-cerrar-main-grid">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <section class="lg:col-span-3 card card-pad">
+                <h2 class="font-semibold text-white">Arqueo de cierre</h2>
+                <p class="text-sm muted mt-0.5 mb-4">Ingresá el efectivo real contado. La diferencia se calcula automáticamente.</p>
 
-            <aside class="space-y-6">
-                <section class="card card-pad">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="material-symbols-outlined text-primary">info</span>
-                        <h2 class="text-white text-xl font-bold">Información de apertura</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                    <div>
+                        <label asp-for="EfectivoContado" class="label">Efectivo real contado <span class="req">*</span></label>
+                        <div class="field-money">
+                            <span class="cur">$</span>
+                            <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00" class="field arqueo-input" autofocus />
+                        </div>
+                        <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                     </div>
-                    <dl>
-                        <div class="defrow">
-                            <dt>Caja</dt>
-                            <dd>@Model.CajaNombre</dd>
-                        </div>
-                        <div class="defrow">
-                            <dt>Usuario</dt>
-                            <dd>@Model.UsuarioApertura</dd>
-                        </div>
-                        <div class="defrow">
-                            <dt>Apertura</dt>
-                            <dd class="num">@(Model.FechaApertura?.ToString("dd/MM/yyyy HH:mm") ?? "—")</dd>
-                        </div>
-                    </dl>
-                </section>
-
-                <section class="card card-pad">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined" style="color:#60a5fa">balance</span>
-                        <h2 class="text-white text-lg font-bold">Cómo leer el arqueo</h2>
-                    </div>
-                    <ul class="help-list">
-                        <li>
-                            <span class="material-symbols-outlined" style="color:#34d399">add_circle</span>
-                            <span><strong>Sobrante:</strong> contaste más de lo esperado.</span>
-                        </li>
-                        <li>
-                            <span class="material-symbols-outlined" style="color:#fb7185">remove_circle</span>
-                            <span><strong>Faltante:</strong> contaste menos de lo esperado.</span>
-                        </li>
-                        <li>
-                            <span class="material-symbols-outlined" style="color:#34d399">check_circle</span>
-                            <span><strong>Sin diferencia:</strong> el efectivo coincide exacto.</span>
-                        </li>
-                    </ul>
-                </section>
-            </aside>
-
-            <section class="card-erp-panel">
-                <div class="p-6 space-y-8">
-                    <div class="space-y-2">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
-                            <h2 class="text-white text-xl font-bold">Arqueo físico</h2>
-                        </div>
-                        <p class="text-sm text-slate-400">
-                            Ingresá los valores contados y revisá en vivo si el cierre da exacto, con sobrante o con faltante.
-                        </p>
-                    </div>
-
-                    <div class="caja-cerrar-input-grid">
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="EfectivoContado" class="text-sm font-semibold text-slate-300">Efectivo contado</label>
-                            <div class="field-money">
-                                <span class="cur">$</span>
-                                <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" />
-                            </div>
-                            <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="ChequesContados" class="text-sm font-semibold text-slate-300">Cheques contados</label>
-                            <div class="field-money">
-                                <span class="cur">$</span>
-                                <input asp-for="ChequesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" />
-                            </div>
-                            <span asp-validation-for="ChequesContados" class="text-rose-500 text-xs"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="ValesContados" class="text-sm font-semibold text-slate-300">Vales u otros</label>
-                            <div class="field-money">
-                                <span class="cur">$</span>
-                                <input asp-for="ValesContados" type="number" step="0.01" placeholder="0.00"
-                                       class="arqueo-input caja-input" />
-                            </div>
-                            <span asp-validation-for="ValesContados" class="text-rose-500 text-xs"></span>
-                        </div>
-                    </div>
-
-                    <section class="card card-pad">
-                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-                            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Resultado del arqueo</h3>
-                            <span id="diferencia-status"
-                                  class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-500">
-                                Exacto
-                            </span>
-                        </div>
-                        <p id="diferencia-help" class="text-sm muted mb-4">
-                            Cuando el total contado coincide con el sistema, no hace falta justificar diferencias.
-                        </p>
-
-                        <div class="caja-cerrar-result-grid">
-                            <div class="result-card">
-                                <div class="result-label">Total real</div>
-                                <div class="result-value" id="total-real">$0,00</div>
-                            </div>
-                            <div class="result-card">
-                                <div class="result-label">Monto esperado</div>
-                                <div class="result-value">$@Model.MontoEsperadoSistema.ToString("N2")</div>
-                            </div>
-                            <div class="result-card">
-                                <div class="result-label">
-                                    Diferencia
-                                    <span class="material-symbols-outlined text-lg" id="diferencia-icon">check_circle</span>
-                                </div>
-                                <div class="result-value" id="diferencia-valor">$0,00</div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <div data-caja-justificacion class="card-erp-panel p-5">
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="JustificacionDiferencia" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                                Justificación de diferencia
-                                <span class="text-xs font-normal text-slate-400">(solo si existe descuadre)</span>
-                            </label>
-                            <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="3" disabled
-                                      placeholder="Explique el motivo del sobrante o faltante..."
-                                      class="caja-input"></textarea>
-                            <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
-                        </div>
-                    </div>
-
-                    <div class="caja-cerrar-notes-grid">
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="DetalleArqueo" class="text-sm font-semibold text-slate-300">Detalle de billetes y monedas</label>
-                            <textarea asp-for="DetalleArqueo" rows="4"
-                                      placeholder="Ej: 10 x $1000, 5 x $500..."
-                                      class="caja-input"></textarea>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label asp-for="ObservacionesCierre" class="text-sm font-semibold text-slate-300">Observaciones generales</label>
-                            <textarea asp-for="ObservacionesCierre" rows="4"
-                                      placeholder="Notas adicionales sobre el cierre de turno..."
-                                      class="caja-input"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-bad">
-                        <span class="material-symbols-outlined">warning</span>
-                        <div><strong>El cierre es irreversible.</strong> Una vez cerrada la caja no se pueden agregar ni editar movimientos. Si existe diferencia, la justificación es obligatoria.</div>
+                    <div class="card-2 p-3">
+                        <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Esperado por sistema</div>
+                        <div class="text-lg font-semibold text-white num mt-0.5">$@Model.MontoEsperadoSistema.ToString("N2")</div>
                     </div>
                 </div>
 
-                <div class="border-t border-slate-800 px-6 py-5">
-                    <div class="caja-page-footer-actions caja-cerrar-footer-actions">
-                        <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId"
-                           class="caja-page-footer-action caja-cerrar-footer-action btn-erp-secondary no-underline">
-                            Cancelar
-                        </a>
-                        <button type="submit"
-                                class="caja-page-footer-action caja-cerrar-footer-action btn-erp-primary">
-                            <span class="material-symbols-outlined">lock</span>
-                            Cerrar caja
-                        </button>
+                <div class="result-card mt-4" id="result">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="result-label">Diferencia</div>
+                            <div class="result-value" id="diferencia-valor">$0,00</div>
+                        </div>
+                        <span id="diferencia-status" class="chip" style="visibility:hidden">Exacto</span>
                     </div>
+                    <p class="text-sm mt-2" id="diferencia-help" style="color:var(--muted)">Ingresá el efectivo contado para ver la diferencia.</p>
+                    <span class="material-symbols-outlined hidden" id="diferencia-icon">check_circle</span>
+                    <span class="hidden" id="total-real">$0,00</span>
+                </div>
+
+                <div data-caja-justificacion class="hidden" style="margin-top:1.25rem">
+                    <label asp-for="JustificacionDiferencia" class="label">Justificación de la diferencia <span class="req">*</span></label>
+                    <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="3" disabled placeholder="Explicá el origen del sobrante o faltante." class="field"></textarea>
+                    <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
+                </div>
+
+                <div style="margin-top:1.25rem">
+                    <label asp-for="DetalleArqueo" class="label">Detalle del arqueo <span class="muted-2 font-normal">(desglose de billetes, opcional)</span></label>
+                    <textarea asp-for="DetalleArqueo" rows="3" placeholder="Ej. 10 x $1000, 5 x $500..." class="field"></textarea>
+                </div>
+
+                <div style="margin-top:1rem">
+                    <label asp-for="ObservacionesCierre" class="label">Observaciones del cierre <span class="muted-2 font-normal">(opcional)</span></label>
+                    <textarea asp-for="ObservacionesCierre" rows="3" placeholder="Novedades del turno para el responsable del próximo." class="field"></textarea>
+                </div>
+
+                <div class="alert alert-bad" style="margin-top:1.25rem">
+                    <span class="material-symbols-outlined">warning</span>
+                    <div><strong>El cierre es irreversible.</strong> Una vez cerrado el turno no se pueden agregar ni editar movimientos. La caja vuelve a estado Disponible.</div>
+                </div>
+
+                <div class="mt-5 pt-4 flex flex-col-reverse sm:flex-row justify-end gap-2" style="border-top:1px solid var(--line)">
+                    <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="btn btn-ghost no-underline">Cancelar</a>
+                    <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">lock</span>Cerrar caja</button>
                 </div>
             </section>
+
+            <aside class="lg:col-span-2 space-y-4">
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white mb-2">Datos de apertura</h3>
+                    <dl>
+                        <div class="defrow"><dt>Caja</dt><dd>@Model.CajaNombre</dd></div>
+                        <div class="defrow"><dt>Apertura</dt><dd class="num">@(Model.FechaApertura?.ToString("dd/MM · HH:mm") ?? "—")</dd></div>
+                        <div class="defrow"><dt>Responsable</dt><dd>@Model.UsuarioApertura</dd></div>
+                        <div class="defrow"><dt>Movimientos</dt><dd class="num">@movimientosCount</dd></div>
+                    </dl>
+                </div>
+
+                <div class="card card-pad">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">balance</span>
+                        <h3 class="font-semibold text-white">Cómo leer el arqueo</h3>
+                    </div>
+                    <ul class="help-list">
+                        <li><span class="material-symbols-outlined" style="color:#34d399">add_circle</span><span><strong>Sobrante:</strong> contaste más de lo esperado.</span></li>
+                        <li><span class="material-symbols-outlined" style="color:#fb7185">remove_circle</span><span><strong>Faltante:</strong> contaste menos de lo esperado.</span></li>
+                        <li><span class="material-symbols-outlined" style="color:#34d399">check_circle</span><span><strong>Sin diferencia:</strong> el efectivo coincide exacto.</span></li>
+                    </ul>
+                </div>
+            </aside>
         </div>
     </form>
 </div>

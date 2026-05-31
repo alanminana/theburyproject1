@@ -236,6 +236,7 @@
                                     <th>Caja</th>
                                     <th>Ubicación</th>
                                     <th>Estado</th>
+                                    <th>Último cierre</th>
                                     <th style="text-align:right">Acciones</th>
                                 </tr>
                             </thead>
@@ -265,6 +266,9 @@
                                             {
                                                 <span class="chip chip-ok">Disponible</span>
                                             }
+                                        </td>
+                                        <td class="muted num">
+                                            @(estaAbierta ? "Turno en curso" : "—")
                                         </td>
                                         <td>
                                             <div class="row-actions">
@@ -333,6 +337,7 @@
                                             </td>
                                             <td class="muted">@(caja.Sucursal ?? "— archivada")</td>
                                             <td><span class="chip chip-neutral">Archivada</span></td>
+                                            <td class="muted num">—</td>
                                             <td>
                                                 <div class="row-actions">
                                                     <button type="button" data-caja-open-edit data-caja-id="@caja.Id"

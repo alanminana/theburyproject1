@@ -26,9 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const tipoPanelBadgeEl = document.getElementById('tipo-panel-badge');
     const tipoPanelTitleEl = document.getElementById('tipo-panel-title');
     const tipoPanelCopyEl = document.getElementById('tipo-panel-copy');
+    const montoEl = document.getElementById('Monto');
+    const impactBaseEl = document.getElementById('impact-base');
+    const impactDeltaEl = document.getElementById('impact-delta');
+    const impactTotalEl = document.getElementById('impact-total');
+    const impactLabelEl = document.getElementById('impact-label');
+    const impactIconEl = document.getElementById('impact-icon');
+    const submitBtnEl = document.getElementById('submit-btn');
     const conceptosIngresoSet = new Set(CONCEPTOS_INGRESO.map(concepto => concepto.value));
     const conceptosEgresoSet = new Set(CONCEPTOS_EGRESO.map(concepto => concepto.value));
     let initialConcepto = selectConcepto?.dataset.initialValue || selectConcepto?.value || '';
+    let currentTipo = '0';
 
     function normalizeTipo(rawTipo) {
         const tipo = String(rawTipo || '').trim().toLowerCase();
@@ -92,14 +100,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'Usalo para gastos, extracciones, depositos o ajustes que reduzcan la disponibilidad.'
                 : 'Usalo para ventas cobradas, recuperos o movimientos que incrementen la disponibilidad.';
         }
+
+        if (impactLabelEl) {
+            impactLabelEl.textContent = esEgreso ? 'Este egreso' : 'Este ingreso';
+        }
+
+        if (impactIconEl) {
+            impactIconEl.textContent = esEgreso ? 'trending_down' : 'trending_up';
+            impactIconEl.style.color = esEgreso ? '#fb7185' : '#34d399';
+        }
+
+        if (submitBtnEl) {
+            submitBtnEl.innerHTML = `<span class="material-symbols-outlined">check</span>Registrar ${esEgreso ? 'egreso' : 'ingreso'}`;
+        }
+
+        recalcImpacto();
     }
 
     function setTipo(tipoValue) {
         const normalizedTipo = normalizeTipo(tipoValue);
 
+        currentTipo = normalizedTipo;
         inputTipo.value = normalizedTipo === '1' ? 'Egreso' : 'Ingreso';
         updateTipoUI(normalizedTipo);
         populateConceptos(normalizedTipo);
+    }
+
+    function formatCurrency(value) {
+        if (window.TheBury && typeof TheBury.formatCurrency === 'function') {
+            return TheBury.formatCurrency(value);
+        }
+
+        return '$ ' + value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function recalcImpacto() {
+        if (!montoEl || !impactBaseEl || !impactDeltaEl || !impactTotalEl) {
+            return;
+        }
+
+        const base = parseFloat(impactBaseEl.dataset.value) || 0;
+        const monto = parseFloat(montoEl.value) || 0;
+        const esEgreso = currentTipo === '1';
+        const delta = esEgreso ? -monto : monto;
+        const nuevoTotal = base + delta;
+
+        impactDeltaEl.textContent = `${delta < 0 ? '-' : '+'} ${formatCurrency(Math.abs(delta))}`;
+        impactDeltaEl.style.color = esEgreso ? '#fb7185' : '#34d399';
+        impactTotalEl.textContent = formatCurrency(nuevoTotal);
     }
 
     function populateConceptos(tipoValue) {
@@ -136,6 +184,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tipoBtns.forEach(btn => {
         btn.addEventListener('click', () => setTipo(btn.dataset.tipo));
     });
+
+    if (montoEl) {
+        montoEl.addEventListener('input', recalcImpacto);
+    }
 
     const initialTipo = normalizeTipo(inputTipo.value || initialConcepto || '0');
     setTipo(initialTipo);

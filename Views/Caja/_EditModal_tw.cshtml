@@ -29,6 +29,24 @@
             <div id="modal-caja-errors" class="hidden mx-6 mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm" role="alert"></div>
 
             <div class="p-6 overflow-y-auto flex-1 space-y-5">
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div class="kpi">
+                        <div class="kpi-label">Código</div>
+                        <div class="text-base font-semibold text-white mt-1 mono">@(string.IsNullOrWhiteSpace(Model.Codigo) ? "—" : Model.Codigo)</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Nombre</div>
+                        <div class="text-base font-semibold text-white mt-1">@(string.IsNullOrWhiteSpace(Model.Nombre) ? "Sin nombre" : Model.Nombre)</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Estado</div>
+                        <div class="text-base font-semibold mt-1" style="color:@(Model.Activa ? "#34d399" : "#94a3b8")">@(Model.Activa ? "Activa" : "Inactiva")</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="kpi-label">Ubicación</div>
+                        <div class="text-base font-semibold text-white mt-1">@(string.IsNullOrWhiteSpace(Model.Ubicacion) ? "—" : Model.Ubicacion)</div>
+                    </div>
+                </div>
 
                 <!-- Código + Nombre -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -86,6 +104,23 @@
                         <input asp-for="Activa" type="checkbox" />
                         <span class="caja-switch-track"></span>
                     </label>
+                </div>
+
+                <div class="card card-pad">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">tips_and_updates</span>
+                        <h3 class="font-semibold text-white">Buenas prácticas</h3>
+                    </div>
+                    <ul class="help-list">
+                        <li><span class="material-symbols-outlined">tag</span>Mantené el código estable si la caja ya tiene historial.</li>
+                        <li><span class="material-symbols-outlined">store</span>Actualizá sucursal y ubicación cuando cambie el punto físico.</li>
+                        <li><span class="material-symbols-outlined">archive</span>Desactivá la caja para pausarla sin perder trazabilidad.</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-info">
+                    <span class="material-symbols-outlined">info</span>
+                    <div>Editar datos de caja no modifica aperturas, cierres ni movimientos ya registrados.</div>
                 </div>
             </div>
 

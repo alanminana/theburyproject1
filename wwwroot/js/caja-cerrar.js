@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         justificacionEl.disabled = !tieneDiferencia;
+        justificacionWrapEl?.classList.toggle('hidden', !tieneDiferencia);
         if (!tieneDiferencia) {
             justificacionEl.value = '';
         }
