@@ -5,11 +5,29 @@
     function toggleSection(name, forceOpen) {
         var content = document.getElementById('section-' + name);
         var chevron = document.getElementById('chevron-' + name);
-        if (!content || !chevron) return;
+        if (!content || !chevron) {
+            activateTab(name);
+            return;
+        }
         var isOpen = !content.classList.contains('hidden');
         var shouldOpen = forceOpen !== undefined ? forceOpen : !isOpen;
         content.classList.toggle('hidden', !shouldOpen);
         chevron.classList.toggle('rotate-180', !shouldOpen);
+    }
+
+    function activateTab(name) {
+        var tabId = name === 'credito' || name === 'crediticio' ? 't-credito' : 't-' + name;
+        var tab = document.querySelector('[data-cliente-tab="' + tabId + '"]');
+        var panel = document.getElementById(tabId);
+        if (!tab || !panel) return;
+
+        document.querySelectorAll('#form-tabs .tab').forEach(function (item) {
+            item.setAttribute('aria-selected', item === tab ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('.tab-panel').forEach(function (item) {
+            item.classList.toggle('is-active', item === panel);
+        });
     }
 
     function validarMontos() {

@@ -3,13 +3,81 @@
     ViewData["Title"] = "Gestión de Clientes";
     ViewData["MetaDescription"] = "Administración de clientes, límites de crédito y documentación asociada en el ERP TheBuryProject.";
 
-    var totalEnPagina = Model.Clientes?.Count() ?? 0;
-    var clientesActivos = Model.Clientes?.Count(c => c.Activo) ?? 0;
+    var clientes = Model.Clientes?.ToList() ?? new List<ClienteViewModel>();
+    var totalEnPagina = clientes.Count;
+    var clientesActivos = clientes.Count(c => c.Activo);
+    var filtroClienteActivo = !string.IsNullOrEmpty(Model.SearchTerm)
+                            || Model.SoloActivos.HasValue
+                            || !string.IsNullOrEmpty(Model.TipoDocumento);
+    var totalResultados = Model.TotalResultados > 0 ? Model.TotalResultados : totalEnPagina;
+    var clientesConAtencion = clientes.Count(c => c.CuotasImpagas > 0 || c.NivelRiesgo.ToString().Contains("Rechazado"));
+    var montoRegistrado = clientes.Sum(c => c.MontoAdeudado ?? 0m);
+    var docsPendientes = 0;
 
-    string ProgressWidthClass(double percentage)
+    string ClienteNombre(ClienteViewModel cliente)
     {
-        var clamped = Math.Clamp((int)Math.Round(percentage, MidpointRounding.AwayFromZero), 0, 100);
-        return $"progress-w-{clamped}";
+        if (!string.IsNullOrWhiteSpace(cliente.NombreCompleto))
+        {
+            return cliente.NombreCompleto;
+        }
+
+        return $"{cliente.Apellido}, {cliente.Nombre}".Trim(' ', ',');
+    }
+
+    string Iniciales(ClienteViewModel cliente)
+    {
+        var apellido = string.IsNullOrWhiteSpace(cliente.Apellido) ? string.Empty : cliente.Apellido.Trim();
+        var nombre = string.IsNullOrWhiteSpace(cliente.Nombre) ? string.Empty : cliente.Nombre.Trim();
+        var initials = $"{(apellido.Length > 0 ? apellido[0] : '?')}{(nombre.Length > 0 ? nombre[0] : '?')}";
+        return initials.ToUpperInvariant();
+    }
+
+    string RiesgoTexto(ClienteViewModel cliente)
+    {
+        var riesgo = cliente.NivelRiesgo.ToString();
+        if (riesgo.Contains("Rechazado")) return "No apto";
+        if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "Requiere aut.";
+        return cliente.PuntajeRiesgo > 0 ? "Apto" : "No evaluado";
+    }
+
+    string RiesgoChip(ClienteViewModel cliente)
+    {
+        var riesgo = cliente.NivelRiesgo.ToString();
+        if (riesgo.Contains("Rechazado")) return "chip-bad";
+        if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "chip-warn";
+        return cliente.PuntajeRiesgo > 0 ? "chip-ok" : "chip-neutral";
+    }
+
+    string RiesgoIcon(ClienteViewModel cliente)
+    {
+        var chip = RiesgoChip(cliente);
+        if (chip == "chip-bad") return "block";
+        if (chip == "chip-warn") return "gpp_maybe";
+        if (chip == "chip-ok") return "verified";
+        return "remove";
+    }
+
+    int RiesgoPct(ClienteViewModel cliente)
+    {
+        if (cliente.PuntajeRiesgo <= 0) return 0;
+        return Math.Clamp((int)Math.Round((double)cliente.PuntajeRiesgo * 10, MidpointRounding.AwayFromZero), 0, 100);
+    }
+
+    string BarClass(ClienteViewModel cliente)
+    {
+        var chip = RiesgoChip(cliente);
+        if (chip == "chip-bad") return "is-bad";
+        if (chip == "chip-warn") return "is-warn";
+        return "is-ok";
+    }
+
+    string PersonaSubtitulo(ClienteViewModel cliente)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(cliente.EstadoCivil)) partes.Add(cliente.EstadoCivil);
+        if (cliente.Edad.HasValue) partes.Add($"{cliente.Edad} años");
+        if (!partes.Any() && !string.IsNullOrWhiteSpace(cliente.TipoEmpleo)) partes.Add(cliente.TipoEmpleo);
+        return partes.Any() ? string.Join(" · ", partes) : "Sin datos adicionales";
     }
 }
 
@@ -17,344 +85,247 @@
     <partial name="_ClienteModuleStyles" />
 }
 
-<div class="space-y-6">
+@if (TempData["Success"] != null || TempData["Error"] != null)
+{
+    <div id="clienteIndexFeedback" class="shell" style="margin-top:1rem" role="alert" aria-live="polite">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-ok"><span class="material-symbols-outlined">check_circle</span><span class="flex-1 self-center">@TempData["Success"]</span></div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-bad"><span class="material-symbols-outlined">error</span><span class="flex-1 self-center">@TempData["Error"]</span></div>
+        }
+    </div>
+}
+else
+{
+    <div id="clienteIndexFeedback" class="hidden shell" style="margin-top:1rem" role="alert" aria-live="polite"></div>
+}
 
-    <!-- TempData Alerts -->
-    @if (TempData["Success"] != null)
-    {
-        <div class="alert-erp alert-erp-success toast-msg" role="status">
-            <span class="material-symbols-outlined">check_circle</span>
-            @TempData["Success"]
+<main class="shell" style="padding-top:1.75rem;padding-bottom:3rem">
+    <div class="page-head">
+        <div class="min-w-0">
+            <h1 class="page-title">Gestión de Clientes</h1>
+            <p class="page-sub">Administrá clientes, límites de crédito y documentación asociada. Evaluá aptitud crediticia y situación BCRA.</p>
         </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="alert-erp alert-erp-error toast-msg" role="alert">
-            <span class="material-symbols-outlined">error</span>
-            @TempData["Error"]
+        <div class="head-actions">
+            <a asp-controller="DocumentoCliente" asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">folder_shared</span>Documentos</a>
+            <a asp-controller="Credito" asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">credit_score</span>Créditos</a>
+            <button type="button" class="btn btn-soft" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Límites por puntaje</button>
+            <button type="button" class="btn btn-primary" data-cliente-modal-open="create"><span class="material-symbols-outlined">person_add</span>Nuevo cliente</button>
         </div>
-    }
+    </div>
 
-    <div id="clienteIndexFeedback" class="hidden rounded-xl border px-4 py-3 text-sm font-semibold" role="alert"
-         aria-live="polite"></div>
+    <div class="grid-kpi" style="margin-top:1.5rem">
+        <div class="kpi">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">groups</span>Clientes activos</div>
+            <div class="kpi-value">@clientesActivos</div>
+            <div class="kpi-foot">de @totalResultados registrados</div>
+        </div>
+        <div class="kpi kpi--accent">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Crédito registrado</div>
+            <div class="kpi-value">@montoRegistrado.ToString("C0")</div>
+            <div class="kpi-foot">monto adeudado visible</div>
+        </div>
+        <div class="kpi kpi--warn">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span>Requieren atención</div>
+            <div class="kpi-value">@clientesConAtencion</div>
+            <div class="kpi-foot">mora · no aptos · revisión</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">draft</span>Docs pendientes</div>
+            <div class="kpi-value">@docsPendientes</div>
+            <div class="kpi-foot">se gestionan desde documentación</div>
+        </div>
+    </div>
 
-    @{
-        var filtroClienteActivo = !string.IsNullOrEmpty(Model.SearchTerm)
-                               || Model.SoloActivos.HasValue
-                               || !string.IsNullOrEmpty(Model.TipoDocumento);
-    }
+    <section style="margin-top:2.25rem">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div class="flex items-center gap-2">
+                <h2 class="text-base font-semibold text-white">Clientes</h2>
+                <span class="chip chip-neutral mono">@totalEnPagina en esta página</span>
+                @if (filtroClienteActivo)
+                {
+                    <span class="chip chip-info"><span class="material-symbols-outlined">filter_alt</span>Filtros activos</span>
+                }
+            </div>
+            <div class="scroll-hint hide-mobile" data-oc-scroll-hint><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá para ver más</div>
+        </div>
 
-    <!-- Main panel -->
-    <section data-oc-scroll style="--oc-scroll-min-width: 60rem;" class="card-erp-panel overflow-hidden">
-        <div class="border-b border-slate-800 px-5 py-4">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div class="min-w-0">
-                    <h2 class="text-base font-bold text-white">Clientes registrados</h2>
-                    <p class="text-sm text-slate-400">Buscá perfiles, revisá contacto y ejecutá acciones comerciales
-                        desde una grilla compacta.</p>
-                    </div>
-                    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="badge-erp badge-erp-neutral">
-                                <span class="material-symbols-outlined text-sm">list_alt</span>
-                                @totalEnPagina visibles
-                            </span>
-                            <span class="badge-erp badge-erp-success">
-                                <span class="material-symbols-outlined text-sm">check_circle</span>
-                                @clientesActivos activos
-                            </span>
-                            @if (filtroClienteActivo)
+        <form id="filterForm" method="get" asp-action="Index" class="filters card card-pad" style="padding:.85rem;margin-bottom:.9rem">
+            <div class="field-icon">
+                <span class="material-symbols-outlined">search</span>
+                <input name="SearchTerm" value="@Model.SearchTerm" class="field" placeholder="Buscar por nombre, documento o CUIL/CUIT..." aria-label="Buscar cliente por nombre, documento o contacto">
+            </div>
+            <select name="SoloActivos" class="field" style="max-width:170px" aria-label="Estado del cliente">
+                <option value="">Todos los estados</option>
+                @if (Model.SoloActivos == true)
+                {
+                    <option value="true" selected>Solo activos</option>
+                }
+                else
+                {
+                    <option value="true">Solo activos</option>
+                }
+                @if (Model.SoloActivos == false)
+                {
+                    <option value="false" selected>Solo inactivos</option>
+                }
+                else
+                {
+                    <option value="false">Solo inactivos</option>
+                }
+            </select>
+            <select name="TipoDocumento" class="field" style="max-width:160px" aria-label="Tipo de documento">
+                @if (string.IsNullOrEmpty(Model.TipoDocumento))
+                {
+                    <option value="" selected>Todo documento</option>
+                }
+                else
+                {
+                    <option value="">Todo documento</option>
+                }
+                @if (ViewBag.TiposDocumento != null)
+                {
+                    foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                    {
+                        var tipoValue = string.IsNullOrEmpty(tipo.Value) ? tipo.Text : tipo.Value;
+                        if (Model.TipoDocumento == tipoValue)
+                        {
+                            <option value="@tipoValue" selected>@tipo.Text</option>
+                        }
+                        else
+                        {
+                            <option value="@tipoValue">@tipo.Text</option>
+                        }
+                    }
+                }
+            </select>
+            <button type="submit" class="btn btn-soft"><span class="material-symbols-outlined">filter_list</span>Filtrar</button>
+            @if (filtroClienteActivo)
+            {
+                <a asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">close</span>Limpiar</a>
+            }
+        </form>
+
+        <div class="card hide-mobile" style="overflow:hidden" data-oc-scroll>
+            <div class="tbl-wrap" data-oc-scroll-table>
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Documento</th>
+                            <th>Contacto</th>
+                            <th>Aptitud</th>
+                            <th>Crédito</th>
+                            <th>Estado</th>
+                            <th style="text-align:right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-body">
+                        @if (clientes.Any())
+                        {
+                            foreach (var c in clientes)
                             {
-                                <span class="badge-erp badge-erp-primary">
-                                    <span class="material-symbols-outlined text-sm">filter_alt</span>
-                                    Filtros activos
-                                </span>
+                                var pct = RiesgoPct(c);
+                                var estado = c.Activo ? "activo" : "inactivo";
+                                var avatarClass = c.Activo ? "avatar" : "avatar avatar--off";
+                                var rowName = ClienteNombre(c);
+                                <tr data-cliente-row-id="@c.Id" data-estado="@estado" data-tipodoc="@c.TipoDocumento">
+                                    <td>
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="@avatarClass">@Iniciales(c)</div>
+                                            <div class="min-w-0">
+                                                <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">@rowName</div>
+                                                <div class="text-xs muted-2">@PersonaSubtitulo(c)</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mono text-sm text-slate-200">@c.NumeroDocumento</div>
+                                        <div class="mono text-xs muted-2">@(string.IsNullOrWhiteSpace(c.CuilCuit) ? c.TipoDocumento : c.CuilCuit)</div>
+                                    </td>
+                                    <td>
+                                        <div class="text-sm muted">@(string.IsNullOrWhiteSpace(c.Telefono) ? "Sin teléfono" : c.Telefono)</div>
+                                        <div class="text-xs muted-2">@(string.IsNullOrWhiteSpace(c.Email) ? "Sin email" : c.Email)</div>
+                                    </td>
+                                    <td><span class="chip @RiesgoChip(c)"><span class="material-symbols-outlined">@RiesgoIcon(c)</span>@RiesgoTexto(c)</span></td>
+                                    <td style="min-width:150px">
+                                        <div class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-white num">@((c.MontoAdeudado ?? 0m).ToString("C"))</span><span class="text-xs muted-2">@(pct > 0 ? $"{pct}%" : "-")</span></div>
+                                        <div class="bar"><div class="bar-fill @BarClass(c)" style="width:@pct%"></div></div>
+                                    </td>
+                                    <td><span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">@(c.Activo ? "Activo" : "Inactivo")</span></td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">visibility</span>Ver</a>
+                                            <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit" data-cliente-id="@c.Id" aria-label="Editar @rowName"><span class="material-symbols-outlined">edit</span></button>
+                                            <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm" aria-label="Ver créditos de @rowName"><span class="material-symbols-outlined">credit_score</span></a>
+                                            <details class="cliente-row-menu relative" data-cliente-row-menu>
+                                                <summary class="btn btn-ghost btn-sm cursor-pointer" aria-label="Más acciones para @rowName"><span class="material-symbols-outlined">more_vert</span></summary>
+                                                <div class="cliente-row-menu__content">
+                                                    <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })" data-nombre="@rowName" class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                                        <span class="material-symbols-outlined text-[16px]">delete</span>Eliminar
+                                                    </button>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </td>
+                                </tr>
                             }
-                        </div>
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <div
-                                class="flex flex-wrap items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/40 p-1">
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between" style="border-top:1px solid var(--line)">
+                <span id="result-count">Mostrando @totalEnPagina de @totalResultados clientes</span>
+                <span class="text-xs font-semibold muted">Acciones directas: ver, editar y créditos. Eliminación queda en el menú de fila.</span>
+            </div>
+        </div>
 
-                                <a asp-controller="DocumentoCliente" asp-action="Index"
-                                   class="btn-erp-ghost btn-sm no-underline">
-                                    <span class="material-symbols-outlined text-[16px]">description</span>
-                                    Docs
-                                </a>
-                                <a asp-controller="Credito" asp-action="Index" class="btn-erp-ghost btn-sm no-underline">
-                                    <span class="material-symbols-outlined text-[16px]">payments</span>
-                                    Créditos
-                                </a>
-                            </div>
-                            <button type="button" data-cliente-modal-open="create" class="btn-erp-primary btn-sm sm:w-auto">
-                                <span class="material-symbols-outlined text-[16px]">person_add</span>
-                                Nuevo Cliente
-                            </button>
+        <div class="m-card space-y-2.5" id="clientes-cards">
+            @foreach (var c in clientes)
+            {
+                var rowName = ClienteNombre(c);
+                var pct = RiesgoPct(c);
+                <article class="card card-pad" data-cliente-row-id="@c.Id" data-estado="@(c.Activo ? "activo" : "inactivo")">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <div class="@(c.Activo ? "avatar" : "avatar avatar--off")">@Iniciales(c)</div>
+                            <div><div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">@rowName</div><div class="mono text-xs muted-2">@c.NumeroDocumento</div></div>
                         </div>
+                        <span class="chip @RiesgoChip(c)">@RiesgoTexto(c)</span>
                     </div>
+                    <div class="mt-3 minimetric"><div class="mm-label">Crédito</div><div class="mm-value num">@((c.MontoAdeudado ?? 0m).ToString("C")) <span class="text-xs muted-2 font-normal">@(pct > 0 ? $"· {pct}%" : string.Empty)</span></div></div>
+                    <div class="mt-3 flex gap-2">
+                        <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm btn-block"><span class="material-symbols-outlined">visibility</span>Ver legajo</a>
+                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit" data-cliente-id="@c.Id" aria-label="Editar @rowName"><span class="material-symbols-outlined">edit</span></button>
+                    </div>
+                </article>
+            }
+        </div>
+
+        @if (!clientes.Any())
+        {
+            <div class="card" id="empty-state">
+                <div class="empty">
+                    <div class="empty-ic"><span class="material-symbols-outlined">person_search</span></div>
+                    <h3>Sin resultados</h3>
+                    <p>No encontramos clientes con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
+                    <a asp-action="Index" class="btn btn-soft btn-sm" style="margin-top:1rem"><span class="material-symbols-outlined">close</span>Limpiar filtros</a>
                 </div>
             </div>
+        }
+    </section>
+</main>
 
-            <form id="filterForm" method="get" asp-action="Index" class="border-b border-slate-800 bg-slate-900/30 p-4">
-                <div class="flex flex-wrap items-end gap-4">
-                    <div class="min-w-[220px] flex-1">
-                        <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Buscar
-                            cliente</label>
-                            <div class="relative">
-                                <span
-                                class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
-                                <input name="SearchTerm" value="@Model.SearchTerm" type="text"
-                                       aria-label="Buscar cliente por nombre, documento o contacto"
-                                       class="filter-input-erp filter-input-erp-icon"
-                                       placeholder="Nombre, documento o contacto..." />
-                            </div>
-                        </div>
-                        <div class="w-44">
-                            <label
-                            class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Estado</label>
-                            <select name="SoloActivos" aria-label="Estado del cliente" class="filter-select-erp">
-                                <option value="">Todos</option>
-                                @if (Model.SoloActivos == true)
-                                {
-                                    <option value="true" selected>Activo</option>
-                                }
-                                else
-                                {
-                                    <option value="true">Activo</option>
-                                }
-                                @if (Model.SoloActivos == false)
-                                {
-                                    <option value="false" selected>Inactivo</option>
-                                }
-                                else
-                                {
-                                    <option value="false">Inactivo</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="w-48">
-                            <label
-                            class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Documento</label>
-                            <select name="TipoDocumento" aria-label="Tipo de documento" class="filter-select-erp">
-                                @if (string.IsNullOrEmpty(Model.TipoDocumento))
-                                {
-                                    <option value="" selected>Todos</option>
-                                }
-                                else
-                                {
-                                    <option value="">Todos</option>
-                                }
-                                @if (ViewBag.TiposDocumento != null)
-                                {
-                                    @foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
-                                    {
-                                        var tipoValue = string.IsNullOrEmpty(tipo.Value) ? tipo.Text : tipo.Value;
-                                        if (Model.TipoDocumento == tipoValue)
-                                        {
-                                            <option value="@tipoValue" selected>@tipo.Text</option>
-                                        }
-                                        else
-                                        {
-                                            <option value="@tipoValue">@tipo.Text</option>
-                                        }
-                                    }
-                                }
-                            </select>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" class="btn-erp-primary btn-sm" title="Filtrar clientes">
-                                <span class="material-symbols-outlined text-lg">filter_list</span>
-                                <span>Filtrar</span>
-                            </button>
-                            @if (filtroClienteActivo)
-                            {
-                                <a asp-action="Index" class="btn-erp-secondary btn-sm no-underline" title="Limpiar filtros">
-                                    <span class="material-symbols-outlined text-lg">clear_all</span>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                </form>
+<div id="limitesModalContainer"></div>
 
-                <p data-oc-scroll-hint hidden
-                   class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
-                    Deslizá la tabla para ver crédito, estado y acciones completas.
-                </p>
-                <div data-oc-scroll-shell class="relative">
-                    <div data-oc-scroll-fade="left" hidden></div>
-                    <div data-oc-scroll-fade="right" hidden></div>
-                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Tabla de clientes">
-                        <table class="w-full border-collapse text-left" data-oc-scroll-table>
-                            <thead>
-                                <tr class="border-b border-slate-800 bg-slate-800/30">
-                                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
-                                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Contacto
-                                    </th>
-                                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Domicilio
-                                    </th>
-                                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Riesgo</th>
-                                    <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
-                                        Crédito</th>
-                                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                                        <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
-                                            Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        @if (Model.Clientes != null && Model.Clientes.Any())
-                                        {
-                                            @foreach (var c in Model.Clientes)
-                                            {
-                                                var initials = (!string.IsNullOrEmpty(c.Nombre) && !string.IsNullOrEmpty(c.Apellido))
-                                                    ? $"{c.Nombre[0]}{c.Apellido[0]}".ToUpper()
-                                                    : "??";
+<partial name="_ClienteModal" />
 
-                                                var puntaje = (int)c.PuntajeRiesgo;
-                                                var puntajeColor = puntaje >= 700 ? "emerald" : (puntaje >= 400 ? "amber" : "red");
-                                                var puntajePct = Math.Min(100, Math.Max(0, puntaje / 10));
-
-                                                var tipoCliente = c.Sueldo.HasValue && c.Sueldo > 200000 ? "Mayorista" : "Minorista";
-
-                                                <tr class="transition-colors hover:bg-white/5">
-                                                    <td class="px-5 py-3">
-                                                        <div class="flex items-center gap-3">
-                                                            <div
-                                                                class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-sm font-bold text-primary">
-                                                                @initials
-                                                            </div>
-                                                            <div class="min-w-0">
-                                                                <p class="truncate text-sm font-bold text-white">@c.Apellido @c.Nombre</p>
-                                                                <p
-                                                                    class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                                                                    <span class="font-mono">@(c.TipoDocumento ??
-                                                                                     "DNI")-@c.NumeroDocumento</span>
-                                                                        <span class="h-1 w-1 rounded-full bg-slate-700"></span>
-                                                                        <span class="uppercase tracking-[0.12em]">@tipoCliente</span>
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td class="px-5 py-3">
-                                                            <div class="flex max-w-[16rem] flex-col gap-0.5 text-sm">
-                                                                <span class="text-slate-200">@(c.Telefono ?? "Sin teléfono")</span>
-                                                                <span class="truncate text-xs text-slate-500">@(c.Email ?? "Sin email")</span>
-                                                            </div>
-                                                        </td>
-                                                        <td class="max-w-[13rem] truncate px-5 py-3 text-sm text-slate-400" title="@c.Domicilio">
-                                                            @(c.Domicilio ?? "—")
-                                                        </td>
-                                                        <td class="px-5 py-3">
-                                                            @if (puntaje > 0)
-                                                            {
-                                                                <div class="flex items-center gap-2">
-                                                                    <span class="text-sm font-bold text-@(puntajeColor)-400">@puntaje</span>
-                                                                    <div class="h-1.5 w-14 overflow-hidden rounded-full bg-slate-700">
-                                                                        <div
-                                                                            class="h-full rounded-full bg-@(puntajeColor)-500 @ProgressWidthClass(puntajePct)">
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="text-sm font-bold text-slate-600">--</span>
-                                                            }
-                                                        </td>
-                                                        <td class="px-5 py-3 text-right text-sm font-bold text-white">
-                                                            @(c.MontoAdeudado.HasValue ? c.MontoAdeudado.Value.ToString("C") : "$0,00")
-                                                        </td>
-                                                        <td class="px-5 py-3">
-                                                            @if (c.Activo)
-                                                            {
-                                                                <span class="chip-erp chip-erp-success">
-                                                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                                                    Activo
-                                                                </span>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="chip-erp">
-                                                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
-                                                                    Inactivo
-                                                                </span>
-                                                            }
-                                                        </td>
-                                                        <td class="px-5 py-3 text-right">
-                                                            <div class="flex items-center justify-end gap-1">
-                                                                <a asp-action="Details" asp-route-id="@c.Id"
-                                                                   class="row-action row-action--primary no-underline" title="Ver detalle"
-                                                                   aria-label="Ver detalle de @c.Apellido @c.Nombre">
-                                                                    <span class="material-symbols-outlined">visibility</span>
-                                                                    <span class="row-action__label">Ver</span>
-                                                                </a>
-                                                                <button type="button" data-cliente-modal-open="edit" data-cliente-id="@c.Id"
-                                                                        class="row-action" title="Editar" aria-label="Editar @c.Apellido @c.Nombre">
-                                                                    <span class="material-symbols-outlined">edit</span>
-                                                                    <span class="row-action__label">Editar</span>
-                                                                </button>
-                                                                <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
-                                                                   class="row-action row-action--primary no-underline" title="Ver créditos"
-                                                                   aria-label="Ver créditos de @c.Apellido @c.Nombre">
-                                                                    <span class="material-symbols-outlined">payments</span>
-                                                                    <span class="row-action__label">Crédito</span>
-                                                                </a>
-                                                                <details class="cliente-row-menu relative" data-cliente-row-menu>
-                                                                    <summary class="row-action cursor-pointer" title="Más acciones"
-                                                                             aria-label="Más acciones para @c.Apellido @c.Nombre">
-                                                                        <span class="material-symbols-outlined">more_vert</span>
-                                                                        <span class="row-action__label">Más</span>
-                                                                    </summary>
-                                                                    <div class="cliente-row-menu__content">
-                                                                        <button type="button"
-                                                                                data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                                                                data-nombre="@c.Apellido @c.Nombre"
-                                                                                class="cliente-row-menu__item cliente-row-menu__item--danger">
-                                                                            <span class="material-symbols-outlined text-[16px]">delete</span>
-                                                                            Eliminar
-                                                                        </button>
-                                                                    </div>
-                                                                </details>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                }
-                                            }
-                        else
-                                            {
-                                                <tr>
-                                                    <td colspan="7" class="px-6 py-12 text-center">
-                                                        <div class="flex flex-col items-center gap-2">
-                                                            <span class="material-symbols-outlined text-4xl text-slate-600">person_off</span>
-                                                            <p class="text-sm font-semibold text-slate-400">No se encontraron clientes</p>
-                                                            <p class="text-xs text-slate-500">Intentá con otros filtros o agregá un nuevo
-                                                                cliente</p>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                <div
-                                    class="flex flex-col gap-2 border-t border-slate-800 bg-slate-900/30 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <span class="text-xs text-slate-500">
-                                        Mostrando @totalEnPagina de @Model.TotalResultados clientes
-                                    </span>
-                                    <span class="text-xs font-semibold text-slate-400">
-                                        Acciones directas: detalle, edición y crédito. Eliminación queda en el menú de fila.
-                                    </span>
-                                </div>
-                            </section>
-
-                            <div id="limitesModalContainer"></div>
-                        </div>
-
-                        <partial name="_ClienteModal" />
-
-                        @section Scripts {
-                            <script src="~/js/module-index.js" asp-append-version="true"></script>
-                            <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-                            <script src="~/js/cliente-index.js" asp-append-version="true"></script>
-                            <script src="~/js/cliente-modal.js" asp-append-version="true"></script>
-                        }
+@section Scripts {
+    <script src="~/js/module-index.js" asp-append-version="true"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/cliente-index.js" asp-append-version="true"></script>
+    <script src="~/js/cliente-modal.js" asp-append-version="true"></script>
+}

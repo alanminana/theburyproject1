@@ -8,451 +8,378 @@
     <partial name="_ClienteModuleStyles" />
 }
 
-<form id="clienteForm" asp-action="Create" method="post" novalidate class="space-y-8">
-    @Html.AntiForgeryToken()
-    @if (returnUrl != null)
+<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+    @if (!string.IsNullOrWhiteSpace(returnUrl))
     {
-        <input type="hidden" name="returnUrl" value="@returnUrl" />
+        <a href="@returnUrl" data-cliente-cancel class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a clientes
+        </a>
+    }
+    else
+    {
+        <a asp-action="Index" data-cliente-cancel class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a clientes
+        </a>
     }
 
-    @* ── Hero ────────────────────────────────────────────────────── *@
-    <section class="hero-erp sm:p-8">
-        <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-action="Index" class="hover:text-primary no-underline">Clientes</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Nuevo Cliente</li>
-                    </ol>
-                </nav>
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">person_add</span>
-                        Nuevo Cliente
-                    </span>
-                    <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Nuevo Cliente</h1>
-                    <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                        Completá los datos del cliente para habilitarlo en el sistema. Solo los campos marcados con <strong class="text-slate-300">*</strong> son obligatorios.
-                    </p>
-                </div>
-            </div>
-            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:flex-col">
-                <a asp-action="Index" data-cliente-cancel class="btn-erp-ghost no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    Cancelar
-                </a>
-                <button type="submit" class="btn-erp-primary">
-                    <span class="material-symbols-outlined text-[20px]">person_add</span>
-                    Crear Cliente
-                </button>
-            </div>
+    <div class="page-head" style="margin-top:.85rem">
+        <div class="min-w-0">
+            <h1 class="page-title">Nuevo cliente</h1>
+            <p class="page-sub">Registrá un cliente con sus datos personales, de contacto y laborales. La aptitud crediticia se evalúa luego de guardar.</p>
         </div>
-    </section>
+    </div>
 
-    @* ── Validation summary ──────────────────────────────────────── *@
-    <div asp-validation-summary="ModelOnly"
-         class="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400 empty:hidden"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.5rem">
+        <form id="clienteForm" asp-action="Create" method="post" novalidate class="lg:col-span-2 card" style="overflow:hidden">
+            @Html.AntiForgeryToken()
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+            }
 
-    @* ── Content grid ────────────────────────────────────────────── *@
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-
-        @* Main: accordion sections *@
-        <div class="lg:col-span-2 space-y-4">
-
-            @* ── 1. Datos Personales ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="personal"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">1</span>
-                        <div>
-                            <h3 class="text-base font-bold text-slate-100">Datos Personales</h3>
-                            <p class="text-xs text-slate-500">Información básica del cliente</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined text-slate-400 transition-transform duration-200" id="chevron-personal">expand_more</span>
-                </button>
-                <div id="section-personal" class="border-t border-slate-800 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div>
-                            <label asp-for="TipoDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo Documento *</label>
-                            <select asp-for="TipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
-                            </select>
-                            <span asp-validation-for="TipoDocumento" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="NumeroDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Número Documento *</label>
-                            <input asp-for="NumeroDocumento" placeholder="Ej: 30456789"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="NumeroDocumento" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="CuilCuit" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">CUIL/CUIT</label>
-                            <input asp-for="CuilCuit" placeholder="Solo números, 11 dígitos" maxlength="11"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="CuilCuit" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="Apellido" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Apellido *</label>
-                            <input asp-for="Apellido" placeholder="Apellido del cliente"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Apellido" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="Nombre" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre *</label>
-                            <input asp-for="Nombre" placeholder="Nombre del cliente"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Nombre" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="FechaNacimiento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Fecha de Nacimiento</label>
-                            <input asp-for="FechaNacimiento" type="date"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="FechaNacimiento" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="EstadoCivil" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Estado Civil</label>
-                            <select asp-for="EstadoCivil" asp-items="@(ViewBag.EstadosCiviles as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
-                                <option value="">Seleccionar...</option>
-                            </select>
-                            <span asp-validation-for="EstadoCivil" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                    </div>
+            <div style="padding:.4rem .4rem 0">
+                <div class="tabs" role="tablist" id="form-tabs">
+                    <button type="button" class="tab" role="tab" aria-selected="true" aria-controls="t-personal" data-cliente-tab="t-personal">
+                        <span class="material-symbols-outlined">badge</span>Personales
+                    </button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-conyuge" data-cliente-tab="t-conyuge">
+                        <span class="material-symbols-outlined">diversity_3</span>Cónyuge
+                    </button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-contacto" data-cliente-tab="t-contacto">
+                        <span class="material-symbols-outlined">call</span>Contacto
+                    </button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-laboral" data-cliente-tab="t-laboral">
+                        <span class="material-symbols-outlined">work</span>Laboral
+                    </button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-refs" data-cliente-tab="t-refs">
+                        <span class="material-symbols-outlined">contacts</span>Referencias
+                    </button>
+                    <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-credito" data-cliente-tab="t-credito">
+                        <span class="material-symbols-outlined">credit_score</span>Crediticio
+                    </button>
                 </div>
-            </section>
+            </div>
 
-            @* ── 2. Datos del Cónyuge ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="conyuge"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-xs font-bold text-pink-400">2</span>
+            <div class="card-pad">
+                <div asp-validation-summary="ModelOnly" class="alert alert-bad empty:hidden" style="margin-bottom:1rem"></div>
+
+                <section class="tab-panel is-active" id="t-personal" role="tabpanel" data-cliente-section="personal">
+                    <div class="sec-head"><span class="sec-num">1</span><div><div class="sec-title">Datos personales</div><div class="sec-sub">Identificación del titular.</div></div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <h3 class="text-base font-bold text-slate-100">Datos del Cónyuge</h3>
-                            <p class="text-xs text-slate-500">Opcional — solo si aplica</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-conyuge">expand_more</span>
-                </button>
-                <div id="section-conyuge" class="hidden border-t border-slate-800 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div class="md:col-span-3">
-                            <label asp-for="ConyugeNombreCompleto" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Nombre Completo</label>
-                            <input asp-for="ConyugeNombreCompleto" placeholder="Nombre y apellido del cónyuge"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="ConyugeNombreCompleto" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="TipoDocumento" class="label">Tipo de documento <span class="req">*</span></label>
+                            <select asp-for="TipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)" class="field"></select>
+                            <span asp-validation-for="TipoDocumento" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="ConyugeTipoDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo Documento</label>
-                            <select asp-for="ConyugeTipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                            <label asp-for="NumeroDocumento" class="label">Número de documento <span class="req">*</span></label>
+                            <input asp-for="NumeroDocumento" class="field mono" placeholder="00.000.000" />
+                            <span asp-validation-for="NumeroDocumento" class="err-text"></span>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label asp-for="CuilCuit" class="label">CUIL / CUIT</label>
+                            <input asp-for="CuilCuit" class="field mono" placeholder="00-00000000-0" maxlength="11" />
+                            <span asp-validation-for="CuilCuit" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Apellido" class="label">Apellido <span class="req">*</span></label>
+                            <input asp-for="Apellido" class="field" placeholder="Apellido" />
+                            <span asp-validation-for="Apellido" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Nombre" class="label">Nombre <span class="req">*</span></label>
+                            <input asp-for="Nombre" class="field" placeholder="Nombre" />
+                            <span asp-validation-for="Nombre" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="FechaNacimiento" class="label">Fecha de nacimiento</label>
+                            <input asp-for="FechaNacimiento" type="date" class="field" />
+                            <span asp-validation-for="FechaNacimiento" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="EstadoCivil" class="label">Estado civil</label>
+                            <select asp-for="EstadoCivil" asp-items="@(ViewBag.EstadosCiviles as SelectList)" class="field" id="f-civil">
                                 <option value="">Seleccionar...</option>
                             </select>
-                            <span asp-validation-for="ConyugeTipoDocumento" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="EstadoCivil" class="err-text"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-panel" id="t-conyuge" role="tabpanel" data-cliente-section="conyuge">
+                    <div class="sec-head"><span class="sec-num">2</span><div><div class="sec-title">Datos del cónyuge</div><div class="sec-sub">Requerido si el cliente está casado o en pareja.</div></div></div>
+                    <div class="alert alert-info" id="conyuge-hint" style="margin-bottom:1rem"><span class="material-symbols-outlined">info</span><div>Completá esta sección solo si corresponde por estado civil.</div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label asp-for="ConyugeNombreCompleto" class="label">Nombre completo del cónyuge</label>
+                            <input asp-for="ConyugeNombreCompleto" class="field" placeholder="Apellido y nombre" />
+                            <span asp-validation-for="ConyugeNombreCompleto" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="ConyugeNumeroDocumento" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Número Documento</label>
-                            <input asp-for="ConyugeNumeroDocumento" placeholder="Ej: 30456789"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="ConyugeNumeroDocumento" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="ConyugeTipoDocumento" class="label">Tipo de documento</label>
+                            <select asp-for="ConyugeTipoDocumento" asp-items="@(ViewBag.TiposDocumento as SelectList)" class="field">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                            <span asp-validation-for="ConyugeTipoDocumento" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="ConyugeTelefono" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono</label>
-                            <input asp-for="ConyugeTelefono" type="tel" placeholder="Ej: 3814567890"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="ConyugeTelefono" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="ConyugeNumeroDocumento" class="label">Número de documento</label>
+                            <input asp-for="ConyugeNumeroDocumento" class="field mono" placeholder="00.000.000" />
+                            <span asp-validation-for="ConyugeNumeroDocumento" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="ConyugeSueldo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Sueldo</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
-                                <input asp-for="ConyugeSueldo" step="0.01" placeholder="0.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            <label asp-for="ConyugeTelefono" class="label">Teléfono</label>
+                            <input asp-for="ConyugeTelefono" type="tel" class="field" placeholder="11 0000-0000" />
+                            <span asp-validation-for="ConyugeTelefono" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="ConyugeSueldo" class="label">Sueldo</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="ConyugeSueldo" step="0.01" class="field mono" placeholder="0" />
                             </div>
-                            <span asp-validation-for="ConyugeSueldo" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="ConyugeSueldo" class="err-text"></span>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            @* ── 3. Datos de Contacto ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="contacto"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-xs font-bold text-green-400">3</span>
+                <section class="tab-panel" id="t-contacto" role="tabpanel" data-cliente-section="contacto">
+                    <div class="sec-head"><span class="sec-num">3</span><div><div class="sec-title">Datos de contacto</div><div class="sec-sub">Teléfono, correo y domicilio.</div></div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <h3 class="text-base font-bold text-slate-100">Datos de Contacto</h3>
-                            <p class="text-xs text-slate-500">Teléfono, email y dirección</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined text-slate-400 transition-transform duration-200" id="chevron-contacto">expand_more</span>
-                </button>
-                <div id="section-contacto" class="border-t border-slate-800 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div>
-                            <label asp-for="Telefono" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono *</label>
-                            <input asp-for="Telefono" type="tel" placeholder="Ej: 3814567890"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Telefono" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="Telefono" class="label">Teléfono <span class="req">*</span></label>
+                            <div class="field-icon"><span class="material-symbols-outlined">call</span><input asp-for="Telefono" type="tel" class="field" placeholder="11 0000-0000" /></div>
+                            <span asp-validation-for="Telefono" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="TelefonoAlternativo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono Alternativo</label>
-                            <input asp-for="TelefonoAlternativo" type="tel" placeholder="Ej: 3814567890"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="TelefonoAlternativo" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="TelefonoAlternativo" class="label">Teléfono alternativo</label>
+                            <div class="field-icon"><span class="material-symbols-outlined">call</span><input asp-for="TelefonoAlternativo" type="tel" class="field" placeholder="11 0000-0000" /></div>
+                            <span asp-validation-for="TelefonoAlternativo" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="Email" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Email</label>
-                            <input asp-for="Email" type="email" placeholder="ejemplo@correo.com"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Email" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div class="md:col-span-3">
-                            <label asp-for="Domicilio" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Domicilio *</label>
-                            <input asp-for="Domicilio" placeholder="Calle, número, piso, depto"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Domicilio" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="Email" class="label">Email</label>
+                            <div class="field-icon"><span class="material-symbols-outlined">mail</span><input asp-for="Email" type="email" class="field" placeholder="correo@mail.com" /></div>
+                            <span asp-validation-for="Email" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="Localidad" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Localidad</label>
-                            <input asp-for="Localidad" placeholder="Ej: San Miguel de Tucumán"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Localidad" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="CodigoPostal" class="label">Código postal</label>
+                            <input asp-for="CodigoPostal" class="field mono" placeholder="0000" />
+                            <span asp-validation-for="CodigoPostal" class="err-text"></span>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label asp-for="Domicilio" class="label">Domicilio <span class="req">*</span></label>
+                            <input asp-for="Domicilio" class="field" placeholder="Calle, número, piso, depto" />
+                            <span asp-validation-for="Domicilio" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="Provincia" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Provincia</label>
-                            <select asp-for="Provincia" asp-items="@(ViewBag.Provincias as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                            <label asp-for="Localidad" class="label">Localidad</label>
+                            <input asp-for="Localidad" class="field" placeholder="Localidad" />
+                            <span asp-validation-for="Localidad" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Provincia" class="label">Provincia</label>
+                            <select asp-for="Provincia" asp-items="@(ViewBag.Provincias as SelectList)" class="field">
                                 <option value="">Seleccionar...</option>
                             </select>
-                            <span asp-validation-for="Provincia" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="CodigoPostal" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Código Postal</label>
-                            <input asp-for="CodigoPostal" placeholder="Ej: 4000"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="CodigoPostal" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="Provincia" class="err-text"></span>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            @* ── 4. Situación Laboral ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="laboral"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-xs font-bold text-amber-400">4</span>
+                <section class="tab-panel" id="t-laboral" role="tabpanel" data-cliente-section="laboral">
+                    <div class="sec-head"><span class="sec-num">4</span><div><div class="sec-title">Datos laborales</div><div class="sec-sub">Fuente de ingresos del cliente.</div></div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <h3 class="text-base font-bold text-slate-100">Situación Laboral</h3>
-                            <p class="text-xs text-slate-500">Empleo e ingresos del cliente</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-laboral">expand_more</span>
-                </button>
-                <div id="section-laboral" class="hidden border-t border-slate-800 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div>
-                            <label asp-for="Empleador" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Empleador</label>
-                            <input asp-for="Empleador" placeholder="Nombre de la empresa"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="Empleador" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="TipoEmpleo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipo de Empleo</label>
-                            <select asp-for="TipoEmpleo" asp-items="@(ViewBag.TiposEmpleo as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                            <label asp-for="TipoEmpleo" class="label">Situación laboral</label>
+                            <select asp-for="TipoEmpleo" asp-items="@(ViewBag.TiposEmpleo as SelectList)" class="field">
                                 <option value="">Seleccionar...</option>
                             </select>
-                            <span asp-validation-for="TipoEmpleo" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="TipoEmpleo" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="Sueldo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Sueldo</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
-                                <input asp-for="Sueldo" step="0.01" placeholder="0.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
+                            <label asp-for="TiempoTrabajo" class="label">Antigüedad</label>
+                            <input asp-for="TiempoTrabajo" class="field" placeholder="Ej. 4 años" />
+                            <span asp-validation-for="TiempoTrabajo" class="err-text"></span>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label asp-for="Empleador" class="label">Empleador / Razón social</label>
+                            <input asp-for="Empleador" class="field" placeholder="Nombre de la empresa" />
+                            <span asp-validation-for="Empleador" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Sueldo" class="label">Ingreso mensual neto</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="Sueldo" step="0.01" class="field mono" placeholder="0" />
                             </div>
-                            <span asp-validation-for="Sueldo" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="Sueldo" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="TelefonoLaboral" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Teléfono Laboral</label>
-                            <input asp-for="TelefonoLaboral" type="tel" placeholder="Ej: 3814567890"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="TelefonoLaboral" class="mt-1 text-xs text-red-400"></span>
+                            <label asp-for="TelefonoLaboral" class="label">Teléfono laboral</label>
+                            <input asp-for="TelefonoLaboral" type="tel" class="field" placeholder="11 0000-0000" />
+                            <span asp-validation-for="TelefonoLaboral" class="err-text"></span>
                         </div>
-                        <div>
-                            <label asp-for="TiempoTrabajo" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tiempo de Trabajo</label>
-                            <input asp-for="TiempoTrabajo" placeholder="Ej: 3 años"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="TiempoTrabajo" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div class="flex items-end">
-                            <label class="flex cursor-pointer items-center gap-3 py-2.5">
-                                <input asp-for="TieneReciboSueldo" type="checkbox"
-                                       class="h-5 w-5 rounded border-slate-600 text-primary focus:ring-primary/50" />
-                                <span class="text-sm font-semibold">Tiene Recibo de Sueldo</span>
+                        <div class="sm:col-span-2">
+                            <label class="flex cursor-pointer items-center gap-3 py-2">
+                                <input asp-for="TieneReciboSueldo" type="checkbox" />
+                                <span class="text-sm font-semibold">Tiene recibo de sueldo</span>
                             </label>
+                            <span asp-validation-for="TieneReciboSueldo" class="err-text"></span>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            @* ── 5. Configuración Crediticia ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="credito"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-bold text-violet-400">5</span>
-                        <div>
-                            <h3 class="text-base font-bold text-slate-100">Configuración Crediticia</h3>
-                            <p class="text-xs text-slate-500">Parámetros personalizados para este cliente</p>
-                        </div>
+                <section class="tab-panel" id="t-refs" role="tabpanel" data-cliente-section="referencias">
+                    <div class="sec-head"><span class="sec-num">5</span><div><div class="sec-title">Referencias</div><div class="sec-sub">Contactos personales o comerciales que avalan al cliente.</div></div></div>
+                    <div class="ph">
+                        <span class="material-symbols-outlined">contacts</span>
+                        <div class="ph-label">SIN CAMPOS EN EL MODELO ACTUAL</div>
+                        <p class="muted" style="margin:0;max-width:46ch;font-size:.85rem">La referencia visual contempla esta sección, pero el formulario anterior no tenía campos enlazados para referencias. Se mantiene como punto de carga posterior sin enviar datos mock.</p>
                     </div>
-                    <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-credito">expand_more</span>
-                </button>
-                <div id="section-credito" class="hidden border-t border-slate-800 p-6">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div class="md:col-span-3">
-                            <label asp-for="PerfilCreditoPreferidoId" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Perfil de Crédito Preferido</label>
-                            <select asp-for="PerfilCreditoPreferidoId" asp-items="@(ViewBag.PerfilesCredito as SelectList)"
-                                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                </section>
+
+                <section class="tab-panel" id="t-credito" role="tabpanel" data-cliente-section="crediticio">
+                    <div class="sec-head"><span class="sec-num">6</span><div><div class="sec-title">Configuración crediticia</div><div class="sec-sub">Parámetros iniciales y observaciones.</div></div></div>
+                    <div class="alert alert-info" style="margin-bottom:1rem"><span class="material-symbols-outlined">auto_awesome</span><div>El puntaje de riesgo y el límite se calculan automáticamente tras la evaluación. Acá podés dejar condiciones u observaciones iniciales.</div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label asp-for="PerfilCreditoPreferidoId" class="label">Perfil de crédito preferido</label>
+                            <select asp-for="PerfilCreditoPreferidoId" asp-items="@(ViewBag.PerfilesCredito as SelectList)" class="field">
                                 <option value="">Sin perfil preferido</option>
                             </select>
-                            <span asp-validation-for="PerfilCreditoPreferidoId" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="PerfilCreditoPreferidoId" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="TasaInteresMensualPersonalizada" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tasa Interés Mensual (%)</label>
-                            <div class="relative">
-                                <input asp-for="TasaInteresMensualPersonalizada" step="0.01" placeholder="Ej: 5.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pr-8 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                            <label asp-for="TasaInteresMensualPersonalizada" class="label">Tasa interés mensual (%)</label>
+                            <input asp-for="TasaInteresMensualPersonalizada" step="0.01" class="field mono" placeholder="Ej. 5.00" />
+                            <span asp-validation-for="TasaInteresMensualPersonalizada" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="GastosAdministrativosPersonalizados" class="label">Gastos administrativos (%)</label>
+                            <input asp-for="GastosAdministrativosPersonalizados" step="0.01" class="field mono" placeholder="Ej. 2.00" />
+                            <span asp-validation-for="GastosAdministrativosPersonalizados" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="CuotasMaximasPersonalizadas" class="label">Cuotas máximas</label>
+                            <input asp-for="CuotasMaximasPersonalizadas" type="number" min="1" max="120" class="field mono" placeholder="Ej. 24" />
+                            <span asp-validation-for="CuotasMaximasPersonalizadas" class="err-text"></span>
+                        </div>
+                        <div>
+                            <label asp-for="MontoMinimoPersonalizado" class="label">Monto mínimo ($)</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="MontoMinimoPersonalizado" id="montoMinimo" step="0.01" class="field mono" placeholder="0" />
                             </div>
-                            <span asp-validation-for="TasaInteresMensualPersonalizada" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="MontoMinimoPersonalizado" class="err-text"></span>
                         </div>
                         <div>
-                            <label asp-for="GastosAdministrativosPersonalizados" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Gastos Administrativos (%)</label>
-                            <div class="relative">
-                                <input asp-for="GastosAdministrativosPersonalizados" step="0.01" placeholder="Ej: 2.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 pr-8 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
+                            <label asp-for="MontoMaximoPersonalizado" class="label">Monto máximo ($)</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="MontoMaximoPersonalizado" id="montoMaximo" step="0.01" class="field mono" placeholder="0" />
                             </div>
-                            <span asp-validation-for="GastosAdministrativosPersonalizados" class="mt-1 text-xs text-red-400"></span>
+                            <span asp-validation-for="MontoMaximoPersonalizado" class="err-text"></span>
+                            <p id="montoError" class="err-text hidden">El monto mínimo no puede ser mayor al monto máximo</p>
                         </div>
-                        <div>
-                            <label asp-for="CuotasMaximasPersonalizadas" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Cuotas Máximas</label>
-                            <input asp-for="CuotasMaximasPersonalizadas" type="number" min="1" max="120" placeholder="Ej: 24"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            <span asp-validation-for="CuotasMaximasPersonalizadas" class="mt-1 text-xs text-red-400"></span>
+                        <div class="sm:col-span-2">
+                            <label asp-for="Observaciones" class="label">Observaciones</label>
+                            <textarea asp-for="Observaciones" class="field" placeholder="Notas internas sobre el cliente (no visibles para el cliente)."></textarea>
+                            <span asp-validation-for="Observaciones" class="err-text"></span>
                         </div>
-                        <div>
-                            <label asp-for="MontoMinimoPersonalizado" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Monto Mínimo ($)</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
-                                <input asp-for="MontoMinimoPersonalizado" id="montoMinimo" step="0.01" placeholder="0.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            </div>
-                            <span asp-validation-for="MontoMinimoPersonalizado" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label asp-for="MontoMaximoPersonalizado" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Monto Máximo ($)</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
-                                <input asp-for="MontoMaximoPersonalizado" id="montoMaximo" step="0.01" placeholder="0.00"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-7 pr-3 py-2.5 text-sm font-bold outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
-                            </div>
-                            <span asp-validation-for="MontoMaximoPersonalizado" class="mt-1 text-xs text-red-400"></span>
-                            <p id="montoError" class="mt-1 hidden text-xs text-red-400">El monto mínimo no puede ser mayor al monto máximo</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            @* ── 6. Observaciones y Estado ── *@
-            <section class="card-erp-panel">
-                <button type="button" data-cliente-section="observaciones"
-                        class="flex w-full items-center justify-between bg-slate-800/30 px-6 py-4 text-left transition-colors hover:bg-slate-800/50">
-                    <div class="flex items-center gap-4">
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">6</span>
-                        <div>
-                            <h3 class="text-base font-bold text-slate-100">Observaciones y Estado</h3>
-                            <p class="text-xs text-slate-500">Notas internas y estado del cliente</p>
-                        </div>
-                    </div>
-                    <span class="material-symbols-outlined rotate-180 text-slate-400 transition-transform duration-200" id="chevron-observaciones">expand_more</span>
-                </button>
-                <div id="section-observaciones" class="hidden border-t border-slate-800 p-6">
-                    <div class="space-y-4">
-                        <div>
-                            <label asp-for="Observaciones" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Observaciones</label>
-                            <textarea asp-for="Observaciones" rows="4" placeholder="Notas internas sobre el cliente..."
-                                      class="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50"></textarea>
-                            <span asp-validation-for="Observaciones" class="mt-1 text-xs text-red-400"></span>
-                        </div>
-                        <div>
-                            <label class="flex cursor-pointer items-center gap-3">
-                                <input asp-for="Activo" type="checkbox"
-                                       class="h-5 w-5 rounded border-slate-600 text-primary focus:ring-primary/50" />
-                                <div>
-                                    <span class="text-sm font-bold">Cliente Activo</span>
-                                    <p class="text-xs text-slate-500">Los clientes inactivos no pueden generar nuevos créditos</p>
-                                </div>
+                        <div class="sm:col-span-2">
+                            <label class="flex cursor-pointer items-center gap-3 py-2">
+                                <input asp-for="Activo" type="checkbox" />
+                                <span class="text-sm font-semibold">Cliente activo</span>
                             </label>
+                            <span asp-validation-for="Activo" class="err-text"></span>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            </div>
 
-        </div>
-
-        @* Aside: Guía de alta *@
-        <aside>
-            <div class="card-erp-panel sticky top-8">
-                <div class="flex items-center gap-2 border-b border-slate-800 bg-slate-800/30 px-6 py-4">
-                    <span class="material-symbols-outlined text-xl text-primary">info</span>
-                    <h4 class="text-sm font-bold text-slate-100">Guía de alta</h4>
-                </div>
-                <div class="p-6">
-                    <ol class="space-y-4 text-xs text-slate-400">
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">1</span>
-                            <span><strong class="text-slate-300">Datos personales</strong> — DNI, apellido y nombre son obligatorios. El CUIL/CUIT es opcional pero recomendado.</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-500/15 text-[10px] font-bold text-pink-400">2</span>
-                            <span><strong class="text-slate-300">Cónyuge</strong> — Solo completar si el cliente está casado o en unión convivencial.</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/15 text-[10px] font-bold text-green-400">3</span>
-                            <span><strong class="text-slate-300">Contacto</strong> — El teléfono principal y el domicilio son obligatorios para la evaluación.</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-[10px] font-bold text-amber-400">4</span>
-                            <span><strong class="text-slate-300">Laboral</strong> — El sueldo y la antigüedad inciden directamente en el score crediticio.</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-bold text-violet-400">5</span>
-                            <span><strong class="text-slate-300">Crédito</strong> — Dejar vacío para usar el perfil global. Solo completar si el cliente tiene condiciones especiales.</span>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-300">6</span>
-                            <span><strong class="text-slate-300">Estado</strong> — El cliente se crea activo por defecto. Podés desactivarlo después desde el detalle.</span>
-                        </li>
-                    </ol>
-                    <hr class="my-5 border-slate-800" />
-                    <p class="text-xs text-slate-500">Los campos marcados con <strong class="text-slate-300">*</strong> son obligatorios.</p>
+            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 card-pad" style="border-top:1px solid var(--line);background:rgba(8,12,22,.4)">
+                <div class="text-xs muted-2 flex items-center gap-1.5 mr-auto"><span class="material-symbols-outlined" style="font-size:16px">lock</span>Los datos se guardan de forma segura.</div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    @if (!string.IsNullOrWhiteSpace(returnUrl))
+                    {
+                        <a href="@returnUrl" data-cliente-cancel class="btn btn-ghost flex-1 sm:flex-none">Cancelar</a>
+                    }
+                    else
+                    {
+                        <a asp-action="Index" data-cliente-cancel class="btn btn-ghost flex-1 sm:flex-none">Cancelar</a>
+                    }
+                    <button type="submit" class="btn btn-primary flex-1 sm:flex-none"><span class="material-symbols-outlined">person_add</span>Crear cliente</button>
                 </div>
             </div>
-        </aside>
+        </form>
 
+        <aside class="space-y-4">
+            <div class="card card-pad">
+                <div class="text-xs uppercase tracking-wide muted-2 font-semibold mb-3">Resumen</div>
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="avatar avatar-lg" id="pv-avatar">+</div>
+                    <div class="min-w-0"><div class="font-semibold text-white" id="pv-name">Nuevo cliente</div><div class="mono text-xs muted-2" id="pv-doc">-</div></div>
+                </div>
+                <dl class="kv">
+                    <div class="kv-row"><dt>Estado inicial</dt><dd><span class="chip chip-ok">Activo</span></dd></div>
+                    <div class="kv-row"><dt>Aptitud</dt><dd><span class="chip chip-neutral">Sin evaluar</span></dd></div>
+                    <div class="kv-row"><dt>Límite</dt><dd class="num">Por puntaje</dd></div>
+                </dl>
+            </div>
+            <div class="card card-pad">
+                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">tips_and_updates</span><h3 class="font-semibold text-white">Recordá</h3></div>
+                <ul class="help-list">
+                    <li><span class="material-symbols-outlined">badge</span>El documento y CUIL/CUIT deben ser únicos por cliente.</li>
+                    <li><span class="material-symbols-outlined">gpp_good</span>La situación BCRA se consulta al evaluar la aptitud.</li>
+                    <li><span class="material-symbols-outlined">folder_shared</span>La documentación se carga luego, desde el legajo.</li>
+                </ul>
+            </div>
+        </aside>
     </div>
-</form>
+</main>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/cliente-form.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            function selectTab(panelId) {
+                document.querySelectorAll('#form-tabs .tab').forEach(function (tab) {
+                    tab.setAttribute('aria-selected', String(tab.getAttribute('data-cliente-tab') === panelId));
+                });
+                document.querySelectorAll('.tab-panel').forEach(function (panel) {
+                    panel.classList.toggle('is-active', panel.id === panelId);
+                });
+            }
+
+            function updatePreview() {
+                var apellido = document.getElementById('Apellido');
+                var nombre = document.getElementById('Nombre');
+                var documento = document.getElementById('NumeroDocumento');
+                var ap = apellido ? apellido.value.trim() : '';
+                var no = nombre ? nombre.value.trim() : '';
+                var full = (ap || no) ? (ap + (ap && no ? ', ' : '') + no) : 'Nuevo cliente';
+                var avatar = ((ap.charAt(0) || '') + (no.charAt(0) || '')).toUpperCase() || '+';
+                var nameEl = document.getElementById('pv-name');
+                var avatarEl = document.getElementById('pv-avatar');
+                var docEl = document.getElementById('pv-doc');
+                if (nameEl) nameEl.textContent = full;
+                if (avatarEl) avatarEl.textContent = avatar;
+                if (docEl && documento) docEl.textContent = documento.value.trim() || '-';
+            }
+
+            document.querySelectorAll('[data-cliente-tab]').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    selectTab(tab.getAttribute('data-cliente-tab'));
+                });
+            });
+
+            ['Apellido', 'Nombre', 'NumeroDocumento'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('input', updatePreview);
+            });
+
+            updatePreview();
+        })();
+    </script>
 }

@@ -9,11 +9,45 @@
     function toggleSection(name, forceOpen) {
         var content = document.getElementById('section-' + name);
         var chevron = document.getElementById('chevron-' + name);
-        if (!content || !chevron) return;
+        if (!content || !chevron) {
+            activateTab(name);
+            return;
+        }
         var isOpen = !content.classList.contains('hidden');
         var shouldOpen = forceOpen !== undefined ? forceOpen : !isOpen;
         content.classList.toggle('hidden', !shouldOpen);
         chevron.classList.toggle('rotate-180', !shouldOpen);
+    }
+
+    function activateTab(name) {
+        var tabId = name === 'credito' || name === 'crediticio' ? 't-credito' : 't-' + name;
+        var tab = document.querySelector('#modal-cliente [data-cliente-tab="' + tabId + '"]');
+        var panel = document.getElementById(tabId);
+        if (!tab || !panel) return;
+
+        document.querySelectorAll('#modal-cliente #form-tabs .tab').forEach(function (item) {
+            item.setAttribute('aria-selected', item === tab ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('#modal-cliente .tab-panel').forEach(function (item) {
+            item.classList.toggle('is-active', item === panel);
+        });
+    }
+
+    function updatePreview() {
+        var apellido = document.getElementById('Apellido');
+        var nombre = document.getElementById('Nombre');
+        var documento = document.getElementById('NumeroDocumento');
+        var ap = apellido ? apellido.value.trim() : '';
+        var no = nombre ? nombre.value.trim() : '';
+        var full = (ap || no) ? (ap + (ap && no ? ', ' : '') + no) : 'Nuevo cliente';
+        var avatar = ((ap.charAt(0) || '') + (no.charAt(0) || '')).toUpperCase() || '+';
+        var nameEl = document.getElementById('pv-name');
+        var avatarEl = document.getElementById('pv-avatar');
+        var docEl = document.getElementById('pv-doc');
+        if (nameEl) nameEl.textContent = full;
+        if (avatarEl) avatarEl.textContent = avatar;
+        if (docEl && documento) docEl.textContent = documento.value.trim() || '-';
     }
 
     function validarMontos() {
@@ -106,6 +140,23 @@
         if (cancelBtn) {
             cancelBtn.addEventListener('click', close);
         }
+
+        var cancelBottomBtn = document.getElementById('modal-cliente-cancel-bottom');
+        if (cancelBottomBtn) {
+            cancelBottomBtn.addEventListener('click', close);
+        }
+
+        document.querySelectorAll('#modal-cliente [data-cliente-tab]').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                activateTab(tab.getAttribute('data-cliente-tab').replace('t-', ''));
+            });
+        });
+
+        ['Apellido', 'Nombre', 'NumeroDocumento'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', updatePreview);
+        });
+        updatePreview();
 
         var minInput = document.getElementById('montoMinimo');
         var maxInput = document.getElementById('montoMaximo');
