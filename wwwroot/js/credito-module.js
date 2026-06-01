@@ -71,6 +71,7 @@
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            modal.classList.add('open');
             document.body.classList.add('overflow-hidden');
 
             var autofocusField = modal.querySelector('textarea, input, button[type="submit"]');
@@ -88,9 +89,10 @@
 
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            modal.classList.remove('open');
 
             var stillOpen = modals.some(function (item) {
-                return !item.classList.contains('hidden');
+                return !item.classList.contains('hidden') || item.classList.contains('open');
             });
 
             if (!stillOpen) {
@@ -140,10 +142,14 @@
     function initGaranteToggle() {
         var toggle = document.getElementById('requiere-garante-toggle');
         var garanteField = document.getElementById('garante-field');
+        var garanteToggleCard = document.getElementById('garante-toggle');
         if (!toggle || !garanteField) return;
 
         function syncVisibility() {
             garanteField.style.display = toggle.checked ? '' : 'none';
+            if (garanteToggleCard) {
+                garanteToggleCard.classList.toggle('is-sel', toggle.checked);
+            }
         }
 
         toggle.addEventListener('change', syncVisibility);

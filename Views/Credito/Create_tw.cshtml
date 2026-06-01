@@ -1,200 +1,157 @@
 @model CreditoViewModel
 @using TheBuryProject.Models.Enums
 @{
-    ViewData["Title"] = "Nueva Línea de Crédito";
+    ViewData["Title"] = "Nueva Linea de Credito";
     var returnUrl = ViewData["ReturnUrl"] as string;
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Url.Action("Index", "Credito") ?? "/Credito";
 }
 
-@if (TempData["Error"] is string errorMsg)
-{
-    <div class="mb-4 flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-400">
-        <span class="material-symbols-outlined">error</span>
-        <p class="text-sm font-medium">@errorMsg</p>
-    </div>
-}
-
-<div class="mx-auto flex max-w-4xl flex-col gap-6">
-
-    <header class="flex flex-wrap items-start justify-between gap-4">
-        <div class="flex items-start gap-3">
-            <a href="@volverHref"
-               class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-slate-200 transition-colors hover:bg-slate-700 no-underline"
-               aria-label="Volver">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-            </a>
-            <div class="flex flex-col gap-1">
-                <span class="badge-erp badge-erp-primary">
-                    <span class="material-symbols-outlined text-sm">credit_score</span>
-                    Crédito
-                </span>
-                <h1 class="text-3xl font-black tracking-tight text-white">Nueva Línea de Crédito</h1>
-                <p class="max-w-2xl text-sm text-slate-400">
-                    Completá los datos para registrar una nueva solicitud de crédito.
-                </p>
-            </div>
+<header class="topbar">
+    <div class="shell topbar-inner">
+        <div class="brand">
+            <span class="brand-badge">
+                <span class="material-symbols-outlined" style="color:#fff;font-size:18px" aria-hidden="true">credit_score</span>
+            </span>
+            Creditos
         </div>
-    </header>
+        <nav class="breadcrumb" style="margin-left:.5rem" aria-label="Migas de pan">
+            <span class="sep">/</span>
+            <a asp-controller="Credito" asp-action="Index">Creditos</a>
+            <span class="sep">/</span>
+            <span style="color:#cbd5e1">Nueva linea</span>
+        </nav>
+        <div style="margin-left:auto" class="flex items-center gap-2">
+            <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
+            <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-slate-200" aria-hidden="true">LF</div>
+        </div>
+    </div>
+</header>
 
-    <form asp-action="Create" method="post" class="flex flex-col gap-6">
+<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:720px">
+    <a href="@volverHref" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_back</span>
+        Volver a creditos
+    </a>
+
+    <div class="page-head" style="margin-top:.95rem">
+        <div class="min-w-0">
+            <h1 class="page-title" style="font-size:1.4rem">Nueva linea de credito</h1>
+            <p class="page-sub" style="margin-top:.3rem">Crea la linea para un cliente apto. El plan de cuotas y montos se configuran al asociar la venta o aprobar el credito.</p>
+        </div>
+    </div>
+
+    <form asp-action="Create" method="post" class="space-y-4" style="margin-top:1.25rem">
         @Html.AntiForgeryToken()
         @if (returnUrl != null)
         {
             <input type="hidden" name="returnUrl" value="@returnUrl" />
         }
 
-        <div asp-validation-summary="ModelOnly"
-             class="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg p-3 empty:hidden"></div>
+        <div asp-validation-summary="ModelOnly" class="alert alert-bad empty:hidden"></div>
 
-        <section class="rounded-xl border border-slate-800 bg-slate-900/50 shadow-sm">
-            <div class="border-b border-slate-800 px-6 py-5">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-primary">person</span>
-                    <h2 class="text-base font-bold text-white">Cliente</h2>
+        <section class="card card-pad">
+            <div class="sec-head">
+                <div class="sec-num">1</div>
+                <div>
+                    <div class="sec-title">Cliente</div>
+                    <div class="sec-sub">Solo se listan clientes con aptitud crediticia vigente.</div>
                 </div>
             </div>
-            <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
+            <label asp-for="ClienteId" class="label">Cliente <span class="req">*</span></label>
+            <select asp-for="ClienteId" asp-items="ViewBag.Clientes" class="field" required>
+                <option value="">Selecciona un cliente...</option>
+            </select>
+            <span asp-validation-for="ClienteId" class="err-text"></span>
+            <p class="hint">El cliente no aparece? Verifica su aptitud en el modulo Clientes.</p>
+        </section>
 
-                <div class="sm:col-span-2">
-                    <label asp-for="ClienteId" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Cliente <span class="text-rose-500">*</span>
-                    </label>
-                    <select asp-for="ClienteId" asp-items="ViewBag.Clientes"
-                            class="credito-input">
-                        <option value="">— Seleccioná un cliente —</option>
-                    </select>
-                    <span asp-validation-for="ClienteId" class="mt-1 text-xs text-red-500"></span>
-                </div>
-
+        <section class="card card-pad">
+            <div class="sec-head">
+                <div class="sec-num">2</div>
                 <div>
-                    <label asp-for="RequiereGarante" class="mb-1.5 flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-300">
-                        <input asp-for="RequiereGarante" type="checkbox"
-                               class="h-4 w-4 rounded border-slate-700 text-primary focus:ring-primary"
-                               id="requiere-garante-toggle" />
-                        Requiere garante
-                    </label>
+                    <div class="sec-title">Garante</div>
+                    <div class="sec-sub">Indica si la operacion requiere garante.</div>
                 </div>
+            </div>
+            <label asp-for="RequiereGarante" class="radio-card" id="garante-toggle">
+                <input asp-for="RequiereGarante" type="checkbox" class="sr-only" id="requiere-garante-toggle" />
+                <span class="rc-dot" style="border-radius:6px"></span>
+                <span class="flex-1">
+                    <span class="rc-title">Requiere garante</span>
+                    <span class="rc-sub">Activa si el monto o el puntaje exigen una garantia personal.</span>
+                </span>
+            </label>
+            <span asp-validation-for="RequiereGarante" class="err-text"></span>
 
-                <div id="garante-field">
-                    <label asp-for="GaranteId" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Garante
-                    </label>
-                    <select asp-for="GaranteId" asp-items="ViewBag.Garantes"
-                            class="credito-input">
-                        <option value="">— Sin garante —</option>
-                    </select>
-                    <span asp-validation-for="GaranteId" class="mt-1 text-xs text-red-500"></span>
-                </div>
-
+            <div id="garante-field" style="margin-top:.85rem">
+                <label asp-for="GaranteId" class="label">Garante <span class="req">*</span></label>
+                <select asp-for="GaranteId" asp-items="ViewBag.Garantes" class="field">
+                    <option value="">Selecciona un garante...</option>
+                </select>
+                <span asp-validation-for="GaranteId" class="err-text"></span>
             </div>
         </section>
 
-        <section class="rounded-xl border border-slate-800 bg-slate-900/50 shadow-sm">
-            <div class="border-b border-slate-800 px-6 py-5">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-primary">payments</span>
-                    <h2 class="text-base font-bold text-white">Condiciones del crédito</h2>
+        <section class="card card-pad">
+            <div class="sec-head">
+                <div class="sec-num">3</div>
+                <div>
+                    <div class="sec-title">Condiciones del credito</div>
+                    <div class="sec-sub">Campos funcionales de la solicitud original.</div>
                 </div>
             </div>
-            <div class="grid gap-5 px-6 py-6 sm:grid-cols-2">
-
+            <div class="grid gap-4 sm:grid-cols-2">
                 <div>
-                    <label asp-for="MontoSolicitado" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Monto solicitado <span class="text-rose-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">$</span>
-                        <input asp-for="MontoSolicitado"
-                               type="number"
-                               step="100"
-                               min="1000"
-                               class="credito-input" style="padding-left: 1.75rem"
-                               placeholder="Ej: 50000" />
+                    <label asp-for="MontoSolicitado" class="label">Monto solicitado <span class="req">*</span></label>
+                    <div class="field-money">
+                        <span class="cur">$</span>
+                        <input asp-for="MontoSolicitado" type="number" step="100" min="1000" class="field" placeholder="Ej: 50000" />
                     </div>
-                    <span asp-validation-for="MontoSolicitado" class="mt-1 text-xs text-red-500"></span>
+                    <span asp-validation-for="MontoSolicitado" class="err-text"></span>
                 </div>
-
                 <div>
-                    <label asp-for="TasaInteres" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Tasa de interés mensual (%) <span class="text-rose-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <input asp-for="TasaInteres"
-                               type="number"
-                               step="0.01"
-                               min="0"
-                               max="100"
-                               class="credito-input" style="padding-right: 2rem"
-                               placeholder="Ej: 5" />
-                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                    </div>
-                    <p class="mt-1 text-xs text-slate-400">Tasa mensual en porcentaje (ej: 5 = 5% mensual)</p>
-                    <span asp-validation-for="TasaInteres" class="mt-1 text-xs text-red-500"></span>
+                    <label asp-for="TasaInteres" class="label">Tasa de interes mensual (%) <span class="req">*</span></label>
+                    <input asp-for="TasaInteres" type="number" step="0.01" min="0" max="100" class="field" placeholder="Ej: 5" />
+                    <p class="hint">Tasa mensual en porcentaje.</p>
+                    <span asp-validation-for="TasaInteres" class="err-text"></span>
                 </div>
-
                 <div>
-                    <label asp-for="CantidadCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Cantidad de cuotas
-                    </label>
-                    <input asp-for="CantidadCuotas"
-                           type="number"
-                           min="1"
-                           max="60"
-                           class="credito-input"
-                           placeholder="Ej: 12" />
-                    <p class="mt-1 text-xs text-slate-400">Orientativo. Las cuotas definitivas se configuran al vincular la venta.</p>
-                    <span asp-validation-for="CantidadCuotas" class="mt-1 text-xs text-red-500"></span>
+                    <label asp-for="CantidadCuotas" class="label">Cantidad de cuotas</label>
+                    <input asp-for="CantidadCuotas" type="number" min="1" max="60" class="field" placeholder="Ej: 12" />
+                    <span asp-validation-for="CantidadCuotas" class="err-text"></span>
                 </div>
-
                 <div>
-                    <label asp-for="FechaSolicitud" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Fecha de solicitud
-                    </label>
-                    <input asp-for="FechaSolicitud"
-                           type="date"
-                           class="credito-input" />
-                    <span asp-validation-for="FechaSolicitud" class="mt-1 text-xs text-red-500"></span>
+                    <label asp-for="FechaSolicitud" class="label">Fecha de solicitud</label>
+                    <input asp-for="FechaSolicitud" type="date" class="field" />
+                    <span asp-validation-for="FechaSolicitud" class="err-text"></span>
                 </div>
-
             </div>
         </section>
 
-        <section class="rounded-xl border border-slate-800 bg-slate-900/50 shadow-sm">
-            <div class="border-b border-slate-800 px-6 py-5">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-primary">note</span>
-                    <h2 class="text-base font-bold text-white">Información adicional</h2>
+        <section class="card card-pad">
+            <div class="sec-head">
+                <div class="sec-num">4</div>
+                <div>
+                    <div class="sec-title">Informacion adicional</div>
+                    <div class="sec-sub">Notas internas de la linea.</div>
                 </div>
             </div>
-            <div class="px-6 py-6">
-                <label asp-for="Observaciones" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Observaciones
-                </label>
-                <textarea asp-for="Observaciones"
-                          rows="3"
-                          class="credito-input"
-                          placeholder="Notas internas sobre la solicitud..."></textarea>
-                <span asp-validation-for="Observaciones" class="mt-1 text-xs text-red-500"></span>
-            </div>
+            <label asp-for="Observaciones" class="label">Observaciones</label>
+            <textarea asp-for="Observaciones" class="field" placeholder="Comentario interno (opcional)..."></textarea>
+            <span asp-validation-for="Observaciones" class="err-text"></span>
         </section>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <a href="@volverHref"
-               class="btn-erp-ghost h-11 no-underline">
-                Cancelar
-            </a>
-            <button type="submit"
-                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
-                <span class="material-symbols-outlined text-[18px]">add_card</span>
-                Crear línea de crédito
+        <div class="flex flex-col-reverse sm:flex-row justify-end gap-2">
+            <a href="@volverHref" class="btn btn-ghost">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">add_card</span>
+                Crear linea de credito
             </button>
         </div>
-
     </form>
-
-</div>
+</main>
 
 @section Styles {
     <partial name="_CreditoModuleStyles" />

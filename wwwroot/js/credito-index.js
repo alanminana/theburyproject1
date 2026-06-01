@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function setTabButtonState(button, isActive) {
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
         button.classList.toggle('border-primary', isActive);
         button.classList.toggle('text-primary', isActive);
         button.classList.toggle('bg-primary/10', isActive);
@@ -72,10 +73,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (creditosPanel) {
             creditosPanel.classList.toggle('hidden', target !== 'creditos');
+            creditosPanel.classList.toggle('is-active', target === 'creditos');
         }
 
         if (morasPanel) {
             morasPanel.classList.toggle('hidden', target !== 'moras');
+            morasPanel.classList.toggle('is-active', target === 'moras');
         }
 
         if (creditoModule && typeof creditoModule.refreshScrollAffordance === 'function') {
@@ -268,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setLoadingContent(clientePanelContent);
         clientePanelContent.setAttribute('data-credito-cliente-id', clienteId);
         clientePanel.classList.remove('hidden');
+        clientePanel.classList.add('open');
         clientePanel.setAttribute('aria-hidden', 'false');
         document.body.classList.add('overflow-hidden');
 
@@ -338,6 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         clientePanel.classList.add('hidden');
+        clientePanel.classList.remove('open');
         clientePanel.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('overflow-hidden');
 
@@ -389,6 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isExpanded) {
             container.innerHTML = '';
             container.classList.add('hidden');
+            creditBlock.classList.remove('is-open');
             button.setAttribute('data-credito-credit-expanded', 'false');
             button.setAttribute('aria-expanded', 'false');
             if (label) label.textContent = 'Ver cuotas';
@@ -405,6 +411,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         container.classList.remove('hidden');
+        creditBlock.classList.add('is-open');
         button.setAttribute('data-credito-credit-expanded', 'true');
         button.setAttribute('aria-expanded', 'true');
         if (label) label.textContent = 'Ocultar cuotas';
@@ -681,6 +688,23 @@ document.addEventListener('DOMContentLoaded', function () {
         if (panelTrigger) {
             event.preventDefault();
             openClientePanel(panelTrigger.getAttribute('data-credito-cliente-id'), panelTrigger);
+            return;
+        }
+
+        var tabTargetTrigger = event.target.closest('[data-credito-tab-target]');
+        if (tabTargetTrigger) {
+            event.preventDefault();
+            activateTab(tabTargetTrigger.getAttribute('data-credito-tab-target'));
+            return;
+        }
+
+        var clienteToggle = event.target.closest('[data-credito-cliente-toggle]');
+        if (clienteToggle) {
+            event.preventDefault();
+            var clienteCard = clienteToggle.closest('.cli-card');
+            if (clienteCard) {
+                clienteCard.classList.toggle('is-open');
+            }
             return;
         }
 

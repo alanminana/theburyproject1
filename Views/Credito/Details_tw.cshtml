@@ -2,12 +2,14 @@
 @model CreditoDetalleViewModel
 @{
     ViewData["Title"] = "Detalle de Crédito";
+
     var cr = Model.Credito;
     var ev = Model.Evaluacion;
     var cuotas = cr.Cuotas ?? new List<CuotaViewModel>();
     var returnUrl = ViewData["ReturnUrl"] as string;
     var contratoVentaCredito = ViewBag.ContratoVentaCredito as ContratoVentaCreditoResumenViewModel;
 
+    var creditoNumero = cr.Numero ?? $"CR-{cr.Id:D3}";
     var cuotasPagadas = cuotas.Count(c => c.Estado == EstadoCuota.Pagada);
     var cuotasVencidas = cuotas.Where(c => c.EstaVencida).ToList();
     var totalCuotas = cuotas.Count;
@@ -16,64 +18,97 @@
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Url.Action("Index", "Credito") ?? "/Credito";
+    var puedeCobrar = cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado;
+    var puedeCancelar = cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado;
+    var montoEnMora = cuotasVencidas.Sum(c => c.SaldoPendiente);
+    var punitoriosEnMora = cuotasVencidas.Sum(c => c.MontoPunitorio);
+    var saldoPendienteCuotas = cuotas
+        .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
+        .Sum(c => c.SaldoPendiente);
+    var primeraMora = cuotasVencidas.OrderByDescending(c => c.DiasAtraso).FirstOrDefault();
+    var montoOtorgado = cr.MontoAprobado > 0 ? cr.MontoAprobado : cr.MontoSolicitado;
+    var cliente = Model.Cliente;
 
-    // Estado badge
-    string estadoBg;
+    string estadoChipClass;
+    string estadoIcon;
     switch (cr.Estado)
     {
         case EstadoCredito.Activo:
         case EstadoCredito.Generado:
-            estadoBg = cuotasVencidas.Any()
-                ? "bg-red-500/20 text-red-400"
-                : "bg-emerald-500/20 text-emerald-400";
+            estadoChipClass = cuotasVencidas.Any() ? "chip-bad" : "chip-ok";
+            estadoIcon = cuotasVencidas.Any() ? "running_with_errors" : "check_circle";
             break;
         case EstadoCredito.Solicitado:
         case EstadoCredito.PendienteConfiguracion:
-            estadoBg = "bg-orange-500/20 text-orange-400";
+            estadoChipClass = "chip-warn";
+            estadoIcon = "hourglass_top";
             break;
         case EstadoCredito.Aprobado:
         case EstadoCredito.Configurado:
-            estadoBg = "bg-blue-500/20 text-blue-400";
+            estadoChipClass = "chip-info";
+            estadoIcon = "verified";
             break;
         case EstadoCredito.Rechazado:
-            estadoBg = "bg-red-500/20 text-red-400";
+        case EstadoCredito.Cancelado:
+            estadoChipClass = "chip-bad";
+            estadoIcon = "block";
             break;
         default:
-            estadoBg = "bg-slate-800 text-slate-300";
+            estadoChipClass = "chip-neutral";
+            estadoIcon = "flag";
             break;
     }
 
-    // Evaluación colores Tailwind (ColorSemaforo retorna success/warning/danger)
-    string evalBg = "", evalBorder = "", evalText = "", evalIcon = "";
+    string evalCardClass = "is-aut";
+    string evalIcon = "rule";
+    string evalPipClass = "on-warn";
     if (ev != null)
     {
         switch (ev.ColorSemaforo)
         {
             case "success":
-                evalBg = "bg-emerald-500/5";
-                evalBorder = "border-emerald-500/20";
-                evalText = "text-emerald-400";
-                evalIcon = "check_circle";
-                break;
-            case "warning":
-                evalBg = "bg-amber-500/5";
-                evalBorder = "border-amber-500/20";
-                evalText = "text-amber-400";
-                evalIcon = "warning";
+                evalCardClass = "is-apto";
+                evalIcon = "verified";
+                evalPipClass = "on-ok";
                 break;
             case "danger":
-                evalBg = "bg-red-500/5";
-                evalBorder = "border-red-500/20";
-                evalText = "text-red-400";
-                evalIcon = "cancel";
+                evalCardClass = "is-no";
+                evalIcon = "block";
+                evalPipClass = "on-bad";
                 break;
             default:
-                evalBg = "bg-slate-900/50";
-                evalBorder = "border-slate-800";
-                evalText = "text-slate-300";
-                evalIcon = "help";
+                evalCardClass = "is-aut";
+                evalIcon = "warning";
+                evalPipClass = "on-warn";
                 break;
         }
+    }
+
+    string Iniciales(string? nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            return "?";
+        }
+
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(partes.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+
+    string CuotaChip(EstadoCuota estado, bool estaVencida)
+    {
+        if (estaVencida)
+        {
+            return "chip-bad";
+        }
+
+        return estado switch
+        {
+            EstadoCuota.Pagada => "chip-ok",
+            EstadoCuota.Parcial => "chip-warn",
+            EstadoCuota.Cancelada => "chip-neutral",
+            _ => "chip-neutral"
+        };
     }
 }
 
@@ -81,840 +116,462 @@
     <partial name="_CreditoModuleStyles" />
 }
 
-<div data-credito-details class="space-y-8">
+<div data-credito-details>
+    <main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+        <a href="@volverHref" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+            Volver a créditos
+        </a>
 
-    <section class="hero-erp sm:p-8">
-        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li><a asp-controller="Credito" asp-action="Index" class="hover:text-primary no-underline">Créditos</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Detalle</li>
-                    </ol>
-                </nav>
-
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">credit_score</span>
-                        Crédito
-                    </span>
-                    <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Crédito @(cr.Numero ?? $"CR-{cr.Id:D3}")</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                            Seguimiento integral del crédito de <span class="font-semibold text-slate-200">@cr.ClienteNombre</span>, con contexto de mora, evaluación y plan de cuotas operativo.
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
-                            <span class="material-symbols-outlined text-sm">person</span>
-                            @cr.ClienteNombre
-                        </span>
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
-                            <span class="material-symbols-outlined text-sm">calendar_month</span>
-                            Solicitado el @cr.FechaSolicitud.ToString("dd/MM/yyyy")
-                        </span>
-                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide @estadoBg">
-                            <span class="material-symbols-outlined text-sm">flag</span>
-                            @cr.Estado
-                        </span>
-                    </div>
+        <div class="page-head" style="margin-top:.95rem">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="page-title" style="font-size:1.4rem">Crédito <span class="mono">@creditoNumero</span></h1>
+                    <span class="chip @estadoChipClass"><span class="material-symbols-outlined">@estadoIcon</span>@cr.Estado</span>
+                    @if (cuotasVencidas.Any())
+                    {
+                        <span class="chip chip-bad"><span class="material-symbols-outlined">error</span>@cuotasVencidas.Count cuota@(cuotasVencidas.Count == 1 ? "" : "s") vencida@(cuotasVencidas.Count == 1 ? "" : "s")</span>
+                    }
                 </div>
+                <p class="page-sub" style="margin-top:.3rem">
+                    Cliente
+                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cliente.Id" class="text-slate-300 hover:text-white" style="text-decoration:none">@cliente.NombreCompleto</a>
+                    · DNI <span class="mono">@cliente.NumeroDocumento</span>
+                    · Solicitado @cr.FechaSolicitud.ToString("dd/MM/yyyy")
+                </p>
             </div>
-
-            <div data-credito-header-actions class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+            <div data-credito-header-actions class="head-actions">
+                <button type="button" class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
+                <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar</a>
                 @if (cr.Estado == EstadoCredito.Solicitado)
                 {
-                    <button type="button"
-                            id="btn-aprobar"
-                            data-credito-modal-action="open"
-                            data-credito-modal-target="aprobar"
-                            class="btn-erp-success">
-                        <span class="material-symbols-outlined text-[20px]">check_circle</span>
-                        Aprobar
-                    </button>
-                    <button type="button"
-                            id="btn-rechazar"
-                            data-credito-modal-action="open"
-                            data-credito-modal-target="rechazar"
-                            class="btn-erp-danger">
-                        <span class="material-symbols-outlined text-[20px]">cancel</span>
-                        Rechazar
-                    </button>
+                    <button type="button" id="btn-aprobar" class="btn btn-success" data-credito-modal-action="open" data-credito-modal-target="aprobar"><span class="material-symbols-outlined">check_circle</span>Aprobar</button>
+                    <button type="button" id="btn-rechazar" class="btn btn-danger" data-credito-modal-action="open" data-credito-modal-target="rechazar"><span class="material-symbols-outlined">block</span>Rechazar</button>
                 }
-                @if (cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado)
+                @if (puedeCobrar)
                 {
-                    <a asp-action="PagarCuota" asp-route-id="@cr.Id"
-                       class="btn-erp-primary no-underline">
-                        <span class="material-symbols-outlined text-[20px]">payments</span>
-                        Pagar Cuota
-                    </a>
-                    <a asp-action="AdelantarCuota" asp-route-id="@cr.Id"
-                       class="btn-erp-ghost no-underline">
-                        <span class="material-symbols-outlined text-[20px]">fast_forward</span>
-                        Adelantar
-                    </a>
+                    <a asp-action="AdelantarCuota" asp-route-id="@cr.Id" class="btn btn-soft"><span class="material-symbols-outlined">fast_forward</span>Adelantar</a>
+                    <a asp-action="PagarCuota" asp-route-id="@cr.Id" class="btn btn-primary"><span class="material-symbols-outlined">payments</span>Pagar cuota</a>
                 }
-                @if (cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado)
-                {
-                    <button type="button"
-                            id="btn-cancelar"
-                            data-credito-modal-action="open"
-                            data-credito-modal-target="cancelar"
-                            class="btn-erp-danger">
-                        <span class="material-symbols-outlined text-[20px]">block</span>
-                        Cancelar
-                    </button>
-                }
-                <a href="@volverHref" class="btn-erp-ghost no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    Volver
-                </a>
             </div>
-        </header>
+        </div>
 
-        <div class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <article class="card-erp-metric">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Estado</p>
-                <p class="mt-2 text-2xl font-black text-white">@cr.Estado</p>
-                <p class="mt-1 text-xs text-slate-400">estado operativo actual</p>
-            </article>
-            <article class="@(cr.SaldoPendiente > 0 ? "card-erp-metric-danger" : "card-erp-metric-success")">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(cr.SaldoPendiente > 0 ? "text-red-400" : "text-emerald-400")">Saldo pendiente</p>
-                <p class="mt-2 text-2xl font-black @(cr.SaldoPendiente > 0 ? "text-red-300" : "text-emerald-300")">$ @cr.SaldoPendiente.ToString("N0")</p>
-                <p class="mt-1 text-xs @(cr.SaldoPendiente > 0 ? "text-red-400/80" : "text-emerald-400/80")">capital a regularizar</p>
-            </article>
-            <article class="card-erp-metric-info">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-400">Progreso</p>
-                <p class="mt-2 text-2xl font-black text-sky-300">@progresoPago%</p>
-                <p class="mt-1 text-xs text-sky-400/80">@cuotasPagadas / @totalCuotas cuota@(totalCuotas == 1 ? "" : "s") pagada@(cuotasPagadas == 1 ? "" : "s")</p>
-            </article>
-            <article class="@(cuotasVencidas.Any() ? "card-erp-metric-danger" : "card-erp-metric")">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] @(cuotasVencidas.Any() ? "text-red-400" : "text-slate-400")">Pendientes</p>
-                <p class="mt-2 text-2xl font-black @(cuotasVencidas.Any() ? "text-red-300" : "text-white")">@cuotasPendientes</p>
-                <p class="mt-1 text-xs @(cuotasVencidas.Any() ? "text-red-400/80" : "text-slate-400")">@cuotasVencidas.Count mora@(cuotasVencidas.Count == 1 ? "" : "s") activa@(cuotasVencidas.Count == 1 ? "" : "s")</p>
-            </article>
-        </div>
-    </section>
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-ok" style="margin-top:1rem" role="status"><span class="material-symbols-outlined">check_circle</span><span>@TempData["Success"]</span></div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-bad" style="margin-top:1rem" role="alert"><span class="material-symbols-outlined">error</span><span>@TempData["Error"]</span></div>
+        }
+        @if (TempData["Warning"] != null)
+        {
+            <div class="alert alert-warn" style="margin-top:1rem" role="status"><span class="material-symbols-outlined">warning</span><span>@TempData["Warning"]</span></div>
+        }
 
-    <!-- TempData Alerts -->
-    @if (TempData["Success"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/50 bg-emerald-500/10 p-4 text-emerald-400" role="status">
-            <span class="material-symbols-outlined">check_circle</span>
-            <span class="text-sm font-medium">@TempData["Success"]</span>
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-red-500/50 bg-red-500/10 p-4 text-red-400" role="alert">
-            <span class="material-symbols-outlined">error</span>
-            <span class="text-sm font-medium">@TempData["Error"]</span>
-        </div>
-    }
-    @if (TempData["Warning"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 text-amber-400" role="status">
-            <span class="material-symbols-outlined">warning</span>
-            <span class="text-sm font-medium">@TempData["Warning"]</span>
-        </div>
-    }
-
-    <!-- Mora Alert -->
-    @if (cuotasVencidas.Any())
-    {
-        <div class="rounded-xl border border-red-500/50 bg-red-500/10 p-5 flex items-start gap-4">
-            <div class="bg-red-500 text-white rounded-full p-1 flex-shrink-0">
-                <span class="material-symbols-outlined text-[24px]">priority_high</span>
+        <div class="grid-kpi" style="margin-top:1.5rem">
+            <div class="kpi">
+                <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">request_quote</span>Monto otorgado</div>
+                <div class="kpi-value">$ @montoOtorgado.ToString("N0")</div>
+                <div class="kpi-foot">capital · @cr.CantidadCuotas cuota@(cr.CantidadCuotas == 1 ? "" : "s")</div>
             </div>
-            <div class="flex-1">
-                <h4 class="text-red-400 font-bold text-lg">Cuotas en Mora</h4>
-                <p class="text-red-600 text-red-300 text-sm mt-1">
-                    <span class="font-bold">@cuotasVencidas.Count cuota(s) vencida(s)</span> &mdash;
-                    Deuda total mora: <span class="font-bold">$ @cuotasVencidas.Sum(c => c.SaldoPendiente).ToString("N2")</span>
-                    @{ var maxDias = cuotasVencidas.Max(c => c.DiasAtraso); }
-                    @if (maxDias > 0)
-                    {
-                        <text>&mdash; Máximo atraso: <span class="font-bold">@maxDias días</span></text>
-                    }
-                </p>
+            <div class="kpi kpi--accent">
+                <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Saldo pendiente</div>
+                <div class="kpi-value">$ @cr.SaldoPendiente.ToString("N0")</div>
+                <div class="mt-2 bar"><div class="bar-fill is-accent" style="width:@progresoPago%"></div></div>
+                <div class="kpi-foot">@progresoPago% pagado</div>
             </div>
-            <a asp-action="PagarCuota" asp-route-id="@cr.Id"
-               class="flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 no-underline transition-colors">
-                Pagar Mora
-            </a>
+            <div class="kpi">
+                <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">checklist</span>Cuotas</div>
+                <div class="kpi-value">@cuotasPagadas<span class="text-base muted-2 font-normal"> / @totalCuotas</span></div>
+                <div class="kpi-foot">@cuotasPendientes pendiente@(cuotasPendientes == 1 ? "" : "s") · @cuotasVencidas.Count vencida@(cuotasVencidas.Count == 1 ? "" : "s")</div>
+            </div>
+            <div class="kpi @(cuotasVencidas.Any() ? "kpi--bad" : "kpi--ok")">
+                <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">event_busy</span>En mora</div>
+                <div class="kpi-value">$ @montoEnMora.ToString("N0")</div>
+                <div class="kpi-foot">@(primeraMora != null ? $"cuota {primeraMora.NumeroCuota} · {primeraMora.DiasAtraso} días de atraso" : "sin mora activa")</div>
+            </div>
         </div>
-    }
 
-    <!-- Main Grid: Info + Client -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <!-- Credit Details (2 cols) -->
-        <div class="lg:col-span-2 card-erp-panel-padded">
-            <h3 class="text-lg font-bold text-white mb-5 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">description</span>
-                Información del Crédito
-            </h3>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-6">
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Número</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@(cr.Numero ?? $"CR-{cr.Id:D3}")</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Monto Solicitado</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">$ @cr.MontoSolicitado.ToString("N2")</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Monto Aprobado</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">$ @cr.MontoAprobado.ToString("N2")</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Tasa Interés Mensual</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@cr.TasaInteres.ToString("N2")%</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">CFTEA</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@cr.CFTEA.ToString("N2")%</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Cuotas</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@cr.CantidadCuotas</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Monto por Cuota</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">$ @cr.MontoCuota.ToString("N2")</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Total a Pagar</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">$ @cr.TotalAPagar.ToString("N2")</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Saldo Pendiente</p>
-                    <p class="text-sm font-semibold @(cr.SaldoPendiente > 0 ? "text-red-400" : "text-emerald-400") mt-0.5">
-                        $ @cr.SaldoPendiente.ToString("N2")
+        @if (cuotasVencidas.Any())
+        {
+            <div class="apt-card is-no" style="margin-top:1.25rem">
+                <div class="apt-ic"><span class="material-symbols-outlined">running_with_errors</span></div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-white">@cuotasVencidas.Count cuota@(cuotasVencidas.Count == 1 ? "" : "s") en mora</div>
+                    <p class="text-sm muted mt-0.5">
+                        Deuda vencida $ @montoEnMora.ToString("N2")
+                        @if (punitoriosEnMora > 0)
+                        {
+                            <text> · punitorios $ @punitoriosEnMora.ToString("N2")</text>
+                        }
+                        . Registrá el pago para regularizar el crédito.
                     </p>
                 </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Fecha Solicitud</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@cr.FechaSolicitud.ToString("dd/MM/yyyy")</p>
-                </div>
-                @if (cr.FechaAprobacion.HasValue)
+                @if (puedeCobrar)
                 {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Fecha Aprobación</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">@cr.FechaAprobacion.Value.ToString("dd/MM/yyyy")</p>
-                    </div>
-                }
-                @if (cr.FechaPrimeraCuota.HasValue)
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Primera Cuota</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">@cr.FechaPrimeraCuota.Value.ToString("dd/MM/yyyy")</p>
-                    </div>
-                }
-                @if (cr.FechaFinalizacion.HasValue)
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Fecha Finalización</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">@cr.FechaFinalizacion.Value.ToString("dd/MM/yyyy")</p>
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(cr.AprobadoPor))
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aprobado Por</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">@cr.AprobadoPor</p>
-                    </div>
-                }
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Riesgo Inicial</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@cr.PuntajeRiesgoInicial.ToString("N0") pts</p>
-                </div>
-                @if (cr.RequiereGarante)
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Requiere Garante</p>
-                        <p class="text-sm font-semibold text-amber-400 mt-0.5">Sí</p>
-                    </div>
+                    <a asp-action="PagarCuota" asp-route-id="@cr.Id" class="btn btn-danger btn-sm shrink-0"><span class="material-symbols-outlined">payments</span>Pagar cuota vencida</a>
                 }
             </div>
-            @if (!string.IsNullOrEmpty(cr.Observaciones))
-            {
-                <div class="mt-5 pt-4 border-t border-slate-100 border-slate-800">
-                    <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-1">Observaciones</p>
-                    <p class="text-sm text-slate-300 leading-relaxed">@cr.Observaciones</p>
-                </div>
-            }
+        }
 
-            @* Trazabilidad de restricciones de cuotas — solo si hay datos persistidos (Fase 9.5b) *@
-            @if (cr.FuenteRestriccionCuotasSnap != null || cr.CuotasMaximasPermitidas.HasValue || cr.MaxCuotasBaseSnap.HasValue)
-            {
-                <div class="mt-5 pt-4 border-t border-slate-800" data-credito-restriccion-cuotas>
-                    <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined text-[16px] text-slate-400">tune</span>
-                        <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Restricciones de cuotas aplicadas</p>
-                        @if (cr.FuenteRestriccionCuotasSnap == "Producto")
-                        {
-                            <span class="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                                <span class="material-symbols-outlined text-[12px]">warning</span>
-                                Restringido por producto
-                            </span>
-                        }
-                        else if (cr.FuenteRestriccionCuotasSnap == "Global")
-                        {
-                            <span class="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
-                                Sin restricción por producto
-                            </span>
-                        }
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
+            <div class="lg:col-span-2 space-y-4">
+                <section class="card" style="overflow:hidden">
+                    <div class="card-pad" style="padding-bottom:.75rem">
+                        <div class="flex items-center justify-between gap-3">
+                            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">calendar_month</span>Plan de cuotas</h2>
+                            <div class="scroll-hint hide-mobile"><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá</div>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-6">
-                        @if (cr.MaxCuotasBaseSnap.HasValue)
-                        {
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Máx. cuotas base</p>
-                                <p class="text-sm font-semibold text-slate-300 mt-0.5">@cr.MaxCuotasBaseSnap</p>
-                                <p class="text-[10px] text-slate-500">Sin restricción producto</p>
+                    @if (cuotas.Any())
+                    {
+                        <div data-oc-scroll style="--oc-scroll-min-width:74rem">
+                            <p data-oc-scroll-hint hidden class="text-xs muted-2" style="padding:0 1.25rem .75rem">Deslizá la tabla para ver capital, punitorio y acciones de pago.</p>
+                            <div data-oc-scroll-shell>
+                                <div data-oc-scroll-fade="left" hidden></div>
+                                <div data-oc-scroll-fade="right" hidden></div>
+                                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Plan de cuotas del crédito" class="tbl-wrap">
+                                    <table data-oc-scroll-table class="tbl">
+                                        <thead>
+                                            <tr>
+                                                <th>Cuota</th>
+                                                <th>Vencimiento</th>
+                                                <th style="text-align:right">Capital</th>
+                                                <th style="text-align:right">Interés</th>
+                                                <th style="text-align:right">Total</th>
+                                                <th style="text-align:right">Mora</th>
+                                                <th style="text-align:right">Pagado</th>
+                                                <th>Estado</th>
+                                                <th style="text-align:right">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var cuota in cuotas.OrderBy(c => c.NumeroCuota))
+                                            {
+                                                var estaVencida = cuota.EstaVencida;
+                                                var cuotaNumeroClass = cuota.Estado == EstadoCuota.Pagada ? "ok" : estaVencida ? "venc" : "";
+                                                <tr class="@(estaVencida ? "is-venc" : "")">
+                                                    <td><span class="cuota-n @cuotaNumeroClass">@cuota.NumeroCuota</span></td>
+                                                    <td>
+                                                        @cuota.FechaVencimiento.ToString("dd/MM/yyyy")
+                                                        @if (estaVencida)
+                                                        {
+                                                            <span class="chip chip-bad" style="margin-left:.3rem">+@cuota.DiasAtraso d</span>
+                                                        }
+                                                    </td>
+                                                    <td class="num" style="text-align:right">$ @cuota.MontoCapital.ToString("N2")</td>
+                                                    <td class="num" style="text-align:right">$ @cuota.MontoInteres.ToString("N2")</td>
+                                                    <td class="num" style="text-align:right;font-weight:600;color:#fff">$ @cuota.MontoTotal.ToString("N2")</td>
+                                                    <td class="num @(cuota.MontoPunitorio > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPunitorio > 0 ? "color:#fbbf24" : "")">@(cuota.MontoPunitorio > 0 ? $"$ {cuota.MontoPunitorio:N2}" : "—")</td>
+                                                    <td class="num @(cuota.MontoPagado > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPagado > 0 ? "color:#34d399" : "")">
+                                                        @(cuota.MontoPagado > 0 ? $"$ {cuota.MontoPagado:N2}" : "—")
+                                                        @if (cuota.FechaPago.HasValue)
+                                                        {
+                                                            <span class="block text-xs muted-2">@cuota.FechaPago.Value.ToString("dd/MM/yyyy")</span>
+                                                        }
+                                                    </td>
+                                                    <td><span class="chip @CuotaChip(cuota.Estado, estaVencida)">@(estaVencida && cuota.Estado == EstadoCuota.Pendiente ? "Vencida" : cuota.EstadoTexto)</span></td>
+                                                    <td style="text-align:right">
+                                                        @if (cuota.Estado == EstadoCuota.Pendiente || cuota.Estado == EstadoCuota.Vencida || cuota.Estado == EstadoCuota.Parcial)
+                                                        {
+                                                            <a asp-action="PagarCuota" asp-route-id="@cr.Id" asp-route-cuotaId="@cuota.Id" class="btn @(estaVencida ? "btn-danger" : "btn-soft") btn-sm">Pagar</a>
+                                                        }
+                                                        else if (cuota.Estado == EstadoCuota.Pagada && !string.IsNullOrEmpty(cuota.ComprobantePago))
+                                                        {
+                                                            <span class="text-xs muted-2" title="@cuota.ComprobantePago">Comprobante</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                        <tfoot>
+                                            <tr style="background:rgba(15,23,42,.5)">
+                                                <td colspan="4" style="padding:.7rem 1rem;font-weight:600;color:var(--muted)">Saldo pendiente (@cuotasPendientes cuota@(cuotasPendientes == 1 ? "" : "s"))</td>
+                                                <td class="num" style="text-align:right;padding:.7rem 1rem;font-weight:600;color:#fff">$ @saldoPendienteCuotas.ToString("N2")</td>
+                                                <td class="num" style="text-align:right;color:#fbbf24">$ @punitoriosEnMora.ToString("N2")</td>
+                                                <td colspan="3"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
                             </div>
-                        }
-                        @if (cr.CuotasMaximasPermitidas.HasValue)
-                        {
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Máx. cuotas efectivo</p>
-                                <p class="text-sm font-semibold @(cr.FuenteRestriccionCuotasSnap == "Producto" ? "text-amber-400" : "text-white") mt-0.5">@cr.CuotasMaximasPermitidas</p>
-                                <p class="text-[10px] text-slate-500">Aplicado a la configuración</p>
-                            </div>
-                        }
-                        @if (cr.CuotasMinimasPermitidas.HasValue)
-                        {
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Mín. cuotas</p>
-                                <p class="text-sm font-semibold text-slate-300 mt-0.5">@cr.CuotasMinimasPermitidas</p>
-                            </div>
-                        }
-                        @if (cr.ProductoIdRestrictivoSnap.HasValue && cr.FuenteRestriccionCuotasSnap == "Producto")
-                        {
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Producto restrictivo (snapshot)</p>
-                                <p class="text-sm font-mono text-slate-300 mt-0.5">#@cr.ProductoIdRestrictivoSnap</p>
-                                <p class="text-[10px] text-slate-500">ID al momento de la venta</p>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-
-        <!-- Right Sidebar: Client + Garante + Cupo -->
-        <div class="space-y-4">
-            @if (contratoVentaCredito != null)
-            {
-                <div class="card-erp-panel-padded">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-emerald-400 text-[18px]">contract</span>
-                        Contrato generado
-                    </h3>
-                    <div class="space-y-3 text-xs">
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Contrato Nº</p>
-                            <p class="mt-0.5 text-sm font-semibold text-white">@contratoVentaCredito.NumeroContrato</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pagaré Nº</p>
-                            <p class="mt-0.5 text-sm font-semibold text-white">@contratoVentaCredito.NumeroPagare</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Generación</p>
-                            <p class="mt-0.5 text-sm font-semibold text-white">@contratoVentaCredito.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Usuario</p>
-                            <p class="mt-0.5 text-sm font-semibold text-white">@contratoVentaCredito.UsuarioGeneracion</p>
-                        </div>
-                        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-emerald-300">
-                            <span class="inline-flex items-center gap-1 font-bold">
-                                <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                @contratoVentaCredito.EstadoDocumento
-                            </span>
-                        </div>
-                    </div>
-                    <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@contratoVentaCredito.VentaId"
-                       target="_blank" rel="noopener"
-                       class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 no-underline">
-                        <span class="material-symbols-outlined text-[18px]">print</span>
-                        Ver / imprimir
-                    </a>
-                </div>
-            }
-
-            <!-- Client Card -->
-            <div class="card-erp-panel-padded">
-                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-[18px]">person</span>
-                    Cliente
-                </h3>
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        @(Model.Cliente.NombreCompleto.Length > 0 ? Model.Cliente.NombreCompleto[0].ToString().ToUpper() : "?")
-                    </div>
-                    <div>
-                        <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.Cliente.Id"
-                           class="text-sm font-bold text-white hover:text-primary no-underline transition-colors">
-                            @Model.Cliente.NombreCompleto
-                        </a>
-                        <p class="text-[10px] text-slate-400">DNI @Model.Cliente.NumeroDocumento</p>
-                    </div>
-                </div>
-                <div class="space-y-2 text-xs">
-                    @if (!string.IsNullOrEmpty(Model.Cliente.Telefono))
-                    {
-                        <div class="flex items-center gap-2 text-slate-400">
-                            <span class="material-symbols-outlined text-[14px]">phone</span>
-                            @Model.Cliente.Telefono
                         </div>
                     }
-                    @if (!string.IsNullOrEmpty(Model.Cliente.Email))
+                    else
                     {
-                        <div class="flex items-center gap-2 text-slate-400">
-                            <span class="material-symbols-outlined text-[14px]">mail</span>
-                            @Model.Cliente.Email
+                        <div class="empty">
+                            <div class="empty-ic"><span class="material-symbols-outlined">receipt_long</span></div>
+                            <h3>Sin cuotas generadas aún</h3>
+                            <p>El plan de cuotas aparecerá cuando el crédito esté activo o generado.</p>
                         </div>
                     }
-                    @if (!string.IsNullOrEmpty(Model.Cliente.Domicilio))
-                    {
-                        <div class="flex items-center gap-2 text-slate-400">
-                            <span class="material-symbols-outlined text-[14px]">location_on</span>
-                            @Model.Cliente.Domicilio
-                        </div>
-                    }
-                    @if (Model.Cliente.Sueldo.HasValue)
-                    {
-                        <div class="flex items-center gap-2 text-slate-400">
-                            <span class="material-symbols-outlined text-[14px]">payments</span>
-                            Sueldo: $ @Model.Cliente.Sueldo.Value.ToString("N2")
-                        </div>
-                    }
-                    <div class="flex items-center gap-2 text-slate-400">
-                        <span class="material-symbols-outlined text-[14px]">speed</span>
-                        Riesgo: @Model.Cliente.PuntajeRiesgo.ToString("N0") pts
-                    </div>
-                </div>
-            </div>
+                </section>
 
-            <!-- Garante Card -->
-            @if (Model.Garante != null)
-            {
-                <div class="card-erp-panel-padded">
-                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-amber-500 text-[18px]">shield_person</span>
-                        Garante
-                    </h3>
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                            @(Model.Garante.NombreCompleto.Length > 0 ? Model.Garante.NombreCompleto[0].ToString().ToUpper() : "?")
-                        </div>
-                        <div>
-                            <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.Garante.Id"
-                               class="text-sm font-bold text-white hover:text-primary no-underline transition-colors">
-                                @Model.Garante.NombreCompleto
-                            </a>
-                            <p class="text-[10px] text-slate-400">DNI @Model.Garante.NumeroDocumento</p>
-                        </div>
-                    </div>
-                </div>
-            }
-
-            <!-- Cupo Global -->
-            <div class="card-erp-panel-padded">
-                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary text-[18px]">account_balance_wallet</span>
-                    Cupo Global
-                </h3>
-                @if (Model.CupoGlobalConError)
+                @if (ev != null)
                 {
-                    <div class="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
-                        <p class="text-xs text-amber-700 text-amber-400 font-medium flex items-center gap-1">
-                            <span class="material-symbols-outlined text-[14px]">warning</span>
-                            @(Model.CupoGlobalMensajeError ?? "No se pudo calcular el cupo")
-                        </p>
-                    </div>
-                }
-                else if (Model.CupoGlobalDisponible.HasValue)
-                {
-                    <p class="text-2xl font-black text-emerald-400 leading-none">
-                        $ @Model.CupoGlobalDisponible.Value.ToString("N2")
-                    </p>
-                    <p class="text-[10px] text-slate-400 mt-1">Disponible</p>
-                    @if (!string.IsNullOrEmpty(Model.CupoGlobalOrigenLimite))
-                    {
-                        <p class="text-[10px] text-slate-400 mt-1">
-                            Origen: <span class="font-medium">@Model.CupoGlobalOrigenLimite</span>
-                        </p>
-                    }
-                }
-                else
-                {
-                    <p class="text-xs text-slate-400">Sin información de cupo disponible.</p>
-                }
-            </div>
-        </div>
-    </div>
-
-    <!-- Evaluación Crediticia -->
-    @if (ev != null)
-    {
-        <div class="card-erp-panel-padded">
-            <h3 class="text-lg font-bold text-white mb-5 flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">analytics</span>
-                Evaluación Crediticia
-            </h3>
-
-            <!-- Result Banner -->
-            <div class="@evalBg border @evalBorder rounded-xl p-4 mb-5 flex items-center gap-4">
-                <span class="material-symbols-outlined text-3xl @evalText">@evalIcon</span>
-                <div class="flex-1">
-                    <p class="text-sm font-bold @evalText">@ev.ResultadoTexto</p>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        Evaluado el @ev.FechaEvaluacion.ToString("dd/MM/yyyy HH:mm")
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="text-2xl font-black @evalText leading-none">@ev.PuntajeFinal.ToString("N0")</p>
-                    <p class="text-[10px] text-slate-400">/ 100 pts</p>
-                </div>
-            </div>
-
-            <!-- Evaluation Metrics -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px] @(ev.TieneDocumentacionCompleta ? "text-emerald-500" : "text-red-500")">
-                        @(ev.TieneDocumentacionCompleta ? "check_circle" : "cancel")
-                    </span>
-                    <span class="text-xs text-slate-300">Documentación</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px] @(ev.TieneIngresosSuficientes ? "text-emerald-500" : "text-red-500")">
-                        @(ev.TieneIngresosSuficientes ? "check_circle" : "cancel")
-                    </span>
-                    <span class="text-xs text-slate-300">Ingresos</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px] @(ev.TieneBuenHistorial ? "text-emerald-500" : "text-red-500")">
-                        @(ev.TieneBuenHistorial ? "check_circle" : "cancel")
-                    </span>
-                    <span class="text-xs text-slate-300">Historial</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px] @(ev.TieneGarante ? "text-emerald-500" : "text-slate-600")">
-                        @(ev.TieneGarante ? "check_circle" : "remove_circle_outline")
-                    </span>
-                    <span class="text-xs text-slate-300">Garante</span>
-                </div>
-            </div>
-
-            <!-- Additional Data -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pt-4 border-t border-slate-100 border-slate-800">
-                @if (ev.SueldoCliente.HasValue)
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400">Sueldo</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">$ @ev.SueldoCliente.Value.ToString("N2")</p>
-                    </div>
-                }
-                @if (ev.RelacionCuotaIngreso.HasValue)
-                {
-                    <div>
-                        <p class="text-[10px] font-bold uppercase text-slate-400">Relación Cuota/Ingreso</p>
-                        <p class="text-sm font-semibold text-white mt-0.5">@ev.RelacionCuotaIngreso.Value.ToString("N1")%</p>
-                    </div>
-                }
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400">Riesgo Cliente</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">@ev.PuntajeRiesgoCliente.ToString("N0") pts</p>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold uppercase text-slate-400">Monto Evaluado</p>
-                    <p class="text-sm font-semibold text-white mt-0.5">$ @ev.MontoSolicitado.ToString("N2")</p>
-                </div>
-            </div>
-
-            <!-- Rules -->
-            @if (ev.Reglas.Any())
-            {
-                <div class="pt-4 border-t border-slate-100 border-slate-800">
-                    <p class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Reglas Evaluadas</p>
-                    <div class="space-y-2">
-                        @foreach (var regla in ev.Reglas)
-                        {
-                            <div class="flex items-center gap-3 p-2 rounded-lg @(regla.Cumple ? "bg-emerald-50 bg-emerald-500/5" : regla.EsCritica ? "bg-red-50 bg-red-500/5" : "bg-amber-50 bg-amber-500/5")">
-                                <span class="material-symbols-outlined text-[16px] @(regla.Cumple ? "text-emerald-500" : regla.EsCritica ? "text-red-500" : "text-amber-500")">
-                                    @(regla.Cumple ? "check_circle" : regla.EsCritica ? "cancel" : "warning")
-                                </span>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-slate-200">
-                                        @regla.Nombre
-                                        @if (regla.EsCritica && !regla.Cumple)
-                                        {
-                                            <span class="text-red-500 font-bold ml-1">(Crítica)</span>
-                                        }
-                                    </p>
-                                    @if (!string.IsNullOrEmpty(regla.Detalle))
+                    <section class="card card-pad">
+                        <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">fact_check</span>Evaluación crediticia</h2>
+                        <div class="apt-card @evalCardClass">
+                            <div class="apt-ic"><span class="material-symbols-outlined">@evalIcon</span></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-white">@ev.ResultadoTexto · puntaje @ev.PuntajeFinal.ToString("N0")</div>
+                                <p class="text-sm muted mt-0.5">
+                                    Evaluado el @ev.FechaEvaluacion.ToString("dd/MM/yyyy HH:mm")
+                                    @if (ev.RelacionCuotaIngreso.HasValue)
                                     {
-                                        <p class="text-[10px] text-slate-400 truncate">@regla.Detalle</p>
+                                        <text> · relación cuota/ingreso @ev.RelacionCuotaIngreso.Value.ToString("N1")%</text>
+                                    }
+                                </p>
+                            </div>
+                            <span class="pips">
+                                @for (var i = 1; i <= 5; i++)
+                                {
+                                    <span class="pip @(i <= Math.Ceiling(ev.PuntajeFinal / 20m) ? evalPipClass : "")"></span>
+                                }
+                            </span>
+                        </div>
+                        <dl class="kv mt-4">
+                            <div class="kv-row"><dt>Documentación</dt><dd><span class="chip @(ev.TieneDocumentacionCompleta ? "chip-ok" : "chip-bad")">@(ev.TieneDocumentacionCompleta ? "Completa" : "Pendiente")</span></dd></div>
+                            <div class="kv-row"><dt>Ingresos</dt><dd><span class="chip @(ev.TieneIngresosSuficientes ? "chip-ok" : "chip-bad")">@(ev.TieneIngresosSuficientes ? "Suficientes" : "Insuficientes")</span></dd></div>
+                            <div class="kv-row"><dt>Historial</dt><dd><span class="chip @(ev.TieneBuenHistorial ? "chip-ok" : "chip-bad")">@(ev.TieneBuenHistorial ? "Bueno" : "Revisar")</span></dd></div>
+                            <div class="kv-row"><dt>Garante</dt><dd>@(ev.TieneGarante ? "Informado" : "No requiere / sin garante")</dd></div>
+                            @if (ev.SueldoCliente.HasValue)
+                            {
+                                <div class="kv-row"><dt>Ingreso declarado</dt><dd class="num">$ @ev.SueldoCliente.Value.ToString("N2") / mes</dd></div>
+                            }
+                            <div class="kv-row"><dt>Riesgo cliente</dt><dd>@ev.PuntajeRiesgoCliente.ToString("N0") pts</dd></div>
+                            <div class="kv-row"><dt>Monto evaluado</dt><dd class="num">$ @ev.MontoSolicitado.ToString("N2")</dd></div>
+                        </dl>
+                        @if (ev.Reglas.Any())
+                        {
+                            <div style="border-top:1px solid var(--line);margin-top:1rem;padding-top:1rem">
+                                <div class="text-xs muted-2 font-semibold" style="margin-bottom:.6rem">Reglas evaluadas</div>
+                                <div class="space-y-2">
+                                    @foreach (var regla in ev.Reglas)
+                                    {
+                                        <div class="doc-row">
+                                            <div class="doc-ic"><span class="material-symbols-outlined">@(regla.Cumple ? "check_circle" : regla.EsCritica ? "cancel" : "warning")</span></div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="text-sm text-white">@regla.Nombre</div>
+                                                @if (!string.IsNullOrEmpty(regla.Detalle))
+                                                {
+                                                    <div class="text-xs muted-2">@regla.Detalle</div>
+                                                }
+                                            </div>
+                                            <span class="chip @(regla.Cumple ? "chip-ok" : regla.EsCritica ? "chip-bad" : "chip-warn")">@((regla.Peso > 0 ? "+" : "") + regla.Peso.ToString("N0")) pts</span>
+                                        </div>
                                     }
                                 </div>
-                                <span class="text-xs font-bold @(regla.Cumple ? "text-emerald-600" : "text-red-600") flex-shrink-0">
-                                    @(regla.Peso > 0 ? "+" : "")@regla.Peso.ToString("N0") pts
-                                </span>
                             </div>
                         }
-                    </div>
-                </div>
-            }
-
-            <!-- Motivo/Observaciones -->
-            @if (!string.IsNullOrEmpty(ev.Motivo) || !string.IsNullOrEmpty(ev.Observaciones))
-            {
-                <div class="mt-4 pt-4 border-t border-slate-100 border-slate-800 space-y-3">
-                    @if (!string.IsNullOrEmpty(ev.Motivo))
-                    {
-                        <div>
-                            <p class="text-[10px] font-bold uppercase text-slate-400">Motivo</p>
-                            <p class="text-sm text-slate-300 mt-0.5">@ev.Motivo</p>
-                        </div>
-                    }
-                    @if (!string.IsNullOrEmpty(ev.Observaciones))
-                    {
-                        <div>
-                            <p class="text-[10px] font-bold uppercase text-slate-400">Observaciones</p>
-                            <p class="text-sm text-slate-300 mt-0.5">@ev.Observaciones</p>
-                        </div>
-                    }
-                </div>
-            }
-        </div>
-    }
-
-    <!-- Cuotas Table -->
-    @if (cuotas.Any())
-    {
-        <div data-oc-scroll style="--oc-scroll-min-width: 74rem;" class="card-erp-panel">
-            <div class="flex items-center justify-between p-6 pb-4">
-                <div>
-                    <h3 class="flex items-center gap-2 text-lg font-bold text-white">
-                        <span class="material-symbols-outlined text-primary">receipt_long</span>
-                        Plan de Cuotas
-                        <span class="ml-1 text-xs font-medium text-slate-400">(@totalCuotas)</span>
-                    </h3>
-                    <p class="mt-1 text-sm text-slate-400">Revisá vencimientos, composición de la cuota y acciones disponibles sin salir del detalle.</p>
-                </div>
-            </div>
-            <div class="px-6 pb-4">
-                <p data-oc-scroll-hint hidden class="text-xs font-medium text-slate-400 lg:hidden">
-                    Deslizá la tabla para ver capital, punitorio y acciones de pago.
-                </p>
-            </div>
-            <div data-oc-scroll-shell>
-                <div data-oc-scroll-fade="left" hidden></div>
-                <div data-oc-scroll-fade="right" hidden></div>
-                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Plan de cuotas del crédito">
-                    <table data-oc-scroll-table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-t border-slate-100 border-slate-800 bg-slate-800/50">
-                            <th class="text-left px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">#</th>
-                            <th class="text-left px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Vencimiento</th>
-                            <th class="text-right px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Capital</th>
-                            <th class="text-right px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Interés</th>
-                            <th class="text-right px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Total</th>
-                            <th class="text-right px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Punitorio</th>
-                            <th class="text-right px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Pagado</th>
-                            <th class="text-center px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Estado</th>
-                            <th class="text-center px-6 py-3 text-[10px] font-bold uppercase text-slate-400 tracking-wider">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800">
-                        @foreach (var cuota in cuotas.OrderBy(c => c.NumeroCuota))
+                        @if (!string.IsNullOrEmpty(ev.Motivo) || !string.IsNullOrEmpty(ev.Observaciones))
                         {
-                            var estaVencida = cuota.EstaVencida;
-                            string cuotaBg, cuotaEstadoClase;
-
-                            switch (cuota.Estado)
-                            {
-                                case EstadoCuota.Pagada:
-                                    cuotaBg = "bg-emerald-50/50 bg-emerald-500/5";
-                                    cuotaEstadoClase = "bg-emerald-500/20 text-emerald-400";
-                                    break;
-                                case EstadoCuota.Vencida:
-                                    cuotaBg = "bg-red-50/50 bg-red-500/5";
-                                    cuotaEstadoClase = "bg-red-500/20 text-red-400";
-                                    break;
-                                case EstadoCuota.Parcial:
-                                    cuotaBg = "bg-amber-50/50 bg-amber-500/5";
-                                    cuotaEstadoClase = "bg-amber-500/20 text-amber-400";
-                                    break;
-                                case EstadoCuota.Cancelada:
-                                    cuotaBg = "bg-slate-800/50";
-                                    cuotaEstadoClase = "bg-slate-800 text-slate-500";
-                                    break;
-                                default: // Pendiente
-                                    cuotaBg = estaVencida ? "bg-red-50/50 bg-red-500/5" : "";
-                                    cuotaEstadoClase = estaVencida
-                                        ? "bg-red-500/20 text-red-400"
-                                        : "bg-slate-800 text-slate-300";
-                                    break;
-                            }
-
-                            <tr class="@cuotaBg hover:bg-slate-800/50 transition-colors">
-                                <td class="px-6 py-3 font-bold text-slate-200">@cuota.NumeroCuota</td>
-                                <td class="px-6 py-3 text-slate-300">
-                                    @cuota.FechaVencimiento.ToString("dd/MM/yyyy")
-                                    @if (estaVencida)
-                                    {
-                                        <span class="block text-[10px] text-red-500 font-bold">@cuota.DiasAtraso días atraso</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-3 text-right tabular-nums text-slate-300">$ @cuota.MontoCapital.ToString("N2")</td>
-                                <td class="px-6 py-3 text-right tabular-nums text-slate-300">$ @cuota.MontoInteres.ToString("N2")</td>
-                                <td class="px-6 py-3 text-right tabular-nums font-semibold text-white">$ @cuota.MontoTotal.ToString("N2")</td>
-                                <td class="px-6 py-3 text-right tabular-nums @(cuota.MontoPunitorio > 0 ? "text-red-400 font-semibold" : "text-slate-400")">
-                                    $ @cuota.MontoPunitorio.ToString("N2")
-                                </td>
-                                <td class="px-6 py-3 text-right tabular-nums @(cuota.MontoPagado > 0 ? "text-emerald-400 font-semibold" : "text-slate-400")">
-                                    $ @cuota.MontoPagado.ToString("N2")
-                                    @if (cuota.FechaPago.HasValue)
-                                    {
-                                        <span class="block text-[10px] text-slate-400">@cuota.FechaPago.Value.ToString("dd/MM/yyyy")</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-3 text-center">
-                                    <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold @cuotaEstadoClase">
-                                        @(estaVencida && cuota.Estado == EstadoCuota.Pendiente ? "Vencida" : cuota.EstadoTexto)
-                                    </span>
-                                </td>
-                                <td class="px-6 py-3 text-center">
-                                    @if (cuota.Estado == EstadoCuota.Pendiente || cuota.Estado == EstadoCuota.Vencida || cuota.Estado == EstadoCuota.Parcial)
-                                    {
-                                        <a asp-action="PagarCuota" asp-route-id="@cr.Id" asp-route-cuotaId="@cuota.Id"
-                                           class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold text-primary hover:bg-primary/10 transition-colors no-underline"
-                                           title="Pagar esta cuota">
-                                            <span class="material-symbols-outlined text-[14px]">payments</span> Pagar
-                                        </a>
-                                    }
-                                    else if (cuota.Estado == EstadoCuota.Pagada && !string.IsNullOrEmpty(cuota.ComprobantePago))
-                                    {
-                                        <span class="text-[10px] text-slate-400" title="@cuota.ComprobantePago">
-                                            <span class="material-symbols-outlined text-[14px] text-emerald-500">receipt</span>
-                                        </span>
-                                    }
-                                </td>
-                            </tr>
+                            <dl class="kv mt-4">
+                                @if (!string.IsNullOrEmpty(ev.Motivo))
+                                {
+                                    <div class="kv-row"><dt>Motivo</dt><dd>@ev.Motivo</dd></div>
+                                }
+                                @if (!string.IsNullOrEmpty(ev.Observaciones))
+                                {
+                                    <div class="kv-row"><dt>Observaciones</dt><dd>@ev.Observaciones</dd></div>
+                                }
+                            </dl>
                         }
-                    </tbody>
-                </table>
+                    </section>
+                }
+            </div>
+
+            <aside class="space-y-4">
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">person</span>Cliente</h3>
+                    <div class="flex items-center gap-3">
+                        <div class="avatar avatar-lg">@Iniciales(cliente.NombreCompleto)</div>
+                        <div class="min-w-0">
+                            <div class="font-medium text-white">@cliente.NombreCompleto</div>
+                            <div class="text-xs muted-2 mono">DNI @cliente.NumeroDocumento</div>
+                            <span class="chip @(ev?.ColorSemaforo == "danger" ? "chip-bad" : "chip-ok")" style="margin-top:.4rem"><span class="material-symbols-outlined">verified</span>@(ev?.ResultadoTexto ?? "Sin evaluación")</span>
+                        </div>
+                    </div>
+                    <dl class="kv mt-3">
+                        @if (!string.IsNullOrEmpty(cliente.Telefono))
+                        {
+                            <div class="kv-row"><dt>Teléfono</dt><dd>@cliente.Telefono</dd></div>
+                        }
+                        @if (!string.IsNullOrEmpty(cliente.Email))
+                        {
+                            <div class="kv-row"><dt>Email</dt><dd>@cliente.Email</dd></div>
+                        }
+                        @if (cliente.Sueldo.HasValue)
+                        {
+                            <div class="kv-row"><dt>Ingreso declarado</dt><dd class="num">$ @cliente.Sueldo.Value.ToString("N2")</dd></div>
+                        }
+                        <div class="kv-row"><dt>Riesgo</dt><dd>@cliente.PuntajeRiesgo.ToString("N0") pts</dd></div>
+                        @if (Model.CupoGlobalDisponible.HasValue && !Model.CupoGlobalConError)
+                        {
+                            <div class="kv-row"><dt>Crédito disponible</dt><dd class="num">$ @Model.CupoGlobalDisponible.Value.ToString("N2")</dd></div>
+                        }
+                    </dl>
+                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@cliente.Id" class="btn btn-ghost btn-sm btn-block" style="margin-top:.9rem">Ver legajo del cliente<span class="material-symbols-outlined">chevron_right</span></a>
                 </div>
-            </div>
+
+                <div class="card card-pad">
+                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">savings</span>Resumen financiero</h3>
+                    <div class="result-card" style="padding:.85rem 1rem">
+                        <div class="result-label">Total a cobrar (capital + interés)</div>
+                        <div class="result-value" style="font-size:1.5rem">$ @cr.TotalAPagar.ToString("N2")</div>
+                    </div>
+                    <dl class="kv mt-3">
+                        <div class="kv-row"><dt>Monto solicitado</dt><dd class="num">$ @cr.MontoSolicitado.ToString("N2")</dd></div>
+                        <div class="kv-row"><dt>Monto aprobado</dt><dd class="num">$ @cr.MontoAprobado.ToString("N2")</dd></div>
+                        <div class="kv-row"><dt>Tasa mensual</dt><dd>@cr.TasaInteres.ToString("N2")%</dd></div>
+                        <div class="kv-row"><dt>CFTEA</dt><dd>@cr.CFTEA.ToString("N2")%</dd></div>
+                        <div class="kv-row"><dt>Monto por cuota</dt><dd class="num">$ @cr.MontoCuota.ToString("N2")</dd></div>
+                        <div class="kv-row"><dt>Saldo pendiente</dt><dd class="num">$ @cr.SaldoPendiente.ToString("N2")</dd></div>
+                    </dl>
+                </div>
+
+                @if (contratoVentaCredito != null)
+                {
+                    <div class="card card-pad">
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">receipt_long</span>Venta asociada</h3>
+                        <div class="doc-row">
+                            <div class="doc-ic"><span class="material-symbols-outlined">contract</span></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-white">Contrato @contratoVentaCredito.NumeroContrato</div>
+                                <div class="text-xs muted-2">Pagaré @contratoVentaCredito.NumeroPagare · @contratoVentaCredito.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                            </div>
+                            <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@contratoVentaCredito.VentaId" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" aria-label="Ver contrato"><span class="material-symbols-outlined">open_in_new</span></a>
+                        </div>
+                        <dl class="kv mt-3">
+                            <div class="kv-row"><dt>Estado documento</dt><dd>@contratoVentaCredito.EstadoDocumento</dd></div>
+                            <div class="kv-row"><dt>Usuario</dt><dd>@contratoVentaCredito.UsuarioGeneracion</dd></div>
+                        </dl>
+                    </div>
+                }
+
+                @if (Model.Garante != null)
+                {
+                    <div class="card card-pad">
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">shield_person</span>Garante</h3>
+                        <div class="flex items-center gap-3">
+                            <div class="avatar avatar--slate">@Iniciales(Model.Garante.NombreCompleto)</div>
+                            <div class="min-w-0">
+                                <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.Garante.Id" class="font-medium text-white" style="text-decoration:none">@Model.Garante.NombreCompleto</a>
+                                <div class="text-xs muted-2 mono">DNI @Model.Garante.NumeroDocumento</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (Model.CupoGlobalConError || Model.CupoGlobalDisponible.HasValue)
+                {
+                    <div class="card card-pad">
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">account_balance_wallet</span>Cupo global</h3>
+                        @if (Model.CupoGlobalConError)
+                        {
+                            <div class="alert alert-warn"><span class="material-symbols-outlined">warning</span><span>@(Model.CupoGlobalMensajeError ?? "No se pudo calcular el cupo")</span></div>
+                        }
+                        else
+                        {
+                            <div class="result-card is-ok">
+                                <div class="result-label">Disponible</div>
+                                <div class="result-value" style="font-size:1.5rem">$ @Model.CupoGlobalDisponible!.Value.ToString("N2")</div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.CupoGlobalOrigenLimite))
+                            {
+                                <p class="hint">Origen: @Model.CupoGlobalOrigenLimite</p>
+                            }
+                        }
+                    </div>
+                }
+
+                @if (puedeCancelar)
+                {
+                    <div class="card card-pad" style="border-color:rgba(244,63,94,.25)">
+                        <h3 class="font-semibold text-white mb-1">Zona sensible</h3>
+                        <p class="text-sm muted mb-3">Cancelar el crédito anula las cuotas pendientes. Esta acción queda registrada en el historial.</p>
+                        <button type="button" id="btn-cancelar" class="btn btn-ghost btn-sm btn-block" style="color:#fb7185;border-color:rgba(244,63,94,.3)" data-credito-modal-action="open" data-credito-modal-target="cancelar"><span class="material-symbols-outlined">cancel</span>Cancelar crédito</button>
+                    </div>
+                }
+            </aside>
         </div>
-    }
-    else if (cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado)
-    {
-        <div class="card-erp-panel-padded p-12 text-center">
-            <span class="material-symbols-outlined text-4xl text-slate-500 mb-2 block">receipt_long</span>
-            <p class="text-sm font-bold text-slate-300">Sin cuotas generadas aún</p>
-        </div>
-    }
+    </main>
 </div>
 
-<!-- Modals: Aprobar / Rechazar / Cancelar -->
-
-<!-- Modal Aprobar -->
-<div id="modal-aprobar" data-credito-modal="aprobar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl p-6 shadow-2xl bg-slate-900">
-        <h3 class="mb-2 text-lg font-bold text-white">Aprobar Crédito</h3>
-        <p class="mb-5 text-sm text-slate-400">
-            ¿Confirma la aprobación del crédito <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>
-            por <span class="font-bold">$ @cr.MontoSolicitado.ToString("N2")</span>?
-        </p>
-        <form asp-action="Aprobar" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@cr.Id" />
-            @if (!string.IsNullOrEmpty(returnUrl))
-            {
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-            }
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button type="button"
-                        data-credito-modal-action="close"
-                        class="btn-erp-ghost w-full sm:w-auto">
-                    Cancelar
-                </button>
-                <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 sm:w-auto">
-                    Confirmar Aprobación
-                </button>
+<div id="modal-aprobar" class="overlay hidden" data-credito-modal="aprobar" role="dialog" aria-modal="true" aria-labelledby="modal-aprobar-title">
+    <div class="modal">
+        <div class="modal-card card card-pad" style="max-width:460px">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3)"><span class="material-symbols-outlined" style="color:#34d399">check_circle</span></div>
+                <div class="flex-1"><h3 id="modal-aprobar-title" class="font-semibold text-white">Aprobar crédito</h3><p class="text-sm muted mt-0.5">Se generará el plan de cuotas y el crédito pasará a estado activo.</p></div>
+                <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
-        </form>
+            <form asp-action="Aprobar" method="post" style="margin-top:1rem">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@cr.Id" />
+                @if (!string.IsNullOrEmpty(returnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+                <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+                    <button type="button" class="btn btn-ghost" data-credito-modal-action="close">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><span class="material-symbols-outlined">check</span>Aprobar</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
-<!-- Modal Rechazar -->
-<div id="modal-rechazar" data-credito-modal="rechazar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl p-6 shadow-2xl bg-slate-900">
-        <h3 class="mb-2 text-lg font-bold text-white">Rechazar Crédito</h3>
-        <p class="mb-4 text-sm text-slate-400">
-            Indique el motivo del rechazo para <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>.
-        </p>
-        <form asp-action="Rechazar" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@cr.Id" />
-            @if (!string.IsNullOrEmpty(returnUrl))
-            {
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-            }
-            <textarea name="motivo" rows="3" required
-                      class="w-full rounded-lg border border-slate-700 bg-slate-800 text-sm text-white p-3 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-none mb-4"
-                      placeholder="Motivo del rechazo..."></textarea>
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button type="button"
-                        data-credito-modal-action="close"
-                        class="btn-erp-ghost w-full sm:w-auto">
-                    Volver
-                </button>
-                <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
-                    Confirmar Rechazo
-                </button>
+<div id="modal-rechazar" class="overlay hidden" data-credito-modal="rechazar" role="dialog" aria-modal="true" aria-labelledby="modal-rechazar-title">
+    <div class="modal">
+        <div class="modal-card card card-pad" style="max-width:460px">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">block</span></div>
+                <div class="flex-1"><h3 id="modal-rechazar-title" class="font-semibold text-white">Rechazar crédito</h3><p class="text-sm muted mt-0.5">El crédito quedará marcado como rechazado. Indicá el motivo.</p></div>
+                <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
-        </form>
+            <form asp-action="Rechazar" method="post" style="margin-top:1rem">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@cr.Id" />
+                @if (!string.IsNullOrEmpty(returnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+                <label class="label">Motivo del rechazo <span class="req">*</span></label>
+                <textarea class="field" name="motivo" placeholder="Ej. relación cuota/ingreso excedida..." required></textarea>
+                <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+                    <button type="button" class="btn btn-ghost" data-credito-modal-action="close">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">block</span>Rechazar</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
-<!-- Modal Cancelar -->
-<div id="modal-cancelar" data-credito-modal="cancelar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl p-6 shadow-2xl bg-slate-900">
-        <h3 class="mb-2 text-lg font-bold text-white">Cancelar Crédito</h3>
-        <p class="mb-4 text-sm text-slate-400">
-            Indique el motivo de cancelación para <span class="font-bold">@(cr.Numero ?? $"CR-{cr.Id:D3}")</span>.
-        </p>
-        <form asp-action="Cancelar" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="id" value="@cr.Id" />
-            @if (!string.IsNullOrEmpty(returnUrl))
-            {
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-            }
-            <textarea name="motivo" rows="3" required
-                      class="w-full rounded-lg border border-slate-700 bg-slate-800 text-sm text-white p-3 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none resize-none mb-4"
-                      placeholder="Motivo de la cancelación..."></textarea>
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button type="button"
-                        data-credito-modal-action="close"
-                        class="btn-erp-ghost w-full sm:w-auto">
-                    Volver
-                </button>
-                <button type="submit" class="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 sm:w-auto">
-                    Confirmar Cancelación
-                </button>
+<div id="modal-cancelar" class="overlay hidden" data-credito-modal="cancelar" role="dialog" aria-modal="true" aria-labelledby="modal-cancelar-title">
+    <div class="modal">
+        <div class="modal-card card card-pad" style="max-width:460px">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">cancel</span></div>
+                <div class="flex-1"><h3 id="modal-cancelar-title" class="font-semibold text-white">Cancelar crédito @creditoNumero</h3><p class="text-sm muted mt-0.5">Se anularán las cuotas pendientes ($ @saldoPendienteCuotas.ToString("N2")). El historial se conserva.</p></div>
+                <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
-        </form>
+            <form asp-action="Cancelar" method="post" style="margin-top:1rem">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@cr.Id" />
+                @if (!string.IsNullOrEmpty(returnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+                <label class="label">Motivo de cancelación <span class="req">*</span></label>
+                <textarea class="field" name="motivo" placeholder="Ej. acuerdo de refinanciación..." required></textarea>
+                <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+                    <button type="button" class="btn btn-ghost" data-credito-modal-action="close">Volver</button>
+                    <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">cancel</span>Confirmar cancelación</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

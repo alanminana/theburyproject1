@@ -3,11 +3,13 @@
 @{
     ViewData["Title"] = "Gestión de Créditos";
     ViewData["MetaDescription"] = "Seguimiento de créditos, cuotas, moras y estado financiero de clientes en el ERP TheBuryProject.";
+
     var filter = Model.Filter ?? new CreditoFilterViewModel();
     var clientes = Model.Clientes ?? new List<CreditoClienteIndexViewModel>();
     var creditos = clientes.SelectMany(c => c.Creditos).ToList();
     var totalClientes = clientes.Count;
     var totalCreditos = creditos.Count;
+    var saldoTotal = clientes.Sum(c => c.SaldoPendienteTotal);
 
     var creditosConMora = creditos
         .Where(c => c.Cuotas != null && c.Cuotas.Any(cu => cu.EstaVencida))
@@ -44,855 +46,448 @@
     var moraTotalAcumulada = resumenMoras.Sum(item => item.MontoTotalMora);
     var creditosCriticos = resumenMoras.Count(item => item.EsCritica);
     var puedeVerConfiguracionCredito = User.TienePermiso("configuraciones", "view");
+
+    var filtroCreditoActivo = !string.IsNullOrEmpty(filter.Cliente)
+                           || filter.ClienteId.HasValue
+                           || !string.IsNullOrEmpty(filter.Numero)
+                           || filter.Estado.HasValue
+                           || filter.FechaDesde.HasValue
+                           || filter.FechaHasta.HasValue
+                           || filter.MontoMinimo.HasValue
+                           || filter.MontoMaximo.HasValue
+                           || filter.SoloCuotasVencidas;
+}
+
+@functions {
+    private static string GetInitials(string value)
+    {
+        var parts = (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant();
+        }
+
+        return parts.Length == 1
+            ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant()
+            : "??";
+    }
+
+    private static string GetCreditoChipClass(EstadoCredito estado) => estado switch
+    {
+        EstadoCredito.Activo or EstadoCredito.Generado => "chip-ok",
+        EstadoCredito.Finalizado => "chip-info",
+        EstadoCredito.Rechazado or EstadoCredito.Cancelado => "chip-bad",
+        EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion or EstadoCredito.Configurado => "chip-warn",
+        _ => "chip-neutral"
+    };
 }
 
 @section Styles {
     <partial name="_CreditoModuleStyles" />
 }
 
-<div class="space-y-6">
-    @if (totalMoras > 0)
-    {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-400"
-             role="alert">
-            <span class="material-symbols-outlined text-lg">warning</span>
-            @totalMoras cuota@(totalMoras == 1 ? "" : "s") en mora · @creditosCriticos crítico@(creditosCriticos == 1 ? "" :
-            "s")
+<main class="shell" style="padding-top:1.75rem;padding-bottom:3rem">
+    <div class="page-head">
+        <div class="min-w-0">
+            <h1 class="page-title">Gestión de Créditos</h1>
+            <p class="page-sub">Cartera de créditos por cliente, control de cuotas y moras. Registrá pagos, simulá nuevas líneas y seguí los vencimientos.</p>
         </div>
-    }
+        <div class="head-actions">
+            @if (puedeVerConfiguracionCredito)
+            {
+                <a asp-action="ConfigurarVenta" class="btn btn-ghost">
+                    <span class="material-symbols-outlined">tune</span>
+                    Configuración
+                </a>
+            }
+            <a asp-action="Simular" class="btn btn-ghost">
+                <span class="material-symbols-outlined">calculate</span>
+                Simular
+            </a>
+            <a asp-action="Create" class="btn btn-primary">
+                <span class="material-symbols-outlined">add_card</span>
+                Nueva línea
+            </a>
+        </div>
+    </div>
 
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-400"
-             role="status">
-            <span class="material-symbols-outlined text-lg">check_circle</span>
-            @TempData["Success"]
+        <div class="alert alert-ok" role="status" style="margin-top:1rem">
+            <span class="material-symbols-outlined">check_circle</span>
+            <span>@TempData["Success"]</span>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-500"
-             role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
-            @TempData["Error"]
+        <div class="alert alert-bad" role="alert" style="margin-top:1rem">
+            <span class="material-symbols-outlined">error</span>
+            <span>@TempData["Error"]</span>
         </div>
     }
 
-    @{
-        var filtroCreditoActivo = !string.IsNullOrEmpty(filter.Cliente)
-                               || filter.ClienteId.HasValue
-                               || !string.IsNullOrEmpty(filter.Numero)
-                               || filter.Estado.HasValue
-                               || filter.FechaDesde.HasValue
-                               || filter.FechaHasta.HasValue
-                               || filter.MontoMinimo.HasValue
-                               || filter.MontoMaximo.HasValue
-                               || filter.SoloCuotasVencidas;
-    }
-
-    <section class="card-erp-panel overflow-hidden">
-        <div
-            class="flex flex-col gap-4 border-b border-slate-800 bg-slate-800/20 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
-            <div class="min-w-0">
-                <h2 class="text-base font-bold text-white">Seguimiento de creditos</h2>
-                <p class="text-sm text-slate-400">Gestiona la cartera por cliente y revisa moras operativas desde una
-                    vista compacta.</p>
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <span class="badge-erp badge-erp-neutral">
-                            <span class="material-symbols-outlined text-sm">groups</span>
-                            @totalClientes cliente@(totalClientes == 1 ? "" : "s")
-                        </span>
-                        <span class="badge-erp badge-erp-neutral">
-                            <span class="material-symbols-outlined text-sm">credit_card</span>
-                            @totalCreditos credito@(totalCreditos == 1 ? "" : "s")
-                        </span>
-                        @if (totalMoras > 0)
-                        {
-                            <span class="badge-erp badge-erp-danger">
-                                <span class="material-symbols-outlined text-sm">warning</span>
-                                @totalMoras cuota@(totalMoras == 1 ? "" : "s") en mora
-                            </span>
-                        }
-                        @if (filtroCreditoActivo)
-                        {
-                            <span class="badge-erp badge-erp-primary">
-                                <span class="material-symbols-outlined text-sm">filter_alt</span>
-                                Vista con filtros
-                            </span>
-                        }
-                    </div>
+    @if (totalMoras > 0)
+    {
+        <div class="mora-banner" style="margin-top:1.4rem" data-credito-mora-banner>
+            <div class="mb-ic"><span class="material-symbols-outlined">warning</span></div>
+            <div class="flex-1 min-w-0">
+                <div class="mb-title">Hay @creditosConMora.Select(c => c.ClienteId).Distinct().Count() cliente@(creditosConMora.Select(c => c.ClienteId).Distinct().Count() == 1 ? "" : "s") con cuotas en mora</div>
+                <div class="mb-sub">@moraTotalAcumulada.ToString("C0") vencidos en total · @creditosCriticos crédito@(creditosCriticos == 1 ? "" : "s") crítico@(creditosCriticos == 1 ? "" : "s") (+10 días de atraso) requiere@(creditosCriticos == 1 ? "" : "n") gestión inmediata.</div>
+            </div>
+            <div class="mb-stats">
+                <div class="mb-stat">
+                    <div class="v">@totalMoras</div>
+                    <div class="l">Cuotas vencidas</div>
                 </div>
-                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
-
-                    <nav class="flex overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/40 p-1"
-                         id="credito-tabs" aria-label="Secciones de creditos">
-                        <button type="button" data-credito-tab="creditos" aria-pressed="true"
-                                class="shrink-0 inline-flex items-center gap-2 rounded-md border border-primary px-4 py-2 text-sm font-bold text-primary bg-primary/10 transition-colors">
-                            <span class="material-symbols-outlined text-lg">credit_card</span>
-                            <span>Credito por cliente</span>
-                        </button>
-                        <button type="button" data-credito-tab="moras" aria-pressed="false"
-                                class="shrink-0 inline-flex items-center gap-2 rounded-md border border-transparent px-4 py-2 text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-                            <span class="material-symbols-outlined text-lg">warning</span>
-                            <span>Moras por credito</span>
-                            @if (totalMoras > 0)
-                            {
-                                <span
-                                class="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-500">@totalMoras</span>
-                            }
-                        </button>
-                    </nav>
+                <div class="mb-stat">
+                    <div class="v">@moraTotalAcumulada.ToString("C0")</div>
+                    <div class="l">Monto en mora</div>
                 </div>
             </div>
-            <form id="filterForm" data-credito-filter-form method="get" asp-action="Index" class="bg-slate-900/30 p-4">
-                @if (filter.ClienteId.HasValue)
+            <button class="btn btn-danger btn-sm" type="button" style="flex-shrink:0" data-credito-tab-target="moras">
+                <span class="material-symbols-outlined">arrow_forward</span>
+                Ver moras
+            </button>
+        </div>
+    }
+
+    <div class="grid-kpi" style="margin-top:1.25rem">
+        <div class="kpi kpi--accent">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Cartera activa</div>
+            <div class="kpi-value">@saldoTotal.ToString("C0")</div>
+            <div class="kpi-foot">saldo por cobrar · @totalCreditos crédito@(totalCreditos == 1 ? "" : "s")</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">groups</span>Clientes con crédito</div>
+            <div class="kpi-value">@totalClientes</div>
+            <div class="kpi-foot">@totalCreditos crédito@(totalCreditos == 1 ? "" : "s") en total</div>
+        </div>
+        <div class="kpi kpi--bad">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">running_with_errors</span>En mora</div>
+            <div class="kpi-value">@resumenMoras.Count</div>
+            <div class="kpi-foot">crédito@(resumenMoras.Count == 1 ? "" : "s") · @totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s")</div>
+        </div>
+        <div class="kpi kpi--warn">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">payments</span>Monto en mora</div>
+            <div class="kpi-value">@moraTotalAcumulada.ToString("C0")</div>
+            <div class="kpi-foot">capital + punitorios</div>
+        </div>
+    </div>
+
+    <div id="credito-tabs" style="margin-top:2rem">
+        <div class="tabs" role="tablist" aria-label="Secciones de créditos">
+            <button class="tab" type="button" role="tab" aria-selected="true" aria-pressed="true" data-credito-tab="creditos">
+                <span class="material-symbols-outlined">folder_open</span>
+                Cartera
+                <span class="tab-count">@totalClientes</span>
+            </button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-pressed="false" data-credito-tab="moras">
+                <span class="material-symbols-outlined">running_with_errors</span>
+                Moras
+                <span class="tab-count" style="background:rgba(244,63,94,.2);color:#fb7185">@resumenMoras.Count</span>
+            </button>
+        </div>
+    </div>
+
+    <section id="tab-creditos" class="tab-panel is-active" style="margin-top:1.1rem">
+        <form id="filterForm" data-credito-filter-form method="get" asp-action="Index" class="filters card" style="padding:.85rem;margin-bottom:1rem">
+            @if (filter.ClienteId.HasValue)
+            {
+                <input type="hidden" name="ClienteId" value="@filter.ClienteId.Value" />
+            }
+            <div class="field-icon">
+                <span class="material-symbols-outlined">search</span>
+                <input name="Cliente" id="f-search" class="field" value="@filter.Cliente" placeholder="Buscar por cliente, documento o N° de crédito..." />
+            </div>
+            <input name="Numero" class="field" value="@filter.Numero" placeholder="N° de crédito" style="max-width:150px" />
+            <select name="Estado" id="f-estado" class="field" style="max-width:190px">
+                <option value="">Todos los estados</option>
+                @foreach (var estado in Enum.GetValues<EstadoCredito>())
                 {
-                    <input type="hidden" name="ClienteId" value="@filter.ClienteId.Value" />
+                    <option value="@((int)estado)" selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">@estado</option>
                 }
-                <div class="flex flex-wrap items-end gap-4">
-                    <div class="min-w-[220px] flex-1">
-                        <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                               for="credito-busqueda">Buscar</label>
-                        <div class="relative">
-                            <span
-                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
-                            <input id="credito-busqueda" name="Cliente" value="@filter.Cliente" type="text"
-                                   aria-label="Buscar por cliente, DNI o número de crédito" class="filter-input-erp pl-10"
-                                   placeholder="Cliente, DNI o N° de crédito..." />
-                        </div>
-                    </div>
-                    <div class="w-44">
-                        <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                               for="credito-estado">Estado</label>
-                        <select id="credito-estado" name="Estado" aria-label="Estado del crédito" class="filter-select-erp">
-                            <option value="">Todos</option>
-                            @foreach (var estado in Enum.GetValues<EstadoCredito>())
-                            {
-                                <option value="@((int)estado)"
-                                        selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">
-                                    @estado</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="w-40">
-                            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                                   for="credito-fecha-desde">Desde</label>
-                            <input id="credito-fecha-desde" name="FechaDesde" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")"
-                                   type="date" aria-label="Fecha desde" class="filter-input-erp" />
-                        </div>
-                        <div class="w-40">
-                            <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400"
-                                   for="credito-fecha-hasta">Hasta</label>
-                            <input id="credito-fecha-hasta" name="FechaHasta" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")"
-                                   type="date" aria-label="Fecha hasta" class="filter-input-erp" />
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit"
-                                    class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 text-sm font-bold text-primary-on-dark transition-colors hover:bg-primary hover:text-white"
-                                    title="Filtrar créditos">
-                                <span class="material-symbols-outlined text-lg">filter_list</span>
-                                <span>Aplicar</span>
-                            </button>
-                            @if (filtroCreditoActivo)
-                            {
-                                <a asp-action="Index"
-                                   class="inline-flex h-9 items-center justify-center rounded-lg bg-slate-800 px-3 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white no-underline"
-                                   title="Limpiar filtros">
-                                    <span class="material-symbols-outlined text-lg">clear_all</span>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                </form>
-            </section>
+            </select>
+            <input name="FechaDesde" type="date" class="field" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")" aria-label="Fecha desde" style="max-width:150px" />
+            <input name="FechaHasta" type="date" class="field" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")" aria-label="Fecha hasta" style="max-width:150px" />
+            <input name="MontoMinimo" type="number" step="0.01" min="0" class="field" value="@filter.MontoMinimo?.ToString(System.Globalization.CultureInfo.InvariantCulture)" placeholder="Monto mín." style="max-width:130px" />
+            <input name="MontoMaximo" type="number" step="0.01" min="0" class="field" value="@filter.MontoMaximo?.ToString(System.Globalization.CultureInfo.InvariantCulture)" placeholder="Monto máx." style="max-width:130px" />
+            <label class="btn btn-ghost" style="cursor:pointer;gap:.5rem">
+                <input type="checkbox" name="SoloCuotasVencidas" value="true" checked="@filter.SoloCuotasVencidas" style="width:16px;height:16px" />
+                Solo vencidas
+            </label>
+            <button type="submit" class="btn btn-soft">
+                <span class="material-symbols-outlined">filter_list</span>
+                Aplicar
+            </button>
+            @if (filtroCreditoActivo)
+            {
+                <a asp-action="Index" class="btn btn-ghost">
+                    <span class="material-symbols-outlined">close</span>
+                    Limpiar
+                </a>
+            }
+        </form>
 
-            <div id="tab-creditos" class="space-y-6">
-                <div data-oc-scroll style="--oc-scroll-min-width: 76rem;" class="table-erp-wrapper">
-                    <div class="border-b border-slate-800 px-4 py-4 sm:px-6">
-                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <h2 class="text-base font-bold text-white">Cartera por cliente</h2>
-                                <p class="text-sm text-slate-400">Totales de la vista actual, segun los criterios aplicados.</p>
+        <div class="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
+            <div class="flex items-center gap-2">
+                <h2 class="text-base font-semibold text-white">Cartera por cliente</h2>
+                <span class="chip chip-neutral mono">@totalClientes cliente@(totalClientes == 1 ? "" : "s")</span>
+            </div>
+            <p class="text-xs muted-2">Tocá un cliente para ver un resumen · abrí el panel para gestionar cuotas y registrar pagos.</p>
+        </div>
+
+        <div id="clientes-list" class="space-y-2.5">
+            @if (clientes.Any())
+            {
+                @foreach (var clienteGrupo in clientes)
+                {
+                    var clienteNombre = string.IsNullOrWhiteSpace(clienteGrupo.Cliente.NombreCompleto)
+                        ? $"Cliente #{clienteGrupo.Cliente.Id}"
+                        : clienteGrupo.Cliente.NombreCompleto;
+                    var initials = GetInitials(clienteNombre);
+                    var proximoVencimientoTexto = clienteGrupo.CuotasVencidas > 0
+                        ? "Cuota vencida"
+                        : clienteGrupo.ProximoVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimientos";
+                    var estadoChip = clienteGrupo.CuotasVencidas > 0
+                        ? "chip-bad"
+                        : clienteGrupo.EstadoConsolidado switch
+                        {
+                            "Activo" => "chip-ok",
+                            "Pendiente" or "Aprobado" => "chip-warn",
+                            "En mora" or "Rechazado" => "chip-bad",
+                            _ => "chip-neutral"
+                        };
+                    var montoMoraCliente = clienteGrupo.Creditos
+                        .SelectMany(c => c.Cuotas ?? new List<CuotaViewModel>())
+                        .Where(c => c.EstaVencida)
+                        .Sum(c => c.SaldoPendiente);
+
+                    <article class="cli-card @(clienteGrupo.CuotasVencidas > 0 ? "has-mora" : "")" data-credito-cliente-id="@clienteGrupo.Cliente.Id">
+                        <button class="cli-head" type="button" data-credito-cliente-toggle>
+                            <div class="avatar">@initials</div>
+                            <div class="cli-id">
+                                <div class="cli-name">@clienteNombre</div>
+                                <div class="cli-meta">
+                                    <span class="mono">@clienteGrupo.Documento</span>
+                                    <span style="color:#334155">·</span>
+                                    <span>@clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ? "" : "s")</span>
+                                    <span style="color:#334155">·</span>
+                                    <span>Próx. @proximoVencimientoTexto</span>
+                                </div>
                             </div>
-                            <span
-class="inline-flex items-center gap-2 self-start rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-<span class="material-symbols-outlined text-sm">account_balance_wallet</span>
-@totalClientes cliente@(totalClientes == 1 ? "" : "s") · @totalCreditos credito@(totalCreditos
-                        == 1 ? "" : "s")
-                            </span>
+                            <div class="cli-summary">
+                                <div class="cli-sum">
+                                    <div class="v">@clienteGrupo.SaldoPendienteTotal.ToString("C0")</div>
+                                    <div class="l">Saldo</div>
+                                </div>
+                                @if (clienteGrupo.CuotasVencidas > 0)
+                                {
+                                    <div class="cli-sum">
+                                        <div class="v bad">@montoMoraCliente.ToString("C0")</div>
+                                        <div class="l">En mora</div>
+                                    </div>
+                                }
+                                <span class="chip @estadoChip">@(clienteGrupo.CuotasVencidas > 0 ? $"{clienteGrupo.CuotasVencidas} venc." : clienteGrupo.EstadoConsolidado)</span>
+                            </div>
+                            <span class="material-symbols-outlined chev">expand_more</span>
+                        </button>
+                        <div class="cli-summary-m">
+                            <span class="chip chip-neutral">@clienteGrupo.SaldoPendienteTotal.ToString("C0") saldo</span>
+                            @if (clienteGrupo.CuotasVencidas > 0)
+                            {
+                                <span class="chip chip-bad">@montoMoraCliente.ToString("C0") mora</span>
+                            }
+                            <span class="chip @estadoChip">@clienteGrupo.EstadoConsolidado</span>
                         </div>
-                        <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-400 lg:hidden">
-                            Deslizá la tabla para ver documentos, saldos, vencimientos y acciones completas.
-                        </p>
+                        <div class="cli-body">
+                            <div class="cli-body-pad">
+                                <div class="flex items-center justify-between mb-2.5">
+                                    <span class="text-xs muted-2 uppercase" style="letter-spacing:.05em;font-weight:600">Créditos del cliente</span>
+                                    <button class="btn btn-ghost btn-sm" type="button" data-credito-cliente-panel-open data-credito-cliente-id="@clienteGrupo.Cliente.Id" aria-controls="credito-cliente-panel">
+                                        <span class="material-symbols-outlined">open_in_full</span>
+                                        Abrir en panel
+                                    </button>
+                                </div>
+                                <div class="space-y-2">
+                                    @foreach (var credito in clienteGrupo.Creditos)
+                                    {
+                                        var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
+                                        var cuotasCredito = credito.Cuotas ?? new List<CuotaViewModel>();
+                                        var cuotasPagas = cuotasCredito.Count(c => c.Estado == EstadoCuota.Pagada);
+                                        var cantidadCuotas = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
+                                        var porcentaje = cantidadCuotas > 0 ? Math.Min(100, Math.Max(0, (int)Math.Round((decimal)cuotasPagas * 100 / cantidadCuotas))) : 0;
+                                        var barClass = credito.Estado switch
+                                        {
+                                            EstadoCredito.Activo or EstadoCredito.Generado => "is-accent",
+                                            EstadoCredito.Rechazado or EstadoCredito.Cancelado => "is-bad",
+                                            EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion or EstadoCredito.Configurado => "is-warn",
+                                            _ => ""
+                                        };
+
+                                        <div class="credit-item">
+                                            <div class="credit-head">
+                                                <span class="credit-no">@numeroCredito</span>
+                                                <span class="chip @GetCreditoChipClass(credito.Estado)">@credito.Estado</span>
+                                                <span style="flex:1"></span>
+                                                <div class="credit-prog hide-mobile">
+                                                    <div class="bar"><div class="bar-fill @barClass" style="width:@porcentaje%"></div></div>
+                                                    <span class="pl">@cuotasPagas/@cantidadCuotas</span>
+                                                </div>
+                                                <div style="text-align:right;min-width:96px">
+                                                    <div class="num" style="font-weight:600;color:#fff">@credito.SaldoPendiente.ToString("C0")</div>
+                                                    <div class="text-xs muted-2">saldo</div>
+                                                </div>
+                                                <a asp-action="Details" asp-route-id="@credito.Id" class="btn btn-ghost btn-sm" title="Ver detalle">
+                                                    <span class="material-symbols-outlined">chevron_right</span>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                }
+            }
+            else
+            {
+                <div class="card">
+                    <div class="empty">
+                        <div class="empty-ic"><span class="material-symbols-outlined">search_off</span></div>
+                        <h3>Sin resultados</h3>
+                        <p>No encontramos créditos con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
+                        @if (filtroCreditoActivo)
+                        {
+                            <a asp-action="Index" class="btn btn-soft btn-sm" style="margin-top:1rem">
+                                <span class="material-symbols-outlined">close</span>
+                                Limpiar filtros
+                            </a>
+                        }
                     </div>
+                </div>
+            }
+        </div>
+    </section>
 
-                    <div data-oc-scroll-shell>
-                        <div data-oc-scroll-fade="left" hidden></div>
-                        <div data-oc-scroll-fade="right" hidden></div>
-                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de clientes con créditos">
-                            <table data-oc-scroll-table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="border-b border-slate-800 bg-slate-800/50">
-                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente
-                                        </th>
-                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                                            Documento</th>
-                                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Créditos
-                                            </th>
-                                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Saldo
-                                                pendiente</th>
-                                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas
-                                                    vencidas</th>
-                                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Próximo
-                                                        vencimiento</th>
-                                                        <th
-                                                            class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">
-                                                            Estado</th>
-                                                            <th
-                                                                class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
-                                                                Acciones</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody class="divide-y divide-slate-800">
-                                                            @if (clientes.Any())
-                                                            {
-                                                                @foreach (var clienteGrupo in clientes)
-                                                                {
-                                                                    var clienteNombre = clienteGrupo.Cliente.NombreCompleto;
-                                                                    if (string.IsNullOrWhiteSpace(clienteNombre))
-                                                                    {
-                                                                        clienteNombre = $"Cliente #{clienteGrupo.Cliente.Id}";
-                                                                    }
+    <section id="tab-moras" class="tab-panel" style="margin-top:1.1rem">
+        @if (resumenMoras.Any())
+        {
+            <div class="alert alert-bad" style="margin-bottom:1rem">
+                <span class="material-symbols-outlined">priority_high</span>
+                <div>
+                    <div class="font-medium" style="color:#fecdd3">@totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s") · @moraTotalAcumulada.ToString("C0") en mora</div>
+                    <div class="text-sm" style="color:#fecdd3;opacity:.85;margin-top:.1rem">Ordenadas por días de atraso. Las críticas (+10 días) están resaltadas.</div>
+                </div>
+            </div>
 
-                                                                    var initials = "??";
-                                                                    var parts = clienteNombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                                                                    if (parts.Length >= 2)
-                                                                    {
-                                                                        initials = $"{parts[0][0]}{parts[1][0]}".ToUpper();
-                                                                    }
-                                                                    else if (parts.Length == 1)
-                                                                    {
-                                                                        initials = parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
-                                                                    }
+            <div id="moras-list" class="space-y-0">
+                @foreach (var mora in resumenMoras)
+                {
+                    var credito = mora.Credito;
+                    var clienteGrupo = clientes.FirstOrDefault(c => c.Cliente.Id == credito.ClienteId);
+                    var clienteNombre = string.IsNullOrWhiteSpace(credito.ClienteNombre)
+                        ? clienteGrupo?.Cliente.NombreCompleto ?? $"Cliente #{credito.ClienteId}"
+                        : credito.ClienteNombre;
+                    var documento = clienteGrupo?.Documento ?? "Sin documento";
+                    var initials = GetInitials(clienteNombre);
+                    var totalMoraCredito = mora.CuotasVencidas.Sum(c => c.SaldoPendiente);
 
-                                                                    string badgeClass;
-                                                                    switch (clienteGrupo.EstadoConsolidado)
-                                                                    {
-                                                                        case "Activo":
-                                                                            badgeClass = "bg-emerald-500/10 text-emerald-400";
-                                                                            break;
-                                                                        case "En mora":
-                                                                        case "Rechazado":
-                                                                            badgeClass = "bg-red-500/10 text-red-400";
-                                                                            break;
-                                                                        case "Pendiente":
-                                                                            badgeClass = "bg-amber-500/10 text-amber-400";
-                                                                            break;
-                                                                        case "Aprobado":
-                                                                            badgeClass = "bg-sky-500/10 text-sky-400";
-                                                                            break;
-                                                                        default:
-                                                                            badgeClass = "bg-slate-800 text-slate-300";
-                                                                            break;
-                                                                    }
-
-                                                                    var creditosResumen = clienteGrupo.Creditos.Take(3).ToList();
-                                                                    var vencimientoVencido = clienteGrupo.ProximoVencimiento.HasValue
-                                                                        && clienteGrupo.ProximoVencimiento.Value.Date < DateTime.UtcNow.Date;
-
-                                                                    <tr class="transition-colors hover:bg-slate-800/30">
-                                                                        <td class="px-6 py-4">
-                                                                            <div class="flex items-center gap-3">
-                                                                                <div
-                                                                                    class="flex size-8 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-primary">
-                                                                                    @initials</div>
-                                                                                    <div class="flex flex-col">
-                                                                                        <a asp-controller="Cliente" asp-action="Details"
-                                                                                           asp-route-id="@clienteGrupo.Cliente.Id"
-                                                                                           class="text-sm font-semibold transition-colors hover:text-primary no-underline text-slate-100">
-                                                                                            @clienteNombre
-                                                                                        </a>
-                                                                                        <span class="text-xs text-slate-400">Cliente
-                                                                                            #@clienteGrupo.Cliente.Id</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td class="px-6 py-4 text-sm font-medium text-slate-300">@clienteGrupo.Documento</td>
-                                                                                <td class="px-6 py-4">
-                                                                                    <div class="flex flex-col gap-1">
-                                                                                        <span class="text-sm font-semibold text-white">
-                                                                                            @clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ?
-                                                                                            "" : "s")
-                                                                                        </span>
-                                                                                        <div class="flex flex-wrap gap-1">
-                                                                                            @foreach (var credito in creditosResumen)
-                                                                                            {
-                                                                                                <a asp-action="Details" asp-route-id="@credito.Id"
-                                                                                                   class="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300 transition-colors hover:bg-primary/10 hover:text-primary no-underline"
-                                                                                                   title="Ver detalle de @(credito.Numero ?? $"CR-{credito.Id:D3}")">
-                                                                                                    @(credito.Numero ?? $"CR-{credito.Id:D3}")
-                                                                                                </a>
-                                                                                            }
-                                                                                            @if (clienteGrupo.CantidadCreditos > creditosResumen.Count)
-                                                                                            {
-                                                                                                <span
-                                                                                                    class="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
-                                                                                                    +@(clienteGrupo.CantidadCreditos - creditosResumen.Count)
-                                                                                                </span>
-                                                                                            }
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td class="px-6 py-4 text-sm font-medium text-slate-300">
-                                                                                    <div class="flex flex-col">
-                                                                                        <span>$ @clienteGrupo.SaldoPendienteTotal.ToString("N0")</span>
-                                                                                        <span class="text-xs text-slate-400">Vista actual</span>
-                                                                                    </div>
-                                                                                </td>
-                                                                                <td class="px-6 py-4">
-                                                                                    <span
-                                                                                        class="text-sm font-bold @(clienteGrupo.CuotasVencidas > 0 ? "text-red-400" : "text-slate-300")">
-                                                                                        @clienteGrupo.CuotasVencidas
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td class="px-6 py-4">
-                                                                                    @if (clienteGrupo.ProximoVencimiento.HasValue)
-                                                                                    {
-                                                                                        <div class="flex flex-col">
-                                                                                            <span
-                                                                                                class="text-sm font-semibold @(vencimientoVencido ? "text-red-400" : "text-slate-300")">
-                                                                                                @clienteGrupo.ProximoVencimiento.Value.ToString("dd/MM/yyyy")
-                                                                                            </span>
-                                                                                            <span class="text-xs text-slate-400">@(vencimientoVencido ? "Vencido" :
-                                                                                                                                                                                                                                            "Pendiente")</span>
-                                                                                            </div>
-                                                                                        }
-                                            else
-                                                                                        {
-                                                                                            <span class="text-sm text-slate-400">Sin vencimientos</span>
-                                                                                        }
-                                                                                    </td>
-                                                                                    <td class="px-6 py-4">
-                                                                                        <div class="flex justify-center">
-                                                                                            <span
-                                                                                            class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide @badgeClass">@clienteGrupo.EstadoConsolidado</span>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td class="px-6 py-4 text-right">
-                                                                                        <div class="flex justify-end gap-1">
-                                                                                            <button type="button" class="row-action row-action--primary"
-                                                                                                    title="Gestionar cliente" data-credito-cliente-panel-open
-                                                                                                    data-credito-cliente-id="@clienteGrupo.Cliente.Id"
-                                                                                                    aria-controls="credito-cliente-panel">
-                                                                                                <span class="material-symbols-outlined">manage_accounts</span>
-                                                                                                <span class="row-action__label">Gestionar</span>
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                </tr>
-                                                                            }
-                                                                        }
-                            else
-                                                                        {
-                                                                            <tr>
-                                                                                <td colspan="8" class="px-6 py-12 text-center text-slate-400">
-                                                                                    <span class="material-symbols-outlined mb-2 block text-4xl">credit_card_off</span>
-                                                                                    <p class="text-sm font-medium">No se encontraron créditos</p>
-                                                                                    <p class="mt-1 text-xs">Ajustá los filtros o creá un nuevo crédito desde un cliente.
-                                                                                    </p>
-                                                                                </td>
-                                                                            </tr>
-                                                                        }
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </div>
-                                                        <div
-                                                            class="flex flex-col gap-2 border-t border-slate-800 p-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-                                                            <p>Mostrando @totalClientes cliente@(totalClientes == 1 ? "" : "s") con @totalCreditos
-                                                                crédito@(totalCreditos == 1 ? "" : "s") en la vista actual.</p>
-                                                                <p>Saldo, cuotas vencidas y vencimiento respetan los criterios aplicados.</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div id="tab-moras" class="hidden space-y-6">
-                                                        @if (resumenMoras.Any())
-                                                        {
-                                                            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                                                <div class="card-erp-metric">
-                                                                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Créditos en mora</p>
-                                                                    <p class="mt-2 text-3xl font-black text-white">@resumenMoras.Count</p>
-                                                                    <p class="mt-1 text-xs text-slate-400">Lista operativa por crédito/cuota, no agrupada por cliente.</p>
-                                                                </div>
-                                                                <div class="card-erp-metric-danger">
-                                                                    <p class="text-xs font-bold uppercase tracking-wider text-red-400">Casos Críticos</p>
-                                                                    <p class="mt-2 text-3xl font-black text-red-300">@creditosCriticos</p>
-                                                                    <p class="mt-1 text-xs text-red-400/70">Créditos con 10 o más días de atraso.</p>
-                                                                </div>
-                                                                <div class="card-erp-metric-warning">
-                                                                    <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Deuda en mora</p>
-                                                                    <p class="mt-2 text-3xl font-black text-amber-300">$ @moraTotalAcumulada.ToString("N0")</p>
-                                                                    <p class="mt-1 text-xs text-amber-400/70">@totalMoras cuota(s) vencida(s) en la vista actual.</p>
-                                                                </div>
-                                                            </div>
-
-                                                            <div data-oc-scroll style="--oc-scroll-min-width: 72rem;" class="table-erp-wrapper">
-                                                                <div class="border-b border-slate-800 bg-slate-800/30 px-6 py-4">
-                                                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                                        <div>
-                                                                            <h3 class="text-sm font-black text-white">Moras por crédito/cuota</h3>
-                                                                            <p class="mt-1 text-xs text-slate-400">Listado operativo por crédito con cuotas vencidas.
-                                                                                Respeta los criterios aplicados arriba.</p>
-                                                                            </div>
-                                                                            <span
-                                                                                class="inline-flex items-center gap-2 self-start rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
-                                                                                <span class="material-symbols-outlined text-sm">schedule</span>
-                                                                                @totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s")
-                                                                            </span>
-                                                                        </div>
-                                                                        <p data-oc-scroll-hint hidden class="mt-3 text-xs font-medium text-slate-400 lg:hidden">
-                                                                            Deslizá la tabla para revisar atrasos, deuda y acciones.
-                                                                        </p>
-                                                                    </div>
-
-                                                                    <div data-oc-scroll-shell>
-                                                                        <div data-oc-scroll-fade="left" hidden></div>
-                                                                        <div data-oc-scroll-fade="right" hidden></div>
-                                                                        <div data-oc-scroll-region tabindex="0" role="region"
-                                                                             aria-label="Listado operativo de créditos en mora por cuota">
-                                                                            <table data-oc-scroll-table class="w-full text-left border-collapse">
-                                                                                <thead>
-                                                                                    <tr class="border-b border-slate-800 bg-slate-800/50">
-                                                                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente
-                                                                                        </th>
-                                                                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Crédito
-                                                                                        </th>
-                                                                                        <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas
-                                                                                            Vencidas</th>
-                                                                                            <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Primera
-                                                                                                Mora</th>
-                                                                                                <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Máx.
-                                                                                                    Atraso</th>
-                                                                                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Monto
-                                                                                                        Adeudado</th>
-                                                                                                        <th
-                                                                                                            class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">
-                                                                                                            Prioridad</th>
-                                                                                                            <th
-                                                                                                                class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
-                                                                                                                Acciones</th>
-                                                                                                            </tr>
-                                                                                                        </thead>
-                                                                                                        <tbody class="divide-y divide-slate-800">
-                                                                                                            @foreach (var mora in resumenMoras)
-                                                                                                            {
-                                                                                                                var credito = mora.Credito;
-                                                                                                                var primeraCuota = mora.PrimeraCuotaVencida!;
-                                                                                                                var cuotasVencidasTexto = mora.CuotasVencidas.Count == 1 ? "1 cuota" :
-                                                                                                        $"{mora.CuotasVencidas.Count} cuotas";
-
-                                                                                                                <tr class="transition-colors hover:bg-slate-800/30">
-                                                                                                                    <td class="px-6 py-4">
-                                                                                                                        <div class="flex flex-col">
-                                                                                                                            <span class="text-sm font-semibold text-white">@credito.ClienteNombre</span>
-                                                                                                                            <span class="text-xs text-slate-400">Saldo pendiente crédito: $
-                                                                                                                                @credito.SaldoPendiente.ToString("N0")</span>
-                                                                                                                            </div>
-                                                                                                                        </td>
-                                                                                                                        <td class="px-6 py-4">
-                                                                                                                            <div class="flex flex-col">
-                                                                                                                                <span class="text-sm font-semibold text-white">@(credito.Numero ??
-                                                                                                                                                                                                                                                                                                                    $"CR-{credito.Id:D3}")</span>
-                                                                                                                                    <span class="text-xs text-slate-400">ID interno #@credito.Id</span>
-                                                                                                                                </div>
-                                                                                                                            </td>
-                                                                                                                            <td class="px-6 py-4">
-                                                                                                                                <div class="flex flex-col">
-                                                                                                                                    <span class="text-sm font-semibold text-white">@cuotasVencidasTexto</span>
-                                                                                                                                    <span class="text-xs text-slate-400">Primera pendiente: cuota
-                                                                                                                                        #@primeraCuota.NumeroCuota</span>
-                                                                                                                                    </div>
-                                                                                                                                </td>
-                                                                                                                                <td class="px-6 py-4">
-                                                                                                                                    <div class="flex flex-col">
-                                                                                                                                        <span
-                                                                                                                                        class="text-sm font-semibold text-white">@primeraCuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
-                                                                                                                                        <span class="text-xs text-slate-400">@primeraCuota.DiasAtraso día(s) de atraso
-                                                                                                                                            en esa cuota</span>
-                                                                                                                                        </div>
-                                                                                                                                    </td>
-                                                                                                                                    <td class="px-6 py-4">
-                                                                                                                                        <span class="text-sm font-black @(mora.EsCritica ? "text-red-400" : "text-white")">
-                                                                                                                                            @mora.DiasMaximosAtraso días
-                                                                                                                                        </span>
-                                                                                                                                    </td>
-                                                                                                                                    <td class="px-6 py-4">
-                                                                                                                                        <div class="flex flex-col">
-                                                                                                                                            <span
-                                                                                                                                                class="text-sm font-black @(mora.EsCritica ? "text-red-400" : "text-white")">
-                                                                                                                                                $ @mora.MontoTotalMora.ToString("N2")
-                                                                                                                                            </span>
-                                                                                                                                            <span class="text-xs text-slate-400">Incluye capital, interés y punitorio
-                                                                                                                                                vencido</span>
-                                                                                                                                            </div>
-                                                                                                                                        </td>
-                                                                                                                                        <td class="px-6 py-4">
-                                                                                                                                            <div class="flex justify-center">
-                                                                                                                                                <span
-                                                                                                                                                    class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide @(mora.EsCritica ? "bg-red-500/10 text-red-400"
-                                                                                                                                                                                                                                                                                                                                                              : "bg-amber-500/10 text-amber-400")">
-                                                                                                                                                    @(mora.EsCritica ? "Crítica" : "Seguimiento")
-                                                                                                                                                </span>
-                                                                                                                                            </div>
-                                                                                                                                        </td>
-                                                                                                                                        <td class="px-6 py-4 text-right">
-                                                                                                                                            <div class="flex justify-end gap-1">
-                                                                                                                                                <a asp-action="PagarCuota" asp-route-id="@credito.Id"
-                                                                                                                                                   class="row-action row-action--warning no-underline" title="Registrar pago">
-                                                                                                                                                    <span class="material-symbols-outlined">payments</span>
-                                                                                                                                                    <span class="row-action__label">Pagar</span>
-                                                                                                                                                </a>
-                                                                                                                                                <a asp-action="Details" asp-route-id="@credito.Id"
-                                                                                                                                                   class="row-action row-action--primary no-underline"
-                                                                                                                                                   title="Ver detalle del crédito">
-                                                                                                                                                    <span class="material-symbols-outlined">visibility</span>
-                                                                                                                                                    <span class="row-action__label">Ver</span>
-                                                                                                                                                </a>
-                                                                                                                                            </div>
-                                                                                                                                        </td>
-                                                                                                                                    </tr>
-                                                                                                                                }
-                                                                                                                            </tbody>
-                                                                                                                        </table>
-                                                                                                                    </div>
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                        }
+                    <article class="cli-card @(mora.EsCritica ? "has-mora" : "")" style="margin-bottom:.75rem@(mora.EsCritica ? ";border-color:rgba(244,63,94,.4)" : "")">
+                        <button class="cli-head" type="button" data-credito-cliente-toggle>
+                            <div class="dias-badge @(mora.EsCritica ? "bad" : "warn")">@mora.DiasMaximosAtraso<div class="u">días</div></div>
+                            <div class="avatar">@initials</div>
+                            <div class="cli-id">
+                                <div class="cli-name">@clienteNombre</div>
+                                <div class="cli-meta">
+                                    <span class="mono">@documento</span>
+                                    <span style="color:#334155">·</span>
+                                    <span class="mono">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
+                                    <span style="color:#334155">·</span>
+                                    <span>@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s") vencida@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
+                                </div>
+                            </div>
+                            <div class="cli-summary">
+                                <div class="cli-sum">
+                                    <div class="v bad">@totalMoraCredito.ToString("C0")</div>
+                                    <div class="l">Total en mora</div>
+                                </div>
+                            </div>
+                            <span class="material-symbols-outlined chev">expand_more</span>
+                        </button>
+                        <div class="cli-summary-m">
+                            <span class="chip chip-bad">@totalMoraCredito.ToString("C0") en mora</span>
+                            <span class="chip chip-neutral">@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
+                        </div>
+                        <div class="cli-body">
+                            <div class="cli-body-pad">
+                                @foreach (var cuota in mora.CuotasVencidas)
+                                {
+                                    var totalCuota = cuota.SaldoPendiente;
+                                    <div class="mora-cuota">
+                                        <span class="cuota-n venc">@cuota.NumeroCuota</span>
+                                        <div class="flex-1 min-w-0">
+                                            <span class="mono text-xs" style="color:#cbd5e1">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
+                                            <span class="text-xs muted-2"> · cuota @cuota.NumeroCuota/@credito.CantidadCuotas · venció @cuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                        </div>
+                                        <span class="chip @(cuota.DiasAtraso >= 10 ? "chip-bad" : "chip-warn")">+@cuota.DiasAtraso d</span>
+                                        <span class="num" style="min-width:92px;text-align:right;font-weight:600;color:#fff">@totalCuota.ToString("C0")</span>
+                                    </div>
+                                }
+                                @if (clienteGrupo != null)
+                                {
+                                    <div style="margin-top:.9rem;display:flex;justify-content:flex-end">
+                                        <button class="btn btn-danger btn-sm" type="button" data-credito-cliente-panel-open data-credito-cliente-id="@clienteGrupo.Cliente.Id" aria-controls="credito-cliente-panel">
+                                            <span class="material-symbols-outlined">payments</span>
+                                            Registrar pago de cuotas
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
         else
-                                                                                                        {
-                                                                                                            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-12 text-center">
-                                                                                                                <span class="material-symbols-outlined mb-2 block text-4xl text-emerald-500">verified</span>
-                                                                                                                <p class="text-sm font-bold text-slate-300">Sin moras detectadas</p>
-                                                                                                                <p class="mt-1 text-xs text-slate-400">Todos los créditos están al día.</p>
-                                                                                                            </div>
-                                                                                                        }
-                                                                                                    </div>
-                                                                                                </div>
+        {
+            <div class="card">
+                <div class="empty">
+                    <div class="empty-ic"><span class="material-symbols-outlined">task_alt</span></div>
+                    <h3>Sin moras activas</h3>
+                    <p>No hay cuotas vencidas en la vista actual.</p>
+                </div>
+            </div>
+        }
+    </section>
+</main>
 
-                                                                                                <div id="credito-cliente-panel" class="fixed inset-0 z-50 hidden" data-credito-cliente-panel
-                                                                                                     data-credito-panel-cliente-url="@Url.Action("PanelCliente", "Credito")" aria-hidden="true">
-                                                                                                    <div class="hidden" data-credito-antiforgery>
-                                                                                                        @Html.AntiForgeryToken()
-                                                                                                    </div>
-                                                                                                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-credito-cliente-panel-close></div>
-                                                                                                    <aside
-                                                                                                        class="absolute right-0 top-0 h-full w-full max-w-6xl bg-[#161d2c] shadow-2xl flex flex-col credito-cliente-panel-slide-in"
-                                                                                                        role="dialog" aria-modal="true" aria-labelledby="credito-cliente-panel-title">
-                                                                                                        <div class="flex h-full min-h-0 flex-col" data-credito-cliente-panel-content></div>
-                                                                                                    </aside>
-                                                                                                </div>
+<div id="credito-cliente-panel"
+     class="overlay hidden"
+     data-credito-cliente-panel
+     data-credito-panel-cliente-url="@Url.Action("PanelCliente", "Credito")"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-label="Cartera del cliente">
+    <div class="hidden" data-credito-antiforgery>
+        @Html.AntiForgeryToken()
+    </div>
+    <div class="absolute inset-0" data-credito-cliente-panel-close></div>
+    <aside class="drawer-panel drawer-panel-wide credito-cliente-panel-slide-in" style="display:flex;flex-direction:column" role="document">
+        <div class="flex h-full min-h-0 flex-col" data-credito-cliente-panel-content></div>
+    </aside>
+</div>
 
-                                                                                                @foreach (var clienteGrupo in clientes)
-                                                                                                {
-                                                                                                    var clienteNombrePanel = clienteGrupo.Cliente.NombreCompleto;
-                                                                                                    if (string.IsNullOrWhiteSpace(clienteNombrePanel))
-                                                                                                    {
-                                                                                                        clienteNombrePanel = $"Cliente #{clienteGrupo.Cliente.Id}";
-                                                                                                    }
+@foreach (var clienteGrupo in clientes)
+{
+    <template data-credito-cliente-panel-template="@clienteGrupo.Cliente.Id">
+        <partial name="_PanelClientePartial" model="clienteGrupo" />
+    </template>
+}
 
-                                                                                                    var proximoVencimientoTexto = clienteGrupo.ProximoVencimiento.HasValue
-                                                                                                        ? clienteGrupo.ProximoVencimiento.Value.ToString("dd/MM/yyyy")
-                                                                                                        : "Sin vencimientos";
-
-                                                                                                    <template data-credito-cliente-panel-template="@clienteGrupo.Cliente.Id">
-                                                                                                        <header class="flex shrink-0 flex-col gap-5 border-b border-slate-800 bg-[#161d2c]/80 px-6 py-5 backdrop-blur-sm">
-                                                                                                            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                                                                                                <div class="min-w-0">
-                                                                                                                    <nav class="mb-1 flex items-center gap-2 text-xs font-medium text-slate-400">
-                                                                                                                        <span>Créditos</span>
-                                                                                                                        <span class="material-symbols-outlined text-xs">chevron_right</span>
-                                                                                                                        <span class="text-slate-100">Gestión cliente</span>
-                                                                                                                    </nav>
-                                                                                                                    <h2 id="credito-cliente-panel-title" class="truncate text-2xl font-black tracking-tight text-slate-50">
-                                                                                                                        @clienteNombrePanel</h2>
-                                                                                                                        <p class="mt-1 text-sm text-slate-400">Documento @clienteGrupo.Documento</p>
-                                                                                                                    </div>
-                                                                                                                    <button type="button"
-                                                                                                                            class="inline-flex size-10 items-center justify-center rounded-lg border border-slate-700 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                                                                                                                            title="Cerrar panel" data-credito-cliente-panel-close>
-                                                                                                                        <span class="material-symbols-outlined">close</span>
-                                                                                                                    </button>
-                                                                                                                </div>
-
-                                                                                                                @if (filtroCreditoActivo)
-                                                                                                                {
-                                                                                                                    <div class="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                                                                                                                        <span class="material-symbols-outlined shrink-0 text-lg text-amber-400">warning</span>
-                                                                                                                        <div class="min-w-0">
-                                                                                                                            <p class="text-sm font-bold text-amber-300">Vista parcial — filtros activos</p>
-                                                                                                                            <p class="mt-0.5 text-sm text-amber-400/80">Esta vista muestra solo los créditos que coinciden con los
-                                                                                                                                filtros actuales. Puede haber créditos del cliente que no estén visibles.</p>
-                                                                                                                                <a href="/Credito?ClienteId=@clienteGrupo.Cliente.Id"
-                                                                                                                                   class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-300 underline underline-offset-2 hover:text-amber-200 no-underline">
-                                                                                                                                    <span class="material-symbols-outlined text-sm">open_in_new</span>
-                                                                                                                                    Ver cartera completa del cliente
-                                                                                                                                </a>
-                                                                                                                            </div>
-                                                                                                                        </div>
-                                                                                                                    }
-
-                                                                                                                    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                                                                                                                        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                                                                                                                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Créditos (vista actual)</p>
-                                                                                                                            <p class="mt-1 text-xl font-black text-white">@clienteGrupo.CantidadCreditos</p>
-                                                                                                                        </article>
-                                                                                                                        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                                                                                                                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Saldo (vista actual)</p>
-                                                                                                                            <p class="mt-1 text-xl font-black text-white">$ @clienteGrupo.SaldoPendienteTotal.ToString("N0")</p>
-                                                                                                                        </article>
-                                                                                                                        <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                                                                                                                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Cuotas vencidas</p>
-                                                                                                                            <p
-                                                                                                                                class="mt-1 text-xl font-black @(clienteGrupo.CuotasVencidas > 0 ? "text-red-400" : "text-emerald-400")">
-                                                                                                                                @clienteGrupo.CuotasVencidas</p>
-                                                                                                                            </article>
-                                                                                                                            <article class="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-                                                                                                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Próximo vencimiento</p>
-                                                                                                                                <p class="mt-1 text-xl font-black text-white">@proximoVencimientoTexto</p>
-                                                                                                                            </article>
-                                                                                                                        </div>
-                                                                                                                    </header>
-
-                                                                                                                    <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6" data-credito-cliente-panel-scroll>
-                                                                                                                        <div class="flex items-center justify-between gap-3">
-                                                                                                                            <div>
-                                                                                                                                <h3 class="text-lg font-black text-white">@(filtroCreditoActivo ? "Créditos visibles en la vista actual"              : "Créditos del cliente")</h3>
-                                                                                                                                <p class="text-sm text-slate-400">@(filtroCreditoActivo ? "Solo los créditos que coinciden con los filtros activos. No necesariamente es la cartera completa." : "Cartera completa del cliente.")</p>
-                                                                                                                            </div>
-                                                                                                                            <span class="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary-on-dark">
-                                                                                                                                @clienteGrupo.Creditos.Count crédito@(clienteGrupo.Creditos.Count == 1 ? "" : "s")
-                                                                                                                            </span>
-                                                                                                                        </div>
-
-                                                                                                                        @foreach (var credito in clienteGrupo.Creditos)
-                                                                                                                        {
-                                                                                                                            var cuotasCredito = credito.Cuotas ?? new List<CuotaViewModel>();
-                                                                                                                            var cantidadCuotasCredito = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
-                                                                                                                            var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
-                                                                                                                            var estadoCreditoClass = "bg-slate-800 text-slate-300";
-
-                                                                                                                            switch (credito.Estado)
-                                                                                                                            {
-                                                                                                                                case EstadoCredito.Activo:
-                                                                                                                                case EstadoCredito.Generado:
-                                                                                                                                    estadoCreditoClass = "bg-emerald-500/10 text-emerald-400";
-                                                                                                                                    break;
-                                                                                                                                case EstadoCredito.Finalizado:
-                                                                                                                                    estadoCreditoClass = "bg-sky-500/10 text-sky-400";
-                                                                                                                                    break;
-                                                                                                                                case EstadoCredito.Rechazado:
-                                                                                                                                case EstadoCredito.Cancelado:
-                                                                                                                                    estadoCreditoClass = "bg-red-500/10 text-red-400";
-                                                                                                                                    break;
-                                                                                                                                case EstadoCredito.Solicitado:
-                                                                                                                                case EstadoCredito.Aprobado:
-                                                                                                                                case EstadoCredito.PendienteConfiguracion:
-                                                                                                                                case EstadoCredito.Configurado:
-                                                                                                                                    estadoCreditoClass = "bg-amber-500/10 text-amber-400";
-                                                                                                                                    break;
-                                                                                                                            }
-
-                                                                                                                            <article class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-black/10"
-                                                                                                                                     data-credito-cliente-credit>
-                                                                                                                                <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                                                                                                                                    <div class="min-w-0">
-                                                                                                                                        <div class="flex flex-wrap items-center gap-2">
-                                                                                                                                            <h4 class="text-base font-black text-white">@numeroCredito</h4>
-                                                                                                                                            <span
-                                                                                                                                            class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide @estadoCreditoClass">@credito.Estado</span>
-                                                                                                                                        </div>
-                                                                                                                                        <p class="mt-1 text-xs text-slate-400">Fecha alta @credito.FechaSolicitud.ToString("dd/MM/yyyy")</p>
-                                                                                                                                    </div>
-                                                                                                                                    <dl class="grid w-full grid-cols-2 gap-3 text-sm xl:w-auto xl:grid-cols-4">
-                                                                                                                                        <div class="rounded-lg bg-slate-950/50 p-3">
-                                                                                                                                            <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Monto original</dt>
-                                                                                                                                            <dd class="mt-1 font-bold text-white">$ @credito.MontoSolicitado.ToString("N0")</dd>
-                                                                                                                                        </div>
-                                                                                                                                        <div class="rounded-lg bg-slate-950/50 p-3">
-                                                                                                                                            <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saldo pendiente</dt>
-                                                                                                                                            <dd class="mt-1 font-bold @(credito.SaldoPendiente > 0 ? "text-red-400" : "text-emerald-400")">$
-                                                                                                                                                @credito.SaldoPendiente.ToString("N0")</dd>
-                                                                                                                                            </div>
-                                                                                                                                            <div class="rounded-lg bg-slate-950/50 p-3">
-                                                                                                                                                <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estado</dt>
-                                                                                                                                                <dd class="mt-1 font-bold text-white">@credito.Estado</dd>
-                                                                                                                                            </div>
-                                                                                                                                            <div class="rounded-lg bg-slate-950/50 p-3">
-                                                                                                                                                <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cuotas</dt>
-                                                                                                                                                <dd class="mt-1 font-bold text-white">@cantidadCuotasCredito</dd>
-                                                                                                                                            </div>
-                                                                                                                                        </dl>
-                                                                                                                                    </div>
-
-                                                                                                                                    <div
-                                                                                                                                        class="mt-4 flex flex-col gap-3 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                                                                                                                                        <div class="text-sm text-slate-400">
-                                                                                                                                            @cantidadCuotasCredito cuota@(cantidadCuotasCredito == 1 ? "" : "s")
-                                                                                                                                            registrada@(cantidadCuotasCredito == 1 ? "" : "s")
-                                                                                                                                        </div>
-                                                                                                                                        <button type="button"
-                                                                                                                                                class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                                                                                                                                                data-credito-credit-toggle data-credito-credit-expanded="false" aria-expanded="false">
-                                                                                                                                            <span class="material-symbols-outlined text-base" data-credito-credit-toggle-icon>expand_more</span>
-                                                                                                                                            <span data-credito-credit-toggle-label>Ver cuotas</span>
-                                                                                                                                        </button>
-                                                                                                                                    </div>
-
-                                                                                                                                    <div class="mt-3 hidden overflow-hidden rounded-lg border border-slate-800" data-credito-cuotas-container>
-                                                                                                                                    </div>
-
-                                                                                                                                    <template data-credito-cuotas-template>
-                                                                                                                                        @if (cuotasCredito.Any())
-                                                                                                                                        {
-                                                                                                                                            <div class="max-h-80 overflow-y-auto">
-                                                                                                                                                <table class="w-full text-left text-sm">
-                                                                                                                                                    <thead
-                                                                                                                                                        class="sticky top-0 bg-slate-950 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                                                                                                                                        <tr>
-                                                                                                                                                            <th class="w-12 px-4 py-3">
-                                                                                                                                                                <span class="sr-only">Seleccionar</span>
-                                                                                                                                                            </th>
-                                                                                                                                                            <th class="px-4 py-3">Cuota</th>
-                                                                                                                                                            <th class="px-4 py-3">Vencimiento</th>
-                                                                                                                                                            <th class="px-4 py-3 text-right">Saldo</th>
-                                                                                                                                                            <th class="px-4 py-3 text-right">Estado</th>
-                                                                                                                                                        </tr>
-                                                                                                                                                    </thead>
-                                                                                                                                                    <tbody class="divide-y divide-slate-800">
-                                                                                                                                                        @foreach (var cuota in cuotasCredito.OrderBy(c => c.NumeroCuota))
-                                                                                                                                                        {
-                                                                                                                                                            var estadoCuotaClass = cuota.Estado switch
-                                                                                                                                                            {
-                                                                                                                                                                EstadoCuota.Pagada => "bg-emerald-500/10 text-emerald-400",
-                                                                                                                                                                EstadoCuota.Vencida => "bg-red-500/10 text-red-400",
-                                                                                                                                                                EstadoCuota.Parcial => "bg-amber-500/10 text-amber-400",
-                                                                                                                                                                EstadoCuota.Cancelada => "bg-slate-700 text-slate-300",
-                                                                                                                                                                _ => "bg-slate-800 text-slate-300"
-                                                                                                                                                            };
-
-                                                                                                                                                            var cuotaSaldoPendiente = cuota.SaldoPendiente;
-                                                                                                                                                            var cuotaMora = cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio : 0;
-                                                                                                                                                            var cuotaSubtotal = cuotaSaldoPendiente - cuotaMora;
-                                                                                                                                                            if (cuotaSubtotal < 0)
-                                                                                                                                                            {
-                                                                                                                                                                cuotaSubtotal = 0;
-                                                                                                                                                            }
-
-                                                                                                                                                            var cuotaPagable = cuota.Estado != EstadoCuota.Pagada
-                                                                                                                                                                && cuota.Estado != EstadoCuota.Cancelada
-                                                                                                                                                                && cuotaSaldoPendiente > 0;
-                                                                                                                                                            var cuotaRowClass = cuotaPagable
-                                                                                                                                                                ? "hover:bg-slate-800/40"
-                                                                                                                                                                : "opacity-60";
-
-                                                                                                                                                            <tr class="@cuotaRowClass" data-credito-cliente-cuota>
-                                                                                                                                                                <td class="px-4 py-3">
-                                                                                                                                                                    <input type="checkbox"
-                                                                                                                                                                           class="size-4 rounded border-slate-600 bg-slate-950 text-primary focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
-                                                                                                                                                                           data-credito-cuota-selector data-credito-id="@credito.Id"
-                                                                                                                                                                           data-cuota-id="@cuota.Id"
-                                                                                                                                                                           data-cuota-subtotal="@cuotaSubtotal.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                                                                                                                                           data-cuota-mora="@cuotaMora.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                                                                                                                                           data-cuota-total="@cuotaSaldoPendiente.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                                                                                                                                           aria-label="Seleccionar cuota #@cuota.NumeroCuota de @numeroCredito"
-                                                                                                                                                                           disabled="@(!cuotaPagable)" />
-                                                                                                                                                                </td>
-                                                                                                                                                                <td class="px-4 py-3 font-semibold text-white">#@cuota.NumeroCuota</td>
-                                                                                                                                                                <td class="px-4 py-3 text-slate-300">@cuota.FechaVencimiento.ToString("dd/MM/yyyy")</td>
-                                                                                                                                                                <td class="px-4 py-3 text-right font-semibold text-white">$
-                                                                                                                                                                    @cuotaSaldoPendiente.ToString("N2")</td>
-                                                                                                                                                                    <td class="px-4 py-3 text-right">
-                                                                                                                                                                        <span
-                                                                                                                                                                        class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide @estadoCuotaClass">@cuota.Estado</span>
-                                                                                                                                                                    </td>
-                                                                                                                                                                </tr>
-                                                                                                                                                            }
-                                                                                                                                                        </tbody>
-                                                                                                                                                    </table>
-                                                                                                                                                </div>
-                                                                                                                                            }
-                        else
-                                                                                                                                            {
-                                                                                                                                                <div class="px-4 py-6 text-sm text-slate-400">
-                                                                                                                                                    Este crédito todavía no tiene cuotas cargadas en el índice.
-                                                                                                                                                </div>
-                                                                                                                                            }
-                                                                                                                                        </template>
-                                                                                                                                    </article>
-                                                                                                                                }
-                                                                                                                            </div>
-
-                                                                                                                            <footer
-                                                                                                                                class="sticky bottom-0 z-10 shrink-0 border-t border-slate-800 bg-[#161d2c]/95 px-6 py-4 shadow-[0_-12px_30px_rgba(0,0,0,0.25)] backdrop-blur-sm"
-                                                                                                                                data-credito-pago-resumen>
-                                                                                                                                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                                                                                                                                    <div class="grid grid-cols-2 gap-3 md:grid-cols-5 xl:flex xl:items-center xl:gap-5">
-                                                                                                                                        <div>
-                                                                                                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Cuotas seleccionadas</p>
-                                                                                                                                            <p class="mt-1 text-lg font-black text-white" data-credito-resumen-cuotas>0</p>
-                                                                                                                                        </div>
-                                                                                                                                        <div>
-                                                                                                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Créditos involucrados</p>
-                                                                                                                                            <p class="mt-1 text-lg font-black text-white" data-credito-resumen-creditos>0</p>
-                                                                                                                                        </div>
-                                                                                                                                        <div>
-                                                                                                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
-                                                                                                                                            <p class="mt-1 text-lg font-black text-white" data-credito-resumen-subtotal>$ 0,00</p>
-                                                                                                                                        </div>
-                                                                                                                                        <div>
-                                                                                                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mora total</p>
-                                                                                                                                            <p class="mt-1 text-lg font-black text-amber-400" data-credito-resumen-mora>$ 0,00</p>
-                                                                                                                                        </div>
-                                                                                                                                        <div>
-                                                                                                                                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total final</p>
-                                                                                                                                            <p class="mt-1 text-xl font-black text-primary-on-dark" data-credito-resumen-total>$ 0,00</p>
-                                                                                                                                        </div>
-                                                                                                                                    </div>
-
-                                                                                                                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                                                                                                                                        <div class="min-w-44">
-                                                                                                                                            <label for="credito-pago-medio-@clienteGrupo.Cliente.Id"
-                                                                                                                                                   class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Medio de
-                                                                                                                                                pago</label>
-                                                                                                                                                <select id="credito-pago-medio-@clienteGrupo.Cliente.Id"
-                                                                                                                                                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                                                                                                        data-credito-medio-pago>
-                                                                                                                                                    <option value="Efectivo">Efectivo</option>
-                                                                                                                                                    <option value="Transferencia">Transferencia</option>
-                                                                                                                                                    <option value="Tarjeta Débito">Tarjeta Débito</option>
-                                                                                                                                                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
-                                                                                                                                                    <option value="Cheque">Cheque</option>
-                                                                                                                                                </select>
-                                                                                                                                            </div>
-                                                                                                                                            <p class="hidden text-xs font-semibold text-amber-400" role="status" aria-live="polite"
-                                                                                                                                               data-credito-pago-status data-credito-pago-pendiente></p>
-                                                                                                                                            <button type="button"
-                                                                                                                                                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 disabled:shadow-none"
-                                                                                                                                                    data-credito-registrar-pago-multiple
-                                                                                                                                                    data-credito-pago-url="@Url.Action("RegistrarPagoMultiple", "Credito")" disabled>
-                                                                                                                                                <span class="material-symbols-outlined text-base" data-credito-registrar-pago-icon>payments</span>
-                                                                                                                                                <span data-credito-registrar-pago-label>Registrar pago</span>
-                                                                                                                                            </button>
-                                                                                                                                        </div>
-                                                                                                                                    </div>
-                                                                                                                                </footer>
-                                                                                                                            </template>
-                                                                                                                        }
-
-                                                                                                                        @section Scripts {
-                                                                                                                            <script src="~/js/module-index.js" asp-append-version="true"></script>
-                                                                                                                            <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-                                                                                                                            <script src="~/js/credito-module.js" asp-append-version="true"></script>
-                                                                                                                            <script src="~/js/credito-index.js" asp-append-version="true"></script>
-                                                                                                                        }
+@section Scripts {
+    <script src="~/js/module-index.js" asp-append-version="true"></script>
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/credito-module.js" asp-append-version="true"></script>
+    <script src="~/js/credito-index.js" asp-append-version="true"></script>
+}

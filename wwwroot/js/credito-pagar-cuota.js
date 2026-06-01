@@ -108,9 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function applyBadgeClasses(element, isOverdue) {
         if (!element) return;
 
-        element.className = isOverdue
-            ? 'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide bg-red-500/10 text-red-600 border border-red-500/20'
-            : 'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide bg-emerald-500/10 text-emerald-600 border border-emerald-500/20';
+        element.className = isOverdue ? 'chip chip-bad' : 'chip chip-ok';
     }
 
     function applyCuotaData(cuotaId) {
@@ -164,9 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (ui.estadoSummary) {
             ui.estadoSummary.textContent = statusSummary;
-            ui.estadoSummary.className = cuota.estaVencida
-                ? 'mt-2 text-2xl font-black text-red-600 dark:text-red-400'
-                : 'mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400';
+            ui.estadoSummary.style.color = cuota.estaVencida ? '#fb7185' : '#34d399';
         }
 
         if (ui.estadoDetail) {
