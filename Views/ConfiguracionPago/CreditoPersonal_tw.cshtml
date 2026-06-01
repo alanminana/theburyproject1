@@ -7,374 +7,843 @@
         : Url.Action("Index", "Credito") ?? "/Credito";
     var perfiles = Model.Perfiles ?? new List<PerfilCreditoViewModel>();
     var puedeEditar = User.TienePermiso("configuracion", "update");
+    var dg = Model.DefaultsGlobales ?? new DefaultsGlobalesViewModel();
+    var sc = Model.ScoringThresholds ?? new ScoringThresholdsViewModel();
+    var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
 }
 
 @section Styles {
     <partial name="_CreditoModuleStyles" />
+    <style>
+        .sec-nav-link {
+            display: flex; align-items: center; gap: .55rem;
+            padding: .45rem .6rem; border-radius: 8px;
+            color: #94a3b8; font-size: .81rem; line-height: 1.3;
+            transition: all .12s; border: 1px solid transparent;
+            cursor: pointer; width: 100%; text-align: left; background: transparent;
+        }
+        .sec-nav-link:hover { background: #131e33; color: #e2e8f0; }
+        .sec-nav-link.sec-active {
+            background: linear-gradient(90deg, rgba(6,182,212,.16), rgba(6,182,212,.04));
+            border-color: rgba(6,182,212,.35); color: #f1f5f9;
+        }
+        .sec-num {
+            width: 21px; height: 21px; border-radius: 5px; background: #1e293b;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .66rem; font-weight: 600; color: #94a3b8; flex-shrink: 0;
+        }
+        .sec-nav-link.sec-active .sec-num { background: #06b6d4; color: #04222a; }
+        .sec-head { display: flex; align-items: flex-start; gap: .9rem; }
+        .sec-ico {
+            width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sec-tag {
+            font-size: .66rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .06em; color: #475569; margin-bottom: .1rem;
+        }
+        .stat-card {
+            background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: .7rem 1rem;
+        }
+        .cred-notice {
+            border: 1px solid rgba(6,182,212,.3); background: rgba(6,182,212,.06);
+            border-radius: 10px; padding: .85rem 1rem; display: flex; gap: .7rem; align-items: flex-start;
+        }
+        .cred-notice-warn { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.05); }
+        .approval-band { display: flex; height: 34px; border-radius: 8px; overflow: hidden; gap: 2px; }
+        .approval-band > div {
+            display: flex; align-items: center; justify-content: center;
+            gap: 4px; font-size: .73rem; font-weight: 600; padding: 0 .45rem; border-radius: 6px;
+        }
+        .traffic-bar { height: 12px; border-radius: 999px; overflow: hidden; background: linear-gradient(90deg,#22c55e 0%,#eab308 50%,#ef4444 100%); }
+        .cred-modal-bg { background: rgba(2,6,18,.78); backdrop-filter: blur(3px); }
+        .cred-modal-card {
+            background: #0f1829; border: 1px solid #1e293b; border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(0,0,0,.55);
+            animation: credModalIn .16s ease;
+        }
+        @@keyframes credModalIn { from { opacity:0; transform:translateY(8px);} to {opacity:1;transform:translateY(0);} }
+        .cred-savebar {
+            position: sticky; bottom: 0; z-index: 30;
+            backdrop-filter: blur(10px); background: rgba(11,18,32,.92);
+            border-top: 1px solid #1f2937;
+        }
+        .cred-profile details summary { display:flex; align-items:center; gap:.7rem; padding:.7rem .9rem; cursor:pointer; list-style:none; background:#0f172a; border:1px solid #1e293b; border-radius:10px; }
+        .cred-profile details[open] summary { border-radius:10px 10px 0 0; border-bottom-color:transparent; }
+        .cred-profile .prof-body { background:#080f1d; border:1px solid #1e293b; border-top:none; border-radius:0 0 10px 10px; padding:1rem; }
+        .chev { transition:transform .2s; }
+        details[open] .chev { transform:rotate(180deg); }
+        .cred-divider { height:1px; background:#1e293b; }
+        .cred-section { display: none; }
+        .cred-section.is-active { display: block; }
+        .cred-field {
+            width:100%; height:42px; border-radius:8px; border:1px solid #334155;
+            background:#0f172a; color:#f1f5f9; padding:0 .75rem; font-size:.875rem; transition:border-color .15s;
+        }
+        .cred-field:focus { outline:none; border-color:#06b6d4; }
+        .cred-field[readonly], .cred-field:disabled { opacity:.6; cursor:default; }
+        .cred-label { display:block; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:#94a3b8; margin-bottom:.35rem; }
+        .cred-hint { font-size:.71rem; color:#475569; margin-top:.28rem; line-height:1.4; }
+        .pill-cyan { display:inline-flex; align-items:center; gap:3px; font-size:.66rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#67e8f9; background:rgba(6,182,212,.1); border:1px solid rgba(6,182,212,.2); border-radius:999px; padding:2px 7px; }
+        .pill-amber { display:inline-flex; align-items:center; gap:3px; font-size:.66rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#fcd34d; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.2); border-radius:999px; padding:2px 7px; }
+    </style>
 }
 
-<div class="space-y-8">
-    <section class="card-erp-panel-padded">
-        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li><a asp-controller="Credito" asp-action="Index" class="hover:text-primary no-underline">Créditos</a></li>
-                        <li><span class="mx-2 text-slate-400">/</span></li>
-                        <li class="text-slate-100">Configuración</li>
-                    </ol>
-                </nav>
-                <div class="space-y-3">
-                    <span class="badge-erp badge-erp-primary">
-                        <span class="material-symbols-outlined text-sm">settings</span>
-                        Crédito personal
-                    </span>
-                    <div class="space-y-2">
-                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Configurar crédito personal</h1>
-                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                            Administrá los valores globales del sistema y los perfiles reutilizables que luego se aplican en la configuración de ventas a crédito.
-                        </p>
-                    </div>
+<!-- HEADER -->
+<div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 mb-6">
+    <nav aria-label="Breadcrumb" class="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap mb-3">
+        <a asp-controller="Home" asp-action="Index" class="hover:text-slate-300 no-underline">Inicio</a>
+        <span class="material-symbols-outlined" style="font-size:13px">chevron_right</span>
+        <a asp-controller="Credito" asp-action="Index" class="hover:text-slate-300 no-underline">Créditos</a>
+        <span class="material-symbols-outlined" style="font-size:13px">chevron_right</span>
+        <span class="text-slate-300">Configuración</span>
+    </nav>
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div class="min-w-0 max-w-3xl">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center" style="background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);">
+                    <span class="material-symbols-outlined text-cyan-300">request_quote</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-semibold text-white tracking-tight">Configuración de Crédito Personal</h1>
+                    <p class="text-sm text-slate-400 mt-0.5">Valores globales, perfiles y motor de scoring.</p>
                 </div>
             </div>
-
-            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:justify-end">
-                <a asp-controller="ConfiguracionContratoCredito" asp-action="Index"
-                   asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
-                   class="btn-erp-secondary w-full sm:w-auto sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">contract</span>
-                    Plantilla contrato
-                </a>
-                <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    Volver
-                </a>
-            </div>
-        </header>
-    </section>
-
-    @if (TempData["Success"] != null)
-    {
-        <div class="toast-msg flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
-            <span class="material-symbols-outlined">check_circle</span>
-            @TempData["Success"]
         </div>
-    }
+        <div class="flex items-center gap-2 flex-wrap shrink-0">
+            <a asp-controller="ConfiguracionContratoCredito" asp-action="Index"
+               asp-route-returnUrl="@($"{Context.Request.Path}{Context.Request.QueryString}")"
+               class="btn-erp-secondary py-2 text-sm no-underline">
+                <span class="material-symbols-outlined text-[17px]">contract</span>
+                Plantilla contrato
+            </a>
+            <button type="button" onclick="openCreditoModal('m-historial')" class="btn-erp-ghost py-2 text-sm">
+                <span class="material-symbols-outlined text-[17px]">history</span>
+                Historial
+            </button>
+            <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">
+                <span class="material-symbols-outlined text-[17px]">arrow_back</span>
+                Volver
+            </a>
+        </div>
+    </div>
+</div>
 
-    <form asp-action="CreditoPersonal" asp-controller="ConfiguracionPago" method="post" class="space-y-8">
-        @if (!string.IsNullOrWhiteSpace(returnUrl))
-        {
-            <input type="hidden" name="returnUrl" value="@returnUrl" />
-        }
+@if (TempData["Success"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <span class="material-symbols-outlined">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
 
-        <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
+<form asp-action="CreditoPersonal" asp-controller="ConfiguracionPago" method="post" id="credito-config-form">
+@if (!string.IsNullOrWhiteSpace(returnUrl))
+{
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+}
 
-        <section class="card-erp-panel-padded">
-            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
-                <span class="material-symbols-outlined text-primary">public</span>
-                <h2 class="text-xl font-bold text-white">Global del sistema</h2>
+<div asp-validation-summary="ModelOnly" class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
+
+<!-- LAYOUT: aside + main -->
+<div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+
+    <!-- NAV LATERAL -->
+    <aside class="self-start lg:sticky lg:top-4 hidden lg:block">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-2.5">
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-2 pt-1 pb-2">Secciones</p>
+            <nav id="sec-nav" class="space-y-0.5">
+                <button type="button" class="sec-nav-link sec-active" data-target="s1"><span class="sec-num">1</span> Resumen operativo</button>
+                <button type="button" class="sec-nav-link" data-target="s2"><span class="sec-num">2</span> Config. financiera</button>
+                <button type="button" class="sec-nav-link" data-target="s3"><span class="sec-num">3</span> Monto por puntaje</button>
+                <button type="button" class="sec-nav-link" data-target="s4"><span class="sec-num">4</span> Reglas de aprobación</button>
+                <button type="button" class="sec-nav-link" data-target="s5"><span class="sec-num">5</span> Requisitos y garante</button>
+                <div class="my-1.5 mx-2 cred-divider"></div>
+                <p class="text-[9px] uppercase tracking-wider text-slate-600 font-semibold px-2 pb-1">Avanzado</p>
+                <button type="button" class="sec-nav-link" data-target="s6"><span class="sec-num">6</span> Perfiles de crédito</button>
+                <button type="button" class="sec-nav-link" data-target="s7"><span class="sec-num">7</span> Semáforo visual</button>
+                <button type="button" class="sec-nav-link" data-target="s8"><span class="sec-num">8</span> Config. avanzada</button>
+            </nav>
+        </div>
+        <p class="mt-2 px-1 text-[11px] text-slate-600 leading-relaxed">Usá la barra inferior para guardar todo de una vez.</p>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="space-y-5 min-w-0">
+
+        <!-- Selector mobile -->
+        <div class="lg:hidden">
+            <label class="cred-label">Sección</label>
+            <select id="msel" class="cred-field">
+                <option value="s1">1 — Resumen operativo</option>
+                <option value="s2">2 — Config. financiera</option>
+                <option value="s3">3 — Monto por puntaje</option>
+                <option value="s4">4 — Reglas de aprobación</option>
+                <option value="s5">5 — Requisitos y garante</option>
+                <option value="s6">6 — Perfiles de crédito</option>
+                <option value="s7">7 — Semáforo visual</option>
+                <option value="s8">8 — Config. avanzada</option>
+            </select>
+        </div>
+
+        <!-- ── S1: RESUMEN OPERATIVO ── -->
+        <div id="s1" class="cred-section is-active rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(6,182,212,.12);color:#67e8f9;">
+                    <span class="material-symbols-outlined">dashboard</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 1</div>
+                    <h2 class="text-lg font-semibold text-white">Resumen operativo</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Vista rápida de cómo está configurado el crédito. Se actualiza con los valores de abajo.</p>
+                </div>
             </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-blue-400" style="font-size:13px">percent</span> Tasa mensual
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-tasa">@dg.TasaMensual.ToString("0.00") %</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-cyan-300" style="font-size:13px">view_timeline</span> Cuotas
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-cuotas">@dg.MinCuotas – @dg.MaxCuotas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-slate-400" style="font-size:13px">payments</span> Gastos admin
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-gastos">$ @dg.GastosAdministrativos.ToString("0.##")</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-green-400" style="font-size:13px">check_circle</span> Aprobado ≥
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-aprobado">@sc.PuntajeMinimoParaAprobacion pts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-amber-400" style="font-size:13px">shield</span> Garante ≥
+                    </div>
+                    <div class="mt-1.5 text-lg font-semibold text-white font-mono" id="r-garante">$ @sc.MontoRequiereGarante.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="DefaultsGlobales.TasaMensual" class="text-sm font-semibold text-slate-300">Tasa mensual (%)</label>
-                    <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100" readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+        <!-- ── S2: CONFIGURACIÓN FINANCIERA BASE ── -->
+        <div id="s2" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(59,130,246,.12);color:#60a5fa;">
+                    <span class="material-symbols-outlined">calculate</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 2</div>
+                    <h2 class="text-lg font-semibold text-white">Configuración financiera base</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Valores por defecto globales del sistema de crédito personal.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div>
+                    <label asp-for="DefaultsGlobales.TasaMensual" class="cred-label">Tasa mensual (%)</label>
+                    <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateResumen()" />
+                    <p class="cred-hint">Tasa mensual aplicada globalmente.</p>
                     <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="DefaultsGlobales.GastosAdministrativos" class="text-sm font-semibold text-slate-300">Gastos administrativos</label>
-                    <input asp-for="DefaultsGlobales.GastosAdministrativos" type="number" step="0.01" min="0" readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                <div>
+                    <label asp-for="DefaultsGlobales.GastosAdministrativos" class="cred-label">Gastos administrativos ($)</label>
+                    <input asp-for="DefaultsGlobales.GastosAdministrativos" type="number" step="0.01" min="0"
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateResumen()" />
+                    <p class="cred-hint">Monto fijo en $ por operación. Solo modo monto fijo.</p>
                     <span asp-validation-for="DefaultsGlobales.GastosAdministrativos" class="text-xs text-red-500"></span>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="DefaultsGlobales.MinCuotas" class="text-sm font-semibold text-slate-300">Mínimo cuotas</label>
-                    <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                <div>
+                    <label asp-for="DefaultsGlobales.MinCuotas" class="cred-label">Mínimo de cuotas</label>
+                    <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120"
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateResumen()" />
                     <span asp-validation-for="DefaultsGlobales.MinCuotas" class="text-xs text-red-500"></span>
                 </div>
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="DefaultsGlobales.MaxCuotas" class="text-sm font-semibold text-slate-300">Máximo cuotas</label>
-                    <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                <div>
+                    <label asp-for="DefaultsGlobales.MaxCuotas" class="cred-label">Máximo de cuotas</label>
+                    <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120"
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateResumen()" />
                     <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <section class="card-erp-panel-padded">
-            <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">badge</span>
-                    <h2 class="text-xl font-bold text-white">Perfiles de crédito</h2>
+        <!-- ── S3: MONTO DISPONIBLE POR PUNTAJE (placeholder bloqueado) ── -->
+        <div id="s3" class="cred-section rounded-xl bg-slate-900/50 p-5" style="border:1px solid rgba(6,182,212,.3);">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(6,182,212,.14);color:#67e8f9;">
+                    <span class="material-symbols-outlined">leaderboard</span>
                 </div>
-                <span class="inline-flex items-center gap-2 self-start rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">format_list_bulleted</span>
-                    @perfiles.Count perfil@(perfiles.Count == 1 ? "" : "es")
-                </span>
-            </div>
-
-            <div class="space-y-4">
-                @for (var i = 0; i < perfiles.Count; i++)
-                {
-                    <div class="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
-                        <input type="hidden" asp-for="Perfiles[i].Id" />
-                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                            <div class="lg:col-span-3">
-                                <label asp-for="Perfiles[i].Nombre" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Nombre</label>
-                                <input asp-for="Perfiles[i].Nombre" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label asp-for="Perfiles[i].Descripcion" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Descripción</label>
-                                <input asp-for="Perfiles[i].Descripcion" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label asp-for="Perfiles[i].TasaMensual" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Tasa</label>
-                                <input asp-for="Perfiles[i].TasaMensual" type="number" step="0.01" min="0" max="100" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label asp-for="Perfiles[i].GastosAdministrativos" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Gastos</label>
-                                <input asp-for="Perfiles[i].GastosAdministrativos" type="number" step="0.01" min="0" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label asp-for="Perfiles[i].MinCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Min</label>
-                                <input asp-for="Perfiles[i].MinCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label asp-for="Perfiles[i].MaxCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Max</label>
-                                <input asp-for="Perfiles[i].MaxCuotas" type="number" min="1" max="120" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label asp-for="Perfiles[i].Orden" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
-                                <input asp-for="Perfiles[i].Orden" type="number" readonly="@(!puedeEditar)" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="flex items-end lg:col-span-1">
-                                <label class="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm font-semibold text-slate-300">
-                                    <input asp-for="Perfiles[i].Activo" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
-                                    Activo
-                                </label>
-                            </div>
-                        </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                        <div class="sec-tag">Sección 3</div>
+                        <span class="pill-cyan"><span class="material-symbols-outlined" style="font-size:10px">star</span> Regla principal del negocio</span>
                     </div>
-                }
+                    <h2 class="text-lg font-semibold text-white">Monto disponible por puntaje</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">El puntaje del cliente (0–10) define cuánto puede financiar.</p>
+                </div>
+            </div>
+            <div class="cred-notice mb-4">
+                <span class="material-symbols-outlined text-cyan-300 mt-0.5 shrink-0" style="font-size:17px">info</span>
+                <div class="text-sm text-slate-300">
+                    <strong class="text-cyan-200">Pendiente de backend:</strong> esta sección requiere una fase separada.
+                    El diseño objetivo es una tabla editable de rangos 0–10. El sistema actual usa niveles de riesgo crediticio (1–5)
+                    definidos por <code class="text-cyan-300 bg-cyan-500/10 px-1 rounded">NivelRiesgoCredito</code>,
+                    que no son editables desde esta pantalla.
+                </div>
+            </div>
+            <div class="rounded-xl border border-slate-700/50 bg-slate-950/40 p-8 text-center">
+                <span class="material-symbols-outlined text-slate-600" style="font-size:44px">table_chart</span>
+                <p class="mt-2 text-sm font-semibold text-slate-500">Tabla de montos por puntaje no disponible en esta fase</p>
+                <p class="mt-1 text-xs text-slate-600">Los límites actuales se gestionan por NivelRiesgoCredito (1–5)</p>
+            </div>
+        </div>
 
-                @if (puedeEditar)
-                {
-                    <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-4">
-                        <div class="mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">add_circle</span>
-                            <h3 class="text-sm font-black uppercase tracking-wider text-slate-300">Nuevo perfil</h3>
-                        </div>
-                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
-                            <div class="lg:col-span-3">
-                                <label for="nuevoPerfilNombre" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Nombre</label>
-                                <input id="nuevoPerfilNombre" name="nuevoPerfilNombre" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-3">
-                                <label for="nuevoPerfilDescripcion" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Descripción</label>
-                                <input id="nuevoPerfilDescripcion" name="nuevoPerfilDescripcion" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label for="nuevoPerfilTasaMensual" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Tasa</label>
-                                <input id="nuevoPerfilTasaMensual" name="nuevoPerfilTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label for="nuevoPerfilGastosAdministrativos" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Gastos</label>
-                                <input id="nuevoPerfilGastosAdministrativos" name="nuevoPerfilGastosAdministrativos" type="number" step="0.01" min="0" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label for="nuevoPerfilMinCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Min</label>
-                                <input id="nuevoPerfilMinCuotas" name="nuevoPerfilMinCuotas" type="number" min="1" max="120" value="1" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label for="nuevoPerfilMaxCuotas" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Max</label>
-                                <input id="nuevoPerfilMaxCuotas" name="nuevoPerfilMaxCuotas" type="number" min="1" max="120" value="24" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="lg:col-span-1">
-                                <label for="nuevoPerfilOrden" class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-400">Orden</label>
-                                <input id="nuevoPerfilOrden" name="nuevoPerfilOrden" type="number" value="0" class="h-11 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white focus:border-primary focus:ring-0" />
-                            </div>
-                            <div class="flex items-end lg:col-span-1">
-                                <label class="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm font-semibold text-slate-300">
-                                    <input type="hidden" name="nuevoPerfilActivo" value="false" />
-                                    <input type="checkbox" name="nuevoPerfilActivo" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
-                                    Activo
-                                </label>
-                            </div>
-                        </div>
+        <!-- ── S4: REGLAS DE APROBACIÓN CREDITICIA ── -->
+        <div id="s4" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(16,185,129,.12);color:#34d399;">
+                    <span class="material-symbols-outlined">rule</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 4</div>
+                    <h2 class="text-lg font-semibold text-white">Reglas de aprobación crediticia</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Define si el cliente queda Aprobado, Requiere análisis o Rechazado.</p>
+                </div>
+            </div>
+            <!-- Banda visual -->
+            <div class="mb-5">
+                <div class="approval-band" id="approval-band">
+                    <div style="background:rgba(239,68,68,.18);color:#f87171;flex:@sc.PuntajeMinimoParaAnalisis;">
+                        <span class="material-symbols-outlined" style="font-size:14px">cancel</span>
+                        <span class="hidden sm:inline">Rechazado</span>
                     </div>
-                }
+                    <div style="background:rgba(245,158,11,.18);color:#fbbf24;flex:@(sc.PuntajeMinimoParaAprobacion - sc.PuntajeMinimoParaAnalisis);">
+                        <span class="material-symbols-outlined" style="font-size:14px">pending</span>
+                        <span class="hidden sm:inline">Análisis</span>
+                    </div>
+                    <div style="background:rgba(16,185,129,.18);color:#34d399;flex:@(100 - sc.PuntajeMinimoParaAprobacion);">
+                        <span class="material-symbols-outlined" style="font-size:14px">check_circle</span>
+                        <span class="hidden sm:inline">Aprobado</span>
+                    </div>
+                </div>
+                <div class="mt-1 flex justify-between text-[10px] px-1">
+                    <span class="text-slate-500">0</span>
+                    <span class="text-amber-400/80" id="band-label-analisis">≥ @sc.PuntajeMinimoParaAnalisis análisis</span>
+                    <span class="text-green-400/80" id="band-label-aprobado">≥ @sc.PuntajeMinimoParaAprobacion aprobado</span>
+                    <span class="text-slate-500">100</span>
+                </div>
             </div>
-        </section>
-
-        @{
-            var sc = Model.ScoringThresholds ?? new ScoringThresholdsViewModel();
-        }
-        <section class="card-erp-panel-padded">
-            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
-                <span class="material-symbols-outlined text-primary">rule</span>
-                <h2 class="text-xl font-bold text-white">Umbrales de evaluación crediticia</h2>
-            </div>
-            <p class="mb-6 text-sm text-slate-400">
-                Estos valores controlan el motor de scoring que determina si un cliente es Aprobado, Requiere Análisis o Rechazado.
-                Los cambios aplican a nuevas evaluaciones; las evaluaciones ya registradas no se retroactivan.
-            </p>
-
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-sm font-semibold text-slate-300">
-                        Puntaje de riesgo mínimo (0–10)
-                    </label>
-                    <input asp-for="ScoringThresholds.PuntajeRiesgoMinimo" type="number" step="0.1" min="0.1" max="10"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Por debajo → rechazo directo, sin importar el puntaje total.</p>
-                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.PuntajeRiesgoMedio" class="text-sm font-semibold text-slate-300">
-                        Puntaje de riesgo medio (0–10)
-                    </label>
-                    <input asp-for="ScoringThresholds.PuntajeRiesgoMedio" type="number" step="0.1" min="0.1" max="10"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Desde este valor → resultado "Bueno" (+20 pts). Debe ser mayor al mínimo.</p>
-                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMedio" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.PuntajeRiesgoExcelente" class="text-sm font-semibold text-slate-300">
-                        Puntaje de riesgo excelente (0–10)
-                    </label>
-                    <input asp-for="ScoringThresholds.PuntajeRiesgoExcelente" type="number" step="0.1" min="0.1" max="10"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Desde este valor → resultado "Excelente" (+30 pts). Debe ser mayor al medio.</p>
-                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoExcelente" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="text-sm font-semibold text-slate-300">
-                        Umbral cuota/ingreso bajo (0.01–0.99)
-                    </label>
-                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" type="number" step="0.01" min="0.01" max="0.99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Por debajo → capacidad "Excelente" (+25 pts). Debe ser menor a la relación máxima.</p>
-                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-sm font-semibold text-slate-300">
-                        Relación cuota/ingreso máxima (0.01–0.99)
-                    </label>
-                    <input asp-for="ScoringThresholds.RelacionCuotaIngresoMax" type="number" step="0.01" min="0.01" max="0.99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Ej: 0.35 = cuota no mayor al 35 % del sueldo para ser "aceptable".</p>
-                    <span asp-validation-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="text-sm font-semibold text-slate-300">
-                        Umbral cuota/ingreso alto (0.01–0.99)
-                    </label>
-                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" type="number" step="0.01" min="0.01" max="0.99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Por encima → capacidad "Insuficiente" (−15 pts). Debe ser mayor a la relación máxima.</p>
-                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.MontoRequiereGarante" class="text-sm font-semibold text-slate-300">
-                        Monto que exige garante ($)
-                    </label>
-                    <input asp-for="ScoringThresholds.MontoRequiereGarante" type="number" step="1000" min="1"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Solicitudes iguales o mayores a este monto requieren garante obligatorio.</p>
-                    <span asp-validation-for="ScoringThresholds.MontoRequiereGarante" class="text-xs text-red-500"></span>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="text-sm font-semibold text-slate-300">
-                        Puntaje mínimo para Aprobado (0–100)
-                    </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div>
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="cred-label">Puntaje mínimo Aprobado (0–100)</label>
                     <input asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" type="number" step="1" min="1" max="100"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Puntaje total igual o mayor → Aprobado. Debe ser mayor al umbral de análisis.</p>
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateBand();creditoUpdateResumen()" />
+                    <p class="cred-hint">Igual o mayor → Aprobado. Debe ser mayor al umbral de análisis.</p>
                     <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="text-xs text-red-500"></span>
                 </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="text-sm font-semibold text-slate-300">
-                        Puntaje mínimo para Análisis (0–99)
-                    </label>
+                <div>
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="cred-label">Puntaje mínimo Análisis (0–99)</label>
                     <input asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" type="number" step="1" min="0" max="99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Puntaje entre este valor y el de aprobación → Requiere Análisis. Por debajo → Rechazado.</p>
+                           readonly="@(!puedeEditar)" class="cred-field"
+                           oninput="creditoUpdateBand()" />
+                    <p class="cred-hint">Entre este valor y el de aprobación → Requiere Análisis. Por debajo → Rechazado.</p>
                     <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="text-xs text-red-500"></span>
                 </div>
+                <div>
+                    <label asp-for="ScoringThresholds.RelacionCuotaIngresoMax" class="cred-label">Relación cuota/ingreso máxima (0.01–0.99)</label>
+                    <input asp-for="ScoringThresholds.RelacionCuotaIngresoMax" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Ej: 0.35 = cuota no mayor al 35% del sueldo para ser "aceptable".</p>
+                    <span asp-validation-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-xs text-red-500"></span>
+                </div>
+                <div>
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoMinimo" class="cred-label">Puntaje de riesgo mínimo (0–10)</label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoMinimo" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Por debajo → rechazo directo, sin importar el puntaje total.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-xs text-red-500"></span>
+                </div>
             </div>
-        </section>
+        </div>
 
-        @{
-            var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
-        }
-        <section class="card-erp-panel-padded">
-            <div class="mb-6 flex items-center gap-2 border-b border-slate-800 pb-3">
-                <span class="material-symbols-outlined text-primary">traffic</span>
-                <h2 class="text-xl font-bold text-white">Semáforo de simulación financiera</h2>
+        <!-- ── S5: REQUISITOS Y GARANTE ── -->
+        <div id="s5" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(245,158,11,.12);color:#fbbf24;">
+                    <span class="material-symbols-outlined">verified_user</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 5</div>
+                    <h2 class="text-lg font-semibold text-white">Requisitos y garante</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Cuándo pedir más documentación o un garante.</p>
+                </div>
             </div>
-            <p class="mb-6 text-sm text-slate-400">
-                Estos ratios se calculan como cuota / monto financiado. Solo afectan la simulación visual del plan; no modifican la aprobación crediticia.
-            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
+                <div>
+                    <label asp-for="ScoringThresholds.MontoRequiereGarante" class="cred-label">Monto desde el cual exige garante ($)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-mono pointer-events-none">$</span>
+                        <input asp-for="ScoringThresholds.MontoRequiereGarante" type="number" step="1000" min="1"
+                               readonly="@(!puedeEditar)" class="cred-field" style="padding-left:1.75rem"
+                               oninput="creditoUpdateResumen()" />
+                    </div>
+                    <p class="cred-hint">Solicitudes iguales o mayores a este monto requieren garante obligatorio.</p>
+                    <span asp-validation-for="ScoringThresholds.MontoRequiereGarante" class="text-xs text-red-500"></span>
+                </div>
+                <div class="flex flex-col justify-end">
+                    <div class="cred-notice cred-notice-warn text-sm">
+                        <span class="material-symbols-outlined text-amber-300 shrink-0 mt-0.5" style="font-size:15px">info</span>
+                        <div class="text-slate-400 text-xs">
+                            <strong class="text-amber-200">Pendiente de backend:</strong> los requisitos documentales individuales
+                            (recibo de sueldo, Veraz, foto DNI, etc.) se configurarán en una fase posterior.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Requisitos documentales (visual/deshabilitado) -->
+            <div>
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Requisitos documentales — pendientes de backend</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    @foreach (var req in new[] { "Recibo de sueldo", "Consulta Veraz", "Cónyuge (si aplica)", "Servicio a nombre del cliente", "Foto DNI", "Otros documentos" })
+                    {
+                        <label class="flex items-center gap-2 rounded-lg border border-slate-700/40 bg-slate-950/30 px-3 py-2 opacity-45 cursor-not-allowed select-none">
+                            <input type="checkbox" disabled class="rounded border-slate-600 bg-slate-900 text-primary shrink-0" />
+                            <span class="text-xs text-slate-400">@req</span>
+                        </label>
+                    }
+                </div>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="SemaforoFinanciero.RatioVerdeMax" class="text-sm font-semibold text-slate-300">
-                        Ratio máximo verde
-                    </label>
+        <!-- ── S6: PERFILES DE CRÉDITO ── -->
+        <div id="s6" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(168,85,247,.12);color:#c084fc;">
+                    <span class="material-symbols-outlined">groups</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 6</div>
+                    <h2 class="text-lg font-semibold text-white">Perfiles de crédito</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Configuraciones específicas reutilizables por tipo de cliente.</p>
+                </div>
+                @if (puedeEditar)
+                {
+                    <button type="button" onclick="openCreditoModal('m-perfil')"
+                            class="btn-erp-primary shrink-0 text-sm py-2 ml-2">
+                        <span class="material-symbols-outlined text-[15px]">add</span> Nuevo perfil
+                    </button>
+                }
+            </div>
+
+            <div class="space-y-2.5 cred-profile">
+                @for (var i = 0; i < perfiles.Count; i++)
+                {
+                    var perfil = perfiles[i];
+                    <input type="hidden" asp-for="Perfiles[i].Id" />
+                    <details @(i == 0 ? "open" : "")>
+                        <summary>
+                            <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-bold"
+                                 style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);color:#c084fc;">
+                                @(i + 1)
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-white truncate">@(string.IsNullOrWhiteSpace(perfil.Nombre) ? $"Perfil {i+1}" : perfil.Nombre)</p>
+                                <p class="text-xs text-slate-500 truncate">@(string.IsNullOrWhiteSpace(perfil.Descripcion) ? "Sin descripción" : perfil.Descripcion)</p>
+                            </div>
+                            <div class="flex items-center gap-2.5 shrink-0">
+                                @if (perfil.Activo)
+                                {
+                                    <span class="text-[10px] font-semibold uppercase text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="text-[10px] font-semibold uppercase text-slate-500 bg-slate-800/50 border border-slate-700/50 rounded-full px-2 py-0.5">Inactivo</span>
+                                }
+                                <span class="material-symbols-outlined chev text-slate-500" style="font-size:17px">expand_more</span>
+                            </div>
+                        </summary>
+                        <div class="prof-body">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                                <div>
+                                    <label asp-for="Perfiles[i].Nombre" class="cred-label">Nombre</label>
+                                    <input asp-for="Perfiles[i].Nombre" readonly="@(!puedeEditar)" class="cred-field" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].Descripcion" class="cred-label">Descripción</label>
+                                    <input asp-for="Perfiles[i].Descripcion" readonly="@(!puedeEditar)" class="cred-field" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].TasaMensual" class="cred-label">Tasa mensual (%)</label>
+                                    <input asp-for="Perfiles[i].TasaMensual" type="number" step="0.01" min="0" max="100"
+                                           readonly="@(!puedeEditar)" class="cred-field font-mono" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].GastosAdministrativos" class="cred-label">Gastos admin ($)</label>
+                                    <input asp-for="Perfiles[i].GastosAdministrativos" type="number" step="0.01" min="0"
+                                           readonly="@(!puedeEditar)" class="cred-field font-mono" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].MinCuotas" class="cred-label">Mín. cuotas</label>
+                                    <input asp-for="Perfiles[i].MinCuotas" type="number" min="1" max="120"
+                                           readonly="@(!puedeEditar)" class="cred-field font-mono" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].MaxCuotas" class="cred-label">Máx. cuotas</label>
+                                    <input asp-for="Perfiles[i].MaxCuotas" type="number" min="1" max="120"
+                                           readonly="@(!puedeEditar)" class="cred-field font-mono" />
+                                </div>
+                                <div>
+                                    <label asp-for="Perfiles[i].Orden" class="cred-label">Orden</label>
+                                    <input asp-for="Perfiles[i].Orden" type="number"
+                                           readonly="@(!puedeEditar)" class="cred-field font-mono" />
+                                </div>
+                                <div class="flex items-end">
+                                    <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer">
+                                        <input asp-for="Perfiles[i].Activo" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                        Activo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                }
+                @if (perfiles.Count == 0)
+                {
+                    <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-8 text-center">
+                        <span class="material-symbols-outlined text-slate-600" style="font-size:32px">folder_open</span>
+                        <p class="mt-2 text-sm text-slate-500">No hay perfiles configurados.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ── S7: SEMÁFORO DE SIMULACIÓN FINANCIERA ── -->
+        <div id="s7" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(16,185,129,.12);color:#34d399;">
+                    <span class="material-symbols-outlined">traffic</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 7 — solo visual</div>
+                    <h2 class="text-lg font-semibold text-white">Semáforo de simulación financiera</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Solo afecta el color de la simulación. No modifica la aprobación crediticia.</p>
+                </div>
+            </div>
+            <div class="cred-notice cred-notice-warn mb-4">
+                <span class="material-symbols-outlined text-amber-300 shrink-0 mt-0.5" style="font-size:16px">palette</span>
+                <div class="text-sm text-slate-300">Estos valores <strong class="text-amber-200">solo cambian el color visual</strong> de la relación cuota/ingreso en la simulación. La decisión de aprobar se toma en la sección 4.</div>
+            </div>
+            <div class="mb-4">
+                <div class="traffic-bar mb-1.5"></div>
+                <div class="flex justify-between text-[10px] px-0.5">
+                    <span class="text-green-400">Verde ≤ @sf.RatioVerdeMax</span>
+                    <span class="text-amber-400">Amarillo ≤ @sf.RatioAmarilloMax</span>
+                    <span class="text-red-400">Rojo (por encima)</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label asp-for="SemaforoFinanciero.RatioVerdeMax" class="cred-label">Ratio máximo verde</label>
                     <input asp-for="SemaforoFinanciero.RatioVerdeMax" type="number" step="0.01" min="0.01" max="0.99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Ej: 0.08 clasifica como verde si la cuota es hasta el 8 % del monto financiado.</p>
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Ej: 0.08 → verde si la cuota es hasta el 8% del monto financiado.</p>
                     <span asp-validation-for="SemaforoFinanciero.RatioVerdeMax" class="text-xs text-red-500"></span>
                 </div>
-
-                <div class="flex flex-col gap-1.5">
-                    <label asp-for="SemaforoFinanciero.RatioAmarilloMax" class="text-sm font-semibold text-slate-300">
-                        Ratio máximo amarillo
-                    </label>
+                <div>
+                    <label asp-for="SemaforoFinanciero.RatioAmarilloMax" class="cred-label">Ratio máximo amarillo</label>
                     <input asp-for="SemaforoFinanciero.RatioAmarilloMax" type="number" step="0.01" min="0.01" max="0.99"
-                           readonly="@(!puedeEditar)"
-                           class="h-12 w-full rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
-                    <p class="text-xs text-slate-500">Por encima de este ratio, la simulación se muestra en rojo.</p>
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Por encima de este ratio la simulación se muestra en rojo.</p>
                     <span asp-validation-for="SemaforoFinanciero.RatioAmarilloMax" class="text-xs text-red-500"></span>
                 </div>
             </div>
-        </section>
-
-        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <a href="@volverHref" class="btn-erp-ghost w-full sm:w-auto sm:py-2.5 no-underline">Cancelar</a>
-            @if (puedeEditar)
-            {
-                <button type="submit" class="btn-erp-primary w-full sm:w-auto sm:py-2.5">
-                    <span class="material-symbols-outlined text-[20px]">save</span>
-                    Guardar configuración
-                </button>
-            }
         </div>
-    </form>
+
+        <!-- ── S8: CONFIGURACIÓN AVANZADA DEL MOTOR DE SCORING ── -->
+        <div id="s8" class="cred-section rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="sec-head mb-4">
+                <div class="sec-ico" style="background:rgba(148,163,184,.12);color:#cbd5e1;">
+                    <span class="material-symbols-outlined">settings_suggest</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="sec-tag">Sección 8 — expertos</div>
+                    <h2 class="text-lg font-semibold text-white">Configuración avanzada del motor de scoring</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Campos que afectan el comportamiento del scoring. Modificá con cuidado.</p>
+                </div>
+                <span class="pill-amber shrink-0 ml-2">
+                    <span class="material-symbols-outlined" style="font-size:10px">warning</span> Sensible
+                </span>
+            </div>
+            <div class="cred-notice cred-notice-warn mb-4">
+                <span class="material-symbols-outlined text-amber-300 shrink-0 mt-0.5" style="font-size:16px">priority_high</span>
+                <div class="text-sm text-slate-300">No son campos del día a día. Si los tocás mal, podés cambiar todo el comportamiento del scoring.</div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div>
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoMedio" class="cred-label">Puntaje de riesgo medio (0–10)</label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoMedio" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Desde este valor → resultado "Bueno" (+20 pts). Debe ser mayor al mínimo.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMedio" class="text-xs text-red-500"></span>
+                </div>
+                <div>
+                    <label asp-for="ScoringThresholds.PuntajeRiesgoExcelente" class="cred-label">Puntaje de riesgo excelente (0–10)</label>
+                    <input asp-for="ScoringThresholds.PuntajeRiesgoExcelente" type="number" step="0.1" min="0.1" max="10"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Desde este valor → resultado "Excelente" (+30 pts). Debe ser mayor al medio.</p>
+                    <span asp-validation-for="ScoringThresholds.PuntajeRiesgoExcelente" class="text-xs text-red-500"></span>
+                </div>
+                <div>
+                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="cred-label">Umbral cuota/ingreso bajo (0.01–0.99)</label>
+                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoBajo" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Por debajo → capacidad "Excelente" (+25 pts). Debe ser menor a la relación máxima.</p>
+                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoBajo" class="text-xs text-red-500"></span>
+                </div>
+                <div>
+                    <label asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="cred-label">Umbral cuota/ingreso alto (0.01–0.99)</label>
+                    <input asp-for="ScoringThresholds.UmbralCuotaIngresoAlto" type="number" step="0.01" min="0.01" max="0.99"
+                           readonly="@(!puedeEditar)" class="cred-field" />
+                    <p class="cred-hint">Por encima → capacidad "Insuficiente" (−15 pts). Debe ser mayor a la relación máxima.</p>
+                    <span asp-validation-for="ScoringThresholds.UmbralCuotaIngresoAlto" class="text-xs text-red-500"></span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ── MODAL: NUEVO PERFIL (dentro del form para que los fields se envíen) ── -->
+@if (puedeEditar)
+{
+    <div id="m-perfil" class="hidden fixed inset-0 z-50 cred-modal-bg flex items-center justify-center p-4"
+         onclick="if(event.target===this)closeCreditoModal('m-perfil')">
+        <div class="cred-modal-card w-full max-w-lg p-6" onclick="event.stopPropagation()">
+            <header class="flex items-start justify-between gap-3 mb-5">
+                <div>
+                    <h3 class="text-lg font-semibold text-white">Nuevo perfil de crédito</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Reglas específicas para un tipo de cliente.</p>
+                </div>
+                <button type="button" onclick="closeCreditoModal('m-perfil')"
+                        class="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white">
+                    <span class="material-symbols-outlined" style="font-size:17px">close</span>
+                </button>
+            </header>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div class="sm:col-span-2">
+                    <label for="nuevoPerfilNombre" class="cred-label">Nombre</label>
+                    <input id="nuevoPerfilNombre" name="nuevoPerfilNombre" placeholder="Ej. Cliente frecuente" class="cred-field" />
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="nuevoPerfilDescripcion" class="cred-label">Descripción</label>
+                    <input id="nuevoPerfilDescripcion" name="nuevoPerfilDescripcion" placeholder="Notas internas del perfil" class="cred-field" />
+                </div>
+                <div>
+                    <label for="nuevoPerfilTasaMensual" class="cred-label">Tasa mensual (%)</label>
+                    <input id="nuevoPerfilTasaMensual" name="nuevoPerfilTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="cred-field font-mono" />
+                </div>
+                <div>
+                    <label for="nuevoPerfilGastosAdministrativos" class="cred-label">Gastos administrativos ($)</label>
+                    <input id="nuevoPerfilGastosAdministrativos" name="nuevoPerfilGastosAdministrativos" type="number" step="0.01" min="0" value="0" class="cred-field font-mono" />
+                </div>
+                <div>
+                    <label for="nuevoPerfilMinCuotas" class="cred-label">Cuota mínima</label>
+                    <input id="nuevoPerfilMinCuotas" name="nuevoPerfilMinCuotas" type="number" min="1" max="120" value="1" class="cred-field font-mono" />
+                </div>
+                <div>
+                    <label for="nuevoPerfilMaxCuotas" class="cred-label">Cuota máxima</label>
+                    <input id="nuevoPerfilMaxCuotas" name="nuevoPerfilMaxCuotas" type="number" min="1" max="120" value="24" class="cred-field font-mono" />
+                </div>
+                <div>
+                    <label for="nuevoPerfilOrden" class="cred-label">Orden</label>
+                    <input id="nuevoPerfilOrden" name="nuevoPerfilOrden" type="number" value="0" class="cred-field font-mono" />
+                </div>
+                <div class="flex items-end">
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer">
+                        <input type="hidden" name="nuevoPerfilActivo" value="false" />
+                        <input type="checkbox" name="nuevoPerfilActivo" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                        Activo al crear
+                    </label>
+                </div>
+            </div>
+            <footer class="mt-5 flex justify-end gap-2">
+                <button type="button" onclick="closeCreditoModal('m-perfil')" class="btn-erp-ghost">Cancelar</button>
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-[15px]">add</span> Crear perfil
+                </button>
+            </footer>
+        </div>
+    </div>
+}
+
+<!-- ── SAVEBAR STICKY ── -->
+<div class="cred-savebar mt-6 py-3 px-4 flex items-center justify-between gap-3 flex-wrap rounded-b-xl">
+    @if (puedeEditar)
+    {
+        <p class="text-xs text-slate-500 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-amber-400" style="font-size:14px">edit_note</span>
+            Los cambios no se guardan hasta confirmar.
+        </p>
+        <div class="flex gap-2">
+            <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">Descartar todo</a>
+            <button type="submit" class="btn-erp-primary py-2 text-sm">
+                <span class="material-symbols-outlined text-[16px]">save</span>
+                Guardar todo
+            </button>
+        </div>
+    }
+    else
+    {
+        <p class="text-xs text-slate-500 flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-slate-500" style="font-size:14px">lock</span>
+            Vista en modo lectura. No tenés permisos de edición.
+        </p>
+        <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">Volver</a>
+    }
+</div>
+
+</form>
+
+<!-- ── MODAL: HISTORIAL DE CAMBIOS (fuera del form, solo lectura) ── -->
+<div id="m-historial" class="hidden fixed inset-0 z-50 cred-modal-bg flex items-center justify-center p-4"
+     onclick="if(event.target===this)closeCreditoModal('m-historial')">
+    <div class="cred-modal-card w-full max-w-2xl p-6" onclick="event.stopPropagation()">
+        <header class="flex items-start justify-between gap-3 mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-white">Historial de cambios</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Registro de modificaciones recientes a la configuración.</p>
+            </div>
+            <button type="button" onclick="closeCreditoModal('m-historial')"
+                    class="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white">
+                <span class="material-symbols-outlined" style="font-size:17px">close</span>
+            </button>
+        </header>
+        <div class="rounded-xl border border-slate-700/50 bg-slate-950/40 p-8 text-center">
+            <span class="material-symbols-outlined text-slate-600" style="font-size:36px">history</span>
+            <p class="mt-2 text-sm text-slate-500">Historial de cambios pendiente de implementación backend.</p>
+            <p class="mt-1 text-xs text-slate-600">Esta funcionalidad estará disponible en una fase posterior.</p>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+    (function () {
+        // ── Modales ──
+        function openCreditoModal(id) {
+            var el = document.getElementById(id);
+            if (el) { el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+        }
+        function closeCreditoModal(id) {
+            var el = document.getElementById(id);
+            if (el) { el.classList.add('hidden'); document.body.style.overflow = ''; }
+        }
+        window.openCreditoModal = openCreditoModal;
+        window.closeCreditoModal = closeCreditoModal;
+
+        // Cerrar modales con Escape
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                ['m-perfil', 'm-historial'].forEach(closeCreditoModal);
+            }
+        });
+
+        // ── Resumen (S1) ──
+        function creditoUpdateResumen() {
+            var tasa = document.querySelector('[name="DefaultsGlobales.TasaMensual"]');
+            var gastos = document.querySelector('[name="DefaultsGlobales.GastosAdministrativos"]');
+            var minC = document.querySelector('[name="DefaultsGlobales.MinCuotas"]');
+            var maxC = document.querySelector('[name="DefaultsGlobales.MaxCuotas"]');
+            var aprobado = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAprobacion"]');
+            var garante = document.querySelector('[name="ScoringThresholds.MontoRequiereGarante"]');
+
+            if (tasa) { var rt = document.getElementById('r-tasa'); if (rt) rt.textContent = parseFloat(tasa.value || 0).toFixed(2) + ' %'; }
+            if (gastos) { var rg = document.getElementById('r-gastos'); if (rg) rg.textContent = '$ ' + parseFloat(gastos.value || 0).toFixed(0); }
+            if (minC && maxC) { var rc = document.getElementById('r-cuotas'); if (rc) rc.textContent = (minC.value || '?') + ' – ' + (maxC.value || '?'); }
+            if (aprobado) { var ra = document.getElementById('r-aprobado'); if (ra) ra.textContent = (aprobado.value || '?') + ' pts'; }
+            if (garante) {
+                var rgar = document.getElementById('r-garante');
+                if (rgar) {
+                    var v = parseInt(garante.value || 0);
+                    rgar.textContent = '$ ' + v.toLocaleString('es-AR');
+                }
+            }
+        }
+        window.creditoUpdateResumen = creditoUpdateResumen;
+
+        // ── Banda visual (S4) ──
+        function creditoUpdateBand() {
+            var aprobadoEl = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAprobacion"]');
+            var analisisEl = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAnalisis"]');
+            if (!aprobadoEl || !analisisEl) return;
+            var ap = parseInt(aprobadoEl.value) || 70;
+            var an = parseInt(analisisEl.value) || 50;
+            var band = document.getElementById('approval-band');
+            if (band) {
+                var divs = band.querySelectorAll('div');
+                if (divs[0]) divs[0].style.flex = an;
+                if (divs[1]) divs[1].style.flex = Math.max(1, ap - an);
+                if (divs[2]) divs[2].style.flex = Math.max(1, 100 - ap);
+            }
+            var lblAn = document.getElementById('band-label-analisis');
+            var lblAp = document.getElementById('band-label-aprobado');
+            if (lblAn) lblAn.textContent = '≥ ' + an + ' análisis';
+            if (lblAp) lblAp.textContent = '≥ ' + ap + ' aprobado';
+        }
+        window.creditoUpdateBand = creditoUpdateBand;
+
+        // ── Navegación por secciones (show/hide) ──
+        var CREDIT_SECTIONS = ['s1','s2','s3','s4','s5','s6','s7','s8'];
+
+        function showCreditSection(id) {
+            if (CREDIT_SECTIONS.indexOf(id) === -1) id = 's1';
+            CREDIT_SECTIONS.forEach(function(sid) {
+                var el = document.getElementById(sid);
+                if (el) el.classList.toggle('is-active', sid === id);
+            });
+            var nav = document.getElementById('sec-nav');
+            if (nav) {
+                nav.querySelectorAll('[data-target]').forEach(function(btn) {
+                    btn.classList.toggle('sec-active', btn.dataset.target === id);
+                });
+            }
+            var sel = document.getElementById('msel');
+            if (sel) sel.value = id;
+            try { history.replaceState(null, '', '#' + id); } catch(e) {}
+        }
+        window.showCreditSection = showCreditSection;
+
+        var secNav = document.getElementById('sec-nav');
+        if (secNav) {
+            secNav.addEventListener('click', function(e) {
+                var btn = e.target.closest('[data-target]');
+                if (btn) showCreditSection(btn.dataset.target);
+            });
+        }
+
+        var msel = document.getElementById('msel');
+        if (msel) {
+            msel.addEventListener('change', function() {
+                showCreditSection(msel.value);
+            });
+        }
+
+        // Carga inicial: hash o s1
+        var initHash = window.location.hash.replace('#', '');
+        showCreditSection(CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1');
+    })();
+    </script>
 }
