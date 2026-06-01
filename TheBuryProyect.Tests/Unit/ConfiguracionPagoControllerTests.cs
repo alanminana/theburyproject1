@@ -264,6 +264,12 @@ public sealed class ConfiguracionPagoControllerTests
 
         public Task<bool> CambiarEstadoTarjetaGlobalAsync(int id, bool activa) => Task.FromResult(true);
 
+        public Task<bool> EliminarTarjetaGlobalAsync(int id) => Task.FromResult(true);
+
+        public Task<bool> EliminarMedioPagoAsync(int id) => Task.FromResult(true);
+
+        public Task<bool> EditarMedioPagoAsync(int id, MedioPagoGlobalEditViewModel command) => Task.FromResult(true);
+
         public Task<PlanPagoGlobalAdminViewModel> CrearPlanGlobalAsync(PlanPagoGlobalCommandViewModel command)
         {
             CrearPlanInvocado = true;

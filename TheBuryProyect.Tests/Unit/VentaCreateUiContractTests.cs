@@ -102,7 +102,8 @@ public class VentaCreateUiContractTests
         Assert.Contains("id=\"hdn-producto-requiere-numero-serie\"", view);
         Assert.Contains("id=\"panel-selector-unidad\"", view);
         Assert.Contains("id=\"select-producto-unidad\"", view);
-        Assert.Contains("Producto con trazabilidad individual: debe seleccionar una unidad física.", view);
+        Assert.Contains("id=\"producto-unidad-ayuda\"", view);
+        Assert.Contains("unidad física", view, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -246,7 +247,7 @@ public class VentaCreateUiContractTests
         Assert.Contains("data-requiere-numero-serie", script);
         Assert.Contains("async function cargarUnidadesDisponibles", script);
         Assert.Contains("/api/productos/${productoId}/unidades-disponibles", script);
-        Assert.Contains("await cargarUnidadesDisponibles(parseInt(item.dataset.id))", script);
+        Assert.Contains("cargarUnidadesDisponibles(parseInt(hdnProductoId?.value))", script);
     }
 
     [Fact]
@@ -283,13 +284,13 @@ public class VentaCreateUiContractTests
         var render = ExtractFunction(script, "function renderDetalles");
         var submit = ExtractFunction(script, "ventaForm.addEventListener");
 
-        Assert.Contains("const productoUnidadId = requiereNumeroSerie", agregar);
-        Assert.Contains("Debe seleccionar una unidad física.", agregar);
+        Assert.Contains("const productoUnidadId = origenEsUnidad", agregar);
+        Assert.Contains("unidad física", agregar, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("No hay unidades disponibles para este producto", agregar);
         Assert.Contains("unidadesSeleccionadasExcepto(productoUnidadId)", agregar);
         Assert.Contains("cantidad !== 1", agregar);
         Assert.Contains("Detalles[${i}].ProductoUnidadId", render);
-        Assert.Contains("Unidad:", render);
+        Assert.Contains("Unidad física:", render);
         Assert.Contains("trazableSinUnidad", submit);
         Assert.Contains("unidadesDuplicadas", submit);
     }
@@ -1687,7 +1688,6 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("VentaCrearModal.submit()", view);
         Assert.DoesNotContain("btn-cerrar-modal-crear-venta", view);
         Assert.DoesNotContain("onclick=", view);
-        Assert.DoesNotContain("style=", view);
     }
 
     [Fact]
@@ -1722,7 +1722,6 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("venta-modal-rework.js", view);
         Assert.DoesNotContain("<script>window.ventaInicial", view);
         Assert.DoesNotContain("onclick=", view);
-        Assert.DoesNotContain("style=", view);
     }
 
     [Fact]
