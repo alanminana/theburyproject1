@@ -115,6 +115,7 @@ file sealed class StubDocumentoClienteServiceDoc : IDocumentoClienteService
     public Task MarcarVencidosAsync(CancellationToken ct = default) => throw new NotImplementedException();
     public Task<BatchOperacionResultado> VerificarBatchAsync(IEnumerable<int> ids, string verificadoPor, string? observaciones = null) => throw new NotImplementedException();
     public Task<BatchOperacionResultado> RechazarBatchAsync(IEnumerable<int> ids, string motivo, string rechazadoPor) => throw new NotImplementedException();
+    public Task<(List<DocumentoClienteClienteResumenViewModel> Grupos, int TotalClientes)> BuscarAgrupadoPorClienteAsync(DocumentoClienteFilterViewModel filtro) => throw new NotImplementedException();
 }
 
 // ---------------------------------------------------------------------------

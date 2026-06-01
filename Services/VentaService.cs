@@ -2415,18 +2415,15 @@ namespace TheBuryProject.Services
                 if (producto == null)
                     continue;
 
-                if (producto.RequiereNumeroSerie)
+                if (detalleVM.ProductoUnidadId.HasValue)
                 {
-                    if (!detalleVM.ProductoUnidadId.HasValue)
-                        throw new InvalidOperationException(
-                            $"El producto '{producto.Nombre}' requiere selección de unidad individual (número de serie).");
-
+                    // Venta con unidad física: válida tanto para RequiereNumeroSerie=true como false
                     var unidad = await _context.ProductoUnidades
                         .FirstOrDefaultAsync(u => u.Id == detalleVM.ProductoUnidadId.Value && !u.IsDeleted);
 
                     if (unidad == null)
                         throw new InvalidOperationException(
-                            $"La unidad {detalleVM.ProductoUnidadId.Value} no existe o está eliminada.");
+                            $"La unidad seleccionada no está disponible para la venta.");
 
                     if (unidad.ProductoId != detalleVM.ProductoId)
                         throw new InvalidOperationException(
@@ -2438,13 +2435,28 @@ namespace TheBuryProject.Services
 
                     if (detalleVM.Cantidad != 1)
                         throw new InvalidOperationException(
-                            $"Para productos trazables, la cantidad debe ser 1. Producto: '{producto.Nombre}'.");
+                            $"Una unidad física seleccionada solo puede venderse con cantidad 1. Producto: '{producto.Nombre}'.");
+                }
+                else if (producto.RequiereNumeroSerie)
+                {
+                    // Modo estricto: exige unidad física siempre
+                    throw new InvalidOperationException(
+                        $"Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo. Producto: '{producto.Nombre}'.");
                 }
                 else
                 {
-                    if (detalleVM.ProductoUnidadId.HasValue)
+                    // Modo flexible sin unidad física: validar stock no trazado
+                    var unidadesEnStock = await _context.ProductoUnidades
+                        .CountAsync(u => u.ProductoId == detalleVM.ProductoId
+                                      && u.Estado == EstadoUnidad.EnStock
+                                      && !u.IsDeleted);
+
+                    var stockNoTrazado = producto.StockActual - unidadesEnStock;
+
+                    if (stockNoTrazado < detalleVM.Cantidad)
                         throw new InvalidOperationException(
-                            $"El producto '{producto.Nombre}' no requiere unidad individual. No debe informar ProductoUnidadId.");
+                            $"No hay stock no trazado suficiente. Seleccioná una unidad física registrada o ajustá el origen de stock. " +
+                            $"Producto: '{producto.Nombre}' (stock no trazado: {stockNoTrazado}, solicitado: {detalleVM.Cantidad}).");
                 }
             }
         }
@@ -2474,18 +2486,15 @@ namespace TheBuryProject.Services
                 if (producto == null)
                     continue;
 
-                if (producto.RequiereNumeroSerie)
+                if (detalle.ProductoUnidadId.HasValue)
                 {
-                    if (!detalle.ProductoUnidadId.HasValue)
-                        throw new InvalidOperationException(
-                            $"El producto '{producto.Nombre}' requiere selección de unidad individual (número de serie).");
-
+                    // Venta con unidad física: válida tanto para RequiereNumeroSerie=true como false
                     var unidad = await _context.ProductoUnidades
                         .FirstOrDefaultAsync(u => u.Id == detalle.ProductoUnidadId.Value && !u.IsDeleted);
 
                     if (unidad == null)
                         throw new InvalidOperationException(
-                            $"La unidad {detalle.ProductoUnidadId.Value} no existe o está eliminada.");
+                            $"La unidad seleccionada no está disponible para la venta.");
 
                     if (unidad.ProductoId != detalle.ProductoId)
                         throw new InvalidOperationException(
@@ -2497,13 +2506,28 @@ namespace TheBuryProject.Services
 
                     if (detalle.Cantidad != 1)
                         throw new InvalidOperationException(
-                            $"Para productos trazables, la cantidad por línea debe ser 1. Producto: '{producto.Nombre}'.");
+                            $"Una unidad física seleccionada solo puede venderse con cantidad 1. Producto: '{producto.Nombre}'.");
+                }
+                else if (producto.RequiereNumeroSerie)
+                {
+                    // Modo estricto: exige unidad física siempre
+                    throw new InvalidOperationException(
+                        $"Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo. Producto: '{producto.Nombre}'.");
                 }
                 else
                 {
-                    if (detalle.ProductoUnidadId.HasValue)
+                    // Modo flexible sin unidad física: validar stock no trazado
+                    var unidadesEnStock = await _context.ProductoUnidades
+                        .CountAsync(u => u.ProductoId == detalle.ProductoId
+                                      && u.Estado == EstadoUnidad.EnStock
+                                      && !u.IsDeleted);
+
+                    var stockNoTrazado = producto.StockActual - unidadesEnStock;
+
+                    if (stockNoTrazado < detalle.Cantidad)
                         throw new InvalidOperationException(
-                            $"El producto '{producto.Nombre}' no requiere unidad individual. No debe informar ProductoUnidadId.");
+                            $"No hay stock no trazado suficiente. Seleccioná una unidad física registrada o ajustá el origen de stock. " +
+                            $"Producto: '{producto.Nombre}' (stock no trazado: {stockNoTrazado}, solicitado: {detalle.Cantidad}).");
                 }
             }
         }

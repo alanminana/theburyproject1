@@ -320,7 +320,7 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.ConfirmarVentaAsync(venta.Id));
 
-        Assert.Contains("requiere selección de unidad individual", ex.Message);
+        Assert.Contains("requiere unidad física", ex.Message);
     }
 
     // -------------------------------------------------------------------------
@@ -378,7 +378,7 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.ConfirmarVentaAsync(venta.Id));
 
-        Assert.Contains("cantidad por línea debe ser 1", ex.Message);
+        Assert.Contains("solo puede venderse con cantidad 1", ex.Message);
     }
 
     // -------------------------------------------------------------------------
@@ -448,7 +448,8 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.ConfirmarVentaAsync(venta.Id));
 
-        Assert.Contains("no requiere unidad individual", ex.Message);
+        // La unidad pertenece a productoTrazable, no a productoNormal → falla por pertenencia
+        Assert.Contains("no pertenece al producto", ex.Message);
     }
 
     // -------------------------------------------------------------------------
@@ -738,7 +739,7 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.UpdateAsync(venta.Id, vm));
 
-        Assert.Contains("requiere selección de unidad individual", ex.Message);
+        Assert.Contains("requiere unidad física", ex.Message);
     }
 
     // 18. UpdateAsync rechaza producto trazable con cantidad > 1
@@ -766,7 +767,7 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.UpdateAsync(venta.Id, vm));
 
-        Assert.Contains("cantidad debe ser 1", ex.Message);
+        Assert.Contains("solo puede venderse con cantidad 1", ex.Message);
     }
 
     // 19. UpdateAsync rechaza unidad de otro producto
@@ -914,7 +915,8 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.UpdateAsync(venta.Id, vm));
 
-        Assert.Contains("no requiere unidad individual", ex.Message);
+        // La unidad pertenece a productoTrazable, no a productoNormal → falla por pertenencia
+        Assert.Contains("no pertenece al producto", ex.Message);
     }
 
     // =========================================================================
@@ -1429,7 +1431,73 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.ConfirmarVentaAsync(venta.Id));
 
-        Assert.Contains("requiere selección de unidad individual", ex.Message);
+        Assert.Contains("requiere unidad física", ex.Message);
+    }
+
+    // =========================================================================
+    // Fase 2A — Stock no trazado y venta flexible
+    // =========================================================================
+
+    // 44. Producto flexible sin unidades físicas: stockNoTrazado > 0 → permite venta
+    [Fact]
+    public async Task ConfirmarVenta_ProductoFlexible_SinUnidades_StockNoTrazadoPositivo_Permite()
+    {
+        // stock=5, 0 unidades físicas → stockNoTrazado=5
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var venta = await SeedVentaConDetalle(producto, cliente, cantidad: 1, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var ventaDb = await _context.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaDb.Estado);
+    }
+
+    // 45. Producto flexible con TODAS unidades físicas en EnStock: stockNoTrazado=0 → bloquea sin unidad
+    [Fact]
+    public async Task ConfirmarVenta_ProductoFlexible_TodasUnidadesFisicas_StockNoTrazadoCero_Bloquea()
+    {
+        // stock=2, 2 unidades físicas en EnStock → stockNoTrazado=0
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 2);
+        await SeedUnidadEnStockAsync(producto, "SN-NT-A");
+        await SeedUnidadEnStockAsync(producto, "SN-NT-B");
+        var venta = await SeedVentaConDetalle(producto, cliente, cantidad: 1, productoUnidadId: null);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("No hay stock no trazado suficiente", ex.Message);
+    }
+
+    // 46. Producto flexible con unidad física propia → permite venta y marca unidad Vendida
+    [Fact]
+    public async Task ConfirmarVenta_ProductoFlexible_ConUnidadFisicaPropia_MarcaVendida()
+    {
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var unidad = await SeedUnidadEnStockAsync(producto, "SN-FLEX-VEND");
+        var venta = await SeedVentaConDetalle(producto, cliente, productoUnidadId: unidad.Id);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidad.Id);
+        Assert.Equal(EstadoUnidad.Vendida, unidadTras.Estado);
+        Assert.NotNull(unidadTras.FechaVenta);
+    }
+
+    // 47. Venta desde stock no trazado: no toca ninguna ProductoUnidad existente
+    [Fact]
+    public async Task ConfirmarVenta_StockNoTrazado_NoMarcaUnidadFisicaExistente()
+    {
+        // stock=5, 1 unidad física en EnStock → stockNoTrazado=4
+        var (producto, cliente) = await SeedBaseAsync(requiereNumeroSerie: false, stock: 5);
+        var unidadFisica = await SeedUnidadEnStockAsync(producto, "SN-NT-NOTOCAR");
+        // Venta desde stock no trazado (sin ProductoUnidadId)
+        var venta = await SeedVentaConDetalle(producto, cliente, cantidad: 1, productoUnidadId: null);
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        var unidadTras = await _context.ProductoUnidades.AsNoTracking().FirstAsync(u => u.Id == unidadFisica.Id);
+        Assert.Equal(EstadoUnidad.EnStock, unidadTras.Estado);
+        Assert.Null(unidadTras.FechaVenta);
     }
 
     // 24. Edit (cambio de unidad) + ConfirmarVenta: la nueva unidad queda Vendida,

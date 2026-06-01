@@ -49,6 +49,19 @@ namespace TheBuryProject.Services
                         $"Ya existe una unidad activa con el número de serie '{numeroSerie}' para el producto {productoId}.");
             }
 
+            var unidadesEnStock = await _context.ProductoUnidades
+                .CountAsync(u => u.ProductoId == productoId
+                              && u.Estado == EstadoUnidad.EnStock
+                              && !u.IsDeleted);
+
+            if (producto.StockActual <= 0)
+                throw new InvalidOperationException(
+                    "El stock lógico es 0. No hay unidades para registrar. Registrá una entrada en Kardex primero o usá Conciliación.");
+
+            if ((decimal)unidadesEnStock >= producto.StockActual)
+                throw new InvalidOperationException(
+                    "No podés agregar más unidades físicas porque ya registraste todas las unidades disponibles según el stock lógico. Usá Conciliación si encontraste una unidad adicional.");
+
             var codigoInterno = await GenerarCodigoInternoAsync(productoId, producto.Codigo);
 
             var unidad = new ProductoUnidad

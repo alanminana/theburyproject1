@@ -45,7 +45,7 @@ public class ProductoUnidadServiceTests : IDisposable
 
     private async Task<Producto> SeedProductoAsync(
         string? codigo = null,
-        decimal stockActual = 0m,
+        decimal stockActual = 10m,
         bool requiereNumeroSerie = false)
     {
         var suffix = Guid.NewGuid().ToString("N")[..8];
@@ -437,9 +437,19 @@ public class ProductoUnidadServiceTests : IDisposable
     public async Task ObtenerConciliacion_StockMenorAUnidadesEnStock_DevuelveDiferenciaNegativa()
     {
         var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
-        await _service.CrearUnidadAsync(prod.Id);
-        await _service.CrearUnidadAsync(prod.Id);
-        await _service.CrearUnidadAsync(prod.Id);
+        // Insertar 3 unidades directamente en DB: simula el escenario donde hay más
+        // unidades físicas que stock lógico (caso que el service ya no permite por alta común).
+        for (var i = 1; i <= 3; i++)
+        {
+            _context.ProductoUnidades.Add(new ProductoUnidad
+            {
+                ProductoId = prod.Id,
+                CodigoInternoUnidad = $"CONC-U-{i:0000}",
+                Estado = EstadoUnidad.EnStock,
+                FechaIngreso = DateTime.UtcNow
+            });
+        }
+        await _context.SaveChangesAsync();
 
         var conciliacion = await _service.ObtenerConciliacionPorProductoAsync(prod.Id);
 
@@ -451,7 +461,7 @@ public class ProductoUnidadServiceTests : IDisposable
     [Fact]
     public async Task ObtenerConciliacion_CuentaBucketsPorEstado()
     {
-        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        var prod = await SeedProductoAsync("CONC", stockActual: 2m, requiereNumeroSerie: true);
         await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.EnStock);
         await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Vendida);
         await SeedUnidadConEstadoAsync(prod.Id, EstadoUnidad.Faltante);
@@ -475,7 +485,7 @@ public class ProductoUnidadServiceTests : IDisposable
     [Fact]
     public async Task ObtenerConciliacion_ExcluyeUnidadesSoftDeleted()
     {
-        var prod = await SeedProductoAsync("CONC", stockActual: 1m, requiereNumeroSerie: true);
+        var prod = await SeedProductoAsync("CONC", stockActual: 2m, requiereNumeroSerie: true);
         var activa = await _service.CrearUnidadAsync(prod.Id);
         var eliminada = await _service.CrearUnidadAsync(prod.Id);
         var eliminadaEntity = await _context.ProductoUnidades.FindAsync(eliminada.Id);
@@ -530,6 +540,76 @@ public class ProductoUnidadServiceTests : IDisposable
             () => _service.ObtenerConciliacionPorProductoAsync(999999));
 
         Assert.Contains("No existe el producto", ex.Message);
+    }
+
+    // =========================================================================
+    // VALIDACIÓN CUPO — ALTA COMÚN VS STOCK LÓGICO (1A)
+    // =========================================================================
+
+    [Fact]
+    public async Task CrearUnidad_StockActualCero_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync(stockActual: 0m);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CrearUnidadAsync(prod.Id));
+
+        Assert.Contains("stock lógico es 0", ex.Message);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_UnidadesEnStockIgualAStockActual_LanzaExcepcion()
+    {
+        var prod = await SeedProductoAsync(stockActual: 2m);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CrearUnidadAsync(prod.Id));
+
+        Assert.Contains("Conciliación", ex.Message);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_UnidadesEnStockMenorAStockActual_Permite()
+    {
+        var prod = await SeedProductoAsync(stockActual: 3m);
+        await _service.CrearUnidadAsync(prod.Id);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        var ex = await Record.ExceptionAsync(() => _service.CrearUnidadAsync(prod.Id));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task CrearUnidad_Bloqueada_NoModificaStockActual()
+    {
+        var prod = await SeedProductoAsync(stockActual: 1m);
+        await _service.CrearUnidadAsync(prod.Id);
+        var stockAntes = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearUnidadAsync(prod.Id));
+
+        var stockDespues = (await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == prod.Id)).StockActual;
+        Assert.Equal(stockAntes, stockDespues);
+    }
+
+    [Fact]
+    public async Task CrearUnidades_Masiva_NoPuedeSuperarCupo()
+    {
+        var prod = await SeedProductoAsync(stockActual: 2m);
+        await _service.CrearUnidadAsync(prod.Id);
+
+        // Cupo disponible = 1. Intentar crear 2 debe bloquear en el primer intento que supera cupo.
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CrearUnidadesAsync(prod.Id, new string?[] { null, null }));
+
+        Assert.Contains("Conciliación", ex.Message);
+        var unidades = await _context.ProductoUnidades.AsNoTracking()
+            .Where(u => u.ProductoId == prod.Id && !u.IsDeleted)
+            .CountAsync();
+        Assert.Equal(1, unidades); // rollback: queda solo la primera
     }
 
     // =========================================================================

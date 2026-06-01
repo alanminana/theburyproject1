@@ -9,4 +9,7 @@ public sealed class ProductoPrecioVentaResultado
     public string Codigo { get; init; } = string.Empty;
     public string Nombre { get; init; } = string.Empty;
     public decimal StockActual { get; init; }
+    public bool RequiereNumeroSerie { get; init; }
+    public int UnidadesEnStock { get; init; }
+    public decimal StockNoTrazado { get; init; }
 }

@@ -370,6 +370,55 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<(List<DocumentoClienteClienteResumenViewModel> Grupos, int TotalClientes)> BuscarAgrupadoPorClienteAsync(DocumentoClienteFilterViewModel filtro)
+        {
+            try
+            {
+                var query = _context.Set<DocumentoCliente>()
+                    .Include(d => d.Cliente)
+                    .Where(d => !d.IsDeleted && d.Cliente != null && !d.Cliente.IsDeleted)
+                    .AsQueryable();
+
+                if (filtro.TipoDocumento.HasValue)
+                    query = query.Where(d => d.TipoDocumento == (TipoDocumentoCliente)filtro.TipoDocumento.Value);
+
+                if (filtro.Estado.HasValue)
+                    query = query.Where(d => d.Estado == filtro.Estado.Value);
+
+                if (filtro.SoloPendientes)
+                    query = query.Where(d => d.Estado == EstadoDocumento.Pendiente);
+
+                if (filtro.SoloVencidos)
+                    query = query.Where(d =>
+                        d.Estado == EstadoDocumento.Vencido ||
+                        (d.FechaVencimiento.HasValue && d.FechaVencimiento.Value < DateTime.UtcNow.Date));
+
+                var entidades = await query
+                    .OrderByDescending(d => d.FechaSubida)
+                    .ToListAsync();
+
+                var viewModels = _mapper.Map<List<DocumentoClienteViewModel>>(entidades);
+                var todosGrupos = DocumentoClienteClienteResumenViewModel.FromDocumentos(viewModels);
+
+                var totalClientes = todosGrupos.Count;
+
+                var pageNumber = filtro.PageNumber > 0 ? filtro.PageNumber : 1;
+                var pageSize = filtro.PageSize > 0 ? filtro.PageSize : 10;
+
+                var gruposPagina = todosGrupos
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return (gruposPagina, totalClientes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al buscar documentos agrupados por cliente");
+                throw;
+            }
+        }
+
         public async Task<int> VerificarTodosAsync(int clienteId, string verificadoPor, string? observaciones = null)
         {
             try

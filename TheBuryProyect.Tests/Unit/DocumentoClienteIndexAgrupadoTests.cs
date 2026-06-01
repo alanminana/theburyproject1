@@ -270,4 +270,63 @@ public class DocumentoClienteIndexAgrupadoTests
 
         Assert.Equal("12345678", grupo.DocumentoIdentidad);
     }
+
+    // -------------------------------------------------------------------------
+    // Comportamiento esperado por la regla funcional 1A
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void FromDocumentos_ListaVacia_NoGeneraGrupos_EmptyStateEsperado()
+    {
+        // Cuando el service no encuentra documentos (sin resultados o BD vacía),
+        // FromDocumentos devuelve vacío → la vista muestra empty state, nunca tabla plana.
+        var grupos = DocumentoClienteClienteResumenViewModel.FromDocumentos(new List<DocumentoClienteViewModel>());
+
+        Assert.Empty(grupos);
+    }
+
+    [Fact]
+    public void FromDocumentos_SoloConEstadoPendiente_FiltradosPreviamente_RespetaConteo()
+    {
+        // El service aplica filtros ANTES de llamar a FromDocumentos.
+        // Si filtramos por Pendiente, FromDocumentos solo ve documentos pendientes.
+        // El conteo de pendientes en el grupo debe ser exacto.
+        var docsFiltrados = new List<DocumentoClienteViewModel>
+        {
+            MakeDoc(1, "Cliente A", EstadoDocumento.Pendiente),
+            MakeDoc(1, "Cliente A", EstadoDocumento.Pendiente),
+            MakeDoc(2, "Cliente B", EstadoDocumento.Pendiente)
+        };
+
+        var grupos = DocumentoClienteClienteResumenViewModel.FromDocumentos(docsFiltrados);
+
+        Assert.Equal(2, grupos.Count);
+        Assert.All(grupos, g => Assert.True(g.Pendientes > 0));
+        Assert.Equal(0, grupos.Sum(g => g.Verificados));
+        Assert.Equal(0, grupos.Sum(g => g.Rechazados));
+    }
+
+    [Fact]
+    public void FromDocumentos_PaginadoPorCliente_SliceRespetaOrden()
+    {
+        // Simulación de paginación por cliente: los grupos se paginan, no los docs.
+        // Página 1 (size 2) debe devolver los primeros 2 clientes según el orden de FromDocumentos.
+        var docs = new List<DocumentoClienteViewModel>
+        {
+            MakeDoc(1, "Alfa", EstadoDocumento.Verificado),
+            MakeDoc(2, "Beta", EstadoDocumento.Pendiente),
+            MakeDoc(3, "Gamma", EstadoDocumento.Verificado)
+        };
+
+        var todosGrupos = DocumentoClienteClienteResumenViewModel.FromDocumentos(docs);
+        // Beta (pendiente) primero, luego Alfa y Gamma (verificados, orden alfabético).
+        var pagina1 = todosGrupos.Skip(0).Take(2).ToList();
+        var pagina2 = todosGrupos.Skip(2).Take(2).ToList();
+
+        Assert.Equal(2, pagina1.Count);
+        Assert.Single(pagina2);
+        Assert.Equal("Beta", pagina1[0].ClienteNombre);   // pendiente → prioridad
+        Assert.DoesNotContain(pagina1, g => g.ClienteNombre == "Gamma"); // Gamma en pág 2
+        Assert.Equal("Gamma", pagina2[0].ClienteNombre);
+    }
 }

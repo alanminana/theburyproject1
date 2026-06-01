@@ -10,7 +10,7 @@
     var pendientes = documentos.Count(d => d.Estado == EstadoDocumento.Pendiente);
     var verificados = documentos.Count(d => d.Estado == EstadoDocumento.Verificado);
     var vencidos = documentos.Count(d => d.Estado == EstadoDocumento.Vencido);
-    var modoAgrupado = !Model.ClienteId.HasValue && Model.ClientesAgrupados.Any();
+    var modoAgrupado = !Model.ClienteId.HasValue;
 }
 
 @section Styles {
@@ -191,6 +191,8 @@
                 </div>
             </div>
 
+            @if (Model.ClientesAgrupados.Any())
+            {
             <div class="overflow-x-auto">
                 <table class="w-full border-collapse text-left">
                     <thead>
@@ -297,7 +299,7 @@
                     <p class="text-sm text-slate-400">
                         Mostrando <span class="font-bold text-white">@((Model.PageNumber - 1) * Model.PageSize + 1)</span>
                         a <span class="font-bold text-white">@Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados)</span>
-                        de <span class="font-bold text-white">@Model.TotalResultados</span> documentos
+                        de <span class="font-bold text-white">@Model.TotalResultados</span> cliente@(Model.TotalResultados == 1 ? "" : "s")
                     </p>
                     <div class="flex flex-wrap items-center gap-1">
                         @if (Model.HasPreviousPage)
@@ -343,6 +345,20 @@
                             </a>
                         }
                     </div>
+                </div>
+            }
+            }
+            else
+            {
+                <div class="flex flex-col items-center gap-3 py-12">
+                    <span class="material-symbols-outlined text-5xl text-slate-600">people</span>
+                    <p class="text-sm font-medium text-slate-500">No se encontraron clientes con documentos</p>
+                    <button type="button"
+                            onclick="document.getElementById('btn-abrir-upload-modal')?.click()"
+                            class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
+                        <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                        Subir Documento
+                    </button>
                 </div>
             }
         </div>

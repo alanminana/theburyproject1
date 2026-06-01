@@ -112,7 +112,12 @@ namespace TheBuryProject.Controllers
                     precioVenta = precioProducto.PrecioVenta,
                     stockActual = precioProducto.StockActual,
                     codigo = precioProducto.Codigo,
-                    nombre = precioProducto.Nombre
+                    nombre = precioProducto.Nombre,
+                    requiereNumeroSerie = precioProducto.RequiereNumeroSerie,
+                    unidadesFisicasEnStock = precioProducto.UnidadesEnStock,
+                    stockNoTrazado = precioProducto.StockNoTrazado,
+                    permiteVentaDesdeStockNoTrazado = !precioProducto.RequiereNumeroSerie && precioProducto.StockNoTrazado > 0,
+                    permiteElegirUnidadFisica = precioProducto.UnidadesEnStock > 0
                 });
             }
             catch (Exception ex)

@@ -78,12 +78,18 @@ namespace TheBuryProject.Controllers
                 if (returnToVentaId.HasValue)
                     filtro.ReturnToVentaId = returnToVentaId;
 
-                var (documentos, total) = await _documentoService.BuscarAsync(filtro);
-                filtro.Documentos = documentos;
-                filtro.TotalResultados = total;
-
                 if (!filtro.ClienteId.HasValue)
-                    filtro.ClientesAgrupados = DocumentoClienteClienteResumenViewModel.FromDocumentos(documentos);
+                {
+                    var (grupos, totalClientes) = await _documentoService.BuscarAgrupadoPorClienteAsync(filtro);
+                    filtro.ClientesAgrupados = grupos;
+                    filtro.TotalResultados = totalClientes;
+                }
+                else
+                {
+                    var (documentos, total) = await _documentoService.BuscarAsync(filtro);
+                    filtro.Documentos = documentos;
+                    filtro.TotalResultados = total;
+                }
 
                 filtro.UploadModel = new DocumentoClienteViewModel
                 {

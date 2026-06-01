@@ -25,6 +25,7 @@
     let reintentandoSubmitConDatosTarjeta = false;
     let productoActualUnidadesEnStock = 0;
     let productoActualStockSinIdentificar = 0;
+    let productoActualRequiereNumeroSerie = false;
     let recargoDebitoPreview = null;
     let diagnosticoCondicionesTimer = null;
     let diagnosticoCondicionesRequestSeq = 0;
@@ -98,6 +99,12 @@
     const stockError = $('#stock-error');
     const advertenciaStockSinIdentificar = $('#advertencia-stock-sin-identificar');
     const btnAgregarProducto = $('#btn-agregar-producto');
+    const panelOrigenStock = $('#panel-origen-stock');
+    const radioOrigenNoTrazado = $('#radio-origen-no-trazado');
+    const radioOrigenUnidad = $('#radio-origen-unidad');
+    const badgeStockNoTrazado = $('#badge-stock-no-trazado');
+    const badgeUnidadesEnStock = $('#badge-unidades-en-stock');
+    const origenStockError = $('#origen-stock-error');
     const tbodyDetalles = $('#tbody-detalles');
     const detallesVacio = $('#detalles-vacio');
     const detallesHiddenInputs = $('#detalles-hidden-inputs');
@@ -237,6 +244,23 @@
             Number(d.productoUnidadId) === Number(productoUnidadId));
     }
 
+    function limpiarOrigenStock() {
+        hide(panelOrigenStock);
+        if (radioOrigenNoTrazado) {
+            radioOrigenNoTrazado.checked = false;
+            radioOrigenNoTrazado.disabled = false;
+        }
+        if (radioOrigenUnidad) radioOrigenUnidad.checked = false;
+        if (badgeStockNoTrazado) badgeStockNoTrazado.textContent = '';
+        if (badgeUnidadesEnStock) badgeUnidadesEnStock.textContent = '';
+        if (origenStockError) { origenStockError.textContent = ''; hide(origenStockError); }
+        const labelOrigenNoTrazado = radioOrigenNoTrazado?.closest('label');
+        if (labelOrigenNoTrazado) {
+            labelOrigenNoTrazado.style.opacity = '';
+            labelOrigenNoTrazado.style.pointerEvents = '';
+        }
+    }
+
     function limpiarSelectorUnidad() {
         if (selectProductoUnidad) {
             selectProductoUnidad.replaceChildren(new Option('Seleccione una unidad disponible...', ''));
@@ -248,6 +272,68 @@
         }
         if (avisoSinUnidades) hide(avisoSinUnidades);
         hide(panelSelectorUnidad);
+    }
+
+    function configurarOrigenStockProducto(requiereNumeroSerie, unidadesEnStock, stockNoTrazado) {
+        limpiarOrigenStock();
+        limpiarSelectorUnidad();
+
+        if (requiereNumeroSerie) {
+            // Modo estricto: solo unidad física, cantidad bloqueada en 1
+            actualizarCantidadSegunOrigen();
+            cargarUnidadesDisponibles(parseInt(hdnProductoId?.value));
+            return;
+        }
+
+        if (unidadesEnStock <= 0) {
+            // Flexible sin unidades físicas: venta directa desde stock no trazado
+            // No se muestra selector de origen
+            return;
+        }
+
+        // Flexible con unidades físicas: mostrar selector de origen
+        show(panelOrigenStock);
+
+        const stockNegativo = stockNoTrazado < 0;
+        if (badgeStockNoTrazado) {
+            badgeStockNoTrazado.textContent = stockNegativo
+                ? '⚠ Revisar conciliación'
+                : `(${stockNoTrazado})`;
+        }
+        if (badgeUnidadesEnStock) badgeUnidadesEnStock.textContent = `(${unidadesEnStock})`;
+
+        // Cuando stockNoTrazado negativo: deshabilitar la opción no-trazado
+        if (radioOrigenNoTrazado) {
+            radioOrigenNoTrazado.disabled = stockNegativo;
+        }
+        const labelOrigenNoTrazado = radioOrigenNoTrazado?.closest('label');
+        if (labelOrigenNoTrazado) {
+            labelOrigenNoTrazado.style.opacity = stockNegativo ? '0.45' : '';
+            labelOrigenNoTrazado.style.pointerEvents = stockNegativo ? 'none' : '';
+        }
+
+        // Default: stock no trazado si hay disponible y positivo, sino forzar unidad
+        if (stockNoTrazado > 0) {
+            if (radioOrigenNoTrazado) radioOrigenNoTrazado.checked = true;
+        } else {
+            if (radioOrigenUnidad) radioOrigenUnidad.checked = true;
+            cargarUnidadesDisponibles(parseInt(hdnProductoId?.value));
+        }
+        actualizarCantidadSegunOrigen();
+    }
+
+    function esOrigenUnidadFisica() {
+        if (productoActualRequiereNumeroSerie) return true;
+        if (!panelOrigenStock || panelOrigenStock.classList.contains('hidden')) return false;
+        return radioOrigenUnidad?.checked === true;
+    }
+
+    function actualizarCantidadSegunOrigen() {
+        const esUnidad = esOrigenUnidadFisica();
+        if (!txtCantidad) return;
+        txtCantidad.readOnly = esUnidad;
+        txtCantidad.max = esUnidad ? '1' : '';
+        if (esUnidad) txtCantidad.value = 1;
     }
 
     async function cargarUnidadesDisponibles(productoId) {
@@ -290,13 +376,12 @@
     }
 
     function validarCantidadProductoSeleccionado() {
-        const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
         const qty = parseInt(txtCantidad?.value) || 0;
 
-        if (requiereNumeroSerie && qty !== 1) {
+        if (esOrigenUnidadFisica() && qty !== 1) {
             if (txtCantidad) txtCantidad.value = 1;
             if (stockError) {
-                stockError.textContent = 'Producto con trazabilidad individual: la cantidad debe ser 1.';
+                stockError.textContent = 'Una unidad física seleccionada solo puede venderse con cantidad 1.';
                 show(stockError);
             }
             return false;
@@ -974,13 +1059,17 @@
     // ── 2. Product Search ─────────────────────────────────────────────
     function renderStockInfo(p) {
         if (p.unidadesEnStock <= 0) return `Stock: ${p.stockActual}`;
-        const advertencia = p.stockSinIdentificar < 0
+        const advertenciaConc = p.stockSinIdentificar < 0
             ? ' <span class="inline-block rounded px-1 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-500">Revisar conciliación</span>'
             : '';
         if (p.requiereNumeroSerie) {
-            return `Stock total: ${p.stockActual} · Unidades seleccionables: ${p.unidadesEnStock}${advertencia}`;
+            return `Stock total: ${p.stockActual} · Unidades seleccionables: ${p.unidadesEnStock}${advertenciaConc}`;
         }
-        return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · Sin identificar: ${p.stockSinIdentificar}${advertencia}`;
+        if (p.stockSinIdentificar < 0) {
+            const diff = Math.abs(p.stockSinIdentificar);
+            return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · <span class="inline-block rounded px-1 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-500">Revisar conciliación · Físicas > stock lógico por ${diff}</span>`;
+        }
+        return `Stock total: ${p.stockActual} · Identificadas: ${p.unidadesEnStock} · Sin identificar: ${p.stockSinIdentificar}`;
     }
 
     inputBuscarProducto?.addEventListener('input', debounce(async function () {
@@ -1040,22 +1129,18 @@
         }
         productoActualUnidadesEnStock = Number(item.dataset.unidadesEnStock || 0);
         productoActualStockSinIdentificar = Number(item.dataset.stockSinIdentificar || 0);
+        productoActualRequiereNumeroSerie = requiereNumeroSerie;
         txtProductoSeleccionado.value = `${item.dataset.codigo} - ${item.dataset.nombre}`;
         txtCantidad.value = 1;
-        txtCantidad.readOnly = requiereNumeroSerie;
-        txtCantidad.max = requiereNumeroSerie ? '1' : '';
         txtDescuentoItem.value = 0;
         hide(stockError);
-        limpiarSelectorUnidad();
 
         show(panelAgregarProducto);
         hide(dropdownProductos);
         inputBuscarProducto.value = '';
         actualizarAdvertenciaStockSinIdentificar();
 
-        if (requiereNumeroSerie) {
-            await cargarUnidadesDisponibles(parseInt(item.dataset.id));
-        }
+        configurarOrigenStockProducto(requiereNumeroSerie, productoActualUnidadesEnStock, productoActualStockSinIdentificar);
     });
 
     // Stock validation on quantity change
@@ -1077,8 +1162,8 @@
 
     function actualizarAdvertenciaStockSinIdentificar() {
         if (!advertenciaStockSinIdentificar) return;
-        const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
-        if (requiereNumeroSerie || productoActualUnidadesEnStock <= 0) {
+        // No mostrar advertencia cuando se usa unidad física o producto estricto
+        if (esOrigenUnidadFisica()) {
             hide(advertenciaStockSinIdentificar);
             return;
         }
@@ -1086,8 +1171,8 @@
         if (productoActualStockSinIdentificar < 0) {
             advertenciaStockSinIdentificar.textContent = 'Revisar conciliación: hay más unidades físicas registradas que stock agregado disponible.';
             show(advertenciaStockSinIdentificar);
-        } else if (cantidad > productoActualStockSinIdentificar) {
-            advertenciaStockSinIdentificar.textContent = 'Advertencia: la cantidad supera el stock sin identificar disponible. Hay unidades físicas registradas que no se asociarán automáticamente a esta venta.';
+        } else if (cantidad > productoActualStockSinIdentificar && productoActualUnidadesEnStock > 0) {
+            advertenciaStockSinIdentificar.textContent = 'Advertencia: la cantidad supera el stock no trazado disponible. Considerate seleccionar una unidad física registrada.';
             show(advertenciaStockSinIdentificar);
         } else {
             hide(advertenciaStockSinIdentificar);
@@ -1099,6 +1184,22 @@
         if (this.value) hide(productoUnidadError);
     });
 
+    // Cambio de origen de stock (radio buttons)
+    radioOrigenNoTrazado?.addEventListener('change', function () {
+        if (!this.checked) return;
+        limpiarSelectorUnidad();
+        if (origenStockError) { origenStockError.textContent = ''; hide(origenStockError); }
+        actualizarCantidadSegunOrigen();
+        actualizarAdvertenciaStockSinIdentificar();
+    });
+
+    radioOrigenUnidad?.addEventListener('change', function () {
+        if (!this.checked) return;
+        if (origenStockError) { origenStockError.textContent = ''; hide(origenStockError); }
+        actualizarCantidadSegunOrigen();
+        cargarUnidadesDisponibles(parseInt(hdnProductoId?.value));
+    });
+
     btnAgregarProducto?.addEventListener('click', function () {
         const productoId = parseInt(hdnProductoId.value);
         const codigo = hdnProductoCodigo.value;
@@ -1108,54 +1209,95 @@
         const cantidad = parseInt(txtCantidad.value) || 0;
         const descuentoPct = parseFloat(txtDescuentoItem.value) || 0;
         const requiereNumeroSerie = parseBool(hdnProductoRequiereNumeroSerie?.value);
-        const productoUnidadId = requiereNumeroSerie ? (parseInt(selectProductoUnidad?.value) || null) : null;
-        const productoUnidadLabel = requiereNumeroSerie
+        const origenEsUnidad = esOrigenUnidadFisica();
+
+        // Determinar unidad según origen
+        const productoUnidadId = origenEsUnidad ? (parseInt(selectProductoUnidad?.value) || null) : null;
+        const productoUnidadLabel = origenEsUnidad
             ? selectProductoUnidad?.selectedOptions?.[0]?.dataset?.label || selectProductoUnidad?.selectedOptions?.[0]?.textContent?.trim() || ''
             : '';
 
         if (!productoId || cantidad <= 0) return;
 
-        if (requiereNumeroSerie && cantidad !== 1) {
-            stockError.textContent = 'Producto con trazabilidad individual: la cantidad debe ser 1.';
-            show(stockError);
+        // Validar origen seleccionado para productos flexibles con unidades físicas
+        if (!requiereNumeroSerie && productoActualUnidadesEnStock > 0 && panelOrigenStock && !panelOrigenStock.classList.contains('hidden')) {
+            const origenSeleccionado = radioOrigenNoTrazado?.checked || radioOrigenUnidad?.checked;
+            if (!origenSeleccionado) {
+                if (origenStockError) {
+                    origenStockError.textContent = 'Seleccioná el origen del stock para este producto.';
+                    show(origenStockError);
+                }
+                return;
+            }
+        }
+
+        // Validar cantidad con unidad física
+        if (origenEsUnidad && cantidad !== 1) {
+            if (stockError) {
+                stockError.textContent = 'Una unidad física seleccionada solo puede venderse con cantidad 1.';
+                show(stockError);
+            }
             txtCantidad.value = 1;
             return;
         }
 
-        if (requiereNumeroSerie && !productoUnidadId) {
+        // Validar unidad física requerida
+        if (origenEsUnidad && !productoUnidadId) {
             if (selectProductoUnidad?.disabled) {
-                productoUnidadError.textContent = 'No hay unidades disponibles para este producto.';
+                if (productoUnidadError) productoUnidadError.textContent = 'No hay unidades disponibles para este producto.';
                 const pId = parseInt(hdnProductoId?.value) || 0;
                 if (pId && linkGestionarUnidades) linkGestionarUnidades.href = `/Producto/Unidades/${pId}`;
                 if (avisoSinUnidades) show(avisoSinUnidades);
             } else {
-                productoUnidadError.textContent = 'Debe seleccionar una unidad física.';
+                if (productoUnidadError) productoUnidadError.textContent = requiereNumeroSerie
+                    ? 'Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo.'
+                    : 'Seleccioná una unidad física registrada o cambiá el origen a "Stock no trazado".';
             }
-            show(productoUnidadError);
+            if (productoUnidadError) show(productoUnidadError);
             return;
         }
 
-        if (requiereNumeroSerie && unidadesSeleccionadasExcepto(productoUnidadId)) {
-            productoUnidadError.textContent = 'La unidad seleccionada ya fue agregada en otra línea.';
-            show(productoUnidadError);
+        // Validar unidad no duplicada
+        if (origenEsUnidad && productoUnidadId && unidadesSeleccionadasExcepto(productoUnidadId)) {
+            if (productoUnidadError) {
+                productoUnidadError.textContent = 'La unidad seleccionada ya fue agregada en otra línea.';
+                show(productoUnidadError);
+            }
             return;
         }
 
-        if (cantidad > stock) {
-            stockError.textContent = `Stock insuficiente (Máx: ${stock})`;
-            show(stockError);
+        // Bloquear venta desde stock no trazado cuando el saldo es negativo (inconsistencia de conciliación)
+        if (!origenEsUnidad && productoActualStockSinIdentificar < 0) {
+            if (stockError) {
+                stockError.textContent = 'No se puede vender desde stock no trazado: hay más unidades físicas registradas que stock lógico. Seleccioná una unidad física o usá Conciliación.';
+                show(stockError);
+            }
             return;
         }
 
-        // Check if product already exists
-        const existing = requiereNumeroSerie
+        // Validar stock no trazado
+        if (!origenEsUnidad && productoActualStockSinIdentificar >= 0 && cantidad > productoActualStockSinIdentificar) {
+            if (stockError) {
+                stockError.textContent = `No hay stock no trazado suficiente. Seleccioná una unidad física registrada o ajustá el origen de stock. (Disponible: ${productoActualStockSinIdentificar})`;
+                show(stockError);
+            }
+            return;
+        }
+
+        // Validar stock total (solo para stock no trazado; unidad física ya fue validada por disponibilidad en cargarUnidadesDisponibles)
+        if (!origenEsUnidad && cantidad > stock) {
+            if (stockError) { stockError.textContent = `Stock insuficiente (Máx: ${stock})`; show(stockError); }
+            return;
+        }
+
+        // Agregar al carrito
+        const existing = origenEsUnidad
             ? null
-            : detalles.find(d => d.productoId === productoId);
+            : detalles.find(d => d.productoId === productoId && !d.productoUnidadId);
         if (existing) {
             const newQty = existing.cantidad + cantidad;
             if (newQty > stock) {
-                stockError.textContent = `Stock insuficiente. Ya tiene ${existing.cantidad} unid. (Máx: ${stock})`;
-                show(stockError);
+                if (stockError) { stockError.textContent = `Stock insuficiente. Ya tiene ${existing.cantidad} unid. (Máx: ${stock})`; show(stockError); }
                 return;
             }
             existing.cantidad = newQty;
@@ -1189,7 +1331,9 @@
         txtCantidad.max = '';
         productoActualUnidadesEnStock = 0;
         productoActualStockSinIdentificar = 0;
+        productoActualRequiereNumeroSerie = false;
         hide(advertenciaStockSinIdentificar);
+        limpiarOrigenStock();
         limpiarSelectorUnidad();
 
         renderDetalles();
@@ -1220,7 +1364,7 @@
                 <td class="py-4 px-2 text-xs font-mono">${esc(d.codigo)}</td>
                 <td class="py-4 px-2 text-sm font-medium">
                     <div>${esc(d.nombre)}</div>
-                    ${d.requiereNumeroSerie ? `<div class="mt-1 text-[11px] font-semibold text-amber-500">Unidad: ${esc(d.productoUnidadLabel)}</div>` : ''}
+                    ${d.productoUnidadId ? `<div class="mt-1 text-[11px] font-semibold text-amber-500">Unidad física: ${esc(d.productoUnidadLabel)}</div>` : ''}
                 </td>
                 <td class="py-4 px-2 text-sm text-center">${d.cantidad}</td>
                 <td class="py-4 px-2 text-sm text-right">${formatCurrency(d.precioUnitario)}</td>
@@ -2155,15 +2299,15 @@
             const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
             if (trazableSinUnidad) {
                 e.preventDefault();
-                showFeedback('Producto con trazabilidad individual: debe seleccionar una unidad física.', 'error');
+                showFeedback('Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo.', 'error');
                 panelAgregarProducto?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
-            const trazableCantidadInvalida = detalles.find(d => d.requiereNumeroSerie && d.cantidad !== 1);
-            if (trazableCantidadInvalida) {
+            const unidadCantidadInvalida = detalles.find(d => d.productoUnidadId && d.cantidad !== 1);
+            if (unidadCantidadInvalida) {
                 e.preventDefault();
-                showFeedback('Producto con trazabilidad individual: la cantidad debe ser 1.', 'error');
+                showFeedback('Una unidad física seleccionada solo puede venderse con cantidad 1.', 'error');
                 return;
             }
 
