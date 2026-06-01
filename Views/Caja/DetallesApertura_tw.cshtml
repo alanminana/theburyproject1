@@ -38,7 +38,8 @@
 }
 
 <div class="caja-page-shell space-y-8">
-    <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
+    <a asp-action="Index"
+       class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
         <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
     </a>
 
@@ -61,183 +62,207 @@
             </div>
             <p class="page-sub">
                 Abierta por <strong>@apertura.UsuarioApertura</strong> · @apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")
-                @if (!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) || !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal))
+                @if (!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ||
+                !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal))
                 {
-                    <text> · @apertura.Caja?.Ubicacion@(!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) && !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? ", " : "")@apertura.Caja?.Sucursal</text>
-                }
-            </p>
-        </div>
-        <div class="head-actions">
-            <button type="button" data-caja-print aria-label="Imprimir detalles de apertura" class="btn btn-ghost">
-                <span class="material-symbols-outlined">print</span>Imprimir
-            </button>
-            @if (!apertura.Cerrada && puedeOperar)
-            {
-                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="btn btn-soft no-underline">
-                    <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
-                </a>
-                <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary no-underline">
-                    <span class="material-symbols-outlined">lock</span>Cerrar caja
-                </a>
-            }
-        </div>
-    </div>
-
-    @if (TempData["Error"] != null)
-    {
-        <div id="toast-error" class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>@TempData["Error"]
-        </div>
-    }
-    @if (TempData["Success"] != null)
-    {
-        <div id="toast-success" class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium" role="status">
-            <span class="material-symbols-outlined text-lg">check_circle</span>@TempData["Success"]
-        </div>
-    }
-
-    <div class="grid-kpi">
-        <div class="kpi">
-            <div class="kpi-label">Fondo inicial</div>
-            <div class="kpi-value">$@apertura.MontoInicial.ToString("N2")</div>
-            <div class="kpi-foot">declarado en apertura</div>
-        </div>
-        <div class="kpi kpi--ok">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">south_west</span>Ingresos</div>
-            <div class="kpi-value">+$@Model.TotalIngresos.ToString("N2")</div>
-            <div class="kpi-foot">@ingresos.Count @(ingresos.Count == 1 ? "movimiento" : "movimientos")</div>
-        </div>
-        <div class="kpi kpi--bad">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">north_east</span>Egresos</div>
-            <div class="kpi-value">-$@Model.TotalEgresos.ToString("N2")</div>
-            <div class="kpi-foot">@egresos.Count @(egresos.Count == 1 ? "movimiento" : "movimientos")</div>
-        </div>
-        <div class="kpi kpi--accent">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Efectivo esperado</div>
-            <div class="kpi-value">$@Model.SaldoActual.ToString("N2")</div>
-            <div class="kpi-foot">fondo + ingresos - egresos</div>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <section class="lg:col-span-2 space-y-3">
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-                <h2 class="font-semibold text-white">Movimientos del turno</h2>
-                <div class="flex gap-1.5" role="tablist" aria-label="Filtrar movimientos">
-                    <button type="button" class="btn btn-soft btn-sm mv-tab" data-mov-filter="all" aria-pressed="true">Todos</button>
-                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="in" aria-pressed="false">Ingresos</button>
-                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="out" aria-pressed="false">Egresos</button>
-                </div>
-            </div>
-
-            @if (movimientos.Any())
-            {
-                <div class="card" style="overflow:hidden">
-                    <div class="tbl-wrap">
-                        <table class="tbl">
-                            <thead>
-                                <tr>
-                                    <th>Hora</th>
-                                    <th>Concepto</th>
-                                    <th>Referencia</th>
-                                    <th style="text-align:right">Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody id="mov-body">
-                                @foreach (var movimiento in movimientos.OrderByDescending(m => m.FechaMovimiento))
-                                {
-                                    var esIngreso = movimiento.Tipo == TipoMovimientoCaja.Ingreso;
-                                    <tr data-t="@(esIngreso ? "in" : "out")">
-                                        <td class="mono muted">@movimiento.FechaMovimiento.ToString("HH:mm")</td>
-                                        <td>
-                                            <div class="flex items-center gap-2">
-                                                <span class="chip @(esIngreso ? "chip-ok" : "chip-bad")">
-                                                    <span class="material-symbols-outlined">@(esIngreso ? "south_west" : "north_east")</span>
-                                                    @(esIngreso ? "Ingreso" : "Egreso")
-                                                </span>
-                                                <span class="text-white">@FormatConcepto(movimiento.Concepto)</span>
-                                            </div>
-                                        </td>
-                                        <td class="mono muted-2">@(string.IsNullOrWhiteSpace(movimiento.Referencia) ? "—" : movimiento.Referencia)</td>
-                                        <td style="text-align:right" class="num font-semibold @(esIngreso ? "text-emerald-400" : "text-rose-400")">
-                                            @(esIngreso ? "+" : "-") $@movimiento.Monto.ToString("N2")
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between" style="border-top:1px solid var(--line)">
-                        <span>@movimientos.Count @(movimientos.Count == 1 ? "movimiento registrado" : "movimientos registrados")</span>
-                        @if (!apertura.Cerrada && puedeOperar)
-                        {
-                            <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="text-blue-400 hover:text-blue-300 no-underline">+ Registrar movimiento</a>
-                        }
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
-                    <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                        <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
-                    <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora.</p>
-                    @if (!apertura.Cerrada && puedeOperar)
-                    {
-                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="btn btn-primary no-underline">
-                            <span class="material-symbols-outlined">add</span>Registrar primer movimiento
-                        </a>
+                    <text> · @apertura.Caja?.Ubicacion@(!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) &&
+                                            !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? ", " : "")@apertura.Caja?.Sucursal</text>
                     }
-                </div>
-            }
-        </section>
-
-        <aside class="space-y-4">
-            <div class="card card-pad">
-                <h3 class="font-semibold text-white mb-2">Información del turno</h3>
-                <dl>
-                    <div class="defrow"><dt>Apertura</dt><dd class="num">@apertura.FechaApertura.ToString("dd/MM · HH:mm")</dd></div>
-                    <div class="defrow"><dt>Responsable</dt><dd>@apertura.UsuarioApertura</dd></div>
-                    <div class="defrow"><dt>Ubicación</dt><dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ? "—" : apertura.Caja.Ubicacion)</dd></div>
-                    <div class="defrow"><dt>Sucursal</dt><dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? "—" : apertura.Caja.Sucursal)</dd></div>
-                    <div class="defrow"><dt>Última actividad</dt><dd class="num">@(ultimoMovimiento == null ? "Sin movimientos" : ultimoMovimiento.FechaMovimiento.ToString("dd/MM · HH:mm"))</dd></div>
-                </dl>
+                </p>
             </div>
-
-            <div class="card card-pad">
-                <h3 class="font-semibold text-white mb-1.5">Observaciones de apertura</h3>
-                @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
+            <div class="head-actions">
+                <button type="button" data-caja-print aria-label="Imprimir detalles de apertura" class="btn btn-ghost">
+                    <span class="material-symbols-outlined">print</span>Imprimir
+                </button>
+                @if (!apertura.Cerrada && puedeOperar)
                 {
-                    <p class="text-sm muted leading-relaxed">"@apertura.ObservacionesApertura"</p>
-                }
-                else
-                {
-                    <p class="text-sm muted-2 italic">Sin observaciones registradas.</p>
-                }
-            </div>
-
-            @if (!apertura.Cerrada && puedeOperar)
-            {
-                <div class="card card-pad" style="border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.05)">
-                    <h3 class="font-semibold text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">lock_clock</span>¿Terminando el turno?
-                    </h3>
-                    <p class="text-sm muted mt-1.5 mb-3">Cerrá la caja para hacer el arqueo y comparar el efectivo real contra lo esperado.</p>
-                    <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary btn-block no-underline">
-                        <span class="material-symbols-outlined">lock</span>Cerrar turno ahora
+                    <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="btn btn-soft no-underline">
+                        <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
                     </a>
+                    <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary no-underline">
+                        <span class="material-symbols-outlined">lock</span>Cerrar caja
+                    </a>
+                }
+            </div>
+        </div>
+
+        @if (TempData["Error"] != null)
+        {
+            <div id="toast-error"
+                 class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium"
+                 role="alert">
+                <span class="material-symbols-outlined text-lg">error</span>@TempData["Error"]
+            </div>
+        }
+        @if (TempData["Success"] != null)
+        {
+            <div id="toast-success"
+                 class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium"
+                 role="status">
+                <span class="material-symbols-outlined text-lg">check_circle</span>@TempData["Success"]
+            </div>
+        }
+
+        <div class="grid-kpi">
+            <div class="kpi">
+                <div class="kpi-label">Fondo inicial</div>
+                <div class="kpi-value">$@apertura.MontoInicial.ToString("N2")</div>
+                <div class="kpi-foot">declarado en apertura</div>
+            </div>
+            <div class="kpi kpi--ok">
+                <div class="kpi-label"><span class="material-symbols-outlined"
+                                                 style="font-size:15px">south_west</span>Ingresos</div>
+                    <div class="kpi-value">+$@Model.TotalIngresos.ToString("N2")</div>
+                    <div class="kpi-foot">@ingresos.Count @(ingresos.Count == 1 ? "movimiento" : "movimientos")</div>
                 </div>
-            }
-        </aside>
-    </div>
-</div>
+                <div class="kpi kpi--bad">
+                    <div class="kpi-label"><span class="material-symbols-outlined"
+                                                     style="font-size:15px">north_east</span>Egresos</div>
+                        <div class="kpi-value">-$@Model.TotalEgresos.ToString("N2")</div>
+                        <div class="kpi-foot">@egresos.Count @(egresos.Count == 1 ? "movimiento" : "movimientos")</div>
+                    </div>
+                    <div class="kpi kpi--accent">
+                        <div class="kpi-label"><span class="material-symbols-outlined"
+                                                         style="font-size:15px">account_balance_wallet</span>Efectivo esperado</div>
+                            <div class="kpi-value">$@Model.SaldoActual.ToString("N2")</div>
+                            <div class="kpi-foot">fondo + ingresos - egresos</div>
+                        </div>
+                    </div>
 
-@section Styles {
-    <partial name="_CajaModuleStyles" />
-}
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <section class="lg:col-span-2 space-y-3">
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <h2 class="font-semibold text-white">Movimientos del turno</h2>
+                                <div class="flex gap-1.5" role="tablist" aria-label="Filtrar movimientos">
+                                    <button type="button" class="btn btn-soft btn-sm mv-tab" data-mov-filter="all"
+                                            aria-pressed="true">Todos</button>
+                                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="in"
+                                            aria-pressed="false">Ingresos</button>
+                                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="out"
+                                            aria-pressed="false">Egresos</button>
+                                </div>
+                            </div>
 
-@section Scripts {
-    <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
-}
+                            @if (movimientos.Any())
+                            {
+                                <div class="card" style="overflow:hidden">
+                                    <div class="tbl-wrap">
+                                        <table class="tbl">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hora</th>
+                                                    <th>Concepto</th>
+                                                    <th>Referencia</th>
+                                                    <th style="text-align:right">Monto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="mov-body">
+                                                @foreach (var movimiento in movimientos.OrderByDescending(m => m.FechaMovimiento))
+                                                {
+                                                    var esIngreso = movimiento.Tipo == TipoMovimientoCaja.Ingreso;
+                                                    <tr data-t="@(esIngreso ? "in" : "out")">
+                                                        <td class="mono muted">@movimiento.FechaMovimiento.ToString("HH:mm")</td>
+                                                        <td>
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="chip @(esIngreso ? "chip-ok" : "chip-bad")">
+                                                                    <span class="material-symbols-outlined">@(esIngreso ? "south_west" :
+                                                                                                             "north_east")</span>
+                                                                        @(esIngreso ? "Ingreso" : "Egreso")
+                                                                    </span>
+                                                                    <span class="text-white">@FormatConcepto(movimiento.Concepto)</span>
+                                                                </div>
+                                                            </td>
+                                                            <td class="mono muted-2">@(string.IsNullOrWhiteSpace(movimiento.Referencia) ? "—" :
+                                                                                                    movimiento.Referencia)</td>
+                                                                <td style="text-align:right"
+                                                                    class="num font-semibold @(esIngreso ? "text-emerald-400" : "text-rose-400")">
+                                                                    @(esIngreso ? "+" : "-") $@movimiento.Monto.ToString("N2")
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between"
+                                                 style="border-top:1px solid var(--line)">
+                                                <span>@movimientos.Count @(movimientos.Count == 1 ? "movimiento registrado" : "movimientos registrados")</span>
+                                                @if (!apertura.Cerrada && puedeOperar)
+                                                {
+                                                    <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                                                       class="text-blue-400 hover:text-blue-300 no-underline">+ Registrar movimiento</a>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+            else
+                                    {
+                                        <div
+                                            class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
+                                            <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                                                <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
+                                            </div>
+                                            <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
+                                            <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora.</p>
+                                            @if (!apertura.Cerrada && puedeOperar)
+                                            {
+                                                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                                                   class="btn btn-primary no-underline">
+                                                    <span class="material-symbols-outlined">add</span>Registrar primer movimiento
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                </section>
+
+                                <aside class="space-y-4">
+                                    <div class="card card-pad">
+                                        <h3 class="font-semibold text-white mb-2">Información del turno</h3>
+                                        <dl>
+                                            <div class="defrow">
+                                                <dt>Apertura</dt>
+                                                <dd class="num">@apertura.FechaApertura.ToString("dd/MM · HH:mm")</dd>
+                                            </div>
+                                            <div class="defrow">
+                                                <dt>Responsable</dt>
+                                                <dd>@apertura.UsuarioApertura</dd>
+                                            </div>
+                                            <div class="defrow">
+                                                <dt>Ubicación</dt>
+                                                <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ? "—" : apertura.Caja.Ubicacion)</dd>
+                                            </div>
+                                            <div class="defrow">
+                                                <dt>Sucursal</dt>
+                                                <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? "—" : apertura.Caja.Sucursal)</dd>
+                                            </div>
+                                            <div class="defrow">
+                                                <dt>Última actividad</dt>
+                                                <dd class="num">@(ultimoMovimiento == null ? "Sin movimientos" :
+                                                                                ultimoMovimiento.FechaMovimiento.ToString("dd/MM · HH:mm"))</dd>
+                                                </div>
+                                            </dl>
+                                        </div>
+
+                                        <div class="card card-pad">
+                                            <h3 class="font-semibold text-white mb-1.5">Observaciones de apertura</h3>
+                                            @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
+                                            {
+                                                <p class="text-sm muted leading-relaxed">"@apertura.ObservacionesApertura"</p>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-sm muted-2 italic">Sin observaciones registradas.</p>
+                                            }
+                                        </div>
+
+          
+                                    </aside>
+                                </div>
+                            </div>
+
+                            @section Styles {
+                                <partial name="_CajaModuleStyles" />
+                            }
+
+                            @section Scripts {
+                                <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
+                            }

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nueva línea de crédito</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<link rel="stylesheet" href="credito.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand"><span class="brand-badge"><span class="material-symbols-outlined" style="color:#fff;font-size:18px">credit_score</span></span>Créditos</div>
+    <nav class="breadcrumb" style="margin-left:.5rem">
+      <span class="sep">/</span><a href="Index.html">Créditos</a><span class="sep">/</span><span style="color:#cbd5e1">Nueva línea</span>
+    </nav>
+    <div style="margin-left:auto" class="flex items-center gap-2">
+      <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-slate-200">LF</div>
+    </div>
+  </div>
+</header>
+
+<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:720px">
+  <a href="Index.html" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+    <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a créditos
+  </a>
+
+  <div class="page-head" style="margin-top:.95rem">
+    <div class="min-w-0">
+      <h1 class="page-title" style="font-size:1.4rem">Nueva línea de crédito</h1>
+      <p class="page-sub" style="margin-top:.3rem">Creá la línea para un cliente apto. El plan de cuotas y montos se configuran al asociar la venta o aprobar el crédito.</p>
+    </div>
+  </div>
+
+  <form method="post" action="/Credito/Create" class="space-y-4" style="margin-top:1.25rem" onsubmit="event.preventDefault();toast('Línea de crédito creada.');setTimeout(()=>location.href='Index.html',1400)">
+    <!-- 1 · Cliente -->
+    <section class="card card-pad">
+      <div class="sec-head"><div class="sec-num">1</div><div><div class="sec-title">Cliente</div><div class="sec-sub">Solo se listan clientes con aptitud crediticia vigente.</div></div></div>
+      <label class="label">Cliente <span class="req">*</span></label>
+      <select class="field" name="ClienteId" required>
+        <option value="">Seleccioná un cliente…</option>
+        <option>Gómez, Martín Alberto — DNI 28.456.789 (Apto · $320.000)</option>
+        <option>Fernández, Lucía Beatriz — DNI 32.105.488 (Apto · $180.000)</option>
+        <option>Ledesma, Jorge Daniel — CUIT 20-24115097-9 (Apto · $500.000)</option>
+      </select>
+      <p class="hint">¿El cliente no aparece? Verificá su aptitud en el módulo Clientes.</p>
+    </section>
+
+    <!-- 2 · Garante -->
+    <section class="card card-pad">
+      <div class="sec-head"><div class="sec-num">2</div><div><div class="sec-title">Garante</div><div class="sec-sub">Indicá si la operación requiere garante.</div></div></div>
+      <label class="radio-card" id="garante-toggle">
+        <input type="checkbox" class="sr-only" id="RequiereGarante" name="RequiereGarante" onchange="syncGarante()">
+        <span class="rc-dot" style="border-radius:6px"></span>
+        <span class="flex-1">
+          <span class="rc-title">Requiere garante</span>
+          <span class="rc-sub">Activá si el monto o el puntaje exigen una garantía personal.</span>
+        </span>
+      </label>
+      <div id="panel-garante" style="display:none;margin-top:.85rem">
+        <label class="label">Garante <span class="req">*</span></label>
+        <select class="field" name="GaranteId">
+          <option value="">Seleccioná un garante…</option>
+          <option>Gómez, Mariana Soledad — DNI 30.991.220</option>
+          <option>Ledesma, Carlos — DNI 22.870.115</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- 3 · Información adicional -->
+    <section class="card card-pad">
+      <div class="sec-head"><div class="sec-num">3</div><div><div class="sec-title">Información adicional</div><div class="sec-sub">Notas internas de la línea.</div></div></div>
+      <label class="label">Observaciones</label>
+      <textarea class="field" name="Observaciones" placeholder="Comentario interno (opcional)…"></textarea>
+    </section>
+
+    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2">
+      <a href="Index.html" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">add_card</span>Crear línea de crédito</button>
+    </div>
+  </form>
+</main>
+
+<div id="toast" class="overlay" style="background:transparent;pointer-events:none">
+  <div style="position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);pointer-events:auto;z-index:60">
+    <div class="alert alert-ok" style="box-shadow:0 12px 30px rgba(0,0,0,.5)"><span class="material-symbols-outlined">check_circle</span><span id="toast-msg">Listo.</span></div>
+  </div>
+</div>
+
+<script>
+  /* TheBury.CreditoModule.initGaranteToggle() — equivalente visual */
+  function syncGarante(){
+    const chk = document.getElementById('RequiereGarante');
+    document.getElementById('garante-toggle').classList.toggle('is-sel', chk.checked);
+    document.getElementById('panel-garante').style.display = chk.checked ? 'block' : 'none';
+  }
+  let tt; function toast(msg){ document.getElementById('toast-msg').textContent=msg; const t=document.getElementById('toast'); t.classList.add('open'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('open'),2400); }
+</script>
+</body>
+</html>

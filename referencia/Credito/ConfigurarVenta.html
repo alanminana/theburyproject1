@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Configurar crédito · Venta V-008492</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<link rel="stylesheet" href="credito.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand"><span class="brand-badge"><span class="material-symbols-outlined" style="color:#fff;font-size:18px">credit_score</span></span>Créditos</div>
+    <nav class="breadcrumb" style="margin-left:.5rem">
+      <span class="sep">/</span><span class="muted">Ventas</span><span class="sep">/</span><a href="#">V-008492</a><span class="sep">/</span><span style="color:#cbd5e1">Configurar crédito</span>
+    </nav>
+    <div style="margin-left:auto" class="flex items-center gap-2">
+      <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-slate-200">LF</div>
+    </div>
+  </div>
+</header>
+
+<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+  <a href="#" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none" data-credito-config-cancel data-credito-cancel-url="/Ventas/Details/8492">
+    <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a la venta
+  </a>
+
+  <div class="page-head" style="margin-top:.95rem">
+    <div class="min-w-0">
+      <h1 class="page-title" style="font-size:1.4rem">Configurar crédito personal</h1>
+      <p class="page-sub" style="margin-top:.3rem">Venta <span class="mono">V-008492</span> · Cliente Fernández, Lucía Beatriz · Total a financiar <strong class="text-slate-200">$ 180.000</strong></p>
+    </div>
+    <div class="head-actions">
+      <a href="Edit.html" class="btn btn-ghost"><span class="material-symbols-outlined">manage_accounts</span>Editar cliente</a>
+      <!-- visible solo con User.TienePermiso("configuraciones","view") -->
+      <a href="#" class="btn btn-ghost"><span class="material-symbols-outlined">settings</span>Global y perfiles</a>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem" data-credito-config>
+    <!-- Config -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- 1 · Método de cálculo -->
+      <section class="card card-pad">
+        <div class="sec-head"><div class="sec-num">1</div><div><div class="sec-title">Método de cálculo</div><div class="sec-sub">Define de dónde salen la tasa y los gastos.</div></div></div>
+        <select class="field" id="select-metodo-calculo" onchange="onMetodo()">
+          <option value="perfil">Por perfil de crédito</option>
+          <option value="cliente">Configuración personalizada del cliente</option>
+          <option value="global">Configuración global</option>
+        </select>
+        <div class="alert alert-info" id="metodo-info" style="margin-top:.85rem">
+          <span class="material-symbols-outlined">info</span>
+          <span id="metodo-info-texto">Se aplican la tasa y gastos del perfil de crédito seleccionado.</span>
+        </div>
+      </section>
+
+      <!-- 2 · Perfil -->
+      <section class="card card-pad" id="panel-perfil-credito">
+        <div class="sec-head"><div class="sec-num">2</div><div><div class="sec-title">Perfil de crédito</div><div class="sec-sub">Cada perfil define tasa, gastos y rango de cuotas.</div></div></div>
+        <select class="field" id="select-perfil-credito" onchange="onPerfil()">
+          <option value="estandar"  data-tasa="4.0" data-gastos="2500" data-min-cuotas="3" data-max-cuotas="12">Estándar — 4,0% · gastos $2.500 · 3 a 12 cuotas</option>
+          <option value="preferencial" data-tasa="3.0" data-gastos="1500" data-min-cuotas="6" data-max-cuotas="24" selected>Preferencial — 3,0% · gastos $1.500 · 6 a 24 cuotas</option>
+          <option value="mayorista" data-tasa="2.5" data-gastos="1000" data-min-cuotas="6" data-max-cuotas="36">Mayorista — 2,5% · gastos $1.000 · 6 a 36 cuotas</option>
+        </select>
+      </section>
+
+      <!-- 3 · Cuotas -->
+      <section class="card card-pad">
+        <div class="sec-head"><div class="sec-num">3</div><div><div class="sec-title">Cantidad de cuotas</div><div class="sec-sub" id="cuotas-rango">Entre 6 y 24 cuotas.</div></div></div>
+        <select class="field" id="CantidadCuotas" name="CantidadCuotas" onchange="recompute()"></select>
+      </section>
+    </div>
+
+    <!-- Resumen -->
+    <aside>
+      <div class="card card-pad" style="position:sticky;top:76px">
+        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">summarize</span>Resumen del plan</h3>
+
+        <div id="plan-resumen-vacio" class="ph" style="display:none">
+          <span class="material-symbols-outlined">calculate</span>
+          <div class="ph-label">seleccioná método y cuotas</div>
+        </div>
+
+        <div id="plan-resumen">
+          <div class="result-card is-ok">
+            <div class="result-label">Cuota mensual</div>
+            <div class="result-value" id="r-cuota">$ 0</div>
+          </div>
+          <dl class="kv mt-3">
+            <div class="kv-row"><dt>Monto a financiar</dt><dd class="num">$ 180.000</dd></div>
+            <div class="kv-row"><dt>Tasa mensual</dt><dd id="r-tasa">3,0%</dd></div>
+            <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="r-gastos">$ 1.500</dd></div>
+            <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="r-n">12</dd></div>
+            <div class="kv-row"><dt>Interés total</dt><dd class="num" id="r-int">$ 0</dd></div>
+            <div class="kv-row"><dt>Total a pagar</dt><dd class="num" id="r-total" style="color:#34d399;font-weight:600">$ 0</dd></div>
+          </dl>
+        </div>
+
+        <input type="hidden" name="VentaId" value="8492">
+        <input type="hidden" name="CreditoId" value="">
+        <input type="hidden" name="returnUrl" value="/Ventas/Details/8492">
+
+        <div class="flex flex-col gap-2" style="margin-top:1.1rem" data-credito-config-footer-actions>
+          <button class="btn btn-success btn-block" id="btn-confirmar-credito" onclick="toast('Crédito configurado y asociado a la venta.');setTimeout(()=>location.href='Details.html',1500)"><span class="material-symbols-outlined">check_circle</span>Confirmar crédito</button>
+          <button class="btn btn-ghost btn-block btn-sm" id="btn-cancelar-credito" data-credito-config-cancel data-credito-cancel-url="/Ventas/Details/8492" onclick="location.href='#'">Cancelar</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div id="toast" class="overlay" style="background:transparent;pointer-events:none">
+  <div style="position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);pointer-events:auto;z-index:60">
+    <div class="alert alert-ok" style="box-shadow:0 12px 30px rgba(0,0,0,.5)"><span class="material-symbols-outlined">check_circle</span><span id="toast-msg">Listo.</span></div>
+  </div>
+</div>
+
+<!-- cliente-config-data (data-credito-json="cliente-config") -->
+<script id="cliente-config-data" data-credito-json="cliente-config" type="application/json">
+{ "tasa": 3.2, "gastos": 2000, "minCuotas": 3, "maxCuotas": 18, "global": { "tasa": 4.5, "gastos": 3000, "minCuotas": 3, "maxCuotas": 12 } }
+</script>
+
+<script>
+  const MONTO = 180000;
+  const CLI = JSON.parse(document.getElementById('cliente-config-data').textContent);
+  const money = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+
+  function activeParams(){
+    const metodo = document.getElementById('select-metodo-calculo').value;
+    if(metodo === 'cliente') return { tasa: CLI.tasa, gastos: CLI.gastos, min: CLI.minCuotas, max: CLI.maxCuotas };
+    if(metodo === 'global')  return { tasa: CLI.global.tasa, gastos: CLI.global.gastos, min: CLI.global.minCuotas, max: CLI.global.maxCuotas };
+    const o = document.getElementById('select-perfil-credito').selectedOptions[0];
+    return { tasa: +o.dataset.tasa, gastos: +o.dataset.gastos, min: +o.dataset.minCuotas, max: +o.dataset.maxCuotas };
+  }
+
+  function fillCuotas(p){
+    const sel = document.getElementById('CantidadCuotas');
+    const prev = +sel.value;
+    sel.innerHTML = '';
+    for(let n=p.min;n<=p.max;n++){ if(n%3===0||n===p.min||n===p.max){ const o=document.createElement('option'); o.value=n; o.textContent=n+' cuotas'; sel.appendChild(o); } }
+    // mantener selección si sigue en rango
+    [...sel.options].forEach(o=>{ if(+o.value===prev) o.selected=true; });
+    document.getElementById('cuotas-rango').textContent = `Entre ${p.min} y ${p.max} cuotas.`;
+  }
+
+  function onMetodo(){
+    const metodo = document.getElementById('select-metodo-calculo').value;
+    document.getElementById('panel-perfil-credito').style.display = metodo === 'perfil' ? '' : 'none';
+    const txt = { perfil:'Se aplican la tasa y gastos del perfil de crédito seleccionado.', cliente:'Se usa la configuración personalizada cargada en el legajo del cliente.', global:'Se aplican los valores de la configuración global del sistema.' };
+    document.getElementById('metodo-info-texto').textContent = txt[metodo];
+    const p = activeParams(); fillCuotas(p); recompute();
+  }
+  function onPerfil(){ const p = activeParams(); fillCuotas(p); recompute(); }
+
+  function recompute(){
+    const p = activeParams();
+    const n = +document.getElementById('CantidadCuotas').value || p.min;
+    const i = p.tasa/100;
+    const cuota = i>0 ? MONTO*i/(1-Math.pow(1+i,-n)) : MONTO/n;
+    const totalCuotas = cuota*n;
+    const total = totalCuotas + p.gastos;
+    const interes = totalCuotas - MONTO;
+    document.getElementById('r-cuota').textContent = money(cuota);
+    document.getElementById('r-tasa').textContent = p.tasa.toLocaleString('es-AR') + '%';
+    document.getElementById('r-gastos').textContent = money(p.gastos);
+    document.getElementById('r-n').textContent = n;
+    document.getElementById('r-int').textContent = money(interes);
+    document.getElementById('r-total').textContent = money(total);
+  }
+
+  let tt; function toast(msg){ document.getElementById('toast-msg').textContent=msg; const t=document.getElementById('toast'); t.classList.add('open'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('open'),2400); }
+
+  onMetodo();
+</script>
+</body>
+</html>

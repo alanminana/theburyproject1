@@ -147,19 +147,7 @@
                                 </a>
                             }
 
-                            @if (canViewCotizaciones)
-                            {
-                                var active = IsActive("Cotizacion");
-
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Cotizacion"
-                                   asp-action="Index"
-                                   title="Cotizaciones">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">request_quote</span>
-                                    <p class="@NavFont(active) sidebar-label">Cotizaciones</p>
-                                </a>
-                            }
+                          
 
                             @if (canViewClientes)
                             {

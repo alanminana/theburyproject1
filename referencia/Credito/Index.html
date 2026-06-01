@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Créditos · Gestión de Créditos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<link rel="stylesheet" href="credito.css">
+</head>
+<body>
+
+<!-- ===== Top bar ===== -->
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand"><span class="brand-badge"><span class="material-symbols-outlined" style="color:#fff;font-size:18px">credit_score</span></span>Créditos</div>
+    <nav class="breadcrumb" style="margin-left:.5rem">
+      <span class="sep">/</span><span class="muted">Comercial</span><span class="sep">/</span><span style="color:#cbd5e1">Créditos</span>
+    </nav>
+    <div style="margin-left:auto" class="flex items-center gap-2">
+      <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-slate-200">LF</div>
+    </div>
+  </div>
+</header>
+
+<main class="shell" style="padding-top:1.75rem;padding-bottom:3rem">
+
+  <!-- Page header -->
+  <div class="page-head">
+    <div class="min-w-0">
+      <h1 class="page-title">Gestión de Créditos</h1>
+      <p class="page-sub">Cartera de créditos por cliente, control de cuotas y moras. Registrá pagos, simulá nuevas líneas y seguí los vencimientos.</p>
+    </div>
+    <div class="head-actions">
+      <a href="Simular.html" class="btn btn-ghost"><span class="material-symbols-outlined">calculate</span>Simular</a>
+      <a href="Create.html" class="btn btn-primary"><span class="material-symbols-outlined">add_card</span>Nueva línea</a>
+    </div>
+  </div>
+
+  <!-- ===== Banner de mora (protagonista) ===== -->
+  <div class="mora-banner" style="margin-top:1.4rem" data-credito-mora-banner>
+    <div class="mb-ic"><span class="material-symbols-outlined">warning</span></div>
+    <div class="flex-1 min-w-0">
+      <div class="mb-title">Hay 3 clientes con cuotas en mora</div>
+      <div class="mb-sub">$ 114.800 vencidos en total · 2 cuotas críticas (+10 días de atraso) requieren gestión inmediata.</div>
+    </div>
+    <div class="mb-stats">
+      <div class="mb-stat"><div class="v">5</div><div class="l">Cuotas vencidas</div></div>
+      <div class="mb-stat"><div class="v">$ 114.800</div><div class="l">Monto en mora</div></div>
+    </div>
+    <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="goTab('moras')"><span class="material-symbols-outlined">arrow_forward</span>Ver moras</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid-kpi" style="margin-top:1.25rem">
+    <div class="kpi kpi--accent">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Cartera activa</div>
+      <div class="kpi-value">$ 613.000</div>
+      <div class="kpi-foot">saldo por cobrar · 5 créditos activos</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">groups</span>Clientes con crédito</div>
+      <div class="kpi-value">5</div>
+      <div class="kpi-foot">6 créditos en total</div>
+    </div>
+    <div class="kpi kpi--bad">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">running_with_errors</span>En mora</div>
+      <div class="kpi-value">3</div>
+      <div class="kpi-foot">clientes · 5 cuotas vencidas</div>
+    </div>
+    <div class="kpi kpi--warn">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">payments</span>Monto en mora</div>
+      <div class="kpi-value">$ 114.800</div>
+      <div class="kpi-foot">capital + punitorios</div>
+    </div>
+  </div>
+
+  <!-- ===== Tabs ===== -->
+  <div id="credito-tabs" style="margin-top:2rem">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-credito-tab="creditos" onclick="goTab('creditos')"><span class="material-symbols-outlined">folder_open</span>Cartera<span class="tab-count">5</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-credito-tab="moras" onclick="goTab('moras')"><span class="material-symbols-outlined">running_with_errors</span>Moras<span class="tab-count" style="background:rgba(244,63,94,.2);color:#fb7185">3</span></button>
+    </div>
+  </div>
+
+  <!-- ===== TAB: Cartera ===== -->
+  <section id="tab-creditos" class="tab-panel is-active" style="margin-top:1.1rem">
+
+    <!-- Filtros (filterForm, GET) -->
+    <form id="filterForm" data-credito-filter-form method="get" class="filters card" style="padding:.85rem;margin-bottom:1rem" onsubmit="event.preventDefault();applyFilters()">
+      <div class="field-icon">
+        <span class="material-symbols-outlined">search</span>
+        <input name="Cliente" id="f-search" class="field" placeholder="Buscar por cliente, documento o N° de crédito…" oninput="applyFilters()">
+      </div>
+      <select name="Estado" id="f-estado" class="field" style="max-width:175px" onchange="applyFilters()">
+        <option value="">Todos los estados</option>
+        <option value="activo">Activo</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="mora">Con mora</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <label class="btn btn-ghost" style="cursor:pointer;gap:.5rem">
+        <input type="checkbox" id="f-vencidas" name="SoloCuotasVencidas" onchange="applyFilters()" style="width:16px;height:16px">
+        Solo con cuotas vencidas
+      </label>
+      <button type="button" class="btn btn-ghost" id="btn-clear" onclick="clearFilters()" hidden><span class="material-symbols-outlined">close</span>Limpiar</button>
+    </form>
+
+    <div class="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-semibold text-white">Cartera por cliente</h2>
+        <span class="chip chip-neutral mono" id="cli-count">5 clientes</span>
+      </div>
+      <p class="text-xs muted-2">Tocá un cliente para ver sus créditos y cuotas · seleccioná cuotas para registrar el pago.</p>
+    </div>
+
+    <!-- Lista de clientes (acordeón) -->
+    <div id="clientes-list" class="space-y-2.5"></div>
+
+    <!-- Empty -->
+    <div class="card" id="empty-state" hidden>
+      <div class="empty">
+        <div class="empty-ic"><span class="material-symbols-outlined">search_off</span></div>
+        <h3>Sin resultados</h3>
+        <p>No encontramos créditos con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
+        <button class="btn btn-soft btn-sm" style="margin-top:1rem" onclick="clearFilters()"><span class="material-symbols-outlined">close</span>Limpiar filtros</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TAB: Moras ===== -->
+  <section id="tab-moras" class="tab-panel" style="margin-top:1.1rem">
+    <div class="alert alert-bad" style="margin-bottom:1rem">
+      <span class="material-symbols-outlined">priority_high</span>
+      <div>
+        <div class="font-medium" style="color:#fecdd3">5 cuotas vencidas · $ 114.800 en mora</div>
+        <div class="text-sm" style="color:#fecdd3;opacity:.85;margin-top:.1rem">Ordenadas por días de atraso. Las críticas (+10 días) están resaltadas.</div>
+      </div>
+    </div>
+    <div id="moras-list" class="space-y-0"></div>
+  </section>
+</main>
+
+<!-- ============================================================
+     Drawer: panel lateral de cliente (cartera completa)
+     contrato AJAX: data-credito-cliente-panel-*
+     ============================================================ -->
+<div id="credito-cliente-panel" class="overlay" data-credito-cliente-panel role="dialog" aria-modal="true" aria-label="Cartera del cliente" onclick="if(event.target===this)closePanel()">
+  <div class="drawer-panel drawer-panel-wide" style="display:flex;flex-direction:column">
+    <div class="drawer-head">
+      <div class="avatar" id="panel-avatar">—</div>
+      <div class="min-w-0 flex-1">
+        <h2 class="font-semibold text-white" id="credito-cliente-panel-title">Cliente</h2>
+        <p class="text-xs muted-2" id="panel-sub">Cartera completa</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-credito-cliente-panel-close aria-label="Cerrar" onclick="closePanel()"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="drawer-body" data-credito-cliente-panel-scroll id="credito-cliente-panel-content"><!-- inyectado por JS --></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="overlay" style="background:transparent;pointer-events:none">
+  <div style="position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);pointer-events:auto;z-index:60">
+    <div class="alert alert-ok" style="box-shadow:0 12px 30px rgba(0,0,0,.5)"><span class="material-symbols-outlined">check_circle</span><span id="toast-msg">Listo.</span></div>
+  </div>
+</div>
+
+<!-- Datos de cartera (en el server vendría de Model.Clientes) -->
+<script id="cartera-data" type="application/json">
+{
+  "clientes": [
+    {
+      "id": 1, "nombre": "Quiroga, Ramón Alberto", "iniciales": "RQ", "doc": "DNI 25.987.123", "tono": "slate",
+      "creditos": [
+        { "numero": "CR-001042", "estado": "mora", "monto": 240000, "saldo": 168000, "cuotasPagas": 3, "cuotasTotal": 12, "proximo": "vencida",
+          "cuotas": [
+            {"n":4,"venc":"10/05/2026","monto":24000,"mora":4200,"estado":"vencida","dias":22},
+            {"n":5,"venc":"10/06/2026","monto":24000,"mora":1800,"estado":"vencida","dias":14},
+            {"n":6,"venc":"10/07/2026","monto":24000,"mora":0,"estado":"pendiente","dias":0},
+            {"n":7,"venc":"10/08/2026","monto":24000,"mora":0,"estado":"pendiente","dias":0}
+          ] }
+      ]
+    },
+    {
+      "id": 2, "nombre": "Sosa, Daniela Romina", "iniciales": "DS", "doc": "DNI 31.220.940", "tono": "slate",
+      "creditos": [
+        { "numero": "CR-001038", "estado": "mora", "monto": 150000, "saldo": 75000, "cuotasPagas": 6, "cuotasTotal": 12, "proximo": "vencida",
+          "cuotas": [
+            {"n":7,"venc":"28/05/2026","monto":12500,"mora":900,"estado":"vencida","dias":4},
+            {"n":8,"venc":"28/06/2026","monto":12500,"mora":0,"estado":"pendiente","dias":0},
+            {"n":9,"venc":"28/07/2026","monto":12500,"mora":0,"estado":"pendiente","dias":0}
+          ] }
+      ]
+    },
+    {
+      "id": 3, "nombre": "Gómez, Martín Alberto", "iniciales": "MG", "doc": "DNI 28.456.789", "tono": "blue",
+      "creditos": [
+        { "numero": "CR-001051", "estado": "activo", "monto": 360000, "saldo": 240000, "cuotasPagas": 4, "cuotasTotal": 12, "proximo": "10/06/2026",
+          "cuotas": [
+            {"n":5,"venc":"10/06/2026","monto":30000,"mora":1200,"estado":"vencida","dias":9},
+            {"n":6,"venc":"10/07/2026","monto":30000,"mora":0,"estado":"pendiente","dias":0},
+            {"n":7,"venc":"10/08/2026","monto":30000,"mora":0,"estado":"pendiente","dias":0}
+          ] },
+        { "numero": "CR-000994", "estado": "mora", "monto": 90000, "saldo": 30000, "cuotasPagas": 4, "cuotasTotal": 6, "proximo": "vencida",
+          "cuotas": [
+            {"n":5,"venc":"02/06/2026","monto":15000,"mora":1200,"estado":"vencida","dias":9},
+            {"n":6,"venc":"02/07/2026","monto":15000,"mora":0,"estado":"pendiente","dias":0}
+          ] }
+      ]
+    },
+    {
+      "id": 4, "nombre": "Fernández, Lucía Beatriz", "iniciales": "LF", "doc": "DNI 32.105.488", "tono": "blue",
+      "creditos": [
+        { "numero": "CR-001047", "estado": "activo", "monto": 200000, "saldo": 100000, "cuotasPagas": 6, "cuotasTotal": 12, "proximo": "15/06/2026",
+          "cuotas": [
+            {"n":7,"venc":"15/06/2026","monto":16667,"mora":0,"estado":"pendiente","dias":0},
+            {"n":8,"venc":"15/07/2026","monto":16667,"mora":0,"estado":"pendiente","dias":0}
+          ] }
+      ]
+    },
+    {
+      "id": 5, "nombre": "Ledesma, Jorge Daniel", "iniciales": "JL", "doc": "CUIT 20-24115097-9", "tono": "blue",
+      "creditos": [
+        { "numero": "CR-001055", "estado": "pendiente", "monto": 500000, "saldo": 500000, "cuotasPagas": 0, "cuotasTotal": 18, "proximo": "—",
+          "cuotas": [] }
+      ]
+    }
+  ]
+}
+</script>
+
+<script src="credito-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crédito CR-001051 · Detalle</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<link rel="stylesheet" href="credito.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand"><span class="brand-badge"><span class="material-symbols-outlined" style="color:#fff;font-size:18px">credit_score</span></span>Créditos</div>
+    <nav class="breadcrumb" style="margin-left:.5rem">
+      <span class="sep">/</span><span class="muted">Comercial</span><span class="sep">/</span><a href="Index.html">Créditos</a><span class="sep">/</span><span style="color:#cbd5e1">CR-001051</span>
+    </nav>
+    <div style="margin-left:auto" class="flex items-center gap-2">
+      <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
+      <div class="w-8 h-8 rounded-full bg-slate-700 grid place-items-center text-xs font-semibold text-slate-200">LF</div>
+    </div>
+  </div>
+</header>
+
+<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+  <a href="Index.html" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+    <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a créditos
+  </a>
+
+  <!-- Header -->
+  <div class="page-head" style="margin-top:.95rem">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="page-title" style="font-size:1.4rem">Crédito <span class="mono">CR-001051</span></h1>
+        <span class="chip chip-ok"><span class="material-symbols-outlined">check_circle</span>Activo</span>
+        <span class="chip chip-bad"><span class="material-symbols-outlined">error</span>1 cuota vencida</span>
+      </div>
+      <p class="page-sub" style="margin-top:.3rem">Cliente <a href="#" class="text-slate-300 hover:text-white" style="text-decoration:none">Gómez, Martín Alberto</a> · DNI <span class="mono">28.456.789</span> · Otorgado 10/01/2026</p>
+    </div>
+    <div class="head-actions">
+      <button class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
+      <a href="Edit.html" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar</a>
+      <a href="AdelantarCuota.html" class="btn btn-soft"><span class="material-symbols-outlined">fast_forward</span>Adelantar</a>
+      <a href="PagarCuota.html" class="btn btn-primary"><span class="material-symbols-outlined">payments</span>Pagar cuota</a>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid-kpi" style="margin-top:1.5rem">
+    <div class="kpi">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">request_quote</span>Monto otorgado</div>
+      <div class="kpi-value">$ 360.000</div>
+      <div class="kpi-foot">capital · 12 cuotas</div>
+    </div>
+    <div class="kpi kpi--accent">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Saldo pendiente</div>
+      <div class="kpi-value">$ 240.000</div>
+      <div class="mt-2 bar"><div class="bar-fill is-accent" style="width:33%"></div></div>
+      <div class="kpi-foot">33% pagado</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">checklist</span>Cuotas</div>
+      <div class="kpi-value">4<span class="text-base muted-2 font-normal"> / 12</span></div>
+      <div class="kpi-foot">7 pendientes · 1 vencida</div>
+    </div>
+    <div class="kpi kpi--bad">
+      <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">event_busy</span>En mora</div>
+      <div class="kpi-value">$ 31.200</div>
+      <div class="kpi-foot">cuota 5 · 9 días de atraso</div>
+    </div>
+  </div>
+
+  <!-- Aviso de mora -->
+  <div class="apt-card is-no" style="margin-top:1.25rem">
+    <div class="apt-ic"><span class="material-symbols-outlined">running_with_errors</span></div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-white">Cuota 5 vencida hace 9 días</div>
+      <p class="text-sm muted mt-0.5">Monto $ 30.000 + $ 1.200 de punitorios = <strong style="color:#fb7185">$ 31.200</strong>. Registrá el pago para regularizar el crédito.</p>
+    </div>
+    <a href="PagarCuota.html" class="btn btn-danger btn-sm shrink-0"><span class="material-symbols-outlined">payments</span>Pagar cuota vencida</a>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
+    <!-- Columna principal -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- Plan de cuotas -->
+      <section class="card" style="overflow:hidden">
+        <div class="card-pad" style="padding-bottom:.75rem">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">calendar_month</span>Plan de cuotas</h2>
+            <div class="scroll-hint hide-mobile"><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá</div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Cuota</th><th>Vencimiento</th><th style="text-align:right">Capital</th><th style="text-align:right">Interés</th><th style="text-align:right">Total</th><th style="text-align:right">Mora</th><th>Estado</th><th style="text-align:right">Acción</th></tr></thead>
+            <tbody>
+              <tr><td><span class="cuota-n ok">1</span></td><td>10/02/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-ok">Pagada</span></td><td style="text-align:right"><span class="text-xs muted-2">02/2026</span></td></tr>
+              <tr><td><span class="cuota-n ok">2</span></td><td>10/03/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-ok">Pagada</span></td><td style="text-align:right"><span class="text-xs muted-2">03/2026</span></td></tr>
+              <tr><td><span class="cuota-n ok">3</span></td><td>10/04/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-ok">Pagada</span></td><td style="text-align:right"><span class="text-xs muted-2">04/2026</span></td></tr>
+              <tr><td><span class="cuota-n ok">4</span></td><td>10/05/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-ok">Pagada</span></td><td style="text-align:right"><span class="text-xs muted-2">05/2026</span></td></tr>
+              <tr class="is-venc"><td><span class="cuota-n venc">5</span></td><td>10/06/2026 <span class="chip chip-bad" style="margin-left:.3rem">+9 d</span></td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num" style="text-align:right;color:#fbbf24">1.200</td><td><span class="chip chip-bad">Vencida</span></td><td style="text-align:right"><a href="PagarCuota.html" class="btn btn-danger btn-sm">Pagar</a></td></tr>
+              <tr><td><span class="cuota-n">6</span></td><td>10/07/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-neutral">Pendiente</span></td><td style="text-align:right"><a href="PagarCuota.html" class="btn btn-soft btn-sm">Pagar</a></td></tr>
+              <tr><td><span class="cuota-n">7</span></td><td>10/08/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-neutral">Pendiente</span></td><td style="text-align:right"><a href="PagarCuota.html" class="btn btn-soft btn-sm">Pagar</a></td></tr>
+              <tr><td><span class="cuota-n">8</span></td><td>10/09/2026</td><td class="num" style="text-align:right">25.000</td><td class="num" style="text-align:right">5.000</td><td class="num" style="text-align:right">30.000</td><td class="num dash" style="text-align:right">—</td><td><span class="chip chip-neutral">Pendiente</span></td><td style="text-align:right"><a href="PagarCuota.html" class="btn btn-soft btn-sm">Pagar</a></td></tr>
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(15,23,42,.5)"><td colspan="4" style="padding:.7rem 1rem;font-weight:600;color:var(--muted)">Saldo pendiente (8 cuotas)</td><td class="num" style="text-align:right;padding:.7rem 1rem;font-weight:600;color:#fff">240.000</td><td class="num" style="text-align:right;color:#fbbf24">1.200</td><td colspan="2"></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- Evaluación crediticia -->
+      <section class="card card-pad">
+        <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">fact_check</span>Evaluación crediticia</h2>
+        <div class="apt-card is-apto">
+          <div class="apt-ic"><span class="material-symbols-outlined">verified</span></div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-white">Aprobado · puntaje 5</div>
+            <p class="text-sm muted mt-0.5">Cliente apto. Situación BCRA 1 (normal). Relación cuota/ingreso 22%.</p>
+          </div>
+          <span class="pips"><span class="pip on-ok"></span><span class="pip on-ok"></span><span class="pip on-ok"></span><span class="pip on-ok"></span><span class="pip on-ok"></span></span>
+        </div>
+        <dl class="kv mt-4">
+          <div class="kv-row"><dt>Aprobado por</dt><dd>L. Ferreyra · 10/01/2026</dd></div>
+          <div class="kv-row"><dt>Ingreso declarado</dt><dd class="num">$ 410.000 / mes</dd></div>
+          <div class="kv-row"><dt>Relación cuota/ingreso</dt><dd>22% <span class="chip chip-ok" style="margin-left:.3rem">OK</span></dd></div>
+          <div class="kv-row"><dt>Garante</dt><dd>No requiere</dd></div>
+        </dl>
+      </section>
+    </div>
+
+    <!-- Aside -->
+    <aside class="space-y-4">
+      <!-- Cliente -->
+      <div class="card card-pad">
+        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">person</span>Cliente</h3>
+        <div class="flex items-center gap-3">
+          <div class="avatar avatar-lg">MG</div>
+          <div class="min-w-0">
+            <div class="font-medium text-white">Gómez, Martín Alberto</div>
+            <div class="text-xs muted-2 mono">DNI 28.456.789</div>
+            <span class="chip chip-ok" style="margin-top:.4rem"><span class="material-symbols-outlined">verified</span>Apto</span>
+          </div>
+        </div>
+        <dl class="kv mt-3">
+          <div class="kv-row"><dt>Teléfono</dt><dd>11 5478-2290</dd></div>
+          <div class="kv-row"><dt>Créditos activos</dt><dd>2</dd></div>
+          <div class="kv-row"><dt>Crédito disponible</dt><dd class="num">$ 320.000</dd></div>
+        </dl>
+        <a href="#" class="btn btn-ghost btn-sm btn-block" style="margin-top:.9rem">Ver legajo del cliente<span class="material-symbols-outlined">chevron_right</span></a>
+      </div>
+
+      <!-- Resumen financiero -->
+      <div class="card card-pad">
+        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">savings</span>Resumen financiero</h3>
+        <div class="result-card" style="padding:.85rem 1rem">
+          <div class="result-label">Total a cobrar (capital + interés)</div>
+          <div class="result-value" style="font-size:1.5rem">$ 360.000</div>
+        </div>
+        <dl class="kv mt-3">
+          <div class="kv-row"><dt>Capital</dt><dd class="num">$ 300.000</dd></div>
+          <div class="kv-row"><dt>Interés total</dt><dd class="num">$ 60.000</dd></div>
+          <div class="kv-row"><dt>Tasa mensual</dt><dd>3,5%</dd></div>
+          <div class="kv-row"><dt>Cobrado a la fecha</dt><dd class="num" style="color:#34d399">$ 120.000</dd></div>
+          <div class="kv-row"><dt>Saldo pendiente</dt><dd class="num">$ 240.000</dd></div>
+        </dl>
+      </div>
+
+      <!-- Venta asociada -->
+      <div class="card card-pad">
+        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">receipt_long</span>Venta asociada</h3>
+        <div class="doc-row">
+          <div class="doc-ic"><span class="material-symbols-outlined">shopping_cart</span></div>
+          <div class="flex-1 min-w-0"><div class="text-sm text-white">Venta V-008471</div><div class="text-xs muted-2">Heladera + lavarropas · 10/01/2026</div></div>
+          <a href="#" class="btn btn-ghost btn-sm" aria-label="Ver venta"><span class="material-symbols-outlined">open_in_new</span></a>
+        </div>
+      </div>
+
+      <!-- Zona sensible -->
+      <div class="card card-pad" style="border-color:rgba(244,63,94,.25)">
+        <h3 class="font-semibold text-white mb-1">Zona sensible</h3>
+        <p class="text-sm muted mb-3">Cancelar el crédito anula las cuotas pendientes. Esta acción queda registrada en el historial.</p>
+        <button id="btn-cancelar" class="btn btn-ghost btn-sm btn-block" style="color:#fb7185;border-color:rgba(244,63,94,.3)" data-credito-modal-action="open" data-credito-modal-target="cancelar" onclick="openModal('cancelar')"><span class="material-symbols-outlined">cancel</span>Cancelar crédito</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- ============================================================
+     Modales (contrato JS: data-credito-modal)
+     Aprobar / Rechazar se usan cuando el crédito está Pendiente;
+     se incluyen para el flujo completo aunque este crédito esté Activo.
+     ============================================================ -->
+
+<!-- Aprobar -->
+<div class="overlay" data-credito-modal="aprobar" role="dialog" aria-modal="true" onclick="if(event.target===this)closeModal('aprobar')">
+  <div class="modal"><div class="modal-card card card-pad" style="max-width:460px">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3)"><span class="material-symbols-outlined" style="color:#34d399">check_circle</span></div>
+      <div class="flex-1"><h3 class="font-semibold text-white">Aprobar crédito</h3><p class="text-sm muted mt-0.5">Se generará el plan de cuotas y el crédito pasará a estado Activo.</p></div>
+      <button class="btn btn-ghost btn-sm" data-credito-modal-action="close" onclick="closeModal('aprobar')" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <form method="post" onsubmit="event.preventDefault();closeModal('aprobar');toast('Crédito aprobado.')" style="margin-top:1rem">
+      <label class="label">Observación (opcional)</label>
+      <textarea class="field" placeholder="Comentario interno…"></textarea>
+      <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+        <button type="button" class="btn btn-ghost" data-credito-modal-action="close" onclick="closeModal('aprobar')">Cancelar</button>
+        <button type="submit" class="btn btn-success"><span class="material-symbols-outlined">check</span>Aprobar</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<!-- Rechazar -->
+<div class="overlay" data-credito-modal="rechazar" role="dialog" aria-modal="true" onclick="if(event.target===this)closeModal('rechazar')">
+  <div class="modal"><div class="modal-card card card-pad" style="max-width:460px">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">block</span></div>
+      <div class="flex-1"><h3 class="font-semibold text-white">Rechazar crédito</h3><p class="text-sm muted mt-0.5">El crédito quedará marcado como rechazado. Indicá el motivo.</p></div>
+      <button class="btn btn-ghost btn-sm" data-credito-modal-action="close" onclick="closeModal('rechazar')" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <form method="post" onsubmit="event.preventDefault();closeModal('rechazar');toast('Crédito rechazado.')" style="margin-top:1rem">
+      <label class="label">Motivo del rechazo <span class="req">*</span></label>
+      <textarea class="field" placeholder="Ej. relación cuota/ingreso excedida…" required></textarea>
+      <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+        <button type="button" class="btn btn-ghost" data-credito-modal-action="close" onclick="closeModal('rechazar')">Cancelar</button>
+        <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">block</span>Rechazar</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<!-- Cancelar -->
+<div class="overlay" data-credito-modal="cancelar" role="dialog" aria-modal="true" onclick="if(event.target===this)closeModal('cancelar')">
+  <div class="modal"><div class="modal-card card card-pad" style="max-width:460px">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">cancel</span></div>
+      <div class="flex-1"><h3 class="font-semibold text-white">Cancelar crédito CR-001051</h3><p class="text-sm muted mt-0.5">Se anularán las 8 cuotas pendientes ($ 240.000). El historial se conserva.</p></div>
+      <button class="btn btn-ghost btn-sm" data-credito-modal-action="close" onclick="closeModal('cancelar')" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <form method="post" action="/Credito/Cancelar" onsubmit="event.preventDefault();closeModal('cancelar');toast('Crédito cancelado.')" style="margin-top:1rem">
+      <input type="hidden" name="id" value="1051">
+      <input type="hidden" name="returnUrl" value="/Credito/Index">
+      <label class="label">Motivo de cancelación <span class="req">*</span></label>
+      <textarea class="field" name="motivo" placeholder="Ej. acuerdo de refinanciación…" required></textarea>
+      <div class="flex justify-end gap-2 mt-4 pt-4" style="border-top:1px solid var(--line)">
+        <button type="button" class="btn btn-ghost" data-credito-modal-action="close" onclick="closeModal('cancelar')">Volver</button>
+        <button type="submit" class="btn btn-danger"><span class="material-symbols-outlined">cancel</span>Confirmar cancelación</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="overlay" style="background:transparent;pointer-events:none">
+  <div style="position:fixed;left:50%;bottom:1.5rem;transform:translateX(-50%);pointer-events:auto;z-index:60">
+    <div class="alert alert-ok" style="box-shadow:0 12px 30px rgba(0,0,0,.5)"><span class="material-symbols-outlined">check_circle</span><span id="toast-msg">Listo.</span></div>
+  </div>
+</div>
+
+<script>
+  function openModal(name){ document.querySelector(`[data-credito-modal="${name}"]`).classList.add('open'); }
+  function closeModal(name){ document.querySelector(`[data-credito-modal="${name}"]`).classList.remove('open'); }
+  let tt;
+  function toast(msg){ document.getElementById('toast-msg').textContent = msg; const t = document.getElementById('toast'); t.classList.add('open'); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove('open'),2400); }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ ['aprobar','rechazar','cancelar'].forEach(closeModal); } });
+</script>
+</body>
+</html>
