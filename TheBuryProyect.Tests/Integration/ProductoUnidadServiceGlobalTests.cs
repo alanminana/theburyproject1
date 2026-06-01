@@ -44,7 +44,10 @@ public class ProductoUnidadServiceGlobalTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<Producto> SeedProductoAsync(string? codigo = null, string? nombre = null)
+    private async Task<Producto> SeedProductoAsync(
+        string? codigo = null,
+        string? nombre = null,
+        decimal stockActual = 10m)
     {
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
@@ -65,7 +68,7 @@ public class ProductoUnidadServiceGlobalTests : IDisposable
             PrecioCompra = 100m,
             PrecioVenta = 150m,
             PorcentajeIVA = 21m,
-            StockActual = 0m
+            StockActual = stockActual
         };
         _context.Productos.Add(prod);
         await _context.SaveChangesAsync();

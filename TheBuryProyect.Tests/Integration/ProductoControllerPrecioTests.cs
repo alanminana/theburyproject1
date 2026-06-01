@@ -789,11 +789,12 @@ public class ProductoControllerPrecioTests : IDisposable
 
         Assert.Contains("Agregar unidad", html);
         Assert.Contains("asp-action=\"CrearUnidad\"", html);
+        Assert.Contains("asp-controller=\"Producto\"", html);
+        Assert.Contains("asp-for=\"CrearUnidad.ProductoId\"", html);
         Assert.Contains("asp-for=\"CrearUnidad.NumeroSerie\"", html);
-        Assert.Contains("El codigo interno se genera automaticamente", html);
-        Assert.Contains("El numero de serie es opcional", html);
-        Assert.Contains("La unidad se creara en estado EnStock", html);
-        Assert.Contains("Crear una unidad fisica no ajusta el stock agregado", html);
+        Assert.Contains("asp-for=\"CrearUnidad.UbicacionActual\"", html);
+        Assert.Contains("asp-for=\"CrearUnidad.Observaciones\"", html);
+        Assert.Contains("disabled=\"@altaComunBloqueada\"", html);
         Assert.DoesNotContain("CodigoInternoUnidad\" name=\"CrearUnidad", html);
     }
 
@@ -803,15 +804,15 @@ public class ProductoControllerPrecioTests : IDisposable
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
         Assert.Contains("role=\"tablist\" aria-label=\"Modos de unidades\"", html);
-        Assert.Contains("type=\"button\" id=\"tab-modo-unidades\" role=\"tab\" data-tab-target=\"modo-unidades\"", html);
-        Assert.Contains("type=\"button\" id=\"tab-modo-carga\" role=\"tab\" data-tab-target=\"modo-carga\"", html);
-        Assert.Contains("type=\"button\" id=\"tab-modo-conciliacion\" role=\"tab\" data-tab-target=\"modo-conciliacion\"", html);
-        Assert.Contains("type=\"button\" id=\"tab-modo-configuracion\" role=\"tab\" data-tab-target=\"modo-configuracion\"", html);
-        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-unidades\"", html);
-        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-carga\"", html);
-        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-conciliacion\"", html);
-        Assert.Contains("role=\"tabpanel\" data-tab-panel=\"modo-configuracion\"", html);
-        Assert.Contains("panelByHash", html);
+        Assert.Contains("id=\"tab-ver\" role=\"tab\" data-tab-target=\"ver\"", html);
+        Assert.Contains("id=\"tab-agregar\" role=\"tab\" data-tab-target=\"agregar\"", html);
+        Assert.Contains("id=\"tab-conciliar\" role=\"tab\" data-tab-target=\"conciliar\"", html);
+        Assert.Contains("id=\"tab-trazabilidad\" role=\"tab\" data-tab-target=\"trazabilidad\"", html);
+        Assert.Contains("id=\"ver\" role=\"tabpanel\" data-tab-panel=\"ver\"", html);
+        Assert.Contains("id=\"agregar\" role=\"tabpanel\" data-tab-panel=\"agregar\"", html);
+        Assert.Contains("id=\"conciliar\" role=\"tabpanel\" data-tab-panel=\"conciliar\"", html);
+        Assert.Contains("id=\"trazabilidad\" role=\"tabpanel\" data-tab-panel=\"trazabilidad\"", html);
+        Assert.Contains("activateFromHash", html);
         Assert.DoesNotContain("<a href=\"#modo-carga\" class=\"inline-flex min-h-[40px]", html);
         Assert.DoesNotContain("<a href=\"#modo-conciliacion\" class=\"inline-flex min-h-[40px]", html);
         Assert.DoesNotContain("<a href=\"#modo-configuracion\" class=\"inline-flex min-h-[40px]", html);
@@ -822,13 +823,16 @@ public class ProductoControllerPrecioTests : IDisposable
     {
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
-        Assert.Contains("Carga masiva de unidades", html);
+        Assert.Contains("id=\"form-carga-masiva-unidades\"", html);
         Assert.Contains("asp-action=\"CrearUnidadesMasivas\"", html);
+        Assert.Contains("asp-controller=\"Producto\"", html);
+        Assert.Contains("asp-for=\"CargaMasiva.ProductoId\"", html);
         Assert.Contains("asp-for=\"CargaMasiva.CantidadSinSerie\"", html);
         Assert.Contains("asp-for=\"CargaMasiva.NumerosSerieTexto\"", html);
-        Assert.Contains("Previsualizar", html);
-        Assert.Contains("Confirmar carga", html);
-        Assert.Contains("La carga masiva no ajusta el stock agregado", html);
+        Assert.Contains("asp-for=\"CargaMasiva.UbicacionActual\"", html);
+        Assert.Contains("asp-for=\"CargaMasiva.Observaciones\"", html);
+        Assert.Contains("name=\"CargaMasiva.Confirmar\" value=\"false\"", html);
+        Assert.Contains("name=\"CargaMasiva.Confirmar\" value=\"true\"", html);
     }
 
     [Fact]
@@ -851,8 +855,9 @@ public class ProductoControllerPrecioTests : IDisposable
     {
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Unidades.cshtml"));
 
-        Assert.Contains("Conciliacion stock vs unidades fisicas", html);
-        Assert.Contains("Stock agregado actual", html);
+        Assert.Contains("id=\"conciliar\" role=\"tabpanel\" data-tab-panel=\"conciliar\"", html);
+        Assert.Contains("Conciliar stock", html);
+        Assert.Contains("Stock del producto", html);
         Assert.Contains("Unidades disponibles", html);
         Assert.Contains("Unidades registradas", html);
         Assert.Contains("Diferencia", html);
@@ -863,21 +868,20 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Contains("Reservadas", html);
         Assert.Contains("En reparacion", html);
         Assert.Contains("Conciliado", html);
-        Assert.Contains("Diferencia detectada", html);
-        Assert.Contains("Compara stock agregado del SKU vs unidades fisicas en estado EnStock. Los ajustes modifican stock y actualizan Kardex.", html);
+        Assert.Contains("conciliacion.HayDiferencia", html);
+        Assert.Contains("Comparacion entre stock del producto y unidades fisicas disponibles", html);
         Assert.Contains("Sin trazabilidad individual. Las unidades cargadas son solo trazabilidad operativa opcional.", html);
         Assert.DoesNotContain("Total unidades activas", html);
-        Assert.Contains("Ver Kardex SKU", html);
-        Assert.Contains("Volver al listado", html);
+        Assert.Contains("asp-controller=\"MovimientoStock\" asp-action=\"Kardex\"", html);
+        Assert.Contains("asp-controller=\"Catalogo\" asp-action=\"Index\"", html);
         Assert.DoesNotContain("ConciliarStockUnidades", html);
         Assert.DoesNotContain(">Conciliar stock agregado<", html);
         Assert.Contains("AjustarStockAgregadoAUnidadesFisicas", html);
         Assert.Contains("AjustarStockAgregadoHaciaAbajo", html);
-        Assert.Contains("Ajustar stock agregado a unidades fisicas", html);
-        Assert.Contains("Ajustar stock agregado hacia abajo", html);
-        Assert.Contains("Reduce stock agregado/sin identificar", html);
-        Assert.Contains("ajustar hacia arriba libera el stock agregado usando MovimientoStock", html);
-        Assert.Contains("ajuste-asistido", html);
+        Assert.Contains("id=\"adjust-panel\"", html);
+        Assert.Contains("name=\"reso\" value=\"3\"", html);
+        Assert.Contains("name=\"ProductoId\" value=\"@conciliacion.ProductoId\"", html);
+        Assert.Contains("name=\"Motivo\" maxlength=\"500\" required", html);
     }
 
     [Fact]

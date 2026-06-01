@@ -25,6 +25,8 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
         private readonly IConfiguracionRentabilidadService? _configuracionRentabilidadService;
+        private static readonly object QuestPdfSettingsLock = new();
+        private static bool questPdfSettingsConfigured;
 
         public ReporteService(
             AppDbContext context,
@@ -39,6 +41,20 @@ namespace TheBuryProject.Services
         #endregion
 
         #region Generación de reportes
+
+        private static void ConfigurarQuestPdf()
+        {
+            lock (QuestPdfSettingsLock)
+            {
+                if (questPdfSettingsConfigured)
+                    return;
+
+                QuestPDF.Settings.License = LicenseType.Community;
+                QuestPDF.Settings.UseEnvironmentFonts = false;
+                QuestPDF.Settings.FontDiscoveryPaths.Clear();
+                questPdfSettingsConfigured = true;
+            }
+        }
 
         public async Task<ReporteVentasResultadoViewModel> GenerarReporteVentasAsync(ReporteVentasFiltroViewModel filtro)
         {
@@ -1121,7 +1137,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                QuestPDF.Settings.License = LicenseType.Community;
+                ConfigurarQuestPdf();
                 var reporte = await GenerarReporteVentasAsync(filtro);
 
                 var documento = Document.Create(container =>
@@ -1213,7 +1229,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                QuestPDF.Settings.License = LicenseType.Community;
+                ConfigurarQuestPdf();
                 var reporte = await GenerarReporteMorosidadAsync();
 
                 var documento = Document.Create(container =>

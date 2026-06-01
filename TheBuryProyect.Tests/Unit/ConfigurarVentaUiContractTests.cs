@@ -12,8 +12,10 @@ public class ConfigurarVentaUiContractTests
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "ConfigurarVenta_tw.cshtml"));
 
         Assert.Contains("Model.MaxCuotasBase > Model.CuotasMaxPermitidas", view);
-        Assert.Contains("Máximo de cuotas reducido por condiciones del producto", view);
         Assert.Contains("MaxCuotasCreditoProducto.HasValue", view);
+        Assert.Contains("data-credito-restriccion-cuotas-producto", view);
+        Assert.Contains("@Model.MaxCuotasBase cuotas", view);
+        Assert.Contains("@Model.MaxCuotasCreditoProducto!.Value cuotas", view);
     }
 
     [Fact]

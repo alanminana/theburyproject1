@@ -28,6 +28,10 @@
     var primeraMora = cuotasVencidas.OrderByDescending(c => c.DiasAtraso).FirstOrDefault();
     var montoOtorgado = cr.MontoAprobado > 0 ? cr.MontoAprobado : cr.MontoSolicitado;
     var cliente = Model.Cliente;
+    var fuenteRestriccionCuotas = cr.FuenteRestriccionCuotasSnap;
+    var esRestriccionProducto = string.Equals(fuenteRestriccionCuotas, "Producto", StringComparison.OrdinalIgnoreCase);
+    var esRestriccionGlobal = string.Equals(fuenteRestriccionCuotas, "Global", StringComparison.OrdinalIgnoreCase);
+    var restriccionCuotasLabel = esRestriccionProducto ? "Restringido por producto" : "Sin restricción por producto";
 
     string estadoChipClass;
     string estadoIcon;
@@ -430,6 +434,48 @@
                         <div class="kv-row"><dt>Saldo pendiente</dt><dd class="num">$ @cr.SaldoPendiente.ToString("N2")</dd></div>
                     </dl>
                 </div>
+
+                @if (cr.FuenteRestriccionCuotasSnap != null || cr.CuotasMaximasPermitidas.HasValue || cr.MaxCuotasBaseSnap.HasValue)
+                {
+                    <div class="card card-pad" data-credito-restriccion-cuotas>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">rule</span>Restricción de cuotas</h3>
+                        <div class="doc-row">
+                            <div class="doc-ic"><span class="material-symbols-outlined">@(esRestriccionProducto ? "inventory_2" : "settings")</span></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-white">@restriccionCuotasLabel</div>
+                                <div class="text-xs muted-2">
+                                    Fuente snapshot:
+                                    @if (esRestriccionProducto)
+                                    {
+                                        <span>"Producto"</span>
+                                    }
+                                    else if (esRestriccionGlobal)
+                                    {
+                                        <span>"Global"</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@(fuenteRestriccionCuotas ?? "Sin fuente")</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <dl class="kv mt-3">
+                            @if (cr.MaxCuotasBaseSnap.HasValue)
+                            {
+                                <div class="kv-row"><dt>Máx. cuotas base</dt><dd>@cr.MaxCuotasBaseSnap.Value</dd></div>
+                            }
+                            @if (cr.CuotasMaximasPermitidas.HasValue)
+                            {
+                                <div class="kv-row"><dt>Máx. cuotas efectivo</dt><dd>@cr.CuotasMaximasPermitidas.Value</dd></div>
+                            }
+                            @if (cr.ProductoIdRestrictivoSnap.HasValue)
+                            {
+                                <div class="kv-row"><dt>ProductoIdRestrictivoSnap</dt><dd class="mono">snapshot #@cr.ProductoIdRestrictivoSnap.Value</dd></div>
+                            }
+                        </dl>
+                    </div>
+                }
 
                 @if (contratoVentaCredito != null)
                 {

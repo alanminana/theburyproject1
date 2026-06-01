@@ -86,9 +86,9 @@ public sealed class CotizacionControllerUiTests
     {
         var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Shared", "_Layout.cshtml"));
 
-        Assert.Contains("asp-controller=\"Cotizacion\"", layout);
-        Assert.Contains("Cotizaciones", layout);
-        Assert.Contains("IsActive(\"Cotizacion\")", layout);
+        Assert.Contains("var canViewCotizaciones = User.TienePermiso(\"cotizaciones\", \"view\")", layout);
+        Assert.Contains("var canViewInventario = canViewCotizaciones", layout);
+        Assert.DoesNotContain("venta-create", layout, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

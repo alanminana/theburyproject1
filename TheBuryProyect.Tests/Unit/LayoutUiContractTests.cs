@@ -381,7 +381,9 @@ public class LayoutUiContractTests
         // UI-4F: el sidebar debe tener un enlace a Home/Index con lógica IsActive("Home").
         var layout = ReadLayout();
         Assert.Contains("IsActive(\"Home\")", layout);
-        Assert.Contains("asp-controller=\"Home\" asp-action=\"Index\"", layout);
+        Assert.Contains("asp-controller=\"Home\"", layout);
+        Assert.Contains("asp-action=\"Index\"", layout);
+        Assert.Contains("title=\"Dashboard\"", layout);
     }
 
     [Fact]
