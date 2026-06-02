@@ -87,6 +87,10 @@
         v.ToString("C", new System.Globalization.CultureInfo("es-AR"));
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
+
 <style>
 /* kdx = kardex: namespaced design system — paridad visual con standalone */
 .kdx-page .kdx-card {
@@ -220,7 +224,7 @@
     @* SUCCESS / ERROR BANNERS *@
     @if (TempData["Success"] != null)
     {
-        <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
+        <div role="status" class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
             <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
             <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-emerald-600/20">
@@ -230,7 +234,7 @@
     }
     @if (TempData["Error"] != null)
     {
-        <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
+        <div role="alert" class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
             <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
             <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
             <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded hover:bg-red-600/20">
@@ -490,7 +494,7 @@
     </section>
 
     @* TABLA DE MOVIMIENTOS *@
-    <section class="kdx-card overflow-hidden">
+    <section class="kdx-card overflow-hidden" data-oc-scroll>
         <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
             <h2 class="text-base font-semibold text-white flex items-center gap-2">
                 <span class="material-symbols-outlined text-blue-400" style="font-size:18px">format_list_numbered</span>
@@ -527,20 +531,23 @@
         }
         else
         {
-            <div class="overflow-x-auto" style="max-height:560px;overflow-y:auto;">
+            <div class="relative">
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6" style="background:linear-gradient(to right,#111827,transparent);pointer-events:none;"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6" style="background:linear-gradient(to left,#111827,transparent);pointer-events:none;"></div>
+                <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Historial de movimientos del producto" style="max-height:560px;overflow-y:auto;">
                 <table class="kdx-tbl" id="kdx-table">
                     <thead>
                         <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Comprobante</th>
-                            <th>Detalle / Motivo</th>
-                            <th>Usuario</th>
-                            <th class="num">Entrada</th>
-                            <th class="num">Salida</th>
-                            <th class="num">Saldo</th>
-                            <th class="num">Costo unit.</th>
-                            <th class="num">Saldo valorizado</th>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Comprobante</th>
+                            <th scope="col">Detalle / Motivo</th>
+                            <th scope="col">Usuario</th>
+                            <th scope="col" class="num">Entrada</th>
+                            <th scope="col" class="num">Salida</th>
+                            <th scope="col" class="num">Saldo</th>
+                            <th scope="col" class="num">Costo unit.</th>
+                            <th scope="col" class="num">Saldo valorizado</th>
                         </tr>
                     </thead>
                     <tbody id="kdx-tbody">
@@ -600,6 +607,7 @@
                         </tr>
                     </tfoot>
                 </table>
+                </div>
             </div>
             <div class="px-4 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500 kdx-no-print">
                 <span>Mostrando <span id="kdx-showing">@movsDesc.Count</span> de @movsDesc.Count movimientos</span>
@@ -742,5 +750,11 @@
     };
 
 }());
+</script>
+<script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+<script>
+    document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
+        window.TheBury?.initHorizontalScrollAffordance?.(root);
+    });
 </script>
 }
