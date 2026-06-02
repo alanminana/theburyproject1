@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html class="dark" lang="es">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -75,20 +76,15 @@
     <div class="flex h-screen overflow-hidden">
 
         <!-- Sidebar -->
-        <aside id="sidebar"
-               class="shrink-0 border-r border-slate-700 flex flex-col"
-               style="background-color:#0c111e;">
+        <aside id="sidebar" class="shrink-0 border-r border-slate-700 flex flex-col" style="background-color:#0c111e;">
 
             <!-- Brand -->
-            <a asp-controller="Home"
-               asp-action="Index"
-               title="TheBuryProject — Inicio"
+            <a asp-controller="Home" asp-action="Index" title="TheBuryProject — Inicio"
                class="p-6 flex items-center gap-3 no-underline text-inherit overflow-hidden">
 
-                <div class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center">
-                    <img src="~/ico/bury-logo-256.png"
-                         alt="TheBuryProject"
-                         class="w-full h-full object-contain" />
+                <div
+                    class="size-10 rounded-full shrink-0 overflow-hidden bg-slate-700 flex items-center justify-center">
+                    <img src="~/ico/bury-logo-256.png" alt="TheBuryProject" class="w-full h-full object-contain" />
                 </div>
 
                 <div class="flex flex-col sidebar-label">
@@ -107,11 +103,8 @@
                 @if (canViewDashboard)
                 {
                     <div class="space-y-1">
-                        <a class="@NavClass(isDashboardActive)"
-                           aria-current="@NavCurrent(isDashboardActive)"
-                           asp-controller="Home"
-                           asp-action="Index"
-                           title="Dashboard">
+                        <a class="@NavClass(isDashboardActive)" aria-current="@NavCurrent(isDashboardActive)"
+                           asp-controller="Home" asp-action="Index" title="Dashboard">
                             <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">dashboard</span>
                             <p class="@NavFont(isDashboardActive) sidebar-label">Dashboard</p>
                         </a>
@@ -130,12 +123,10 @@
                             {
                                 var active = IsActive("Venta");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Venta"
-                                   asp-action="Index"
-                                   title="Ventas">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">shopping_bag</span>
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Venta"
+                                   asp-action="Index" title="Ventas">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">shopping_bag</span>
                                     <p class="@NavFont(active) sidebar-label">Ventas</p>
                                 </a>
                             }
@@ -146,11 +137,8 @@
                             {
                                 var active = IsActive("Cliente");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Cliente"
-                                   asp-action="Index"
-                                   title="Clientes">
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Cliente"
+                                   asp-action="Index" title="Clientes">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">group</span>
                                     <p class="@NavFont(active) sidebar-label">Clientes</p>
                                 </a>
@@ -171,12 +159,10 @@
                             {
                                 var active = IsActive("Catalogo");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Catalogo"
-                                   asp-action="Index"
-                                   title="Inventario">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">inventory_2</span>
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Catalogo"
+                                   asp-action="Index" title="Inventario">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">inventory_2</span>
                                     <p class="@NavFont(active) sidebar-label">Inventario</p>
                                 </a>
                             }
@@ -185,12 +171,10 @@
                             {
                                 var active = IsActive("Proveedor");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Proveedor"
-                                   asp-action="Index"
-                                   title="Proveedores">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">local_shipping</span>
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Proveedor"
+                                   asp-action="Index" title="Proveedores">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">local_shipping</span>
                                     <p class="@NavFont(active) sidebar-label">Proveedores</p>
                                 </a>
                             }
@@ -199,12 +183,10 @@
                             {
                                 var active = IsActive("Caja");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Caja"
-                                   asp-action="Index"
-                                   title="Cajas">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">point_of_sale</span>
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Caja"
+                                   asp-action="Index" title="Cajas">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">point_of_sale</span>
                                     <p class="@NavFont(active) sidebar-label">Cajas</p>
                                 </a>
                             }
@@ -222,12 +204,10 @@
                         </p>
 
                         <div class="space-y-1">
-                            <a class="@NavClass(active)"
-                               aria-current="@NavCurrent(active)"
-                               asp-controller="Reporte"
-                               asp-action="Index"
-                               title="Reportes">
-                                <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">leaderboard</span>
+                            <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Reporte"
+                               asp-action="Index" title="Reportes">
+                                <span class="material-symbols-outlined text-lg shrink-0"
+                                      aria-hidden="true">leaderboard</span>
                                 <p class="@NavFont(active) sidebar-label">Reportes</p>
                             </a>
                         </div>
@@ -246,11 +226,8 @@
                             {
                                 var active = IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Seguridad"
-                                   asp-action="Index"
-                                   title="Seguridad">
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Seguridad"
+                                   asp-action="Index" title="Seguridad">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">security</span>
                                     <p class="@NavFont(active) sidebar-label">Seguridad</p>
                                 </a>
@@ -260,12 +237,10 @@
                             {
                                 var active = IsActive("Ticket");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="Ticket"
-                                   asp-action="Index"
-                                   title="Tickets">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">bug_report</span>
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Ticket"
+                                   asp-action="Index" title="Tickets">
+                                    <span class="material-symbols-outlined text-lg shrink-0"
+                                          aria-hidden="true">bug_report</span>
                                     <p class="@NavFont(active) sidebar-label">Tickets</p>
                                 </a>
                             }
@@ -274,11 +249,8 @@
                             {
                                 var active = IsActive("PlantillaContratoCredito");
 
-                                <a class="@NavClass(active)"
-                                   aria-current="@NavCurrent(active)"
-                                   asp-controller="PlantillaContratoCredito"
-                                   asp-action="Index"
-                                   title="Plantillas contrato">
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
+                                   asp-controller="PlantillaContratoCredito" asp-action="Index" title="Plantillas contrato">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">contract</span>
                                     <p class="@NavFont(active) sidebar-label">Plantillas contrato</p>
                                 </a>
@@ -302,8 +274,10 @@
                 }
 
                 <div class="flex items-center gap-3 p-2 overflow-hidden">
-                    <div class="size-8 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-slate-300 text-lg shrink-0" aria-hidden="true">account_circle</span>
+                    <div
+                        class="size-8 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-slate-300 text-lg shrink-0"
+                              aria-hidden="true">account_circle</span>
                     </div>
 
                     <div class="flex flex-col sidebar-label min-w-0">
@@ -316,9 +290,7 @@
                     </div>
                 </div>
 
-                <form method="post"
-                      asp-area="Identity"
-                      asp-page="/Account/Logout"
+                <form method="post" asp-area="Identity" asp-page="/Account/Logout"
                       asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
                       class="sidebar-label mt-1">
 
@@ -332,27 +304,20 @@
 
             <!-- Collapse toggle desktop -->
             <div class="hidden lg:flex p-3 border-t border-slate-700 justify-center">
-                <button id="collapseSidebar"
-                        type="button"
+                <button id="collapseSidebar" type="button"
                         class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                        aria-label="Colapsar/expandir sidebar"
-                        title="Colapsar sidebar">
-                    <span class="material-symbols-outlined text-lg transition-transform duration-300"
-                          id="collapseIcon"
+                        aria-label="Colapsar/expandir sidebar" title="Colapsar sidebar">
+                    <span class="material-symbols-outlined text-lg transition-transform duration-300" id="collapseIcon"
                           aria-hidden="true">chevron_left</span>
                 </button>
             </div>
         </aside>
 
         <!-- Overlay mobile -->
-        <div id="sidebarOverlay"
-             class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"
-             aria-hidden="true"></div>
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" aria-hidden="true"></div>
 
         <!-- Main content -->
-        <main id="main-content"
-              tabindex="-1"
-              class="flex-1 flex flex-col overflow-hidden">
+        <main id="main-content" tabindex="-1" class="flex-1 flex flex-col overflow-hidden">
 
             <!-- Header -->
             <header class="h-16 border-b border-slate-700 flex items-center justify-between px-4 sm:px-6 lg:px-8"
@@ -360,12 +325,8 @@
 
                 <div class="flex items-center gap-6 min-w-0">
                     <!-- Mobile toggle -->
-                    <button id="toggleSidebar"
-                            type="button"
-                            class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
-                            aria-label="Abrir/cerrar menú"
-                            aria-expanded="false"
-                            aria-controls="sidebar">
+                    <button id="toggleSidebar" type="button" class="p-2 rounded-lg hover:bg-slate-800 lg:hidden"
+                            aria-label="Abrir/cerrar menú" aria-expanded="false" aria-controls="sidebar">
                         <span class="material-symbols-outlined icon-size-22" aria-hidden="true">menu</span>
                     </button>
 
@@ -378,17 +339,20 @@
 
                     <!-- Cotizaciones -->
                     <div class="hidden lg:flex gap-3">
-                        <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <div
+                            class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
                             <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Dolar Blue</span>
                             <span class="text-xs font-bold text-emerald-400">$1.245,00</span>
                         </div>
 
-                        <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <div
+                            class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
                             <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Tarjeta</span>
                             <span class="text-xs font-bold text-primary-on-dark">$1.482,50</span>
                         </div>
 
-                        <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        <div
+                            class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
                             <span class="text-xs font-bold text-slate-300 uppercase tracking-tighter">Oficial</span>
                             <span class="text-xs font-bold text-slate-300">$942,00</span>
                         </div>
@@ -399,18 +363,17 @@
                     <!-- Notifications -->
                     @if (canViewNotifications)
                     {
-                        <button type="button"
-                                aria-label="Notificaciones"
+                        <button type="button" aria-label="Notificaciones"
                                 class="p-2 text-slate-400 hover:text-white transition-colors relative">
                             <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">notifications</span>
-                            <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"
-                                  aria-hidden="true"></span>
+                            <span
+                            class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"
+                            aria-hidden="true"></span>
                         </button>
                     }
 
                     <!-- Search -->
-                    <button type="button"
-                            aria-label="Buscar"
+                    <button type="button" aria-label="Buscar"
                             class="p-2 text-slate-400 hover:text-white transition-colors">
                         <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">search</span>
                     </button>
@@ -418,10 +381,8 @@
                     <!-- Ticket panel -->
                     @if (canViewTickets)
                     {
-                        <button id="btn-open-ticket-panel"
-                                type="button"
-                                class="p-2 text-slate-400 hover:text-white transition-colors"
-                                title="Incidentes"
+                        <button id="btn-open-ticket-panel" type="button"
+                                class="p-2 text-slate-400 hover:text-white transition-colors" title="Incidentes"
                                 aria-label="Panel de incidentes">
                             <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">assignment</span>
                         </button>
@@ -430,8 +391,7 @@
                     <div class="h-8 w-px bg-slate-700"></div>
 
                     <!-- Help -->
-                    <button type="button"
-                            aria-label="Ayuda"
+                    <button type="button" aria-label="Ayuda"
                             class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
                         <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
                     </button>
@@ -439,8 +399,7 @@
             </header>
 
             <!-- Page content -->
-            <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8"
-                 style="background-color:#101622;">
+            <div class="flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8" style="background-color:#101622;">
                 @RenderBody()
             </div>
         </main>
@@ -449,11 +408,9 @@
     <!-- Floating ticket button -->
     @if (canCreateTicket)
     {
-        <button type="button"
-                data-open-ticket-modal
-                class="fixed bottom-6 right-6 z-40 flex items-center gap-2
-                       bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
-                       text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
+        <button type="button" data-open-ticket-modal class="floating-ticket-action fixed bottom-6 right-6 z-40 flex items-center gap-2
+            bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500
+            text-slate-200 text-sm px-4 py-2.5 rounded-full shadow-lg transition-colors"
                 title="Reportar una incidencia o mejora">
             <span class="material-symbols-outlined icon-erp text-amber-400" aria-hidden="true">bug_report</span>
             <span class="hidden sm:inline">Reportar incidencia</span>
@@ -484,6 +441,7 @@
     @if (canViewNotifications)
     {
         <script src="~/lib/signalr/signalr.min.js" asp-append-version="true"></script>
+
         <script src="~/js/notificaciones.js" asp-append-version="true"></script>
     }
 
@@ -501,4 +459,5 @@
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>
+
 </html>

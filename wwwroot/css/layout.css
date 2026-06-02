@@ -399,3 +399,15 @@ header a:focus:not(:focus-visible) {
         --layout-sidebar-width: 15.5rem;
     }
 }
+
+/* Floating ticket action */
+.floating-ticket-action {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+@media (max-width: 1400px) {
+    .floating-ticket-action {
+        display: none !important;
+    }
+}
