@@ -1,15 +1,15 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
 @using TheBuryProject.Models.Enums
 @model DocumentoClienteFilterViewModel
+
 @{
     ViewData["Title"] = "Documentación de Clientes";
     ViewData["MetaDescription"] = "Gestión de documentos adjuntos de clientes: DNI, recibos, contratos y archivos en el ERP TheBuryProject.";
+
     var returnUrl = ViewData["ReturnUrl"] as string;
     var returnToVentaId = Model.ReturnToVentaId;
     var documentos = Model.Documentos?.ToList() ?? new List<DocumentoClienteViewModel>();
     var totalEnPagina = documentos.Count;
-    var pendientes = documentos.Count(d => d.Estado == EstadoDocumento.Pendiente);
-    var verificados = documentos.Count(d => d.Estado == EstadoDocumento.Verificado);
-    var vencidos = documentos.Count(d => d.Estado == EstadoDocumento.Vencido);
     var modoAgrupado = !Model.ClienteId.HasValue;
 }
 
@@ -17,12 +17,14 @@
     <partial name="_DocumentoClienteModuleStyles" />
 }
 
-<div class="space-y-6">
+<div class="space-y-6 documento-page">
     @if (Model.ClienteId.HasValue)
     {
-        <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.ClienteId"
+        <a asp-controller="Cliente"
+           asp-action="Details"
+           asp-route-id="@Model.ClienteId"
            class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 hover:text-white transition-colors no-underline">
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
             Volver al Cliente
         </a>
     }
@@ -30,69 +32,99 @@
     {
         <a href="@returnUrl"
            class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 hover:text-white transition-colors no-underline">
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
             Volver
         </a>
     }
 
-    <form id="filterForm" data-documento-filter-form method="get" asp-action="Index">
+    <form id="filterForm"
+          data-documento-filter-form
+          method="get"
+          asp-action="Index"
+          role="search"
+          aria-label="Buscar y filtrar documentación de clientes">
         <input type="hidden" name="ReturnToVentaId" value="@returnToVentaId" />
+
         <div class="filter-panel-erp">
             <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 class="text-base font-bold text-white">Filtros y estado</h2>
-                    <p class="text-sm text-slate-400">Acotá el legajo por cliente, tipo y estado para resolver validaciones más rápido.</p>
+                    <p class="text-sm text-slate-400">
+                        Acotá el legajo por cliente, tipo y estado para resolver validaciones más rápido.
+                    </p>
                 </div>
+
                 <span class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">tune</span>
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">tune</span>
                     @Model.TotalResultados resultado@(Model.TotalResultados == 1 ? "" : "s")
                 </span>
             </div>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
                 <div class="md:col-span-3">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</label>
-                    <select name="ClienteId" id="clienteFilter"
+                    <label for="clienteFilter" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Cliente
+                    </label>
+
+                    <select name="ClienteId"
+                            id="clienteFilter"
                             aria-label="Filtrar por cliente"
                             class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                         <option value="">Todos los clientes</option>
+
                         @if (ViewBag.Clientes != null)
                         {
-                            @foreach (var c in (SelectList)ViewBag.Clientes)
+                            foreach (var c in (SelectList)ViewBag.Clientes)
                             {
-                                <option value="@c.Value" selected="@(Model.ClienteId?.ToString() == c.Value ? "selected" : null)">@c.Text</option>
+                                <option value="@c.Value" selected="@(Model.ClienteId?.ToString() == c.Value ? "selected" : null)">
+                                    @c.Text
+                                </option>
                             }
                         }
                     </select>
                 </div>
 
                 <div class="md:col-span-3">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Tipo de documento</label>
+                    <label for="tipoDocumentoFilter" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Tipo de documento
+                    </label>
+
                     <select name="TipoDocumento"
+                            id="tipoDocumentoFilter"
                             aria-label="Tipo de documento"
                             class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                         <option value="">Todos los tipos</option>
+
                         @if (ViewBag.TiposDocumento != null)
                         {
-                            @foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                            foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
                             {
-                                <option value="@tipo.Value" selected="@(Model.TipoDocumento?.ToString() == tipo.Value ? "selected" : null)">@tipo.Text</option>
+                                <option value="@tipo.Value" selected="@(Model.TipoDocumento?.ToString() == tipo.Value ? "selected" : null)">
+                                    @tipo.Text
+                                </option>
                             }
                         }
                     </select>
                 </div>
 
                 <div class="md:col-span-2">
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Estado</label>
+                    <label for="estadoDocumentoFilter" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Estado
+                    </label>
+
                     <select name="Estado"
+                            id="estadoDocumentoFilter"
                             aria-label="Estado del documento"
                             class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
                         <option value="">Todos los estados</option>
+
                         @if (ViewBag.Estados != null)
                         {
-                            @foreach (var e in (SelectList)ViewBag.Estados)
+                            foreach (var e in (SelectList)ViewBag.Estados)
                             {
-                                <option value="@e.Value" selected="@(((int?)Model.Estado)?.ToString() == e.Value ? "selected" : null)">@e.Text</option>
+                                <option value="@e.Value" selected="@(((int?)Model.Estado)?.ToString() == e.Value ? "selected" : null)">
+                                    @e.Text
+                                </option>
                             }
                         }
                     </select>
@@ -100,13 +132,18 @@
 
                 <div class="flex flex-col gap-2 rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3 md:col-span-2">
                     <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                        <input type="checkbox" name="SoloPendientes" value="true"
+                        <input type="checkbox"
+                               name="SoloPendientes"
+                               value="true"
                                checked="@(Model.SoloPendientes ? "checked" : null)"
                                class="rounded border-slate-600 text-primary focus:ring-primary/50" />
                         Pendientes
                     </label>
+
                     <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                        <input type="checkbox" name="SoloVencidos" value="true"
+                        <input type="checkbox"
+                               name="SoloVencidos"
+                               value="true"
                                checked="@(Model.SoloVencidos ? "checked" : null)"
                                class="rounded border-slate-600 text-primary focus:ring-primary/50" />
                         Vencidos
@@ -118,11 +155,13 @@
                             class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">
                         Buscar
                     </button>
+
                     <a asp-action="Index"
                        id="btnLimpiar"
                        class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 px-3 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
-                       title="Limpiar filtros">
-                        <span class="material-symbols-outlined">filter_alt_off</span>
+                       title="Limpiar filtros"
+                       aria-label="Limpiar filtros">
+                        <span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span>
                     </a>
                 </div>
             </div>
@@ -131,22 +170,30 @@
 
     @if (TempData["Success"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-400" role="status">
-            <span class="material-symbols-outlined text-lg">check_circle</span>
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-400"
+             role="status"
+             aria-live="polite">
+            <span class="material-symbols-outlined text-lg" aria-hidden="true">check_circle</span>
             @TempData["Success"]
         </div>
     }
+
     @if (TempData["Warning"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm font-semibold text-amber-400" role="status">
-            <span class="material-symbols-outlined text-lg">warning</span>
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm font-semibold text-amber-400"
+             role="status"
+             aria-live="polite">
+            <span class="material-symbols-outlined text-lg" aria-hidden="true">warning</span>
             @TempData["Warning"]
         </div>
     }
+
     @if (TempData["Error"] != null)
     {
-        <div class="toast-msg flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-500" role="alert">
-            <span class="material-symbols-outlined text-lg">error</span>
+        <div class="toast-msg flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-500"
+             role="alert"
+             aria-live="assertive">
+            <span class="material-symbols-outlined text-lg" aria-hidden="true">error</span>
             @TempData["Error"]
         </div>
     }
@@ -154,13 +201,15 @@
     @if (ViewBag.DocumentacionPendiente != null)
     {
         var docPendiente = ViewBag.DocumentacionPendiente as List<string>;
+
         if (docPendiente != null && docPendiente.Any())
         {
             <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-400">
                 <p class="mb-2 flex items-center gap-2 text-sm font-bold">
-                    <span class="material-symbols-outlined text-lg">fact_check</span>
+                    <span class="material-symbols-outlined text-lg" aria-hidden="true">fact_check</span>
                     Documentación obligatoria faltante para crédito
                 </p>
+
                 <ul class="ml-6 list-disc space-y-1 text-sm">
                     @foreach (var doc in docPendiente)
                     {
@@ -172,20 +221,24 @@
     }
 
     @* ===================================================================
-       VISTA AGRUPADA POR CLIENTE (sin filtro de clienteId específico)
+       VISTA AGRUPADA POR CLIENTE
        =================================================================== *@
     @if (modoAgrupado)
     {
-        <div class="card-erp-panel overflow-hidden">
+        <div class="card-erp-panel documento-card-panel overflow-hidden">
             <div class="border-b px-4 py-4 border-slate-800 sm:px-6">
                 <div class="flex flex-wrap items-center gap-3">
                     <h2 class="text-base font-bold text-white flex-1">Legajo documental — por cliente</h2>
+
                     <span class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-                        <span class="material-symbols-outlined text-sm">people</span>
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">people</span>
                         @Model.ClientesAgrupados.Count cliente@(Model.ClientesAgrupados.Count == 1 ? "" : "s")
                     </span>
-                    <button type="button" id="btn-abrir-upload-modal" class="btn-erp-primary btn-sm">
-                        <span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+
+                    <button type="button"
+                            id="btn-abrir-upload-modal"
+                            class="btn-erp-primary btn-sm">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
                 </div>
@@ -193,170 +246,204 @@
 
             @if (Model.ClientesAgrupados.Any())
             {
-            <div class="overflow-x-auto">
-                <table class="w-full border-collapse text-left">
-                    <thead>
-                        <tr class="border-b border-slate-800 bg-slate-800/50">
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Cliente</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Identificación</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Docs</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Pendientes</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Verificados</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Rechazados</th>
-                            <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Vencidos</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Última carga</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Estado</th>
-                            <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800">
-                        @foreach (var grupo in Model.ClientesAgrupados)
-                        {
-                            <tr class="transition-colors hover:bg-slate-800/30 cursor-pointer"
-                                onclick="documentoClienteAbrirModal(@grupo.ClienteId)"
-                                role="button"
-                                aria-label="Ver documentos de @grupo.ClienteNombre">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-                                            <span class="material-symbols-outlined text-[20px]">person</span>
-                                        </div>
-                                        <span class="text-sm font-bold text-white">@grupo.ClienteNombre</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-400">
-                                    @(string.IsNullOrWhiteSpace(grupo.DocumentoIdentidad) ? "—" : grupo.DocumentoIdentidad)
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    <span class="text-sm font-bold text-white">@grupo.TotalDocumentos</span>
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    @if (grupo.Pendientes > 0)
-                                    {
-                                        <span class="inline-flex items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-400">@grupo.Pendientes</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-600">0</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    @if (grupo.Verificados > 0)
-                                    {
-                                        <span class="inline-flex items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400">@grupo.Verificados</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-600">0</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    @if (grupo.Rechazados > 0)
-                                    {
-                                        <span class="inline-flex items-center justify-center rounded-full border border-red-500/30 bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-400">@grupo.Rechazados</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-600">0</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    @if (grupo.Vencidos > 0)
-                                    {
-                                        <span class="inline-flex items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/20 px-2 py-0.5 text-xs font-bold text-orange-400">@grupo.Vencidos</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-600">0</span>
-                                    }
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-400">
-                                    @(grupo.UltimaActualizacion?.ToString("dd/MM/yyyy") ?? "—")
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold @grupo.EstadoResumenClasses">
-                                        @grupo.EstadoResumen
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <button type="button"
-                                            onclick="event.stopPropagation(); documentoClienteAbrirModal(@grupo.ClienteId)"
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/20"
-                                            aria-label="Ver documentos de @grupo.ClienteNombre">
-                                        <span class="material-symbols-outlined text-[16px]">folder_open</span>
-                                        Ver documentos
-                                    </button>
-                                </td>
+                <div class="documento-table-scroll">
+                    <table class="documento-responsive-table documento-responsive-table--grouped documento-responsive-table--cards w-full border-collapse text-left">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-800/50">
+                                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Cliente</th>
+                                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Identificación</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Docs</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Pendientes</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Verificados</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Rechazados</th>
+                                <th class="px-6 py-4 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">Vencidos</th>
+                                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Última carga</th>
+                                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Estado</th>
+                                <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Acción</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
 
-            @if (Model.TotalPages > 1)
-            {
-                <div class="flex flex-col gap-3 border-t px-4 py-4 border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <p class="text-sm text-slate-400">
-                        Mostrando <span class="font-bold text-white">@((Model.PageNumber - 1) * Model.PageSize + 1)</span>
-                        a <span class="font-bold text-white">@Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados)</span>
-                        de <span class="font-bold text-white">@Model.TotalResultados</span> cliente@(Model.TotalResultados == 1 ? "" : "s")
-                    </p>
-                    <div class="flex flex-wrap items-center gap-1">
-                        @if (Model.HasPreviousPage)
-                        {
-                            <a asp-action="Index"
-                               asp-route-PageNumber="@(Model.PageNumber - 1)"
-                               asp-route-TipoDocumento="@Model.TipoDocumento"
-                               asp-route-Estado="@Model.Estado"
-                               asp-route-SoloPendientes="@Model.SoloPendientes"
-                               asp-route-SoloVencidos="@Model.SoloVencidos"
-                               asp-route-ReturnToVentaId="@returnToVentaId"
-                               class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
-                               aria-label="Página anterior">
-                                <span class="material-symbols-outlined">chevron_left</span>
-                            </a>
-                        }
-                        @for (var i = 1; i <= Model.TotalPages; i++)
-                        {
-                            var isActive = i == Model.PageNumber;
-                            <a asp-action="Index"
-                               asp-route-PageNumber="@i"
-                               asp-route-TipoDocumento="@Model.TipoDocumento"
-                               asp-route-Estado="@Model.Estado"
-                               asp-route-SoloPendientes="@Model.SoloPendientes"
-                               asp-route-SoloVencidos="@Model.SoloVencidos"
-                               asp-route-ReturnToVentaId="@returnToVentaId"
-                               class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-colors no-underline @(isActive ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-800")">
-                                @i
-                            </a>
-                        }
-                        @if (Model.HasNextPage)
-                        {
-                            <a asp-action="Index"
-                               asp-route-PageNumber="@(Model.PageNumber + 1)"
-                               asp-route-TipoDocumento="@Model.TipoDocumento"
-                               asp-route-Estado="@Model.Estado"
-                               asp-route-SoloPendientes="@Model.SoloPendientes"
-                               asp-route-SoloVencidos="@Model.SoloVencidos"
-                               asp-route-ReturnToVentaId="@returnToVentaId"
-                               class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
-                               aria-label="Página siguiente">
-                                <span class="material-symbols-outlined">chevron_right</span>
-                            </a>
-                        }
-                    </div>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var grupo in Model.ClientesAgrupados)
+                            {
+                                <tr class="documento-grouped-row transition-colors hover:bg-slate-800/30 cursor-pointer"
+                                    onclick="documentoClienteAbrirModal(@grupo.ClienteId)"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label="Ver documentos de @grupo.ClienteNombre"
+                                    onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); documentoClienteAbrirModal(@grupo.ClienteId); }">
+                                    <td class="px-6 py-4" data-label="Cliente">
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">person</span>
+                                            </div>
+
+                                            <span class="documento-table-cell-strong text-sm font-bold text-white" title="@grupo.ClienteNombre">
+                                                @grupo.ClienteNombre
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-sm text-slate-400" data-label="Identificación">
+                                        @(string.IsNullOrWhiteSpace(grupo.DocumentoIdentidad) ? "—" : grupo.DocumentoIdentidad)
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center" data-label="Docs">
+                                        <span class="text-sm font-bold text-white">@grupo.TotalDocumentos</span>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center" data-label="Pendientes">
+                                        @if (grupo.Pendientes > 0)
+                                        {
+                                            <span class="inline-flex items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-400">
+                                                @grupo.Pendientes
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-600">0</span>
+                                        }
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center" data-label="Verificados">
+                                        @if (grupo.Verificados > 0)
+                                        {
+                                            <span class="inline-flex items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400">
+                                                @grupo.Verificados
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-600">0</span>
+                                        }
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center" data-label="Rechazados">
+                                        @if (grupo.Rechazados > 0)
+                                        {
+                                            <span class="inline-flex items-center justify-center rounded-full border border-red-500/30 bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-400">
+                                                @grupo.Rechazados
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-600">0</span>
+                                        }
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center" data-label="Vencidos">
+                                        @if (grupo.Vencidos > 0)
+                                        {
+                                            <span class="inline-flex items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/20 px-2 py-0.5 text-xs font-bold text-orange-400">
+                                                @grupo.Vencidos
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-600">0</span>
+                                        }
+                                    </td>
+
+                                    <td class="px-6 py-4 text-sm text-slate-400" data-label="Última carga">
+                                        @(grupo.UltimaActualizacion?.ToString("dd/MM/yyyy") ?? "—")
+                                    </td>
+
+                                    <td class="px-6 py-4" data-label="Estado">
+                                        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold @grupo.EstadoResumenClasses">
+                                            @grupo.EstadoResumen
+                                        </span>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-right" data-label="Acciones">
+                                        <button type="button"
+                                                onclick="event.stopPropagation(); documentoClienteAbrirModal(@grupo.ClienteId)"
+                                                class="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/20"
+                                                aria-label="Ver documentos de @grupo.ClienteNombre">
+                                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">folder_open</span>
+                                            Ver documentos
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-            }
+
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="documento-pagination flex flex-col gap-3 border-t px-4 py-4 border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <p class="text-sm text-slate-400">
+                            Mostrando
+                            <span class="font-bold text-white">@((Model.PageNumber - 1) * Model.PageSize + 1)</span>
+                            a
+                            <span class="font-bold text-white">@Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados)</span>
+                            de
+                            <span class="font-bold text-white">@Model.TotalResultados</span>
+                            cliente@(Model.TotalResultados == 1 ? "" : "s")
+                        </p>
+
+                        <div class="documento-pagination-pages flex flex-wrap items-center gap-1">
+                            @if (Model.HasPreviousPage)
+                            {
+                                <a asp-action="Index"
+                                   asp-route-PageNumber="@(Model.PageNumber - 1)"
+                                   asp-route-TipoDocumento="@Model.TipoDocumento"
+                                   asp-route-Estado="@Model.Estado"
+                                   asp-route-SoloPendientes="@Model.SoloPendientes"
+                                   asp-route-SoloVencidos="@Model.SoloVencidos"
+                                   asp-route-ReturnToVentaId="@returnToVentaId"
+                                   class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
+                                   aria-label="Página anterior">
+                                    <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+                                </a>
+                            }
+
+                            @for (var i = 1; i <= Model.TotalPages; i++)
+                            {
+                                var isActive = i == Model.PageNumber;
+
+                                <a asp-action="Index"
+                                   asp-route-PageNumber="@i"
+                                   asp-route-TipoDocumento="@Model.TipoDocumento"
+                                   asp-route-Estado="@Model.Estado"
+                                   asp-route-SoloPendientes="@Model.SoloPendientes"
+                                   asp-route-SoloVencidos="@Model.SoloVencidos"
+                                   asp-route-ReturnToVentaId="@returnToVentaId"
+                                   class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-colors no-underline @(isActive ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-800")"
+                                   aria-label="Ir a página @i"
+                                   aria-current="@(isActive ? "page" : null)">
+                                    @i
+                                </a>
+                            }
+
+                            @if (Model.HasNextPage)
+                            {
+                                <a asp-action="Index"
+                                   asp-route-PageNumber="@(Model.PageNumber + 1)"
+                                   asp-route-TipoDocumento="@Model.TipoDocumento"
+                                   asp-route-Estado="@Model.Estado"
+                                   asp-route-SoloPendientes="@Model.SoloPendientes"
+                                   asp-route-SoloVencidos="@Model.SoloVencidos"
+                                   asp-route-ReturnToVentaId="@returnToVentaId"
+                                   class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
+                                   aria-label="Página siguiente">
+                                    <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
             }
             else
             {
                 <div class="flex flex-col items-center gap-3 py-12">
-                    <span class="material-symbols-outlined text-5xl text-slate-600">people</span>
+                    <span class="material-symbols-outlined text-5xl text-slate-600" aria-hidden="true">people</span>
                     <p class="text-sm font-medium text-slate-500">No se encontraron clientes con documentos</p>
+
                     <button type="button"
                             onclick="document.getElementById('btn-abrir-upload-modal')?.click()"
                             class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                        <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                        <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
                 </div>
@@ -364,11 +451,12 @@
         </div>
 
         @* ===============================================================
-           MODALES POR CLIENTE — renderizados server-side
+           MODALES POR CLIENTE
            =============================================================== *@
         @foreach (var grupo in Model.ClientesAgrupados)
         {
             var indexReturnUrl = Url.Action("Index", new { clienteId = grupo.ClienteId, returnToVentaId = returnToVentaId });
+
             <div id="modal-cliente-@grupo.ClienteId"
                  data-cliente-modal
                  class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6"
@@ -377,38 +465,46 @@
                  aria-label="Documentos de @grupo.ClienteNombre">
                 <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"
                      onclick="documentoClienteCerrarModal(@grupo.ClienteId)"></div>
-                <div class="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
 
+                <div class="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
                     <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
                         <div>
                             <div class="mb-1 flex items-center gap-2 text-xs font-medium text-slate-400">
                                 <span>Documentación</span>
-                                <span class="material-symbols-outlined text-sm">chevron_right</span>
+                                <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
                                 <span class="text-primary">@grupo.ClienteNombre</span>
                             </div>
+
                             <h2 class="text-xl font-bold text-white">Documentos del cliente</h2>
+
                             @if (!string.IsNullOrWhiteSpace(grupo.DocumentoIdentidad))
                             {
-                                <p class="mt-0.5 text-xs text-slate-500">@grupo.DocumentoIdentidad@(!string.IsNullOrWhiteSpace(grupo.Telefono) ? $" · {grupo.Telefono}" : "")</p>
+                                <p class="mt-0.5 text-xs text-slate-500">
+                                    @grupo.DocumentoIdentidad@(!string.IsNullOrWhiteSpace(grupo.Telefono) ? $" · {grupo.Telefono}" : "")
+                                </p>
                             }
                         </div>
+
                         <div class="flex items-center gap-2">
                             <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold @grupo.EstadoResumenClasses">
                                 @grupo.EstadoResumen
                             </span>
-                            <a asp-controller="DocumentoCliente" asp-action="Index"
+
+                            <a asp-controller="DocumentoCliente"
+                               asp-action="Index"
                                asp-route-clienteId="@grupo.ClienteId"
                                asp-route-returnToVentaId="@returnToVentaId"
                                class="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white no-underline"
                                title="Ver todos los documentos de este cliente">
-                                <span class="material-symbols-outlined text-[14px]">open_in_full</span>
+                                <span class="material-symbols-outlined text-[14px]" aria-hidden="true">open_in_full</span>
                                 Ver todos
                             </a>
+
                             <button type="button"
                                     onclick="documentoClienteCerrarModal(@grupo.ClienteId)"
                                     class="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
                                     aria-label="Cerrar modal">
-                                <span class="material-symbols-outlined">close</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">close</span>
                             </button>
                         </div>
                     </header>
@@ -416,7 +512,7 @@
                     <div class="flex-1 overflow-y-auto">
                         @if (grupo.Documentos.Any())
                         {
-                            <table class="w-full border-collapse text-left">
+                            <table class="documento-responsive-table documento-responsive-table--modal documento-responsive-table--cards w-full border-collapse text-left">
                                 <thead>
                                     <tr class="border-b border-slate-800 bg-slate-800/50">
                                         <th class="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">Documento</th>
@@ -427,81 +523,105 @@
                                         <th class="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
                                     </tr>
                                 </thead>
+
                                 <tbody class="divide-y divide-slate-800">
                                     @foreach (var doc in grupo.Documentos)
                                     {
                                         var estadoClasses = doc.Estado switch
                                         {
                                             EstadoDocumento.Verificado => "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400",
-                                            EstadoDocumento.Rechazado  => "border border-red-500/30 bg-red-500/20 text-red-400",
-                                            EstadoDocumento.Vencido    => "border border-orange-500/30 bg-orange-500/20 text-orange-400",
-                                            _                          => "border border-amber-500/30 bg-amber-500/20 text-amber-400"
+                                            EstadoDocumento.Rechazado => "border border-red-500/30 bg-red-500/20 text-red-400",
+                                            EstadoDocumento.Vencido => "border border-orange-500/30 bg-orange-500/20 text-orange-400",
+                                            _ => "border border-amber-500/30 bg-amber-500/20 text-amber-400"
                                         };
+
                                         var estadoIcon = doc.Estado switch
                                         {
                                             EstadoDocumento.Verificado => "check_circle",
-                                            EstadoDocumento.Rechazado  => "cancel",
-                                            EstadoDocumento.Vencido    => "schedule",
-                                            _                          => "pending"
+                                            EstadoDocumento.Rechazado => "cancel",
+                                            EstadoDocumento.Vencido => "schedule",
+                                            _ => "pending"
                                         };
+
                                         var deleteLabel = $"el documento {doc.TipoDocumentoNombre} de {(doc.ClienteNombre ?? "cliente")}";
 
                                         <tr class="transition-colors hover:bg-slate-800/30">
-                                            <td class="px-5 py-3">
+                                            <td class="px-5 py-3" data-label="Documento">
                                                 <div class="flex items-center gap-2">
                                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                        <span class="material-symbols-outlined text-[18px]">description</span>
+                                                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
                                                     </div>
-                                                    <span class="text-sm font-bold text-white">@doc.TipoDocumentoNombre</span>
+
+                                                    <span class="documento-table-cell-strong text-sm font-bold text-white" title="@doc.TipoDocumentoNombre">
+                                                        @doc.TipoDocumentoNombre
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td class="px-5 py-3">
+
+                                            <td class="px-5 py-3" data-label="Archivo">
                                                 <div class="flex flex-col">
-                                                    <span class="max-w-[180px] truncate text-sm text-white" title="@doc.NombreArchivo">@doc.NombreArchivo</span>
+                                                    <span class="documento-table-file-name max-w-[180px] truncate text-sm text-white" title="@doc.NombreArchivo">
+                                                        @doc.NombreArchivo
+                                                    </span>
                                                     <span class="text-xs text-slate-500">@doc.TamanoFormateado</span>
                                                 </div>
                                             </td>
-                                            <td class="px-5 py-3 text-sm text-slate-400">
+
+                                            <td class="px-5 py-3 text-sm text-slate-400" data-label="Fecha carga">
                                                 @doc.FechaSubida.ToString("dd/MM/yyyy HH:mm")
                                             </td>
-                                            <td class="px-5 py-3 text-sm text-slate-400">
+
+                                            <td class="px-5 py-3 text-sm text-slate-400" data-label="Vencimiento">
                                                 @(doc.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "—")
                                             </td>
-                                            <td class="px-5 py-3">
+
+                                            <td class="px-5 py-3" data-label="Estado">
                                                 <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold @estadoClasses">
-                                                    <span class="material-symbols-outlined text-[14px]">@estadoIcon</span>
+                                                    <span class="material-symbols-outlined text-[14px]" aria-hidden="true">@estadoIcon</span>
                                                     @doc.EstadoNombre
                                                 </span>
                                             </td>
-                                            <td class="px-5 py-3 text-right">
-                                                <div class="flex justify-end gap-1.5">
-                                                    <a asp-action="Details" asp-route-id="@doc.Id"
+
+                                            <td class="px-5 py-3 text-right" data-label="Acciones">
+                                                <div class="documento-row-actions flex justify-end gap-1.5">
+                                                    <a asp-action="Details"
+                                                       asp-route-id="@doc.Id"
                                                        asp-route-returnUrl="@indexReturnUrl"
                                                        class="documento-index-row-action row-action row-action--primary no-underline"
                                                        title="Ver detalle"
                                                        aria-label="Ver detalle de @doc.TipoDocumentoNombre">
-                                                        <span class="material-symbols-outlined text-lg">visibility</span>
+                                                        <span class="material-symbols-outlined text-lg" aria-hidden="true">visibility</span>
+                                                        <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Ver</span>
                                                     </a>
-                                                    <a asp-action="Descargar" asp-route-id="@doc.Id"
+
+                                                    <a asp-action="Descargar"
+                                                       asp-route-id="@doc.Id"
                                                        class="documento-index-row-action row-action row-action--primary no-underline"
                                                        title="Descargar"
                                                        aria-label="Descargar @doc.TipoDocumentoNombre">
-                                                        <span class="material-symbols-outlined text-lg">download</span>
+                                                        <span class="material-symbols-outlined text-lg" aria-hidden="true">download</span>
+                                                        <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Descargar</span>
                                                     </a>
+
                                                     @if (doc.Estado == EstadoDocumento.Pendiente)
                                                     {
-                                                        <form asp-action="Verificar" asp-route-id="@doc.Id"
+                                                        <form asp-action="Verificar"
+                                                              asp-route-id="@doc.Id"
                                                               asp-route-returnUrl="@indexReturnUrl"
-                                                              method="post" class="inline">
+                                                              method="post"
+                                                              class="inline">
                                                             @Html.AntiForgeryToken()
+
                                                             <button type="submit"
                                                                     class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 transition-colors hover:bg-emerald-500/20 hover:text-emerald-400 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
                                                                     title="Verificar documento"
                                                                     aria-label="Verificar @doc.TipoDocumentoNombre">
-                                                                <span class="material-symbols-outlined text-lg">task_alt</span>
+                                                                <span class="material-symbols-outlined text-lg" aria-hidden="true">task_alt</span>
+                                                                <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Verificar</span>
                                                             </button>
                                                         </form>
                                                     }
+
                                                     <button type="button"
                                                             class="documento-index-row-action row-action row-action--warning"
                                                             title="Reemplazar"
@@ -509,20 +629,25 @@
                                                             data-documento-replace
                                                             data-documento-replace-id="@doc.Id"
                                                             data-documento-replace-nombre="@doc.NombreArchivo">
-                                                        <span class="material-symbols-outlined text-lg">swap_horiz</span>
+                                                        <span class="material-symbols-outlined text-lg" aria-hidden="true">swap_horiz</span>
+                                                        <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Reemplazar</span>
                                                     </button>
-                                                    <form asp-action="Delete" asp-route-id="@doc.Id"
+
+                                                    <form asp-action="Delete"
+                                                          asp-route-id="@doc.Id"
                                                           asp-route-returnUrl="@indexReturnUrl"
                                                           method="post"
                                                           class="inline"
                                                           data-documento-delete-form
                                                           data-documento-label="@deleteLabel">
                                                         @Html.AntiForgeryToken()
+
                                                         <button type="submit"
                                                                 class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
                                                                 title="Eliminar"
                                                                 aria-label="Eliminar @doc.TipoDocumentoNombre">
-                                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                                            <span class="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
+                                                            <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Eliminar</span>
                                                         </button>
                                                     </form>
                                                 </div>
@@ -535,7 +660,7 @@
                         else
                         {
                             <div class="flex flex-col items-center gap-3 py-12">
-                                <span class="material-symbols-outlined text-5xl text-slate-600">folder_open</span>
+                                <span class="material-symbols-outlined text-5xl text-slate-600" aria-hidden="true">folder_open</span>
                                 <p class="text-sm font-medium text-slate-500">No hay documentos para este cliente</p>
                             </div>
                         }
@@ -544,11 +669,15 @@
                     <footer class="shrink-0 flex items-center justify-between border-t border-slate-800 bg-slate-900/50 px-6 py-4">
                         <div class="flex items-center gap-3 text-xs text-slate-500">
                             <span>@grupo.TotalDocumentos documento@(grupo.TotalDocumentos == 1 ? "" : "s")</span>
+
                             @if (grupo.Pendientes > 0)
                             {
-                                <span class="text-amber-400">· @grupo.Pendientes pendiente@(grupo.Pendientes == 1 ? "" : "s")</span>
+                                <span class="text-amber-400">
+                                    · @grupo.Pendientes pendiente@(grupo.Pendientes == 1 ? "" : "s")
+                                </span>
                             }
                         </div>
+
                         <button type="button"
                                 onclick="documentoClienteCerrarModal(@grupo.ClienteId)"
                                 class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white">
@@ -559,25 +688,35 @@
             </div>
         }
     }
-    @* ===================================================================
-       VISTA PLANA (filtro por cliente específico o sin resultados agrupados)
-       =================================================================== *@
     else
     {
-        <div data-oc-scroll style="--oc-scroll-min-width: 69rem;" class="card-erp-panel overflow-hidden">
+        @* ===================================================================
+           VISTA PLANA
+           =================================================================== *@
+
+        <div data-oc-scroll
+             style="--oc-scroll-min-width: 69rem;"
+             class="card-erp-panel documento-card-panel overflow-hidden">
             <div class="border-b px-4 py-4 border-slate-800 sm:px-6">
                 <div class="flex flex-wrap items-center gap-3">
                     <h2 class="text-base font-bold text-white flex-1">Legajo documental</h2>
+
                     <span class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
-                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">inventory_2</span>
                         @totalEnPagina en página
                     </span>
-                    <button type="button" id="btn-abrir-upload-modal" class="btn-erp-primary btn-sm">
-                        <span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+
+                    <button type="button"
+                            id="btn-abrir-upload-modal"
+                            class="btn-erp-primary btn-sm">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
                 </div>
-                <p data-oc-scroll-hint hidden class="documento-index-scroll-hint mt-3 text-xs font-medium text-slate-400">
+
+                <p data-oc-scroll-hint
+                   hidden
+                   class="documento-index-scroll-hint mt-3 text-xs font-medium text-slate-400">
                     Deslizá la tabla para ver fechas, estados y acciones completas.
                 </p>
             </div>
@@ -585,8 +724,13 @@
             <div data-oc-scroll-shell>
                 <div data-oc-scroll-fade="left" hidden></div>
                 <div data-oc-scroll-fade="right" hidden></div>
-                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de documentos de clientes">
-                    <table data-oc-scroll-table class="w-full border-collapse text-left">
+
+                <div data-oc-scroll-region
+                     tabindex="0"
+                     role="region"
+                     aria-label="Listado de documentos de clientes">
+                    <table data-oc-scroll-table
+                           class="documento-responsive-table documento-responsive-table--flat documento-responsive-table--cards w-full border-collapse text-left">
                         <thead>
                             <tr class="border-b border-slate-800 bg-slate-800/50">
                                 <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Documento</th>
@@ -598,89 +742,112 @@
                                 <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
                             </tr>
                         </thead>
+
                         <tbody class="divide-y divide-slate-800">
                             @if (documentos.Any())
                             {
-                                @foreach (var doc in documentos)
+                                foreach (var doc in documentos)
                                 {
                                     var estadoClasses = doc.Estado switch
                                     {
                                         EstadoDocumento.Verificado => "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400",
-                                        EstadoDocumento.Rechazado  => "border border-red-500/30 bg-red-500/20 text-red-400",
-                                        EstadoDocumento.Vencido    => "border border-orange-500/30 bg-orange-500/20 text-orange-400",
-                                        _                          => "border border-amber-500/30 bg-amber-500/20 text-amber-400"
+                                        EstadoDocumento.Rechazado => "border border-red-500/30 bg-red-500/20 text-red-400",
+                                        EstadoDocumento.Vencido => "border border-orange-500/30 bg-orange-500/20 text-orange-400",
+                                        _ => "border border-amber-500/30 bg-amber-500/20 text-amber-400"
                                     };
+
                                     var estadoIcon = doc.Estado switch
                                     {
                                         EstadoDocumento.Verificado => "check_circle",
-                                        EstadoDocumento.Rechazado  => "cancel",
-                                        EstadoDocumento.Vencido    => "schedule",
-                                        _                          => "pending"
+                                        EstadoDocumento.Rechazado => "cancel",
+                                        EstadoDocumento.Vencido => "schedule",
+                                        _ => "pending"
                                     };
+
+                                    var indexReturnUrl = Url.Action("Index", new { clienteId = Model.ClienteId, returnToVentaId = returnToVentaId });
                                     var deleteLabel = $"el documento {doc.TipoDocumentoNombre} de {(doc.ClienteNombre ?? "cliente")}";
 
                                     <tr class="transition-colors hover:bg-slate-800/30">
-                                        <td class="px-6 py-4">
+                                        <td class="px-6 py-4" data-label="Documento">
                                             <div class="flex items-center gap-3">
                                                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                                    <span class="material-symbols-outlined">description</span>
+                                                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
                                                 </div>
-                                                <span class="text-sm font-bold text-white">@doc.TipoDocumentoNombre</span>
+
+                                                <span class="documento-table-cell-strong text-sm font-bold text-white" title="@doc.TipoDocumentoNombre">
+                                                    @doc.TipoDocumentoNombre
+                                                </span>
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-slate-400">
+
+                                        <td class="px-6 py-4 text-sm text-slate-400" data-label="Cliente">
                                             @(doc.ClienteNombre ?? "—")
                                         </td>
-                                        <td class="px-6 py-4">
+
+                                        <td class="px-6 py-4" data-label="Archivo">
                                             <div class="flex flex-col">
-                                                <span class="max-w-[220px] truncate text-sm text-white" title="@doc.NombreArchivo">@doc.NombreArchivo</span>
+                                                <span class="documento-table-file-name max-w-[220px] truncate text-sm text-white" title="@doc.NombreArchivo">
+                                                    @doc.NombreArchivo
+                                                </span>
                                                 <span class="text-xs text-slate-500">@doc.TamanoFormateado</span>
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-slate-400">
+
+                                        <td class="px-6 py-4 text-sm text-slate-400" data-label="Fecha subida">
                                             @doc.FechaSubida.ToString("dd/MM/yyyy HH:mm")
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-slate-400">
+
+                                        <td class="px-6 py-4 text-sm text-slate-400" data-label="Vencimiento">
                                             @(doc.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "—")
                                         </td>
-                                        <td class="px-6 py-4">
+
+                                        <td class="px-6 py-4" data-label="Estado">
                                             <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold @estadoClasses">
-                                                <span class="material-symbols-outlined text-[14px]">@estadoIcon</span>
+                                                <span class="material-symbols-outlined text-[14px]" aria-hidden="true">@estadoIcon</span>
                                                 @doc.EstadoNombre
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 text-right">
-                                            <div class="flex justify-end gap-2">
-                                                <a asp-action="Details" asp-route-id="@doc.Id"
-                                                   asp-route-returnUrl="@Url.Action("Index", new { clienteId = Model.ClienteId, returnToVentaId = returnToVentaId })"
+
+                                        <td class="px-6 py-4 text-right" data-label="Acciones">
+                                            <div class="documento-row-actions flex justify-end gap-2">
+                                                <a asp-action="Details"
+                                                   asp-route-id="@doc.Id"
+                                                   asp-route-returnUrl="@indexReturnUrl"
                                                    class="documento-index-row-action row-action row-action--primary no-underline"
                                                    title="Ver detalle"
                                                    aria-label="Ver detalle de @doc.TipoDocumentoNombre">
-                                                    <span class="material-symbols-outlined text-lg">visibility</span>
+                                                    <span class="material-symbols-outlined text-lg" aria-hidden="true">visibility</span>
                                                     <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Ver</span>
                                                 </a>
-                                                <a asp-action="Descargar" asp-route-id="@doc.Id"
+
+                                                <a asp-action="Descargar"
+                                                   asp-route-id="@doc.Id"
                                                    class="documento-index-row-action row-action row-action--primary no-underline"
                                                    title="Descargar"
                                                    aria-label="Descargar @doc.TipoDocumentoNombre">
-                                                    <span class="material-symbols-outlined text-lg">download</span>
+                                                    <span class="material-symbols-outlined text-lg" aria-hidden="true">download</span>
                                                     <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Descargar</span>
                                                 </a>
+
                                                 @if (doc.Estado == EstadoDocumento.Pendiente)
                                                 {
-                                                    <form asp-action="Verificar" asp-route-id="@doc.Id"
-                                                          asp-route-returnUrl="@Url.Action("Index", new { clienteId = Model.ClienteId, returnToVentaId = returnToVentaId })"
-                                                          method="post" class="inline">
+                                                    <form asp-action="Verificar"
+                                                          asp-route-id="@doc.Id"
+                                                          asp-route-returnUrl="@indexReturnUrl"
+                                                          method="post"
+                                                          class="inline">
                                                         @Html.AntiForgeryToken()
+
                                                         <button type="submit"
-                                                                class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-emerald-100 hover:text-emerald-600 text-slate-400 hover:bg-emerald-500/20 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
+                                                                class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 transition-colors hover:bg-emerald-500/20 hover:text-emerald-400 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
                                                                 title="Verificar documento"
                                                                 aria-label="Verificar @doc.TipoDocumentoNombre">
-                                                            <span class="material-symbols-outlined text-lg">task_alt</span>
+                                                            <span class="material-symbols-outlined text-lg" aria-hidden="true">task_alt</span>
                                                             <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Verificar</span>
                                                         </button>
                                                     </form>
                                                 }
+
                                                 <button type="button"
                                                         class="documento-index-row-action row-action row-action--warning"
                                                         title="Reemplazar"
@@ -688,21 +855,24 @@
                                                         data-documento-replace
                                                         data-documento-replace-id="@doc.Id"
                                                         data-documento-replace-nombre="@doc.NombreArchivo">
-                                                    <span class="material-symbols-outlined text-lg">swap_horiz</span>
+                                                    <span class="material-symbols-outlined text-lg" aria-hidden="true">swap_horiz</span>
                                                     <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Reemplazar</span>
                                                 </button>
-                                                <form asp-action="Delete" asp-route-id="@doc.Id"
-                                                      asp-route-returnUrl="@Url.Action("Index", new { clienteId = Model.ClienteId, returnToVentaId = returnToVentaId })"
+
+                                                <form asp-action="Delete"
+                                                      asp-route-id="@doc.Id"
+                                                      asp-route-returnUrl="@indexReturnUrl"
                                                       method="post"
                                                       class="inline"
                                                       data-documento-delete-form
                                                       data-documento-label="@deleteLabel">
                                                     @Html.AntiForgeryToken()
+
                                                     <button type="submit"
-                                                            class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-500 transition-colors hover:bg-red-100 hover:text-red-500 text-slate-400 hover:bg-red-500/20 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
+                                                            class="documento-index-row-action inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400 sm:h-10 sm:w-10 sm:px-0 sm:py-0"
                                                             title="Eliminar"
                                                             aria-label="Eliminar @doc.TipoDocumentoNombre">
-                                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                                        <span class="material-symbols-outlined text-lg" aria-hidden="true">delete</span>
                                                         <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Eliminar</span>
                                                     </button>
                                                 </form>
@@ -713,14 +883,16 @@
                             }
                             else
                             {
-                                <tr>
+                                <tr class="documento-empty-row">
                                     <td colspan="7" class="px-6 py-16 text-center">
                                         <div class="flex flex-col items-center gap-3">
-                                            <span class="material-symbols-outlined text-5xl text-slate-600">folder_open</span>
+                                            <span class="material-symbols-outlined text-5xl text-slate-600" aria-hidden="true">folder_open</span>
                                             <p class="text-sm font-medium text-slate-500">No se encontraron documentos</p>
-                                            <button type="button" data-documento-open-upload
+
+                                            <button type="button"
+                                                    data-documento-open-upload
                                                     class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700">
-                                                <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                                                <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                                                 Subir Documento
                                             </button>
                                         </div>
@@ -734,13 +906,17 @@
 
             @if (Model.TotalPages > 1)
             {
-                <div class="flex flex-col gap-3 border-t px-4 py-4 border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <div class="documento-pagination flex flex-col gap-3 border-t px-4 py-4 border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <p class="text-sm text-slate-400">
-                        Mostrando <span class="font-bold text-white">@((Model.PageNumber - 1) * Model.PageSize + 1)</span>
-                        a <span class="font-bold text-white">@Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados)</span>
-                        de <span class="font-bold text-white">@Model.TotalResultados</span>
+                        Mostrando
+                        <span class="font-bold text-white">@((Model.PageNumber - 1) * Model.PageSize + 1)</span>
+                        a
+                        <span class="font-bold text-white">@Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados)</span>
+                        de
+                        <span class="font-bold text-white">@Model.TotalResultados</span>
                     </p>
-                    <div class="flex flex-wrap items-center gap-1">
+
+                    <div class="documento-pagination-pages flex flex-wrap items-center gap-1">
                         @if (Model.HasPreviousPage)
                         {
                             <a asp-action="Index"
@@ -753,12 +929,14 @@
                                asp-route-ReturnToVentaId="@returnToVentaId"
                                class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
                                aria-label="Página anterior">
-                                <span class="material-symbols-outlined">chevron_left</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
                             </a>
                         }
+
                         @for (var i = 1; i <= Model.TotalPages; i++)
                         {
                             var isActive = i == Model.PageNumber;
+
                             <a asp-action="Index"
                                asp-route-PageNumber="@i"
                                asp-route-ClienteId="@Model.ClienteId"
@@ -767,10 +945,13 @@
                                asp-route-SoloPendientes="@Model.SoloPendientes"
                                asp-route-SoloVencidos="@Model.SoloVencidos"
                                asp-route-ReturnToVentaId="@returnToVentaId"
-                               class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-colors no-underline @(isActive ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-800")">
+                               class="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-colors no-underline @(isActive ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-800")"
+                               aria-label="Ir a página @i"
+                               aria-current="@(isActive ? "page" : null)">
                                 @i
                             </a>
                         }
+
                         @if (Model.HasNextPage)
                         {
                             <a asp-action="Index"
@@ -783,7 +964,7 @@
                                asp-route-ReturnToVentaId="@returnToVentaId"
                                class="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 no-underline"
                                aria-label="Página siguiente">
-                                <span class="material-symbols-outlined">chevron_right</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
                             </a>
                         }
                     </div>
@@ -794,32 +975,42 @@
 </div>
 
 <!-- Modal: Subir Documento -->
-<div id="modal-upload-documento" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
+<div id="modal-upload-documento"
+     class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="modal-upload-titulo">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" id="modal-upload-backdrop"></div>
-    <div class="relative w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden bg-[#111827] rounded-xl shadow-2xl border border-slate-800">
 
-        <!-- Header -->
+    <div class="relative w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden bg-[#111827] rounded-xl shadow-2xl border border-slate-800">
         <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4 shrink-0">
             <div>
                 <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
                     <span>Documentación</span>
-                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
                     <span class="text-primary" id="modal-upload-titulo-breadcrumb">Subir</span>
                 </div>
+
                 <h2 class="text-xl font-bold text-white" id="modal-upload-titulo">Subir Documento</h2>
             </div>
-            <button type="button" id="btn-cerrar-upload-modal" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white">
-                <span class="material-symbols-outlined">close</span>
+
+            <button type="button"
+                    id="btn-cerrar-upload-modal"
+                    class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+                    aria-label="Cerrar modal de subida">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </header>
 
-        <!-- Form -->
-        <form asp-action="Upload" method="post" enctype="multipart/form-data"
+        <form asp-action="Upload"
+              method="post"
+              enctype="multipart/form-data"
               id="form-upload-modal"
               data-documento-upload-form
               data-documento-initial-tipo=""
               class="flex flex-col flex-1 overflow-hidden">
             @Html.AntiForgeryToken()
+
             <input type="hidden" name="returnToDetails" value="true" />
             <input type="hidden" name="returnUrl" value="@Url.Action("Index", new { clienteId = Model.ClienteId, returnToVentaId = returnToVentaId })" />
             <input type="hidden" id="modal-upload-returnToVentaId" name="ReturnToVentaId" value="@returnToVentaId" />
@@ -827,44 +1018,49 @@
             <input type="hidden" id="modal-upload-reemplazar" name="ReemplazarExistente" value="false" />
 
             <div class="flex-1 overflow-y-auto p-6 space-y-5">
+                <div id="modal-upload-validation"
+                     class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                    <span class="material-symbols-outlined text-red-500 shrink-0" aria-hidden="true">error</span>
 
-                <!-- Validation summary -->
-                <div id="modal-upload-validation" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
-                    <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
                     <div>
                         <p class="text-sm font-bold text-red-400">Errores de validación</p>
                         <p id="modal-upload-validation-text" class="text-xs text-red-400/80 mt-1"></p>
                     </div>
                 </div>
 
-                <!-- Reemplazo aviso -->
-                <div id="modal-upload-reemplazo-aviso" class="hidden rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-center gap-2 text-amber-400 text-sm">
-                    <span class="material-symbols-outlined shrink-0">swap_horiz</span>
+                <div id="modal-upload-reemplazo-aviso"
+                     class="hidden rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 flex items-center gap-2 text-amber-400 text-sm">
+                    <span class="material-symbols-outlined shrink-0" aria-hidden="true">swap_horiz</span>
                     <span>Se reemplazará: <strong id="modal-upload-reemplazo-nombre"></strong></span>
                 </div>
 
-                <!-- Cliente -->
                 <div>
                     <label class="mb-1.5 block text-sm font-bold text-slate-300">Cliente</label>
+
                     @if (Model.ClienteId.HasValue)
                     {
                         var clienteNombreModal = (ViewBag.Clientes as SelectList)
                             ?.FirstOrDefault(i => i.Value == Model.ClienteId.Value.ToString())?.Text
                             ?? "Cliente seleccionado";
+
                         <div class="flex items-center gap-3 rounded-lg border px-4 py-3 border-slate-700 bg-slate-800">
-                            <span class="material-symbols-outlined text-slate-400">person</span>
+                            <span class="material-symbols-outlined text-slate-400" aria-hidden="true">person</span>
                             <span class="text-sm font-medium text-white">@clienteNombreModal</span>
                         </div>
+
                         <input type="hidden" name="ClienteId" value="@Model.ClienteId" />
                     }
                     else
                     {
-                        <select name="ClienteId" id="modal-upload-clienteId"
-                                class="w-full rounded-lg border px-4 py-2.5 text-sm border-slate-700 bg-slate-800 text-white focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-colors">
+                        <select name="ClienteId"
+                                id="modal-upload-clienteId"
+                                class="w-full rounded-lg border px-4 py-2.5 text-sm border-slate-700 bg-slate-800 text-white focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-colors"
+                                aria-label="Cliente">
                             <option value="">— Seleccionar cliente —</option>
+
                             @if (ViewBag.Clientes is SelectList clientes)
                             {
-                                @foreach (SelectListItem item in clientes)
+                                foreach (SelectListItem item in clientes)
                                 {
                                     <option value="@item.Value">@item.Text</option>
                                 }
@@ -873,15 +1069,19 @@
                     }
                 </div>
 
-                <!-- Tipo Documento -->
                 <div>
-                    <label class="mb-1.5 block text-sm font-bold text-slate-300">Tipo de Documento</label>
-                    <select name="TipoDocumento" id="modal-upload-tipoDocumento"
+                    <label for="modal-upload-tipoDocumento" class="mb-1.5 block text-sm font-bold text-slate-300">
+                        Tipo de Documento
+                    </label>
+
+                    <select name="TipoDocumento"
+                            id="modal-upload-tipoDocumento"
                             class="w-full rounded-lg border px-4 py-2.5 text-sm border-slate-700 bg-slate-800 text-white focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-colors">
                         <option value="">— Seleccionar tipo —</option>
+
                         @if (ViewBag.TiposDocumento is SelectList tipos)
                         {
-                            @foreach (SelectListItem item in tipos)
+                            foreach (SelectListItem item in tipos)
                             {
                                 <option value="@item.Value">@item.Text</option>
                             }
@@ -889,52 +1089,70 @@
                     </select>
                 </div>
 
-                <!-- Archivo -->
                 <div>
-                    <label class="mb-1.5 block text-sm font-bold text-slate-300">Archivo</label>
+                    <label for="modal-archivoInput" class="mb-1.5 block text-sm font-bold text-slate-300">
+                        Archivo
+                    </label>
+
                     <div id="modal-dropZone"
                          class="relative rounded-xl border-2 border-dashed border-slate-600 p-8 text-center transition-colors hover:border-primary/50 cursor-pointer">
-                        <input name="Archivo" type="file" id="modal-archivoInput"
+                        <input name="Archivo"
+                               type="file"
+                               id="modal-archivoInput"
                                accept=".pdf,.jpg,.jpeg,.png"
                                class="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+
                         <div id="modal-dropZoneContent">
-                            <span class="material-symbols-outlined mb-2 text-4xl text-slate-400">cloud_upload</span>
+                            <span class="material-symbols-outlined mb-2 text-4xl text-slate-400" aria-hidden="true">cloud_upload</span>
                             <p class="text-sm font-semibold text-slate-300">Arrastrá o hacé clic para seleccionar</p>
                             <p class="mt-1 text-xs text-slate-400">PDF, JPG, PNG — Máx. 5 MB</p>
                         </div>
+
                         <div id="modal-filePreview" class="hidden">
-                            <span class="material-symbols-outlined mb-2 text-4xl text-emerald-500">description</span>
+                            <span class="material-symbols-outlined mb-2 text-4xl text-emerald-500" aria-hidden="true">description</span>
                             <p id="modal-fileName" class="text-sm font-semibold text-white"></p>
                             <p id="modal-fileSize" class="mt-1 text-xs text-slate-400"></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Fecha Vencimiento -->
                 <div>
-                    <label class="mb-1.5 block text-sm font-bold text-slate-300">Fecha de Vencimiento <span class="font-normal text-slate-500">(opcional)</span></label>
-                    <input name="FechaVencimiento" type="date"
+                    <label for="modal-upload-fecha-vencimiento" class="mb-1.5 block text-sm font-bold text-slate-300">
+                        Fecha de Vencimiento
+                        <span class="font-normal text-slate-500">(opcional)</span>
+                    </label>
+
+                    <input name="FechaVencimiento"
+                           id="modal-upload-fecha-vencimiento"
+                           type="date"
                            class="w-full rounded-lg border px-4 py-2.5 text-sm border-slate-700 bg-slate-800 text-white focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-colors" />
                 </div>
 
-                <!-- Observaciones -->
                 <div>
-                    <label class="mb-1.5 block text-sm font-bold text-slate-300">Observaciones <span class="font-normal text-slate-500">(opcional)</span></label>
-                    <textarea name="Observaciones" rows="2"
+                    <label for="modal-upload-observaciones" class="mb-1.5 block text-sm font-bold text-slate-300">
+                        Observaciones
+                        <span class="font-normal text-slate-500">(opcional)</span>
+                    </label>
+
+                    <textarea name="Observaciones"
+                              id="modal-upload-observaciones"
+                              rows="2"
                               class="w-full resize-none rounded-lg border px-4 py-2.5 text-sm border-slate-700 bg-slate-800 text-white focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-colors"
                               placeholder="Notas sobre el documento..."></textarea>
                 </div>
             </div>
 
-            <!-- Footer -->
             <footer class="shrink-0 flex items-center justify-end gap-3 border-t border-slate-800 bg-slate-900/50 px-6 py-4">
-                <button type="button" id="btn-cancelar-upload-modal"
+                <button type="button"
+                        id="btn-cancelar-upload-modal"
                         class="px-5 py-2.5 text-sm font-semibold text-slate-400 hover:text-white transition-colors">
                     Cancelar
                 </button>
-                <button type="submit" id="btn-submit-upload-modal"
+
+                <button type="submit"
+                        id="btn-submit-upload-modal"
                         class="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors">
-                    <span class="material-symbols-outlined text-lg">cloud_upload</span>
+                    <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                     <span id="btn-submit-upload-label">Subir Documento</span>
                 </button>
             </footer>
@@ -947,17 +1165,28 @@
     <script src="~/js/documento-module.js" asp-append-version="true"></script>
     <script src="~/js/documento-index.js" asp-append-version="true"></script>
     <script src="~/js/documento-upload-modal.js" asp-append-version="true"></script>
+
     @if (modoAgrupado)
     {
         <script>
             function documentoClienteAbrirModal(clienteId) {
                 var el = document.getElementById('modal-cliente-' + clienteId);
-                if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+
+                if (el) {
+                    el.classList.remove('hidden');
+                    el.classList.add('flex');
+                }
             }
+
             function documentoClienteCerrarModal(clienteId) {
                 var el = document.getElementById('modal-cliente-' + clienteId);
-                if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+
+                if (el) {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                }
             }
+
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') {
                     document.querySelectorAll('[data-cliente-modal]:not(.hidden)').forEach(function (el) {

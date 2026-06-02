@@ -1,87 +1,741 @@
 /* ─────────────────────────────────────────────────────────────
    documentocliente-module.css
-   Styles for the DocumentoCliente module views:
-     Index_tw, Details_tw, Upload_tw
+   Responsive UX optimization for DocumentoCliente:
+   Index_tw, Details_tw, Upload_tw
+   Optimizado para:
+   - 1024x720
+   - tablet 768-899
+   - mobile <= 767
+   - tablas largas
+   - modales con contenido documental
    ───────────────────────────────────────────────────────────── */
 
-
-/* ══════════════════════════════════════════════════════════════
-   INDEX
-   ══════════════════════════════════════════════════════════════ */
-
-.documento-index-header-actions { display: flex; width: 100%; flex-direction: column; }
-.documento-index-header-action { width: 100%; }
-.documento-index-filter-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-.documento-index-row-action-label { display: inline; }
-.documento-index-scroll-hint { display: block; }
-
-@media (min-width: 640px) {
-    .documento-index-header-actions { width: auto; flex-direction: row; }
-    .documento-index-header-action { width: auto; }
-    .documento-index-row-action { width: 2.25rem; height: 2.25rem; padding: 0; }
-    .documento-index-row-action-label { display: none; }
+:root {
+    --doc-bg: #0b1220;
+    --doc-card: #111827;
+    --doc-card-2: #0f172a;
+    --doc-line: #1f2937;
+    --doc-line-2: #334155;
+    --doc-text: #e2e8f0;
+    --doc-muted: #94a3b8;
+    --doc-muted-2: #64748b;
+    --doc-primary: #2563eb;
+    --doc-primary-soft: rgba(37, 99, 235, 0.14);
+    --doc-radius: 0.875rem;
+    --doc-table-min-flat: 69rem;
+    --doc-table-min-grouped: 76rem;
+    --doc-table-min-modal: 58rem;
+    --doc-focus: #60a5fa;
 }
 
-@media (min-width: 1024px) {
-    .documento-index-scroll-hint { display: none !important; }
+/* Base safety */
+
+.documento-page,
+.documento-page * {
+    box-sizing: border-box;
 }
 
-@media (min-width: 1280px) {
-    .documento-index-filter-actions { display: flex; justify-content: flex-end; }
+.documento-page {
+    min-width: 0;
 }
 
+.documento-page button,
+.documento-page input,
+.documento-page select,
+.documento-page textarea {
+    font: inherit;
+}
 
-/* ══════════════════════════════════════════════════════════════
+.documento-page :focus-visible {
+    outline: 2px solid var(--doc-focus);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+}
+
+.documento-page .material-symbols-outlined {
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   INDEX HEADER / ACTIONS
+   ───────────────────────────────────────────────────────────── */
+
+.documento-index-header-actions {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.documento-index-header-action {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+}
+
+.documento-index-filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.documento-index-row-action-label {
+    display: inline;
+}
+
+.documento-index-scroll-hint {
+    display: block;
+}
+
+/* Better panel behavior */
+
+.documento-page .card-erp-panel,
+.documento-card-panel {
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--doc-radius);
+}
+
+/* Filter panel */
+
+.documento-page .filter-panel-erp {
+    min-width: 0;
+}
+
+.documento-page .filter-panel-erp select,
+.documento-page .filter-panel-erp input {
+    min-height: 2.5rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HORIZONTAL SCROLL AFFORDANCE SUPPORT
+   ───────────────────────────────────────────────────────────── */
+
+.documento-page [data-oc-scroll] {
+    position: relative;
+}
+
+.documento-page [data-oc-scroll-shell] {
+    position: relative;
+}
+
+.documento-page [data-oc-scroll-region] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 rgba(15, 23, 42, 0.35);
+    scroll-behavior: smooth;
+}
+
+.documento-page [data-oc-scroll-region]::-webkit-scrollbar {
+    height: 0.65rem;
+}
+
+.documento-page [data-oc-scroll-region]::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.35);
+    border-radius: 999px;
+}
+
+.documento-page [data-oc-scroll-region]::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 999px;
+}
+
+.documento-page [data-oc-scroll-region]::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+.documento-page [data-oc-scroll-fade][hidden],
+.documento-page [data-oc-scroll-hint][hidden] {
+    display: none !important;
+}
+
+.documento-page [data-oc-scroll-fade] {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.documento-page [data-oc-scroll-fade="left"] {
+    left: 0;
+    background: linear-gradient(to right, rgba(17, 24, 39, 0.96), transparent);
+}
+
+.documento-page [data-oc-scroll-fade="right"] {
+    right: 0;
+    background: linear-gradient(to left, rgba(17, 24, 39, 0.96), transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLES
+   ───────────────────────────────────────────────────────────── */
+
+.documento-table-scroll {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.documento-responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.documento-responsive-table th,
+.documento-responsive-table td {
+    vertical-align: middle;
+}
+
+.documento-responsive-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: rgba(30, 41, 59, 0.96);
+}
+
+.documento-responsive-table--grouped {
+    min-width: var(--doc-table-min-grouped);
+}
+
+.documento-responsive-table--flat {
+    min-width: var(--doc-table-min-flat);
+}
+
+.documento-responsive-table--modal {
+    min-width: var(--doc-table-min-modal);
+}
+
+.documento-table-cell-strong {
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.documento-table-file-name {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Row actions */
+
+.documento-index-row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    border-radius: 0.5rem;
+    white-space: nowrap;
+}
+
+.documento-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.documento-row-actions form {
+    display: inline-flex;
+    margin: 0;
+}
+
+/* Better grouped row click target */
+
+.documento-grouped-row {
+    cursor: pointer;
+}
+
+.documento-grouped-row:focus-visible {
+    outline: 2px solid var(--doc-focus);
+    outline-offset: -2px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PAGINATION
+   ───────────────────────────────────────────────────────────── */
+
+.documento-pagination {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.documento-pagination-pages {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
    DETAILS
-   ══════════════════════════════════════════════════════════════ */
+   ───────────────────────────────────────────────────────────── */
 
 .documento-details-hero-actions {
     display: flex;
     width: 100%;
     flex-direction: column;
+    gap: 0.5rem;
 }
 
 .documento-details-hero-action {
     width: 100%;
+    min-height: 2.75rem;
 }
 
-@media (min-width: 640px) {
-    .documento-details-hero-actions {
-        width: auto;
-        flex-direction: row;
-    }
-
-    .documento-details-hero-action {
-        width: auto;
-    }
-}
-
-
-/* ══════════════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    UPLOAD
-   ══════════════════════════════════════════════════════════════ */
+   ───────────────────────────────────────────────────────────── */
 
 .documento-upload-hero-actions,
 .documento-upload-footer-actions {
     display: flex;
     width: 100%;
     flex-direction: column;
+    gap: 0.5rem;
 }
 
 .documento-upload-hero-action,
 .documento-upload-footer-action {
     width: 100%;
+    min-height: 2.75rem;
 }
 
+/* Upload modal */
+
+.documento-upload-modal-panel {
+    width: 100%;
+    max-width: 42rem;
+    max-height: 90vh;
+}
+
+.documento-upload-dropzone {
+    min-height: 11rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   1024x720 OPTIMIZATION
+   ───────────────────────────────────────────────────────────── */
+
+@media (min-width: 900px) and (max-width: 1100px) {
+    .documento-page .space-y-6> :not([hidden])~ :not([hidden]) {
+        margin-top: 1.15rem;
+    }
+
+    .documento-page .filter-panel-erp {
+        padding: 1rem;
+    }
+
+    .documento-page .filter-panel-erp .grid {
+        gap: 0.75rem;
+    }
+
+    .documento-page .filter-panel-erp label {
+        margin-bottom: 0.35rem;
+        font-size: 0.68rem;
+    }
+
+    .documento-page .filter-panel-erp select,
+    .documento-page .filter-panel-erp input {
+        min-height: 2.35rem;
+        font-size: 0.8125rem;
+    }
+
+    .documento-responsive-table th,
+    .documento-responsive-table td {
+        padding: 0.75rem 0.85rem;
+    }
+
+    .documento-responsive-table {
+        font-size: 0.8125rem;
+    }
+
+    .documento-index-row-action {
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+    }
+
+    .documento-index-row-action-label {
+        display: none;
+    }
+
+    .documento-row-actions {
+        gap: 0.25rem;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLET / MOBILE RESPONSIVE BREAKPOINT
+   Important: from 899px down, long tables become card-like.
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 899px) {
+
+    .documento-index-header-actions,
+    .documento-details-hero-actions,
+    .documento-upload-hero-actions,
+    .documento-upload-footer-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .documento-index-header-action,
+    .documento-details-hero-action,
+    .documento-upload-hero-action,
+    .documento-upload-footer-action {
+        width: 100%;
+        min-height: 2.75rem;
+    }
+
+    .documento-index-filter-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .documento-index-filter-actions>* {
+        width: 100%;
+    }
+
+    .documento-index-scroll-hint {
+        display: none !important;
+    }
+
+    /* Filter panel stacks more comfortably */
+    .documento-page .filter-panel-erp .grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .documento-page .filter-panel-erp [class*="md:col-span"] {
+        grid-column: auto !important;
+    }
+
+    .documento-page .filter-panel-erp select,
+    .documento-page .filter-panel-erp input,
+    .documento-page .filter-panel-erp button,
+    .documento-page .filter-panel-erp a {
+        width: 100%;
+        min-height: 2.75rem;
+    }
+
+    /* Convert marked tables to cards */
+    .documento-responsive-table--cards {
+        min-width: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .documento-responsive-table--cards thead {
+        display: none;
+    }
+
+    .documento-responsive-table--cards,
+    .documento-responsive-table--cards tbody,
+    .documento-responsive-table--cards tr,
+    .documento-responsive-table--cards td {
+        display: block;
+        width: 100%;
+    }
+
+    .documento-responsive-table--cards tbody {
+        padding: 0.75rem;
+    }
+
+    .documento-responsive-table--cards tr {
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        border: 1px solid var(--doc-line);
+        border-radius: 0.875rem;
+        background: rgba(15, 23, 42, 0.42);
+    }
+
+    .documento-responsive-table--cards tr:last-child {
+        margin-bottom: 0;
+    }
+
+    .documento-responsive-table--cards td {
+        display: grid;
+        grid-template-columns: minmax(7.5rem, 36%) minmax(0, 1fr);
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem !important;
+        border: 0;
+        border-bottom: 1px solid rgba(31, 41, 55, 0.85);
+        text-align: left !important;
+    }
+
+    .documento-responsive-table--cards td:last-child {
+        border-bottom: 0;
+    }
+
+    .documento-responsive-table--cards td::before {
+        content: attr(data-label);
+        color: var(--doc-muted-2);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .documento-responsive-table--cards td[data-label="Acciones"] {
+        display: block;
+    }
+
+    .documento-responsive-table--cards td[data-label="Acciones"]::before {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .documento-row-actions,
+    .documento-responsive-table--cards td[data-label="Acciones"]>.flex {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        gap: 0.5rem;
+    }
+
+    .documento-row-actions a,
+    .documento-row-actions button,
+    .documento-row-actions form,
+    .documento-responsive-table--cards td[data-label="Acciones"] a,
+    .documento-responsive-table--cards td[data-label="Acciones"] button,
+    .documento-responsive-table--cards td[data-label="Acciones"] form {
+        width: 100%;
+    }
+
+    .documento-responsive-table--cards td[data-label="Acciones"] form {
+        display: block;
+    }
+
+    .documento-responsive-table--cards td[data-label="Acciones"] button,
+    .documento-responsive-table--cards td[data-label="Acciones"] a {
+        min-height: 2.75rem;
+    }
+
+    .documento-index-row-action {
+        width: 100%;
+        min-height: 2.75rem;
+        padding-inline: 0.75rem;
+    }
+
+    .documento-index-row-action-label {
+        display: inline;
+    }
+
+    .documento-table-file-name,
+    .documento-table-cell-strong,
+    .documento-responsive-table--cards .truncate {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    /* Modal responsive */
+    .documento-page [data-cliente-modal] {
+        padding: 0.75rem;
+    }
+
+    .documento-page [data-cliente-modal]>.relative,
+    #modal-upload-documento>.relative {
+        max-height: 94vh;
+        width: 100%;
+    }
+
+    .documento-page [data-cliente-modal] header,
+    #modal-upload-documento header {
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+
+    .documento-page [data-cliente-modal] header>div:last-child {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .documento-page [data-cliente-modal] footer,
+    #modal-upload-documento footer {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .documento-page [data-cliente-modal] footer button,
+    #modal-upload-documento footer button {
+        width: 100%;
+        min-height: 2.75rem;
+        justify-content: center;
+    }
+
+    #modal-upload-documento .p-6 {
+        padding: 1rem;
+    }
+
+    #modal-dropZone {
+        padding: 1.25rem;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SMALL MOBILE
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .documento-page .space-y-6> :not([hidden])~ :not([hidden]) {
+        margin-top: 1rem;
+    }
+
+    .documento-page .filter-panel-erp {
+        padding: 0.875rem;
+        border-radius: 0.875rem;
+    }
+
+    .documento-page .filter-panel-erp h2 {
+        font-size: 0.95rem;
+    }
+
+    .documento-page .filter-panel-erp p {
+        font-size: 0.8125rem;
+    }
+
+    .documento-responsive-table--cards tbody {
+        padding: 0.625rem;
+    }
+
+    .documento-responsive-table--cards td {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        padding: 0.75rem !important;
+    }
+
+    .documento-responsive-table--cards td::before {
+        margin-bottom: 0.1rem;
+    }
+
+    .documento-row-actions,
+    .documento-responsive-table--cards td[data-label="Acciones"]>.flex {
+        grid-template-columns: 1fr;
+    }
+
+    .documento-page [data-cliente-modal] header,
+    #modal-upload-documento header {
+        flex-direction: column;
+    }
+
+    .documento-page [data-cliente-modal] header>div:last-child {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    #modal-upload-documento header button {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+
+    #modal-upload-documento h2,
+    .documento-page [data-cliente-modal] h2 {
+        padding-right: 2.5rem;
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .documento-responsive-table--cards tbody {
+        padding: 0.5rem;
+    }
+
+    .documento-responsive-table--cards tr {
+        border-radius: 0.75rem;
+    }
+
+    .documento-page .rounded-full {
+        max-width: 100%;
+    }
+
+    .documento-page .inline-flex {
+        min-width: 0;
+    }
+
+    .documento-page .material-symbols-outlined {
+        flex-shrink: 0;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DESKTOP
+   ───────────────────────────────────────────────────────────── */
+
 @media (min-width: 640px) {
+    .documento-index-header-actions {
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .documento-index-header-action {
+        width: auto;
+    }
+
+    .documento-index-row-action {
+        width: 2.25rem;
+        height: 2.25rem;
+        padding: 0;
+    }
+
+    .documento-index-row-action-label {
+        display: none;
+    }
+
+    .documento-details-hero-actions,
     .documento-upload-hero-actions,
     .documento-upload-footer-actions {
         width: auto;
         flex-direction: row;
     }
 
+    .documento-details-hero-action,
     .documento-upload-hero-action,
     .documento-upload-footer-action {
         width: auto;
+    }
+}
+
+@media (min-width: 1024px) {
+    .documento-index-scroll-hint {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1280px) {
+    .documento-index-filter-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   REDUCED MOTION
+   ───────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .documento-page *,
+    .documento-page *::before,
+    .documento-page *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
     }
 }
