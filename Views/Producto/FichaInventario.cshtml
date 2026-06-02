@@ -1,0 +1,563 @@
+@model ProductoUnidadesViewModel
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.ViewModels
+
+@{
+    var movs = (ViewBag.Movimientos as IEnumerable<MovimientoStockViewModel>)
+                    ?.OrderByDescending(x => x.Fecha).ToList()
+               ?? new List<MovimientoStockViewModel>();
+
+    var conciliacion = Model.Conciliacion;
+    ViewData["Title"] = $"Inventario — {Model.Nombre}";
+
+    var tabQs = Context.Request.Query["tab"].ToString();
+    var tabInicial = (tabQs == "unidades" || tabQs == "movimientos")
+        ? tabQs
+        : (Model.RequiereNumeroSerie ? "unidades" : "movimientos");
+
+    var totalEntradas = movs.Where(m => m.Tipo == TipoMovimiento.Entrada).Sum(m => Math.Abs(m.Cantidad));
+    var totalSalidas  = movs.Where(m => m.Tipo == TipoMovimiento.Salida).Sum(m => Math.Abs(m.Cantidad));
+
+    string ChipMov(TipoMovimiento t) => t switch {
+        TipoMovimiento.Entrada => "fi-chip fi-chip-entrada",
+        TipoMovimiento.Salida  => "fi-chip fi-chip-salida",
+        TipoMovimiento.Ajuste  => "fi-chip fi-chip-ajuste",
+        _                      => "fi-chip fi-chip-neutral"
+    };
+    string LblMov(TipoMovimiento t) => t switch {
+        TipoMovimiento.Entrada => "Entrada",
+        TipoMovimiento.Salida  => "Salida",
+        TipoMovimiento.Ajuste  => "Ajuste",
+        _                      => t.ToString()
+    };
+    string EstChipCss(EstadoUnidad e) => e switch {
+        EstadoUnidad.EnStock      => "fi-chip fi-chip-stock",
+        EstadoUnidad.Vendida      => "fi-chip fi-chip-sold",
+        EstadoUnidad.Entregada    => "fi-chip fi-chip-sold",
+        EstadoUnidad.Faltante     => "fi-chip fi-chip-missing",
+        EstadoUnidad.Baja         => "fi-chip fi-chip-baja",
+        EstadoUnidad.Anulada      => "fi-chip fi-chip-baja",
+        EstadoUnidad.Reservada    => "fi-chip fi-chip-reserved",
+        EstadoUnidad.EnReparacion => "fi-chip fi-chip-repair",
+        EstadoUnidad.Devuelta     => "fi-chip fi-chip-return",
+        _                         => "fi-chip fi-chip-neutral"
+    };
+    string EstChipLbl(EstadoUnidad e) => e switch {
+        EstadoUnidad.EnStock      => "En Stock",
+        EstadoUnidad.Vendida      => "Vendida",
+        EstadoUnidad.Entregada    => "Entregada",
+        EstadoUnidad.Faltante     => "Faltante",
+        EstadoUnidad.Baja         => "Baja",
+        EstadoUnidad.Anulada      => "Anulada",
+        EstadoUnidad.Reservada    => "Reservada",
+        EstadoUnidad.EnReparacion => "En Reparación",
+        EstadoUnidad.Devuelta     => "Devuelta",
+        _                         => e.ToString()
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+}
+
+<style>
+/* fi = ficha-inventario — scoped to avoid conflicts with pu- and kdx- */
+.fi-page .fi-card {
+  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
+}
+.fi-page .fi-card-header {
+  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
+}
+/* KPI */
+.fi-page .fi-kpi {
+  background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem 1.1rem;
+}
+/* Chips — movimiento */
+.fi-page .fi-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .22rem .55rem; border-radius: 999px;
+  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
+}
+.fi-page .fi-chip-neutral  { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.fi-page .fi-chip-entrada  { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+.fi-page .fi-chip-salida   { background: rgba(248,113,113,.10); color: #f87171; border-color: rgba(248,113,113,.28); }
+.fi-page .fi-chip-ajuste   { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.28); }
+/* Chips — estado unidad */
+.fi-page .fi-chip-stock    { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.25); }
+.fi-page .fi-chip-sold     { background: rgba(59,130,246,.10);  color: #60a5fa; border-color: rgba(59,130,246,.25); }
+.fi-page .fi-chip-missing  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.25); }
+.fi-page .fi-chip-baja     { background: rgba(148,163,184,.10); color: #94a3b8; border-color: rgba(148,163,184,.25); }
+.fi-page .fi-chip-reserved { background: rgba(168,85,247,.10);  color: #c084fc; border-color: rgba(168,85,247,.25); }
+.fi-page .fi-chip-repair   { background: rgba(244,114,182,.10); color: #f472b6; border-color: rgba(244,114,182,.25); }
+.fi-page .fi-chip-return   { background: rgba(20,184,166,.10);  color: #2dd4bf; border-color: rgba(20,184,166,.25); }
+/* Tabs */
+.fi-page .fi-tab-btn {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .625rem 1rem; font-size: .875rem; font-weight: 500;
+  color: #94a3b8; border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none;
+  background: transparent; transition: color .15s, border-color .15s; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.fi-page .fi-tab-btn:hover { color: #f1f5f9; }
+.fi-page .fi-tab-btn[aria-selected="true"] { color: #f8fafc; border-bottom-color: #3b82f6; }
+/* Buttons */
+.fi-page .fi-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
+  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
+  text-decoration: none; white-space: nowrap;
+}
+.fi-page .fi-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
+.fi-page .fi-btn-ghost:hover { background: #1e293b; color: #fff; }
+.fi-page .fi-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.fi-page .fi-btn-soft:hover { background: #273549; }
+.fi-page .fi-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
+/* Table */
+.fi-page .fi-tbl {
+  width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem;
+}
+.fi-page .fi-tbl thead th {
+  position: sticky; top: 0; z-index: 2; background: #0d1526;
+  color: #64748b; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .04em; font-weight: 600; text-align: left;
+  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
+}
+.fi-page .fi-tbl thead th.num { text-align: right; }
+.fi-page .fi-tbl tbody td {
+  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
+}
+.fi-page .fi-tbl tbody tr:hover td { background: rgba(59,130,246,.04); }
+.fi-page .fi-tbl .num {
+  text-align: right;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.fi-page .fi-tbl .col-in  { color: #34d399; }
+.fi-page .fi-tbl .col-out { color: #f87171; }
+.fi-page .fi-tbl .col-adj { color: #fbbf24; }
+</style>
+
+<div class="fi-page space-y-5">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-lg border border-emerald-500/30 bg-emerald-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">check_circle</span>
+            <span class="flex-1 text-sm font-medium text-emerald-300">@TempData["Success"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-emerald-600/20" aria-label="Cerrar">
+                <span class="material-symbols-outlined text-emerald-300" style="font-size:20px">close</span>
+            </button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-lg border border-red-500/30 bg-red-600/15 px-4 py-2.5 flex items-center gap-3">
+            <span class="material-symbols-outlined text-red-400" style="font-size:20px">error</span>
+            <span class="flex-1 text-sm font-medium text-red-300">@TempData["Error"]</span>
+            <button type="button" onclick="this.closest('div').remove()" class="p-1 rounded-lg hover:bg-red-600/20" aria-label="Cerrar">
+                <span class="material-symbols-outlined text-red-300" style="font-size:20px">close</span>
+            </button>
+        </div>
+    }
+
+    @* ── HEADER ── *@
+    <header class="fi-card-header px-4 sm:px-5 py-5">
+        <a asp-controller="Catalogo" asp-action="Index"
+           class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+            Volver al catálogo
+        </a>
+
+        <div class="mt-3 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="text-xl sm:text-2xl font-semibold text-white">@Model.Nombre</h1>
+                    <span class="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">@Model.Codigo</span>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium
+                        @(Model.RequiereNumeroSerie
+                            ? "bg-blue-500/10 text-blue-300 border border-blue-500/30"
+                            : "bg-amber-500/10 text-amber-300 border border-amber-500/30")">
+                        <span class="material-symbols-outlined" style="font-size:14px">
+                            @(Model.RequiereNumeroSerie ? "verified" : "inventory_2")
+                        </span>
+                        @(Model.RequiereNumeroSerie ? "Serializado" : "No serializado")
+                    </span>
+                    @if (conciliacion.HayDiferencia)
+                    {
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                            <span class="material-symbols-outlined" style="font-size:14px">warning</span>
+                            Diferencia en stock
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 shrink-0">
+                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                   class="fi-btn fi-btn-ghost fi-btn-sm">
+                    <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
+                    Gestionar unidades
+                </a>
+                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
+                   class="fi-btn fi-btn-ghost fi-btn-sm">
+                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
+                    Kardex completo
+                </a>
+                <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@Model.ProductoId"
+                   class="fi-btn fi-btn-soft fi-btn-sm">
+                    <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
+                    Registrar ajuste
+                </a>
+            </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="fi-kpi">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Stock del producto</p>
+                <p class="mt-1 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
+                <p class="mt-0.5 text-xs text-slate-500">Valor lógico (agregado)</p>
+            </div>
+            @if (Model.RequiereNumeroSerie)
+            {
+                <div class="fi-kpi">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidades en stock</p>
+                    <p class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</p>
+                    <p class="mt-0.5 text-xs text-slate-500">Estado "En Stock"</p>
+                </div>
+                <div class="fi-kpi @(conciliacion.HayDiferencia ? "border-amber-500/30 bg-amber-500/5" : "")">
+                    <p class="text-xs font-medium uppercase tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500")">Diferencia</p>
+                    <p class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">
+                        @(conciliacion.HayDiferencia
+                            ? (conciliacion.DiferenciaStockVsUnidadesEnStock > 0
+                                ? $"+{conciliacion.DiferenciaStockVsUnidadesEnStock:G29}"
+                                : conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29"))
+                            : "OK")
+                    </p>
+                    <p class="mt-0.5 text-xs @(conciliacion.HayDiferencia ? "text-amber-200/70" : "text-slate-500")">
+                        @(conciliacion.HayDiferencia ? "Stock vs unidades físicas" : "Trazabilidad completa")
+                    </p>
+                </div>
+                <div class="fi-kpi">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total registradas</p>
+                    <p class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</p>
+                    <p class="mt-0.5 text-xs text-slate-500">Todos los estados</p>
+                </div>
+            }
+            else
+            {
+                <div class="fi-kpi">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Movimientos</p>
+                    <p class="mt-1 text-2xl font-semibold text-white">@movs.Count</p>
+                    <p class="mt-0.5 text-xs text-slate-500">Registrados</p>
+                </div>
+                <div class="fi-kpi">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Entradas totales</p>
+                    <p class="mt-1 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
+                    <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
+                </div>
+                <div class="fi-kpi">
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Salidas totales</p>
+                    <p class="mt-1 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
+                    <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
+                </div>
+            }
+        </div>
+    </header>
+
+    @* ── TABS NAV ── *@
+    <nav class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur"
+         role="tablist" aria-label="Ficha de inventario">
+        <div class="flex overflow-x-auto" style="-ms-overflow-style:none;scrollbar-width:none;">
+            <button type="button"
+                    data-fi-tab="unidades"
+                    role="tab"
+                    aria-controls="fi-panel-unidades"
+                    aria-selected="@(tabInicial == "unidades" ? "true" : "false")"
+                    class="fi-tab-btn">
+                <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
+                Unidades
+                @if (Model.RequiereNumeroSerie)
+                {
+                    <span class="ml-1 text-xs text-slate-600">@conciliacion.TotalUnidadesRegistradas</span>
+                }
+            </button>
+            <button type="button"
+                    data-fi-tab="movimientos"
+                    role="tab"
+                    aria-controls="fi-panel-movimientos"
+                    aria-selected="@(tabInicial == "movimientos" ? "true" : "false")"
+                    class="fi-tab-btn">
+                <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
+                Movimientos
+                <span class="ml-1 text-xs text-slate-600">@movs.Count</span>
+            </button>
+        </div>
+    </nav>
+
+    @* ── TAB: UNIDADES ── *@
+    <section id="fi-panel-unidades" data-fi-panel="unidades" role="tabpanel"
+             class="space-y-4 @(tabInicial != "unidades" ? "hidden" : "")">
+
+        @if (!Model.RequiereNumeroSerie)
+        {
+            <div class="fi-card p-8 flex flex-col items-center text-center gap-4">
+                <span class="material-symbols-outlined text-5xl text-slate-700">inventory_2</span>
+                <div>
+                    <p class="text-sm font-semibold text-slate-300">Este producto no requiere trazabilidad por número de serie.</p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        El stock se gestiona de forma agregada. Podés ver el historial de movimientos en la pestaña
+                        <strong class="text-slate-400">Movimientos</strong>, o activar la trazabilidad desde la gestión de unidades.
+                    </p>
+                </div>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button type="button" data-fi-tab-goto="movimientos"
+                            class="fi-btn fi-btn-ghost fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
+                        Ver Movimientos
+                    </button>
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                       class="fi-btn fi-btn-soft fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">settings</span>
+                        Gestionar unidades
+                    </a>
+                </div>
+            </div>
+        }
+        else
+        {
+            @if (conciliacion.HayDiferencia)
+            {
+                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-amber-300">Diferencia detectada entre stock lógico y unidades físicas</p>
+                        <p class="mt-0.5 text-xs text-amber-200/70">
+                            Stock lógico: <strong>@Model.StockActual.ToString("G29")</strong> —
+                            Unidades en stock: <strong>@conciliacion.UnidadesEnStock</strong> —
+                            Diferencia: <strong>@(conciliacion.DiferenciaStockVsUnidadesEnStock > 0 ? "+" : "")@conciliacion.DiferenciaStockVsUnidadesEnStock.ToString("G29")</strong>
+                        </p>
+                    </div>
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                       class="shrink-0 text-xs font-bold text-amber-300 hover:text-amber-100 underline underline-offset-2 whitespace-nowrap">
+                        Conciliar
+                    </a>
+                </div>
+            }
+
+            <div class="flex flex-wrap gap-2">
+                <span class="fi-chip fi-chip-neutral">
+                    Total: <strong class="ml-1">@Model.Unidades.Count</strong> @(Model.Unidades.Count != 1 ? "resultados" : "resultado")
+                </span>
+                @foreach (var r in Model.ResumenEstados)
+                {
+                    <span class="@EstChipCss(r.Estado)">@EstChipLbl(r.Estado) <strong class="ml-1">@r.Cantidad</strong></span>
+                }
+            </div>
+
+            <div class="fi-card overflow-hidden">
+                @if (!Model.Unidades.Any())
+                {
+                    <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
+                        <span class="material-symbols-outlined text-4xl text-slate-700">inbox</span>
+                        <p class="text-sm font-semibold text-slate-500">No hay unidades registradas para este producto.</p>
+                        <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                           class="text-xs font-bold text-blue-400 hover:underline">Ir a gestión de unidades para agregar</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="overflow-x-auto">
+                        <table class="fi-tbl">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Estado</th>
+                                    <th scope="col">Código</th>
+                                    <th scope="col">N° serie</th>
+                                    <th scope="col">Ubicación</th>
+                                    <th scope="col">Ingreso</th>
+                                    <th scope="col" class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var u in Model.Unidades)
+                                {
+                                    <tr>
+                                        <td><partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)u.Estado" /></td>
+                                        <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
+                                        <td class="font-mono text-xs text-slate-400">@(u.NumeroSerie ?? "—")</td>
+                                        <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
+                                        <td class="text-xs text-slate-400">@u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                        <td class="text-right">
+                                            <a asp-controller="Producto" asp-action="UnidadHistorial"
+                                               asp-route-unidadId="@u.Id"
+                                               class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                               title="Ver historial de esta unidad">
+                                                <span class="material-symbols-outlined text-sm">history</span>
+                                                Historial
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                <div class="border-t border-slate-800 px-5 py-3 flex items-center justify-between">
+                    <p class="text-xs text-slate-600">
+                        Vista de solo lectura. Para agregar, conciliar o gestionar unidades usá la página completa.
+                    </p>
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                       class="fi-btn fi-btn-ghost fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>
+                        Gestión completa
+                    </a>
+                </div>
+            </div>
+        }
+    </section>
+
+    @* ── TAB: MOVIMIENTOS ── *@
+    <section id="fi-panel-movimientos" data-fi-panel="movimientos" role="tabpanel"
+             class="space-y-4 @(tabInicial != "movimientos" ? "hidden" : "")">
+
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="fi-kpi">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">arrow_downward</span>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Entradas totales</p>
+                </div>
+                <p class="mt-2 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
+            </div>
+            <div class="fi-kpi">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-400" style="font-size:20px">arrow_upward</span>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Salidas totales</p>
+                </div>
+                <p class="mt-2 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
+            </div>
+            <div class="fi-kpi col-span-2 lg:col-span-1">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-400" style="font-size:20px">inventory</span>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Stock actual</p>
+                </div>
+                <p class="mt-2 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
+            </div>
+        </div>
+
+        <div class="fi-card overflow-hidden">
+            @if (!movs.Any())
+            {
+                <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
+                    <span class="material-symbols-outlined text-4xl text-slate-700">swap_vert</span>
+                    <p class="text-sm font-semibold text-slate-500">No hay movimientos registrados para este producto.</p>
+                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@Model.ProductoId"
+                       class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</a>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="fi-tbl" style="min-width:640px">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Tipo</th>
+                                <th scope="col">Referencia / Motivo</th>
+                                <th scope="col" class="num">Cantidad</th>
+                                <th scope="col" class="num">Saldo</th>
+                                <th scope="col">Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in movs)
+                            {
+                                var esEntrada = m.Tipo == TipoMovimiento.Entrada
+                                    || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo > m.StockAnterior);
+                                var esSalida = m.Tipo == TipoMovimiento.Salida
+                                    || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo < m.StockAnterior);
+                                var cantClass = esEntrada ? "col-in" : esSalida ? "col-out" : "col-adj";
+                                var cantPrefix = esEntrada ? "+" : esSalida ? "−" : "±";
+                                <tr>
+                                    <td class="text-xs text-slate-400 whitespace-nowrap">
+                                        @m.Fecha.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                                    </td>
+                                    <td>
+                                        <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
+                                    </td>
+                                    <td class="text-xs text-slate-400 max-w-[200px]">
+                                        @if (m.Referencia != null)
+                                        {
+                                            <span class="text-slate-300">@m.Referencia</span>
+                                        }
+                                        @if (m.Motivo != null)
+                                        {
+                                            <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span>
+                                        }
+                                        @if (m.Referencia == null && m.Motivo == null)
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td class="num @cantClass font-mono">
+                                        @cantPrefix@Math.Abs(m.Cantidad).ToString("G29")
+                                    </td>
+                                    <td class="num text-slate-300 font-mono">
+                                        @m.StockNuevo.ToString("G29")
+                                    </td>
+                                    <td class="text-xs text-slate-400">
+                                        @(m.CreatedBy ?? "—")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <div class="border-t border-slate-800 px-5 py-3 flex items-center justify-between">
+                <p class="text-xs text-slate-600">
+                    @movs.Count movimiento@(movs.Count != 1 ? "s" : "") registrado@(movs.Count != 1 ? "s" : "").
+                    Kardex completo incluye gráfico, filtros y valorización.
+                </p>
+                <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
+                   class="fi-btn fi-btn-ghost fi-btn-sm">
+                    <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
+                    Kardex completo
+                </a>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    var btns   = document.querySelectorAll('[data-fi-tab]');
+    var panels = {};
+    document.querySelectorAll('[data-fi-panel]').forEach(function (p) {
+        panels[p.getAttribute('data-fi-panel')] = p;
+    });
+
+    function activateTab(name) {
+        btns.forEach(function (b) { b.setAttribute('aria-selected', 'false'); });
+        Object.values(panels).forEach(function (p) { p.classList.add('hidden'); });
+        var btn = document.querySelector('[data-fi-tab="' + name + '"]');
+        if (btn) btn.setAttribute('aria-selected', 'true');
+        if (panels[name]) panels[name].classList.remove('hidden');
+    }
+
+    btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            activateTab(btn.getAttribute('data-fi-tab'));
+        });
+    });
+
+    document.querySelectorAll('[data-fi-tab-goto]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            activateTab(el.getAttribute('data-fi-tab-goto'));
+        });
+    });
+})();
+</script>
+}

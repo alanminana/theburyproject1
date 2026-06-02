@@ -19,6 +19,7 @@ node_modules
 
 # Local QA / generated artifacts
 .playwright-mcp/
+playwright-artifacts/
 qa-evidence/
 App_Data/contratos-venta-credito/**/*.pdf
 /*.png

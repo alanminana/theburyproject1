@@ -275,9 +275,9 @@
                     <span class="text-sm font-bold text-slate-900 dark:text-white">${m.stockNuevo} uds</span>
                 </td>
                 <td class="px-4 py-4 text-right">
-                    <a href="/MovimientoStock/Kardex/${m.productoId}"
+                    <a href="/Producto/Inventario/${m.productoId}?tab=movimientos"
                        class="text-primary hover:text-primary/80 text-sm font-bold underline-offset-2 hover:underline"
-                       title="Ver kardex completo de ${esc(m.productoNombre || 'este producto')}">Ver kardex</a>
+                       title="Ver inventario de ${esc(m.productoNombre || 'este producto')}">Ver inventario</a>
                 </td>`;
             tbody.appendChild(tr);
         });

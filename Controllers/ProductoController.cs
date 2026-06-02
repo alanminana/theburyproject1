@@ -623,6 +623,28 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpGet("Producto/Inventario/{productoId:int}")]
+        public async Task<IActionResult> Inventario(int productoId)
+        {
+            try
+            {
+                var viewModel = await ConstruirProductoUnidadesViewModelAsync(productoId, new ProductoUnidadFiltros());
+                if (viewModel == null)
+                    return NotFound();
+
+                var movimientos = await _movimientoStockService.GetByProductoIdAsync(productoId);
+                ViewBag.Movimientos = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos);
+
+                return View("FichaInventario", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cargar ficha de inventario del producto {ProductoId}", productoId);
+                TempData["Error"] = "Error al cargar la ficha de inventario. Intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
         [HttpPost("Producto/CrearUnidad")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
