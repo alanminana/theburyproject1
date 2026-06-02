@@ -131,9 +131,17 @@
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
-.fi-page .fi-tbl .col-in  { color: #34d399; }
-.fi-page .fi-tbl .col-out { color: #f87171; }
-.fi-page .fi-tbl .col-adj { color: #fbbf24; }
+/* Mobile/desktop toggle for card vs table */
+.fi-page .fi-cards-mobile { display: block; }
+.fi-page .fi-tbl-wrapper   { display: none; }
+@@media (min-width: 640px) {
+  .fi-page .fi-cards-mobile { display: none; }
+  .fi-page .fi-tbl-wrapper   { display: block; }
+  .fi-page .fi-kpi-sm-restore { font-size: .75rem; letter-spacing: .04em; }
+}
+.fi-page .col-in  { color: #34d399; }
+.fi-page .col-out { color: #f87171; }
+.fi-page .col-adj { color: #fbbf24; }
 </style>
 
 <div class="fi-page space-y-5">
@@ -214,19 +222,19 @@
 
         <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="fi-kpi">
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Stock del producto</p>
+                <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock</p>
                 <p class="mt-1 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
                 <p class="mt-0.5 text-xs text-slate-500">Valor lógico (agregado)</p>
             </div>
             @if (Model.RequiereNumeroSerie)
             {
                 <div class="fi-kpi">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Unidades en stock</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Unidades</p>
                     <p class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</p>
                     <p class="mt-0.5 text-xs text-slate-500">Estado "En Stock"</p>
                 </div>
                 <div class="fi-kpi @(conciliacion.HayDiferencia ? "border-amber-500/30 bg-amber-500/5" : "")">
-                    <p class="text-xs font-medium uppercase tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500")">Diferencia</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500")">Diferencia</p>
                     <p class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">
                         @(conciliacion.HayDiferencia
                             ? (conciliacion.DiferenciaStockVsUnidadesEnStock > 0
@@ -239,7 +247,7 @@
                     </p>
                 </div>
                 <div class="fi-kpi">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total registradas</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Registradas</p>
                     <p class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</p>
                     <p class="mt-0.5 text-xs text-slate-500">Todos los estados</p>
                 </div>
@@ -247,17 +255,17 @@
             else
             {
                 <div class="fi-kpi">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Movimientos</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Movimientos</p>
                     <p class="mt-1 text-2xl font-semibold text-white">@movs.Count</p>
                     <p class="mt-0.5 text-xs text-slate-500">Registrados</p>
                 </div>
                 <div class="fi-kpi">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Entradas totales</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
                     <p class="mt-1 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
                     <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
                 </div>
                 <div class="fi-kpi">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Salidas totales</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
                     <p class="mt-1 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
                     <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
                 </div>
@@ -367,7 +375,30 @@
                 }
                 else
                 {
-                    <div class="overflow-x-auto">
+                    @* Mobile: card list (< 640px) *@
+                    <ul class="divide-y divide-slate-800 fi-cards-mobile" aria-label="Unidades registradas">
+                        @foreach (var u in Model.Unidades)
+                        {
+                            <li class="px-4 py-3 flex items-start justify-between gap-3">
+                                <div class="flex flex-col gap-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <partial name="_EstadoUnidadBadge" model="(EstadoUnidad?)u.Estado" />
+                                        <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
+                                    </div>
+                                    <span class="text-xs text-slate-400 font-mono">S/N: @(u.NumeroSerie ?? "—")</span>
+                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                </div>
+                                <a asp-controller="Producto" asp-action="UnidadHistorial"
+                                   asp-route-unidadId="@u.Id"
+                                   class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                   title="Ver historial de esta unidad">
+                                    <span class="material-symbols-outlined text-sm">history</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                    @* Desktop: table (≥ 640px) *@
+                    <div class="overflow-x-auto fi-tbl-wrapper">
                         <table class="fi-tbl">
                             <thead>
                                 <tr>
@@ -425,21 +456,21 @@
             <div class="fi-kpi">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">arrow_downward</span>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Entradas totales</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
                 </div>
                 <p class="mt-2 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
             </div>
             <div class="fi-kpi">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-red-400" style="font-size:20px">arrow_upward</span>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Salidas totales</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
                 </div>
                 <p class="mt-2 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
             </div>
             <div class="fi-kpi col-span-2 lg:col-span-1">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-slate-400" style="font-size:20px">inventory</span>
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Stock actual</p>
+                    <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock actual</p>
                 </div>
                 <p class="mt-2 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
             </div>
@@ -457,7 +488,38 @@
             }
             else
             {
-                <div class="overflow-x-auto">
+                @* Mobile: card list (< 640px) *@
+                <ul class="divide-y divide-slate-800 fi-cards-mobile" aria-label="Historial de movimientos">
+                    @foreach (var m in movs)
+                    {
+                        var esEntrada = m.Tipo == TipoMovimiento.Entrada
+                            || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo > m.StockAnterior);
+                        var esSalida = m.Tipo == TipoMovimiento.Salida
+                            || (m.Tipo == TipoMovimiento.Ajuste && m.StockNuevo < m.StockAnterior);
+                        var cantClass = esEntrada ? "col-in" : esSalida ? "col-out" : "col-adj";
+                        var cantPrefix = esEntrada ? "+" : esSalida ? "−" : "±";
+                        <li class="px-4 py-3 flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
+                                <span class="text-[11px] text-slate-500 tabular-nums">@m.Fecha.ToLocalTime().ToString("dd/MM/yy HH:mm")</span>
+                            </div>
+                            @if (m.Referencia != null || m.Motivo != null)
+                            {
+                                <div class="text-xs text-slate-400 leading-snug">
+                                    @if (m.Referencia != null) { <span class="text-slate-300">@m.Referencia</span> }
+                                    @if (m.Motivo != null) { <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span> }
+                                </div>
+                            }
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm @cantClass font-mono font-semibold">@cantPrefix@Math.Abs(m.Cantidad).ToString("G29")</span>
+                                <span class="text-xs text-slate-500">saldo <span class="text-slate-300 font-mono">@m.StockNuevo.ToString("G29")</span></span>
+                            </div>
+                            @if (m.CreatedBy != null) { <span class="text-[11px] text-slate-600">@m.CreatedBy</span> }
+                        </li>
+                    }
+                </ul>
+                @* Desktop: table (≥ 640px) *@
+                <div class="overflow-x-auto fi-tbl-wrapper">
                     <table class="fi-tbl" style="min-width:640px">
                         <thead>
                             <tr>
