@@ -8,8 +8,6 @@
     var clientes = Model.Clientes ?? new List<CreditoClienteIndexViewModel>();
     var creditos = clientes.SelectMany(c => c.Creditos).ToList();
     var totalClientes = clientes.Count;
-    var totalCreditos = creditos.Count;
-    var saldoTotal = clientes.Sum(c => c.SaldoPendienteTotal);
 
     var creditosConMora = creditos
         .Where(c => c.Cuotas != null && c.Cuotas.Any(cu => cu.EstaVencida))
@@ -45,8 +43,6 @@
         .ToList();
     var moraTotalAcumulada = resumenMoras.Sum(item => item.MontoTotalMora);
     var creditosCriticos = resumenMoras.Count(item => item.EsCritica);
-    var puedeVerConfiguracionCredito = User.TienePermiso("configuraciones", "view");
-
     var filtroCreditoActivo = !string.IsNullOrEmpty(filter.Cliente)
                            || filter.ClienteId.HasValue
                            || !string.IsNullOrEmpty(filter.Numero)
@@ -77,7 +73,8 @@
         EstadoCredito.Activo or EstadoCredito.Generado => "chip-ok",
         EstadoCredito.Finalizado => "chip-info",
         EstadoCredito.Rechazado or EstadoCredito.Cancelado => "chip-bad",
-        EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion or EstadoCredito.Configurado => "chip-warn",
+        EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion or EstadoCredito.Configurado
+=> "chip-warn",
         _ => "chip-neutral"
     };
 }
@@ -86,53 +83,32 @@
     <partial name="_CreditoModuleStyles" />
 }
 
-<main class="shell" style="padding-top:1.75rem;padding-bottom:3rem">
-    <div class="page-head">
-        <div class="min-w-0">
-            <h1 class="page-title">Gestión de Créditos</h1>
-            <p class="page-sub">Cartera de créditos por cliente, control de cuotas y moras. Registrá pagos, simulá nuevas líneas y seguí los vencimientos.</p>
-        </div>
-        <div class="head-actions">
-            @if (puedeVerConfiguracionCredito)
-            {
-                <a asp-action="ConfigurarVenta" class="btn btn-ghost">
-                    <span class="material-symbols-outlined">tune</span>
-                    Configuración
-                </a>
-            }
-            <a asp-action="Simular" class="btn btn-ghost">
-                <span class="material-symbols-outlined">calculate</span>
-                Simular
-            </a>
-            <a asp-action="Create" class="btn btn-primary">
-                <span class="material-symbols-outlined">add_card</span>
-                Nueva línea
-            </a>
-        </div>
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-ok" role="status" style="margin-top:1rem">
+        <span class="material-symbols-outlined">check_circle</span>
+        <span>@TempData["Success"]</span>
     </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-bad" role="alert" style="margin-top:1rem">
+        <span class="material-symbols-outlined">error</span>
+        <span>@TempData["Error"]</span>
+    </div>
+}
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="alert alert-ok" role="status" style="margin-top:1rem">
-            <span class="material-symbols-outlined">check_circle</span>
-            <span>@TempData["Success"]</span>
-        </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="alert alert-bad" role="alert" style="margin-top:1rem">
-            <span class="material-symbols-outlined">error</span>
-            <span>@TempData["Error"]</span>
-        </div>
-    }
-
-    @if (totalMoras > 0)
-    {
-        <div class="mora-banner" style="margin-top:1.4rem" data-credito-mora-banner>
-            <div class="mb-ic"><span class="material-symbols-outlined">warning</span></div>
-            <div class="flex-1 min-w-0">
-                <div class="mb-title">Hay @creditosConMora.Select(c => c.ClienteId).Distinct().Count() cliente@(creditosConMora.Select(c => c.ClienteId).Distinct().Count() == 1 ? "" : "s") con cuotas en mora</div>
-                <div class="mb-sub">@moraTotalAcumulada.ToString("C0") vencidos en total · @creditosCriticos crédito@(creditosCriticos == 1 ? "" : "s") crítico@(creditosCriticos == 1 ? "" : "s") (+10 días de atraso) requiere@(creditosCriticos == 1 ? "" : "n") gestión inmediata.</div>
+@if (totalMoras > 0)
+{
+    <div class="mora-banner" style="margin-top:1.4rem" data-credito-mora-banner>
+        <div class="mb-ic"><span class="material-symbols-outlined">warning</span></div>
+        <div class="flex-1 min-w-0">
+            <div class="mb-title">Hay @creditosConMora.Select(c => c.ClienteId).Distinct().Count()
+                cliente@(creditosConMora.Select(c => c.ClienteId).Distinct().Count() == 1 ? "" : "s") con cuotas en mora
+            </div>
+            <div class="mb-sub">@moraTotalAcumulada.ToString("C0") vencidos en total · @creditosCriticos
+                crédito@(creditosCriticos == 1 ? "" : "s") crítico@(creditosCriticos == 1 ? "" : "s") (+10 días de
+                atraso) requiere@(creditosCriticos == 1 ? "" : "n") gestión inmediata.</div>
             </div>
             <div class="mb-stats">
                 <div class="mb-stat">
@@ -151,343 +127,382 @@
         </div>
     }
 
-    <div class="grid-kpi" style="margin-top:1.25rem">
-        <div class="kpi kpi--accent">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Cartera activa</div>
-            <div class="kpi-value">@saldoTotal.ToString("C0")</div>
-            <div class="kpi-foot">saldo por cobrar · @totalCreditos crédito@(totalCreditos == 1 ? "" : "s")</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">groups</span>Clientes con crédito</div>
-            <div class="kpi-value">@totalClientes</div>
-            <div class="kpi-foot">@totalCreditos crédito@(totalCreditos == 1 ? "" : "s") en total</div>
-        </div>
-        <div class="kpi kpi--bad">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">running_with_errors</span>En mora</div>
-            <div class="kpi-value">@resumenMoras.Count</div>
-            <div class="kpi-foot">crédito@(resumenMoras.Count == 1 ? "" : "s") · @totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s")</div>
-        </div>
-        <div class="kpi kpi--warn">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">payments</span>Monto en mora</div>
-            <div class="kpi-value">@moraTotalAcumulada.ToString("C0")</div>
-            <div class="kpi-foot">capital + punitorios</div>
-        </div>
-    </div>
-
-    <div id="credito-tabs" style="margin-top:2rem">
-        <div class="tabs" role="tablist" aria-label="Secciones de créditos">
-            <button class="tab" type="button" role="tab" aria-selected="true" aria-pressed="true" data-credito-tab="creditos">
-                <span class="material-symbols-outlined">folder_open</span>
-                Cartera
-                <span class="tab-count">@totalClientes</span>
-            </button>
-            <button class="tab" type="button" role="tab" aria-selected="false" aria-pressed="false" data-credito-tab="moras">
-                <span class="material-symbols-outlined">running_with_errors</span>
-                Moras
-                <span class="tab-count" style="background:rgba(244,63,94,.2);color:#fb7185">@resumenMoras.Count</span>
-            </button>
-        </div>
-    </div>
-
-    <section id="tab-creditos" class="tab-panel is-active" style="margin-top:1.1rem">
-        <form id="filterForm" data-credito-filter-form method="get" asp-action="Index" class="filters card" style="padding:.85rem;margin-bottom:1rem">
-            @if (filter.ClienteId.HasValue)
-            {
-                <input type="hidden" name="ClienteId" value="@filter.ClienteId.Value" />
-            }
-            <div class="field-icon">
-                <span class="material-symbols-outlined">search</span>
-                <input name="Cliente" id="f-search" class="field" value="@filter.Cliente" placeholder="Buscar por cliente, documento o N° de crédito..." />
-            </div>
-            <input name="Numero" class="field" value="@filter.Numero" placeholder="N° de crédito" style="max-width:150px" />
-            <select name="Estado" id="f-estado" class="field" style="max-width:190px">
-                <option value="">Todos los estados</option>
-                @foreach (var estado in Enum.GetValues<EstadoCredito>())
-                {
-                    <option value="@((int)estado)" selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">@estado</option>
-                }
-            </select>
-            <input name="FechaDesde" type="date" class="field" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")" aria-label="Fecha desde" style="max-width:150px" />
-            <input name="FechaHasta" type="date" class="field" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")" aria-label="Fecha hasta" style="max-width:150px" />
-            <input name="MontoMinimo" type="number" step="0.01" min="0" class="field" value="@filter.MontoMinimo?.ToString(System.Globalization.CultureInfo.InvariantCulture)" placeholder="Monto mín." style="max-width:130px" />
-            <input name="MontoMaximo" type="number" step="0.01" min="0" class="field" value="@filter.MontoMaximo?.ToString(System.Globalization.CultureInfo.InvariantCulture)" placeholder="Monto máx." style="max-width:130px" />
-            <label class="btn btn-ghost" style="cursor:pointer;gap:.5rem">
-                <input type="checkbox" name="SoloCuotasVencidas" value="true" checked="@filter.SoloCuotasVencidas" style="width:16px;height:16px" />
-                Solo vencidas
+    <form id="filterForm" data-credito-filter-form method="get" asp-action="Index" class="credito-filterbar"
+          aria-label="Filtros de créditos">
+        @if (filter.ClienteId.HasValue)
+        {
+            <input type="hidden" name="ClienteId" value="@filter.ClienteId.Value" />
+        }
+        <div class="credito-filterbar__main">
+            <label class="credito-filterbar__control credito-filterbar__search">
+                <span class="credito-filterbar__label">Buscar</span>
+                <span class="field-icon">
+                    <span class="material-symbols-outlined">search</span>
+                    <input name="Cliente" id="f-search" class="field" value="@filter.Cliente"
+                           placeholder="Cliente, documento o crédito" />
+                </span>
             </label>
-            <button type="submit" class="btn btn-soft">
-                <span class="material-symbols-outlined">filter_list</span>
-                Aplicar
-            </button>
-            @if (filtroCreditoActivo)
-            {
-                <a asp-action="Index" class="btn btn-ghost">
-                    <span class="material-symbols-outlined">close</span>
-                    Limpiar
-                </a>
-            }
+            <div class="credito-filterbar__actions">
+                <button type="submit" class="btn btn-soft btn-sm">
+                    <span class="material-symbols-outlined">filter_list</span>
+                    Aplicar
+                </button>
+                @if (filtroCreditoActivo)
+                {
+                    <a asp-action="Index" class="btn btn-ghost btn-sm">
+                        <span class="material-symbols-outlined">close</span>
+                        Limpiar
+                    </a>
+                }
+            </div>
+        </div>
+        <div class="credito-filterbar__advanced">
+            <label class="credito-filterbar__control credito-filterbar__short">
+                <span class="credito-filterbar__label">Crédito</span>
+                <input name="Numero" class="field" value="@filter.Numero" placeholder="N° crédito" />
+            </label>
+            <label class="credito-filterbar__control credito-filterbar__state">
+                <span class="credito-filterbar__label">Estado</span>
+                <select name="Estado" id="f-estado" class="field" aria-label="Estado del crédito">
+                    <option value="">Todos</option>
+                    @foreach (var estado in Enum.GetValues<EstadoCredito>())
+                    {
+                        <option value="@((int)estado)"
+                                selected="@(filter.Estado.HasValue && filter.Estado.Value == estado ? "selected" : null)">
+                            @estado</option>
+                        }
+                    </select>
+                </label>
+                <div class="credito-filterbar__control credito-filterbar__range" aria-label="Rango de fechas">
+                    <span class="credito-filterbar__label">Fechas</span>
+                    <div class="credito-filterbar__pair">
+                        <input name="FechaDesde" type="date" class="field" value="@filter.FechaDesde?.ToString("yyyy-MM-dd")"
+                               aria-label="Fecha desde" />
+                        <span class="credito-filterbar__sep">a</span>
+                        <input name="FechaHasta" type="date" class="field" value="@filter.FechaHasta?.ToString("yyyy-MM-dd")"
+                               aria-label="Fecha hasta" />
+                    </div>
+                </div>
+                <div class="credito-filterbar__control credito-filterbar__range" aria-label="Rango de monto">
+                    <span class="credito-filterbar__label">Monto</span>
+                    <div class="credito-filterbar__pair">
+                        <input name="MontoMinimo" type="number" step="0.01" min="0" class="field"
+                               value="@filter.MontoMinimo?.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                               placeholder="Mín." aria-label="Monto mínimo" />
+                        <span class="credito-filterbar__sep">a</span>
+                        <input name="MontoMaximo" type="number" step="0.01" min="0" class="field"
+                               value="@filter.MontoMaximo?.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                               placeholder="Máx." aria-label="Monto máximo" />
+                    </div>
+                </div>
+                <label class="credito-filterbar__toggle">
+                    <input type="checkbox" name="SoloCuotasVencidas" value="true" checked="@filter.SoloCuotasVencidas" />
+                    <span>Solo vencidas</span>
+                </label>
+            </div>
         </form>
 
-        <div class="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
-            <div class="flex items-center gap-2">
-                <h2 class="text-base font-semibold text-white">Cartera por cliente</h2>
-                <span class="chip chip-neutral mono">@totalClientes cliente@(totalClientes == 1 ? "" : "s")</span>
+        <div id="credito-tabs" class="credito-tabs">
+            <div class="tabs" role="tablist" aria-label="Secciones de créditos">
+                <button class="tab" type="button" role="tab" aria-selected="true" aria-pressed="true"
+                        data-credito-tab="creditos">
+                    <span class="material-symbols-outlined">folder_open</span>
+                    Cartera
+                    <span class="tab-count">@totalClientes</span>
+                </button>
+                <button class="tab" type="button" role="tab" aria-selected="false" aria-pressed="false"
+                        data-credito-tab="moras">
+                    <span class="material-symbols-outlined">running_with_errors</span>
+                    Moras
+                    <span class="tab-count" style="background:rgba(244,63,94,.2);color:#fb7185">@resumenMoras.Count</span>
+                </button>
+                <div class="head-actions">
+                    <a asp-action="Simular" class="btn btn-ghost">
+                        <span class="material-symbols-outlined">calculate</span>
+                        Simular
+                    </a>
+                    <a asp-action="Create" class="btn btn-primary">
+                        <span class="material-symbols-outlined">add_card</span>
+                        Nueva línea
+                    </a>
+                </div </div>
+
             </div>
-            <p class="text-xs muted-2">Tocá un cliente para ver un resumen · abrí el panel para gestionar cuotas y registrar pagos.</p>
-        </div>
 
-        <div id="clientes-list" class="space-y-2.5">
-            @if (clientes.Any())
-            {
-                @foreach (var clienteGrupo in clientes)
-                {
-                    var clienteNombre = string.IsNullOrWhiteSpace(clienteGrupo.Cliente.NombreCompleto)
-                        ? $"Cliente #{clienteGrupo.Cliente.Id}"
-                        : clienteGrupo.Cliente.NombreCompleto;
-                    var initials = GetInitials(clienteNombre);
-                    var proximoVencimientoTexto = clienteGrupo.CuotasVencidas > 0
-                        ? "Cuota vencida"
-                        : clienteGrupo.ProximoVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimientos";
-                    var estadoChip = clienteGrupo.CuotasVencidas > 0
-                        ? "chip-bad"
-                        : clienteGrupo.EstadoConsolidado switch
+            <section id="tab-creditos" class="tab-panel is-active" style="margin-top:1.1rem">
+                <div class="flex items-center justify-between gap-3 mb-2.5 flex-wrap">
+                    <div class="flex items-center gap-2">
+                    </div>
+                </div>
+                <div id="clientes-list" class="space-y-2.5">
+                    @if (clientes.Any())
+                    {
+                        @foreach (var clienteGrupo in clientes)
                         {
-                            "Activo" => "chip-ok",
-                            "Pendiente" or "Aprobado" => "chip-warn",
-                            "En mora" or "Rechazado" => "chip-bad",
-                            _ => "chip-neutral"
-                        };
-                    var montoMoraCliente = clienteGrupo.Creditos
-                        .SelectMany(c => c.Cuotas ?? new List<CuotaViewModel>())
-                        .Where(c => c.EstaVencida)
-                        .Sum(c => c.SaldoPendiente);
-
-                    <article class="cli-card @(clienteGrupo.CuotasVencidas > 0 ? "has-mora" : "")" data-credito-cliente-id="@clienteGrupo.Cliente.Id">
-                        <button class="cli-head" type="button" data-credito-cliente-toggle>
-                            <div class="avatar">@initials</div>
-                            <div class="cli-id">
-                                <div class="cli-name">@clienteNombre</div>
-                                <div class="cli-meta">
-                                    <span class="mono">@clienteGrupo.Documento</span>
-                                    <span style="color:#334155">·</span>
-                                    <span>@clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ? "" : "s")</span>
-                                    <span style="color:#334155">·</span>
-                                    <span>Próx. @proximoVencimientoTexto</span>
-                                </div>
-                            </div>
-                            <div class="cli-summary">
-                                <div class="cli-sum">
-                                    <div class="v">@clienteGrupo.SaldoPendienteTotal.ToString("C0")</div>
-                                    <div class="l">Saldo</div>
-                                </div>
-                                @if (clienteGrupo.CuotasVencidas > 0)
+                            var clienteNombre = string.IsNullOrWhiteSpace(clienteGrupo.Cliente.NombreCompleto)
+                                ? $"Cliente #{clienteGrupo.Cliente.Id}"
+                                : clienteGrupo.Cliente.NombreCompleto;
+                            var proximoVencimientoTexto = clienteGrupo.CuotasVencidas > 0
+                                ? "Cuota vencida"
+                                : clienteGrupo.ProximoVencimiento?.ToString("dd/MM/yyyy") ?? "Sin vencimientos";
+                            var estadoChip = clienteGrupo.CuotasVencidas > 0
+                                ? "chip-bad"
+                                : clienteGrupo.EstadoConsolidado switch
                                 {
-                                    <div class="cli-sum">
-                                        <div class="v bad">@montoMoraCliente.ToString("C0")</div>
-                                        <div class="l">En mora</div>
-                                    </div>
-                                }
-                                <span class="chip @estadoChip">@(clienteGrupo.CuotasVencidas > 0 ? $"{clienteGrupo.CuotasVencidas} venc." : clienteGrupo.EstadoConsolidado)</span>
-                            </div>
-                            <span class="material-symbols-outlined chev">expand_more</span>
-                        </button>
-                        <div class="cli-summary-m">
-                            <span class="chip chip-neutral">@clienteGrupo.SaldoPendienteTotal.ToString("C0") saldo</span>
-                            @if (clienteGrupo.CuotasVencidas > 0)
-                            {
-                                <span class="chip chip-bad">@montoMoraCliente.ToString("C0") mora</span>
-                            }
-                            <span class="chip @estadoChip">@clienteGrupo.EstadoConsolidado</span>
-                        </div>
-                        <div class="cli-body">
-                            <div class="cli-body-pad">
-                                <div class="flex items-center justify-between mb-2.5">
-                                    <span class="text-xs muted-2 uppercase" style="letter-spacing:.05em;font-weight:600">Créditos del cliente</span>
-                                    <button class="btn btn-ghost btn-sm" type="button" data-credito-cliente-panel-open data-credito-cliente-id="@clienteGrupo.Cliente.Id" aria-controls="credito-cliente-panel">
-                                        <span class="material-symbols-outlined">open_in_full</span>
-                                        Abrir en panel
-                                    </button>
-                                </div>
-                                <div class="space-y-2">
-                                    @foreach (var credito in clienteGrupo.Creditos)
-                                    {
-                                        var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
-                                        var cuotasCredito = credito.Cuotas ?? new List<CuotaViewModel>();
-                                        var cuotasPagas = cuotasCredito.Count(c => c.Estado == EstadoCuota.Pagada);
-                                        var cantidadCuotas = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
-                                        var porcentaje = cantidadCuotas > 0 ? Math.Min(100, Math.Max(0, (int)Math.Round((decimal)cuotasPagas * 100 / cantidadCuotas))) : 0;
-                                        var barClass = credito.Estado switch
-                                        {
-                                            EstadoCredito.Activo or EstadoCredito.Generado => "is-accent",
-                                            EstadoCredito.Rechazado or EstadoCredito.Cancelado => "is-bad",
-                                            EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion or EstadoCredito.Configurado => "is-warn",
-                                            _ => ""
-                                        };
+                                    "Activo" => "chip-ok",
+                                    "Pendiente" or "Aprobado" => "chip-warn",
+                                    "En mora" or "Rechazado" => "chip-bad",
+                                    _ => "chip-neutral"
+                                };
+                            var montoMoraCliente = clienteGrupo.Creditos
+                                .SelectMany(c => c.Cuotas ?? new List<CuotaViewModel>())
+                                .Where(c => c.EstaVencida)
+                                .Sum(c => c.SaldoPendiente);
 
-                                        <div class="credit-item">
-                                            <div class="credit-head">
-                                                <span class="credit-no">@numeroCredito</span>
-                                                <span class="chip @GetCreditoChipClass(credito.Estado)">@credito.Estado</span>
-                                                <span style="flex:1"></span>
-                                                <div class="credit-prog hide-mobile">
-                                                    <div class="bar"><div class="bar-fill @barClass" style="width:@porcentaje%"></div></div>
-                                                    <span class="pl">@cuotasPagas/@cantidadCuotas</span>
+                            <article class="cli-card @(clienteGrupo.CuotasVencidas > 0 ? "has-mora" : "")"
+                                     data-credito-cliente-id="@clienteGrupo.Cliente.Id">
+                                <button class="cli-head" type="button" data-credito-cliente-toggle>
+                                    <div class="cli-id">
+                                        <div class="cli-name">@clienteNombre</div>
+                                        <div class="cli-meta">
+                                            <span class="mono">@clienteGrupo.Documento</span>
+                                            <span style="color:#334155">·</span>
+                                            <span>@clienteGrupo.CantidadCreditos crédito@(clienteGrupo.CantidadCreditos == 1 ? "" :
+                                                                                                                                                                                                "s")</span>
+                                                <span style="color:#334155">·</span>
+                                                <span>Próx. @proximoVencimientoTexto</span>
+                                            </div>
+                                        </div>
+                                        <div class="cli-summary">
+                                            <div class="cli-sum">
+                                                <div class="v">@clienteGrupo.SaldoPendienteTotal.ToString("C0")</div>
+                                                <div class="l">Saldo</div>
+                                            </div>
+                                            @if (clienteGrupo.CuotasVencidas > 0)
+                                            {
+                                                <div class="cli-sum">
+                                                    <div class="v bad">@montoMoraCliente.ToString("C0")</div>
+                                                    <div class="l">En mora</div>
                                                 </div>
-                                                <div style="text-align:right;min-width:96px">
-                                                    <div class="num" style="font-weight:600;color:#fff">@credito.SaldoPendiente.ToString("C0")</div>
-                                                    <div class="text-xs muted-2">saldo</div>
+                                            }
+                                            <span class="chip @estadoChip">@(clienteGrupo.CuotasVencidas > 0 ?
+                                                                                                                                                                                                                    $"{clienteGrupo.CuotasVencidas} venc." : clienteGrupo.EstadoConsolidado)</span>
+                                            </div>
+                                            <span class="material-symbols-outlined chev">expand_more</span>
+                                        </button>
+                                        <div class="cli-summary-m">
+                                            <span class="chip chip-neutral">@clienteGrupo.SaldoPendienteTotal.ToString("C0") saldo</span>
+                                            @if (clienteGrupo.CuotasVencidas > 0)
+                                            {
+                                                <span class="chip chip-bad">@montoMoraCliente.ToString("C0") mora</span>
+                                            }
+                                            <span class="chip @estadoChip">@clienteGrupo.EstadoConsolidado</span>
+                                        </div>
+                                        <div class="cli-body">
+                                            <div class="cli-body-pad">
+                                                <div class="flex items-center justify-between mb-2.5">
+                                                    <span class="text-xs muted-2 uppercase"
+                                                          style="letter-spacing:.05em;font-weight:600">Créditos
+                                                        del cliente</span>
+                                                        <button class="btn btn-ghost btn-sm" type="button" data-credito-cliente-panel-open
+                                                                data-credito-cliente-id="@clienteGrupo.Cliente.Id"
+                                                                aria-controls="credito-cliente-panel">
+                                                            <span class="material-symbols-outlined">open_in_full</span>
+                                                            Panel
+                                                        </button>
+                                                    </div>
+                                                    <div class="space-y-2">
+                                                        @foreach (var credito in clienteGrupo.Creditos)
+                                                        {
+                                                            var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
+                                                            var cuotasCredito = credito.Cuotas ?? new List<CuotaViewModel>();
+                                                            var cuotasPagas = cuotasCredito.Count(c => c.Estado == EstadoCuota.Pagada);
+                                                            var cantidadCuotas = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
+                                                            var porcentaje = cantidadCuotas > 0 ? Math.Min(100, Math.Max(0,
+                                                (int)Math.Round((decimal)cuotasPagas * 100 / cantidadCuotas))) : 0;
+                                                            var barClass = credito.Estado switch
+                                                            {
+                                                                EstadoCredito.Activo or EstadoCredito.Generado => "is-accent",
+                                                                EstadoCredito.Rechazado or EstadoCredito.Cancelado => "is-bad",
+                                                                EstadoCredito.Solicitado or EstadoCredito.Aprobado or EstadoCredito.PendienteConfiguracion
+                                                or EstadoCredito.Configurado => "is-warn",
+                                                                _ => ""
+                                                            };
+
+                                                            <div class="credit-item">
+                                                                <div class="credit-head">
+                                                                    <span class="credit-no">@numeroCredito</span>
+                                                                    <span class="chip @GetCreditoChipClass(credito.Estado)">@credito.Estado</span>
+                                                                    <div class="credit-prog hide-mobile">
+                                                                        <div class="bar">
+                                                                            <div class="bar-fill @barClass" style="width:@porcentaje%"></div>
+                                                                        </div>
+                                                                        <span class="pl">@cuotasPagas/@cantidadCuotas</span>
+                                                                    </div>
+                                                                    <div class="credit-amount">
+                                                                        <div class="num" style="font-weight:600;color:#fff">
+                                                                            @credito.SaldoPendiente.ToString("C0")</div>
+                                                                            <div class="text-xs muted-2">saldo</div>
+                                                                        </div>
+                                                                        <a asp-action="Details" asp-route-id="@credito.Id"
+                                                                           class="btn btn-ghost btn-sm credit-action" title="Ver detalle">
+                                                                            <span class="material-symbols-outlined">chevron_right</span>
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <a asp-action="Details" asp-route-id="@credito.Id" class="btn btn-ghost btn-sm" title="Ver detalle">
-                                                    <span class="material-symbols-outlined">chevron_right</span>
-                                                </a>
+                                            </article>
+                                        }
+                                    }
+            else
+                                    {
+                                        <div class="card">
+                                            <div class="empty">
+                                                <div class="empty-ic"><span class="material-symbols-outlined">search_off</span></div>
+                                                <h3>Sin resultados</h3>
+                                                <p>No encontramos créditos con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
+                                                @if (filtroCreditoActivo)
+                                                {
+                                                    <a asp-action="Index" class="btn btn-soft btn-sm" style="margin-top:1rem">
+                                                        <span class="material-symbols-outlined">close</span>
+                                                        Limpiar filtros
+                                                    </a>
+                                                }
                                             </div>
                                         </div>
                                     }
                                 </div>
-                            </div>
-                        </div>
-                    </article>
-                }
-            }
-            else
-            {
-                <div class="card">
-                    <div class="empty">
-                        <div class="empty-ic"><span class="material-symbols-outlined">search_off</span></div>
-                        <h3>Sin resultados</h3>
-                        <p>No encontramos créditos con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
-                        @if (filtroCreditoActivo)
-                        {
-                            <a asp-action="Index" class="btn btn-soft btn-sm" style="margin-top:1rem">
-                                <span class="material-symbols-outlined">close</span>
-                                Limpiar filtros
-                            </a>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-    </section>
+                            </section>
 
-    <section id="tab-moras" class="tab-panel" style="margin-top:1.1rem">
-        @if (resumenMoras.Any())
-        {
-            <div class="alert alert-bad" style="margin-bottom:1rem">
-                <span class="material-symbols-outlined">priority_high</span>
-                <div>
-                    <div class="font-medium" style="color:#fecdd3">@totalMoras cuota@(totalMoras == 1 ? "" : "s") vencida@(totalMoras == 1 ? "" : "s") · @moraTotalAcumulada.ToString("C0") en mora</div>
-                    <div class="text-sm" style="color:#fecdd3;opacity:.85;margin-top:.1rem">Ordenadas por días de atraso. Las críticas (+10 días) están resaltadas.</div>
-                </div>
-            </div>
-
-            <div id="moras-list" class="space-y-0">
-                @foreach (var mora in resumenMoras)
-                {
-                    var credito = mora.Credito;
-                    var clienteGrupo = clientes.FirstOrDefault(c => c.Cliente.Id == credito.ClienteId);
-                    var clienteNombre = string.IsNullOrWhiteSpace(credito.ClienteNombre)
-                        ? clienteGrupo?.Cliente.NombreCompleto ?? $"Cliente #{credito.ClienteId}"
-                        : credito.ClienteNombre;
-                    var documento = clienteGrupo?.Documento ?? "Sin documento";
-                    var initials = GetInitials(clienteNombre);
-                    var totalMoraCredito = mora.CuotasVencidas.Sum(c => c.SaldoPendiente);
-
-                    <article class="cli-card @(mora.EsCritica ? "has-mora" : "")" style="margin-bottom:.75rem@(mora.EsCritica ? ";border-color:rgba(244,63,94,.4)" : "")">
-                        <button class="cli-head" type="button" data-credito-cliente-toggle>
-                            <div class="dias-badge @(mora.EsCritica ? "bad" : "warn")">@mora.DiasMaximosAtraso<div class="u">días</div></div>
-                            <div class="avatar">@initials</div>
-                            <div class="cli-id">
-                                <div class="cli-name">@clienteNombre</div>
-                                <div class="cli-meta">
-                                    <span class="mono">@documento</span>
-                                    <span style="color:#334155">·</span>
-                                    <span class="mono">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
-                                    <span style="color:#334155">·</span>
-                                    <span>@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s") vencida@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
-                                </div>
-                            </div>
-                            <div class="cli-summary">
-                                <div class="cli-sum">
-                                    <div class="v bad">@totalMoraCredito.ToString("C0")</div>
-                                    <div class="l">Total en mora</div>
-                                </div>
-                            </div>
-                            <span class="material-symbols-outlined chev">expand_more</span>
-                        </button>
-                        <div class="cli-summary-m">
-                            <span class="chip chip-bad">@totalMoraCredito.ToString("C0") en mora</span>
-                            <span class="chip chip-neutral">@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
-                        </div>
-                        <div class="cli-body">
-                            <div class="cli-body-pad">
-                                @foreach (var cuota in mora.CuotasVencidas)
+                            <section id="tab-moras" class="tab-panel" style="margin-top:1.1rem">
+                                @if (resumenMoras.Any())
                                 {
-                                    var totalCuota = cuota.SaldoPendiente;
-                                    <div class="mora-cuota">
-                                        <span class="cuota-n venc">@cuota.NumeroCuota</span>
-                                        <div class="flex-1 min-w-0">
-                                            <span class="mono text-xs" style="color:#cbd5e1">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
-                                            <span class="text-xs muted-2"> · cuota @cuota.NumeroCuota/@credito.CantidadCuotas · venció @cuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                    <div class="alert alert-bad" style="margin-bottom:1rem">
+                                        <span class="material-symbols-outlined">priority_high</span>
+                                        <div>
+                                            <div class="font-medium" style="color:#fecdd3">@totalMoras cuota@(totalMoras == 1 ? "" : "s")
+                                                vencida@(totalMoras == 1 ? "" : "s") · @moraTotalAcumulada.ToString("C0") en mora</div>
+                                            </div>
                                         </div>
-                                        <span class="chip @(cuota.DiasAtraso >= 10 ? "chip-bad" : "chip-warn")">+@cuota.DiasAtraso d</span>
-                                        <span class="num" style="min-width:92px;text-align:right;font-weight:600;color:#fff">@totalCuota.ToString("C0")</span>
-                                    </div>
-                                }
-                                @if (clienteGrupo != null)
-                                {
-                                    <div style="margin-top:.9rem;display:flex;justify-content:flex-end">
-                                        <button class="btn btn-danger btn-sm" type="button" data-credito-cliente-panel-open data-credito-cliente-id="@clienteGrupo.Cliente.Id" aria-controls="credito-cliente-panel">
-                                            <span class="material-symbols-outlined">payments</span>
-                                            Registrar pago de cuotas
-                                        </button>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </article>
-                }
-            </div>
-        }
+
+                                        <div id="moras-list" class="space-y-0">
+                                            @foreach (var mora in resumenMoras)
+                                            {
+                                                var credito = mora.Credito;
+                                                var clienteGrupo = clientes.FirstOrDefault(c => c.Cliente.Id == credito.ClienteId);
+                                                var clienteNombre = string.IsNullOrWhiteSpace(credito.ClienteNombre)
+                                                    ? clienteGrupo?.Cliente.NombreCompleto ?? $"Cliente #{credito.ClienteId}"
+                                                    : credito.ClienteNombre;
+                                                var documento = clienteGrupo?.Documento ?? "Sin documento";
+                                                var initials = GetInitials(clienteNombre);
+                                                var totalMoraCredito = mora.CuotasVencidas.Sum(c => c.SaldoPendiente);
+
+                                                <article class="cli-card @(mora.EsCritica ? "has-mora" : "")"
+                                                         style="margin-bottom:.75rem@(mora.EsCritica ? ";border-color:rgba(244,63,94,.4)" : "")">
+                                                    <button class="cli-head" type="button" data-credito-cliente-toggle>
+                                                        <div class="dias-badge @(mora.EsCritica ? "bad" : "warn")">@mora.DiasMaximosAtraso<div class="u">
+                                                            días</div>
+                                                        </div>
+                                                        <div class="avatar">@initials</div>
+                                                        <div class="cli-id">
+                                                            <div class="cli-name">@clienteNombre</div>
+                                                            <div class="cli-meta">
+                                                                <span class="mono">@documento</span>
+                                                                <span style="color:#334155">·</span>
+                                                                <span class="mono">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
+                                                                <span style="color:#334155">·</span>
+                                                                <span>@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s")
+                                                                    vencida@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="cli-summary">
+                                                                <div class="cli-sum">
+                                                                    <div class="v bad">@totalMoraCredito.ToString("C0")</div>
+                                                                    <div class="l">Total en mora</div>
+                                                                </div>
+                                                            </div>
+                                                            <span class="material-symbols-outlined chev">expand_more</span>
+                                                        </button>
+                                                        <div class="cli-summary-m">
+                                                            <span class="chip chip-bad">@totalMoraCredito.ToString("C0") en mora</span>
+                                                            <span class="chip chip-neutral">@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ?
+                                                                                                                                                                                                                                                     "" : "s")</span>
+                                                            </div>
+                                                            <div class="cli-body">
+                                                                <div class="cli-body-pad">
+                                                                    @foreach (var cuota in mora.CuotasVencidas)
+                                                                    {
+                                                                        var totalCuota = cuota.SaldoPendiente;
+                                                                        <div class="mora-cuota">
+                                                                            <span class="cuota-n venc">@cuota.NumeroCuota</span>
+                                                                            <div class="flex-1 min-w-0">
+                                                                                <span class="mono text-xs" style="color:#cbd5e1">@(credito.Numero ??
+                                                                                                                                                                                                                                                                                                                                                                        $"CR-{credito.Id:D3}")</span>
+                                                                                    <span class="text-xs muted-2"> · cuota @cuota.NumeroCuota/@credito.CantidadCuotas ·
+                                                                                        venció @cuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
+                                                                                    </div>
+                                                                                    <span class="chip @(cuota.DiasAtraso >= 10 ? "chip-bad" : "chip-warn")">+@cuota.DiasAtraso
+                                                                                        d</span>
+                                                                                        <span class="num"
+                                                                                              style="min-width:92px;text-align:right;font-weight:600;color:#fff">@totalCuota.ToString("C0")</span>
+                                                                                    </div>
+                                                                                }
+                                                                                @if (clienteGrupo != null)
+                                                                                {
+                                                                                    <div style="margin-top:.9rem;display:flex;justify-content:flex-end">
+                                                                                        <button class="btn btn-danger btn-sm" type="button" data-credito-cliente-panel-open
+                                                                                                data-credito-cliente-id="@clienteGrupo.Cliente.Id"
+                                                                                                aria-controls="credito-cliente-panel">
+                                                                                            <span class="material-symbols-outlined">payments</span>
+                                                                                            Registrar pago de cuotas
+                                                                                        </button>
+                                                                                    </div>
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </article>
+                                                                }
+                                                            </div>
+                                                        }
         else
-        {
-            <div class="card">
-                <div class="empty">
-                    <div class="empty-ic"><span class="material-symbols-outlined">task_alt</span></div>
-                    <h3>Sin moras activas</h3>
-                    <p>No hay cuotas vencidas en la vista actual.</p>
-                </div>
-            </div>
-        }
-    </section>
-</main>
+                                                        {
+                                                            <div class="card">
+                                                                <div class="empty">
+                                                                    <div class="empty-ic"><span class="material-symbols-outlined">task_alt</span></div>
+                                                                    <h3>Sin moras activas</h3>
+                                                                    <p>No hay cuotas vencidas en la vista actual.</p>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </section>
+                                                </main>
 
-<div id="credito-cliente-panel"
-     class="overlay hidden"
-     data-credito-cliente-panel
-     data-credito-panel-cliente-url="@Url.Action("PanelCliente", "Credito")"
-     role="dialog"
-     aria-modal="true"
-     aria-hidden="true"
-     aria-label="Cartera del cliente">
-    <div class="hidden" data-credito-antiforgery>
-        @Html.AntiForgeryToken()
-    </div>
-    <div class="absolute inset-0" data-credito-cliente-panel-close></div>
-    <aside class="drawer-panel drawer-panel-wide credito-cliente-panel-slide-in" style="display:flex;flex-direction:column" role="document">
-        <div class="flex h-full min-h-0 flex-col" data-credito-cliente-panel-content></div>
-    </aside>
-</div>
+                                                <div id="credito-cliente-panel" class="overlay hidden" data-credito-cliente-panel
+                                                     data-credito-panel-cliente-url="@Url.Action("PanelCliente", "Credito")" role="dialog" aria-modal="true"
+                                                     aria-hidden="true" aria-label="Cartera del cliente">
+                                                    <div class="hidden" data-credito-antiforgery>
+                                                        @Html.AntiForgeryToken()
+                                                    </div>
+                                                    <div class="absolute inset-0" data-credito-cliente-panel-close></div>
+                                                    <aside class="drawer-panel drawer-panel-wide credito-cliente-panel-slide-in"
+                                                           style="display:flex;flex-direction:column" role="document">
+                                                        <div class="flex h-full min-h-0 flex-col" data-credito-cliente-panel-content></div>
+                                                    </aside>
+                                                </div>
 
-@foreach (var clienteGrupo in clientes)
-{
-    <template data-credito-cliente-panel-template="@clienteGrupo.Cliente.Id">
-        <partial name="_PanelClientePartial" model="clienteGrupo" />
-    </template>
-}
+                                                @foreach (var clienteGrupo in clientes)
+                                                {
+                                                    <template data-credito-cliente-panel-template="@clienteGrupo.Cliente.Id">
+                                                        <partial name="_PanelClientePartial" model="clienteGrupo" />
+                                                    </template>
+                                                }
 
-@section Scripts {
-    <script src="~/js/module-index.js" asp-append-version="true"></script>
-    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-    <script src="~/js/credito-module.js" asp-append-version="true"></script>
-    <script src="~/js/credito-index.js" asp-append-version="true"></script>
-}
+                                                @section Scripts {
+                                                    <script src="~/js/module-index.js" asp-append-version="true"></script>
+                                                    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+                                                    <script src="~/js/credito-module.js" asp-append-version="true"></script>
+                                                    <script src="~/js/credito-index.js" asp-append-version="true"></script>
+                                                }

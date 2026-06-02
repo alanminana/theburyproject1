@@ -307,6 +307,173 @@ select.field{ appearance:none; background-image:url("data:image/svg+xml;utf8,<sv
 .filters{ display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
 .filters .field-icon{ flex:1; min-width:200px; }
 
+.credito-index-head{
+  justify-content:flex-end;
+  align-items:center;
+}
+
+.credito-index-head .head-actions{
+  width:100%;
+  justify-content:flex-end;
+  align-items:center;
+}
+
+.credito-filterbar{
+  display:flex;
+  flex-direction:column;
+  gap:.62rem;
+  margin-top:1.15rem;
+  padding:.7rem;
+  border:1px solid rgba(51,65,85,.82);
+  border-radius:12px;
+  background:linear-gradient(180deg,rgba(17,24,39,.9),rgba(15,23,42,.78));
+  box-shadow:0 16px 34px rgba(2,6,23,.2);
+}
+
+.credito-filterbar__main{
+  display:grid;
+  grid-template-columns:minmax(260px,1fr) auto;
+  gap:.65rem;
+  align-items:end;
+}
+
+.credito-filterbar__advanced{
+  display:grid;
+  grid-template-columns:minmax(118px,.55fr) minmax(150px,.65fr) minmax(250px,1fr) minmax(210px,.9fr) auto;
+  gap:.55rem;
+  align-items:end;
+  padding-top:.62rem;
+  border-top:1px solid rgba(51,65,85,.62);
+}
+
+.credito-filterbar__control{
+  display:flex;
+  flex-direction:column;
+  gap:.28rem;
+  min-width:0;
+}
+
+.credito-filterbar__label{
+  color:#94a3b8;
+  font-size:.66rem;
+  font-weight:700;
+  letter-spacing:.06em;
+  line-height:1;
+  text-transform:uppercase;
+}
+
+.credito-filterbar .field{
+  min-height:38px;
+  padding:.5rem .66rem;
+  border-radius:8px;
+  font-size:.83rem;
+  background:#0b1220;
+}
+
+.credito-filterbar .field-icon{
+  display:block;
+}
+
+.credito-filterbar .field-icon .field{
+  padding-left:2.1rem;
+}
+
+.credito-filterbar .field-icon .material-symbols-outlined{
+  left:.6rem;
+  font-size:17px;
+}
+
+.credito-filterbar__pair{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;
+  gap:.35rem;
+}
+
+.credito-filterbar__sep{
+  color:var(--muted-2);
+  font-size:.72rem;
+  font-weight:700;
+}
+
+.credito-filterbar__toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.45rem;
+  min-height:38px;
+  padding:.5rem .78rem;
+  border:1px solid var(--line-2);
+  border-radius:8px;
+  color:#cbd5e1;
+  background:#0b1220;
+  font-size:.78rem;
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background .15s,border-color .15s,color .15s;
+}
+
+.credito-filterbar__toggle:hover{
+  border-color:#475569;
+  background:#111c2f;
+  color:#fff;
+}
+
+.credito-filterbar__toggle input{
+  width:15px;
+  height:15px;
+  margin:0;
+}
+
+.credito-filterbar__actions{
+  display:flex;
+  gap:.4rem;
+  justify-content:flex-end;
+  align-items:end;
+}
+
+.credito-filterbar__actions .btn{
+  min-height:38px;
+}
+
+.credito-tabs{
+  margin-top:.85rem;
+}
+
+@media(max-width:1120px){
+  .credito-filterbar__advanced{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .credito-filterbar__range{
+    grid-column:auto;
+  }
+}
+
+@media(max-width:760px){
+  .credito-index-head .head-actions{
+    justify-content:stretch;
+  }
+
+  .credito-index-head .head-actions .btn{
+    flex:1;
+  }
+
+  .credito-filterbar__main,
+  .credito-filterbar__advanced{
+    grid-template-columns:1fr;
+  }
+
+  .credito-filterbar__actions{
+    justify-content:stretch;
+  }
+
+  .credito-filterbar__actions .btn{
+    flex:1;
+  }
+}
+
 /* ---------- Mini metric inside cards ---------- */
 .minimetric{ background:var(--card-2); border:1px solid var(--line); border-radius:11px; padding:.7rem .8rem; }
 .minimetric .mm-label{ font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted-2); font-weight:600; }
@@ -366,16 +533,35 @@ select.field{ appearance:none; background-image:url("data:image/svg+xml;utf8,<sv
 /* ---------- Fila de crédito (dentro del cliente) ---------- */
 .credit-item{ border:1px solid var(--line); border-radius:11px; background:var(--card); overflow:hidden; }
 .credit-item + .credit-item{ margin-top:.65rem; }
-.credit-head{ display:flex; align-items:center; gap:.9rem; padding:.8rem .95rem; cursor:pointer; width:100%; background:transparent; border:0; font-family:inherit; text-align:left; color:inherit; }
+.credit-head{ display:grid; grid-template-columns:minmax(92px,.8fr) minmax(112px,.8fr) minmax(130px,1fr) minmax(104px,.7fr) 36px; align-items:center; gap:.75rem; padding:.72rem .85rem; cursor:pointer; width:100%; background:transparent; border:0; font-family:inherit; text-align:left; color:inherit; }
 .credit-head:hover{ background:rgba(15,23,42,.35); }
 .credit-head .chev{ color:var(--muted-2); transition:transform .2s; flex-shrink:0; font-size:18px; }
 .credit-item.is-open .credit-head .chev{ transform:rotate(180deg); }
-.credit-no{ font-family:'JetBrains Mono',monospace; font-size:.82rem; color:#cbd5e1; font-weight:500; }
+.credit-no{ font-family:'JetBrains Mono',monospace; font-size:.82rem; color:#cbd5e1; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .credit-prog{ display:flex; align-items:center; gap:.5rem; min-width:130px; }
 .credit-prog .bar{ flex:1; }
 .credit-prog .pl{ font-size:.72rem; color:var(--muted-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.credit-amount{ min-width:0; text-align:right; }
+.credit-action{ width:36px; min-width:36px; padding:.35rem; justify-self:end; }
 .credit-cuotas{ display:none; border-top:1px solid var(--line); padding:.3rem .35rem .5rem; }
 .credit-item.is-open .credit-cuotas{ display:block; }
+
+@media(max-width:760px){
+  .credit-head{
+    grid-template-columns:minmax(0,1fr) auto 36px;
+    gap:.55rem;
+  }
+
+  .credit-head .chip{
+    justify-self:start;
+  }
+
+  .credit-amount{
+    grid-column:1 / -1;
+    grid-row:2;
+    text-align:left;
+  }
+}
 
 /* ---------- Tabla de cuotas ---------- */
 .cuota-tbl{ width:100%; border-collapse:collapse; font-size:.82rem; }
@@ -441,8 +627,20 @@ select.field{ appearance:none; background-image:url("data:image/svg+xml;utf8,<sv
 .dias-badge.bad{ background:rgba(244,63,94,.16); color:#fb7185; }
 
 /* fila de cuota vencida dentro de un grupo de cliente */
-.mora-cuota{ display:flex; align-items:center; gap:.7rem; padding:.55rem .7rem; border-radius:9px; background:var(--bg-elev); border:1px solid var(--line); }
+.mora-cuota{ display:grid; grid-template-columns:28px minmax(0,1fr) auto minmax(92px,auto); align-items:center; gap:.65rem; padding:.55rem .7rem; border-radius:9px; background:var(--bg-elev); border:1px solid var(--line); }
 .mora-cuota + .mora-cuota{ margin-top:.45rem; }
+
+@media(max-width:640px){
+  .mora-cuota{
+    grid-template-columns:28px minmax(0,1fr) auto;
+  }
+
+  .mora-cuota .num{
+    grid-column:2 / -1;
+    text-align:left !important;
+    min-width:0 !important;
+  }
+}
 
 /* ============================================================
    Compatibilidad minima con vistas/JS existentes
