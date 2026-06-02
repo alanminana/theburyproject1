@@ -5,14 +5,10 @@
 
     var clientes = Model.Clientes?.ToList() ?? new List<ClienteViewModel>();
     var totalEnPagina = clientes.Count;
-    var clientesActivos = clientes.Count(c => c.Activo);
-    var filtroClienteActivo = !string.IsNullOrEmpty(Model.SearchTerm)
+    var filtroClienteActivo = !string.IsNullOrWhiteSpace(Model.SearchTerm)
                             || Model.SoloActivos.HasValue
-                            || !string.IsNullOrEmpty(Model.TipoDocumento);
+                            || !string.IsNullOrWhiteSpace(Model.TipoDocumento);
     var totalResultados = Model.TotalResultados > 0 ? Model.TotalResultados : totalEnPagina;
-    var clientesConAtencion = clientes.Count(c => c.CuotasImpagas > 0 || c.NivelRiesgo.ToString().Contains("Rechazado"));
-    var montoRegistrado = clientes.Sum(c => c.MontoAdeudado ?? 0m);
-    var docsPendientes = 0;
 
     string ClienteNombre(ClienteViewModel cliente)
     {
@@ -24,60 +20,56 @@
         return $"{cliente.Apellido}, {cliente.Nombre}".Trim(' ', ',');
     }
 
-    string Iniciales(ClienteViewModel cliente)
-    {
-        var apellido = string.IsNullOrWhiteSpace(cliente.Apellido) ? string.Empty : cliente.Apellido.Trim();
-        var nombre = string.IsNullOrWhiteSpace(cliente.Nombre) ? string.Empty : cliente.Nombre.Trim();
-        var initials = $"{(apellido.Length > 0 ? apellido[0] : '?')}{(nombre.Length > 0 ? nombre[0] : '?')}";
-        return initials.ToUpperInvariant();
-    }
-
     string RiesgoTexto(ClienteViewModel cliente)
     {
         var riesgo = cliente.NivelRiesgo.ToString();
+
         if (riesgo.Contains("Rechazado")) return "No apto";
         if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "Requiere aut.";
+
         return cliente.PuntajeRiesgo > 0 ? "Apto" : "No evaluado";
     }
 
     string RiesgoChip(ClienteViewModel cliente)
     {
         var riesgo = cliente.NivelRiesgo.ToString();
+
         if (riesgo.Contains("Rechazado")) return "chip-bad";
         if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "chip-warn";
+
         return cliente.PuntajeRiesgo > 0 ? "chip-ok" : "chip-neutral";
     }
 
     string RiesgoIcon(ClienteViewModel cliente)
     {
         var chip = RiesgoChip(cliente);
+
         if (chip == "chip-bad") return "block";
         if (chip == "chip-warn") return "gpp_maybe";
         if (chip == "chip-ok") return "verified";
+
         return "remove";
     }
 
     int RiesgoPct(ClienteViewModel cliente)
     {
         if (cliente.PuntajeRiesgo <= 0) return 0;
-        return Math.Clamp((int)Math.Round((double)cliente.PuntajeRiesgo * 10, MidpointRounding.AwayFromZero), 0, 100);
+
+        return Math.Clamp(
+            (int)Math.Round((double)cliente.PuntajeRiesgo * 10, MidpointRounding.AwayFromZero),
+            0,
+            100
+        );
     }
 
     string BarClass(ClienteViewModel cliente)
     {
         var chip = RiesgoChip(cliente);
+
         if (chip == "chip-bad") return "is-bad";
         if (chip == "chip-warn") return "is-warn";
-        return "is-ok";
-    }
 
-    string PersonaSubtitulo(ClienteViewModel cliente)
-    {
-        var partes = new List<string>();
-        if (!string.IsNullOrWhiteSpace(cliente.EstadoCivil)) partes.Add(cliente.EstadoCivil);
-        if (cliente.Edad.HasValue) partes.Add($"{cliente.Edad} años");
-        if (!partes.Any() && !string.IsNullOrWhiteSpace(cliente.TipoEmpleo)) partes.Add(cliente.TipoEmpleo);
-        return partes.Any() ? string.Join(" · ", partes) : "Sin datos adicionales";
+        return "is-ok";
     }
 }
 
@@ -87,79 +79,91 @@
 
 @if (TempData["Success"] != null || TempData["Error"] != null)
 {
-    <div id="clienteIndexFeedback" class="shell" style="margin-top:1rem" role="alert" aria-live="polite">
+    <div id="clienteIndexFeedback" class="shell cliente-feedback" role="alert" aria-live="polite">
         @if (TempData["Success"] != null)
         {
-            <div class="alert alert-ok"><span class="material-symbols-outlined">check_circle</span><span class="flex-1 self-center">@TempData["Success"]</span></div>
+            <div class="alert alert-ok">
+                <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+                <span class="flex-1 self-center">@TempData["Success"]</span>
+            </div>
         }
+
         @if (TempData["Error"] != null)
         {
-            <div class="alert alert-bad"><span class="material-symbols-outlined">error</span><span class="flex-1 self-center">@TempData["Error"]</span></div>
+            <div class="alert alert-bad">
+                <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                <span class="flex-1 self-center">@TempData["Error"]</span>
+            </div>
         }
     </div>
 }
 else
 {
-    <div id="clienteIndexFeedback" class="hidden shell" style="margin-top:1rem" role="alert" aria-live="polite"></div>
+    <div id="clienteIndexFeedback" class="hidden shell cliente-feedback" role="alert" aria-live="polite"></div>
 }
 
-<main class="shell" style="padding-top:1.75rem;padding-bottom:3rem">
-    <div class="page-head">
-        <div class="min-w-0">
-            <h1 class="page-title">Gestión de Clientes</h1>
-            <p class="page-sub">Administrá clientes, límites de crédito y documentación asociada. Evaluá aptitud crediticia y situación BCRA.</p>
+<main class="shell cliente-index" aria-labelledby="cliente-page-title">
+    <header class="page-head cliente-page-head">
+        <div class="page-head__copy min-w-0">
+            <h1 id="cliente-page-title" class="page-title">Gestión de Clientes</h1>
+            <p class="page-sub">
+                Buscá clientes, revisá aptitud crediticia y administrá documentación asociada.
+            </p>
         </div>
-        <div class="head-actions">
-            <a asp-controller="DocumentoCliente" asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">folder_shared</span>Documentos</a>
-            <a asp-controller="Credito" asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">credit_score</span>Créditos</a>
-            <button type="button" class="btn btn-soft" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Límites por puntaje</button>
-            <button type="button" class="btn btn-primary" data-cliente-modal-open="create"><span class="material-symbols-outlined">person_add</span>Nuevo cliente</button>
-        </div>
-    </div>
 
-    <div class="grid-kpi" style="margin-top:1.5rem">
-        <div class="kpi">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">groups</span>Clientes activos</div>
-            <div class="kpi-value">@clientesActivos</div>
-            <div class="kpi-foot">de @totalResultados registrados</div>
-        </div>
-        <div class="kpi kpi--accent">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Crédito registrado</div>
-            <div class="kpi-value">@montoRegistrado.ToString("C0")</div>
-            <div class="kpi-foot">monto adeudado visible</div>
-        </div>
-        <div class="kpi kpi--warn">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span>Requieren atención</div>
-            <div class="kpi-value">@clientesConAtencion</div>
-            <div class="kpi-foot">mora · no aptos · revisión</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">draft</span>Docs pendientes</div>
-            <div class="kpi-value">@docsPendientes</div>
-            <div class="kpi-foot">se gestionan desde documentación</div>
-        </div>
-    </div>
+        <div class="head-actions cliente-head-actions" aria-label="Acciones principales de clientes">
+            <button type="button" class="btn btn-primary cliente-primary-action" data-cliente-modal-open="create">
+                <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                Nuevo cliente
+            </button>
 
-    <section style="margin-top:2.25rem">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-            <div class="flex items-center gap-2">
-                <h2 class="text-base font-semibold text-white">Clientes</h2>
-                <span class="chip chip-neutral mono">@totalEnPagina en esta página</span>
+            <a asp-controller="DocumentoCliente" asp-action="Index" class="btn btn-ghost">
+                <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
+                Documentos
+            </a>
+
+            <a asp-controller="Credito" asp-action="Index" class="btn btn-ghost">
+                <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                Créditos
+            </a>
+
+            <button type="button" class="btn btn-soft cliente-admin-action" data-cliente-open-limites>
+                <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                Límites por puntaje
+            </button>
+        </div>
+    </header>
+
+    <section class="cliente-section" aria-labelledby="cliente-list-title">
+        <div class="cliente-list-head">
+            <div class="cliente-list-title">
+                <h2 id="cliente-list-title" class="sec-title">Listado de clientes</h2>
+
                 @if (filtroClienteActivo)
                 {
-                    <span class="chip chip-info"><span class="material-symbols-outlined">filter_alt</span>Filtros activos</span>
+                    <span class="chip chip-info">
+                        <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+                        Filtros activos
+                    </span>
                 }
             </div>
-            <div class="scroll-hint hide-mobile" data-oc-scroll-hint><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá para ver más</div>
+
+            <span class="cliente-result-summary" aria-live="polite">
+                Mostrando @totalEnPagina de @totalResultados clientes
+            </span>
         </div>
 
-        <form id="filterForm" method="get" asp-action="Index" class="filters card card-pad" style="padding:.85rem;margin-bottom:.9rem">
-            <div class="field-icon">
-                <span class="material-symbols-outlined">search</span>
-                <input name="SearchTerm" value="@Model.SearchTerm" class="field" placeholder="Buscar por nombre, documento o CUIL/CUIT..." aria-label="Buscar cliente por nombre, documento o contacto">
+        <form id="filterForm" method="get" asp-action="Index" class="filters card card-pad cliente-filters"
+              role="search" aria-label="Buscar y filtrar clientes">
+            <div class="field-icon cliente-search-field">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <input name="SearchTerm" value="@Model.SearchTerm" class="field" placeholder="Buscar cliente..."
+                       autocomplete="off" aria-label="Buscar cliente por nombre, documento, teléfono o email">
             </div>
-            <select name="SoloActivos" class="field" style="max-width:170px" aria-label="Estado del cliente">
+
+            <select name="SoloActivos" class="field cliente-filter-select" aria-label="Estado del cliente">
                 <option value="">Todos los estados</option>
+
                 @if (Model.SoloActivos == true)
                 {
                     <option value="true" selected>Solo activos</option>
@@ -168,6 +172,7 @@ else
                 {
                     <option value="true">Solo activos</option>
                 }
+
                 @if (Model.SoloActivos == false)
                 {
                     <option value="false" selected>Solo inactivos</option>
@@ -177,8 +182,9 @@ else
                     <option value="false">Solo inactivos</option>
                 }
             </select>
-            <select name="TipoDocumento" class="field" style="max-width:160px" aria-label="Tipo de documento">
-                @if (string.IsNullOrEmpty(Model.TipoDocumento))
+
+            <select name="TipoDocumento" class="field cliente-filter-select" aria-label="Tipo de documento">
+                @if (string.IsNullOrWhiteSpace(Model.TipoDocumento))
                 {
                     <option value="" selected>Todo documento</option>
                 }
@@ -186,11 +192,13 @@ else
                 {
                     <option value="">Todo documento</option>
                 }
+
                 @if (ViewBag.TiposDocumento != null)
                 {
                     foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
                     {
-                        var tipoValue = string.IsNullOrEmpty(tipo.Value) ? tipo.Text : tipo.Value;
+                        var tipoValue = string.IsNullOrWhiteSpace(tipo.Value) ? tipo.Text : tipo.Value;
+
                         if (Model.TipoDocumento == tipoValue)
                         {
                             <option value="@tipoValue" selected>@tipo.Text</option>
@@ -202,104 +210,260 @@ else
                     }
                 }
             </select>
-            <button type="submit" class="btn btn-soft"><span class="material-symbols-outlined">filter_list</span>Filtrar</button>
+
+            <button type="submit" class="btn btn-soft">
+                <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
+                Filtrar
+            </button>
+
             @if (filtroClienteActivo)
             {
-                <a asp-action="Index" class="btn btn-ghost"><span class="material-symbols-outlined">close</span>Limpiar</a>
+                <a asp-action="Index" class="btn btn-ghost">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                    Limpiar
+                </a>
             }
         </form>
 
-        <div class="card hide-mobile" style="overflow:hidden" data-oc-scroll>
-            <div class="tbl-wrap" data-oc-scroll-table>
-                <table class="tbl">
-                    <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>Documento</th>
-                            <th>Contacto</th>
-                            <th>Aptitud</th>
-                            <th>Crédito</th>
-                            <th>Estado</th>
-                            <th style="text-align:right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientes-body">
-                        @if (clientes.Any())
-                        {
-                            foreach (var c in clientes)
-                            {
-                                var pct = RiesgoPct(c);
-                                var estado = c.Activo ? "activo" : "inactivo";
-                                var avatarClass = c.Activo ? "avatar" : "avatar avatar--off";
-                                var rowName = ClienteNombre(c);
-                                <tr data-cliente-row-id="@c.Id" data-estado="@estado" data-tipodoc="@c.TipoDocumento">
-                                    <td>
-                                        <div class="flex items-center gap-2.5">
-                                            <div class="@avatarClass">@Iniciales(c)</div>
-                                            <div class="min-w-0">
-                                                <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">@rowName</div>
-                                                <div class="text-xs muted-2">@PersonaSubtitulo(c)</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="mono text-sm text-slate-200">@c.NumeroDocumento</div>
-                                        <div class="mono text-xs muted-2">@(string.IsNullOrWhiteSpace(c.CuilCuit) ? c.TipoDocumento : c.CuilCuit)</div>
-                                    </td>
-                                    <td>
-                                        <div class="text-sm muted">@(string.IsNullOrWhiteSpace(c.Telefono) ? "Sin teléfono" : c.Telefono)</div>
-                                        <div class="text-xs muted-2">@(string.IsNullOrWhiteSpace(c.Email) ? "Sin email" : c.Email)</div>
-                                    </td>
-                                    <td><span class="chip @RiesgoChip(c)"><span class="material-symbols-outlined">@RiesgoIcon(c)</span>@RiesgoTexto(c)</span></td>
-                                    <td style="min-width:150px">
-                                        <div class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-white num">@((c.MontoAdeudado ?? 0m).ToString("C"))</span><span class="text-xs muted-2">@(pct > 0 ? $"{pct}%" : "-")</span></div>
-                                        <div class="bar"><div class="bar-fill @BarClass(c)" style="width:@pct%"></div></div>
-                                    </td>
-                                    <td><span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">@(c.Activo ? "Activo" : "Inactivo")</span></td>
-                                    <td>
-                                        <div class="row-actions">
-                                            <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">visibility</span>Ver</a>
-                                            <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit" data-cliente-id="@c.Id" aria-label="Editar @rowName"><span class="material-symbols-outlined">edit</span></button>
-                                            <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm" aria-label="Ver créditos de @rowName"><span class="material-symbols-outlined">credit_score</span></a>
-                                            <details class="cliente-row-menu relative" data-cliente-row-menu>
-                                                <summary class="btn btn-ghost btn-sm cursor-pointer" aria-label="Más acciones para @rowName"><span class="material-symbols-outlined">more_vert</span></summary>
-                                                <div class="cliente-row-menu__content">
-                                                    <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })" data-nombre="@rowName" class="cliente-row-menu__item cliente-row-menu__item--danger">
-                                                        <span class="material-symbols-outlined text-[16px]">delete</span>Eliminar
-                                                    </button>
-                                                </div>
-                                            </details>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
+        <div class="card cliente-table-card hide-mobile" data-oc-scroll>
+            <div class="scroll-hint cliente-scroll-hint hide-mobile" data-oc-scroll-hint hidden>
+                <span class="material-symbols-outlined" aria-hidden="true">swipe</span>
+                Deslizá para ver más
             </div>
-            <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between" style="border-top:1px solid var(--line)">
+
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+
+                <div class="tbl-wrap" data-oc-scroll-region tabindex="0" role="region"
+                     aria-label="Listado de clientes en tabla" aria-describedby="result-count cliente-table-help">
+                    <table class="tbl cliente-table" data-oc-scroll-table>
+                        <colgroup>
+                            <col class="cliente-col-nombre" />
+                            <col class="cliente-col-documento" />
+                            <col class="cliente-col-contacto" />
+                            <col class="cliente-col-aptitud" />
+                            <col class="cliente-col-credito" />
+                            <col class="cliente-col-estado" />
+                            <col class="cliente-col-acciones" />
+                        </colgroup>
+
+                        <thead>
+                            <tr>
+                                <th scope="col">Cliente</th>
+                                <th scope="col">Documento</th>
+                                <th scope="col">Contacto</th>
+                                <th scope="col">Aptitud</th>
+                                <th scope="col">Crédito</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col" class="text-right">Acciones</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="clientes-body">
+                            @if (clientes.Any())
+                            {
+                                foreach (var c in clientes)
+                                {
+                                    var pct = RiesgoPct(c);
+                                    var estado = c.Activo ? "activo" : "inactivo";
+                                    var rowName = ClienteNombre(c);
+                                    var telefono = string.IsNullOrWhiteSpace(c.Telefono) ? "Sin teléfono" : c.Telefono;
+                                    var email = string.IsNullOrWhiteSpace(c.Email) ? "Sin email" : c.Email;
+                                    var docSecundario = string.IsNullOrWhiteSpace(c.CuilCuit) ? c.TipoDocumento : c.CuilCuit;
+
+                                    <tr data-cliente-row-id="@c.Id" data-estado="@estado" data-tipodoc="@c.TipoDocumento">
+                                        <td>
+                                            <div class="cliente-name-cell" title="@rowName">
+                                                <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
+                                                    @rowName
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="mono text-sm text-slate-200" title="@c.NumeroDocumento">
+                                                @c.NumeroDocumento
+                                            </div>
+                                            <div class="mono text-xs muted-2" title="@docSecundario">
+                                                @docSecundario
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <div class="text-sm muted" title="@telefono">@telefono</div>
+                                            <div class="text-xs muted-2" title="@email">@email</div>
+                                        </td>
+
+                                        <td>
+                                            <span class="chip @RiesgoChip(c)">
+                                                <span class="material-symbols-outlined" aria-hidden="true">@RiesgoIcon(c)</span>
+                                                @RiesgoTexto(c)
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <div class="cliente-credit-cell">
+                                                <span class="text-sm font-semibold text-white num">
+                                                    @((c.MontoAdeudado ?? 0m).ToString("C"))
+                                                </span>
+                                                <span class="text-xs muted-2">
+                                                    @(pct > 0 ? $"{pct}%" : "-")
+                                                </span>
+                                            </div>
+
+                                            <div class="bar" aria-hidden="true">
+                                                <div class="bar-fill @BarClass(c)" style="width:@pct%"></div>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                                                @(c.Activo ? "Activo" : "Inactivo")
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <div class="row-actions">
+                                                <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"
+                                                   title="Ver legajo de @rowName">
+                                                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                                    Ver
+                                                </a>
+
+                                                <button type="button" class="btn btn-ghost btn-sm cliente-row-action--icon"
+                                                        data-cliente-modal-open="edit" data-cliente-id="@c.Id"
+                                                        aria-label="Editar @rowName" title="Editar @rowName">
+                                                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                                </button>
+
+                                                <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
+                                                   class="btn btn-ghost btn-sm cliente-row-action--icon"
+                                                   aria-label="Ver créditos de @rowName" title="Ver créditos de @rowName">
+                                                    <span class="material-symbols-outlined"
+                                                          aria-hidden="true">credit_score</span>
+                                                </a>
+
+                                                <details class="cliente-row-menu relative" data-cliente-row-menu>
+                                                    <summary
+                                                        class="btn btn-ghost btn-sm cursor-pointer cliente-row-action--icon"
+                                                        aria-label="Más acciones para @rowName"
+                                                        title="Más acciones para @rowName">
+                                                        <span class="material-symbols-outlined"
+                                                              aria-hidden="true">more_vert</span>
+                                                    </summary>
+
+                                                    <div class="cliente-row-menu__content">
+                                                        <button type="button"
+                                                                data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                                                data-nombre="@rowName"
+                                                                class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                                            <span class="material-symbols-outlined"
+                                                                  aria-hidden="true">delete</span>
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
+                                                </details>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="cliente-table-footer">
                 <span id="result-count">Mostrando @totalEnPagina de @totalResultados clientes</span>
-                <span class="text-xs font-semibold muted">Acciones directas: ver, editar y créditos. Eliminación queda en el menú de fila.</span>
+                <span id="cliente-table-help">
+                    Acciones directas: ver, editar y créditos. Eliminación queda en el menú de fila.
+                </span>
             </div>
         </div>
 
-        <div class="m-card space-y-2.5" id="clientes-cards">
+        <div class="m-card cliente-mobile-list" id="clientes-cards" aria-label="Listado de clientes en tarjetas">
             @foreach (var c in clientes)
             {
                 var rowName = ClienteNombre(c);
                 var pct = RiesgoPct(c);
-                <article class="card card-pad" data-cliente-row-id="@c.Id" data-estado="@(c.Activo ? "activo" : "inactivo")">
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2.5">
-                            <div class="@(c.Activo ? "avatar" : "avatar avatar--off")">@Iniciales(c)</div>
-                            <div><div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">@rowName</div><div class="mono text-xs muted-2">@c.NumeroDocumento</div></div>
+                var telefono = string.IsNullOrWhiteSpace(c.Telefono) ? "Sin teléfono" : c.Telefono;
+                var email = string.IsNullOrWhiteSpace(c.Email) ? "Sin email" : c.Email;
+
+                <article class="card card-pad cliente-mobile-card" data-cliente-row-id="@c.Id"
+                         data-estado="@(c.Activo ? "activo" : "inactivo")" data-tipodoc="@c.TipoDocumento">
+                    <div class="cliente-card-top">
+                        <div class="cliente-mobile-person">
+                            <div class="cliente-mobile-person__text">
+                                <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
+                                    @rowName
+                                </div>
+                                <div class="mono text-xs muted-2">@c.NumeroDocumento</div>
+                            </div>
                         </div>
-                        <span class="chip @RiesgoChip(c)">@RiesgoTexto(c)</span>
+
+                        <span class="chip @RiesgoChip(c)">
+                            <span class="material-symbols-outlined" aria-hidden="true">@RiesgoIcon(c)</span>
+                            @RiesgoTexto(c)
+                        </span>
                     </div>
-                    <div class="mt-3 minimetric"><div class="mm-label">Crédito</div><div class="mm-value num">@((c.MontoAdeudado ?? 0m).ToString("C")) <span class="text-xs muted-2 font-normal">@(pct > 0 ? $"· {pct}%" : string.Empty)</span></div></div>
-                    <div class="mt-3 flex gap-2">
-                        <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm btn-block"><span class="material-symbols-outlined">visibility</span>Ver legajo</a>
-                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit" data-cliente-id="@c.Id" aria-label="Editar @rowName"><span class="material-symbols-outlined">edit</span></button>
+
+                    <div class="cliente-card-meta">
+                        <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                            @(c.Activo ? "Activo" : "Inactivo")
+                        </span>
+
+                        <span class="cliente-card-contact" title="@telefono">@telefono</span>
+                        <span class="cliente-card-contact" title="@email">@email</span>
+                    </div>
+
+                    <div class="minimetric cliente-card-credit">
+                        <div class="mm-label">Crédito</div>
+                        <div class="mm-value num">
+                            @((c.MontoAdeudado ?? 0m).ToString("C"))
+                            <span class="text-xs muted-2 font-normal">
+                                @(pct > 0 ? $"· {pct}%" : string.Empty)
+                            </span>
+                        </div>
+
+                        <div class="bar cliente-card-bar" aria-hidden="true">
+                            <div class="bar-fill @BarClass(c)" style="width:@pct%"></div>
+                        </div>
+                    </div>
+
+                    <div class="cliente-card-actions">
+                        <a asp-action="Details" asp-route-id="@c.Id"
+                           class="btn btn-soft btn-sm btn-block cliente-card-actions__primary">
+                            <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                            Ver legajo
+                        </a>
+
+                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit"
+                                data-cliente-id="@c.Id" aria-label="Editar @rowName">
+                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                            Editar
+                        </button>
+
+                        <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
+                           class="btn btn-ghost btn-sm" aria-label="Ver créditos de @rowName">
+                            <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                            Créditos
+                        </a>
+
+                        <details class="cliente-card-menu" data-cliente-row-menu>
+                            <summary class="btn btn-ghost btn-sm btn-block">
+                                <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+                                Más acciones
+                            </summary>
+
+                            <div class="cliente-card-menu__content">
+                                <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                        data-nombre="@rowName" class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                    Eliminar
+                                </button>
+                            </div>
+                        </details>
                     </div>
                 </article>
             }
@@ -307,12 +471,19 @@ else
 
         @if (!clientes.Any())
         {
-            <div class="card" id="empty-state">
+            <div class="card cliente-empty-card" id="empty-state">
                 <div class="empty">
-                    <div class="empty-ic"><span class="material-symbols-outlined">person_search</span></div>
+                    <div class="empty-ic">
+                        <span class="material-symbols-outlined" aria-hidden="true">person_search</span>
+                    </div>
+
                     <h3>Sin resultados</h3>
                     <p>No encontramos clientes con esos filtros. Probá con otros términos o limpiá la búsqueda.</p>
-                    <a asp-action="Index" class="btn btn-soft btn-sm" style="margin-top:1rem"><span class="material-symbols-outlined">close</span>Limpiar filtros</a>
+
+                    <a asp-action="Index" class="btn btn-soft btn-sm empty-action">
+                        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        Limpiar filtros
+                    </a>
                 </div>
             </div>
         }
