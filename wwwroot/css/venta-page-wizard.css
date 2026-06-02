@@ -31,6 +31,12 @@
     padding: 1rem;
 }
 
+#venta-create-page .hero-erp {
+    position: relative;
+    top: auto;
+    z-index: auto;
+}
+
 .venta-hero-section {
     margin-bottom: 1.25rem;
 }
@@ -196,6 +202,11 @@
     top: 9.25rem;
 }
 
+#venta-create-page .vm-sidebar {
+    position: static;
+    top: auto;
+}
+
 .vm-totals,
 #venta-edit-page .lg\:col-span-2 > section.overflow-hidden,
 .total-display {
@@ -305,16 +316,62 @@
         padding-right: 0.75rem;
     }
 
+    #venta-create-page #venta-form {
+        padding-bottom: 1rem;
+    }
+
     .vm-mobile-summary-bar {
         display: flex;
     }
 
+    #venta-create-page .vm-mobile-summary-bar {
+        position: static;
+        inset: auto;
+        z-index: auto;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+    }
+
+    #venta-create-page .hero-erp,
+    #venta-edit-page .venta-hero-section {
+        overflow-x: hidden;
+        padding: 0.875rem;
+        border-radius: 16px;
+    }
+
+    #venta-create-page .hero-erp > .flex,
+    #venta-edit-page .venta-hero-section > .flex {
+        gap: 1rem;
+    }
+
     .venta-hero-metrics,
     .venta-edit-hero-metrics {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .venta-hero-metric,
+    .venta-edit-hero-metrics > * {
+        padding: 0.75rem;
+    }
+
+    .venta-hero-metric p:last-child,
+    .venta-edit-hero-metrics > * p:last-child {
+        display: none;
     }
 
     .vm-step-tab {
         padding-inline: 0.65rem;
+    }
+
+    #venta-create-page .venta-section > .mb-6.flex,
+    #venta-edit-page .venta-section > .mb-6.flex {
+        flex-wrap: wrap;
+    }
+
+    #venta-create-page .venta-section .badge-erp,
+    #venta-edit-page .venta-section .badge-erp {
+        max-width: 100%;
+        white-space: normal;
     }
 }
