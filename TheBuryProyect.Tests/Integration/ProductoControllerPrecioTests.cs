@@ -777,9 +777,25 @@ public class ProductoControllerPrecioTests : IDisposable
     {
         var html = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Catalogo", "Index_tw.cshtml"));
 
-        Assert.Contains("asp-action=\"Unidades\"", html);
-        Assert.Contains("asp-route-productoId=\"@p.ProductoId\"", html);
-        Assert.Contains("row-action__label\">Unidades</span>", html);
+        Assert.Equal(1, html.Split("asp-action=\"UnidadesGlobal\"").Length - 1);
+
+        var inventarioIndex = html.IndexOf("asp-action=\"UnidadesGlobal\"", StringComparison.Ordinal);
+        Assert.True(inventarioIndex >= 0);
+        var inventarioAccessStart = html.LastIndexOf("<a", inventarioIndex, StringComparison.Ordinal);
+        var inventarioAccessEnd = html.IndexOf("</a>", inventarioIndex, StringComparison.Ordinal);
+        Assert.True(inventarioAccessStart >= 0);
+        Assert.True(inventarioAccessEnd > inventarioAccessStart);
+        var inventarioAccess = html.Substring(
+            inventarioAccessStart,
+            inventarioAccessEnd + "</a>".Length - inventarioAccessStart);
+
+        Assert.Contains("asp-controller=\"Producto\"", inventarioAccess);
+        Assert.Contains("Inventario", inventarioAccess);
+        Assert.DoesNotContain("asp-action=\"Unidades\"", html);
+        Assert.DoesNotContain("row-action__label\">Unidades</span>", html);
+        Assert.DoesNotContain("btn-inventario-dropdown", html);
+        Assert.DoesNotContain("inventario-dropdown-menu", html);
+        Assert.DoesNotContain("Todos los movimientos", html);
     }
 
     [Fact]
