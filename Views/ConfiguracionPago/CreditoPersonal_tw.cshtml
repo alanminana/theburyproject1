@@ -50,7 +50,7 @@
             border-radius: 10px; padding: .85rem 1rem; display: flex; gap: .7rem; align-items: flex-start;
         }
         .cred-notice-warn { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.05); }
-        .approval-band { display: flex; height: 34px; border-radius: 8px; overflow: hidden; gap: 2px; }
+        .approval-band { display: flex; height: 52px; border-radius: 8px; overflow: hidden; gap: 2px; }
         .approval-band > div {
             display: flex; align-items: center; justify-content: center;
             gap: 4px; font-size: .73rem; font-weight: 600; padding: 0 .45rem; border-radius: 6px;
@@ -207,27 +207,33 @@
                 </div>
                 <div class="stat-card">
                     <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                        <span class="material-symbols-outlined text-cyan-300" style="font-size:13px">view_timeline</span> Cuotas
+                        <span class="material-symbols-outlined text-cyan-300" style="font-size:13px">view_timeline</span> Cuotas permitidas
                     </div>
                     <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-cuotas">@dg.MinCuotas – @dg.MaxCuotas</div>
                 </div>
                 <div class="stat-card">
                     <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                        <span class="material-symbols-outlined text-slate-400" style="font-size:13px">payments</span> Gastos admin
-                    </div>
-                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-gastos">$ @dg.GastosAdministrativos.ToString("0.##")</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                        <span class="material-symbols-outlined text-green-400" style="font-size:13px">check_circle</span> Aprobado ≥
-                    </div>
-                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-aprobado">@sc.PuntajeMinimoParaAprobacion pts</div>
-                </div>
-                <div class="stat-card">
-                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                        <span class="material-symbols-outlined text-amber-400" style="font-size:13px">shield</span> Garante ≥
+                        <span class="material-symbols-outlined text-amber-400" style="font-size:13px">shield</span> Exige garante desde
                     </div>
                     <div class="mt-1.5 text-lg font-semibold text-white font-mono" id="r-garante">$ @sc.MontoRequiereGarante.ToString("N0")</div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-green-400" style="font-size:13px">check_circle</span> Puntaje aprobado
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-aprobado">@sc.PuntajeMinimoParaAprobacion<span class="text-slate-600 font-normal">/100</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        <span class="material-symbols-outlined text-amber-300" style="font-size:13px">pending</span> Puntaje análisis
+                    </div>
+                    <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-analisis">@sc.PuntajeMinimoParaAnalisis<span class="text-slate-600 font-normal">/100</span></div>
+                </div>
+            </div>
+            <div class="cred-notice mt-4">
+                <span class="material-symbols-outlined text-cyan-300 mt-0.5 shrink-0" style="font-size:17px">lightbulb</span>
+                <div class="text-sm text-slate-300">
+                    <strong class="text-cyan-200">Lógica del módulo:</strong> el puntaje 0–10 define el monto máximo financiable → el monto se paga en cuotas (tasa + gastos) → si la relación cuota/ingreso es alta se exige análisis o se rechaza → si el monto o el riesgo son altos se pide garante.
                 </div>
             </div>
         </div>
@@ -241,39 +247,69 @@
                 <div class="flex-1 min-w-0">
                     <div class="sec-tag">Sección 2</div>
                     <h2 class="text-lg font-semibold text-white">Configuración financiera base</h2>
-                    <p class="text-sm text-slate-400 mt-0.5">Valores por defecto globales del sistema de crédito personal.</p>
+                    <p class="text-sm text-slate-400 mt-0.5">Define cómo se calcula la cuota: tasa, gastos administrativos y rango de cuotas.</p>
                 </div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div>
-                    <label asp-for="DefaultsGlobales.TasaMensual" class="cred-label">Tasa mensual (%)</label>
-                    <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
-                           readonly="@(!puedeEditar)" class="cred-field"
-                           oninput="creditoUpdateResumen()" />
-                    <p class="cred-hint">Tasa mensual aplicada globalmente.</p>
-                    <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Columna izquierda: Tasa + Cuotas -->
+                <div class="space-y-4">
+                    <div>
+                        <label asp-for="DefaultsGlobales.TasaMensual" class="cred-label">Tasa mensual (%)</label>
+                        <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
+                               readonly="@(!puedeEditar)" class="cred-field"
+                               oninput="creditoUpdateResumen();creditoUpdateTea()" />
+                        <p class="cred-hint">Tasa nominal mensual aplicada sobre el capital financiado. <span id="s2-tea-hint" class="text-cyan-400/80 font-mono"></span></p>
+                        <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
+                    </div>
+                    <div>
+                        <label class="cred-label">Cuotas permitidas</label>
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <span class="text-[10px] text-slate-500 mb-1 block">Desde</span>
+                                <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120"
+                                       readonly="@(!puedeEditar)" class="cred-field font-mono"
+                                       oninput="creditoUpdateResumen()" />
+                                <span asp-validation-for="DefaultsGlobales.MinCuotas" class="text-xs text-red-500"></span>
+                            </div>
+                            <span class="material-symbols-outlined text-slate-500 mb-2.5 shrink-0" style="font-size:18px">arrow_forward</span>
+                            <div class="flex-1">
+                                <span class="text-[10px] text-slate-500 mb-1 block">Hasta</span>
+                                <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120"
+                                       readonly="@(!puedeEditar)" class="cred-field font-mono"
+                                       oninput="creditoUpdateResumen()" />
+                                <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
+                            </div>
+                        </div>
+                        <p class="cred-hint">Rango global. Cada perfil puede acotarlo en su propia configuración.</p>
+                    </div>
                 </div>
-                <div>
-                    <label asp-for="DefaultsGlobales.GastosAdministrativos" class="cred-label">Gastos administrativos ($)</label>
-                    <input asp-for="DefaultsGlobales.GastosAdministrativos" type="number" step="0.01" min="0"
-                           readonly="@(!puedeEditar)" class="cred-field"
-                           oninput="creditoUpdateResumen()" />
-                    <p class="cred-hint">Monto fijo en $ por operación. Solo modo monto fijo.</p>
-                    <span asp-validation-for="DefaultsGlobales.GastosAdministrativos" class="text-xs text-red-500"></span>
-                </div>
-                <div>
-                    <label asp-for="DefaultsGlobales.MinCuotas" class="cred-label">Mínimo de cuotas</label>
-                    <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120"
-                           readonly="@(!puedeEditar)" class="cred-field"
-                           oninput="creditoUpdateResumen()" />
-                    <span asp-validation-for="DefaultsGlobales.MinCuotas" class="text-xs text-red-500"></span>
-                </div>
-                <div>
-                    <label asp-for="DefaultsGlobales.MaxCuotas" class="cred-label">Máximo de cuotas</label>
-                    <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120"
-                           readonly="@(!puedeEditar)" class="cred-field"
-                           oninput="creditoUpdateResumen()" />
-                    <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
+                <!-- Columna derecha: Gastos + Tipo gasto (informativo) -->
+                <div class="space-y-4">
+                    <div>
+                        <label asp-for="DefaultsGlobales.GastosAdministrativos" class="cred-label">Gastos administrativos</label>
+                        <div class="grid grid-cols-1 gap-3">
+                            <!-- Tipo de gasto: sin backend, solo informativo -->
+                            <div>
+                                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-1.5">Tipo de gasto</p>
+                                <div class="flex rounded-lg overflow-hidden border border-slate-700/60 opacity-50 cursor-not-allowed select-none" aria-disabled="true" title="Requiere fase backend para persistencia">
+                                    <div class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-cyan-600/20 text-cyan-300 font-semibold text-sm border-r border-slate-700/60">
+                                        <span class="material-symbols-outlined text-[14px]">attach_money</span> Monto fijo
+                                    </div>
+                                    <div class="flex-1 flex items-center justify-center gap-1.5 py-2 text-slate-500 font-medium text-sm">
+                                        <span class="material-symbols-outlined text-[14px]">percent</span> Porcentaje
+                                    </div>
+                                </div>
+                                <p class="cred-hint" style="color:rgba(245,158,11,.55)">Tipo de gasto requiere fase backend para persistencia.</p>
+                            </div>
+                            <div>
+                                <input asp-for="DefaultsGlobales.GastosAdministrativos" type="number" step="0.01" min="0"
+                                       readonly="@(!puedeEditar)" class="cred-field"
+                                       oninput="creditoUpdateResumen()" />
+                                <p class="cred-hint">Monto fijo en $ que se suma al capital al otorgar el crédito.</p>
+                                <span asp-validation-for="DefaultsGlobales.GastosAdministrativos" class="text-xs text-red-500"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -324,29 +360,29 @@
             <!-- Banda visual -->
             <div class="mb-5">
                 <div class="approval-band" id="approval-band">
-                    <div style="background:rgba(239,68,68,.18);color:#f87171;flex:@sc.PuntajeMinimoParaAnalisis;">
-                        <span class="material-symbols-outlined" style="font-size:14px">cancel</span>
-                        <span class="hidden sm:inline">Rechazado</span>
+                    <div style="background:rgba(239,68,68,.22);color:#f87171;flex:@sc.PuntajeMinimoParaAnalisis;">
+                        <span class="material-symbols-outlined" style="font-size:16px">cancel</span>
+                        <span class="hidden sm:inline font-semibold">Rechazado</span>
                     </div>
-                    <div style="background:rgba(245,158,11,.18);color:#fbbf24;flex:@(sc.PuntajeMinimoParaAprobacion - sc.PuntajeMinimoParaAnalisis);">
-                        <span class="material-symbols-outlined" style="font-size:14px">pending</span>
-                        <span class="hidden sm:inline">Análisis</span>
+                    <div style="background:rgba(245,158,11,.22);color:#fbbf24;flex:@(sc.PuntajeMinimoParaAprobacion - sc.PuntajeMinimoParaAnalisis);">
+                        <span class="material-symbols-outlined" style="font-size:16px">pending</span>
+                        <span class="hidden sm:inline font-semibold">Requiere análisis</span>
                     </div>
-                    <div style="background:rgba(16,185,129,.18);color:#34d399;flex:@(100 - sc.PuntajeMinimoParaAprobacion);">
-                        <span class="material-symbols-outlined" style="font-size:14px">check_circle</span>
-                        <span class="hidden sm:inline">Aprobado</span>
+                    <div style="background:rgba(16,185,129,.22);color:#34d399;flex:@(100 - sc.PuntajeMinimoParaAprobacion);">
+                        <span class="material-symbols-outlined" style="font-size:16px">check_circle</span>
+                        <span class="hidden sm:inline font-semibold">Aprobado</span>
                     </div>
                 </div>
                 <div class="mt-1 flex justify-between text-[10px] px-1">
                     <span class="text-slate-500">0</span>
                     <span class="text-amber-400/80" id="band-label-analisis">≥ @sc.PuntajeMinimoParaAnalisis análisis</span>
                     <span class="text-green-400/80" id="band-label-aprobado">≥ @sc.PuntajeMinimoParaAprobacion aprobado</span>
-                    <span class="text-slate-500">100</span>
+                    <span class="text-slate-500">100 · puntaje de scoring interno</span>
                 </div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="cred-label">Puntaje mínimo Aprobado (0–100)</label>
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="cred-label">Puntaje mínimo para Aprobado</label>
                     <input asp-for="ScoringThresholds.PuntajeMinimoParaAprobacion" type="number" step="1" min="1" max="100"
                            readonly="@(!puedeEditar)" class="cred-field"
                            oninput="creditoUpdateBand();creditoUpdateResumen()" />
@@ -354,26 +390,36 @@
                     <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAprobacion" class="text-xs text-red-500"></span>
                 </div>
                 <div>
-                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="cred-label">Puntaje mínimo Análisis (0–99)</label>
+                    <label asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="cred-label">Puntaje mínimo para Requiere Análisis</label>
                     <input asp-for="ScoringThresholds.PuntajeMinimoParaAnalisis" type="number" step="1" min="0" max="99"
                            readonly="@(!puedeEditar)" class="cred-field"
-                           oninput="creditoUpdateBand()" />
+                           oninput="creditoUpdateBand();creditoUpdateResumen()" />
                     <p class="cred-hint">Entre este valor y el de aprobación → Requiere Análisis. Por debajo → Rechazado.</p>
                     <span asp-validation-for="ScoringThresholds.PuntajeMinimoParaAnalisis" class="text-xs text-red-500"></span>
                 </div>
                 <div>
-                    <label asp-for="ScoringThresholds.RelacionCuotaIngresoMax" class="cred-label">Relación cuota/ingreso máxima (0.01–0.99)</label>
+                    <label asp-for="ScoringThresholds.RelacionCuotaIngresoMax" class="cred-label">Relación cuota / ingreso máxima</label>
                     <input asp-for="ScoringThresholds.RelacionCuotaIngresoMax" type="number" step="0.01" min="0.01" max="0.99"
                            readonly="@(!puedeEditar)" class="cred-field" />
-                    <p class="cred-hint">Ej: 0.35 = cuota no mayor al 35% del sueldo para ser "aceptable".</p>
+                    <p class="cred-hint">Ej. 0,3500 = la cuota no puede superar el 35 % del ingreso declarado.</p>
                     <span asp-validation-for="ScoringThresholds.RelacionCuotaIngresoMax" class="text-xs text-red-500"></span>
                 </div>
                 <div>
                     <label asp-for="ScoringThresholds.PuntajeRiesgoMinimo" class="cred-label">Puntaje de riesgo mínimo (0–10)</label>
                     <input asp-for="ScoringThresholds.PuntajeRiesgoMinimo" type="number" step="0.1" min="0.1" max="10"
                            readonly="@(!puedeEditar)" class="cred-field" />
-                    <p class="cred-hint">Por debajo → rechazo directo, sin importar el puntaje total.</p>
+                    <p class="cred-hint">Si el riesgo es menor a este valor → rechazo directo.</p>
                     <span asp-validation-for="ScoringThresholds.PuntajeRiesgoMinimo" class="text-xs text-red-500"></span>
+                </div>
+            </div>
+            <!-- Info box lógica dinámica -->
+            <div class="cred-notice mt-4" id="s4-logic-box">
+                <span class="material-symbols-outlined text-cyan-300 mt-0.5 shrink-0" style="font-size:17px">info</span>
+                <div class="text-sm text-slate-300 leading-relaxed">
+                    Si el puntaje es ≥ <strong id="s4l-aprobado" class="text-green-300">@sc.PuntajeMinimoParaAprobacion</strong> → <strong class="text-green-300">Aprobado.</strong><br>
+                    Entre <strong id="s4l-analisis" class="text-amber-300">@sc.PuntajeMinimoParaAnalisis</strong> y <span id="s4l-aprobado2" class="text-slate-300">@(sc.PuntajeMinimoParaAprobacion - 1)</span> → <strong class="text-amber-300">Requiere análisis.</strong><br>
+                    Por debajo de <strong id="s4l-analisis2" class="text-red-300">@sc.PuntajeMinimoParaAnalisis</strong> → <strong class="text-red-300">Rechazado.</strong><br>
+                    <span class="text-slate-500 text-xs">El puntaje 0–10 (sección 3) define el monto; este puntaje 0–100 es el scoring interno de aprobación.</span>
                 </div>
             </div>
         </div>
@@ -390,9 +436,9 @@
                     <p class="text-sm text-slate-400 mt-0.5">Cuándo pedir más documentación o un garante.</p>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-5">
                 <div>
-                    <label asp-for="ScoringThresholds.MontoRequiereGarante" class="cred-label">Monto desde el cual exige garante ($)</label>
+                    <label asp-for="ScoringThresholds.MontoRequiereGarante" class="cred-label">Monto desde el cual exige garante</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-mono pointer-events-none">$</span>
                         <input asp-for="ScoringThresholds.MontoRequiereGarante" type="number" step="1000" min="1"
@@ -402,25 +448,29 @@
                     <p class="cred-hint">Solicitudes iguales o mayores a este monto requieren garante obligatorio.</p>
                     <span asp-validation-for="ScoringThresholds.MontoRequiereGarante" class="text-xs text-red-500"></span>
                 </div>
-                <div class="flex flex-col justify-end">
-                    <div class="cred-notice cred-notice-warn text-sm">
-                        <span class="material-symbols-outlined text-amber-300 shrink-0 mt-0.5" style="font-size:15px">info</span>
-                        <div class="text-slate-400 text-xs">
-                            <strong class="text-amber-200">Pendiente de backend:</strong> los requisitos documentales individuales
-                            (recibo de sueldo, Veraz, foto DNI, etc.) se configurarán en una fase posterior.
-                        </div>
-                    </div>
+                <div>
+                    <p class="cred-label">Requerir garante si puntaje (0–10) es menor a</p>
+                    <input type="number" step="0.1" min="0" max="10" value="6" disabled
+                           class="cred-field font-mono opacity-50 cursor-not-allowed" />
+                    <p class="cred-hint" style="color:rgba(245,158,11,.55)">Requiere fase backend — pendiente de implementación.</p>
                 </div>
             </div>
             <!-- Requisitos documentales (visual/deshabilitado) -->
             <div>
-                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Requisitos documentales — pendientes de backend</p>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    @foreach (var req in new[] { "Recibo de sueldo", "Consulta Veraz", "Cónyuge (si aplica)", "Servicio a nombre del cliente", "Foto DNI", "Otros documentos" })
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3">Condiciones obligatorias <span class="text-slate-600 normal-case font-normal">— pendientes de backend</span></p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    @foreach (var req in new[] {
+                        ("Requerir garante si resultado es \"Requiere análisis\"", true),
+                        ("Requerir recibo de sueldo", true),
+                        ("Requerir consulta Veraz", true),
+                        ("Requerir cónyuge (si aplica)", false),
+                        ("Requerir servicio a nombre del cliente", false),
+                        ("Requerir foto del DNI (frente y dorso)", false)
+                    })
                     {
-                        <label class="flex items-center gap-2 rounded-lg border border-slate-700/40 bg-slate-950/30 px-3 py-2 opacity-45 cursor-not-allowed select-none">
-                            <input type="checkbox" disabled class="rounded border-slate-600 bg-slate-900 text-primary shrink-0" />
-                            <span class="text-xs text-slate-400">@req</span>
+                        <label class="flex items-center gap-2.5 rounded-lg border border-slate-700/40 bg-slate-950/30 px-3 py-2.5 opacity-50 cursor-not-allowed select-none">
+                            <input type="checkbox" disabled @(req.Item2 ? "checked" : "") class="rounded border-slate-600 bg-slate-900 shrink-0" style="accent-color:#06b6d4" />
+                            <span class="text-xs text-slate-300">@req.Item1</span>
                         </label>
                     }
                 </div>
@@ -434,9 +484,15 @@
                     <span class="material-symbols-outlined">groups</span>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="sec-tag">Sección 6</div>
+                    <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                        <div class="sec-tag">Sección 6 · Opcional</div>
+                        @if (perfiles.Count > 0)
+                        {
+                            <span class="pill-cyan">@perfiles.Count perfil@(perfiles.Count != 1 ? "es" : "")</span>
+                        }
+                    </div>
                     <h2 class="text-lg font-semibold text-white">Perfiles de crédito</h2>
-                    <p class="text-sm text-slate-400 mt-0.5">Configuraciones específicas reutilizables por tipo de cliente.</p>
+                    <p class="text-sm text-slate-400 mt-0.5">Reglas diferentes por tipo de cliente. Si no usás perfiles, se aplica la config base.</p>
                 </div>
                 @if (puedeEditar)
                 {
@@ -462,7 +518,7 @@
                                 <p class="text-sm font-semibold text-white truncate">@(string.IsNullOrWhiteSpace(perfil.Nombre) ? $"Perfil {i+1}" : perfil.Nombre)</p>
                                 <p class="text-xs text-slate-500 truncate">@(string.IsNullOrWhiteSpace(perfil.Descripcion) ? "Sin descripción" : perfil.Descripcion)</p>
                             </div>
-                            <div class="flex items-center gap-2.5 shrink-0">
+                            <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                                 @if (perfil.Activo)
                                 {
                                     <span class="text-[10px] font-semibold uppercase text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">Activo</span>
@@ -471,6 +527,7 @@
                                 {
                                     <span class="text-[10px] font-semibold uppercase text-slate-500 bg-slate-800/50 border border-slate-700/50 rounded-full px-2 py-0.5">Inactivo</span>
                                 }
+                                <span class="hidden sm:inline text-[10px] font-mono text-slate-500 bg-slate-800/60 border border-slate-700/40 rounded-full px-2 py-0.5">Tasa @perfil.TasaMensual.ToString("0.##")%&nbsp;·&nbsp;@perfil.MinCuotas–@perfil.MaxCuotas</span>
                                 <span class="material-symbols-outlined chev text-slate-500" style="font-size:17px">expand_more</span>
                             </div>
                         </summary>
@@ -590,7 +647,7 @@
                 <span class="material-symbols-outlined text-amber-300 shrink-0 mt-0.5" style="font-size:16px">priority_high</span>
                 <div class="text-sm text-slate-300">No son campos del día a día. Si los tocás mal, podés cambiar todo el comportamiento del scoring.</div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label asp-for="ScoringThresholds.PuntajeRiesgoMedio" class="cred-label">Puntaje de riesgo medio (0–10)</label>
                     <input asp-for="ScoringThresholds.PuntajeRiesgoMedio" type="number" step="0.1" min="0.1" max="10"
@@ -764,16 +821,16 @@
         // ── Resumen (S1) ──
         function creditoUpdateResumen() {
             var tasa = document.querySelector('[name="DefaultsGlobales.TasaMensual"]');
-            var gastos = document.querySelector('[name="DefaultsGlobales.GastosAdministrativos"]');
             var minC = document.querySelector('[name="DefaultsGlobales.MinCuotas"]');
             var maxC = document.querySelector('[name="DefaultsGlobales.MaxCuotas"]');
             var aprobado = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAprobacion"]');
+            var analisis = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAnalisis"]');
             var garante = document.querySelector('[name="ScoringThresholds.MontoRequiereGarante"]');
 
-            if (tasa) { var rt = document.getElementById('r-tasa'); if (rt) rt.textContent = parseFloat(tasa.value || 0).toFixed(2) + ' %'; }
-            if (gastos) { var rg = document.getElementById('r-gastos'); if (rg) rg.textContent = '$ ' + parseFloat(gastos.value || 0).toFixed(0); }
-            if (minC && maxC) { var rc = document.getElementById('r-cuotas'); if (rc) rc.textContent = (minC.value || '?') + ' – ' + (maxC.value || '?'); }
-            if (aprobado) { var ra = document.getElementById('r-aprobado'); if (ra) ra.textContent = (aprobado.value || '?') + ' pts'; }
+            if (tasa) { var rt = document.getElementById('r-tasa'); if (rt) rt.innerHTML = parseFloat(tasa.value || 0).toFixed(2) + ' %'; }
+            if (minC && maxC) { var rc = document.getElementById('r-cuotas'); if (rc) rc.innerHTML = (minC.value || '?') + ' – ' + (maxC.value || '?'); }
+            if (aprobado) { var ra = document.getElementById('r-aprobado'); if (ra) ra.innerHTML = (aprobado.value || '?') + '<span class="text-slate-600 font-normal">/100</span>'; }
+            if (analisis) { var ran = document.getElementById('r-analisis'); if (ran) ran.innerHTML = (analisis.value || '?') + '<span class="text-slate-600 font-normal">/100</span>'; }
             if (garante) {
                 var rgar = document.getElementById('r-garante');
                 if (rgar) {
@@ -784,7 +841,22 @@
         }
         window.creditoUpdateResumen = creditoUpdateResumen;
 
-        // ── Banda visual (S4) ──
+        // ── TEA (S2 hint) ──
+        function creditoUpdateTea() {
+            var tasaEl = document.querySelector('[name="DefaultsGlobales.TasaMensual"]');
+            var hint = document.getElementById('s2-tea-hint');
+            if (!tasaEl || !hint) return;
+            var r = parseFloat(tasaEl.value || 0) / 100;
+            if (r > 0) {
+                var tea = (Math.pow(1 + r, 12) - 1) * 100;
+                hint.textContent = 'TEA ≈ ' + tea.toFixed(2) + ' %';
+            } else {
+                hint.textContent = '';
+            }
+        }
+        window.creditoUpdateTea = creditoUpdateTea;
+
+        // ── Banda visual + info box (S4) ──
         function creditoUpdateBand() {
             var aprobadoEl = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAprobacion"]');
             var analisisEl = document.querySelector('[name="ScoringThresholds.PuntajeMinimoParaAnalisis"]');
@@ -802,6 +874,15 @@
             var lblAp = document.getElementById('band-label-aprobado');
             if (lblAn) lblAn.textContent = '≥ ' + an + ' análisis';
             if (lblAp) lblAp.textContent = '≥ ' + ap + ' aprobado';
+            // info box dinámico
+            var s4ap = document.getElementById('s4l-aprobado');
+            var s4ap2 = document.getElementById('s4l-aprobado2');
+            var s4an = document.getElementById('s4l-analisis');
+            var s4an2 = document.getElementById('s4l-analisis2');
+            if (s4ap) s4ap.textContent = ap;
+            if (s4ap2) s4ap2.textContent = ap - 1;
+            if (s4an) s4an.textContent = an;
+            if (s4an2) s4an2.textContent = an;
         }
         window.creditoUpdateBand = creditoUpdateBand;
 
@@ -844,6 +925,7 @@
         // Carga inicial: hash o s1
         var initHash = window.location.hash.replace('#', '');
         showCreditSection(CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1');
+        creditoUpdateTea();
     })();
     </script>
 }
