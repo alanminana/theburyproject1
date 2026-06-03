@@ -49,13 +49,15 @@
     let productoNombreFiltro = null;
     let _openTrigger = null;
 
-    if (!modal || !btnOpen) return;
+    if (!modal) return;
 
     /* ── Open / Close ── */
-    btnOpen.addEventListener('click', () => {
-        _openTrigger = btnOpen;
-        abrirModal(null, null);
-    });
+    if (btnOpen) {
+        btnOpen.addEventListener('click', () => {
+            _openTrigger = btnOpen;
+            abrirModal(null, null);
+        });
+    }
 
     btnClose.addEventListener('click', closeModal);
 

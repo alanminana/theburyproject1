@@ -52,33 +52,11 @@
         </div>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
-            <!-- Inventario dropdown: Unidades físicas + Todos los movimientos -->
-            <div class="relative sm:w-auto" id="inventario-dropdown-wrapper">
-                <button type="button" id="btn-inventario-dropdown"
-                        class="btn-erp-ghost btn-sm w-full sm:w-auto"
-                        aria-haspopup="true" aria-expanded="false"
-                        aria-controls="inventario-dropdown-menu">
-                    <span class="material-symbols-outlined text-sm">inventory_2</span>
-                    Inventario
-                    <span class="material-symbols-outlined text-sm transition-transform" id="inventario-dropdown-chevron">expand_more</span>
-                </button>
-                <div id="inventario-dropdown-menu"
-                     class="absolute left-0 top-full mt-1 w-52 rounded-xl border border-slate-700 bg-slate-900 shadow-xl z-30 hidden"
-                     role="menu">
-                    <a asp-controller="Producto" asp-action="UnidadesGlobal"
-                       role="menuitem"
-                       class="flex items-center gap-2 px-4 py-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors rounded-t-xl">
-                        <span class="material-symbols-outlined text-sm">inventory_2</span>
-                        Unidades físicas
-                    </a>
-                    <button type="button" id="btn-movimientos-inventario"
-                            role="menuitem"
-                            class="flex w-full items-center gap-2 px-4 py-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors rounded-b-xl">
-                        <span class="material-symbols-outlined text-sm">swap_vert</span>
-                        Todos los movimientos
-                    </button>
-                </div>
-            </div>
+            <a asp-controller="Producto" asp-action="UnidadesGlobal"
+               class="btn-erp-ghost btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm">inventory_2</span>
+                Inventario
+            </a>
             <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio"
                     class="btn-erp-secondary btn-sm sm:w-auto">
                 <span class="material-symbols-outlined text-sm">edit_calendar</span>
@@ -2425,46 +2403,5 @@
         }());
     </script>
     <script src="~/js/producto-comision-modal.js" asp-append-version="true"></script>
-    <script>
-        (function () {
-            var btn = document.getElementById('btn-inventario-dropdown');
-            var menu = document.getElementById('inventario-dropdown-menu');
-            var chevron = document.getElementById('inventario-dropdown-chevron');
-            if (!btn || !menu) return;
-
-            function openMenu() {
-                menu.classList.remove('hidden');
-                btn.setAttribute('aria-expanded', 'true');
-                if (chevron) chevron.style.transform = 'rotate(180deg)';
-            }
-            function closeMenu() {
-                menu.classList.add('hidden');
-                btn.setAttribute('aria-expanded', 'false');
-                if (chevron) chevron.style.transform = '';
-            }
-
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                menu.classList.contains('hidden') ? openMenu() : closeMenu();
-            });
-
-            // Cerrar al hacer click fuera
-            document.addEventListener('click', function (e) {
-                if (!document.getElementById('inventario-dropdown-wrapper').contains(e.target)) {
-                    closeMenu();
-                }
-            });
-
-            // Cerrar si se activa un item del menú
-            menu.addEventListener('click', function () {
-                closeMenu();
-            });
-
-            // Teclado: Escape cierra
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') closeMenu();
-            });
-        }());
-    </script>
 }
 
