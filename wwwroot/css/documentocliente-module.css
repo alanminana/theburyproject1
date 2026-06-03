@@ -104,8 +104,18 @@
 }
 
 .documento-page .filter-panel-erp select,
-.documento-page .filter-panel-erp input {
+.documento-page .filter-panel-erp input:not([type="checkbox"]) {
     min-height: 2.5rem;
+}
+
+/* Checkboxes: tamaño fijo, accent-color para dark theme */
+.documento-page .filter-panel-erp input[type="checkbox"] {
+    width: 1.125rem;
+    height: 1.125rem;
+    min-height: 0;
+    flex-shrink: 0;
+    accent-color: var(--doc-primary);
+    cursor: pointer;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -346,7 +356,7 @@
     }
 
     .documento-page .filter-panel-erp select,
-    .documento-page .filter-panel-erp input {
+    .documento-page .filter-panel-erp input:not([type="checkbox"]) {
         min-height: 2.35rem;
         font-size: 0.8125rem;
     }
@@ -421,7 +431,7 @@
     }
 
     .documento-page .filter-panel-erp select,
-    .documento-page .filter-panel-erp input,
+    .documento-page .filter-panel-erp input:not([type="checkbox"]),
     .documento-page .filter-panel-erp button,
     .documento-page .filter-panel-erp a {
         width: 100%;
