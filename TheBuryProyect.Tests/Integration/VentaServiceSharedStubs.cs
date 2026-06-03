@@ -43,4 +43,11 @@ internal class StubConfiguracionPagoServiceVenta : IConfiguracionPagoService
 
         return Task.FromResult(rango);
     }
+
+    public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync()
+        => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
+
+    public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
+        List<MontoPorPuntajeCreditoViewModel> items, string usuario)
+        => Task.FromResult((true, new List<string>()));
 }

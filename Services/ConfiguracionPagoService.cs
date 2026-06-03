@@ -1098,5 +1098,123 @@ namespace TheBuryProject.Services
                 LimitadoPorProducto = limitadoPorProducto
             };
         }
+
+        public async Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync()
+        {
+            var existentes = await _context.ConfiguracionCreditoMontosPorPuntaje
+                .AsNoTracking()
+                .OrderBy(x => x.Puntaje)
+                .ToListAsync();
+
+            var resultado = new List<MontoPorPuntajeCreditoViewModel>();
+
+            for (var p = 0; p <= 10; p++)
+            {
+                var e = existentes.FirstOrDefault(x => x.Puntaje == p);
+                resultado.Add(e != null
+                    ? new MontoPorPuntajeCreditoViewModel
+                    {
+                        Id = e.Id,
+                        Puntaje = e.Puntaje,
+                        MontoMaximoFinanciable = e.MontoMaximoFinanciable,
+                        RequiereAnalisis = e.RequiereAnalisis,
+                        Activo = e.Activo,
+                        Orden = e.Orden
+                    }
+                    : new MontoPorPuntajeCreditoViewModel
+                    {
+                        Puntaje = p,
+                        MontoMaximoFinanciable = 0m,
+                        RequiereAnalisis = false,
+                        Activo = true,
+                        Orden = p
+                    });
+            }
+
+            return resultado;
+        }
+
+        public async Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
+            List<MontoPorPuntajeCreditoViewModel> items,
+            string usuario)
+        {
+            var errores = new List<string>();
+
+            if (items == null || items.Count == 0)
+            {
+                errores.Add("No se recibieron registros de monto por puntaje.");
+                return (false, errores);
+            }
+
+            var puntajesRecibidos = items.Select(i => i.Puntaje).ToList();
+
+            var repetidos = puntajesRecibidos.GroupBy(p => p).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (repetidos.Any())
+                errores.Add($"Puntajes duplicados: {string.Join(", ", repetidos)}.");
+
+            var fueraDeRango = puntajesRecibidos.Where(p => p < 0 || p > 10).ToList();
+            if (fueraDeRango.Any())
+                errores.Add($"Puntajes fuera de rango 0–10: {string.Join(", ", fueraDeRango)}.");
+
+            if (items.Any(i => i.MontoMaximoFinanciable < 0))
+                errores.Add("Los montos no pueden ser negativos.");
+
+            if (errores.Any())
+                return (false, errores);
+
+            var puntajesIds = items.Where(i => i.Id > 0).Select(i => i.Id).ToList();
+            var existentes = puntajesIds.Count > 0
+                ? await _context.ConfiguracionCreditoMontosPorPuntaje
+                    .Where(e => puntajesIds.Contains(e.Id))
+                    .ToDictionaryAsync(e => e.Id)
+                : new Dictionary<int, ConfiguracionCreditoMontoPorPuntaje>();
+
+            var existentesPorPuntaje = await _context.ConfiguracionCreditoMontosPorPuntaje
+                .Where(e => puntajesRecibidos.Contains(e.Puntaje))
+                .ToDictionaryAsync(e => e.Puntaje);
+
+            var fecha = DateTime.UtcNow;
+
+            foreach (var item in items)
+            {
+                ConfiguracionCreditoMontoPorPuntaje? entidad = null;
+
+                if (item.Id > 0 && existentes.TryGetValue(item.Id, out var porId))
+                    entidad = porId;
+                else if (existentesPorPuntaje.TryGetValue(item.Puntaje, out var porPuntaje))
+                    entidad = porPuntaje;
+
+                if (entidad != null)
+                {
+                    entidad.MontoMaximoFinanciable = item.MontoMaximoFinanciable;
+                    entidad.RequiereAnalisis = item.RequiereAnalisis;
+                    entidad.Activo = item.Activo;
+                    entidad.Orden = item.Orden;
+                    entidad.FechaActualizacion = fecha;
+                    entidad.UsuarioActualizacion = usuario;
+                }
+                else
+                {
+                    _context.ConfiguracionCreditoMontosPorPuntaje.Add(new ConfiguracionCreditoMontoPorPuntaje
+                    {
+                        Puntaje = item.Puntaje,
+                        MontoMaximoFinanciable = item.MontoMaximoFinanciable,
+                        RequiereAnalisis = item.RequiereAnalisis,
+                        Activo = item.Activo,
+                        Orden = item.Orden,
+                        FechaActualizacion = fecha,
+                        UsuarioActualizacion = usuario
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Montos por puntaje 0–10 guardados — {Count} registros — Usuario {Usuario}",
+                items.Count, usuario);
+
+            return (true, errores);
+        }
     }
 }

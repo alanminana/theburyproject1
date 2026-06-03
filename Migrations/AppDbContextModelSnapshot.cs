@@ -6367,6 +6367,68 @@ namespace TheBuryProject.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionCreditoMontoPorPuntaje", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("FechaActualizacion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<decimal>("MontoMaximoFinanciable")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Puntaje")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiereAnalisis")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UsuarioActualizacion")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Puntaje")
+                        .IsUnique();
+
+                    b.ToTable("ConfiguracionCreditoMontosPorPuntaje", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ConfCreditoMontoPorPuntaje_Monto", "[MontoMaximoFinanciable] >= 0");
+                            t.HasCheckConstraint("CK_ConfCreditoMontoPorPuntaje_Puntaje", "[Puntaje] >= 0 AND [Puntaje] <= 10");
+                        });
+
+                    b.HasData(
+                        new { Id = 101, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 0,  Puntaje = 0,  RequiereAnalisis = true,  UsuarioActualizacion = "System" },
+                        new { Id = 102, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 1,  Puntaje = 1,  RequiereAnalisis = true,  UsuarioActualizacion = "System" },
+                        new { Id = 103, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 2,  Puntaje = 2,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 104, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 3,  Puntaje = 3,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 105, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 4,  Puntaje = 4,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 106, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 5,  Puntaje = 5,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 107, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 6,  Puntaje = 6,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 108, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 7,  Puntaje = 7,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 109, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 8,  Puntaje = 8,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 110, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 9,  Puntaje = 9,  RequiereAnalisis = false, UsuarioActualizacion = "System" },
+                        new { Id = 111, Activo = true, FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), MontoMaximoFinanciable = 0m, Orden = 10, Puntaje = 10, RequiereAnalisis = false, UsuarioActualizacion = "System" });
+                });
+
             modelBuilder.Entity("TheBuryProject.Models.Entities.RMA", b =>
                 {
                     b.Property<int>("Id")

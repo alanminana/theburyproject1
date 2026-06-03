@@ -745,8 +745,26 @@ namespace TheBuryProject.Controllers
                 });
             }
 
+            // Validar tabla montos por puntaje
+            if (config.MontosPorPuntaje != null && config.MontosPorPuntaje.Count > 0)
+            {
+                var puntajesEnviados = config.MontosPorPuntaje.Select(m => m.Puntaje).ToList();
+                var duplicados = puntajesEnviados.GroupBy(p => p).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicados.Any())
+                    ModelState.AddModelError(nameof(config.MontosPorPuntaje), $"Puntajes duplicados: {string.Join(", ", duplicados)}.");
+
+                var fueraRango = puntajesEnviados.Where(p => p < 0 || p > 10).ToList();
+                if (fueraRango.Any())
+                    ModelState.AddModelError(nameof(config.MontosPorPuntaje), $"Puntajes fuera de rango 0–10: {string.Join(", ", fueraRango)}.");
+
+                if (config.MontosPorPuntaje.Any(m => m.MontoMaximoFinanciable < 0))
+                    ModelState.AddModelError(nameof(config.MontosPorPuntaje), "Los montos no pueden ser negativos.");
+            }
+
             if (!ModelState.IsValid)
             {
+                if (config.MontosPorPuntaje == null || config.MontosPorPuntaje.Count == 0)
+                    config.MontosPorPuntaje = await _configuracionPagoService.GetMontosPorPuntajeAsync();
                 return View("CreditoPersonal_tw", config);
             }
 
@@ -754,6 +772,19 @@ namespace TheBuryProject.Controllers
 
             if (config.ScoringThresholds != null)
                 await _aptitudService.UpdateScoringThresholdsAsync(config.ScoringThresholds);
+
+            if (config.MontosPorPuntaje != null && config.MontosPorPuntaje.Count > 0)
+            {
+                var usuario = User.Identity?.Name ?? "sistema";
+                var (ok, erroresMontos) = await _configuracionPagoService.GuardarMontosPorPuntajeAsync(config.MontosPorPuntaje, usuario);
+                if (!ok)
+                {
+                    foreach (var err in erroresMontos)
+                        ModelState.AddModelError(nameof(config.MontosPorPuntaje), err);
+                    config.MontosPorPuntaje = await _configuracionPagoService.GetMontosPorPuntajeAsync();
+                    return View("CreditoPersonal_tw", config);
+                }
+            }
 
             TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
 
@@ -812,9 +843,10 @@ namespace TheBuryProject.Controllers
             var creditoPersonal = configuraciones
                 .FirstOrDefault(c => c.TipoPago == TipoPago.CreditoPersonal);
 
-            var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
-            var scoring  = await _aptitudService.GetScoringThresholdsAsync();
-            var semaforo = await _aptitudService.GetSemaforoFinancieroAsync();
+            var perfiles       = await _configuracionPagoService.GetPerfilesCreditoAsync();
+            var scoring        = await _aptitudService.GetScoringThresholdsAsync();
+            var semaforo       = await _aptitudService.GetSemaforoFinancieroAsync();
+            var montosPuntaje  = await _configuracionPagoService.GetMontosPorPuntajeAsync();
 
             return new CreditoPersonalConfigViewModel
             {
@@ -827,7 +859,8 @@ namespace TheBuryProject.Controllers
                 },
                 Perfiles = perfiles,
                 ScoringThresholds = scoring,
-                SemaforoFinanciero = semaforo
+                SemaforoFinanciero = semaforo,
+                MontosPorPuntaje = montosPuntaje
             };
         }
 

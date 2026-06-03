@@ -47,6 +47,7 @@ namespace TheBuryProject.Data
         public DbSet<ClienteCreditoConfiguracion> ClientesCreditoConfiguraciones { get; set; }
         public DbSet<ClientePuntajeHistorial> ClientesPuntajeHistorial { get; set; }
         public DbSet<PuntajeCreditoLimite> PuntajesCreditoLimite { get; set; }
+        public DbSet<ConfiguracionCreditoMontoPorPuntaje> ConfiguracionCreditoMontosPorPuntaje { get; set; }
         public DbSet<Credito> Creditos { get; set; }
         public DbSet<Cuota> Cuotas { get; set; }
         public DbSet<Garante> Garantes { get; set; }
@@ -899,6 +900,39 @@ namespace TheBuryProject.Data
                     .IsRequired();
 
                 entity.Property(e => e.LimiteMonto)
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.FechaActualizacion)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.UsuarioActualizacion)
+                    .HasMaxLength(100);
+
+                entity.HasIndex(e => e.Puntaje)
+                    .IsUnique();
+            });
+
+            // =======================
+            // ConfiguracionCreditoMontoPorPuntaje
+            // =======================
+            modelBuilder.Entity<ConfiguracionCreditoMontoPorPuntaje>(entity =>
+            {
+                entity.ToTable("ConfiguracionCreditoMontosPorPuntaje", t =>
+                {
+                    t.HasCheckConstraint("CK_ConfCreditoMontoPorPuntaje_Puntaje", "[Puntaje] >= 0 AND [Puntaje] <= 10");
+                    t.HasCheckConstraint("CK_ConfCreditoMontoPorPuntaje_Monto", "[MontoMaximoFinanciable] >= 0");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Puntaje)
+                    .IsRequired();
+
+                entity.Property(e => e.MontoMaximoFinanciable)
                     .HasPrecision(18, 2)
                     .HasDefaultValue(0m);
 
@@ -2621,6 +2655,20 @@ namespace TheBuryProject.Data
                     FechaActualizacion = seedUtc,
                     UsuarioActualizacion = "System"
                 }
+            );
+
+            modelBuilder.Entity<ConfiguracionCreditoMontoPorPuntaje>().HasData(
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 101, Puntaje = 0,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = true,  Activo = true, Orden = 0,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 102, Puntaje = 1,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = true,  Activo = true, Orden = 1,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 103, Puntaje = 2,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 2,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 104, Puntaje = 3,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 3,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 105, Puntaje = 4,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 4,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 106, Puntaje = 5,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 5,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 107, Puntaje = 6,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 6,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 108, Puntaje = 7,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 7,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 109, Puntaje = 8,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 8,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 110, Puntaje = 9,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 9,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
+                new ConfiguracionCreditoMontoPorPuntaje { Id = 111, Puntaje = 10, MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 10, FechaActualizacion = seedUtc, UsuarioActualizacion = "System" }
             );
         }
 

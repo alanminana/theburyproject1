@@ -65,5 +65,19 @@ namespace TheBuryProject.Services.Interfaces
         Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
             int tarjetaId,
             IEnumerable<int> productoIds);
+
+        /// <summary>
+        /// Carga la configuración de monto por puntaje 0–10, garantizando 11 filas.
+        /// Si faltan filas se inicializan en memoria con $0.
+        /// </summary>
+        Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync();
+
+        /// <summary>
+        /// Guarda la tabla de montos por puntaje 0–10.
+        /// Actualiza filas existentes; crea las faltantes. No borra físico.
+        /// </summary>
+        Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
+            List<MontoPorPuntajeCreditoViewModel> items,
+            string usuario);
     }
 }

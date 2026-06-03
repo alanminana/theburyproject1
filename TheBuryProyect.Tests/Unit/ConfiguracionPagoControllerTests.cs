@@ -312,6 +312,8 @@ public sealed class ConfiguracionPagoControllerTests
             => Task.FromResult((1, 24, "Global", (string?)null));
         public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(int tarjetaId, IEnumerable<int> productoIds)
             => Task.FromResult<MaxCuotasSinInteresResultado?>(null);
+        public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
+        public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 
     private sealed class FakeClienteAptitudService : IClienteAptitudService

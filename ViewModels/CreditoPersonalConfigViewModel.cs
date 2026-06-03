@@ -11,6 +11,24 @@ public class CreditoPersonalConfigViewModel
     public List<PerfilCreditoViewModel>? Perfiles { get; set; }
     public ScoringThresholdsViewModel? ScoringThresholds { get; set; }
     public SemaforoFinancieroViewModel? SemaforoFinanciero { get; set; }
+    public List<MontoPorPuntajeCreditoViewModel> MontosPorPuntaje { get; set; } = new();
+}
+
+public class MontoPorPuntajeCreditoViewModel
+{
+    public int Id { get; set; }
+
+    [Range(0, 10)]
+    public int Puntaje { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "El monto no puede ser negativo.")]
+    public decimal MontoMaximoFinanciable { get; set; }
+
+    public bool RequiereAnalisis { get; set; }
+
+    public bool Activo { get; set; } = true;
+
+    public int Orden { get; set; }
 }
 
 public class DefaultsGlobalesViewModel
