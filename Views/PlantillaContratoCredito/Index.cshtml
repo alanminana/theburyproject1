@@ -2,196 +2,220 @@
 @{
     ViewData["Title"] = "Plantillas de contrato";
     var hoy = DateTime.Today;
+    var puedeEditar = User.TienePermiso("configuracion", "update");
+
+    // Regla de vigencia REAL (idéntica al canónico): no se modifica.
+    bool EsVigente(TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel p) =>
+        p.Activa && p.VigenteDesde.Date <= hoy &&
+        (!p.VigenteHasta.HasValue || p.VigenteHasta.Value.Date >= hoy);
+
+    // Estado visual derivado (display only, misma data):
+    //   vigente | programada | fuera | inactiva
+    string EstadoKey(TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel p)
+    {
+        if (!p.Activa) return "inactiva";
+        if (EsVigente(p)) return "vigente";
+        if (p.VigenteDesde.Date > hoy) return "programada";
+        return "fuera";
+    }
+
+    var enUso = Model.FirstOrDefault(EsVigente);
 }
 
-<div class="space-y-6">
+@section Styles {
+    <link rel="stylesheet" href="~/css/plantillas-contrato.css" asp-append-version="true" />
+}
+
+<div class="pl-module space-y-6">
 
     <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
         <ol class="inline-flex flex-wrap items-center gap-y-1">
             <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
             <li><span class="mx-2 text-slate-400">/</span></li>
-            <li class="text-slate-100">Plantillas de contrato crédito</li>
+            <li class="text-slate-100">Plantillas de contrato</li>
         </ol>
     </nav>
 
     @if (TempData["Success"] is string ok)
     {
-        <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-            <span class="material-symbols-outlined align-middle text-sm">check_circle</span>
-            @ok
+        <div class="pl-alert pl-alert-ok" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+            <div>@ok</div>
         </div>
     }
     @if (TempData["Error"] is string err)
     {
-        <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-            <span class="material-symbols-outlined align-middle text-sm">error</span>
-            @err
+        <div class="pl-alert pl-alert-bad" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">error</span>
+            <div>@err</div>
         </div>
     }
 
-    <div class="flex items-center justify-between">
-        <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
             <h1 class="text-xl font-bold text-white">Plantillas de contrato de crédito personal</h1>
-            <p class="text-sm text-slate-400 mt-1">Gestioná los textos y parámetros legales usados al generar contratos.</p>
+            <p class="text-sm text-slate-400 mt-1">
+                Modelos de contrato y pagaré que se aplican al generar una venta con crédito personal.
+                La plantilla activa y vigente es la que se usa hoy.
+            </p>
         </div>
-        @if (User.TienePermiso("configuracion", "update"))
+        @if (puedeEditar)
         {
-            <a asp-action="Create" class="btn-erp-primary no-underline flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">add</span>
+            <a asp-action="Create" class="btn-erp-primary no-underline shrink-0">
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
                 Nueva plantilla
             </a>
         }
     </div>
 
-    @if (!Model.Any())
+    @if (Model.Any())
     {
-        <div class="card-erp-panel-padded flex flex-col items-center gap-4 py-12 text-center">
-            <span class="material-symbols-outlined text-5xl text-slate-600">contract</span>
-            <div>
-                <p class="text-slate-300 font-semibold">Sin plantillas configuradas</p>
-                <p class="text-sm text-slate-500 mt-1">
-                    No hay ninguna plantilla de contrato. Sin una plantilla activa no es posible generar contratos de venta con crédito personal.
-                </p>
+        @* ---------- Banner: plantilla en uso ---------- *@
+        @if (enUso != null)
+        {
+            <div class="pl-banner is-ok">
+                <div class="pl-banner-ic"><span class="material-symbols-outlined" aria-hidden="true">verified</span></div>
+                <div class="flex-1 min-w-0">
+                    <div class="pl-banner-title">«@enUso.Nombre» es la plantilla en uso</div>
+                    <div class="pl-banner-sub">Todo contrato de venta con crédito personal generado hoy usa este modelo.</div>
+                    <div class="pl-banner-meta">
+                        Vigente desde @enUso.VigenteDesde.ToString("dd/MM/yyyy")
+                        · @(enUso.VigenteHasta.HasValue ? $"hasta {enUso.VigenteHasta.Value:dd/MM/yyyy}" : "sin fecha de fin (indefinida)")
+                        · mora @enUso.InteresMoraDiarioPorcentaje.ToString("0.####")% diario
+                    </div>
+                </div>
+                @if (puedeEditar)
+                {
+                    <a asp-action="Edit" asp-route-id="@enUso.Id" class="btn-erp-secondary btn-sm no-underline pl-banner-action">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
+                        Editar
+                    </a>
+                }
             </div>
-            @if (User.TienePermiso("configuracion", "update"))
-            {
-                <a asp-action="Create" class="btn-erp-primary no-underline flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">add</span>
-                    Crear primera plantilla
-                </a>
-            }
-        </div>
-    }
-    else
-    {
+        }
+        else
+        {
+            <div class="pl-banner is-bad">
+                <div class="pl-banner-ic"><span class="material-symbols-outlined" aria-hidden="true">report</span></div>
+                <div class="flex-1 min-w-0">
+                    <div class="pl-banner-title">No hay ninguna plantilla activa y vigente</div>
+                    <div class="pl-banner-sub">
+                        Sin una plantilla vigente no es posible generar contratos de venta con crédito personal.
+                        Activá o creá una.
+                    </div>
+                </div>
+                @if (puedeEditar)
+                {
+                    <a asp-action="Create" class="btn-erp-warning btn-sm no-underline pl-banner-action">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+                        Nueva plantilla
+                    </a>
+                }
+            </div>
+        }
+
+        @* ---------- Listado de cards ---------- *@
         <div class="space-y-3">
             @foreach (var p in Model)
             {
-                var esVigente = p.Activa && p.VigenteDesde.Date <= hoy && (!p.VigenteHasta.HasValue || p.VigenteHasta.Value.Date >= hoy);
-                <div class="card-erp-panel-padded">
-                    <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                <h2 class="text-base font-bold text-white">@p.Nombre</h2>
-                                @if (esVigente)
-                                {
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
-                                        <span class="material-symbols-outlined text-[11px]">check_circle</span> Activa y vigente
-                                    </span>
-                                }
-                                else if (p.Activa)
-                                {
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
-                                        <span class="material-symbols-outlined text-[11px]">schedule</span> Activa (fuera de vigencia)
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
-                                        Inactiva
-                                    </span>
-                                }
-                            </div>
-                            <dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-400 sm:grid-cols-3">
-                                <div>
-                                    <dt class="text-slate-500">Vendedor</dt>
-                                    <dd class="text-slate-300">@p.NombreVendedor</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-slate-500">Ciudad de firma</dt>
-                                    <dd class="text-slate-300">@p.CiudadFirma</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-slate-500">Interés mora diario</dt>
-                                    <dd class="text-slate-300">@p.InteresMoraDiarioPorcentaje.ToString("F4")%</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-slate-500">Vigente desde</dt>
-                                    <dd class="text-slate-300">@p.VigenteDesde.ToString("dd/MM/yyyy")</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-slate-500">Vigente hasta</dt>
-                                    <dd class="text-slate-300">@(p.VigenteHasta.HasValue ? p.VigenteHasta.Value.ToString("dd/MM/yyyy") : "Sin límite")</dd>
-                                </div>
-                                @if (p.UpdatedBy != null)
-                                {
-                                    <div>
-                                        <dt class="text-slate-500">Modificada por</dt>
-                                        <dd class="text-slate-300">@p.UpdatedBy</dd>
-                                    </div>
-                                }
-                            </dl>
+                var key = EstadoKey(p);
+                var isCurrent = enUso != null && p.Id == enUso.Id;
+                <div class="pl-card @(isCurrent ? "is-current" : "") @(p.Activa ? "" : "is-off")">
+                    <div class="pl-card-head">
+                        <div class="pl-card-mark">
+                            <span class="material-symbols-outlined" aria-hidden="true">@(isCurrent ? "contract" : "description")</span>
                         </div>
-                        @if (User.TienePermiso("configuracion", "update"))
+                        <div class="pl-card-id">
+                            <h2 class="pl-card-name">
+                                @p.Nombre
+                                @switch (key)
+                                {
+                                    case "vigente":
+                                        <span class="pl-chip pl-chip-ok"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Vigente</span>
+                                        break;
+                                    case "programada":
+                                        <span class="pl-chip pl-chip-info"><span class="material-symbols-outlined" aria-hidden="true">schedule</span>Programada</span>
+                                        break;
+                                    case "fuera":
+                                        <span class="pl-chip pl-chip-warn"><span class="material-symbols-outlined" aria-hidden="true">event_busy</span>Fuera de vigencia</span>
+                                        break;
+                                    default:
+                                        <span class="pl-chip pl-chip-neutral"><span class="material-symbols-outlined" aria-hidden="true">do_not_disturb_on</span>Inactiva</span>
+                                        break;
+                                }
+                            </h2>
+                            <div class="pl-card-sub">
+                                <span class="material-symbols-outlined" aria-hidden="true">storefront</span>@p.NombreVendedor
+                                <span class="pl-dotsep" aria-hidden="true">·</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">location_on</span>@p.CiudadFirma
+                            </div>
+                        </div>
+                        @if (puedeEditar)
                         {
-                            <div class="flex flex-col gap-2 shrink-0">
-                                <a asp-action="Edit" asp-route-id="@p.Id"
-                                   class="btn-erp-secondary no-underline text-center text-sm">
-                                    <span class="material-symbols-outlined text-sm">edit</span>
+                            <div class="pl-card-actions">
+                                <a asp-action="Edit" asp-route-id="@p.Id" class="btn-erp-secondary btn-sm no-underline" title="Editar plantilla">
+                                    <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
                                     Editar
                                 </a>
-                                <form asp-action="ToggleActiva" asp-route-id="@p.Id" method="post">
+                                <form asp-action="ToggleActiva" asp-route-id="@p.Id" method="post" class="contents">
                                     @Html.AntiForgeryToken()
                                     <button type="submit"
-                                            class="@(p.Activa ? "btn-erp-ghost" : "btn-erp-warning") w-full text-sm"
+                                            class="@(p.Activa ? "btn-erp-ghost" : "btn-erp-warning") btn-sm"
+                                            title="@(p.Activa ? "Desactivar plantilla" : "Activar plantilla")"
                                             onclick="return confirm('@(p.Activa ? "¿Desactivar esta plantilla?" : "¿Activar esta plantilla?")')">
-                                        <span class="material-symbols-outlined text-sm">@(p.Activa ? "toggle_off" : "toggle_on")</span>
+                                        <span class="material-symbols-outlined text-sm" aria-hidden="true">@(p.Activa ? "toggle_off" : "toggle_on")</span>
                                         @(p.Activa ? "Desactivar" : "Activar")
                                     </button>
                                 </form>
                             </div>
                         }
                     </div>
+
+                    <div class="pl-facts">
+                        <div>
+                            <div class="pl-fact-l"><span class="material-symbols-outlined" aria-hidden="true">event_available</span>Vigencia</div>
+                            <div class="pl-fact-v">
+                                @p.VigenteDesde.ToString("dd/MM/yyyy") →
+                                @(p.VigenteHasta.HasValue ? p.VigenteHasta.Value.ToString("dd/MM/yyyy") : "Indefinida")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="pl-fact-l"><span class="material-symbols-outlined" aria-hidden="true">percent</span>Interés mora</div>
+                            <div class="pl-fact-v pl-mono">@p.InteresMoraDiarioPorcentaje.ToString("0.####")% <span class="text-slate-500">diario</span></div>
+                        </div>
+                        <div>
+                            <div class="pl-fact-l"><span class="material-symbols-outlined" aria-hidden="true">history</span>Última edición</div>
+                            <div class="pl-fact-v pl-mono">@(p.UpdatedBy ?? p.CreatedBy ?? "—")</div>
+                            @if (p.UpdatedAt.HasValue)
+                            {
+                                <div class="text-xs text-slate-500 mt-0.5">@p.UpdatedAt.Value.ToString("dd/MM/yyyy")</div>
+                            }
+                        </div>
+                    </div>
                 </div>
             }
         </div>
-
+    }
+    else
+    {
         <div class="card-erp-panel-padded">
-            <details>
-                <summary class="cursor-pointer text-sm font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">help</span>
-                    Variables disponibles para el texto del contrato
-                </summary>
-                <div class="mt-3 grid grid-cols-1 gap-2 text-[12px] sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach (var variable in new[]
-                    {
-                        ("{{VENDEDOR_NOMBRE}}", "Nombre del vendedor"),
-                        ("{{VENDEDOR_DOMICILIO}}", "Domicilio del vendedor"),
-                        ("{{VENDEDOR_DNI}}", "DNI del vendedor"),
-                        ("{{VENDEDOR_CUIT}}", "CUIT del vendedor"),
-                        ("{{COMPRADOR_NOMBRE}}", "Nombre completo del comprador"),
-                        ("{{COMPRADOR_DNI}}", "DNI del comprador"),
-                        ("{{COMPRADOR_CUIL}}", "CUIL del comprador"),
-                        ("{{COMPRADOR_DOMICILIO}}", "Domicilio del comprador"),
-                        ("{{COMPRADOR_LOCALIDAD}}", "Localidad del comprador"),
-                        ("{{COMPRADOR_TELEFONO}}", "Teléfono del comprador"),
-                        ("{{GARANTE_NOMBRE}}", "Nombre completo del garante"),
-                        ("{{GARANTE_DNI}}", "DNI del garante"),
-                        ("{{GARANTE_DOMICILIO}}", "Domicilio del garante"),
-                        ("{{GARANTE_RELACION}}", "Relación del garante con el comprador"),
-                        ("{{NUMERO_CONTRATO}}", "Número del contrato"),
-                        ("{{NUMERO_PAGARE}}", "Número del pagaré"),
-                        ("{{FECHA_OPERACION}}", "Fecha de la venta"),
-                        ("{{FECHA_HORA_EMISION}}", "Fecha y hora de emisión del contrato"),
-                        ("{{PRODUCTOS_DETALLE}}", "Lista de productos de la venta"),
-                        ("{{PRECIO_TOTAL}}", "Total de la venta"),
-                        ("{{SALDO_FINANCIADO}}", "Monto financiado / total a pagar"),
-                        ("{{CANTIDAD_CUOTAS}}", "Cantidad de cuotas"),
-                        ("{{VALOR_CUOTA}}", "Valor de cada cuota"),
-                        ("{{PLAN_CUOTAS}}", "Plan completo de cuotas con vencimientos"),
-                        ("{{INTERES_MORA}}", "Interés diario por mora (%)"),
-                        ("{{USUARIO_GENERACION}}", "Usuario que generó el contrato"),
-                        ("{{SUCURSAL}}", "Sucursal"),
-                        ("{{CAJA}}", "Caja")
-                    })
-                    {
-                        <div class="flex flex-col rounded-lg bg-slate-800/60 px-3 py-2">
-                            <code class="text-amber-300 font-mono">@variable.Item1</code>
-                            <span class="text-slate-400 mt-0.5">@variable.Item2</span>
-                        </div>
-                    }
+            <div class="pl-empty">
+                <span class="material-symbols-outlined" aria-hidden="true">contract</span>
+                <div>
+                    <p class="text-slate-300 font-semibold">Todavía no hay plantillas configuradas</p>
+                    <p class="text-sm text-slate-500 mt-1">
+                        Sin una plantilla activa no es posible generar contratos de venta con crédito personal.
+                        Creá la primera para habilitar la operación.
+                    </p>
                 </div>
-            </details>
+                @if (puedeEditar)
+                {
+                    <a asp-action="Create" class="btn-erp-primary no-underline">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+                        Crear la primera plantilla
+                    </a>
+                }
+            </div>
         </div>
     }
 

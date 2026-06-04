@@ -1,9 +1,65 @@
 @model TheBuryProject.ViewModels.PlantillaContratoCreditoViewModel
 @{
     ViewData["Title"] = Model.EsNueva ? "Nueva plantilla de contrato" : $"Editar plantilla — {Model.Nombre}";
+
+    // Catálogo de variables disponibles (mismo set canónico, agrupado para la paleta).
+    var grupos = new (string Title, string Icon, (string Tok, string Desc)[] Vars)[]
+    {
+        ("Vendedor", "storefront", new[]
+        {
+            ("VENDEDOR_NOMBRE", "Nombre del vendedor"),
+            ("VENDEDOR_DOMICILIO", "Domicilio del vendedor"),
+            ("VENDEDOR_DNI", "DNI del vendedor"),
+            ("VENDEDOR_CUIT", "CUIT del vendedor"),
+        }),
+        ("Comprador", "person", new[]
+        {
+            ("COMPRADOR_NOMBRE", "Nombre completo del comprador"),
+            ("COMPRADOR_DNI", "DNI del comprador"),
+            ("COMPRADOR_CUIL", "CUIL del comprador"),
+            ("COMPRADOR_DOMICILIO", "Domicilio del comprador"),
+            ("COMPRADOR_LOCALIDAD", "Localidad del comprador"),
+            ("COMPRADOR_TELEFONO", "Teléfono del comprador"),
+        }),
+        ("Garante", "handshake", new[]
+        {
+            ("GARANTE_NOMBRE", "Nombre completo del garante"),
+            ("GARANTE_DNI", "DNI del garante"),
+            ("GARANTE_DOMICILIO", "Domicilio del garante"),
+            ("GARANTE_RELACION", "Relación del garante con el comprador"),
+        }),
+        ("Operación", "receipt_long", new[]
+        {
+            ("NUMERO_CONTRATO", "Número del contrato"),
+            ("NUMERO_PAGARE", "Número del pagaré"),
+            ("FECHA_OPERACION", "Fecha de la venta"),
+            ("FECHA_HORA_EMISION", "Fecha y hora de emisión del contrato"),
+            ("PRODUCTOS_DETALLE", "Lista de productos de la venta"),
+        }),
+        ("Montos y cuotas", "payments", new[]
+        {
+            ("PRECIO_TOTAL", "Total de la venta"),
+            ("SALDO_FINANCIADO", "Monto financiado / total a pagar"),
+            ("CANTIDAD_CUOTAS", "Cantidad de cuotas"),
+            ("VALOR_CUOTA", "Valor de cada cuota"),
+            ("PLAN_CUOTAS", "Plan completo de cuotas con vencimientos"),
+            ("INTERES_MORA", "Interés diario por mora (%)"),
+        }),
+        ("Sistema", "settings", new[]
+        {
+            ("USUARIO_GENERACION", "Usuario que generó el contrato"),
+            ("SUCURSAL", "Sucursal"),
+            ("CAJA", "Caja"),
+        }),
+    };
+    var totalVars = grupos.Sum(g => g.Vars.Length);
 }
 
-<div class="mx-auto max-w-3xl space-y-6 px-4 py-8">
+@section Styles {
+    <link rel="stylesheet" href="~/css/plantillas-contrato.css" asp-append-version="true" />
+}
+
+<div class="pl-module space-y-6">
 
     <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
         <ol class="inline-flex flex-wrap items-center gap-y-1">
@@ -11,149 +67,308 @@
             <li><span class="mx-2 text-slate-400">/</span></li>
             <li><a asp-action="Index" class="hover:text-primary no-underline">Plantillas de contrato</a></li>
             <li><span class="mx-2 text-slate-400">/</span></li>
-            <li class="text-slate-100">@ViewData["Title"]</li>
+            <li class="text-slate-100">@(Model.EsNueva ? "Nueva plantilla" : "Editar plantilla")</li>
         </ol>
     </nav>
 
-    <form asp-action="@(Model.EsNueva ? "Create" : "Edit")" asp-route-id="@Model.Id" method="post" class="space-y-6">
+    <div class="min-w-0">
+        <h1 class="text-xl font-bold text-white">@(Model.EsNueva ? "Nueva plantilla de contrato" : "Editar plantilla de contrato")</h1>
+        <p class="text-sm text-slate-400 mt-1">
+            Definí la vigencia, los datos del vendedor que quedan fijos en cada contrato, y el texto del contrato y del pagaré.
+        </p>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="pl-alert pl-alert-bad" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">error</span>
+            <div class="flex-1">
+                <div class="font-medium">Revisá los datos del formulario antes de guardar.</div>
+                <div asp-validation-summary="ModelOnly"></div>
+            </div>
+        </div>
+    }
+
+    <form asp-action="@(Model.EsNueva ? "Create" : "Edit")" asp-route-id="@Model.Id" method="post" id="pl-form">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
 
-        @if (!ViewData.ModelState.IsValid)
-        {
-            <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                <span class="material-symbols-outlined align-middle text-sm">error</span>
-                Corregí los errores indicados antes de guardar.
-                <div asp-validation-summary="ModelOnly" class="mt-1 text-xs"></div>
-            </div>
-        }
+        <div class="pl-form-grid">
 
-        <!-- Identificación -->
-        <section class="card-erp-panel-padded space-y-4">
-            <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3">Identificación</h2>
+            @* ===================== Columna izquierda ===================== *@
+            <div id="pl-form-left">
 
-            <div class="space-y-1">
-                <label asp-for="Nombre" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <input asp-for="Nombre" class="input-erp w-full" placeholder="Ej: Contrato estándar 2025" />
-                <span asp-validation-for="Nombre" class="text-xs text-red-400"></span>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="space-y-1">
-                    <label asp-for="VigenteDesde" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="VigenteDesde" type="date" class="input-erp w-full" />
-                    <span asp-validation-for="VigenteDesde" class="text-xs text-red-400"></span>
+                @* Tabs (solo visibles con JS; sin JS se ven todas las secciones) *@
+                <div class="pl-tabs" role="tablist" aria-label="Secciones de la plantilla">
+                    <button type="button" class="pl-tab" role="tab" data-tab="general" aria-selected="true">
+                        <span class="material-symbols-outlined" aria-hidden="true">tune</span>General
+                    </button>
+                    <button type="button" class="pl-tab" role="tab" data-tab="vendedor" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">storefront</span>Vendedor
+                    </button>
+                    <button type="button" class="pl-tab" role="tab" data-tab="contrato" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">contract</span>Contrato
+                    </button>
+                    <button type="button" class="pl-tab" role="tab" data-tab="pagare" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">payments</span>Pagaré
+                    </button>
                 </div>
-                <div class="space-y-1">
-                    <label asp-for="VigenteHasta" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="VigenteHasta" type="date" class="input-erp w-full" />
-                    <span asp-validation-for="VigenteHasta" class="text-xs text-red-400"></span>
-                    <p class="text-[11px] text-slate-500">Dejá en blanco para vigencia indefinida.</p>
+
+                @* ----- Sección General ----- *@
+                <section class="pl-section is-active card-erp-panel-padded" data-tab="general">
+                    <div class="pl-sec-head">
+                        <div class="pl-sec-ic"><span class="material-symbols-outlined" aria-hidden="true">badge</span></div>
+                        <div>
+                            <div class="pl-sec-title">Identificación y vigencia</div>
+                            <div class="pl-sec-sub">Nombre interno del modelo y período en que puede usarse.</div>
+                        </div>
+                    </div>
+
+                    <div class="pl-field-block">
+                        <label asp-for="Nombre" class="pl-label">Nombre de la plantilla <span class="pl-req">*</span></label>
+                        <input asp-for="Nombre" class="input-erp" placeholder="Ej: Contrato estándar 2026" />
+                        <span asp-validation-for="Nombre" class="pl-val"></span>
+                    </div>
+
+                    <div class="pl-field-row cols-2">
+                        <div>
+                            <label asp-for="VigenteDesde" class="pl-label">Vigente desde <span class="pl-req">*</span></label>
+                            <input asp-for="VigenteDesde" type="date" class="input-erp" />
+                            <span asp-validation-for="VigenteDesde" class="pl-val"></span>
+                        </div>
+                        <div>
+                            <label asp-for="VigenteHasta" class="pl-label">Vigente hasta</label>
+                            <input asp-for="VigenteHasta" type="date" class="input-erp" />
+                            <span asp-validation-for="VigenteHasta" class="pl-val"></span>
+                            <p class="pl-hint">Dejalo vacío para vigencia indefinida.</p>
+                        </div>
+                    </div>
+
+                    <div class="pl-switch-row">
+                        <div>
+                            <div class="pl-switch-txt-title">Plantilla activa</div>
+                            <div class="pl-switch-txt-sub">Solo una plantilla activa y vigente se usa para generar contratos.</div>
+                        </div>
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input asp-for="Activa" type="checkbox" class="size-5 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/50" />
+                            <span class="text-sm text-slate-300">Activa</span>
+                        </label>
+                    </div>
+                </section>
+
+                @* ----- Sección Vendedor ----- *@
+                <section class="pl-section card-erp-panel-padded" data-tab="vendedor">
+                    <div class="pl-sec-head">
+                        <div class="pl-sec-ic"><span class="material-symbols-outlined" aria-hidden="true">storefront</span></div>
+                        <div>
+                            <div class="pl-sec-title">Datos del vendedor</div>
+                            <div class="pl-sec-sub">Quedan incrustados de forma fija en cada contrato generado con esta plantilla.</div>
+                        </div>
+                    </div>
+
+                    <div class="pl-field-block">
+                        <label asp-for="NombreVendedor" class="pl-label">Nombre / Razón social <span class="pl-req">*</span></label>
+                        <input asp-for="NombreVendedor" class="input-erp" placeholder="Bury Hogar S.R.L." />
+                        <span asp-validation-for="NombreVendedor" class="pl-val"></span>
+                    </div>
+
+                    <div class="pl-field-block">
+                        <label asp-for="DomicilioVendedor" class="pl-label">Domicilio <span class="pl-req">*</span></label>
+                        <input asp-for="DomicilioVendedor" class="input-erp" placeholder="Av. Belgrano 1234, San Salvador de Jujuy" />
+                        <span asp-validation-for="DomicilioVendedor" class="pl-val"></span>
+                    </div>
+
+                    <div class="pl-field-row cols-2">
+                        <div>
+                            <label asp-for="DniVendedor" class="pl-label">DNI</label>
+                            <input asp-for="DniVendedor" class="input-erp pl-mono" placeholder="00.000.000" />
+                            <span asp-validation-for="DniVendedor" class="pl-val"></span>
+                        </div>
+                        <div>
+                            <label asp-for="CuitVendedor" class="pl-label">CUIT</label>
+                            <input asp-for="CuitVendedor" class="input-erp pl-mono" placeholder="30-00000000-0" />
+                            <span asp-validation-for="CuitVendedor" class="pl-val"></span>
+                        </div>
+                        <div>
+                            <label asp-for="CiudadFirma" class="pl-label">Ciudad de firma <span class="pl-req">*</span></label>
+                            <input asp-for="CiudadFirma" class="input-erp" placeholder="San Salvador de Jujuy" />
+                            <span asp-validation-for="CiudadFirma" class="pl-val"></span>
+                        </div>
+                        <div>
+                            <label asp-for="Jurisdiccion" class="pl-label">Jurisdicción <span class="pl-req">*</span></label>
+                            <input asp-for="Jurisdiccion" class="input-erp" placeholder="Tribunales de Jujuy" />
+                            <span asp-validation-for="Jurisdiccion" class="pl-val"></span>
+                        </div>
+                    </div>
+
+                    <div class="pl-field-block" style="margin-top:.9rem">
+                        <label asp-for="InteresMoraDiarioPorcentaje" class="pl-label">Interés por mora <span class="pl-req">*</span></label>
+                        <div class="pl-unit">
+                            <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0.0001" max="100"
+                                   class="input-erp pl-mono" placeholder="0.1500" />
+                            <span class="pl-unit-suffix">% diario</span>
+                        </div>
+                        <p class="pl-hint">Entre 0.0001 y 100. Se aplica por cada día de atraso sobre la cuota vencida.</p>
+                        <span asp-validation-for="InteresMoraDiarioPorcentaje" class="pl-val"></span>
+                    </div>
+                </section>
+
+                @* ----- Sección Contrato ----- *@
+                <section class="pl-section card-erp-panel-padded" data-tab="contrato">
+                    <div class="pl-sec-head">
+                        <div class="pl-sec-ic"><span class="material-symbols-outlined" aria-hidden="true">contract</span></div>
+                        <div>
+                            <div class="pl-sec-title">Texto del contrato</div>
+                            <div class="pl-sec-sub">Cuerpo principal del contrato. Usá variables como <span class="pl-token">{{COMPRADOR_NOMBRE}}</span>.</div>
+                        </div>
+                    </div>
+
+                    <div class="pl-editor-bar pl-js-only" aria-hidden="true">
+                        <span class="pl-eb-label">Insertar:</span>
+                        <button type="button" class="pl-ins-btn" data-insert="{{COMPRADOR_NOMBRE}}" data-target="TextoContrato"><span class="material-symbols-outlined" aria-hidden="true">add</span>Comprador</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{PRODUCTOS_DETALLE}}" data-target="TextoContrato"><span class="material-symbols-outlined" aria-hidden="true">add</span>Productos</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{PLAN_CUOTAS}}" data-target="TextoContrato"><span class="material-symbols-outlined" aria-hidden="true">add</span>Plan de cuotas</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{SALDO_FINANCIADO}}" data-target="TextoContrato"><span class="material-symbols-outlined" aria-hidden="true">add</span>Saldo</button>
+                    </div>
+
+                    <label asp-for="TextoContrato" class="pl-label">Texto del contrato <span class="pl-req">*</span></label>
+                    <textarea asp-for="TextoContrato" class="input-erp pl-editor" data-editor="TextoContrato"
+                              placeholder="Entre {{VENDEDOR_NOMBRE}}, con domicilio en {{VENDEDOR_DOMICILIO}}…"></textarea>
+                    <div class="flex items-center justify-between mt-1">
+                        <span asp-validation-for="TextoContrato" class="pl-val"></span>
+                        <span class="pl-count pl-js-only" data-count="TextoContrato">0 caracteres</span>
+                    </div>
+                </section>
+
+                @* ----- Sección Pagaré ----- *@
+                <section class="pl-section card-erp-panel-padded" data-tab="pagare">
+                    <div class="pl-sec-head">
+                        <div class="pl-sec-ic"><span class="material-symbols-outlined" aria-hidden="true">payments</span></div>
+                        <div>
+                            <div class="pl-sec-title">Texto del pagaré</div>
+                            <div class="pl-sec-sub">Instrumento de pago que acompaña al contrato.</div>
+                        </div>
+                    </div>
+
+                    <div class="pl-editor-bar pl-js-only" aria-hidden="true">
+                        <span class="pl-eb-label">Insertar:</span>
+                        <button type="button" class="pl-ins-btn" data-insert="{{NUMERO_PAGARE}}" data-target="TextoPagare"><span class="material-symbols-outlined" aria-hidden="true">add</span>N° pagaré</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{SALDO_FINANCIADO}}" data-target="TextoPagare"><span class="material-symbols-outlined" aria-hidden="true">add</span>Saldo</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{COMPRADOR_NOMBRE}}" data-target="TextoPagare"><span class="material-symbols-outlined" aria-hidden="true">add</span>Comprador</button>
+                        <button type="button" class="pl-ins-btn" data-insert="{{FECHA_OPERACION}}" data-target="TextoPagare"><span class="material-symbols-outlined" aria-hidden="true">add</span>Fecha</button>
+                    </div>
+
+                    <label asp-for="TextoPagare" class="pl-label">Texto del pagaré <span class="pl-req">*</span></label>
+                    <textarea asp-for="TextoPagare" class="input-erp pl-editor pl-editor-sm" data-editor="TextoPagare"
+                              placeholder="PAGARÉ SIN PROTESTO. Por igual valor recibido…"></textarea>
+                    <div class="flex items-center justify-end mt-1">
+                        <span class="pl-count pl-js-only" data-count="TextoPagare">0 caracteres</span>
+                    </div>
+                </section>
+
+                @* ----- Acciones (siempre visibles) ----- *@
+                <div class="pl-form-actions">
+                    <a asp-action="Index" class="btn-erp-ghost no-underline">Cancelar</a>
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">save</span>
+                        @(Model.EsNueva ? "Crear plantilla" : "Guardar cambios")
+                    </button>
                 </div>
             </div>
 
-            <div class="flex items-center gap-3">
-                <input asp-for="Activa" type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/50" />
-                <label asp-for="Activa" class="text-sm text-slate-300 cursor-pointer">Plantilla activa</label>
-            </div>
-        </section>
+            @* ===================== Columna derecha (sticky) ===================== *@
+            <aside class="pl-aside" aria-label="Vista previa y variables">
 
-        <!-- Datos del vendedor -->
-        <section class="card-erp-panel-padded space-y-4">
-            <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3">Datos del vendedor</h2>
-            <p class="text-xs text-slate-500">Estos datos se incrustan fijos en cada contrato generado con esta plantilla.</p>
-
-            <div class="space-y-1">
-                <label asp-for="NombreVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <input asp-for="NombreVendedor" class="input-erp w-full" placeholder="Razón social o nombre del vendedor" />
-                <span asp-validation-for="NombreVendedor" class="text-xs text-red-400"></span>
-            </div>
-
-            <div class="space-y-1">
-                <label asp-for="DomicilioVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <input asp-for="DomicilioVendedor" class="input-erp w-full" placeholder="Domicilio legal completo" />
-                <span asp-validation-for="DomicilioVendedor" class="text-xs text-red-400"></span>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="space-y-1">
-                    <label asp-for="DniVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="DniVendedor" class="input-erp w-full" placeholder="Opcional" />
-                    <span asp-validation-for="DniVendedor" class="text-xs text-red-400"></span>
+                @* Vista previa tipo documento *@
+                <div class="pl-paper-wrap">
+                    <div class="pl-paper-tabs">
+                        <button type="button" class="pl-paper-tab" data-ptab="contrato" aria-selected="true">
+                            <span class="material-symbols-outlined" aria-hidden="true">contract</span>Contrato
+                        </button>
+                        <button type="button" class="pl-paper-tab" data-ptab="pagare" aria-selected="false">
+                            <span class="material-symbols-outlined" aria-hidden="true">payments</span>Pagaré
+                        </button>
+                        <label class="pl-js-only" style="margin-left:auto;align-items:center;gap:.35rem;font-size:.72rem;color:#94a3b8;cursor:pointer;padding-right:.4rem">
+                            <input type="checkbox" id="pl-prev-fill" checked class="size-3.5">Datos de ejemplo
+                        </label>
+                    </div>
+                    <div class="pl-paper-scroll">
+                        <div class="pl-paper is-empty" id="pl-paper-body">
+                            La vista previa del documento aparece acá a medida que escribís, con las variables resaltadas.
+                        </div>
+                    </div>
+                    <div class="pl-preview-note">
+                        <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                        <span>Vista previa — los valores reales se completan al generar cada operación.</span>
+                    </div>
                 </div>
-                <div class="space-y-1">
-                    <label asp-for="CuitVendedor" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="CuitVendedor" class="input-erp w-full" placeholder="XX-XXXXXXXX-X" />
-                    <span asp-validation-for="CuitVendedor" class="text-xs text-red-400"></span>
-                </div>
-                <div class="space-y-1">
-                    <label asp-for="CiudadFirma" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="CiudadFirma" class="input-erp w-full" placeholder="Ciudad donde se firma el contrato" />
-                    <span asp-validation-for="CiudadFirma" class="text-xs text-red-400"></span>
-                </div>
-                <div class="space-y-1">
-                    <label asp-for="Jurisdiccion" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                    <input asp-for="Jurisdiccion" class="input-erp w-full" placeholder="Ej: Provincia de Córdoba" />
-                    <span asp-validation-for="Jurisdiccion" class="text-xs text-red-400"></span>
-                </div>
-            </div>
 
-            <div class="space-y-1">
-                <label asp-for="InteresMoraDiarioPorcentaje" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <div class="flex items-center gap-2">
-                    <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0.0001" max="100"
-                           class="input-erp w-40" placeholder="0.0500" />
-                    <span class="text-sm text-slate-400">% diario</span>
+                @* ¿Cómo funcionan las variables? *@
+                <div class="pl-vexp">
+                    <div class="pl-vexp-title"><span class="material-symbols-outlined" aria-hidden="true">help</span>¿Cómo funcionan las variables?</div>
+                    <p>
+                        Las variables son etiquetas como <span class="pl-token">{{COMPRADOR_NOMBRE}}</span> que escribís dentro del texto.
+                        Al generar cada contrato, el sistema las reemplaza automáticamente por los datos reales de esa operación.
+                    </p>
                 </div>
-                <span asp-validation-for="InteresMoraDiarioPorcentaje" class="text-xs text-red-400"></span>
-            </div>
-        </section>
 
-        <!-- Texto del contrato -->
-        <section class="card-erp-panel-padded space-y-4">
-            <div class="border-b border-slate-800 pb-3 flex items-start justify-between gap-3">
-                <div>
-                    <h2 class="text-base font-semibold text-white">Texto del contrato</h2>
-                    <p class="text-xs text-slate-500 mt-1">Usá variables como <code class="text-amber-300">{{COMPRADOR_NOMBRE}}</code> para insertar datos dinámicos.</p>
+                @* Paleta de variables (server-rendered: sirve como referencia aún sin JS) *@
+                <div class="pl-palette-card">
+                    <div class="pl-palette-head">
+                        <div class="pl-sec-title">
+                            <span class="material-symbols-outlined" aria-hidden="true">data_object</span>Variables disponibles
+                        </div>
+                        <span class="pl-chip pl-chip-neutral pl-mono" id="pl-var-count">@totalVars</span>
+                    </div>
+
+                    <div class="pl-search pl-js-only">
+                        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                        <input type="text" class="input-erp" id="pl-var-search" placeholder="Buscar variable…" aria-label="Buscar variable">
+                    </div>
+
+                    <div class="pl-palette-scroll" id="pl-palette">
+                        @foreach (var g in grupos)
+                        {
+                            <div class="pl-var-group" data-group="@g.Title.ToLower()">
+                                <div class="pl-vg-title"><span class="material-symbols-outlined" aria-hidden="true">@g.Icon</span>@g.Title</div>
+                                <div class="pl-var-list">
+                                    @foreach (var v in g.Vars)
+                                    {
+                                        <button type="button" class="pl-var-item" data-token="{{@v.Tok}}" data-search="@v.Tok @v.Desc">
+                                            <span class="pl-var-token">{{@v.Tok}}</span>
+                                            <span class="pl-var-desc">@v.Desc</span>
+                                            <span class="pl-var-copy" aria-hidden="true"><span class="material-symbols-outlined">content_copy</span></span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
-                <a asp-action="Index" class="text-xs text-slate-400 hover:text-slate-200 underline mt-1 shrink-0">Ver variables disponibles</a>
-            </div>
-            <div class="space-y-1">
-                <label asp-for="TextoContrato" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <textarea asp-for="TextoContrato" rows="18"
-                          class="input-erp w-full font-mono text-xs leading-relaxed"
-                          placeholder="En la ciudad de {{COMPRADOR_LOCALIDAD}}, el día {{FECHA_OPERACION}}, entre..."></textarea>
-                <span asp-validation-for="TextoContrato" class="text-xs text-red-400"></span>
-            </div>
-        </section>
-
-        <!-- Texto del pagaré -->
-        <section class="card-erp-panel-padded space-y-4">
-            <div class="border-b border-slate-800 pb-3">
-                <h2 class="text-base font-semibold text-white">Texto del pagaré</h2>
-                <p class="text-xs text-slate-500 mt-1">Texto del instrumento de pago que acompaña al contrato.</p>
-            </div>
-            <div class="space-y-1">
-                <label asp-for="TextoPagare" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider"></label>
-                <textarea asp-for="TextoPagare" rows="10"
-                          class="input-erp w-full font-mono text-xs leading-relaxed"
-                          placeholder="Debo y pagaré a {{VENDEDOR_NOMBRE}}..."></textarea>
-                <span asp-validation-for="TextoPagare" class="text-xs text-red-400"></span>
-            </div>
-        </section>
-
-        <div class="flex items-center gap-3">
-            <button type="submit" class="btn-erp-primary">
-                <span class="material-symbols-outlined text-sm">save</span>
-                @(Model.EsNueva ? "Crear plantilla" : "Guardar cambios")
-            </button>
-            <a asp-action="Index" class="btn-erp-ghost no-underline">Cancelar</a>
+            </aside>
         </div>
-
     </form>
 
+    @* Toast (copiar variable) *@
+    <div class="pl-toast" id="pl-toast" role="status" aria-live="polite">
+        <div class="pl-toast-inner"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span><span id="pl-toast-msg">Copiado.</span></div>
+    </div>
 </div>
 
+@* Datos de ejemplo para la vista previa *@
+<script id="pl-sample-data" type="application/json">
+{
+  "VENDEDOR_NOMBRE": "Bury Hogar S.R.L.", "VENDEDOR_DOMICILIO": "Av. Belgrano 1234, S. S. de Jujuy", "VENDEDOR_DNI": "—", "VENDEDOR_CUIT": "30-71234567-8",
+  "COMPRADOR_NOMBRE": "Martín Alberto Gómez", "COMPRADOR_DNI": "28.456.789", "COMPRADOR_CUIL": "20-28456789-3", "COMPRADOR_DOMICILIO": "Lavalle 567", "COMPRADOR_LOCALIDAD": "Palpalá", "COMPRADOR_TELEFONO": "388-4-555123",
+  "GARANTE_NOMBRE": "Mariana Soledad Gómez", "GARANTE_DNI": "30.991.220", "GARANTE_DOMICILIO": "Lavalle 567", "GARANTE_RELACION": "Cónyuge",
+  "NUMERO_CONTRATO": "CR-001051", "NUMERO_PAGARE": "PG-001051", "FECHA_OPERACION": "03/06/2026", "FECHA_HORA_EMISION": "03/06/2026 11:42",
+  "PRODUCTOS_DETALLE": "1× Heladera no frost · 1× Smart TV 50\"", "PRECIO_TOTAL": "$ 720.000", "SALDO_FINANCIADO": "$ 540.000",
+  "CANTIDAD_CUOTAS": "12", "VALOR_CUOTA": "$ 45.000", "PLAN_CUOTAS": "Cuota 1 — 10/07/2026 — $ 45.000 … Cuota 12 — 10/06/2027 — $ 45.000",
+  "INTERES_MORA": "0,15", "USUARIO_GENERACION": "lfernandez", "SUCURSAL": "Casa Central", "CAJA": "Caja 1"
+}
+</script>
+
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <script src="~/js/plantillas-contrato.js" asp-append-version="true"></script>
 }
