@@ -5,7 +5,44 @@
     var filtros = Model.Filtros;
 }
 
-<div class="erp-page-shell erp-page-shell-xl space-y-6">
+@section Styles {
+    <style>
+        /* invg- = inventario global integrado (tabs Unidades + Movimientos) */
+        .invg-tabs { display: none; gap: .25rem; border-bottom: 1px solid #1e293b; }
+        .invg-js .invg-tabs { display: flex; flex-wrap: wrap; }
+        .invg-tab {
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: #94a3b8;
+            background: transparent; border: 0; border-bottom: 2px solid transparent;
+            cursor: pointer; border-radius: 6px 6px 0 0; white-space: nowrap;
+        }
+        .invg-tab .material-symbols-outlined { font-size: 18px; }
+        .invg-tab:hover { color: #f1f5f9; background: rgba(148,163,184,.06); }
+        .invg-tab[aria-selected="true"] { color: #fff; border-bottom-color: #3b82f6; }
+        .invg-tab:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+        .invg-mov-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
+        .invg-mov-table thead th {
+            background: #0d1526; color: #64748b; font-size: .68rem; text-transform: uppercase;
+            letter-spacing: .04em; text-align: left; padding: .7rem 1rem; border-bottom: 1px solid #1e293b; white-space: nowrap;
+        }
+        .invg-td { padding: .6rem 1rem; border-bottom: 1px solid rgba(30,41,59,.6); color: #cbd5e1; vertical-align: top; }
+        .invg-strong { color: #e2e8f0; font-weight: 600; }
+        .invg-sub { color: #64748b; font-size: .75rem; }
+        .invg-mono { font-family: ui-monospace, monospace; }
+        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: #64748b; }
+        .invg-mov-error { color: #fda4af; }
+        .invg-chip {
+            display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem;
+            border-radius: 999px; font-size: .72rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+        }
+        .invg-chip-in { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.28); }
+        .invg-chip-out { background: rgba(248,113,113,.1); color: #f87171; border-color: rgba(248,113,113,.28); }
+        .invg-chip-adj { background: rgba(245,158,11,.1); color: #fbbf24; border-color: rgba(245,158,11,.28); }
+        .invg-chip-neutral { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+    </style>
+}
+
+<div class="erp-page-shell erp-page-shell-xl space-y-6" data-invg-root>
 
     @if (TempData["Success"] != null)
     {
@@ -43,6 +80,19 @@
             </div>
         </div>
     </section>
+
+    <!-- Tabs: experiencia integrada (solo con JS; sin JS se ve Unidades + link a Movimientos) -->
+    <div class="invg-tabs" role="tablist" aria-label="Secciones de inventario">
+        <button type="button" class="invg-tab" role="tab" data-invg-tab="unidades" aria-selected="true">
+            <span class="material-symbols-outlined">inventory_2</span>Unidades físicas
+        </button>
+        <button type="button" class="invg-tab" role="tab" data-invg-tab="movimientos" aria-selected="false">
+            <span class="material-symbols-outlined">swap_vert</span>Movimientos
+        </button>
+    </div>
+
+    <!-- ===================== Panel: Unidades físicas ===================== -->
+    <div data-invg-panel="unidades" class="space-y-6">
 
     <!-- KPIs / Resumen -->
     <section class="rounded-lg border border-slate-800 bg-slate-950/60 p-5">
@@ -281,4 +331,45 @@
         }
     </section>
 
+    </div><!-- /panel unidades -->
+
+    <!-- ===================== Panel: Movimientos ===================== -->
+    <div data-invg-panel="movimientos" class="space-y-4" hidden>
+        <section class="rounded-lg border border-slate-800 bg-slate-950/60">
+            <div class="flex flex-col gap-2 border-b border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-300">Movimientos de inventario</h2>
+                    <p id="invg-mov-summary" class="mt-0.5 text-xs text-slate-500">Cargá la pestaña para ver los movimientos recientes.</p>
+                </div>
+                <a asp-controller="MovimientoStock" asp-action="Index"
+                   class="btn-erp-secondary btn-sm w-full sm:w-auto">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span>
+                    Historial completo
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="invg-mov-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Producto</th>
+                            <th scope="col">Cantidad</th>
+                            <th scope="col">Stock</th>
+                            <th scope="col">Usuario</th>
+                            <th scope="col">Referencia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invg-mov-body">
+                        <tr><td colspan="7" class="invg-mov-state">Cargando movimientos…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div><!-- /panel movimientos -->
+
 </div>
+
+@section Scripts {
+    <script src="~/js/inventario-global.js" asp-append-version="true"></script>
+}
