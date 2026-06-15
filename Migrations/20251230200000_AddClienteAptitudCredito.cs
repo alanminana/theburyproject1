@@ -49,19 +49,19 @@ namespace TheBuryProject.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    
+
                     // Documentación
                     ValidarDocumentacion = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     TiposDocumentoRequeridos = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     ValidarVencimientoDocumentos = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     DiasGraciaVencimientoDocumento = table.Column<int>(type: "int", nullable: true, defaultValue: 0),
-                    
+
                     // Límite de crédito
                     ValidarLimiteCredito = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     LimiteCreditoMinimo = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     LimiteCreditoDefault = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     PorcentajeCupoMinimoRequerido = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
-                    
+
                     // Mora
                     ValidarMora = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     DiasParaRequerirAutorizacion = table.Column<int>(type: "int", nullable: true, defaultValue: 1),
@@ -69,7 +69,7 @@ namespace TheBuryProject.Migrations
                     MontoMoraParaRequerirAutorizacion = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     MontoMoraParaNoApto = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     CuotasVencidasParaNoApto = table.Column<int>(type: "int", nullable: true),
-                    
+
                     // General
                     RecalculoAutomatico = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     DiasValidezEvaluacion = table.Column<int>(type: "int", nullable: true, defaultValue: 30),
@@ -78,7 +78,7 @@ namespace TheBuryProject.Migrations
                     MensajeConfiguracionDeshabilitada = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     FechaUltimaModificacion = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ModificadoPor = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    
+
                     // Campos de auditoría
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
@@ -89,27 +89,40 @@ namespace TheBuryProject.Migrations
                     table.PrimaryKey("PK_ConfiguracionesCredito", x => x.Id);
                 });
 
-            // Insertar configuración por defecto
-            migrationBuilder.InsertData(
-                table: "ConfiguracionesCredito",
-                columns: new[] 
-                { 
-                    "ValidarDocumentacion", "ValidarVencimientoDocumentos", 
-                    "ValidarLimiteCredito", "ValidarMora",
-                    "DiasParaRequerirAutorizacion", "RecalculoAutomatico", 
-                    "DiasValidezEvaluacion", "AuditoriaActiva",
-                    "MensajeConfiguracionDeshabilitada",
-                    "CreatedAt", "UpdatedAt", "IsDeleted"
-                },
-                values: new object[] 
-                { 
-                    true, true, 
-                    true, true,
-                    1, true, 
-                    30, true,
-                    "La validación de aptitud crediticia no está configurada. Configure los parámetros en Administración.",
-                    DateTime.UtcNow, DateTime.UtcNow, false
-                });
+            // Insertar configuración por defecto.
+            // Se usa SQL manual porque esta tabla legacy ya no está mapeada como entidad EF actual.
+            migrationBuilder.Sql(@"
+                INSERT INTO [ConfiguracionesCredito]
+                (
+                    [ValidarDocumentacion],
+                    [ValidarVencimientoDocumentos],
+                    [ValidarLimiteCredito],
+                    [ValidarMora],
+                    [DiasParaRequerirAutorizacion],
+                    [RecalculoAutomatico],
+                    [DiasValidezEvaluacion],
+                    [AuditoriaActiva],
+                    [MensajeConfiguracionDeshabilitada],
+                    [CreatedAt],
+                    [UpdatedAt],
+                    [IsDeleted]
+                )
+                VALUES
+                (
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    30,
+                    1,
+                    N'La validación de aptitud crediticia no está configurada. Configure los parámetros en Administración.',
+                    SYSUTCDATETIME(),
+                    SYSUTCDATETIME(),
+                    0
+                );
+            ");
         }
 
         /// <inheritdoc />
