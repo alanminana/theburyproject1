@@ -1,0 +1,183 @@
+@model MercadoLibreSyncPreviewViewModel
+@{
+    ViewData["Title"] = "Preview sincronización Mercado Libre";
+}
+
+<div class="erp-page-shell erp-page-shell-xl erp-compact">
+
+    <!-- Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">sync</span>
+                Preview de sincronización
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                @Model.TotalConCambios publicaciones con cambios · @Model.TotalExcluidas excluidas · @Model.TotalAdvertencias con advertencias
+            </p>
+        </div>
+        <a asp-action="Listings" class="btn-erp-ghost btn-sm">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Volver
+        </a>
+    </div>
+
+    @if (Model.ModoSimulacion)
+    {
+        <div class="card-erp-panel p-4 mb-6 border border-sky-500/30">
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-sky-400" aria-hidden="true">science</span>
+                <p class="text-sm text-slate-300">
+                    <span class="font-bold text-sky-300">Modo simulación activo.</span>
+                    Al aplicar, los cambios se registran en el log pero <span class="font-bold">no se envían a Mercado Libre</span>.
+                    Para envíos reales, desactivá el modo simulación en la configuración del canal.
+                </p>
+            </div>
+        </div>
+    }
+
+    <div class="card-erp-panel overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="erp-table w-full">
+                <thead>
+                    <tr>
+                        <th>Publicación</th>
+                        <th>Variación</th>
+                        <th>Producto</th>
+                        <th class="text-right">Stock ML → Nuevo</th>
+                        <th class="text-right">Precio ML → Nuevo</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr class="@(item.Excluida ? "opacity-50" : null)">
+                            <td>
+                                <p class="font-semibold text-white truncate max-w-[220px]" title="@item.Titulo">@item.Titulo</p>
+                                <p class="text-xs text-slate-400 font-mono">
+                                    @item.ItemId · @item.Status
+                                    @if (item.TieneVariaciones)
+                                    {
+                                        <span class="text-amber-400">· @item.CantidadVariaciones var.</span>
+                                    }
+                                </p>
+                            </td>
+                            <td>
+                                @if (item.VariationId.HasValue)
+                                {
+                                    <p class="font-mono text-xs text-white">@item.VariationId</p>
+                                    <p class="text-xs text-slate-400">@(item.VariationAtributos ?? "—")</p>
+                                    @if (!string.IsNullOrWhiteSpace(item.VariationSellerSku))
+                                    {
+                                        <p class="text-[10px] text-slate-500 font-mono">SKU @item.VariationSellerSku</p>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-slate-600">—</span>
+                                }
+                            </td>
+                            <td>
+                                <p class="text-sm text-white">@(item.ProductoCodigo ?? "—")</p>
+                                <p class="text-xs text-slate-400 truncate max-w-[160px]">@item.ProductoNombre</p>
+                                @if (item.OrigenStock.HasValue)
+                                {
+                                    <p class="text-[10px] text-slate-500">Origen: @item.OrigenStock</p>
+                                }
+                            </td>
+                            <td class="text-right font-mono">
+                                @if (item.CambiaStock)
+                                {
+                                    <span class="text-slate-400">@item.StockMl</span>
+                                    <span class="text-slate-500">→</span>
+                                    <span class="font-bold text-emerald-400">@item.StockObjetivo</span>
+                                }
+                                else if (item.StockObjetivo.HasValue)
+                                {
+                                    <span class="text-slate-500">@item.StockMl (sin cambio)</span>
+                                }
+                                else
+                                {
+                                    <span class="text-slate-600">—</span>
+                                }
+                            </td>
+                            <td class="text-right font-mono">
+                                @if (item.CambiaPrecio)
+                                {
+                                    <span class="text-slate-400">@item.PrecioMl.ToString("N2")</span>
+                                    <span class="text-slate-500">→</span>
+                                    <span class="font-bold text-emerald-400">@item.PrecioObjetivo?.ToString("N2")</span>
+                                }
+                                else if (item.PrecioObjetivo.HasValue)
+                                {
+                                    <span class="text-slate-500">@item.PrecioMl.ToString("N2") (sin cambio)</span>
+                                }
+                                else
+                                {
+                                    <span class="text-slate-600">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.Excluida)
+                                {
+                                    <p class="text-xs text-rose-400">@item.MotivoExclusion</p>
+                                }
+                                @foreach (var advertencia in item.Advertencias)
+                                {
+                                    <p class="text-xs text-amber-400 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">warning</span>
+                                        @advertencia
+                                    </p>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (Model.TotalConCambios > 0)
+    {
+        <form asp-action="SyncAplicar" method="post" class="card-erp-panel p-6">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="tipo" value="@Model.Tipo" />
+            @foreach (var item in Model.Items.Where(i => !i.Excluida && i.TieneCambios))
+            {
+                <input type="hidden" name="listingIds" value="@item.ListingId" />
+            }
+
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    @if (Model.ModoSimulacion)
+                    {
+                        <p class="text-sm font-semibold text-sky-300">
+                            Se simulará el envío de @Model.TotalConCambios cambios (modo simulación activo).
+                        </p>
+                    }
+                    else
+                    {
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="confirmarReal" value="true" />
+                            <span class="text-sm font-semibold text-white">
+                                Confirmo el envío <span class="text-rose-400 font-bold">REAL</span> a Mercado Libre
+                            </span>
+                        </label>
+                        <p class="text-xs text-slate-400 mt-1">Sin confirmar, la corrida se registra como simulación.</p>
+                    }
+                </div>
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-sm">@(Model.ModoSimulacion ? "science" : "sync")</span>
+                    @(Model.ModoSimulacion ? "Simular sincronización" : "Aplicar sincronización")
+                </button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <div class="card-erp-panel p-6 text-center">
+            <p class="text-sm text-slate-400">No hay cambios para sincronizar: ML ya está alineado con el ERP.</p>
+        </div>
+    }
+</div>

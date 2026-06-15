@@ -1,0 +1,136 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibreQuestion
+@{
+    ViewData["Title"] = "Pregunta Mercado Libre";
+    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+    var puedeResponder = Model.Estado == MercadoLibreQuestionEstado.Pendiente;
+    // Botón "Simular respuesta" cuando no se enviará a ML (simulación o pregunta simulada local).
+    var esSimulada = modoSimulacion || Model.EsSimulada;
+    var labelBoton = esSimulada ? "Simular respuesta" : "Responder en Mercado Libre";
+}
+
+<div class="erp-page-shell erp-page-shell-lg erp-compact">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-black text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">help</span>
+            Pregunta preventa
+        </h1>
+        <a asp-action="Preguntas" class="btn-erp-ghost btn-sm">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Volver
+        </a>
+    </div>
+
+    <div class="card-erp-panel p-5 mb-4">
+        <div class="flex flex-wrap items-center gap-2 mb-3 text-xs text-slate-400">
+            <span>@Model.FechaPreguntaUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+            @if (Model.ListingId.HasValue)
+            {
+                <span>·</span>
+                <a asp-action="Listing" asp-route-id="@Model.ListingId" class="font-mono text-sky-300 hover:underline">@Model.ItemId</a>
+            }
+            else if (!string.IsNullOrEmpty(Model.ItemId))
+            {
+                <span>·</span><span class="font-mono">@Model.ItemId</span>
+            }
+            else
+            {
+                <span class="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-bold text-amber-300">sin publicación vinculada</span>
+            }
+            @if (Model.ProductoId.HasValue)
+            {
+                <span>·</span><span>Producto ERP #@Model.ProductoId</span>
+            }
+            @if (Model.EsSimulada)
+            {
+                <span class="inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-bold text-sky-300">simulada local</span>
+            }
+        </div>
+
+        <div class="rounded-lg border border-slate-700/60 bg-slate-800/40 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Pregunta del comprador</p>
+            <p class="text-base text-slate-100 whitespace-pre-wrap">@Model.TextoPregunta</p>
+        </div>
+
+        @if (Model.Estado == MercadoLibreQuestionEstado.Respondida)
+        {
+            <div class="rounded-lg border border-emerald-700/40 bg-emerald-900/20 p-4 mt-3">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-1">
+                    Respuesta @(Model.EsSimulada ? "(simulada local)" : "(enviada a Mercado Libre)")
+                    @if (Model.FechaRespuestaUtc.HasValue)
+                    {
+                        <span class="text-slate-500 font-normal normal-case"> · @Model.FechaRespuestaUtc.Value.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                    }
+                </p>
+                <p class="text-base text-slate-100 whitespace-pre-wrap">@Model.RespuestaTexto</p>
+            </div>
+        }
+        @if (Model.Estado == MercadoLibreQuestionEstado.Error && !string.IsNullOrEmpty(Model.ErrorProcesamiento))
+        {
+            <div class="rounded-lg border border-rose-700/40 bg-rose-900/20 p-4 mt-3">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-rose-400 mb-1">Error</p>
+                <p class="text-sm text-rose-200">@Model.ErrorProcesamiento</p>
+            </div>
+        }
+    </div>
+
+    @if (puedeResponder)
+    {
+        <div class="card-erp-panel p-5">
+            <h2 class="text-lg font-bold text-white mb-1">Responder</h2>
+            @if (esSimulada)
+            {
+                <p class="text-xs text-sky-300 mb-3">
+                    <span class="material-symbols-outlined text-sm align-middle">info</span>
+                    La respuesta se guardará localmente y <strong>no se enviará a Mercado Libre</strong>.
+                </p>
+            }
+            else
+            {
+                <p class="text-xs text-amber-300 mb-3">
+                    <span class="material-symbols-outlined text-sm align-middle">warning</span>
+                    Modo real: la respuesta se enviará a Mercado Libre tras confirmar.
+                </p>
+            }
+
+            @{
+                var onsubmitPregunta = esSimulada
+                    ? ""
+                    : "return confirm('Enviar esta respuesta REAL a Mercado Libre? Esta acción es visible para el comprador.');";
+            }
+            <form asp-action="PreguntaResponder" method="post" onsubmit="@onsubmitPregunta">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                @if (!esSimulada)
+                {
+                    <input type="hidden" name="confirmarReal" value="true" />
+                }
+                <textarea name="respuesta" rows="4" maxlength="2000" required
+                          class="input-erp w-full"
+                          placeholder="Escribí la respuesta para el comprador..."></textarea>
+                <div class="flex justify-end mt-3">
+                    <button type="submit" class="btn-erp-primary btn-sm">
+                        <span class="material-symbols-outlined text-sm">@(esSimulada ? "science" : "send")</span>
+                        @labelBoton
+                    </button>
+                </div>
+            </form>
+        </div>
+    }
+</div>

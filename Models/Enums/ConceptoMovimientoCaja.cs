@@ -11,6 +11,7 @@ namespace TheBuryProject.Models.Enums
         CobroCuota = 3,
         VentaTransferencia = 6,
         VentaMercadoPago = 7,
+        LiquidacionMercadoLibre = 8,
         CancelacionCredito = 4,
         AnticipoCredito = 5,
         GastoOperativo = 10,

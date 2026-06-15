@@ -291,6 +291,17 @@ public static class RolesPermisosSeeder
                 ("Cambiar Estado", "changestatus", 4),
                 ("Resolver", "resolve", 5),
                 ("Eliminar", "delete", 6)
+            }),
+
+            // INTEGRACIONES
+            ("Mercado Libre", "mercadolibre", "Integraciones", "bi-shop", 110, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Conectar/Desconectar", "connect", 2),
+                ("Sincronizar", "sync", 3),
+                ("Vincular Productos", "link", 4),
+                ("Configurar", "config", 5),
+                ("Gestionar Órdenes", "orders", 6)
             })
         };
 

@@ -54,6 +54,7 @@
         var canViewProveedores = User.TienePermiso("proveedores", "view");
         var canViewCaja = User.TienePermiso("caja", "view");
         var canViewReportes = User.TienePermiso("reportes", "view");
+        var canViewMercadoLibre = User.TienePermiso("mercadolibre", "view");
 
         var canViewSeguridad = User.TieneCualquierPermiso(
             ("usuarios", "view"),
@@ -71,6 +72,7 @@
         var showOperaciones = canViewVentas || canViewClientes;
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
         var showReportes = canViewReportes;
+        var showIntegraciones = canViewMercadoLibre;
         var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
     }
 
@@ -210,6 +212,26 @@
                                 <span class="material-symbols-outlined text-lg shrink-0"
                                       aria-hidden="true">leaderboard</span>
                                 <p class="@NavFont(active) sidebar-label">Reportes</p>
+                            </a>
+                        </div>
+                    </div>
+                }
+
+                @if (showIntegraciones)
+                {
+                    <div>
+                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
+                            Integraciones
+                        </p>
+
+                        <div class="space-y-1">
+                            @{
+                                var mlActive = IsActive("MercadoLibre");
+                            }
+                            <a class="@NavClass(mlActive)" aria-current="@NavCurrent(mlActive)" asp-controller="MercadoLibre"
+                               asp-action="Dashboard" title="Mercado Libre">
+                                <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">storefront</span>
+                                <p class="@NavFont(mlActive) sidebar-label">Mercado Libre</p>
                             </a>
                         </div>
                     </div>

@@ -1,0 +1,256 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibrePriceBatchDetalleViewModel
+@{
+    ViewData["Title"] = $"Lote: {Model.Nombre}";
+}
+
+<div class="erp-page-shell erp-page-shell-xl erp-compact">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">trending_up</span>
+                @Model.Nombre
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                @(Model.Origen == MercadoLibrePriceBatchOrigen.DesdePrecioErp ? "Desde precio ERP" : "% sobre precio ML")
+                · ajuste @Model.ValorAjustePorcentaje.ToString("+0.##;-0.##;0")%
+                · @Model.Items.Count items · @Model.ConAdvertencia con advertencia
+                · solicitado por @Model.SolicitadoPor
+            </p>
+        </div>
+        <a asp-action="Aumentos" class="btn-erp-ghost btn-sm">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Lotes
+        </a>
+    </div>
+
+    <!-- Acciones según estado -->
+    <div class="card-erp-panel p-4 mb-6">
+        @if (Model.Estado == MercadoLibrePriceBatchEstado.Simulado)
+        {
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-bold text-sky-300">Lote simulado — revisar el preview antes de aplicar.</p>
+                    @if (Model.ModoSimulacion)
+                    {
+                        <p class="text-xs text-slate-400 mt-1">
+                            Modo simulación global activo: "Aplicar" registra la corrida pero no llama a Mercado Libre.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-xs text-amber-300 mt-1">
+                            Modo real: requiere confirmacion explicita antes de enviar precios a Mercado Libre.
+                        </p>
+                    }
+                </div>
+                <div class="flex gap-2 items-center">
+                    <form asp-action="AumentoAplicar" method="post" class="flex items-center gap-2"
+                          onsubmit="return confirm('¿Aplicar el lote de precios?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        @if (!Model.ModoSimulacion)
+                        {
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" name="confirmarReal" value="true" />
+                                <span class="text-xs text-white">Envío <span class="text-rose-400 font-bold">REAL</span></span>
+                            </label>
+                        }
+                        <button type="submit" class="btn-erp-primary btn-sm" disabled="@(Model.PuedeAplicar ? null : "disabled")">
+                            <span class="material-symbols-outlined text-sm">play_arrow</span>
+                            Aplicar lote
+                        </button>
+                    </form>
+                    <form asp-action="AumentoCancelar" method="post"
+                          onsubmit="return confirm('¿Cancelar el lote?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn-erp-ghost btn-sm text-slate-400">Cancelar lote</button>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.PuedeRevertir)
+        {
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-slate-300">
+                    <span class="font-bold text-emerald-400">@(Model.Estado == MercadoLibrePriceBatchEstado.Aplicado ? "Aplicado" : "Aplicado parcial")</span>
+                    el @Model.FechaAplicacion?.ToLocalTime().ToString("dd/MM HH:mm") por @Model.AplicadoPor
+                    · @Model.Aplicados aplicados · @Model.ConError con error.
+                </p>
+                <form asp-action="AumentoRevertir" method="post" class="flex items-center gap-2"
+                      onsubmit="return confirm('ROLLBACK: se re-publican los precios anteriores del snapshot. ¿Continuar?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <input type="text" name="motivo" class="input-erp w-48" maxlength="500" placeholder="Motivo del rollback" />
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" name="confirmarReal" value="true" />
+                        <span class="text-xs text-white">Confirmo <span class="text-rose-400 font-bold">REAL</span></span>
+                    </label>
+                    <button type="submit" class="btn-erp-secondary btn-sm">
+                        <span class="material-symbols-outlined text-sm">undo</span>
+                        Revertir
+                    </button>
+                </form>
+            </div>
+        }
+        else if (Model.Estado == MercadoLibrePriceBatchEstado.Revertido)
+        {
+            <p class="text-sm text-slate-300">
+                <span class="font-bold text-slate-400">Revertido</span> el @Model.FechaReversion?.ToLocalTime().ToString("dd/MM HH:mm")
+                por @Model.RevertidoPor.
+                @if (!string.IsNullOrEmpty(Model.MotivoReversion))
+                {
+                    <span class="text-slate-400">Motivo: @Model.MotivoReversion</span>
+                }
+            </p>
+        }
+        else if (Model.AplicadoEnSimulacion)
+        {
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-sky-300" aria-hidden="true">science</span>
+                <div>
+                    <p class="text-sm font-bold text-sky-300">Aplicado en simulación — no modificó Mercado Libre.</p>
+                    <p class="text-xs text-slate-400 mt-1">No requiere rollback: fue simulación sin cambios reales.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p class="text-sm text-slate-400">Lote @Model.Estado.</p>
+        }
+    </div>
+
+    <!-- Items -->
+    @if (Model.Items.Count == 0)
+    {
+        <div class="card-erp-panel p-8 text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-600 mb-3 block" aria-hidden="true">filter_alt_off</span>
+            <h2 class="text-lg font-bold text-white mb-2">Sin publicaciones para previsualizar</h2>
+            @if (Model.FiltroSoloVinculadas)
+            {
+                <p class="text-sm text-slate-400">
+                    No hay publicaciones vinculadas. Desmarcá el filtro solo para previsualizar; no podrás aplicar cambios reales sobre publicaciones sin vincular.
+                </p>
+            }
+            else
+            {
+                <p class="text-sm text-slate-400">
+                    Los filtros elegidos no encontraron publicaciones con cambios de precio aplicables.
+                </p>
+            }
+        </div>
+    }
+    else
+    {
+    <div class="card-erp-panel overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="erp-table w-full">
+                <thead>
+                    <tr>
+                        <th>Publicación</th>
+                        <th class="text-right">Precio anterior</th>
+                        <th class="text-right">Precio nuevo</th>
+                        <th class="text-right">Δ%</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-action="Listing" asp-route-id="@item.ListingId"
+                                   class="text-sm font-semibold text-white hover:text-amber-300 no-underline truncate block max-w-[260px]"
+                                   title="@item.Titulo">@item.Titulo</a>
+                                <p class="text-xs text-slate-400 font-mono">
+                                    @item.ItemId
+                                    @if (item.VariationId.HasValue)
+                                    {
+                                        <span>· var @item.VariationId</span>
+                                    }
+                                </p>
+                                @if (!string.IsNullOrWhiteSpace(item.ProductoNombre))
+                                {
+                                    <p class="text-xs text-slate-300 mt-1">
+                                        Producto: @item.ProductoCodigo - @item.ProductoNombre
+                                    </p>
+                                }
+                                else
+                                {
+                                    <p class="text-xs text-amber-300 mt-1">Sin producto vinculado</p>
+                                }
+                                <p class="text-xs text-slate-500">
+                                    @item.OrigenPrecio
+                                    @if (item.MargenEstimadoPorcentaje.HasValue)
+                                    {
+                                        <span>- margen estimado @item.MargenEstimadoPorcentaje.Value.ToString("+0.##;-0.##;0")%</span>
+                                    }
+                                </p>
+                            </td>
+                            <td class="text-right font-mono text-slate-400">@item.PrecioAnterior.ToString("N2")</td>
+                            <td class="text-right font-mono font-bold text-emerald-400">@item.PrecioNuevo.ToString("N2")</td>
+                            <td class="text-right font-mono text-white">@item.DiferenciaPorcentaje.ToString("+0.##;-0.##;0")%</td>
+                            <td>
+                                @if (item.Revertido)
+                                {
+                                    <span class="text-xs text-slate-400">Revertido</span>
+                                }
+                                else if (item.Aplicado && Model.AplicadoEnSimulacion)
+                                {
+                                    <span class="text-xs font-bold text-sky-400">Aplicado en simulación</span>
+                                }
+                                else if (item.Aplicado)
+                                {
+                                    <span class="text-xs font-bold text-emerald-400">Aplicado</span>
+                                }
+                                else
+                                {
+                                    <span class="text-xs text-sky-400">Simulado</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.Error))
+                                {
+                                    <p class="text-xs text-rose-400">@item.Error</p>
+                                }
+                                @if (item.TieneAdvertencia)
+                                {
+                                    <p class="text-xs text-amber-400 flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[14px]">warning</span>
+                                        @item.MensajeAdvertencia
+                                    </p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.PayloadAplicacionJson))
+                                {
+                                    <details class="mt-1">
+                                        <summary class="text-xs text-slate-400 cursor-pointer">Payload precio</summary>
+                                        <code class="block max-w-[18rem] whitespace-pre-wrap break-all rounded bg-slate-950/60 p-2 text-[11px] text-slate-300">@item.PayloadAplicacionJson</code>
+                                    </details>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    }
+</div>

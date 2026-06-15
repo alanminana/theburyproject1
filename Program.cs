@@ -8,6 +8,8 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Hubs;
 using TheBuryProject.Middleware;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Modules.MercadoLibre;
+using TheBuryProject.Modules.MercadoLibre.Mapping;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 
@@ -58,7 +60,11 @@ builder.Services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation
 builder.Services.AddSingleton<IMapper>(sp =>
 {
     var loggerFactory = sp.GetService<ILoggerFactory>();
-    var config = new MapperConfiguration(cfg => { cfg.AddProfile<MappingProfile>(); }, loggerFactory);
+    var config = new MapperConfiguration(cfg =>
+    {
+        cfg.AddProfile<MappingProfile>();
+        cfg.AddProfile<MercadoLibreMappingProfile>();
+    }, loggerFactory);
     return config.CreateMapper();
 });
 
@@ -67,6 +73,7 @@ builder.Services.AddCoreServices();
 builder.Services.AddVentaServices();
 builder.Services.AddCreditoServices();
 builder.Services.AddTicketServices();
+builder.Services.AddMercadoLibreModule(builder.Configuration);
 
 builder.Services.AddScoped<ICategoriaService, CategoriaService>();
 builder.Services.AddScoped<IMarcaService, MarcaService>();

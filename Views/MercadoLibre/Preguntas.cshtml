@@ -1,0 +1,138 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreQuestion>
+@{
+    ViewData["Title"] = "Preguntas Mercado Libre";
+    var filtro = ViewBag.Filtro as string;
+    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+}
+
+<div class="erp-page-shell erp-page-shell-xl erp-compact">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">help</span>
+                Preguntas preventa
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                @Model.Count preguntas · la respuesta es siempre manual.
+                @if (modoSimulacion)
+                {
+                    <span class="text-sky-300 font-semibold">Modo simulación: las respuestas no se envían a Mercado Libre.</span>
+                }
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a asp-action="Mensajes" class="btn-erp-ghost btn-sm">
+                <span class="material-symbols-outlined text-sm">forum</span>
+                Mensajes
+            </a>
+            <a asp-action="Dashboard" class="btn-erp-ghost btn-sm">
+                <span class="material-symbols-outlined text-sm">dashboard</span>
+                Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <a asp-action="Preguntas" class="btn-sm @(string.IsNullOrEmpty(filtro) ? "btn-erp-primary" : "btn-erp-ghost")">Todas</a>
+        <a asp-action="Preguntas" asp-route-filtro="pendientes" class="btn-sm @(filtro == "pendientes" ? "btn-erp-primary" : "btn-erp-ghost")">Pendientes</a>
+        <a asp-action="Preguntas" asp-route-filtro="respondidas" class="btn-sm @(filtro == "respondidas" ? "btn-erp-primary" : "btn-erp-ghost")">Respondidas</a>
+        <a asp-action="Preguntas" asp-route-filtro="simuladas" class="btn-sm @(filtro == "simuladas" ? "btn-erp-primary" : "btn-erp-ghost")">Simuladas</a>
+        <a asp-action="Preguntas" asp-route-filtro="con-error" class="btn-sm @(filtro == "con-error" ? "btn-erp-primary" : "btn-erp-ghost")">Con error</a>
+        <a asp-action="Preguntas" asp-route-filtro="sin-vincular" class="btn-sm @(filtro == "sin-vincular" ? "btn-erp-primary" : "btn-erp-ghost")">Sin publicación</a>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="card-erp-panel p-8 text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-600 mb-3 block" aria-hidden="true">help</span>
+            <h2 class="text-lg font-bold text-white mb-2">Sin preguntas</h2>
+            <p class="text-sm text-slate-400">
+                Las preguntas llegan por webhook. En modo simulación podés generar una de prueba desde el detalle de una publicación.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card-erp-panel overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="erp-table w-full">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Publicación</th>
+                            <th>Pregunta</th>
+                            <th>Estado</th>
+                            <th class="text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model)
+                        {
+                            <tr>
+                                <td class="text-sm text-slate-300 whitespace-nowrap">@p.FechaPreguntaUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                <td class="text-sm">
+                                    @if (p.ListingId.HasValue)
+                                    {
+                                        <a asp-action="Listing" asp-route-id="@p.ListingId" class="font-mono text-sky-300 hover:underline">@p.ItemId</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">sin publicación</span>
+                                    }
+                                </td>
+                                <td class="max-w-[420px]">
+                                    <p class="text-sm text-slate-200 line-clamp-2">@p.TextoPregunta</p>
+                                </td>
+                                <td>
+                                    @switch (p.Estado)
+                                    {
+                                        case MercadoLibreQuestionEstado.Respondida:
+                                            <span class="text-xs font-bold text-emerald-400">Respondida</span>
+                                            break;
+                                        case MercadoLibreQuestionEstado.Error:
+                                            <span class="text-xs font-bold text-rose-400" title="@p.ErrorProcesamiento">Error</span>
+                                            break;
+                                        case MercadoLibreQuestionEstado.Cerrada:
+                                            <span class="text-xs text-slate-500">Cerrada</span>
+                                            break;
+                                        default:
+                                            <span class="text-xs font-bold text-amber-400">Pendiente</span>
+                                            break;
+                                    }
+                                    @if (p.EsSimulada)
+                                    {
+                                        <span class="ml-1 inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300">simulada</span>
+                                    }
+                                </td>
+                                <td class="text-right">
+                                    <a asp-action="Pregunta" asp-route-id="@p.Id" class="btn-erp-icon" title="Ver / responder">
+                                        <span class="material-symbols-outlined text-lg">@(p.Estado == MercadoLibreQuestionEstado.Pendiente ? "reply" : "visibility")</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

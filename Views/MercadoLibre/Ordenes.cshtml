@@ -1,0 +1,215 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreOrderViewModel>
+@{
+    ViewData["Title"] = "Órdenes Mercado Libre";
+    var filtro = ViewBag.Filtro as string;
+    var puedeGenerarOrdenSimulada = ViewBag.PuedeGenerarOrdenSimulada as bool? ?? false;
+    var puedeGenerarOrdenOperativaSimulada = ViewBag.PuedeGenerarOrdenOperativaSimulada as bool? ?? false;
+}
+
+<div class="erp-page-shell erp-page-shell-xl erp-compact">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">receipt_long</span>
+                Órdenes Mercado Libre
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                @Model.Count órdenes · las ventas ML quedan pendientes de liquidación (no son efectivo directo).
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            @if (puedeGenerarOrdenSimulada)
+            {
+                <form asp-action="OrdenGenerarSimulada" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn-erp-secondary btn-sm">
+                        <span class="material-symbols-outlined text-sm">science</span>
+                        Generar orden QA
+                    </button>
+                </form>
+            }
+            @if (puedeGenerarOrdenOperativaSimulada)
+            {
+                <form asp-action="OrdenGenerarOperativaSimulada" method="post"
+                      onsubmit="return confirm('Generar una orden operativa simulada local? No llama a Mercado Libre, pero permite crear venta interna y descontar stock ERP.');">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn-erp-secondary btn-sm">
+                        <span class="material-symbols-outlined text-sm">point_of_sale</span>
+                        Generar operativa simulada
+                    </button>
+                </form>
+            }
+            <form asp-action="OrdenesImportarRecientes" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn-erp-secondary btn-sm">
+                    <span class="material-symbols-outlined text-sm">cloud_download</span>
+                    Importar recientes
+                </button>
+            </form>
+            <a asp-action="Index" class="btn-erp-ghost btn-sm">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Conexión
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <a asp-action="Ordenes" class="btn-sm @(string.IsNullOrEmpty(filtro) ? "btn-erp-primary" : "btn-erp-ghost")">Todas</a>
+        <a asp-action="Ordenes" asp-route-filtro="pendientes" class="btn-sm @(filtro == "pendientes" ? "btn-erp-primary" : "btn-erp-ghost")">Pendientes</a>
+        <a asp-action="Ordenes" asp-route-filtro="venta-creada" class="btn-sm @(filtro == "venta-creada" ? "btn-erp-primary" : "btn-erp-ghost")">Con venta</a>
+        <a asp-action="Ordenes" asp-route-filtro="liquidadas" class="btn-sm @(filtro == "liquidadas" ? "btn-erp-primary" : "btn-erp-ghost")">Liquidadas</a>
+        <a asp-action="Ordenes" asp-route-filtro="devoluciones" class="btn-sm @(filtro == "devoluciones" ? "btn-erp-primary" : "btn-erp-ghost")">Devoluciones</a>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="card-erp-panel p-8 text-center">
+            <span class="material-symbols-outlined text-5xl text-slate-600 mb-3 block" aria-hidden="true">receipt_long</span>
+            <h2 class="text-lg font-bold text-white mb-2">Sin órdenes</h2>
+            <p class="text-sm text-slate-400">
+                Las órdenes llegan automáticamente por webhook, o podés traerlas con "Importar recientes".
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card-erp-panel overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="erp-table w-full">
+                    <thead>
+                        <tr>
+                            <th>Orden</th>
+                            <th>Fecha</th>
+                            <th>Comprador</th>
+                            <th class="text-right">Total</th>
+                            <th class="text-right">Neto est.</th>
+                            <th>Estado ML</th>
+                            <th>Estado interno</th>
+                            <th>Envio</th>
+                            <th>Venta</th>
+                            <th class="text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var orden in Model)
+                        {
+                            <tr>
+                                <td class="font-mono text-white">
+                                    #@orden.MeliOrderId
+                                    @if (orden.EsSimuladaQa)
+                                    {
+                                        <span class="ml-2 inline-flex items-center rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300">QA</span>
+                                    }
+                                    else if (orden.EsSimuladaOperativa)
+                                    {
+                                        <span class="ml-2 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">Sim local</span>
+                                    }
+                                </td>
+                                <td class="text-sm text-slate-300">@orden.FechaCreacionUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                <td class="text-sm text-slate-300">@(orden.BuyerNickname ?? "—")</td>
+                                <td class="text-right font-mono text-white">@orden.TotalAmount.ToString("N2")</td>
+                                <td class="text-right font-mono text-slate-300">@(orden.NetoEstimado?.ToString("N2") ?? "—")</td>
+                                <td>
+                                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold
+                                          @(orden.Status == "paid" ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                                            : orden.Status == "cancelled" ? "bg-rose-500/10 border border-rose-500/30 text-rose-400"
+                                            : "bg-slate-500/10 border border-slate-500/30 text-slate-400")">
+                                        @orden.Status
+                                    </span>
+                                    @if (orden.DevolucionEstado != MercadoLibreDevolucionEstado.Ninguna)
+                                    {
+                                        <p class="text-[10px] text-amber-400 mt-0.5">devolución: @orden.DevolucionEstado</p>
+                                    }
+                                    @if (orden.TieneClaimPendiente)
+                                    {
+                                        <p class="text-[10px] font-semibold text-rose-300 mt-0.5">claim pendiente (@orden.ClaimsPendientes)</p>
+                                    }
+                                    else if (orden.UltimoClaimEstado.HasValue)
+                                    {
+                                        <p class="text-[10px] text-slate-400 mt-0.5">claim: @orden.UltimoClaimTipo / @orden.UltimoClaimEstado</p>
+                                    }
+                                </td>
+                                <td>
+                                    @switch (orden.EstadoInterno)
+                                    {
+                                        case MercadoLibreOrderEstadoInterno.VentaCreada:
+                                            <span class="text-xs font-bold text-emerald-400">Venta creada</span>
+                                            break;
+                                        case MercadoLibreOrderEstadoInterno.Liquidada:
+                                            <span class="text-xs font-bold text-sky-400">Liquidada</span>
+                                            break;
+                                        case MercadoLibreOrderEstadoInterno.PendienteVinculacion:
+                                            <span class="text-xs font-bold text-amber-400">Pendiente vinculación</span>
+                                            break;
+                                        case MercadoLibreOrderEstadoInterno.PendienteAsignarUnidad:
+                                            <span class="text-xs font-bold text-amber-400" title="@orden.ErrorProcesamiento">Pendiente asignar unidad</span>
+                                            break;
+                                        case MercadoLibreOrderEstadoInterno.Error:
+                                            <span class="text-xs font-bold text-rose-400" title="@orden.ErrorProcesamiento">Error</span>
+                                            break;
+                                        case MercadoLibreOrderEstadoInterno.Ignorada:
+                                            <span class="text-xs text-slate-500">Ignorada</span>
+                                            break;
+                                        default:
+                                            <span class="text-xs text-slate-400">Importada</span>
+                                            break;
+                                    }
+                                </td>
+                                <td>
+                                    @if (orden.ShipmentId.HasValue)
+                                    {
+                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold
+                                              @(orden.EnvioRequiereAtencion ? "bg-rose-500/10 border border-rose-500/30 text-rose-300"
+                                                : orden.EstadoEnvioInterno == MercadoLibreShipmentEstadoInterno.Entregado ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                                                : "bg-sky-500/10 border border-sky-500/30 text-sky-300")">
+                                            @orden.EstadoEnvioInterno
+                                        </span>
+                                        @if (!string.IsNullOrEmpty(orden.TrackingNumber))
+                                        {
+                                            <p class="mt-1 max-w-[150px] truncate font-mono text-[10px] text-slate-400" title="@orden.TrackingNumber">
+                                                @orden.TrackingNumber
+                                            </p>
+                                        }
+                                        @if (orden.EnvioRequiereAtencion)
+                                        {
+                                            <p class="mt-0.5 text-[10px] font-semibold text-rose-300">requiere atencion</p>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-slate-500">Sin envio</span>
+                                    }
+                                </td>
+                                <td class="font-mono text-xs text-slate-300">@(orden.VentaNumero ?? "—")</td>
+                                <td class="text-right">
+                                    <a asp-action="Orden" asp-route-id="@orden.Id" class="btn-erp-icon" title="Ver detalle">
+                                        <span class="material-symbols-outlined text-lg">visibility</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

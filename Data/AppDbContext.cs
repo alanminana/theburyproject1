@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Models.Base;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Modules.MercadoLibre.Data;
+using TheBuryProject.Modules.MercadoLibre.Entities;
 
 namespace TheBuryProject.Data
 {
@@ -122,6 +124,22 @@ namespace TheBuryProject.Data
 
         public DbSet<ProductoUnidad> ProductoUnidades { get; set; }
         public DbSet<ProductoUnidadMovimiento> ProductoUnidadMovimientos { get; set; }
+
+        // Módulo MercadoLibre (integración externa; no mezclar con Producto/Venta)
+        public DbSet<MercadoLibreAccount> MercadoLibreAccounts { get; set; }
+        public DbSet<MercadoLibreListing> MercadoLibreListings { get; set; }
+        public DbSet<MercadoLibreListingVariation> MercadoLibreListingVariations { get; set; }
+        public DbSet<MercadoLibreOrder> MercadoLibreOrders { get; set; }
+        public DbSet<MercadoLibreWebhookEvent> MercadoLibreWebhookEvents { get; set; }
+        public DbSet<MercadoLibreSyncLog> MercadoLibreSyncLogs { get; set; }
+        public DbSet<MercadoLibreOrderItem> MercadoLibreOrderItems { get; set; }
+        public DbSet<MercadoLibreClaim> MercadoLibreClaims { get; set; }
+        public DbSet<MercadoLibreConfiguracion> MercadoLibreConfiguraciones { get; set; }
+        public DbSet<MercadoLibrePriceBatch> MercadoLibrePriceBatches { get; set; }
+        public DbSet<MercadoLibrePriceBatchItem> MercadoLibrePriceBatchItems { get; set; }
+        public DbSet<MercadoLibrePublicacionBorrador> MercadoLibrePublicacionBorradores { get; set; }
+        public DbSet<MercadoLibreQuestion> MercadoLibreQuestions { get; set; }
+        public DbSet<MercadoLibreMessage> MercadoLibreMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -2519,6 +2537,9 @@ namespace TheBuryProject.Data
                     .HasForeignKey(e => e.ProductoUnidadId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+            // Módulo MercadoLibre (configuración aislada en el módulo)
+            MercadoLibreModelConfiguration.Configure(modelBuilder, Database.IsSqlServer());
 
             // Seed de datos inicial
             SeedData(modelBuilder);

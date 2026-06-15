@@ -1,0 +1,291 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibreConfiguracionViewModel
+@{
+    ViewData["Title"] = "Configuración Mercado Libre";
+    ViewData["MetaDescription"] = "Configuración operativa del canal Mercado Libre: precios, stock, órdenes y caja.";
+    var clientes = ViewBag.Clientes as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new();
+}
+
+<div class="erp-page-shell erp-compact">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-erp alert-erp-success toast-msg" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-erp alert-erp-error toast-msg" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">settings</span>
+                Configuración Mercado Libre
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Canal de venta Mercado Libre: cuenta, precios, stock, órdenes y liquidación.
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a asp-action="Index" class="btn-erp-secondary btn-sm">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Volver a Mercado Libre
+            </a>
+        </div>
+    </div>
+
+    @if (Model.ModoSimulacion)
+    {
+        <div class="card-erp-panel p-4 mb-6 border border-sky-500/30">
+            <div class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-sky-400" aria-hidden="true">science</span>
+                <p class="text-sm text-slate-300">
+                    <span class="font-bold text-sky-300">Modo simulación activo.</span>
+                    Los cambios de stock, precio y publicaciones se calculan y registran,
+                    pero <span class="font-bold">no se envían a Mercado Libre</span>.
+                </p>
+            </div>
+        </div>
+    }
+
+    <form asp-action="Configuracion" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+
+            <!-- Cuenta y referencias -->
+            <div class="card-erp-panel p-6">
+                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">account_circle</span>
+                    Cuenta y referencias
+                </h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label asp-for="AccountId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Cuenta Mercado Libre
+                        </label>
+                        <select asp-for="AccountId" class="select-erp w-full">
+                            <option value="">— Sin cuenta —</option>
+                            @foreach (var (id, nombre) in Model.CuentasDisponibles)
+                            {
+                                <option value="@id" selected="@(Model.AccountId == id ? "selected" : null)">@nombre</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Cuenta usada para sincronizar y procesar órdenes.</p>
+                    </div>
+
+                    <div>
+                        <label asp-for="ListaPrecioId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Lista de precios para ML
+                        </label>
+                        <select asp-for="ListaPrecioId" class="select-erp w-full">
+                            <option value="">— Precio base del producto —</option>
+                            @foreach (var (id, nombre) in Model.ListasPreciosDisponibles)
+                            {
+                                <option value="@id" selected="@(Model.ListaPrecioId == id ? "selected" : null)">@nombre</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">El precio ML parte de esta lista; sin lista usa el precio de venta base.</p>
+                    </div>
+
+                    <div>
+                        <label asp-for="SucursalId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Sucursal / depósito de referencia
+                        </label>
+                        <select asp-for="SucursalId" class="select-erp w-full">
+                            <option value="">— Sin sucursal —</option>
+                            @foreach (var (id, nombre) in Model.SucursalesDisponibles)
+                            {
+                                <option value="@id" selected="@(Model.SucursalId == id ? "selected" : null)">@nombre</option>
+                            }
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">Informativo: el stock del ERP es global, sin stock por depósito.</p>
+                    </div>
+
+                    <div>
+                        <label asp-for="ClienteMercadoLibreId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Cliente interno para ventas ML
+                        </label>
+                        <select asp-for="ClienteMercadoLibreId" class="select-erp w-full"
+                                asp-items="clientes">
+                            <option value="">— Seleccionar cliente —</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Las ventas creadas desde órdenes ML se imputan a este cliente
+                            (ej: un cliente "Mercado Libre" genérico). Obligatorio para crear ventas.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Precios -->
+            <div class="card-erp-panel p-6">
+                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">sell</span>
+                    Precio del canal
+                </h2>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label asp-for="AjusteCanalPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Ajuste de canal (%)
+                        </label>
+                        <input asp-for="AjusteCanalPorcentaje" type="number" step="0.01" class="input-erp w-full" />
+                        <span asp-validation-for="AjusteCanalPorcentaje" class="text-xs text-rose-400"></span>
+                        <p class="text-xs text-slate-500 mt-1">Se suma al precio ERP (ej: 10 = +10% para absorber comisión).</p>
+                    </div>
+                    <div>
+                        <label asp-for="ComisionEstimadaPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Comisión ML estimada (%)
+                        </label>
+                        <input asp-for="ComisionEstimadaPorcentaje" type="number" step="0.01" class="input-erp w-full" />
+                        <span asp-validation-for="ComisionEstimadaPorcentaje" class="text-xs text-rose-400"></span>
+                        <p class="text-xs text-slate-500 mt-1">Usada en neto estimado y calculadora cuando no se consulta la API.</p>
+                    </div>
+                    <div>
+                        <label asp-for="CostoEnvioEstimado" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Costo de envío estimado ($)
+                        </label>
+                        <input asp-for="CostoEnvioEstimado" type="number" step="0.01" class="input-erp w-full" />
+                        <span asp-validation-for="CostoEnvioEstimado" class="text-xs text-rose-400"></span>
+                    </div>
+                    <div>
+                        <label asp-for="MargenMinimoPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Margen mínimo (%)
+                        </label>
+                        <input asp-for="MargenMinimoPorcentaje" type="number" step="0.01" class="input-erp w-full" />
+                        <span asp-validation-for="MargenMinimoPorcentaje" class="text-xs text-rose-400"></span>
+                        <p class="text-xs text-slate-500 mt-1">Los push de precio advierten si quedan por debajo. Vacío = sin control.</p>
+                    </div>
+                    <div>
+                        <label asp-for="ReglaRedondeo" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Regla de redondeo
+                        </label>
+                        <select asp-for="ReglaRedondeo" class="select-erp w-full">
+                            <option value="ninguno">Sin redondeo</option>
+                            <option value="decena">A la decena ($1.234 → $1.230)</option>
+                            <option value="centena">A la centena ($1.234 → $1.200)</option>
+                            <option value="mil">Al mil ($1.234 → $1.000)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label asp-for="OrigenStock" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Origen del stock publicado
+                        </label>
+                        <select asp-for="OrigenStock" class="select-erp w-full">
+                            <option value="@MercadoLibreOrigenStock.StockLogicoProducto">Stock lógico del producto (StockActual)</option>
+                            <option value="@MercadoLibreOrigenStock.StockFisicoDisponible">Stock físico (unidades EnStock registradas)</option>
+                            <option value="" disabled>Unidad física específica — solo por publicación</option>
+                            <option value="" disabled>Depósito/sucursal — no disponible (el ERP no maneja stock por sucursal)</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Define cuánto stock empuja el sync a ML y cómo se asignan unidades físicas en las ventas ML.
+                            Cada publicación puede sobreescribirlo en su detalle.
+                        </p>
+                    </div>
+                    <div>
+                        <label asp-for="PoliticaDevolucion" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Política ante devoluciones
+                        </label>
+                        <select asp-for="PoliticaDevolucion" class="select-erp w-full">
+                            <option value="@MercadoLibrePoliticaDevolucion.PendienteRevision">Pendiente de revisión (recomendado)</option>
+                            <option value="@MercadoLibrePoliticaDevolucion.SugerirReingreso">Sugerir reingreso de stock</option>
+                            <option value="@MercadoLibrePoliticaDevolucion.SugerirNoReingreso">Sugerir no reingresar</option>
+                        </select>
+                        <p class="text-xs text-slate-500 mt-1">El stock nunca se reingresa sin decisión manual.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automatizaciones -->
+            <div class="card-erp-panel p-6">
+                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">smart_toy</span>
+                    Automatizaciones
+                </h2>
+
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input asp-for="ImportacionAutomaticaOrdenes" type="checkbox" class="mt-1" />
+                        <span>
+                            <span class="block text-sm font-semibold text-white">Importar órdenes automáticamente</span>
+                            <span class="block text-xs text-slate-400">Al recibir webhooks orders_v2 se importa la orden completa (sin crear venta).</span>
+                        </span>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input asp-for="CrearVentaAutomatica" type="checkbox" class="mt-1" />
+                        <span>
+                            <span class="block text-sm font-semibold text-white">Crear venta interna automáticamente</span>
+                            <span class="block text-xs text-slate-400">
+                                Con la orden paga y todos los ítems vinculados, crea la Venta y descuenta stock.
+                                Requiere cliente ML configurado.
+                            </span>
+                        </span>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input asp-for="SyncAutomaticaStock" type="checkbox" class="mt-1" />
+                        <span>
+                            <span class="block text-sm font-semibold text-white">Sync automática de stock ERP → ML</span>
+                            <span class="block text-xs text-slate-400">Empuja stock a ML cuando cambia en el ERP (publicaciones vinculadas).</span>
+                        </span>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input asp-for="SyncAutomaticaPrecio" type="checkbox" class="mt-1" />
+                        <span>
+                            <span class="block text-sm font-semibold text-white">Sync automática de precio ERP → ML</span>
+                            <span class="block text-xs text-slate-400">Empuja el precio de canal calculado cuando cambia el precio ERP.</span>
+                        </span>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input asp-for="PermitirPublicacionDesdeErp" type="checkbox" class="mt-1" />
+                        <span>
+                            <span class="block text-sm font-semibold text-white">Permitir publicar desde el ERP</span>
+                            <span class="block text-xs text-slate-400">Habilita el flujo de borradores y publicación (fuera del MVP actual).</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Seguridad -->
+            <div class="card-erp-panel p-6 border border-sky-500/20">
+                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sky-400 text-xl" aria-hidden="true">science</span>
+                    Seguridad
+                </h2>
+
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input asp-for="ModoSimulacion" type="checkbox" class="mt-1" />
+                    <span>
+                        <span class="block text-sm font-semibold text-white">Modo simulación</span>
+                        <span class="block text-xs text-slate-400">
+                            Con simulación activa, ningún cambio de stock, precio o publicación se envía a Mercado Libre:
+                            solo se calcula y queda registrado en el log de sincronización.
+                            Desactivarlo habilita los cambios reales (cada acción pide confirmación igual).
+                        </span>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-6">
+            <a asp-action="Index" class="btn-erp-secondary">Cancelar</a>
+            <button type="submit" class="btn-erp-primary">
+                <span class="material-symbols-outlined text-sm">save</span>
+                Guardar configuración
+            </button>
+        </div>
+    </form>
+</div>
