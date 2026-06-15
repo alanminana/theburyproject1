@@ -4,6 +4,28 @@
     ViewData["Title"] = $"Orden ML #{Model.MeliOrderId}";
     var puedeSimularEnvio = ViewBag.PuedeSimularEnvio as bool? ?? false;
     var puedeSimularClaim = ViewBag.PuedeSimularClaim as bool? ?? false;
+
+    var mensajes = ViewBag.Mensajes as List<TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage> ?? new();
+    var puedeSimularMensaje = ViewBag.PuedeSimularMensaje as bool? ?? false;
+    var modoSimulacionMensajes = ViewBag.ModoSimulacionMensajes as bool? ?? true;
+    // Conversación real solo si la orden no es simulada local y el modo es real.
+    var ordenSimuladaLocal = Model.EsSimuladaQa || Model.EsSimuladaOperativa;
+    var mensajeEsSimulado = modoSimulacionMensajes || ordenSimuladaLocal;
+    var labelBotonMensaje = mensajeEsSimulado ? "Simular respuesta" : "Responder en Mercado Libre";
+
+    // Acciones operativas pendientes (resumen "qué tengo que hacer").
+    var accionesPendientes = new List<string>();
+    if (!string.IsNullOrEmpty(Model.ErrorProcesamiento)) { accionesPendientes.Add("Error de procesamiento: revisá el detalle más abajo."); }
+    if (Model.PuedeCrearVenta) { accionesPendientes.Add("Falta crear la venta interna y descontar stock."); }
+    if (Model.PuedeLiquidar) { accionesPendientes.Add("Venta creada: pendiente de liquidar el neto en caja."); }
+    if (Model.TieneClaimPendiente) { accionesPendientes.Add("Hay un reclamo/devolución pendiente de resolución."); }
+    if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision && Model.Claims.Count == 0) { accionesPendientes.Add("Devolución pendiente de revisión: el stock no se reingresó automáticamente."); }
+    if (Model.EnvioRequiereAtencion) { accionesPendientes.Add($"Envío requiere atención: {Model.EstadoEnvioInterno}."); }
+
+    var envioOpen = Model.ShipmentId.HasValue || Model.EnvioRequiereAtencion;
+    var reclamosOpen = Model.Claims.Count > 0 || Model.TieneClaimPendiente
+        || Model.DevolucionEstado is not MercadoLibreDevolucionEstado.Ninguna;
+    var hayQa = puedeSimularEnvio || puedeSimularClaim || puedeSimularMensaje;
 }
 
 <div class="erp-page-shell erp-compact">
@@ -31,7 +53,7 @@
         <span class="text-slate-300">#@Model.MeliOrderId</span>
     </nav>
 
-    <!-- Header -->
+    @* ── 1. Header operativo ─────────────────────────────────────── *@
     <div class="ml-head">
         <div class="ml-head__main">
             <h1 class="ml-head__title">
@@ -51,7 +73,22 @@
                 comprador @(Model.BuyerNickname ?? "—") · status ML: @Model.Status
             </p>
         </div>
+        <div class="ml-actions">
+            <span class="ml-actions__label">Acciones</span>
+            <a asp-action="Ordenes" class="btn-erp-secondary btn-sm">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Volver a Órdenes
+            </a>
+        </div>
     </div>
+
+    @if (Model.ModoSimulacion)
+    {
+        <div class="ml-sim-note">
+            <span class="material-symbols-outlined" aria-hidden="true">science</span>
+            Modo simulación activo: las acciones económicas quedan como simulación local; no se llama a Mercado Libre.
+        </div>
+    }
 
     @if (!string.IsNullOrEmpty(Model.ErrorProcesamiento))
     {
@@ -71,7 +108,7 @@
                 <div>
                     <p class="text-sm font-bold text-sky-300">Orden QA simulada local.</p>
                     <p class="text-xs text-slate-400 mt-1">
-                        No se llamÃ³ a Mercado Libre. Crear venta interna queda bloqueado para no descontar stock real.
+                        No se llamó a Mercado Libre. Crear venta interna queda bloqueado para no descontar stock real.
                     </p>
                 </div>
             </div>
@@ -92,9 +129,57 @@
         </div>
     }
 
+    @* ── 2. Resumen de orden ─────────────────────────────────────── *@
+    @if (accionesPendientes.Count > 0)
+    {
+        <div class="ml-action-required" role="status">
+            <div class="ml-action-required__head">
+                <span class="material-symbols-outlined" aria-hidden="true">priority_high</span>
+                Acción requerida
+            </div>
+            <ul>
+                @foreach (var accion in accionesPendientes)
+                {
+                    <li>@accion</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="ml-order-summary">
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Total ML</p>
+            <p class="ml-order-summary__value">@Model.TotalAmount.ToString("N2") @Model.CurrencyId</p>
+        </div>
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Status ML</p>
+            <p class="ml-order-summary__value">@Model.Status</p>
+        </div>
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Estado interno</p>
+            <p class="ml-order-summary__value">@Model.EstadoInterno</p>
+        </div>
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Venta interna</p>
+            <p class="ml-order-summary__value @(Model.VentaId.HasValue ? "ml-order-summary__value--good" : "ml-order-summary__value--warn")">
+                @(Model.VentaId.HasValue ? Model.VentaNumero : "Pendiente")
+            </p>
+        </div>
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Liquidación</p>
+            <p class="ml-order-summary__value">@Model.EstadoLiquidacion</p>
+        </div>
+        <div class="ml-order-summary__cell">
+            <p class="ml-order-summary__label">Envío</p>
+            <p class="ml-order-summary__value @(Model.EnvioRequiereAtencion ? "ml-order-summary__value--bad" : "")">
+                @(Model.ShipmentId.HasValue ? Model.EstadoEnvioInterno.ToString() : "Sin envío")
+            </p>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
 
-        <!-- Ítems -->
+        @* ── 3-4. Ítems + Venta / stock ───────────────────────────── *@
         <div class="card-erp-panel p-6">
             <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
                 <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">inventory_2</span>
@@ -231,7 +316,7 @@
             }
         </div>
 
-        <!-- Liquidación (Fase D) -->
+        @* ── 5. Liquidación ───────────────────────────────────────── *@
         <div class="card-erp-panel p-6">
             <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
                 <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">account_balance</span>
@@ -268,6 +353,11 @@
                 </div>
             </div>
 
+            <p class="text-xs text-slate-500 mb-3">
+                <span class="material-symbols-outlined text-sm align-middle">info</span>
+                Mercado Libre no acredita efectivo directo: el neto se registra en caja al liquidar.
+            </p>
+
             @if (Model.EstadoInterno == MercadoLibreOrderEstadoInterno.Liquidada)
             {
                 <div class="rounded-lg bg-sky-500/10 border border-sky-500/30 p-4">
@@ -284,15 +374,9 @@
                             </span>
                         }
                     </p>
-                    @if (Model.MovimientoCajaId.HasValue)
+                    @if (Model.MovimientoCajaId.HasValue && Model.EsLiquidacionSimulada)
                     {
-                        <p class="text-xs text-slate-400 mt-2 font-mono">
-                            MovimientoCajaId: @Model.MovimientoCajaId
-                            @if (Model.EsLiquidacionSimulada)
-                            {
-                                <span class="ml-2 text-emerald-300">simulacion local</span>
-                            }
-                        </p>
+                        <p class="text-xs text-emerald-300 mt-2">Movimiento de caja registrado como simulación local.</p>
                     }
                 </div>
             }
@@ -337,44 +421,86 @@
                     La liquidación se habilita cuando la orden tiene venta interna creada.
                 </p>
             }
+        </div>
+    </div>
 
-            <!-- Envío (Fase H) -->
-            <h2 class="text-base font-bold text-white mt-6 mb-3 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">assignment_return</span>
-                Reclamos / Devoluciones ML
-            </h2>
-
-            @if (puedeSimularClaim)
+    @* ── 6. Envío ─────────────────────────────────────────────────── *@
+    <details class="ml-order-section" @(envioOpen ? "open" : null)>
+        <summary>
+            <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+            Envío
+            @if (Model.EnvioRequiereAtencion)
             {
-                <form asp-action="OrdenSimularClaim" method="post" class="mt-4 rounded-lg border border-sky-500/20 bg-sky-500/10 p-3">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-sky-200" for="tipo-claim">
-                        Simular reclamo/devolucion
-                    </label>
-                    <div class="grid gap-2 sm:grid-cols-[180px_1fr_auto]">
-                        <select id="tipo-claim" name="tipo" class="select-erp">
-                            <option value="@MercadoLibreClaimTipo.Devolucion">Devolucion</option>
-                            <option value="@MercadoLibreClaimTipo.Reclamo">Reclamo</option>
-                            <option value="@MercadoLibreClaimTipo.Garantia">Garantia</option>
-                            <option value="@MercadoLibreClaimTipo.Cancelacion">Cancelacion</option>
-                        </select>
-                        <input type="text" name="motivo" class="input-erp" maxlength="500"
-                               placeholder="Motivo QA local" />
-                        <button type="submit" class="btn-erp-secondary">
-                            <span class="material-symbols-outlined text-sm">science</span>
-                            Simular
-                        </button>
-                    </div>
-                    <p class="mt-2 text-xs text-slate-400">
-                        Accion local: no llama a Mercado Libre, queda pendiente y no mueve stock ni caja.
-                    </p>
-                </form>
+                <span class="ml-order-section__badge">atención</span>
+            }
+            <span class="material-symbols-outlined ml-order-section__chevron" aria-hidden="true">expand_more</span>
+        </summary>
+        <div class="ml-order-section__body">
+            @if (Model.EnvioRequiereAtencion)
+            {
+                <div class="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+                    <span class="material-symbols-outlined align-middle text-base">warning</span>
+                    Estado logistico con atencion requerida: @Model.EstadoEnvioInterno.
+                    No se revierte stock ni se liquida caja automaticamente.
+                </div>
             }
 
+            @if (Model.ShipmentId.HasValue)
+            {
+                <div class="rounded-lg bg-slate-800/40 p-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm text-white font-mono">
+                            #@Model.ShipmentId · @(Model.ShipmentStatus ?? "sin consultar")
+                            @if (!string.IsNullOrEmpty(Model.ShipmentSubStatus))
+                            {
+                                <span class="text-slate-400">(@Model.ShipmentSubStatus)</span>
+                            }
+                        </p>
+                        @if (!string.IsNullOrEmpty(Model.TrackingNumber))
+                        {
+                            <p class="text-xs text-slate-400 font-mono mt-1">tracking: @Model.TrackingNumber</p>
+                        }
+                        <div class="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                            <div><span class="text-slate-500">Estado interno:</span> <span class="font-semibold text-white">@Model.EstadoEnvioInterno</span></div>
+                            <div><span class="text-slate-500">Metodo/carrier:</span> @(Model.TrackingMethod ?? "sin dato")</div>
+                            <div><span class="text-slate-500">Costo envio:</span> @(Model.MontoEnvio?.ToString("N2") ?? "sin dato")</div>
+                            <div><span class="text-slate-500">Actualizado:</span> @(Model.FechaUltimaActualizacionEnvioUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
+                            <div><span class="text-slate-500">Despacho:</span> @(Model.FechaDespachoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
+                            <div><span class="text-slate-500">Entrega:</span> @(Model.FechaEntregadoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
+                        </div>
+                    </div>
+                    <form asp-action="OrdenActualizarEnvio" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn-erp-secondary btn-sm">
+                            <span class="material-symbols-outlined text-sm">refresh</span>
+                            Actualizar
+                        </button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <p class="text-sm text-slate-500">La orden no tiene envío asociado.</p>
+            }
+        </div>
+    </details>
+
+    @* ── 7. Reclamos / Devoluciones ───────────────────────────────── *@
+    <details class="ml-order-section" @(reclamosOpen ? "open" : null)>
+        <summary>
+            <span class="material-symbols-outlined" aria-hidden="true">assignment_return</span>
+            Reclamos / Devoluciones
+            @if (Model.TieneClaimPendiente || Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision)
+            {
+                <span class="ml-order-section__badge">pendiente</span>
+            }
+            <span class="material-symbols-outlined ml-order-section__chevron" aria-hidden="true">expand_more</span>
+        </summary>
+        <div class="ml-order-section__body">
             @if (Model.Claims.Count > 0)
             {
-                <div class="mt-4 space-y-3">
+                <div class="space-y-3">
                     @foreach (var claim in Model.Claims)
                     {
                         <div class="rounded-lg border @(claim.Pendiente ? "border-amber-500/30 bg-amber-500/10" : "border-slate-700 bg-slate-800/40") p-4">
@@ -403,8 +529,6 @@
                                 <div><span class="text-slate-500">Motivo:</span> @(claim.Motivo ?? "sin dato")</div>
                                 <div><span class="text-slate-500">Stock:</span> @claim.AccionStock</div>
                                 <div><span class="text-slate-500">Economia:</span> @claim.AccionEconomica</div>
-                                <div><span class="text-slate-500">MovimientoStockId:</span> @(claim.MovimientoStockId?.ToString() ?? "sin movimiento")</div>
-                                <div><span class="text-slate-500">MovimientoCajaId:</span> @(claim.MovimientoCajaId?.ToString() ?? "sin movimiento")</div>
                                 <div><span class="text-slate-500">Resuelto:</span> @(claim.FechaResolucionUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "pendiente")</div>
                             </div>
 
@@ -452,102 +576,11 @@
                     }
                 </div>
             }
-
-            <h2 class="text-base font-bold text-white mt-6 mb-3 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">local_shipping</span>
-                Envío
-            </h2>
-
-            @if (Model.EnvioRequiereAtencion)
+            else if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.Ninguna)
             {
-                <div class="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-                    <span class="material-symbols-outlined align-middle text-base">warning</span>
-                    Estado logistico con atencion requerida: @Model.EstadoEnvioInterno.
-                    No se revierte stock ni se liquida caja automaticamente.
-                </div>
+                <p class="text-sm text-slate-500">Sin reclamos ni devoluciones registradas.</p>
             }
-
-            @if (Model.ShipmentId.HasValue)
-            {
-                <div class="rounded-lg bg-slate-800/40 p-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm text-white font-mono">
-                            #@Model.ShipmentId · @(Model.ShipmentStatus ?? "sin consultar")
-                            @if (!string.IsNullOrEmpty(Model.ShipmentSubStatus))
-                            {
-                                <span class="text-slate-400">(@Model.ShipmentSubStatus)</span>
-                            }
-                        </p>
-                        @if (!string.IsNullOrEmpty(Model.TrackingNumber))
-                        {
-                            <p class="text-xs text-slate-400 font-mono mt-1">tracking: @Model.TrackingNumber</p>
-                        }
-                        <div class="mt-3 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
-                            <div><span class="text-slate-500">Estado interno:</span> <span class="font-semibold text-white">@Model.EstadoEnvioInterno</span></div>
-                            <div><span class="text-slate-500">Metodo/carrier:</span> @(Model.TrackingMethod ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Modo:</span> @(Model.ShippingMode ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Tipo:</span> @(Model.ShippingType ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Costo envio:</span> @(Model.MontoEnvio?.ToString("N2") ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Actualizado:</span> @(Model.FechaUltimaActualizacionEnvioUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Despacho:</span> @(Model.FechaDespachoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
-                            <div><span class="text-slate-500">Entrega:</span> @(Model.FechaEntregadoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</div>
-                        </div>
-                    </div>
-                    <form asp-action="OrdenActualizarEnvio" method="post">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <button type="submit" class="btn-erp-secondary btn-sm">
-                            <span class="material-symbols-outlined text-sm">refresh</span>
-                            Actualizar
-                        </button>
-                    </form>
-                </div>
-            }
-            else
-            {
-                <p class="text-sm text-slate-500">La orden no tiene envío asociado.</p>
-            }
-
-            <!-- Devolución (Fase H) -->
-            @if (puedeSimularEnvio)
-            {
-                <form asp-action="OrdenSimularEnvio" method="post" class="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/10 p-3">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-sky-200" for="escenario-envio">
-                        Simular estado de envio
-                    </label>
-                    <div class="flex flex-col gap-2 sm:flex-row">
-                        <select id="escenario-envio" name="escenario" class="select-erp flex-1">
-                            <option value="pendiente">Pendiente</option>
-                            <option value="listo">Listo para despachar</option>
-                            <option value="despachado">Despachado / en camino</option>
-                            <option value="entregado">Entregado</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="demorado">Demorado</option>
-                            <option value="desconocido">Desconocido</option>
-                        </select>
-                        <button type="submit" class="btn-erp-secondary">
-                            <span class="material-symbols-outlined text-sm">science</span>
-                            Simular envio
-                        </button>
-                    </div>
-                    <p class="mt-2 text-xs text-slate-400">
-                        Accion local de QA: no llama a Mercado Libre, no crea venta, no mueve stock y no toca caja.
-                    </p>
-                </form>
-            }
-
-            <h2 class="text-base font-bold text-white mt-6 mb-3 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">assignment_return</span>
-                Devolución
-            </h2>
-
-            @if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.Ninguna)
-            {
-                <p class="text-sm text-slate-500">Sin devolución registrada.</p>
-            }
-            else if (Model.Claims.Count == 0 && Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision)
+            else if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision)
             {
                 <div class="rounded-lg bg-amber-500/10 border border-amber-500/30 p-4">
                     <p class="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
@@ -573,10 +606,10 @@
                     </form>
                 </div>
             }
-            else if (Model.Claims.Count == 0)
+            else
             {
                 <div class="rounded-lg bg-slate-800/40 p-3">
-                    <p class="text-sm text-white">Resuelta: <span class="font-bold">@Model.DevolucionEstado</span></p>
+                    <p class="text-sm text-white">Devolución resuelta: <span class="font-bold">@Model.DevolucionEstado</span></p>
                     @if (!string.IsNullOrEmpty(Model.DevolucionNota))
                     {
                         <p class="text-xs text-slate-400 mt-1">@Model.DevolucionNota</p>
@@ -584,20 +617,10 @@
                 </div>
             }
         </div>
-    </div>
+    </details>
 
-    @{
-        var mensajes = ViewBag.Mensajes as List<TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage> ?? new();
-        var puedeSimularMensaje = ViewBag.PuedeSimularMensaje as bool? ?? false;
-        var modoSimulacionMensajes = ViewBag.ModoSimulacionMensajes as bool? ?? true;
-        // Conversación real solo si la orden no es simulada local y el modo es real.
-        var ordenSimuladaLocal = Model.EsSimuladaQa || Model.EsSimuladaOperativa;
-        var mensajeEsSimulado = modoSimulacionMensajes || ordenSimuladaLocal;
-        var labelBotonMensaje = mensajeEsSimulado ? "Simular respuesta" : "Responder en Mercado Libre";
-    }
-
-    <!-- Conversación postventa (Fase 16) -->
-    <div class="card-erp-panel p-5 mt-6">
+    @* ── 8. Mensajes postventa ────────────────────────────────────── *@
+    <div class="card-erp-panel p-5 mt-2">
         <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg font-bold text-white flex items-center gap-2">
                 <span class="material-symbols-outlined text-amber-400" aria-hidden="true">forum</span>
@@ -633,20 +656,6 @@
                     </div>
                 }
             </div>
-        }
-
-        @if (puedeSimularMensaje)
-        {
-            <form asp-action="MensajeSimular" method="post" class="mb-3 flex flex-col gap-2 sm:flex-row">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="orderId" value="@Model.Id" />
-                <input type="text" name="texto" maxlength="2000" required class="input-erp flex-1"
-                       placeholder="Texto de un mensaje entrante de prueba (QA)..." />
-                <button type="submit" class="btn-erp-secondary btn-sm">
-                    <span class="material-symbols-outlined text-sm">science</span>
-                    Simular mensaje entrante
-                </button>
-            </form>
         }
 
         <div class="rounded-lg border border-slate-700/60 bg-slate-800/30 p-3">
@@ -688,4 +697,114 @@
             </form>
         </div>
     </div>
+
+    @* ── 9. QA / Simulación (acciones de prueba, separadas) ───────── *@
+    @if (hayQa)
+    {
+        <details class="ml-qa-box">
+            <summary>
+                <span class="material-symbols-outlined" aria-hidden="true">science</span>
+                QA / Simulación
+                <span class="material-symbols-outlined ml-qa-box__chevron" aria-hidden="true">expand_more</span>
+            </summary>
+            <div class="ml-qa-box__body">
+                <p class="ml-qa-box__note">
+                    Acciones locales de prueba: no llaman a Mercado Libre, no crean ventas, no mueven stock ni caja.
+                </p>
+
+                @if (puedeSimularEnvio)
+                {
+                    <form asp-action="OrdenSimularEnvio" method="post" class="rounded-lg border border-sky-500/20 bg-sky-500/10 p-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-sky-200" for="escenario-envio">
+                            Simular estado de envio
+                        </label>
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <select id="escenario-envio" name="escenario" class="select-erp flex-1">
+                                <option value="pendiente">Pendiente</option>
+                                <option value="listo">Listo para despachar</option>
+                                <option value="despachado">Despachado / en camino</option>
+                                <option value="entregado">Entregado</option>
+                                <option value="cancelado">Cancelado</option>
+                                <option value="demorado">Demorado</option>
+                                <option value="desconocido">Desconocido</option>
+                            </select>
+                            <button type="submit" class="btn-erp-secondary">
+                                <span class="material-symbols-outlined text-sm">science</span>
+                                Simular envio
+                            </button>
+                        </div>
+                    </form>
+                }
+
+                @if (puedeSimularClaim)
+                {
+                    <form asp-action="OrdenSimularClaim" method="post" class="rounded-lg border border-sky-500/20 bg-sky-500/10 p-3">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-sky-200" for="tipo-claim">
+                            Simular reclamo/devolucion
+                        </label>
+                        <div class="grid gap-2 sm:grid-cols-[180px_1fr_auto]">
+                            <select id="tipo-claim" name="tipo" class="select-erp">
+                                <option value="@MercadoLibreClaimTipo.Devolucion">Devolucion</option>
+                                <option value="@MercadoLibreClaimTipo.Reclamo">Reclamo</option>
+                                <option value="@MercadoLibreClaimTipo.Garantia">Garantia</option>
+                                <option value="@MercadoLibreClaimTipo.Cancelacion">Cancelacion</option>
+                            </select>
+                            <input type="text" name="motivo" class="input-erp" maxlength="500"
+                                   placeholder="Motivo QA local" />
+                            <button type="submit" class="btn-erp-secondary">
+                                <span class="material-symbols-outlined text-sm">science</span>
+                                Simular
+                            </button>
+                        </div>
+                    </form>
+                }
+
+                @if (puedeSimularMensaje)
+                {
+                    <form asp-action="MensajeSimular" method="post" class="flex flex-col gap-2 sm:flex-row">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="orderId" value="@Model.Id" />
+                        <input type="text" name="texto" maxlength="2000" required class="input-erp flex-1"
+                               placeholder="Texto de un mensaje entrante de prueba (QA)..." />
+                        <button type="submit" class="btn-erp-secondary btn-sm">
+                            <span class="material-symbols-outlined text-sm">science</span>
+                            Simular mensaje entrante
+                        </button>
+                    </form>
+                }
+            </div>
+        </details>
+    }
+
+    @* ── 10. Avanzado (datos técnicos) ────────────────────────────── *@
+    <details class="ml-advanced">
+        <summary>
+            <span class="material-symbols-outlined" aria-hidden="true">data_object</span>
+            Datos técnicos
+            <span class="material-symbols-outlined ml-advanced__chevron" aria-hidden="true">expand_more</span>
+        </summary>
+        <div class="ml-advanced__body">
+            <div class="grid gap-2 text-xs text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+                <div><span class="text-slate-500">ID interno:</span> <span class="font-mono">@Model.Id</span></div>
+                <div><span class="text-slate-500">MeliOrderId:</span> <span class="font-mono">@Model.MeliOrderId</span></div>
+                <div><span class="text-slate-500">BuyerId:</span> <span class="font-mono">@(Model.BuyerId?.ToString() ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">Pagado (paid):</span> <span class="font-mono">@(Model.PaidAmount?.ToString("N2") ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">Procesada:</span> <span class="font-mono">@(Model.FechaProcesadoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">ShipmentId:</span> <span class="font-mono">@(Model.ShipmentId?.ToString() ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">Shipment substatus:</span> <span class="font-mono">@(Model.ShipmentSubStatus ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">Envío modo:</span> <span class="font-mono">@(Model.ShippingMode ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">Envío tipo:</span> <span class="font-mono">@(Model.ShippingType ?? "sin dato")</span></div>
+                <div><span class="text-slate-500">MovimientoCajaId:</span> <span class="font-mono">@(Model.MovimientoCajaId?.ToString() ?? "sin movimiento")</span></div>
+                @foreach (var claim in Model.Claims)
+                {
+                    <div><span class="text-slate-500">Claim @(claim.MercadoLibreClaimId ?? $"local-{claim.Id}") MovStock:</span> <span class="font-mono">@(claim.MovimientoStockId?.ToString() ?? "—")</span></div>
+                    <div><span class="text-slate-500">Claim @(claim.MercadoLibreClaimId ?? $"local-{claim.Id}") MovCaja:</span> <span class="font-mono">@(claim.MovimientoCajaId?.ToString() ?? "—")</span></div>
+                }
+            </div>
+        </div>
+    </details>
 </div>
