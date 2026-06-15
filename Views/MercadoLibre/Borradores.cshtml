@@ -31,21 +31,19 @@
         </div>
     }
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">draft</span>
+    <partial name="_MercadoLibreNav" />
+
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">draft</span>
                 Borradores de publicación
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 Producto ERP → borrador → validación → publicación. La publicación real exige
                 habilitar el flujo en Configuración, desactivar simulación y confirmar.
             </p>
         </div>
-        <a asp-action="Listings" class="btn-erp-ghost btn-sm">
-            <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Publicaciones
-        </a>
     </div>
 
     @if (!permitirPublicacion)

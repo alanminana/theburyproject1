@@ -24,23 +24,33 @@
         </div>
     }
 
-    <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">receipt_long</span>
-                Órdenes Mercado Libre
+    <partial name="_MercadoLibreNav" />
+
+    <!-- Header: título + acciones propias (separadas de la navegación) -->
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                Órdenes
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 @Model.Count órdenes · las ventas ML quedan pendientes de liquidación (no son efectivo directo).
             </p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="ml-actions">
+            <span class="ml-actions__label">Acciones</span>
+            <form asp-action="OrdenesImportarRecientes" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn-erp-secondary btn-sm">
+                    <span class="material-symbols-outlined text-sm">cloud_download</span>
+                    Importar recientes
+                </button>
+            </form>
             @if (puedeGenerarOrdenSimulada)
             {
                 <form asp-action="OrdenGenerarSimulada" method="post">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-erp-secondary btn-sm">
+                    <button type="submit" class="btn-erp-ghost btn-sm">
                         <span class="material-symbols-outlined text-sm">science</span>
                         Generar orden QA
                     </button>
@@ -51,23 +61,12 @@
                 <form asp-action="OrdenGenerarOperativaSimulada" method="post"
                       onsubmit="return confirm('Generar una orden operativa simulada local? No llama a Mercado Libre, pero permite crear venta interna y descontar stock ERP.');">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-erp-secondary btn-sm">
+                    <button type="submit" class="btn-erp-ghost btn-sm">
                         <span class="material-symbols-outlined text-sm">point_of_sale</span>
                         Generar operativa simulada
                     </button>
                 </form>
             }
-            <form asp-action="OrdenesImportarRecientes" method="post">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn-erp-secondary btn-sm">
-                    <span class="material-symbols-outlined text-sm">cloud_download</span>
-                    Importar recientes
-                </button>
-            </form>
-            <a asp-action="Index" class="btn-erp-ghost btn-sm">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Conexión
-            </a>
         </div>
     </div>
 

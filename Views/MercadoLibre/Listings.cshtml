@@ -24,20 +24,23 @@
         </div>
     }
 
-    <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">list_alt</span>
+    <partial name="_MercadoLibreNav" />
+
+    <!-- Header: título + acciones propias (separadas de la navegación) -->
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">list_alt</span>
                 Publicaciones
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 @Model.Count publicaciones importadas · @vinculadas vinculadas · @sinVincular sin vincular
             </p>
         </div>
-        <div class="flex gap-2">
-            @if (User.TienePermiso("mercadolibre", "sync"))
-            {
+        @if (User.TienePermiso("mercadolibre", "sync"))
+        {
+            <div class="ml-actions">
+                <span class="ml-actions__label">Acciones</span>
                 <a asp-action="Borradores" class="btn-erp-secondary btn-sm"
                    title="Crear publicaciones nuevas desde productos del ERP (borrador + validación)">
                     <span class="material-symbols-outlined text-sm">draft</span>
@@ -47,12 +50,8 @@
                     <span class="material-symbols-outlined text-sm">trending_up</span>
                     Aumentos masivos
                 </a>
-            }
-            <a asp-action="Index" class="btn-erp-ghost btn-sm">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Conexión
-            </a>
-        </div>
+            </div>
+        }
     </div>
 
     <!-- Filtro vinculación + sync -->

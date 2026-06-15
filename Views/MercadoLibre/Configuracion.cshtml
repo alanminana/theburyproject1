@@ -23,22 +23,18 @@
         </div>
     }
 
+    <partial name="_MercadoLibreNav" />
+
     <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">settings</span>
-                Configuración Mercado Libre
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+                Configuración
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 Canal de venta Mercado Libre: cuenta, precios, stock, órdenes y liquidación.
             </p>
-        </div>
-        <div class="flex gap-2">
-            <a asp-action="Index" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Volver a Mercado Libre
-            </a>
         </div>
     </div>
 

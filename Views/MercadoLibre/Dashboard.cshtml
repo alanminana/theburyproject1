@@ -41,43 +41,19 @@
         </div>
     }
 
+    <partial name="_MercadoLibreNav" />
+
     <!-- Header -->
-    <div class="erp-page-header mb-5">
-        <div class="erp-page-header-main">
-            <h1 class="erp-page-title flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">storefront</span>
-                Mercado Libre · Panel operativo
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">storefront</span>
+                Panel operativo
             </h1>
-            <p class="erp-page-subtitle">
+            <p class="ml-head__subtitle">
                 Centro de operación del canal. Datos locales del ERP ·
                 generado @Model.GeneradoUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
             </p>
-        </div>
-        <div class="erp-page-actions">
-            <a asp-action="Configuracion" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">settings</span>
-                Configuración
-            </a>
-            <a asp-action="Listings" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">list_alt</span>
-                Publicaciones
-            </a>
-            <a asp-action="Ordenes" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">receipt_long</span>
-                Órdenes
-            </a>
-            <a asp-action="Preguntas" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">help</span>
-                Preguntas
-            </a>
-            <a asp-action="Mensajes" class="btn-erp-secondary btn-sm">
-                <span class="material-symbols-outlined text-sm">forum</span>
-                Mensajes
-            </a>
-            <a asp-action="Index" class="btn-erp-ghost btn-sm">
-                <span class="material-symbols-outlined text-sm">link</span>
-                Conexión
-            </a>
         </div>
     </div>
 
@@ -156,14 +132,18 @@
         </div>
     </div>
 
-    <!-- Alertas operativas -->
-    @if (Model.TieneAlertas)
-    {
-        <div class="mb-5">
-            <h2 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                <span class="material-symbols-outlined text-amber-400 text-lg">notifications_active</span>
-                Alertas operativas (@Model.Alertas.Count)
-            </h2>
+    <!-- Nivel 2 · Bandeja de trabajo: sólo lo que requiere acción -->
+    <div class="mb-5">
+        <h2 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+            <span class="material-symbols-outlined text-amber-400 text-lg">notifications_active</span>
+            Bandeja de trabajo
+            @if (Model.TieneAlertas)
+            {
+                <span class="ml-dash-alert__count">@Model.Alertas.Count</span>
+            }
+        </h2>
+        @if (Model.TieneAlertas)
+        {
             <div class="ml-dash-alerts">
                 @foreach (var a in Model.Alertas)
                 {
@@ -188,8 +168,96 @@
                     </div>
                 }
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="ml-inbox__empty">
+                <span class="material-symbols-outlined">task_alt</span>
+                Todo al día · no hay pendientes que requieran acción.
+            </div>
+        }
+    </div>
+
+    <!-- Nivel 3 · Resumen por áreas (máx 3 números por card) -->
+    @{
+        var atTotal = Model.Preguntas.Total + Model.Mensajes.Total;
+        var atPend = Model.Preguntas.Pendientes + Model.Mensajes.RecibidosPendientes;
+        var atError = Model.Preguntas.ConError + Model.Mensajes.ConError;
     }
+    <div class="ml-cards mb-2">
+
+        <a class="ml-card" asp-action="Listings">
+            <span class="ml-card__head"><span class="material-symbols-outlined">inventory_2</span> Publicaciones</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value">@Model.Publicaciones.Total</div><div class="ml-card__num-label">Total</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--good">@Model.Publicaciones.Activas</div><div class="ml-card__num-label">Activas</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Publicaciones.SinVincular, "warn")">@Model.Publicaciones.SinVincular</div><div class="ml-card__num-label">Sin vincular</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Ordenes">
+            <span class="ml-card__head"><span class="material-symbols-outlined">receipt_long</span> Órdenes</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value">@Model.Ordenes.Total</div><div class="ml-card__num-label">Total</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Ordenes.Pendientes, "warn")">@Model.Ordenes.Pendientes</div><div class="ml-card__num-label">Pendientes</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Ordenes.ConError, "bad")">@Model.Ordenes.ConError</div><div class="ml-card__num-label">Con error</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Preguntas">
+            <span class="ml-card__head"><span class="material-symbols-outlined">forum</span> Atención</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value">@atTotal</div><div class="ml-card__num-label">Total</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(atPend, "warn")">@atPend</div><div class="ml-card__num-label">Sin responder</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(atError, "bad")">@atError</div><div class="ml-card__num-label">Con error</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Listings" asp-route-filtro="vinculadas">
+            <span class="ml-card__head"><span class="material-symbols-outlined">compare_arrows</span> Stock / precio</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value">@Model.StockPrecio.PublicacionesVinculadas</div><div class="ml-card__num-label">Vinculadas</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.StockPrecio.ConDiferenciaStock, "warn")">@Model.StockPrecio.ConDiferenciaStock</div><div class="ml-card__num-label">Dif. stock</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.StockPrecio.UltimosSyncFallidos, "bad")">@Model.StockPrecio.UltimosSyncFallidos</div><div class="ml-card__num-label">Sync error</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Ordenes" asp-route-filtro="venta-creada">
+            <span class="ml-card__head"><span class="material-symbols-outlined">account_balance_wallet</span> Liquidaciones</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Liquidaciones.Pendientes, "warn")">@Model.Liquidaciones.Pendientes</div><div class="ml-card__num-label">Pendientes</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--good">@Model.Liquidaciones.Liquidadas</div><div class="ml-card__num-label">Liquidadas</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Ordenes">
+            <span class="ml-card__head"><span class="material-symbols-outlined">local_shipping</span> Envíos</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value">@Model.Envios.Pendientes</div><div class="ml-card__num-label">Pendientes</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Envios.Demorados, "warn")">@Model.Envios.Demorados</div><div class="ml-card__num-label">Demorados</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Envios.SinTracking, "warn")">@Model.Envios.SinTracking</div><div class="ml-card__num-label">Sin tracking</div></div>
+            </div>
+        </a>
+
+        <a class="ml-card" asp-action="Ordenes" asp-route-filtro="devoluciones">
+            <span class="ml-card__head"><span class="material-symbols-outlined">gavel</span> Reclamos</span>
+            <div class="ml-card__nums">
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Reclamos.Abiertos, "warn")">@Model.Reclamos.Abiertos</div><div class="ml-card__num-label">Abiertos</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--@Accent(Model.Reclamos.PendientesRevision, "warn")">@Model.Reclamos.PendientesRevision</div><div class="ml-card__num-label">Pend. revisión</div></div>
+                <div class="ml-card__num"><div class="ml-card__num-value ml-card__num-value--good">@Model.Reclamos.Resueltos</div><div class="ml-card__num-label">Resueltos</div></div>
+            </div>
+        </a>
+
+    </div>
+
+    <!-- Diagnóstico avanzado (colapsable): KPIs granulares + historiales -->
+    <details class="ml-advanced">
+        <summary>
+            <span class="material-symbols-outlined">tune</span>
+            Diagnóstico avanzado · KPIs detallados, webhooks, sync e historiales
+            <span class="material-symbols-outlined ml-advanced__chevron">expand_more</span>
+        </summary>
+        <div class="ml-advanced__body">
 
     <!-- Secciones KPI -->
     <div class="ml-dash-sections mb-5">
@@ -595,4 +663,6 @@
         </section>
 
     </div>
+        </div>
+    </details>
 </div>

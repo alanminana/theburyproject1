@@ -21,24 +21,23 @@
         </div>
     }
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">trending_up</span>
-                Aumentos masivos ML
+    <partial name="_MercadoLibreNav" />
+
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>
+                Aumentos masivos
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 Cambios de precio por lote con preview, snapshot y rollback. No tocan precios internos del ERP.
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="ml-actions">
+            <span class="ml-actions__label">Acciones</span>
             <a asp-action="AumentoNuevo" class="btn-erp-primary btn-sm">
                 <span class="material-symbols-outlined text-sm">add</span>
                 Nuevo aumento
-            </a>
-            <a asp-action="Listings" class="btn-erp-ghost btn-sm">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Publicaciones
             </a>
         </div>
     </div>

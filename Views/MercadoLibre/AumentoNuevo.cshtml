@@ -10,20 +10,24 @@
 
 <div class="erp-page-shell erp-compact">
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">trending_up</span>
+    <partial name="_MercadoLibreNav" />
+
+    <nav class="text-sm text-slate-400 mb-3" aria-label="Ruta">
+        <a asp-action="Aumentos" class="hover:text-amber-300">Aumentos</a>
+        <span class="mx-1 text-slate-600">/</span>
+        <span class="text-slate-300">Nuevo aumento</span>
+    </nav>
+
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">trending_up</span>
                 Nuevo aumento masivo
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 El lote se crea como <span class="font-bold text-sky-300">simulación con preview</span>; nada se envía a ML en este paso.
             </p>
         </div>
-        <a asp-action="Aumentos" class="btn-erp-ghost btn-sm">
-            <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Lotes
-        </a>
     </div>
 
     <form asp-action="AumentoSimular" method="post" class="pb-24">

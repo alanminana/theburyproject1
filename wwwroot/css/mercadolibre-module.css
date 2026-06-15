@@ -1,0 +1,279 @@
+/* ════════════════════════════════════════════════════════════════
+   Mercado Libre · CSS común del módulo (UX operación simple)
+   Subnav unificado, action-bar, cards operativas y sección avanzada.
+   Cargado una vez por página vía el partial _MercadoLibreNav.
+   Paleta dark del ERP · grids con CSS nativo (sin variantes Tailwind).
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+    --ml-border: #1e293b;
+    --ml-card: #161c28;
+    --ml-muted: #94a3b8;
+    --ml-accent: #fbbf24;
+}
+
+/* ── Subnav interno del módulo ─────────────────────────────────── */
+.ml-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--ml-border);
+    border-radius: 0.75rem;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.ml-subnav__group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+/* En mobile, el grupo principal scrollea horizontal sin romper el layout */
+.ml-subnav__group--main {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.ml-subnav__group--admin {
+    flex: 0 0 auto;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--ml-border);
+}
+
+.ml-subnav__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.55rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.ml-subnav__link .material-symbols-outlined { font-size: 1.05rem; }
+
+.ml-subnav__link:hover {
+    background: rgba(148, 163, 184, 0.1);
+    color: #f1f5f9;
+}
+
+.ml-subnav__link.is-active {
+    background: rgba(251, 191, 36, 0.14);
+    border-color: rgba(251, 191, 36, 0.45);
+    color: var(--ml-accent);
+}
+
+.ml-subnav__group--admin .ml-subnav__link { color: #94a3b8; }
+.ml-subnav__group--admin .ml-subnav__link:hover { color: #e2e8f0; }
+
+/* ── Header de página: título + acciones propias separadas ─────── */
+.ml-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.ml-head__main { min-width: 0; }
+
+.ml-head__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.15;
+}
+
+.ml-head__title .material-symbols-outlined { font-size: 1.85rem; color: var(--ml-accent); }
+
+.ml-head__subtitle {
+    margin-top: 0.25rem;
+    font-size: 0.82rem;
+    color: var(--ml-muted);
+}
+
+/* Bloque "Acciones" propio de cada página (separado de la navegación) */
+.ml-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ml-actions__label {
+    align-self: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-right: 0.15rem;
+}
+
+/* ── Sección avanzada / diagnóstico colapsable ─────────────────── */
+.ml-advanced {
+    margin-top: 1.5rem;
+    border: 1px solid var(--ml-border);
+    border-radius: 0.875rem;
+    background: rgba(15, 23, 42, 0.4);
+    overflow: hidden;
+}
+
+.ml-advanced > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.1rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    user-select: none;
+}
+
+.ml-advanced > summary::-webkit-details-marker { display: none; }
+
+.ml-advanced > summary .ml-advanced__chevron {
+    margin-left: auto;
+    transition: transform .2s ease;
+    color: #64748b;
+}
+
+.ml-advanced[open] > summary .ml-advanced__chevron { transform: rotate(180deg); }
+
+.ml-advanced > summary .material-symbols-outlined:first-child { color: #64748b; }
+
+.ml-advanced__body {
+    padding: 0 1.1rem 1.1rem;
+    border-top: 1px solid var(--ml-border);
+    padding-top: 1.1rem;
+}
+
+/* ── Bandeja de trabajo (acción requerida) ─────────────────────── */
+.ml-inbox {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+}
+
+.ml-inbox__empty {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.08);
+    color: #34d399;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ── Cards de resumen por área (máx 3 números) ─────────────────── */
+.ml-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.ml-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.1rem 1.15rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--ml-border);
+    background: var(--ml-card);
+    text-decoration: none;
+    transition: border-color .15s ease, transform .15s ease;
+}
+
+a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-1px); }
+
+.ml-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.ml-card__head .material-symbols-outlined { font-size: 1.25rem; color: var(--ml-accent); }
+
+.ml-card__nums {
+    display: flex;
+    gap: 1.1rem;
+    flex-wrap: wrap;
+}
+
+.ml-card__num { min-width: 0; }
+
+.ml-card__num-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #f8fafc;
+    font-variant-numeric: tabular-nums;
+}
+
+.ml-card__num-value--warn { color: var(--ml-accent); }
+.ml-card__num-value--bad { color: #fb7185; }
+.ml-card__num-value--good { color: #34d399; }
+.ml-card__num-value--muted { color: #64748b; }
+
+.ml-card__num-label {
+    margin-top: 0.15rem;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ml-muted);
+}
+
+/* ── Aviso de modo simulación (consistente en todo el módulo) ──── */
+.ml-sim-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.6rem;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.08);
+    color: #7dd3fc;
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.ml-sim-note .material-symbols-outlined { font-size: 1.05rem; }
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .ml-subnav { flex-wrap: nowrap; }
+    .ml-subnav__group--admin {
+        border-left: none;
+        padding-left: 0;
+    }
+    .ml-head__title { font-size: 1.25rem; }
+    .ml-actions { width: 100%; }
+}

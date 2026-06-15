@@ -16,21 +16,25 @@
         </div>
     }
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                <span class="material-symbols-outlined text-3xl text-amber-400" aria-hidden="true">add_box</span>
+    <partial name="_MercadoLibreNav" />
+
+    <nav class="text-sm text-slate-400 mb-3" aria-label="Ruta">
+        <a asp-action="Listings" class="hover:text-amber-300">Publicaciones</a>
+        <span class="mx-1 text-slate-600">/</span>
+        <span class="text-slate-300">Crear producto</span>
+    </nav>
+
+    <div class="ml-head">
+        <div class="ml-head__main">
+            <h1 class="ml-head__title">
+                <span class="material-symbols-outlined" aria-hidden="true">add_box</span>
                 Crear producto desde publicación
             </h1>
-            <p class="text-sm text-slate-400 mt-1">
+            <p class="ml-head__subtitle">
                 Crea un Producto interno con los datos de la publicación y lo deja vinculado.
                 <span class="font-bold text-sky-300">No modifica nada en Mercado Libre.</span>
             </p>
         </div>
-        <a asp-action="Listings" class="btn-erp-ghost btn-sm">
-            <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Publicaciones
-        </a>
     </div>
 
     <!-- Publicación de origen -->

@@ -29,9 +29,17 @@
         </div>
     }
 
-    <!-- Header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div class="min-w-0">
+    <partial name="_MercadoLibreNav" />
+
+    <nav class="text-sm text-slate-400 mb-3" aria-label="Ruta">
+        <a asp-action="Listings" class="hover:text-amber-300">Publicaciones</a>
+        <span class="mx-1 text-slate-600">/</span>
+        <span class="text-slate-300 font-mono">@Model.ItemId</span>
+    </nav>
+
+    <!-- Header: detalle de publicación + acciones propias -->
+    <div class="ml-head">
+        <div class="ml-head__main min-w-0">
             <h1 class="text-xl font-black text-white truncate" title="@Model.Titulo">@Model.Titulo</h1>
             <p class="text-sm text-slate-400 mt-1 font-mono">
                 @Model.ItemId · @Model.CategoryId · @Model.ListingTypeId · @Model.Condition
@@ -53,19 +61,15 @@
                 }
             </p>
         </div>
-        <div class="flex gap-2 shrink-0">
-            @if (!string.IsNullOrEmpty(Model.Permalink))
-            {
+        @if (!string.IsNullOrEmpty(Model.Permalink))
+        {
+            <div class="ml-actions">
                 <a href="@Model.Permalink" target="_blank" rel="noopener noreferrer" class="btn-erp-secondary btn-sm">
                     <span class="material-symbols-outlined text-sm">open_in_new</span>
                     Ver en ML
                 </a>
-            }
-            <a asp-action="Listings" class="btn-erp-ghost btn-sm">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
-                Publicaciones
-            </a>
-        </div>
+            </div>
+        }
     </div>
 
     @if (Model.ModoSimulacion)
