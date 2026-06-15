@@ -40,15 +40,13 @@
 
     @if (Model.ModoSimulacion)
     {
-        <div class="card-erp-panel p-4 mb-6 border border-sky-500/30">
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-sky-400" aria-hidden="true">science</span>
-                <p class="text-sm text-slate-300">
-                    <span class="font-bold text-sky-300">Modo simulación activo.</span>
-                    Los cambios de stock, precio y publicaciones se calculan y registran,
-                    pero <span class="font-bold">no se envían a Mercado Libre</span>.
-                </p>
-            </div>
+        <div class="ml-sim-note ml-sim-note--block" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">science</span>
+            <span>
+                <span class="font-bold">Modo simulación activo.</span>
+                Los cambios de stock, precio y publicaciones se calculan y registran,
+                pero <span class="font-bold">no se envían a Mercado Libre</span>.
+            </span>
         </div>
     }
 

@@ -46,25 +46,24 @@
         </div>
     </div>
 
-    @if (!permitirPublicacion)
+    @if (!permitirPublicacion || modoSimulacion)
     {
-        <div class="card-erp-panel p-3 mb-4 border border-amber-500/30">
-            <p class="text-xs text-amber-300 flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px]">info</span>
-                La publicacion real desde el ERP esta deshabilitada: podes crear, validar y simular borradores,
-                pero publicar real requiere activar "Permitir publicacion desde ERP" en
-                <a asp-action="Configuracion" class="underline hover:text-amber-200">Configuracion</a>.
-            </p>
-        </div>
-    }
-
-    @if (modoSimulacion)
-    {
-        <div class="card-erp-panel p-3 mb-4 border border-sky-500/30">
-            <p class="text-xs text-sky-200 flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px]">science</span>
-                Modo simulacion activo: las publicaciones se registran como payload local y no llaman a Mercado Libre.
-            </p>
+        <div class="ml-status-strip">
+            @if (modoSimulacion)
+            {
+                <span class="ml-status-chip ml-status-chip--sim">
+                    <span class="material-symbols-outlined" aria-hidden="true">science</span>
+                    Simulación: las publicaciones se registran como payload local, no llaman a Mercado Libre.
+                </span>
+            }
+            @if (!permitirPublicacion)
+            {
+                <span class="ml-status-chip ml-status-chip--warn">
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    Publicación real deshabilitada — activala en
+                    <a asp-action="Configuracion">Configuración</a>.
+                </span>
+            }
         </div>
     }
 

@@ -267,6 +267,44 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
 
 .ml-sim-note .material-symbols-outlined { font-size: 1.05rem; }
 
+/* Variante para texto multi-línea (config / preview con explicación larga) */
+.ml-sim-note--block { align-items: flex-start; }
+
+/* ── Tira de estado/avisos compactos (evita banners apilados) ──── */
+.ml-status-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.ml-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.6rem;
+    font-size: 0.78rem;
+    border: 1px solid var(--ml-border);
+    background: rgba(15, 23, 42, 0.5);
+    color: var(--ml-muted);
+}
+
+.ml-status-chip .material-symbols-outlined { font-size: 1rem; }
+.ml-status-chip a { color: inherit; text-decoration: underline; }
+
+.ml-status-chip--sim {
+    border-color: rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.08);
+    color: #7dd3fc;
+}
+
+.ml-status-chip--warn {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.1);
+    color: #fcd34d;
+}
+
 /* ── Detalle de orden: resumen operativo ───────────────────────── */
 .ml-order-summary {
     display: grid;

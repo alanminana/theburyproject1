@@ -74,11 +74,9 @@
 
     @if (Model.ModoSimulacion)
     {
-        <div class="card-erp-panel p-4 mb-6 border border-sky-500/30">
-            <p class="text-sm text-slate-300 flex items-center gap-2">
-                <span class="material-symbols-outlined text-sky-400">science</span>
-                <span><span class="font-bold text-sky-300">Modo simulación:</span> las acciones de esta página se registran pero no se envían a Mercado Libre.</span>
-            </p>
+        <div class="ml-sim-note" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">science</span>
+            <span><span class="font-bold">Modo simulación:</span> las acciones de esta página se registran pero no se envían a Mercado Libre.</span>
         </div>
     }
 
