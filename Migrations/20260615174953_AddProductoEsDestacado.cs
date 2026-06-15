@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TheBuryProject.Migrations
 {
     /// <inheritdoc />
-    public partial class AddEsDestacadoToProducto : Migration
+    public partial class AddProductoEsDestacado : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
