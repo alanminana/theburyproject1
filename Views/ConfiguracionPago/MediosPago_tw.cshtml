@@ -953,6 +953,38 @@
                 <span class="material-symbols-outlined text-5xl text-slate-600">payments</span>
                 <h2 class="mt-2 text-xl font-black text-white">Sin medios configurados</h2>
                 <p class="empty-copy">Todavia no hay configuracion global de pagos para administrar.</p>
+                @if (puedeEditar)
+                {
+                    <form asp-controller="ConfiguracionPago" asp-action="CrearMedioPagoGlobal" method="post"
+                          style="max-width:420px;margin:1.25rem auto 0;text-align:left">
+                        @Html.AntiForgeryToken()
+                        <div class="grid gap-2">
+                            <div>
+                                <label class="pay-label">Tipo</label>
+                                <select name="TipoPago" class="pay-select">
+                                    @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta).GroupBy(t => (int)t).Select(g => g.First()))
+                                    {
+                                        <option value="@tipo">@TipoPagoDisplay(tipo)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="pay-label">Nombre</label>
+                                <input name="Nombre" maxlength="100" required class="pay-field" placeholder="Ej: Efectivo, Visa, Transferencia" />
+                            </div>
+                            <label class="pay-check">
+                                <input name="Activo" type="checkbox" value="true" checked />
+                                Activo
+                            </label>
+                        </div>
+                        <div class="pay-button-row" style="justify-content:center">
+                            <button type="submit" class="pay-mini-button primary">
+                                <span class="material-symbols-outlined text-[17px]">add_circle</span>
+                                Crear primer medio
+                            </button>
+                        </div>
+                    </form>
+                }
             </section>
         }
         else
@@ -981,6 +1013,47 @@
                             </a>
                         }
                     </nav>
+                    @if (puedeEditar)
+                    {
+                        <details class="pay-details" style="margin-top:.65rem">
+                            <summary class="compact-summary">
+                                <span class="inline-flex items-center gap-2">
+                                    <span class="material-symbols-outlined">add_circle</span>
+                                    Agregar metodo
+                                </span>
+                            </summary>
+                            <div class="details-body">
+                                <form asp-controller="ConfiguracionPago" asp-action="CrearMedioPagoGlobal" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <div class="grid gap-2">
+                                        <div>
+                                            <label class="pay-label">Tipo</label>
+                                            <select name="TipoPago" class="pay-select">
+                                                @foreach (var tipo in Enum.GetValues<TipoPago>().Where(t => t != TipoPago.Tarjeta).GroupBy(t => (int)t).Select(g => g.First()))
+                                                {
+                                                    <option value="@tipo">@TipoPagoDisplay(tipo)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="pay-label">Nombre</label>
+                                            <input name="Nombre" maxlength="100" required class="pay-field" />
+                                        </div>
+                                        <label class="pay-check">
+                                            <input name="Activo" type="checkbox" value="true" checked />
+                                            Activo
+                                        </label>
+                                    </div>
+                                    <div class="pay-button-row">
+                                        <button type="submit" class="pay-mini-button primary">
+                                            <span class="material-symbols-outlined text-[17px]">save</span>
+                                            Crear
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </details>
+                    }
                 </aside>
 
                 <main class="payments-main">
@@ -1037,10 +1110,48 @@
                                     <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
                                     @if (puedeEditar)
                                     {
-                                        <span class="pay-badge pay-badge-muted" title="La edicion del metodo requiere una vista separada. Pendiente de implementacion.">
-                                            <span class="material-symbols-outlined" style="font-size:1rem">edit_off</span>
-                                            Metodo
-                                        </span>
+                                        <details class="pay-details" style="flex-basis:100%;margin-top:.5rem">
+                                            <summary class="compact-summary">
+                                                <span class="inline-flex items-center gap-2">
+                                                    <span class="material-symbols-outlined">edit</span>
+                                                    Editar metodo
+                                                </span>
+                                            </summary>
+                                            <div class="details-body">
+                                                <form asp-controller="ConfiguracionPago" asp-action="EditarMedioPagoGlobal" asp-route-id="@medio.Id" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <div class="grid gap-2">
+                                                        <div>
+                                                            <label class="pay-label">Nombre</label>
+                                                            <input name="Nombre" maxlength="100" value="@medio.Nombre" required class="pay-field" />
+                                                        </div>
+                                                        <div>
+                                                            <label class="pay-label">Descripcion</label>
+                                                            <input name="Descripcion" maxlength="500" value="@medio.Descripcion" class="pay-field" />
+                                                        </div>
+                                                        <label class="pay-check">
+                                                            <input name="Activo" type="checkbox" value="true" @(medio.Activo ? "checked" : "") />
+                                                            Activo
+                                                        </label>
+                                                    </div>
+                                                    <div class="pay-button-row">
+                                                        <button type="submit" class="pay-mini-button primary">
+                                                            <span class="material-symbols-outlined text-[17px]">save</span>
+                                                            Guardar
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                                <form asp-controller="ConfiguracionPago" asp-action="EliminarMedioPagoGlobal" asp-route-id="@medio.Id" method="post"
+                                                      class="pay-button-row"
+                                                      onsubmit="return confirm('Eliminar este medio de pago? Se ocultara de la operatoria (soft delete).');">
+                                                    @Html.AntiForgeryToken()
+                                                    <button type="submit" class="pay-mini-button danger">
+                                                        <span class="material-symbols-outlined text-[17px]">delete</span>
+                                                        Eliminar metodo
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </details>
                                     }
                                 </div>
                             </header>
