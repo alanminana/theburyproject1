@@ -6,7 +6,7 @@
     var clientes = ViewBag.Clientes as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new();
 }
 
-<div class="erp-page-shell erp-compact">
+<div class="erp-page-shell">
 
     @if (TempData["Success"] != null)
     {
@@ -53,228 +53,230 @@
     <form asp-action="Configuracion" method="post">
         @Html.AntiForgeryToken()
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div class="mlc-card" data-mlc-tabs>
 
-            <!-- Cuenta y referencias -->
-            <div class="card-erp-panel p-6">
-                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">account_circle</span>
-                    Cuenta y referencias
-                </h2>
+            <!-- Pestañas -->
+            <div class="mlc-tabs" role="tablist" aria-label="Secciones de configuración">
+                <button type="button" class="mlc-tab is-active" role="tab"
+                        id="mlc-tab-cuenta" data-mlc-tab="cuenta"
+                        aria-selected="true" aria-controls="mlc-panel-cuenta">
+                    <span class="material-symbols-outlined" aria-hidden="true">account_circle</span>
+                    Cuenta
+                </button>
+                <button type="button" class="mlc-tab" role="tab" tabindex="-1"
+                        id="mlc-tab-precios" data-mlc-tab="precios"
+                        aria-selected="false" aria-controls="mlc-panel-precios">
+                    <span class="material-symbols-outlined" aria-hidden="true">sell</span>
+                    Precios y stock
+                </button>
+                <button type="button" class="mlc-tab" role="tab" tabindex="-1"
+                        id="mlc-tab-auto" data-mlc-tab="auto"
+                        aria-selected="false" aria-controls="mlc-panel-auto">
+                    <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
+                    Automatización
+                </button>
+            </div>
 
-                <div class="space-y-4">
-                    <div>
-                        <label asp-for="AccountId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Cuenta Mercado Libre
-                        </label>
-                        <select asp-for="AccountId" class="select-erp w-full">
+            <!-- Panel: Cuenta y referencias -->
+            <section class="mlc-panel is-active" role="tabpanel"
+                     id="mlc-panel-cuenta" data-mlc-panel="cuenta" aria-labelledby="mlc-tab-cuenta">
+                <p class="mlc-panel__sub">Cuenta, lista de precios y cliente interno usados para sincronizar y crear ventas.</p>
+
+                <div class="mlc-grid">
+                    <div class="mlc-field">
+                        <label asp-for="AccountId" class="mlc-label">Cuenta Mercado Libre</label>
+                        <select asp-for="AccountId" class="select-erp select-erp-sm">
                             <option value="">— Sin cuenta —</option>
                             @foreach (var (id, nombre) in Model.CuentasDisponibles)
                             {
                                 <option value="@id" selected="@(Model.AccountId == id ? "selected" : null)">@nombre</option>
                             }
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">Cuenta usada para sincronizar y procesar órdenes.</p>
+                        <p class="mlc-hint">Cuenta usada para sincronizar y procesar órdenes.</p>
                     </div>
 
-                    <div>
-                        <label asp-for="ListaPrecioId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Lista de precios para ML
-                        </label>
-                        <select asp-for="ListaPrecioId" class="select-erp w-full">
+                    <div class="mlc-field">
+                        <label asp-for="ListaPrecioId" class="mlc-label">Lista de precios para ML</label>
+                        <select asp-for="ListaPrecioId" class="select-erp select-erp-sm">
                             <option value="">— Precio base del producto —</option>
                             @foreach (var (id, nombre) in Model.ListasPreciosDisponibles)
                             {
                                 <option value="@id" selected="@(Model.ListaPrecioId == id ? "selected" : null)">@nombre</option>
                             }
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">El precio ML parte de esta lista; sin lista usa el precio de venta base.</p>
+                        <p class="mlc-hint">El precio ML parte de esta lista; sin lista usa el precio de venta base.</p>
                     </div>
 
-                    <div>
-                        <label asp-for="SucursalId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Sucursal / depósito de referencia
-                        </label>
-                        <select asp-for="SucursalId" class="select-erp w-full">
+                    <div class="mlc-field">
+                        <label asp-for="SucursalId" class="mlc-label">Sucursal / depósito de referencia</label>
+                        <select asp-for="SucursalId" class="select-erp select-erp-sm">
                             <option value="">— Sin sucursal —</option>
                             @foreach (var (id, nombre) in Model.SucursalesDisponibles)
                             {
                                 <option value="@id" selected="@(Model.SucursalId == id ? "selected" : null)">@nombre</option>
                             }
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">Informativo: el stock del ERP es global, sin stock por depósito.</p>
+                        <p class="mlc-hint">Informativo: el stock del ERP es global, sin stock por depósito.</p>
                     </div>
 
-                    <div>
-                        <label asp-for="ClienteMercadoLibreId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Cliente interno para ventas ML
-                        </label>
-                        <select asp-for="ClienteMercadoLibreId" class="select-erp w-full"
-                                asp-items="clientes">
+                    <div class="mlc-field mlc-field--full">
+                        <label asp-for="ClienteMercadoLibreId" class="mlc-label">Cliente interno para ventas ML</label>
+                        <select asp-for="ClienteMercadoLibreId" class="select-erp select-erp-sm" asp-items="clientes">
                             <option value="">— Seleccionar cliente —</option>
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">
+                        <p class="mlc-hint">
                             Las ventas creadas desde órdenes ML se imputan a este cliente
                             (ej: un cliente "Mercado Libre" genérico). Obligatorio para crear ventas.
                         </p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Precios -->
-            <div class="card-erp-panel p-6">
-                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">sell</span>
-                    Precio del canal
-                </h2>
+            <!-- Panel: Precio del canal + stock -->
+            <section class="mlc-panel" role="tabpanel"
+                     id="mlc-panel-precios" data-mlc-panel="precios" aria-labelledby="mlc-tab-precios">
+                <p class="mlc-panel__sub">Cómo se calcula el precio publicado y de dónde sale el stock que empuja el sync.</p>
 
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label asp-for="AjusteCanalPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Ajuste de canal (%)
-                        </label>
-                        <input asp-for="AjusteCanalPorcentaje" type="number" step="0.01" class="input-erp w-full" />
-                        <span asp-validation-for="AjusteCanalPorcentaje" class="text-xs text-rose-400"></span>
-                        <p class="text-xs text-slate-500 mt-1">Se suma al precio ERP (ej: 10 = +10% para absorber comisión).</p>
+                <div class="mlc-grid">
+                    <div class="mlc-field">
+                        <label asp-for="AjusteCanalPorcentaje" class="mlc-label">Ajuste de canal (%)</label>
+                        <input asp-for="AjusteCanalPorcentaje" type="number" step="0.01" class="input-erp input-erp-sm" />
+                        <span asp-validation-for="AjusteCanalPorcentaje" class="mlc-error"></span>
+                        <p class="mlc-hint">Se suma al precio ERP (ej: 10 = +10% para absorber comisión).</p>
                     </div>
-                    <div>
-                        <label asp-for="ComisionEstimadaPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Comisión ML estimada (%)
-                        </label>
-                        <input asp-for="ComisionEstimadaPorcentaje" type="number" step="0.01" class="input-erp w-full" />
-                        <span asp-validation-for="ComisionEstimadaPorcentaje" class="text-xs text-rose-400"></span>
-                        <p class="text-xs text-slate-500 mt-1">Usada en neto estimado y calculadora cuando no se consulta la API.</p>
+                    <div class="mlc-field">
+                        <label asp-for="ComisionEstimadaPorcentaje" class="mlc-label">Comisión ML estimada (%)</label>
+                        <input asp-for="ComisionEstimadaPorcentaje" type="number" step="0.01" class="input-erp input-erp-sm" />
+                        <span asp-validation-for="ComisionEstimadaPorcentaje" class="mlc-error"></span>
+                        <p class="mlc-hint">Usada en neto estimado y calculadora cuando no se consulta la API.</p>
                     </div>
-                    <div>
-                        <label asp-for="CostoEnvioEstimado" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Costo de envío estimado ($)
-                        </label>
-                        <input asp-for="CostoEnvioEstimado" type="number" step="0.01" class="input-erp w-full" />
-                        <span asp-validation-for="CostoEnvioEstimado" class="text-xs text-rose-400"></span>
+                    <div class="mlc-field">
+                        <label asp-for="CostoEnvioEstimado" class="mlc-label">Costo de envío estimado ($)</label>
+                        <input asp-for="CostoEnvioEstimado" type="number" step="0.01" class="input-erp input-erp-sm" />
+                        <span asp-validation-for="CostoEnvioEstimado" class="mlc-error"></span>
                     </div>
-                    <div>
-                        <label asp-for="MargenMinimoPorcentaje" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Margen mínimo (%)
-                        </label>
-                        <input asp-for="MargenMinimoPorcentaje" type="number" step="0.01" class="input-erp w-full" />
-                        <span asp-validation-for="MargenMinimoPorcentaje" class="text-xs text-rose-400"></span>
-                        <p class="text-xs text-slate-500 mt-1">Los push de precio advierten si quedan por debajo. Vacío = sin control.</p>
+                    <div class="mlc-field">
+                        <label asp-for="MargenMinimoPorcentaje" class="mlc-label">Margen mínimo (%)</label>
+                        <input asp-for="MargenMinimoPorcentaje" type="number" step="0.01" class="input-erp input-erp-sm" />
+                        <span asp-validation-for="MargenMinimoPorcentaje" class="mlc-error"></span>
+                        <p class="mlc-hint">Los push de precio advierten si quedan por debajo. Vacío = sin control.</p>
                     </div>
-                    <div>
-                        <label asp-for="ReglaRedondeo" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Regla de redondeo
-                        </label>
-                        <select asp-for="ReglaRedondeo" class="select-erp w-full">
+                    <div class="mlc-field">
+                        <label asp-for="ReglaRedondeo" class="mlc-label">Regla de redondeo</label>
+                        <select asp-for="ReglaRedondeo" class="select-erp select-erp-sm">
                             <option value="ninguno">Sin redondeo</option>
                             <option value="decena">A la decena ($1.234 → $1.230)</option>
                             <option value="centena">A la centena ($1.234 → $1.200)</option>
                             <option value="mil">Al mil ($1.234 → $1.000)</option>
                         </select>
                     </div>
-                    <div>
-                        <label asp-for="OrigenStock" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Origen del stock publicado
-                        </label>
-                        <select asp-for="OrigenStock" class="select-erp w-full">
+
+                    <div class="mlc-field mlc-field--full">
+                        <label asp-for="OrigenStock" class="mlc-label">Origen del stock publicado</label>
+                        <select asp-for="OrigenStock" class="select-erp select-erp-sm">
                             <option value="@MercadoLibreOrigenStock.StockLogicoProducto">Stock lógico del producto (StockActual)</option>
                             <option value="@MercadoLibreOrigenStock.StockFisicoDisponible">Stock físico (unidades EnStock registradas)</option>
                             <option value="" disabled>Unidad física específica — solo por publicación</option>
                             <option value="" disabled>Depósito/sucursal — no disponible (el ERP no maneja stock por sucursal)</option>
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">
+                        <p class="mlc-hint">
                             Define cuánto stock empuja el sync a ML y cómo se asignan unidades físicas en las ventas ML.
                             Cada publicación puede sobreescribirlo en su detalle.
                         </p>
                     </div>
-                    <div>
-                        <label asp-for="PoliticaDevolucion" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Política ante devoluciones
-                        </label>
-                        <select asp-for="PoliticaDevolucion" class="select-erp w-full">
+
+                    <div class="mlc-field mlc-field--full">
+                        <label asp-for="PoliticaDevolucion" class="mlc-label">Política ante devoluciones</label>
+                        <select asp-for="PoliticaDevolucion" class="select-erp select-erp-sm">
                             <option value="@MercadoLibrePoliticaDevolucion.PendienteRevision">Pendiente de revisión (recomendado)</option>
                             <option value="@MercadoLibrePoliticaDevolucion.SugerirReingreso">Sugerir reingreso de stock</option>
                             <option value="@MercadoLibrePoliticaDevolucion.SugerirNoReingreso">Sugerir no reingresar</option>
                         </select>
-                        <p class="text-xs text-slate-500 mt-1">El stock nunca se reingresa sin decisión manual.</p>
+                        <p class="mlc-hint">El stock nunca se reingresa sin decisión manual.</p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Automatizaciones -->
-            <div class="card-erp-panel p-6">
-                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-400 text-xl" aria-hidden="true">smart_toy</span>
-                    Automatizaciones
-                </h2>
+            <!-- Panel: Automatización + seguridad -->
+            <section class="mlc-panel" role="tabpanel"
+                     id="mlc-panel-auto" data-mlc-panel="auto" aria-labelledby="mlc-tab-auto">
+                <p class="mlc-panel__sub">Qué pasos hace el sistema solo al recibir órdenes y cambios, y el modo de seguridad.</p>
 
-                <div class="space-y-3">
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input asp-for="ImportacionAutomaticaOrdenes" type="checkbox" class="mt-1" />
-                        <span>
-                            <span class="block text-sm font-semibold text-white">Importar órdenes automáticamente</span>
-                            <span class="block text-xs text-slate-400">Al recibir webhooks orders_v2 se importa la orden completa (sin crear venta).</span>
+                <div class="mlc-toggles">
+                    <label class="mlc-toggle">
+                        <input asp-for="ImportacionAutomaticaOrdenes" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Importar órdenes automáticamente</span>
+                            <span class="mlc-toggle__desc">Al recibir webhooks orders_v2 se importa la orden completa (sin crear venta).</span>
                         </span>
                     </label>
 
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input asp-for="CrearVentaAutomatica" type="checkbox" class="mt-1" />
-                        <span>
-                            <span class="block text-sm font-semibold text-white">Crear venta interna automáticamente</span>
-                            <span class="block text-xs text-slate-400">
+                    <label class="mlc-toggle">
+                        <input asp-for="CrearVentaAutomatica" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Crear venta interna automáticamente</span>
+                            <span class="mlc-toggle__desc">
                                 Con la orden paga y todos los ítems vinculados, crea la Venta y descuenta stock.
                                 Requiere cliente ML configurado.
                             </span>
                         </span>
                     </label>
 
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input asp-for="SyncAutomaticaStock" type="checkbox" class="mt-1" />
-                        <span>
-                            <span class="block text-sm font-semibold text-white">Sync automática de stock ERP → ML</span>
-                            <span class="block text-xs text-slate-400">Empuja stock a ML cuando cambia en el ERP (publicaciones vinculadas).</span>
+                    <label class="mlc-toggle">
+                        <input asp-for="SyncAutomaticaStock" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Sync automática de stock ERP → ML</span>
+                            <span class="mlc-toggle__desc">Empuja stock a ML cuando cambia en el ERP (publicaciones vinculadas).</span>
                         </span>
                     </label>
 
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input asp-for="SyncAutomaticaPrecio" type="checkbox" class="mt-1" />
-                        <span>
-                            <span class="block text-sm font-semibold text-white">Sync automática de precio ERP → ML</span>
-                            <span class="block text-xs text-slate-400">Empuja el precio de canal calculado cuando cambia el precio ERP.</span>
+                    <label class="mlc-toggle">
+                        <input asp-for="SyncAutomaticaPrecio" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Sync automática de precio ERP → ML</span>
+                            <span class="mlc-toggle__desc">Empuja el precio de canal calculado cuando cambia el precio ERP.</span>
                         </span>
                     </label>
 
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input asp-for="PermitirPublicacionDesdeErp" type="checkbox" class="mt-1" />
-                        <span>
-                            <span class="block text-sm font-semibold text-white">Permitir publicar desde el ERP</span>
-                            <span class="block text-xs text-slate-400">Habilita el flujo de borradores y publicación (fuera del MVP actual).</span>
+                    <div class="mlc-mode-note">
+                        <p class="mlc-mode-note__title">
+                            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                            Cómo se combinan estos dos controles al publicar un borrador
+                        </p>
+                        <ul class="mlc-mode-note__list">
+                            <li><b>Modo simulación activado</b> → en el borrador el botón dice «Simular publicación»: guarda el payload local y <b>nunca</b> llama a Mercado Libre. Ideal para probar el flujo.</li>
+                            <li><b>Simulación desactivada + «Permitir publicar» activado</b> → el botón dice «Publicar» y crea la publicación <b>real</b> en Mercado Libre (pide confirmación y cuenta conectada).</li>
+                            <li><b>Simulación desactivada + «Permitir publicar» desactivado</b> → no se puede publicar; el botón del borrador queda bloqueado y avisa qué falta.</li>
+                        </ul>
+                    </div>
+
+                    <label class="mlc-toggle">
+                        <input asp-for="PermitirPublicacionDesdeErp" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Permitir publicar desde el ERP</span>
+                            <span class="mlc-toggle__desc">Habilita el flujo de borradores → validación → publicación real. Si está desactivado, los borradores solo se pueden simular.</span>
+                        </span>
+                    </label>
+
+                    <label class="mlc-toggle mlc-toggle--sim">
+                        <input asp-for="ModoSimulacion" type="checkbox" />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">
+                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem;vertical-align:-2px;margin-right:.2rem;">science</span>
+                                Modo simulación (seguridad)
+                            </span>
+                            <span class="mlc-toggle__desc">
+                                Con simulación activa, ningún cambio de stock, precio o publicación se envía a Mercado Libre:
+                                solo se calcula y queda registrado en el log. Desactivarlo habilita los cambios reales
+                                (cada acción pide confirmación igual).
+                            </span>
                         </span>
                     </label>
                 </div>
-            </div>
-
-            <!-- Seguridad -->
-            <div class="card-erp-panel p-6 border border-sky-500/20">
-                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sky-400 text-xl" aria-hidden="true">science</span>
-                    Seguridad
-                </h2>
-
-                <label class="flex items-start gap-3 cursor-pointer">
-                    <input asp-for="ModoSimulacion" type="checkbox" class="mt-1" />
-                    <span>
-                        <span class="block text-sm font-semibold text-white">Modo simulación</span>
-                        <span class="block text-xs text-slate-400">
-                            Con simulación activa, ningún cambio de stock, precio o publicación se envía a Mercado Libre:
-                            solo se calcula y queda registrado en el log de sincronización.
-                            Desactivarlo habilita los cambios reales (cada acción pide confirmación igual).
-                        </span>
-                    </span>
-                </label>
-            </div>
+            </section>
         </div>
 
-        <div class="flex justify-end gap-2 mt-6">
+        <div class="mlc-actions">
             <a asp-action="Index" class="btn-erp-secondary">Cancelar</a>
             <button type="submit" class="btn-erp-primary">
                 <span class="material-symbols-outlined text-sm">save</span>
@@ -283,3 +285,47 @@
         </div>
     </form>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var root = document.querySelector('[data-mlc-tabs]');
+            if (!root) return;
+            var tabs = Array.prototype.slice.call(root.querySelectorAll('.mlc-tab'));
+            var panels = Array.prototype.slice.call(root.querySelectorAll('.mlc-panel'));
+
+            function activate(id, focus) {
+                tabs.forEach(function (t) {
+                    var on = t.getAttribute('data-mlc-tab') === id;
+                    t.classList.toggle('is-active', on);
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                    t.tabIndex = on ? 0 : -1;
+                    if (on && focus) t.focus();
+                });
+                panels.forEach(function (p) {
+                    p.classList.toggle('is-active', p.getAttribute('data-mlc-panel') === id);
+                });
+            }
+
+            tabs.forEach(function (t) {
+                t.addEventListener('click', function () { activate(t.getAttribute('data-mlc-tab')); });
+            });
+
+            root.querySelector('.mlc-tabs').addEventListener('keydown', function (e) {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                var i = tabs.findIndex(function (t) { return t.classList.contains('is-active'); });
+                if (i < 0) return;
+                var n = e.key === 'ArrowRight' ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
+                activate(tabs[n].getAttribute('data-mlc-tab'), true);
+                e.preventDefault();
+            });
+
+            // Tras un postback con error de validación, abrir la pestaña que lo contiene.
+            var invalid = root.querySelector('.input-validation-error, .field-validation-error');
+            if (invalid) {
+                var panel = invalid.closest('.mlc-panel');
+                if (panel) activate(panel.getAttribute('data-mlc-panel'));
+            }
+        })();
+    </script>
+}

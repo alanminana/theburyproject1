@@ -146,6 +146,19 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             borrador.Precio = viewModel.Precio;
             borrador.Stock = viewModel.Stock;
             borrador.CategoryIdMl = Truncar(viewModel.CategoryIdMl?.Trim(), 30);
+            // Snapshot de la categoría resuelto server-side por el picker.
+            if (string.IsNullOrWhiteSpace(borrador.CategoryIdMl))
+            {
+                borrador.CategoryNombre = null;
+                borrador.CategoryPathFromRoot = null;
+                borrador.CategoryEsHoja = null;
+            }
+            else
+            {
+                borrador.CategoryNombre = Truncar(viewModel.CategoryNombre?.Trim(), 200);
+                borrador.CategoryPathFromRoot = Truncar(viewModel.CategoryPathFromRoot?.Trim(), 500);
+                borrador.CategoryEsHoja = viewModel.CategoryEsHoja;
+            }
             borrador.Condicion = condicion;
             borrador.ListingTypeId = Truncar(string.IsNullOrWhiteSpace(viewModel.ListingTypeId)
                 ? "gold_special" : viewModel.ListingTypeId.Trim(), 30)!;
@@ -191,7 +204,9 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 errores.Add("El precio debe ser mayor a 0.");
 
             if (string.IsNullOrWhiteSpace(borrador.CategoryIdMl))
-                errores.Add("Falta la categoría de Mercado Libre (ej: MLA1055). Buscala en la página de categorías de ML.");
+                errores.Add("Falta la categoría de Mercado Libre. Elegila con el buscador de categorías del borrador.");
+            else if (borrador.CategoryEsHoja == false)
+                errores.Add("La categoría elegida no es una categoría hoja [leaf]: ML solo permite publicar en hojas. Elegí una más específica.");
 
             if (!CondicionesValidas.Contains(borrador.Condicion))
                 errores.Add($"Condición inválida: '{borrador.Condicion}' (new | used).");
@@ -421,6 +436,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                     Precio = b.Precio,
                     Stock = b.Stock,
                     CategoryIdMl = b.CategoryIdMl,
+                    CategoryNombre = b.CategoryNombre,
                     Estado = b.Estado,
                     FechaValidacionUtc = b.FechaValidacionUtc,
                     PublicadoEnSimulacion = b.PublicadoEnSimulacion,
@@ -455,6 +471,9 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 Precio = borrador.Precio,
                 Stock = borrador.Stock,
                 CategoryIdMl = borrador.CategoryIdMl,
+                CategoryNombre = borrador.CategoryNombre,
+                CategoryPathFromRoot = borrador.CategoryPathFromRoot,
+                CategoryEsHoja = borrador.CategoryEsHoja,
                 Condicion = borrador.Condicion,
                 ListingTypeId = borrador.ListingTypeId,
                 Garantia = borrador.Garantia,
@@ -472,7 +491,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 ProductoStockActual = borrador.Producto.StockActual,
                 ProductoRequiereNumeroSerie = borrador.Producto.RequiereNumeroSerie,
                 ModoSimulacion = config.ModoSimulacion,
-                PermitirPublicacionDesdeErp = config.PermitirPublicacionDesdeErp
+                PermitirPublicacionDesdeErp = config.PermitirPublicacionDesdeErp,
+                CuentaConectada = config.AccountId.HasValue
             };
         }
 

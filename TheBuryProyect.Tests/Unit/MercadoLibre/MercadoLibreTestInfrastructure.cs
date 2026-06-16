@@ -337,4 +337,47 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
         SendMessageCalls.Add((packId, sellerId, buyerUserId, text));
         return Task.CompletedTask;
     }
+
+    // ------------------------------------------------------------------
+    // Categorías (árbol + predictor). Token opcional: se registra el último
+    // valor recibido (puede ser null) para asertar la resolución de token.
+    // ------------------------------------------------------------------
+
+    public List<MeliCategoryNodeDto> SiteCategories { get; } = new();
+    public Dictionary<string, MeliCategoryDto> Categorias { get; } = new();
+    public List<MeliCategoryPredictionDto> Predicciones { get; } = new();
+
+    public string? UltimoTokenCategoria { get; private set; }
+    public bool UltimoTokenCategoriaRecibido { get; private set; }
+    public string? UltimaQueryPredictor { get; private set; }
+
+    public Task<IReadOnlyList<MeliCategoryNodeDto>> GetSiteCategoriesAsync(
+        string siteId, string? accessToken, CancellationToken ct = default)
+    {
+        RegistrarTokenCategoria(accessToken);
+        return Task.FromResult<IReadOnlyList<MeliCategoryNodeDto>>(SiteCategories.ToList());
+    }
+
+    public Task<MeliCategoryDto> GetCategoryAsync(
+        string categoryId, string? accessToken, CancellationToken ct = default)
+    {
+        RegistrarTokenCategoria(accessToken);
+        return Task.FromResult(Categorias.TryGetValue(categoryId, out var cat)
+            ? cat
+            : throw new InvalidOperationException($"Categoría {categoryId} no configurada en el fake"));
+    }
+
+    public Task<IReadOnlyList<MeliCategoryPredictionDto>> PredictCategoriesAsync(
+        string siteId, string query, string? accessToken, int limit = 8, CancellationToken ct = default)
+    {
+        RegistrarTokenCategoria(accessToken);
+        UltimaQueryPredictor = query;
+        return Task.FromResult<IReadOnlyList<MeliCategoryPredictionDto>>(Predicciones.Take(limit).ToList());
+    }
+
+    private void RegistrarTokenCategoria(string? accessToken)
+    {
+        UltimoTokenCategoria = accessToken;
+        UltimoTokenCategoriaRecibido = true;
+    }
 }

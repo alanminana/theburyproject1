@@ -13,6 +13,7 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         public decimal Precio { get; set; }
         public int Stock { get; set; }
         public string? CategoryIdMl { get; set; }
+        public string? CategoryNombre { get; set; }
         public MercadoLibreBorradorEstado Estado { get; set; }
         public bool FueValidado => FechaValidacionUtc.HasValue;
         public DateTime? FechaValidacionUtc { get; set; }
@@ -44,6 +45,15 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         [StringLength(30)]
         public string? CategoryIdMl { get; set; }
 
+        // Snapshot de la categoría resuelto por el picker (hidden en el form).
+        [StringLength(200)]
+        public string? CategoryNombre { get; set; }
+
+        [StringLength(500)]
+        public string? CategoryPathFromRoot { get; set; }
+
+        public bool? CategoryEsHoja { get; set; }
+
         [Required]
         [StringLength(20)]
         public string Condicion { get; set; } = "new";
@@ -72,6 +82,9 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
 
         public bool ModoSimulacion { get; set; }
         public bool PermitirPublicacionDesdeErp { get; set; }
+
+        /// <summary>True si hay una cuenta ML conectada (requerida para publicación real).</summary>
+        public bool CuentaConectada { get; set; }
 
         public bool PuedeEditar => Estado is MercadoLibreBorradorEstado.Borrador or MercadoLibreBorradorEstado.Validado;
         public bool PuedeValidar => PuedeEditar;

@@ -35,6 +35,17 @@ namespace TheBuryProject.Modules.MercadoLibre.Entities
         [StringLength(30)]
         public string? CategoryIdMl { get; set; }
 
+        /// <summary>Nombre de la categoría ML (snapshot del picker, para mostrar sin re-consultar).</summary>
+        [StringLength(200)]
+        public string? CategoryNombre { get; set; }
+
+        /// <summary>Ruta legible de la categoría ("Raíz &gt; ... &gt; Hoja"), snapshot del picker.</summary>
+        [StringLength(500)]
+        public string? CategoryPathFromRoot { get; set; }
+
+        /// <summary>True si la categoría elegida es hoja (publicable). Null = sin resolver/legacy.</summary>
+        public bool? CategoryEsHoja { get; set; }
+
         /// <summary>Condición del ítem: new | used.</summary>
         [StringLength(20)]
         public string Condicion { get; set; } = "new";

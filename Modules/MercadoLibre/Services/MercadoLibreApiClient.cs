@@ -187,6 +187,44 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             await EnsureSuccessAsync(response, $"PUT /items/{itemId}/description", ct);
         }
 
+        public async Task<IReadOnlyList<MeliCategoryNodeDto>> GetSiteCategoriesAsync(
+            string siteId, string? accessToken, CancellationToken ct = default)
+        {
+            using var request = CreateRequest(HttpMethod.Get, $"/sites/{siteId}/categories", accessToken);
+            using var response = await _http.SendAsync(request, ct);
+
+            await EnsureSuccessAsync(response, "GET /sites/{site}/categories", ct);
+
+            var nodes = await response.Content.ReadFromJsonAsync<List<MeliCategoryNodeDto>>(JsonOptions, ct);
+            return nodes ?? new List<MeliCategoryNodeDto>();
+        }
+
+        public async Task<MeliCategoryDto> GetCategoryAsync(
+            string categoryId, string? accessToken, CancellationToken ct = default)
+        {
+            using var request = CreateRequest(HttpMethod.Get, $"/categories/{categoryId}", accessToken);
+            using var response = await _http.SendAsync(request, ct);
+
+            await EnsureSuccessAsync(response, "GET /categories/{id}", ct);
+
+            var category = await response.Content.ReadFromJsonAsync<MeliCategoryDto>(JsonOptions, ct);
+            return category ?? throw new MercadoLibreApiException($"GET /categories/{categoryId} devolvió un body vacío.");
+        }
+
+        public async Task<IReadOnlyList<MeliCategoryPredictionDto>> PredictCategoriesAsync(
+            string siteId, string query, string? accessToken, int limit = 8, CancellationToken ct = default)
+        {
+            var url = $"/sites/{siteId}/domain_discovery/search?limit={limit}&q={Uri.EscapeDataString(query)}";
+
+            using var request = CreateRequest(HttpMethod.Get, url, accessToken);
+            using var response = await _http.SendAsync(request, ct);
+
+            await EnsureSuccessAsync(response, "GET /sites/{site}/domain_discovery/search", ct);
+
+            var predictions = await response.Content.ReadFromJsonAsync<List<MeliCategoryPredictionDto>>(JsonOptions, ct);
+            return predictions ?? new List<MeliCategoryPredictionDto>();
+        }
+
         public async Task<MeliOrderDto> GetOrderAsync(
             string accessToken, long orderId, CancellationToken ct = default)
         {
@@ -331,6 +369,20 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
         {
             var request = new HttpRequestMessage(method, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            return request;
+        }
+
+        /// <summary>
+        /// Igual que CreateAuthorizedRequest pero el token es opcional: solo agrega
+        /// Authorization si viene un access token (recursos públicos del catálogo).
+        /// </summary>
+        private static HttpRequestMessage CreateRequest(HttpMethod method, string url, string? accessToken)
+        {
+            if (!string.IsNullOrEmpty(accessToken))
+                return CreateAuthorizedRequest(method, url, accessToken);
+
+            var request = new HttpRequestMessage(method, url);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             return request;
         }

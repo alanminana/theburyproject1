@@ -408,6 +408,9 @@ const ProductoModal = (() => {
         tr.setAttribute('data-producto-codigo', entity.codigo || '');
         tr.setAttribute('data-producto-nombre', entity.nombre || '');
         tr.setAttribute('data-search', searchData);
+        tr.setAttribute('data-sort-nombre', (entity.nombre || '').toLowerCase());
+        tr.setAttribute('data-sort-precio', String(parseFloat(entity.precioVenta || 0)));
+        tr.setAttribute('data-sort-comision', '0');
 
         // td: checkbox
         var tdChk = mkEl('td', 'w-10 px-3 py-4');
@@ -417,6 +420,20 @@ const ProductoModal = (() => {
         chk.value = entity.id;
         chk.setAttribute('aria-label', 'Seleccionar ' + (entity.nombre || ''));
         tdChk.appendChild(chk);
+
+        // td: destacado (estrella) — producto nuevo nunca destacado
+        var tdStar = mkEl('td', 'w-10 px-3 py-4 text-center');
+        var starBtn = mkEl('button', 'btn-star-destacado inline-flex items-center justify-center w-8 h-8 rounded transition-colors hover:bg-white/5');
+        starBtn.type = 'button';
+        starBtn.setAttribute('data-producto-id', entity.id);
+        starBtn.setAttribute('data-es-destacado', 'false');
+        starBtn.setAttribute('aria-label', 'Marcar como destacado ' + (entity.nombre || ''));
+        starBtn.title = 'Marcar como destacado';
+        var starIcon = mkEl('span', 'material-symbols-outlined text-xl leading-none text-slate-600');
+        starIcon.style.fontVariationSettings = "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24";
+        starIcon.textContent = 'star';
+        starBtn.appendChild(starIcon);
+        tdStar.appendChild(starBtn);
 
         // td: codigo
         var tdCodigo = mkEl('td', 'px-6 py-4 text-sm font-mono text-slate-400');
@@ -460,70 +477,96 @@ const ProductoModal = (() => {
         var tdPrecio = mkEl('td', 'px-6 py-4');
         var pPrecio = mkEl('p', 'text-sm font-bold text-white');
         pPrecio.textContent = '$ ' + precio;
-        var pComision = mkEl('p', 'text-[10px] text-slate-400');
-        pComision.textContent = 'Comisión vendedor: ';
-        var spanComision = mkEl('span');
-        spanComision.setAttribute('data-producto-comision', '');
-        spanComision.textContent = 'Sin comisión';
-        pComision.appendChild(spanComision);
+        var pPrecioLabel = mkEl('p', 'text-[10px] text-slate-400');
+        pPrecioLabel.setAttribute('data-prod-precio-label', '');
+        pPrecioLabel.textContent = 'Base/fallback';
         tdPrecio.appendChild(pPrecio);
-        tdPrecio.appendChild(pComision);
+        tdPrecio.appendChild(pPrecioLabel);
 
-        // td: acciones — atributos de usuario via setAttribute, íconos via textContent
+        // td: comisión (producto nuevo: sin comisión)
+        var tdComision = mkEl('td', 'px-6 py-4 text-sm text-right');
+        var spanComision = mkEl('span', 'text-slate-500');
+        spanComision.setAttribute('data-producto-comision', '');
+        spanComision.textContent = '—';
+        tdComision.appendChild(spanComision);
+
+        // td: acciones — paridad estructural con el row del servidor
         var tdAcc = mkEl('td', 'px-6 py-4 text-right');
+        tdAcc.style.minWidth = '240px';
         var divBtns = mkEl('div', 'flex flex-wrap justify-end gap-2');
 
-        function mkActionBtn(cls, title, attrs, iconText, labelText) {
-            var btn = mkEl('button', cls);
-            btn.type = 'button';
-            btn.title = title;
-            for (var k in attrs) btn.setAttribute(k, attrs[k]);
-            var ico = mkEl('span', 'material-symbols-outlined');
-            ico.textContent = iconText;
-            var lbl = mkEl('span');
-            lbl.textContent = labelText;
-            btn.appendChild(ico);
-            btn.appendChild(lbl);
-            return btn;
+        // Crea un botón/enlace de acción. Los .row-action ocultan su label en desktop
+        // via .row-action__label; Editar/Eliminar lo muestran siempre (plainLabel).
+        function mkAction(opts) {
+            var tag = opts.tag || 'button';
+            var node = mkEl(tag, opts.cls);
+            if (tag === 'button') node.type = 'button';
+            if (opts.href) node.setAttribute('href', opts.href);
+            if (opts.title) node.title = opts.title;
+            var attrs = opts.attrs || {};
+            for (var k in attrs) node.setAttribute(k, attrs[k]);
+            var ico = mkEl('span', opts.iconCls || 'material-symbols-outlined');
+            ico.textContent = opts.icon;
+            node.appendChild(ico);
+            if (opts.label) {
+                var lbl = mkEl('span', opts.plainLabel ? null : 'row-action__label');
+                lbl.textContent = opts.label;
+                node.appendChild(lbl);
+            }
+            return node;
         }
 
-        divBtns.appendChild(mkActionBtn(
-            'row-action row-action--primary', 'Historial de precio',
-            { 'data-catalogo-modal-open': 'historial-precio', 'data-catalogo-producto-id': entity.id },
-            'history', 'Historial'
-        ));
-        divBtns.appendChild(mkActionBtn(
-            'row-action row-action--primary', 'Comisión vendedor: 0.00%',
-            { 'data-comision-producto-id': entity.id, 'data-comision-producto-nombre': entity.nombre || '', 'data-comision-porcentaje': '0' },
-            'percent', 'Comisión'
-        ));
-        divBtns.appendChild(mkActionBtn(
-            'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white',
-            'Editar', { 'data-prod-edit-id': entity.id },
-            'edit', 'Editar'
-        ));
-        divBtns.appendChild(mkActionBtn(
-            'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400',
-            'Eliminar', { 'data-prod-delete-id': entity.id, 'data-prod-delete-nombre': entity.nombre || '' },
-            'delete', 'Eliminar'
-        ));
+        divBtns.appendChild(mkAction({
+            cls: 'row-action row-action--primary', title: 'Historial de precio',
+            attrs: { 'data-catalogo-modal-open': 'historial-precio', 'data-catalogo-producto-id': entity.id },
+            icon: 'history', label: 'Historial'
+        }));
+        divBtns.appendChild(mkAction({
+            cls: 'row-action row-action--primary', title: 'Comisión vendedor: 0.00%',
+            attrs: { 'data-comision-producto-id': entity.id, 'data-comision-producto-nombre': entity.nombre || '', 'data-comision-porcentaje': '0' },
+            icon: 'percent', label: 'Comisión'
+        }));
+        divBtns.appendChild(mkAction({
+            cls: 'row-action row-action--primary', title: 'Historial de movimientos de stock',
+            attrs: { 'data-movimientos-producto-id': entity.id, 'data-movimientos-producto-nombre': entity.nombre || '' },
+            icon: 'swap_vert', label: 'Movimientos'
+        }));
+        divBtns.appendChild(mkAction({
+            tag: 'a', cls: 'row-action row-action--primary', title: 'Ficha de inventario del producto',
+            href: '/Producto/Inventario?productoId=' + encodeURIComponent(entity.id),
+            icon: 'inventory_2', label: 'Ver inventario'
+        }));
+        divBtns.appendChild(mkAction({
+            cls: 'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white',
+            title: 'Editar', attrs: { 'data-prod-edit-id': entity.id },
+            icon: 'edit', iconCls: 'material-symbols-outlined text-base', label: 'Editar', plainLabel: true
+        }));
+        divBtns.appendChild(mkAction({
+            cls: 'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400',
+            title: 'Eliminar', attrs: { 'data-prod-delete-id': entity.id, 'data-prod-delete-nombre': entity.nombre || '' },
+            icon: 'delete', iconCls: 'material-symbols-outlined text-base', label: 'Eliminar', plainLabel: true
+        }));
 
         tdAcc.appendChild(divBtns);
 
         tr.appendChild(tdChk);
+        tr.appendChild(tdStar);
         tr.appendChild(tdCodigo);
         tr.appendChild(tdNombre);
         tr.appendChild(tdCat);
         tr.appendChild(tdMarca);
         tr.appendChild(tdStock);
         tr.appendChild(tdPrecio);
+        tr.appendChild(tdComision);
         tr.appendChild(tdAcc);
         tbody.appendChild(tr);
 
         var countBadge  = document.getElementById('productos-visible-count');
         var footerCount = document.getElementById('productos-footer-count');
+        var footerTotal = document.getElementById('productos-footer-total');
         if (countBadge)  countBadge.textContent  = parseInt(countBadge.textContent  || '0', 10) + 1;
         if (footerCount) footerCount.textContent = parseInt(footerCount.textContent || '0', 10) + 1;
+        if (footerTotal) footerTotal.textContent = parseInt(footerTotal.textContent || '0', 10) + 1;
 
         if (typeof CatalogoModule !== 'undefined') {
             var selApi = CatalogoModule.getProductSelectionApi();

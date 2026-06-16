@@ -28,6 +28,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
         private readonly IMercadoLibreListingAdminService _listingAdminService;
         private readonly IMercadoLibrePriceBatchService _priceBatchService;
         private readonly IMercadoLibrePublicacionService _publicacionService;
+        private readonly IMercadoLibreCategoriaService _categoriaService;
         private readonly IMercadoLibreDashboardService _dashboardService;
         private readonly IMercadoLibreQuestionService _questionService;
         private readonly IMercadoLibreMessageService _messageService;
@@ -47,6 +48,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             IMercadoLibreListingAdminService listingAdminService,
             IMercadoLibrePriceBatchService priceBatchService,
             IMercadoLibrePublicacionService publicacionService,
+            IMercadoLibreCategoriaService categoriaService,
             IMercadoLibreDashboardService dashboardService,
             IMercadoLibreQuestionService questionService,
             IMercadoLibreMessageService messageService,
@@ -65,6 +67,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             _listingAdminService = listingAdminService;
             _priceBatchService = priceBatchService;
             _publicacionService = publicacionService;
+            _categoriaService = categoriaService;
             _dashboardService = dashboardService;
             _questionService = questionService;
             _messageService = messageService;
@@ -1074,6 +1077,66 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             }
 
             return RedirectToAction(nameof(Borradores));
+        }
+
+        // ------------------------------------------------------------------
+        // Picker de categorías ML (AJAX). Consumo online del árbol: predictor,
+        // navegado y resolución de la categoría elegida (hoja + listing_allowed).
+        // ------------------------------------------------------------------
+
+        // GET: /MercadoLibre/CategoriaSugerencias?titulo=...
+        [HttpGet]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> CategoriaSugerencias(string? titulo)
+        {
+            try
+            {
+                var sugerencias = await _categoriaService.SugerirAsync(titulo, HttpContext.RequestAborted);
+                return Json(new { ok = true, sugerencias });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fallo el predictor de categorías ML para '{Titulo}'", titulo);
+                return Json(new { ok = false, error = "No se pudieron obtener sugerencias de Mercado Libre." });
+            }
+        }
+
+        // GET: /MercadoLibre/CategoriaHijos?categoryId=...
+        [HttpGet]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> CategoriaHijos(string? categoryId)
+        {
+            try
+            {
+                var nivel = await _categoriaService.ListarHijosAsync(categoryId, HttpContext.RequestAborted);
+                return Json(new { ok = true, nivel });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fallo el navegado de categorías ML (categoryId={CategoryId})", categoryId);
+                return Json(new { ok = false, error = "No se pudo navegar el árbol de categorías (¿hay una cuenta ML conectada?)." });
+            }
+        }
+
+        // GET: /MercadoLibre/CategoriaResolver?categoryId=...
+        [HttpGet]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> CategoriaResolver(string categoryId)
+        {
+            try
+            {
+                var categoria = await _categoriaService.ResolverAsync(categoryId, HttpContext.RequestAborted);
+                return Json(new { ok = true, categoria });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Json(new { ok = false, error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fallo la resolución de categoría ML {CategoryId}", categoryId);
+                return Json(new { ok = false, error = "No se pudo resolver la categoría en Mercado Libre." });
+            }
         }
 
         private async Task CargarCategoriasYMarcasAsync()

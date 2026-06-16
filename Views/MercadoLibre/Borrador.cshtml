@@ -50,9 +50,48 @@
         </div>
     </div>
 
-    <!-- Estado + acciones -->
+    <!-- Flujo guiado: pasos · estado · acciones -->
     <div class="card-erp-panel p-4 mb-6">
-        @if (Model.Estado == MercadoLibreBorradorEstado.Publicado)
+        @{
+            var estaPublicado = Model.Estado == MercadoLibreBorradorEstado.Publicado;
+            var estaValidado = Model.Estado == MercadoLibreBorradorEstado.Validado;
+            var datosMinimosOk = !string.IsNullOrWhiteSpace(Model.Titulo) && Model.Precio > 0 && !string.IsNullOrWhiteSpace(Model.CategoryIdMl);
+            var pasoActual = estaPublicado ? 4 : (estaValidado ? 3 : (datosMinimosOk ? 2 : 1));
+
+            // Qué falta para poder usar el botón principal (mismo criterio que el service).
+            var bloqueos = new List<string>();
+            if (!estaPublicado)
+            {
+                if (!estaValidado)
+                {
+                    bloqueos.Add("Validá el borrador con el botón «Validar». Cada vez que editás y guardás, hay que volver a validar.");
+                }
+                if (!Model.ModoSimulacion && !Model.PermitirPublicacionDesdeErp)
+                {
+                    bloqueos.Add("Activá «Permitir publicar desde el ERP» en Configuración → Automatización (o dejá Modo simulación activo para solo probar).");
+                }
+                if (!Model.ModoSimulacion && Model.PermitirPublicacionDesdeErp && !Model.CuentaConectada)
+                {
+                    bloqueos.Add("Conectá una cuenta de Mercado Libre (Configuración → Cuenta) para publicar de verdad.");
+                }
+            }
+            var listoParaPublicar = !estaPublicado && bloqueos.Count == 0;
+            var accionTexto = Model.ModoSimulacion ? "Simular publicación" : "Publicar";
+            var accionIcono = Model.ModoSimulacion ? "science" : "publish";
+            var modoTexto = Model.ModoSimulacion
+                ? "Modo simulación: al publicar se registra el payload local, no se envía nada a Mercado Libre."
+                : (Model.PermitirPublicacionDesdeErp
+                    ? "Modo real: al publicar se crea la publicación en Mercado Libre (pide confirmación)."
+                    : "Publicación real deshabilitada en Configuración; podés probar en modo simulación.");
+            var pasos = new (string Icono, string Texto)[]
+            {
+                ("edit", "Datos"),
+                ("fact_check", "Validar"),
+                (accionIcono, Model.ModoSimulacion ? "Simular" : "Publicar")
+            };
+        }
+
+        @if (estaPublicado)
         {
             <p class="text-sm text-emerald-400 font-bold">
                 Publicado como @Model.PublicadoItemId el @Model.FechaPublicadoUtc?.ToLocalTime().ToString("dd/MM HH:mm").
@@ -61,30 +100,51 @@
         }
         else
         {
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    @if (Model.Estado == MercadoLibreBorradorEstado.Validado)
+            <ol class="ml-steps" aria-label="Pasos para publicar">
+                @for (var i = 0; i < pasos.Length; i++)
+                {
+                    var n = i + 1;
+                    var clasePaso = n < pasoActual ? "is-done" : (n == pasoActual ? "is-current" : "is-todo");
+                    <li class="ml-step @clasePaso">
+                        <span class="ml-step__dot">
+                            @if (n < pasoActual)
+                            {
+                                <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                            }
+                            else
+                            {
+                                <span>@n</span>
+                            }
+                        </span>
+                        <span class="ml-step__label">
+                            <span class="material-symbols-outlined" aria-hidden="true">@pasos[i].Icono</span>
+                            @pasos[i].Texto
+                        </span>
+                    </li>
+                }
+            </ol>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mt-4">
+                <div class="min-w-0">
+                    @if (estaValidado)
                     {
-                        <p class="text-sm font-bold text-sky-300">Validado — listo para publicar.</p>
+                        <p class="text-sm font-bold text-sky-300">
+                            @(listoParaPublicar ? "Validado — listo para publicar." : "Validado — revisá lo que falta abajo.")
+                        </p>
                     }
                     else
                     {
-                        <p class="text-sm font-bold text-slate-300">Borrador — validalo para poder publicar.</p>
+                        <p class="text-sm font-bold text-slate-300">Borrador en edición — completá los datos y validalo.</p>
                     }
-
-                    @if (!Model.PermitirPublicacionDesdeErp && !Model.ModoSimulacion)
-                    {
-                        <p class="text-xs text-amber-300 mt-1">La publicación desde ERP está deshabilitada en Configuración Mercado Libre.</p>
-                    }
-                    @if (Model.ModoSimulacion)
-                    {
-                        <p class="text-xs text-slate-400 mt-1">Modo simulacion global activo: "Simular publicacion" registra el payload local sin llamar a ML.</p>
-                    }
+                    <p class="text-xs mt-1 @(Model.ModoSimulacion ? "text-sky-300" : (Model.PermitirPublicacionDesdeErp ? "text-emerald-300" : "text-amber-300"))">
+                        <span class="material-symbols-outlined text-sm" style="vertical-align:-3px;" aria-hidden="true">@(Model.ModoSimulacion ? "science" : (Model.PermitirPublicacionDesdeErp ? "public" : "lock"))</span>
+                        @modoTexto
+                    </p>
                 </div>
 
                 @if (User.TienePermiso("mercadolibre", "sync"))
                 {
-                    <div class="flex flex-wrap gap-2 items-center">
+                    <div class="flex flex-wrap gap-2 items-center shrink-0">
                         <form asp-action="BorradorValidar" method="post">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@Model.Id" />
@@ -105,9 +165,9 @@
                                     <span class="text-xs text-white">Publicación <span class="text-rose-400 font-bold">REAL</span></span>
                                 </label>
                             }
-                            <button type="submit" class="btn-erp-primary btn-sm" disabled="@(Model.PuedePublicar ? null : "disabled")">
-                                <span class="material-symbols-outlined text-sm">@(Model.ModoSimulacion ? "science" : "publish")</span>
-                                @(Model.ModoSimulacion ? "Simular publicacion" : "Publicar")
+                            <button type="submit" class="btn-erp-primary btn-sm" disabled="@(listoParaPublicar ? null : "disabled")">
+                                <span class="material-symbols-outlined text-sm">@accionIcono</span>
+                                @accionTexto
                             </button>
                         </form>
 
@@ -122,6 +182,22 @@
                     </div>
                 }
             </div>
+
+            @if (bloqueos.Count > 0)
+            {
+                <div class="ml-blockers mt-3">
+                    <p class="ml-blockers__title">
+                        <span class="material-symbols-outlined text-sm">checklist</span>
+                        Para @(Model.ModoSimulacion ? "simular" : "publicar") falta:
+                    </p>
+                    <ul class="ml-blockers__list">
+                        @foreach (var bloqueo in bloqueos)
+                        {
+                            <li>@bloqueo</li>
+                        }
+                    </ul>
+                </div>
+            }
         }
 
         @if (!string.IsNullOrEmpty(Model.ErroresValidacion))
@@ -198,11 +274,40 @@
                             <span asp-validation-for="Stock" class="text-xs text-rose-400"></span>
                             <p class="text-xs text-slate-500 mt-1">No puede superar el disponible según el origen de stock configurado.</p>
                         </div>
-                        <div>
-                            <label asp-for="CategoryIdMl" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Categoría ML</label>
-                            <input asp-for="CategoryIdMl" class="input-erp w-full" placeholder="Ej: MLA1055" />
+                        <div class="sm:col-span-2"
+                             id="ml-categoria-picker"
+                             data-url-sugerencias="@Url.Action("CategoriaSugerencias")"
+                             data-url-hijos="@Url.Action("CategoriaHijos")"
+                             data-url-resolver="@Url.Action("CategoriaResolver")">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Categoría ML</label>
+
+                            <input type="hidden" asp-for="CategoryIdMl" />
+                            <input type="hidden" asp-for="CategoryNombre" />
+                            <input type="hidden" asp-for="CategoryPathFromRoot" />
+                            <input type="hidden" asp-for="CategoryEsHoja" />
+
+                            <div data-rol="seleccion" class="rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm"></div>
+
+                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                <button type="button" data-rol="sugerir" class="btn-erp-secondary btn-sm text-xs">
+                                    <span class="material-symbols-outlined text-sm">auto_awesome</span>
+                                    Sugerir por título
+                                </button>
+                                <button type="button" data-rol="arbol" class="btn-erp-ghost btn-sm text-xs">
+                                    <span class="material-symbols-outlined text-sm">account_tree</span>
+                                    Navegar árbol
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-2 mt-2">
+                                <input type="text" data-rol="buscar" class="input-erp w-full" placeholder="Buscar categoría por texto (ej: zapatillas running)" />
+                                <button type="button" data-rol="buscar-btn" class="btn-erp-secondary btn-sm shrink-0">Buscar</button>
+                            </div>
+
+                            <ul data-rol="resultados" class="mt-2 max-h-56 overflow-y-auto"></ul>
+                            <p data-rol="estado" class="text-xs mt-1 text-slate-400"></p>
                             <span asp-validation-for="CategoryIdMl" class="text-xs text-rose-400"></span>
-                            <p class="text-xs text-slate-500 mt-1">Obligatoria para publicar (buscala en el sitio de ML).</p>
+                            <p class="text-xs text-slate-500 mt-1">Solo se puede publicar en categorías <b>hoja</b>. El navegado del árbol requiere una cuenta ML conectada; el predictor funciona siempre.</p>
                         </div>
                         <div>
                             <label asp-for="Condicion" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Condición</label>
@@ -238,7 +343,17 @@
             <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
                 <div><dt class="text-xs uppercase text-slate-400">Título</dt><dd class="text-white">@Model.Titulo</dd></div>
                 <div><dt class="text-xs uppercase text-slate-400">Precio</dt><dd class="font-mono text-white">@Model.Precio.ToString("N2")</dd></div>
-                <div><dt class="text-xs uppercase text-slate-400">Categoría ML</dt><dd class="font-mono text-white">@(Model.CategoryIdMl ?? "—")</dd></div>
+                <div>
+                    <dt class="text-xs uppercase text-slate-400">Categoría ML</dt>
+                    <dd class="text-white">
+                        @(Model.CategoryNombre ?? "—")
+                        <span class="font-mono text-xs text-slate-400">@(Model.CategoryIdMl is null ? "" : $"({Model.CategoryIdMl})")</span>
+                        @if (!string.IsNullOrWhiteSpace(Model.CategoryPathFromRoot))
+                        {
+                            <div class="text-xs text-slate-400">@Model.CategoryPathFromRoot</div>
+                        }
+                    </dd>
+                </div>
                 <div><dt class="text-xs uppercase text-slate-400">Stock</dt><dd class="font-mono text-white">@Model.Stock</dd></div>
                 <div><dt class="text-xs uppercase text-slate-400">Condición</dt><dd class="text-white">@Model.Condicion · @Model.ListingTypeId</dd></div>
                 <div class="sm:col-span-2"><dt class="text-xs uppercase text-slate-400">Descripción</dt><dd class="text-slate-300 whitespace-pre-line">@(Model.Descripcion ?? "—")</dd></div>
@@ -246,3 +361,7 @@
         </div>
     }
 </div>
+
+@section Scripts {
+    <script src="~/js/mercadolibre-categoria-picker.js" asp-append-version="true"></script>
+}

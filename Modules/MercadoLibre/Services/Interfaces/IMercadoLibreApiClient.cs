@@ -72,6 +72,34 @@ namespace TheBuryProject.Modules.MercadoLibre.Services.Interfaces
         /// </summary>
         Task UpdateItemDescriptionAsync(string accessToken, string itemId, string plainText, CancellationToken ct = default);
 
+        // ------------------------------------------------------------------
+        // Categorías (árbol + predictor). Datos públicos del catálogo: el token
+        // es OPCIONAL. Se envía si hay cuenta conectada (mejor cuota); si es null
+        // se llama sin Authorization. El listado de categorías raíz del site SÍ
+        // exige token (la API lo bloquea con 403 sin Authorization).
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// GET /sites/{siteId}/categories — categorías raíz del site. Requiere token
+        /// (sin Authorization la API responde 403 PolicyAgent).
+        /// </summary>
+        Task<IReadOnlyList<MeliCategoryNodeDto>> GetSiteCategoriesAsync(
+            string siteId, string? accessToken, CancellationToken ct = default);
+
+        /// <summary>
+        /// GET /categories/{categoryId} — detalle con path_from_root, children y settings.
+        /// children vacío ⇒ categoría hoja. Token opcional.
+        /// </summary>
+        Task<MeliCategoryDto> GetCategoryAsync(
+            string categoryId, string? accessToken, CancellationToken ct = default);
+
+        /// <summary>
+        /// GET /sites/{siteId}/domain_discovery/search?q=... — predictor de categoría
+        /// a partir de un texto (título del producto). Token opcional.
+        /// </summary>
+        Task<IReadOnlyList<MeliCategoryPredictionDto>> PredictCategoriesAsync(
+            string siteId, string query, string? accessToken, int limit = 8, CancellationToken ct = default);
+
         /// <summary>
         /// GET /orders/{orderId} — orden completa.
         /// </summary>
