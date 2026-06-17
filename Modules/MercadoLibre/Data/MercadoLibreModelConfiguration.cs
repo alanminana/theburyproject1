@@ -287,6 +287,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Data
                 entity.Property(e => e.Precio).HasPrecision(18, 2);
                 entity.Property(e => e.Descripcion).HasColumnType(textType);
                 entity.Property(e => e.PayloadSimuladoJson).HasColumnType(textType);
+                entity.Property(e => e.ImagenesJson).HasColumnType(textType);
 
                 entity.HasIndex(e => e.ProductoId);
                 entity.HasIndex(e => e.Estado);

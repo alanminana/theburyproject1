@@ -64,6 +64,16 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         [StringLength(200)]
         public string? Garantia { get; set; }
 
+        /// <summary>
+        /// Imágenes para Mercado Libre: una URL http/https por línea. Se normaliza
+        /// y persiste como JSON en el borrador. ML exige al menos una para varios
+        /// listing types (ej: free).
+        /// </summary>
+        public string? ImagenesUrls { get; set; }
+
+        /// <summary>URLs ya normalizadas (solo lectura, para preview y vista detalle).</summary>
+        public IReadOnlyList<string> Imagenes { get; set; } = System.Array.Empty<string>();
+
         // Solo lectura (estado y contexto)
         public MercadoLibreBorradorEstado Estado { get; set; }
         public string? ErroresValidacion { get; set; }

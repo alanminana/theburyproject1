@@ -58,6 +58,13 @@ namespace TheBuryProject.Modules.MercadoLibre.Entities
         [StringLength(200)]
         public string? Garantia { get; set; }
 
+        /// <summary>
+        /// URLs de imágenes para Mercado Libre, serializadas como array JSON
+        /// (["https://...", ...]). Null/vacío = sin imágenes. ML exige al menos
+        /// una para varios listing types (ej: free).
+        /// </summary>
+        public string? ImagenesJson { get; set; }
+
         /// <summary>Resultado de la última validación (mensajes separados por '\n'). Null = nunca validado.</summary>
         [StringLength(2000)]
         public string? ErroresValidacion { get; set; }

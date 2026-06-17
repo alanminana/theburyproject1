@@ -164,6 +164,10 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 ? "gold_special" : viewModel.ListingTypeId.Trim(), 30)!;
             borrador.Garantia = Truncar(viewModel.Garantia?.Trim(), 200);
 
+            // Imágenes: una URL por línea → lista normalizada (trim + dedupe) → JSON.
+            var imagenes = ParseImagenesDesdeTexto(viewModel.ImagenesUrls);
+            borrador.ImagenesJson = imagenes.Count == 0 ? null : JsonSerializer.Serialize(imagenes);
+
             // Toda edición invalida la validación anterior.
             borrador.Estado = MercadoLibreBorradorEstado.Borrador;
             borrador.ErroresValidacion = null;
@@ -250,9 +254,23 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             if (string.IsNullOrWhiteSpace(borrador.Garantia))
                 advertencias.Add("Sin garantía declarada (campo informativo en el MVP; cargala en ML si aplica).");
 
-            advertencias.Add(
-                "El ERP no maneja imágenes: la publicación se crea SIN fotos y Mercado Libre puede dejarla incompleta " +
-                "hasta que cargues al menos una imagen desde ML.");
+            // Imágenes: las URLs inválidas son error (rompen el POST); la falta de
+            // imágenes es advertencia (la simulación se permite) salvo que el tipo
+            // de publicación las exija al publicar REAL (bloqueo en PublicarAsync).
+            var imagenes = LeerImagenes(borrador);
+            foreach (var url in imagenes.Where(u => !EsUrlImagenValida(u)))
+                errores.Add($"Imagen con URL inválida: '{Truncar(url, 80)}'. Usá direcciones http o https completas.");
+
+            if (imagenes.Count == 0)
+            {
+                if (EsListingTypeQueExigeImagen(borrador.ListingTypeId))
+                    advertencias.Add(
+                        "Mercado Libre exige imágenes para publicación gratuita [free]. Podés simular igual, " +
+                        "pero para publicar REAL agregá al menos una imagen o cambiá el tipo de publicación.");
+                else
+                    advertencias.Add(
+                        "Sin imágenes: la publicación puede quedar incompleta en Mercado Libre hasta que cargues al menos una.");
+            }
 
             advertencias.Add(
                 "El ERP no completa atributos especificos de categoria en este flujo: revisalos en Mercado Libre antes de activar la publicacion.");
@@ -325,6 +343,22 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
             if (!config.AccountId.HasValue)
                 return (false, "No hay cuenta de Mercado Libre configurada para publicar.");
+
+            // Guardas locales (Checkpoint 4): no llamar a POST /items cuando sabemos
+            // que ML va a rechazar por imágenes. Se marcan los campos involucrados.
+            var imagenes = LeerImagenes(borrador);
+
+            if (imagenes.Any(u => !EsUrlImagenValida(u)))
+                return await BloquearPublicacionLocalAsync(
+                    context, borrador, config.AccountId,
+                    "Hay imágenes con URL inválida. Usá direcciones http o https completas antes de publicar.",
+                    new[] { "pictures" }, usuario, ct);
+
+            if (EsListingTypeQueExigeImagen(borrador.ListingTypeId) && imagenes.Count == 0)
+                return await BloquearPublicacionLocalAsync(
+                    context, borrador, config.AccountId,
+                    "Mercado Libre exige imágenes para publicación gratuita. Agregá al menos una imagen o cambiá el tipo de publicación.",
+                    new[] { "listing_type_id", "pictures" }, usuario, ct);
 
             try
             {
@@ -473,6 +507,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             if (borrador is null)
                 return null;
 
+            var imagenes = LeerImagenes(borrador);
+
             return new MercadoLibreBorradorEditViewModel
             {
                 Id = borrador.Id,
@@ -488,6 +524,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 Condicion = borrador.Condicion,
                 ListingTypeId = borrador.ListingTypeId,
                 Garantia = borrador.Garantia,
+                ImagenesUrls = imagenes.Count == 0 ? null : string.Join("\n", imagenes),
+                Imagenes = imagenes,
                 Estado = borrador.Estado,
                 ErroresValidacion = borrador.ErroresValidacion,
                 FechaValidacionUtc = borrador.FechaValidacionUtc,
@@ -507,7 +545,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
         }
 
         private static Dictionary<string, object?> ConstruirPayload(MercadoLibrePublicacionBorrador borrador)
-            => new()
+        {
+            var payload = new Dictionary<string, object?>
             {
                 ["title"] = borrador.Titulo,
                 ["category_id"] = borrador.CategoryIdMl,
@@ -523,6 +562,16 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 }
             };
 
+            // pictures solo si hay URLs válidas: ML rechaza un array vacío.
+            var imagenes = LeerImagenes(borrador).Where(EsUrlImagenValida).ToList();
+            if (imagenes.Count > 0)
+                payload["pictures"] = imagenes
+                    .Select(u => new Dictionary<string, object?> { ["source"] = u })
+                    .ToArray();
+
+            return payload;
+        }
+
         // Tokens de campo que ML referencia en cause[].code / cause[].references,
         // mapeados al rótulo del borrador (clave estable usada también por la vista
         // para marcar el control con error).
@@ -532,6 +581,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             ("category_id", "Categoría"),
             ("condition", "Condición"),
             ("listing_type_id", "Tipo de publicación"),
+            ("pictures", "Imágenes"),
             ("title", "Título"),
             ("price", "Precio"),
             ("currency_id", "Moneda"),
@@ -569,14 +619,21 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                         if (causa.TryGetProperty("references", out var r) && r.ValueKind == JsonValueKind.Array)
                             refs.AddRange(r.EnumerateArray().Select(e => e.GetString() ?? ""));
 
-                        var match = CamposMl.FirstOrDefault(cm =>
+                        // Una causa puede referenciar varios campos (ej:
+                        // item.listing_type_id.requiresPictures involucra tanto el tipo
+                        // de publicación como las imágenes): marcamos TODOS los que matcheen.
+                        var matches = CamposMl.Where(cm =>
                             code.Contains(cm.Token, StringComparison.OrdinalIgnoreCase)
-                            || refs.Any(rf => rf.Contains(cm.Token, StringComparison.OrdinalIgnoreCase)));
+                            || refs.Any(rf => rf.Contains(cm.Token, StringComparison.OrdinalIgnoreCase)))
+                            .ToList();
 
-                        if (match.Token is not null && !camposTokens.Contains(match.Token))
-                            camposTokens.Add(match.Token);
+                        foreach (var campo in matches)
+                            if (!camposTokens.Contains(campo.Token))
+                                camposTokens.Add(campo.Token);
 
-                        var rotulo = match.Campo ?? "General";
+                        var rotulo = matches.Count > 0
+                            ? string.Join(" / ", matches.Select(cm => cm.Campo))
+                            : "General";
                         var detalle = string.IsNullOrWhiteSpace(msg) ? code : msg;
                         lineas.Add($"ERROR: {rotulo} — {detalle}");
                     }
@@ -603,5 +660,87 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
         private static string? Truncar(string? valor, int max)
             => valor is null ? null : (valor.Length <= max ? valor : valor[..max]);
+
+        // ── Imágenes ───────────────────────────────────────────────────────
+        // Listing types donde ML exige al menos una imagen para publicar.
+        private static readonly string[] ListingTypesQueExigenImagen = { "free" };
+
+        private static bool EsListingTypeQueExigeImagen(string? listingTypeId)
+            => listingTypeId is not null
+               && ListingTypesQueExigenImagen.Contains(listingTypeId.Trim(), StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Texto del textarea (una URL por línea) → lista normalizada (trim + dedupe, sin vacíos).</summary>
+        private static List<string> ParseImagenesDesdeTexto(string? raw)
+        {
+            var resultado = new List<string>();
+            if (string.IsNullOrWhiteSpace(raw))
+                return resultado;
+
+            foreach (var linea in raw.Split('\n', '\r'))
+            {
+                var url = linea.Trim();
+                if (url.Length > 0 && !resultado.Contains(url, StringComparer.OrdinalIgnoreCase))
+                    resultado.Add(url);
+            }
+
+            return resultado;
+        }
+
+        /// <summary>Lee las URLs persistidas (JSON). Defensivo ante JSON inválido/legacy.</summary>
+        private static List<string> LeerImagenes(MercadoLibrePublicacionBorrador borrador)
+        {
+            if (string.IsNullOrWhiteSpace(borrador.ImagenesJson))
+                return new List<string>();
+
+            try
+            {
+                var urls = JsonSerializer.Deserialize<List<string>>(borrador.ImagenesJson);
+                return urls?.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList()
+                       ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static bool EsUrlImagenValida(string url)
+            => Uri.TryCreate(url, UriKind.Absolute, out var uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+        /// <summary>
+        /// Bloqueo local previo a POST /items: persiste el error por campo (línea
+        /// machine-readable CAMPOS_ERROR que la vista usa para marcar controles),
+        /// registra el intento fallido y NO llama a Mercado Libre.
+        /// </summary>
+        private static async Task<(bool Ok, string Mensaje)> BloquearPublicacionLocalAsync(
+            AppDbContext context,
+            MercadoLibrePublicacionBorrador borrador,
+            int? accountId,
+            string mensaje,
+            string[] camposTokens,
+            string usuario,
+            CancellationToken ct)
+        {
+            var persistido = $"ERROR: {mensaje}";
+            if (camposTokens.Length > 0)
+                persistido += "\nCAMPOS_ERROR: " + string.Join(",", camposTokens);
+
+            borrador.ErroresValidacion = Truncar(persistido, 2000);
+            borrador.UpdatedBy = usuario;
+
+            context.MercadoLibreSyncLogs.Add(new MercadoLibreSyncLog
+            {
+                AccountId = accountId,
+                Operacion = "PublicarItem",
+                Exito = false,
+                Detalle = $"Borrador {borrador.Id}: bloqueo local antes de POST /items — {Truncar(mensaje, 1800)}",
+                CreatedBy = usuario
+            });
+
+            await context.SaveChangesAsync(ct);
+
+            return (false, mensaje);
+        }
     }
 }

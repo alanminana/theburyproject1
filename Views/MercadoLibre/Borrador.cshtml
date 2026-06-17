@@ -316,11 +316,28 @@
                         </div>
                         <div data-ml-field="listing_type_id">
                             <label asp-for="ListingTypeId" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Tipo de publicación</label>
-                            <select asp-for="ListingTypeId" class="select-erp w-full">
+                            <select asp-for="ListingTypeId" class="select-erp w-full" data-ml-listing-type>
                                 <option value="gold_special">Clásica (gold_special)</option>
                                 <option value="gold_pro">Premium (gold_pro)</option>
                                 <option value="free">Gratuita (free)</option>
                             </select>
+                        </div>
+
+                        <div class="sm:col-span-2" data-ml-field="pictures" id="ml-imagenes">
+                            <label asp-for="ImagenesUrls" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                Imágenes para Mercado Libre
+                            </label>
+                            <textarea asp-for="ImagenesUrls" rows="3" class="input-erp w-full"
+                                      placeholder="Una URL por línea (https://...)" data-ml-img-input></textarea>
+                            <p class="text-xs text-slate-500 mt-1">
+                                Pegá una URL <b>http/https</b> por línea. Mercado Libre exige al menos una imagen para publicación
+                                gratuita [free]; con otros tipos es opcional pero recomendado.
+                            </p>
+                            <p class="ml-img-note mt-2" data-ml-img-note hidden>
+                                <span class="material-symbols-outlined text-sm" aria-hidden="true">warning</span>
+                                <span data-ml-img-note-text></span>
+                            </p>
+                            <div class="ml-img-preview mt-2" data-ml-img-preview hidden></div>
                         </div>
                     </div>
                 </div>
@@ -355,6 +372,26 @@
                 <div><dt class="text-xs uppercase text-slate-400">Stock</dt><dd class="font-mono text-white">@Model.Stock</dd></div>
                 <div><dt class="text-xs uppercase text-slate-400">Condición</dt><dd class="text-white">@Model.Condicion · @Model.ListingTypeId</dd></div>
                 <div class="sm:col-span-2"><dt class="text-xs uppercase text-slate-400">Descripción</dt><dd class="text-slate-300 whitespace-pre-line">@(Model.Descripcion ?? "—")</dd></div>
+                <div class="sm:col-span-2">
+                    <dt class="text-xs uppercase text-slate-400">Imágenes</dt>
+                    <dd class="text-slate-300">
+                        @if (Model.Imagenes.Count == 0)
+                        {
+                            <span class="text-slate-500">Sin imágenes</span>
+                        }
+                        else
+                        {
+                            <div class="ml-img-preview mt-1">
+                                @foreach (var url in Model.Imagenes)
+                                {
+                                    <a href="@url" target="_blank" rel="noopener" class="ml-img-thumb" title="@url">
+                                        <img src="@url" alt="Imagen de la publicación" loading="lazy" />
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </dd>
+                </div>
             </dl>
         </div>
     }
@@ -452,6 +489,59 @@
                 var field = document.querySelector('[data-ml-field="' + token + '"]');
                 if (field) field.classList.add('ml-field-error');
             });
+        })();
+
+        // Imágenes: preview en vivo + aviso cuando el tipo "free" no tiene imágenes.
+        (function () {
+            var input = document.querySelector('[data-ml-img-input]');
+            if (!input) return;
+            var preview = document.querySelector('[data-ml-img-preview]');
+            var note = document.querySelector('[data-ml-img-note]');
+            var noteText = document.querySelector('[data-ml-img-note-text]');
+            var listingType = document.querySelector('[data-ml-listing-type]');
+
+            function parseUrls() {
+                return (input.value || '')
+                    .split(/\r?\n/)
+                    .map(function (s) { return s.trim(); })
+                    .filter(Boolean);
+            }
+            function esValida(u) { return /^https?:\/\//i.test(u); }
+
+            function render() {
+                var urls = parseUrls();
+                // Preview
+                if (preview) {
+                    preview.innerHTML = '';
+                    urls.forEach(function (u) {
+                        if (!esValida(u)) return;
+                        var a = document.createElement('a');
+                        a.href = u; a.target = '_blank'; a.rel = 'noopener';
+                        a.className = 'ml-img-thumb'; a.title = u;
+                        var img = document.createElement('img');
+                        img.src = u; img.alt = 'Imagen de la publicación'; img.loading = 'lazy';
+                        a.appendChild(img); preview.appendChild(a);
+                    });
+                    preview.hidden = preview.children.length === 0;
+                }
+                // Aviso por campo
+                var invalidas = urls.filter(function (u) { return !esValida(u); });
+                var esFree = listingType && (listingType.value || '').toLowerCase() === 'free';
+                var msg = '';
+                if (invalidas.length > 0) {
+                    msg = invalidas.length + ' URL inválida(s): usá direcciones http o https completas.';
+                } else if (esFree && urls.length === 0) {
+                    msg = 'Mercado Libre exige imágenes para publicación gratuita [free]. Agregá al menos una o cambiá el tipo de publicación.';
+                }
+                if (note && noteText) {
+                    if (msg) { noteText.textContent = msg; note.hidden = false; }
+                    else { noteText.textContent = ''; note.hidden = true; }
+                }
+            }
+
+            input.addEventListener('input', render);
+            if (listingType) listingType.addEventListener('change', render);
+            render();
         })();
     </script>
 }

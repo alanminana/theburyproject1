@@ -180,6 +180,36 @@ public class MercadoLibrePublicacionServiceTests
         return borradorId;
     }
 
+    private static async Task<int> CrearBorradorValidadoConImagenesAsync(
+        MercadoLibrePublicacionService servicio,
+        TestDbContextFactory factory,
+        int productoId,
+        string[] imagenes,
+        int stock = 2,
+        string categoriaMl = "MLA1055",
+        string listingType = "gold_special")
+    {
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var borradorId = creado.BorradorId!.Value;
+
+        await using (var ctx = factory.CreateDbContext())
+        {
+            var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+            borrador.CategoryIdMl = categoriaMl;
+            borrador.Stock = stock;
+            borrador.ListingTypeId = listingType;
+            borrador.ImagenesJson = imagenes.Length == 0
+                ? null
+                : System.Text.Json.JsonSerializer.Serialize(imagenes);
+            await ctx.SaveChangesAsync();
+        }
+
+        var (ok, _, _) = await servicio.ValidarAsync(borradorId, "tester");
+        Assert.True(ok);
+
+        return borradorId;
+    }
+
     [Fact]
     public async Task CrearBorrador_DesdeProducto_PrellenaDatosYVinculaProducto()
     {
@@ -649,5 +679,154 @@ public class MercadoLibrePublicacionServiceTests
         Assert.NotEmpty(logs);
         // El token que devuelve el fake ("token-test") nunca debe aparecer en los logs.
         Assert.DoesNotContain(logs, l => (l.Detalle ?? "").Contains("token", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ── Imágenes (requiresPictures) ─────────────────────────────────────
+
+    [Fact]
+    public async Task Publicar_Simulacion_IncluyePicturesCuandoHayImagenes()
+    {
+        // Checkpoint 5.1: el payload simulado incluye pictures[{source}] con las URLs.
+        var (servicio, api, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var borradorId = await CrearBorradorValidadoConImagenesAsync(
+            servicio, factory, productoId,
+            new[] { "https://img.example.com/a.jpg", "https://img.example.com/b.jpg" });
+
+        var (ok, _) = await servicio.PublicarAsync(borradorId, confirmarReal: false, "tester");
+
+        Assert.True(ok);
+        Assert.Empty(api.CreateItemCalls);
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Contains("pictures", borrador.PayloadSimuladoJson);
+        Assert.Contains("source", borrador.PayloadSimuladoJson);
+        Assert.Contains("https://img.example.com/a.jpg", borrador.PayloadSimuladoJson);
+    }
+
+    [Fact]
+    public async Task Publicar_Real_FreeSinImagenes_BloqueaLocalSinLlamarMl()
+    {
+        // Checkpoint 5.2: free sin imágenes se bloquea ANTES de POST /items y marca campos.
+        var (servicio, api, auth, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var accountId = await SembrarCuentaAsync(factory);
+        await ConfigurarAsync(factory, c =>
+        {
+            c.PermitirPublicacionDesdeErp = true;
+            c.AccountId = accountId;
+        });
+        var borradorId = await CrearBorradorValidadoConImagenesAsync(
+            servicio, factory, productoId, Array.Empty<string>(), listingType: "free");
+
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
+
+        Assert.False(ok);
+        Assert.Contains("imágenes", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.CreateItemCalls);
+        Assert.Equal(0, auth.TokenCalls);
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Contains("CAMPOS_ERROR:", borrador.ErroresValidacion);
+        Assert.Contains("listing_type_id", borrador.ErroresValidacion);
+        Assert.Contains("pictures", borrador.ErroresValidacion);
+    }
+
+    [Fact]
+    public async Task Publicar_RealRechazadoPorRequiresPictures_MarcaTipoYImagenes()
+    {
+        // Checkpoint 5.3/5.4/5.5: el error item.listing_type_id.requiresPictures se parsea
+        // y marca AMBOS campos referenciados (Tipo de publicación + Imágenes).
+        var (servicio, api, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var accountId = await SembrarCuentaAsync(factory);
+        await ConfigurarAsync(factory, c =>
+        {
+            c.PermitirPublicacionDesdeErp = true;
+            c.AccountId = accountId;
+        });
+        // free CON una imagen válida: pasa la guarda local y llega a ML (que acá rechaza).
+        var borradorId = await CrearBorradorValidadoConImagenesAsync(
+            servicio, factory, productoId,
+            new[] { "https://img.example.com/a.jpg" }, listingType: "free");
+        api.CreateItemFalla = true;
+        api.CreateItemErrorExcerpt =
+            "{\"message\":\"Item pictures are mandatory for listing type free\",\"error\":\"validation_error\",\"cause\":[" +
+            "{\"department\":\"items\",\"cause_id\":173,\"type\":\"error\"," +
+            "\"code\":\"item.listing_type_id.requiresPictures\"," +
+            "\"references\":[\"item.listing_type_id\",\"item.pictures\"]," +
+            "\"message\":\"Item pictures are mandatory for listing type free\"}]}";
+
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
+
+        Assert.False(ok);
+        Assert.Contains("rechazó", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(api.CreateItemCalls);
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Contains("CAMPOS_ERROR:", borrador.ErroresValidacion);
+        Assert.Contains("listing_type_id", borrador.ErroresValidacion);
+        Assert.Contains("pictures", borrador.ErroresValidacion);
+        Assert.Contains("Tipo de publicación", borrador.ErroresValidacion);
+        Assert.Contains("Imágenes", borrador.ErroresValidacion);
+    }
+
+    [Fact]
+    public async Task Validar_ConImagenInvalida_Falla()
+    {
+        // Checkpoint 5.6: una URL que no es http/https rechaza la validación.
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var borradorId = creado.BorradorId!.Value;
+
+        await using (var ctx = factory.CreateDbContext())
+        {
+            var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync();
+            borrador.CategoryIdMl = "MLA1055";
+            borrador.ImagenesJson = System.Text.Json.JsonSerializer.Serialize(
+                new[] { "ftp://malo.example.com/x.jpg", "no-es-una-url" });
+            await ctx.SaveChangesAsync();
+        }
+
+        var (ok, errores, _) = await servicio.ValidarAsync(borradorId, "tester");
+
+        Assert.False(ok);
+        Assert.Contains(errores, e => e.Contains("URL inválida", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Validar_FreeSinImagenes_AdvierteSinBloquearYSimulaSinLlamarMl()
+    {
+        // Checkpoint 5.7: free sin imágenes NO bloquea la validación (solo advierte) y la
+        // simulación sigue funcionando sin llamar a ML.
+        var (servicio, api, auth, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var borradorId = creado.BorradorId!.Value;
+
+        await using (var ctx = factory.CreateDbContext())
+        {
+            var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync();
+            borrador.CategoryIdMl = "MLA1055";
+            borrador.ListingTypeId = "free";
+            await ctx.SaveChangesAsync();
+        }
+
+        var (ok, errores, advertencias) = await servicio.ValidarAsync(borradorId, "tester");
+
+        Assert.True(ok);
+        Assert.Empty(errores);
+        Assert.Contains(advertencias, a => a.Contains("gratuita", StringComparison.OrdinalIgnoreCase));
+
+        var (okSim, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: false, "tester");
+
+        Assert.True(okSim);
+        Assert.Contains("SIMUL", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.CreateItemCalls);
+        Assert.Equal(0, auth.TokenCalls);
     }
 }
