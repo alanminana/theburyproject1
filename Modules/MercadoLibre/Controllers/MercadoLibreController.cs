@@ -950,7 +950,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
 
             var config = await _configuracionService.GetAsync();
             ViewBag.PermitirPublicacion = config.PermitirPublicacionDesdeErp;
-            ViewBag.ModoSimulacion = config.ModoSimulacion;
+            ViewBag.CuentaConectada = config.AccountId.HasValue;
 
             return View(borradores);
         }
@@ -1007,8 +1007,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
                 viewModel.ProductoNombre = recargado.ProductoNombre;
                 viewModel.ProductoPrecioVenta = recargado.ProductoPrecioVenta;
                 viewModel.ProductoStockActual = recargado.ProductoStockActual;
-                viewModel.ModoSimulacion = recargado.ModoSimulacion;
                 viewModel.PermitirPublicacionDesdeErp = recargado.PermitirPublicacionDesdeErp;
+                viewModel.CuentaConectada = recargado.CuentaConectada;
 
                 return View(nameof(Borrador), viewModel);
             }

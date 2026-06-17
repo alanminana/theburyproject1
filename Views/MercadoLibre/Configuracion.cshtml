@@ -25,38 +25,51 @@
 
     <partial name="_MercadoLibreNav" />
 
+    <nav class="ml-crumb" aria-label="Ruta">
+        <span>Mercado Libre</span>
+        <span class="ml-crumb__sep" aria-hidden="true">/</span>
+        <span class="ml-crumb__current">Configuración</span>
+    </nav>
+
     <!-- Header -->
     <div class="ml-head">
         <div class="ml-head__main">
             <h1 class="ml-head__title">
                 <span class="material-symbols-outlined" aria-hidden="true">settings</span>
-                Configuración
+                Configuración Mercado Libre
             </h1>
             <p class="ml-head__subtitle">
-                Canal de venta Mercado Libre: cuenta, precios, stock, órdenes y liquidación.
+                Conexión, reglas de publicación, sincronización y operación automática.
             </p>
         </div>
     </div>
 
-    @if (Model.ModoSimulacion)
-    {
-        <div class="ml-sim-note ml-sim-note--block" role="status">
-            <span class="material-symbols-outlined" aria-hidden="true">science</span>
-            <span>
-                <span class="font-bold">Modo simulación activo.</span>
-                Los cambios de stock, precio y publicaciones se calculan y registran,
-                pero <span class="font-bold">no se envían a Mercado Libre</span>.
-            </span>
+    <!-- Estado de seguridad: publicación real -->
+    <div class="ml-publish-mode-card @(Model.PermitirPublicacionDesdeErp ? "is-on" : "is-off")"
+         data-ml-publish-card role="status">
+        <span class="ml-publish-mode-card__icon material-symbols-outlined" aria-hidden="true"
+              data-ml-publish-icon>@(Model.PermitirPublicacionDesdeErp ? "public" : "lock")</span>
+        <div class="ml-publish-mode-card__body">
+            <p class="ml-publish-mode-card__title">
+                Publicación real:
+                <span data-ml-publish-state>@(Model.PermitirPublicacionDesdeErp ? "Permitida" : "Bloqueada")</span>
+            </p>
+            <p class="ml-publish-mode-card__desc">
+                Aunque esté permitida, cada borrador requiere marcar <b>Publicación REAL</b> antes de
+                enviarse a Mercado Libre. Sin ese check, el borrador solo se simula.
+            </p>
         </div>
-    }
+    </div>
 
     <form asp-action="Configuracion" method="post">
         @Html.AntiForgeryToken()
 
         <div class="mlc-card" data-mlc-tabs>
 
-            <!-- Pestañas -->
-            <div class="mlc-tabs" role="tablist" aria-label="Secciones de configuración">
+            <p class="mlc-card__eyebrow">Secciones de configuración</p>
+
+            <!-- Pestañas (navegación secundaria, dentro de la card) -->
+            <div class="mlc-tabs ml-tabs-secondary" role="tablist" aria-label="Secciones de configuración">
                 <button type="button" class="mlc-tab is-active" role="tab"
                         id="mlc-tab-cuenta" data-mlc-tab="cuenta"
                         aria-selected="true" aria-controls="mlc-panel-cuenta">
@@ -197,10 +210,31 @@
                 </div>
             </section>
 
-            <!-- Panel: Automatización + seguridad -->
+            <!-- Panel: Publicación + Automatización -->
             <section class="mlc-panel" role="tabpanel"
                      id="mlc-panel-auto" data-mlc-panel="auto" aria-labelledby="mlc-tab-auto">
-                <p class="mlc-panel__sub">Qué pasos hace el sistema solo al recibir órdenes y cambios, y el modo de seguridad.</p>
+                <p class="mlc-panel__sub">Permiso maestro de publicación y qué pasos hace el sistema solo al recibir órdenes y cambios.</p>
+
+                <p class="mlc-section-title">Publicación</p>
+                <div class="mlc-toggles">
+                    <label class="mlc-toggle mlc-toggle--master">
+                        <input asp-for="PermitirPublicacionDesdeErp" type="checkbox" data-ml-permitir />
+                        <span class="mlc-toggle__body">
+                            <span class="mlc-toggle__title">Permitir publicar desde el ERP</span>
+                            <span class="mlc-toggle__desc">
+                                Habilita la posibilidad de publicar real. Si está apagado, los borradores
+                                solo se simulan. Aun habilitado, cada borrador exige marcar
+                                «Publicación REAL» antes de enviarse a Mercado Libre.
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
+                <p class="mlc-section-title">Automatización</p>
+                <div class="mlc-warning" role="note">
+                    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                    <span>Estas acciones pueden afectar datos reales si están habilitadas. Revisalas antes de usar en producción.</span>
+                </div>
 
                 <div class="mlc-toggles">
                     <label class="mlc-toggle">
@@ -225,7 +259,7 @@
                     <label class="mlc-toggle">
                         <input asp-for="SyncAutomaticaStock" type="checkbox" />
                         <span class="mlc-toggle__body">
-                            <span class="mlc-toggle__title">Sync automática de stock ERP → ML</span>
+                            <span class="mlc-toggle__title">Sync stock ERP → ML</span>
                             <span class="mlc-toggle__desc">Empuja stock a ML cuando cambia en el ERP (publicaciones vinculadas).</span>
                         </span>
                     </label>
@@ -233,43 +267,8 @@
                     <label class="mlc-toggle">
                         <input asp-for="SyncAutomaticaPrecio" type="checkbox" />
                         <span class="mlc-toggle__body">
-                            <span class="mlc-toggle__title">Sync automática de precio ERP → ML</span>
+                            <span class="mlc-toggle__title">Sync precio ERP → ML</span>
                             <span class="mlc-toggle__desc">Empuja el precio de canal calculado cuando cambia el precio ERP.</span>
-                        </span>
-                    </label>
-
-                    <div class="mlc-mode-note">
-                        <p class="mlc-mode-note__title">
-                            <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                            Cómo se combinan estos dos controles al publicar un borrador
-                        </p>
-                        <ul class="mlc-mode-note__list">
-                            <li><b>Modo simulación activado</b> → en el borrador el botón dice «Simular publicación»: guarda el payload local y <b>nunca</b> llama a Mercado Libre. Ideal para probar el flujo.</li>
-                            <li><b>Simulación desactivada + «Permitir publicar» activado</b> → el botón dice «Publicar» y crea la publicación <b>real</b> en Mercado Libre (pide confirmación y cuenta conectada).</li>
-                            <li><b>Simulación desactivada + «Permitir publicar» desactivado</b> → no se puede publicar; el botón del borrador queda bloqueado y avisa qué falta.</li>
-                        </ul>
-                    </div>
-
-                    <label class="mlc-toggle">
-                        <input asp-for="PermitirPublicacionDesdeErp" type="checkbox" />
-                        <span class="mlc-toggle__body">
-                            <span class="mlc-toggle__title">Permitir publicar desde el ERP</span>
-                            <span class="mlc-toggle__desc">Habilita el flujo de borradores → validación → publicación real. Si está desactivado, los borradores solo se pueden simular.</span>
-                        </span>
-                    </label>
-
-                    <label class="mlc-toggle mlc-toggle--sim">
-                        <input asp-for="ModoSimulacion" type="checkbox" />
-                        <span class="mlc-toggle__body">
-                            <span class="mlc-toggle__title">
-                                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:1rem;vertical-align:-2px;margin-right:.2rem;">science</span>
-                                Modo simulación (seguridad)
-                            </span>
-                            <span class="mlc-toggle__desc">
-                                Con simulación activa, ningún cambio de stock, precio o publicación se envía a Mercado Libre:
-                                solo se calcula y queda registrado en el log. Desactivarlo habilita los cambios reales
-                                (cada acción pide confirmación igual).
-                            </span>
                         </span>
                     </label>
                 </div>
@@ -326,6 +325,24 @@
                 var panel = invalid.closest('.mlc-panel');
                 if (panel) activate(panel.getAttribute('data-mlc-panel'));
             }
+        })();
+
+        // La card de estado de seguridad refleja en vivo el permiso maestro.
+        (function () {
+            var toggle = document.querySelector('[data-ml-permitir]');
+            var card = document.querySelector('[data-ml-publish-card]');
+            if (!toggle || !card) return;
+            var state = card.querySelector('[data-ml-publish-state]');
+            var icon = card.querySelector('[data-ml-publish-icon]');
+            function sync() {
+                var on = toggle.checked;
+                card.classList.toggle('is-on', on);
+                card.classList.toggle('is-off', !on);
+                if (state) state.textContent = on ? 'Permitida' : 'Bloqueada';
+                if (icon) icon.textContent = on ? 'public' : 'lock';
+            }
+            toggle.addEventListener('change', sync);
+            sync();
         })();
     </script>
 }

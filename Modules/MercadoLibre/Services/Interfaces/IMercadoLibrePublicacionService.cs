@@ -12,9 +12,11 @@ namespace TheBuryProject.Modules.MercadoLibre.Services.Interfaces
     /// Publicación de productos ERP en Mercado Libre vía BORRADORES (Fase F).
     /// Reglas duras:
     /// - Un borrador nace SIEMPRE desde (y vinculado a) un Producto interno.
-    /// - Publicar exige: borrador validado, PermitirPublicacionDesdeErp activo,
-    ///   modo simulación desactivado y confirmación explícita del operador.
-    /// - En simulación se loguea el payload exacto y NO se llama a Mercado Libre.
+    /// - La SIMULACIÓN es el comportamiento por defecto: sin "Publicación REAL"
+    ///   marcada (confirmarReal=false) se loguea el payload exacto y NO se llama a ML.
+    /// - Publicar REAL exige: borrador validado, confirmarReal=true,
+    ///   PermitirPublicacionDesdeErp activo (permiso maestro) y cuenta conectada.
+    /// - El ModoSimulacion global ya NO gobierna esta decisión (solo sync/precio/mensajes).
     /// - La publicación real crea el MercadoLibreListing ya vinculado al Producto.
     /// </summary>
     public interface IMercadoLibrePublicacionService
@@ -34,8 +36,9 @@ namespace TheBuryProject.Modules.MercadoLibre.Services.Interfaces
             int borradorId, string usuario, CancellationToken ct = default);
 
         /// <summary>
-        /// Publica el borrador. Con ModoSimulacion activo: loguea el payload y
-        /// no llama a ML. Real: exige confirmacion explicita + POST /items + listing vinculado.
+        /// Publica el borrador. confirmarReal=false (default): loguea el payload y NO
+        /// llama a ML (simulación). confirmarReal=true: exige PermitirPublicacionDesdeErp
+        /// + cuenta conectada, hace POST /items y crea el listing vinculado.
         /// </summary>
         Task<(bool Ok, string Mensaje)> PublicarAsync(
             int borradorId, bool confirmarReal, string usuario, CancellationToken ct = default);

@@ -6,26 +6,68 @@ namespace TheBuryProject.Tests.Unit.MercadoLibre;
 public class MercadoLibreBorradorViewModelTests
 {
     [Fact]
-    public void PuedePublicar_ValidadoConPublicacionErpDeshabilitada_EsFalse()
+    public void PuedeSimular_BorradorValidado_EsTrueSinPermisoNiCuenta()
     {
+        // La simulación es el default: no exige permiso ni cuenta.
         var viewModel = new MercadoLibreBorradorEditViewModel
         {
             Estado = MercadoLibreBorradorEstado.Validado,
-            PermitirPublicacionDesdeErp = false
+            PermitirPublicacionDesdeErp = false,
+            CuentaConectada = false
         };
 
+        Assert.True(viewModel.PuedeSimular);
+        Assert.True(viewModel.PuedePublicar); // el botón queda habilitado (simula por defecto)
+    }
+
+    [Fact]
+    public void PuedeSimular_BorradorNoValidado_EsFalse()
+    {
+        var viewModel = new MercadoLibreBorradorEditViewModel
+        {
+            Estado = MercadoLibreBorradorEstado.Borrador
+        };
+
+        Assert.False(viewModel.PuedeSimular);
         Assert.False(viewModel.PuedePublicar);
     }
 
     [Fact]
-    public void PuedePublicar_ValidadoConPublicacionErpHabilitada_EsTrue()
+    public void PuedePublicarReal_ValidadoSinPermiso_EsFalse()
     {
         var viewModel = new MercadoLibreBorradorEditViewModel
         {
             Estado = MercadoLibreBorradorEstado.Validado,
-            PermitirPublicacionDesdeErp = true
+            PermitirPublicacionDesdeErp = false,
+            CuentaConectada = true
         };
 
-        Assert.True(viewModel.PuedePublicar);
+        Assert.False(viewModel.PuedePublicarReal);
+    }
+
+    [Fact]
+    public void PuedePublicarReal_ValidadoSinCuenta_EsFalse()
+    {
+        var viewModel = new MercadoLibreBorradorEditViewModel
+        {
+            Estado = MercadoLibreBorradorEstado.Validado,
+            PermitirPublicacionDesdeErp = true,
+            CuentaConectada = false
+        };
+
+        Assert.False(viewModel.PuedePublicarReal);
+    }
+
+    [Fact]
+    public void PuedePublicarReal_ValidadoConPermisoYCuenta_EsTrue()
+    {
+        var viewModel = new MercadoLibreBorradorEditViewModel
+        {
+            Estado = MercadoLibreBorradorEstado.Validado,
+            PermitirPublicacionDesdeErp = true,
+            CuentaConectada = true
+        };
+
+        Assert.True(viewModel.PuedePublicarReal);
     }
 }

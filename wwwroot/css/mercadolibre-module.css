@@ -305,6 +305,12 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     color: #fcd34d;
 }
 
+.ml-status-chip--ok {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.1);
+    color: #6ee7b7;
+}
+
 /* ── Detalle de orden: resumen operativo ───────────────────────── */
 .ml-order-summary {
     display: grid;
@@ -760,4 +766,157 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     .mlc-actions { flex-direction: column-reverse; }
     .mlc-actions > * { width: 100%; justify-content: center; }
     .ml-step:not(:last-child)::after { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Simplificación del modo de publicación (Checkpoints 3-7, 10).
+   Card de estado de seguridad, jerarquía nav primaria vs tabs
+   secundarios, checkbox "Publicación REAL" y marcado de errores.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Breadcrumb interno ────────────────────────────────────────── */
+.ml-crumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: -0.4rem 0 0.85rem;
+    font-size: 0.74rem;
+    color: var(--ml-muted);
+}
+.ml-crumb__sep { color: #475569; }
+.ml-crumb__current { color: #e2e8f0; font-weight: 600; }
+
+/* ── Card de estado de seguridad: publicación real ─────────────── */
+.ml-publish-mode-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 1.05rem;
+    margin-bottom: 1.1rem;
+    border: 1px solid var(--ml-border);
+    border-radius: 0.8rem;
+    background: rgba(15, 23, 42, 0.5);
+    border-left-width: 4px;
+}
+.ml-publish-mode-card.is-on {
+    border-color: rgba(16, 185, 129, 0.4);
+    border-left-color: #10b981;
+    background: rgba(16, 185, 129, 0.07);
+}
+.ml-publish-mode-card.is-off {
+    border-color: rgba(251, 191, 36, 0.4);
+    border-left-color: var(--ml-accent);
+    background: rgba(251, 191, 36, 0.07);
+}
+.ml-publish-mode-card__icon { font-size: 1.5rem; line-height: 1; margin-top: 0.1rem; }
+.ml-publish-mode-card.is-on .ml-publish-mode-card__icon { color: #6ee7b7; }
+.ml-publish-mode-card.is-off .ml-publish-mode-card__icon { color: var(--ml-accent); }
+.ml-publish-mode-card__body { min-width: 0; }
+.ml-publish-mode-card__title { font-size: 0.92rem; font-weight: 700; color: #f1f5f9; }
+.ml-publish-mode-card__desc { margin-top: 0.2rem; font-size: 0.76rem; line-height: 1.4; color: var(--ml-muted); }
+
+/* ── Nav: refuerzo de jerarquía (primaria fuerte / tabs suaves) ── */
+.ml-subnav__link.is-active { box-shadow: inset 0 -2px 0 rgba(251, 191, 36, 0.6); }
+
+.mlc-card__eyebrow {
+    margin: 0.2rem 0 0.5rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+}
+
+/* Tabs internos como navegación SECUNDARIA: más chicos y livianos. */
+.ml-tabs-secondary .mlc-tab { font-size: 0.76rem; padding: 0.55rem 0.7rem; font-weight: 600; }
+.ml-tabs-secondary .mlc-tab.is-active { color: #e2e8f0; border-bottom-color: var(--ml-accent); }
+.ml-tabs-secondary .mlc-tab .material-symbols-outlined { font-size: 0.95rem; }
+
+/* ── Títulos de sección dentro de un panel ─────────────────────── */
+.mlc-section-title {
+    margin: 1.05rem 0 0.55rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #cbd5e1;
+}
+.mlc-section-title:first-of-type { margin-top: 0.2rem; }
+
+/* ── Aviso de impacto real ─────────────────────────────────────── */
+.mlc-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.7rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 0.6rem;
+    background: rgba(251, 191, 36, 0.08);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    color: #fcd34d;
+}
+.mlc-warning .material-symbols-outlined { font-size: 1.05rem; margin-top: 0.05rem; }
+
+/* Toggle del permiso maestro, remarcado. */
+.mlc-toggle--master {
+    grid-column: 1 / -1;
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.06);
+}
+.mlc-toggle--master:hover { border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1); }
+
+/* ── Borrador: checkbox "Publicación REAL" junto al botón ──────── */
+.ml-publish-form { display: flex; align-items: flex-end; gap: 0.6rem; }
+
+.ml-real-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    max-width: 14rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid rgba(244, 63, 94, 0.3);
+    border-radius: 0.5rem;
+    background: rgba(244, 63, 94, 0.06);
+    cursor: pointer;
+}
+.ml-real-check input { margin-top: 0.2rem; flex: 0 0 auto; }
+.ml-real-check__text { display: flex; flex-direction: column; font-size: 0.74rem; color: #e2e8f0; }
+.ml-real-check__flag { color: #fb7185; font-weight: 800; letter-spacing: 0.03em; }
+.ml-real-check__hint { margin-top: 0.1rem; font-size: 0.66rem; line-height: 1.3; color: #94a3b8; }
+
+/* ── Mensaje de bloqueo / error por campo ──────────────────────── */
+.ml-field-error-msg {
+    font-size: 0.76rem;
+    color: #fca5a5;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(244, 63, 94, 0.35);
+    border-radius: 0.5rem;
+    background: rgba(244, 63, 94, 0.08);
+}
+
+.ml-error-summary {
+    border-top: 1px solid var(--ml-border);
+    padding-top: 0.75rem;
+}
+
+/* Campo marcado por ML como rechazado. */
+.ml-field-error { position: relative; }
+.ml-field-error .input-erp,
+.ml-field-error .select-erp,
+.ml-field-error [data-rol="seleccion"] {
+    border-color: #f43f5e !important;
+    box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.35);
+}
+.ml-field-error > label::after {
+    content: " · revisar";
+    color: #fb7185;
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    .ml-publish-form { flex-direction: column; align-items: stretch; }
+    .ml-real-check { max-width: none; }
+    .ml-publish-mode-card { flex-direction: row; }
 }

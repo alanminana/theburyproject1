@@ -62,6 +62,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             AppDbContext ctx, MercadoLibreConfiguracion config, MercadoLibreDashboardViewModel vm, CancellationToken ct)
         {
             vm.Conexion.ModoSimulacion = config.ModoSimulacion;
+            vm.Conexion.PermitirPublicacionDesdeErp = config.PermitirPublicacionDesdeErp;
             vm.Conexion.ModuloConfigurado = true;
 
             // Cuenta efectiva: la configurada, o la primera activa.
@@ -439,8 +440,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             if (!vm.Conexion.ModoSimulacion)
             {
                 Agregar(alertas, MercadoLibreAlertaSeveridad.Warning,
-                    "Modo real activo",
-                    "ModoSimulacion está desactivado: las acciones impactan Mercado Libre real.",
+                    "Sincronización real activa",
+                    "Las sincronizaciones automáticas de stock/precio y respuestas impactan Mercado Libre real.",
                     0, "Configuracion", null, "Revisar configuración");
             }
 

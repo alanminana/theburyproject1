@@ -294,18 +294,19 @@ public class MercadoLibrePublicacionServiceTests
     }
 
     [Fact]
-    public async Task Publicar_ModoSimulacion_NoLlamaApiYDejaEvidenciaVisible()
+    public async Task Publicar_SinConfirmarReal_SimulaPorDefectoYDejaEvidenciaVisible()
     {
+        // Checkpoint 11.1/11.2: sin "Publicación REAL" marcada (confirmarReal=false) el
+        // borrador SIEMPRE se simula, sin importar permiso ni cuenta.
         var (servicio, api, auth, _, factory) = BuildServicio();
         var productoId = await SembrarProductoAsync(factory, stock: 3m);
         await ConfigurarAsync(factory, c =>
         {
-            c.ModoSimulacion = true;
             c.PermitirPublicacionDesdeErp = false;
         });
         var borradorId = await CrearBorradorValidadoAsync(servicio, factory, productoId);
 
-        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: false, "tester");
 
         Assert.True(ok);
         Assert.Contains("SIMUL", mensaje, StringComparison.OrdinalIgnoreCase);
@@ -319,6 +320,29 @@ public class MercadoLibrePublicacionServiceTests
         Assert.Contains("\"title\"", borrador.PayloadSimuladoJson);
         Assert.Equal(MercadoLibreBorradorEstado.Validado, borrador.Estado);
         Assert.Equal(0, await ctx.MercadoLibreListings.CountAsync());
+    }
+
+    [Fact]
+    public async Task Publicar_SinConfirmarReal_SimulaAunConPermisoYCuenta()
+    {
+        // Checkpoint 11.2: la publicación real exige el checkbox; con permiso y cuenta
+        // pero sin confirmarReal, igual SIMULA (no llama a la API).
+        var (servicio, api, auth, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var accountId = await SembrarCuentaAsync(factory);
+        await ConfigurarAsync(factory, c =>
+        {
+            c.PermitirPublicacionDesdeErp = true;
+            c.AccountId = accountId;
+        });
+        var borradorId = await CrearBorradorValidadoAsync(servicio, factory, productoId);
+
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: false, "tester");
+
+        Assert.True(ok);
+        Assert.Contains("SIMUL", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.CreateItemCalls);
+        Assert.Equal(0, auth.TokenCalls);
     }
 
     [Fact]
@@ -341,23 +365,22 @@ public class MercadoLibrePublicacionServiceTests
     }
 
     [Fact]
-    public async Task Publicar_Real_RequiereConfirmacionExplicita()
+    public async Task Publicar_Real_BloqueaSiNoHayCuentaConectada()
     {
+        // Con permiso pero sin cuenta, la publicación real queda bloqueada.
         var (servicio, api, _, _, factory) = BuildServicio();
         var productoId = await SembrarProductoAsync(factory, stock: 3m);
-        var accountId = await SembrarCuentaAsync(factory);
         await ConfigurarAsync(factory, c =>
         {
-            c.ModoSimulacion = false;
             c.PermitirPublicacionDesdeErp = true;
-            c.AccountId = accountId;
+            c.AccountId = null;
         });
         var borradorId = await CrearBorradorValidadoAsync(servicio, factory, productoId);
 
-        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: false, "tester");
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
 
         Assert.False(ok);
-        Assert.Contains("confirm", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cuenta", mensaje, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(api.CreateItemCalls);
     }
 
@@ -473,31 +496,121 @@ public class MercadoLibrePublicacionServiceTests
     }
 
     [Fact]
-    public async Task Publicar_ModoSimulacionActivo_NoLlamaApiAunquePublicacionPermitidaYConfirmada()
+    public async Task Publicar_ConConfirmarReal_NoDependeDeModoSimulacion()
     {
+        // Checkpoint 11.4: el flujo de publicación ya NO depende de ModoSimulacion.
+        // Aunque el cerrojo global esté en true, con "Publicación REAL" marcada +
+        // permiso + cuenta, se publica REAL (llama a la API).
         var (servicio, api, auth, _, factory) = BuildServicio();
-        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-DECOUP", stock: 3m);
         var accountId = await SembrarCuentaAsync(factory);
         await ConfigurarAsync(factory, c =>
         {
-            c.ModoSimulacion = true;
+            c.ModoSimulacion = true; // cerrojo global activo: ya no manda en publicación
             c.PermitirPublicacionDesdeErp = true;
             c.AccountId = accountId;
         });
         var borradorId = await CrearBorradorValidadoAsync(servicio, factory, productoId);
+        api.CreateItemRespuesta = new MeliItemDto
+        {
+            Id = "MLA902",
+            Title = "Publicado",
+            Price = 1500m,
+            CurrencyId = "ARS",
+            AvailableQuantity = 2,
+            Status = "active",
+            CategoryId = "MLA1055",
+            ListingTypeId = "gold_special",
+            Condition = "new"
+        };
 
         var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
 
         Assert.True(ok);
-        Assert.Contains("SIMUL", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("MLA902", mensaje);
+        Assert.Single(api.CreateItemCalls);
+        Assert.Equal(1, auth.TokenCalls);
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Equal(MercadoLibreBorradorEstado.Publicado, borrador.Estado);
+        Assert.False(borrador.PublicadoEnSimulacion);
+        Assert.Equal(1, await ctx.MercadoLibreListings.CountAsync());
+    }
+
+    [Fact]
+    public async Task Publicar_RealRechazadoPorMl_MarcaCamposPorReferences()
+    {
+        // Checkpoint 11.6: si ML rechaza con cause[]/references, se persisten errores
+        // por campo (línea machine-readable CAMPOS_ERROR) sin llamar a ML real.
+        var (servicio, api, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-REJ", stock: 3m);
+        var accountId = await SembrarCuentaAsync(factory);
+        await ConfigurarAsync(factory, c =>
+        {
+            c.PermitirPublicacionDesdeErp = true;
+            c.AccountId = accountId;
+        });
+        var borradorId = await CrearBorradorValidadoAsync(servicio, factory, productoId);
+        api.CreateItemFalla = true;
+        api.CreateItemErrorExcerpt =
+            "{\"message\":\"Validation error\",\"error\":\"validation_error\",\"cause\":[" +
+            "{\"code\":\"item.available_quantity.invalid\",\"message\":\"max 1\",\"references\":[\"available_quantity\"]}," +
+            "{\"code\":\"item.category_id.invalid\",\"message\":\"no es hoja\",\"references\":[\"category_id\"]}]}";
+
+        var (ok, mensaje) = await servicio.PublicarAsync(borradorId, confirmarReal: true, "tester");
+
+        Assert.False(ok);
+        Assert.Contains("rechazó", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Contains("CAMPOS_ERROR:", borrador.ErroresValidacion);
+        Assert.Contains("available_quantity", borrador.ErroresValidacion);
+        Assert.Contains("category_id", borrador.ErroresValidacion);
+        Assert.Contains("Stock a publicar", borrador.ErroresValidacion);
+    }
+
+    [Fact]
+    public async Task Actualizar_StockEditable_PersisteSinModificarInventario()
+    {
+        // Checkpoint 11.7: bajar el stock a publicar persiste y no toca el inventario ERP.
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 5m);
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var borradorId = creado.BorradorId!.Value;
+
+        var vm = await servicio.GetBorradorAsync(borradorId);
+        vm!.Stock = 1; // baja respecto del stock ERP (5)
+        vm.CategoryIdMl = "MLA1055";
+        await servicio.ActualizarBorradorAsync(vm, "tester");
+
+        await using var ctx = factory.CreateDbContext();
+        var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
+        Assert.Equal(1, borrador.Stock);
+
+        var producto = await ctx.Productos.SingleAsync(p => p.Id == productoId);
+        Assert.Equal(5m, producto.StockActual); // inventario intacto
+    }
+
+    [Fact]
+    public async Task Descartar_NoLlamaApiMlYMarcaDescartado()
+    {
+        // Checkpoint 11.8: descartar nunca llama a ML.
+        var (servicio, api, auth, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, stock: 3m);
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var borradorId = creado.BorradorId!.Value;
+
+        await servicio.DescartarAsync(borradorId, "tester");
+
         Assert.Empty(api.CreateItemCalls);
+        Assert.Empty(api.UpdateItemCalls);
         Assert.Equal(0, auth.TokenCalls);
 
         await using var ctx = factory.CreateDbContext();
         var borrador = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(b => b.Id == borradorId);
-        Assert.True(borrador.PublicadoEnSimulacion);
-        Assert.Equal(MercadoLibreBorradorEstado.Validado, borrador.Estado);
-        Assert.Equal(0, await ctx.MercadoLibreListings.CountAsync());
+        Assert.Equal(MercadoLibreBorradorEstado.Descartado, borrador.Estado);
     }
 
     [Fact]

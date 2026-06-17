@@ -288,19 +288,16 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             if (borrador.Estado != MercadoLibreBorradorEstado.Validado)
                 return (false, "Validá el borrador (sin errores) antes de publicar.");
 
-            if (!config.PermitirPublicacionDesdeErp && !config.ModoSimulacion)
-                return (false, "La publicación desde el ERP está deshabilitada. Activala en Configuración de Mercado Libre.");
-
-            if (!config.AccountId.HasValue && !config.ModoSimulacion)
-                return (false, "No hay cuenta de Mercado Libre configurada para publicar.");
-
             var payload = ConstruirPayload(borrador);
             var payloadJson = JsonSerializer.Serialize(payload);
 
-            // Simulacion solo si la config lo impone; sin confirmacion real se bloquea mas abajo.
-            var simulado = config.ModoSimulacion;
-
-            if (simulado)
+            // Nuevo modelo de decisión (Checkpoint 2): la simulación es el comportamiento
+            // por defecto y se decide por el checkbox "Publicación REAL" del borrador
+            // (confirmarReal), NO por el ModoSimulacion global —que sigue gobernando
+            // sync/precio/mensajes pero ya no compite con esta decisión—.
+            //   confirmarReal == false → SIMULA (sin permiso ni cuenta).
+            //   confirmarReal == true  → publica REAL, exige PermitirPublicacionDesdeErp + cuenta.
+            if (!confirmarReal)
             {
                 borrador.PublicadoEnSimulacion = true;
                 borrador.FechaSimulacionUtc = DateTime.UtcNow;
@@ -322,8 +319,12 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 return (true, "SIMULACIÓN: el payload quedó registrado en el log. No se publicó nada en Mercado Libre.");
             }
 
-            if (!confirmarReal)
-                return (false, "La publicacion real requiere confirmacion explicita del operador.");
+            // Publicación REAL: permiso maestro + cuenta conectada son obligatorios.
+            if (!config.PermitirPublicacionDesdeErp)
+                return (false, "La publicación real está deshabilitada en Configuración.");
+
+            if (!config.AccountId.HasValue)
+                return (false, "No hay cuenta de Mercado Libre configurada para publicar.");
 
             try
             {
@@ -384,6 +385,16 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             }
             catch (Exception ex)
             {
+                // Si ML rechaza con cause[]/references, traducimos a errores por campo
+                // y los persistimos en el borrador para marcarlos en la UI (Checkpoint 7).
+                var (mensajeUsuario, erroresPersistidos) = InterpretarRechazoMl(ex);
+
+                if (erroresPersistidos is not null)
+                {
+                    borrador.ErroresValidacion = Truncar(erroresPersistidos, 2000);
+                    borrador.UpdatedBy = usuario;
+                }
+
                 context.MercadoLibreSyncLogs.Add(new MercadoLibreSyncLog
                 {
                     AccountId = config.AccountId,
@@ -397,7 +408,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
                 _logger.LogError(ex, "Error publicando borrador {BorradorId}", borrador.Id);
 
-                return (false, $"Mercado Libre rechazó la publicación: {ex.Message}");
+                return (false, mensajeUsuario);
             }
         }
 
@@ -490,7 +501,6 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 ProductoPrecioVenta = borrador.Producto.PrecioVenta,
                 ProductoStockActual = borrador.Producto.StockActual,
                 ProductoRequiereNumeroSerie = borrador.Producto.RequiereNumeroSerie,
-                ModoSimulacion = config.ModoSimulacion,
                 PermitirPublicacionDesdeErp = config.PermitirPublicacionDesdeErp,
                 CuentaConectada = config.AccountId.HasValue
             };
@@ -512,6 +522,84 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                     new Dictionary<string, object?> { ["id"] = "SELLER_SKU", ["value_name"] = borrador.Producto.Codigo }
                 }
             };
+
+        // Tokens de campo que ML referencia en cause[].code / cause[].references,
+        // mapeados al rótulo del borrador (clave estable usada también por la vista
+        // para marcar el control con error).
+        private static readonly (string Token, string Campo)[] CamposMl =
+        {
+            ("available_quantity", "Stock a publicar"),
+            ("category_id", "Categoría"),
+            ("condition", "Condición"),
+            ("listing_type_id", "Tipo de publicación"),
+            ("title", "Título"),
+            ("price", "Precio"),
+            ("currency_id", "Moneda"),
+            ("description", "Descripción"),
+        };
+
+        /// <summary>
+        /// Traduce un error de publicación a (mensaje para el operador, texto a persistir
+        /// en ErroresValidacion). Si el body de ML trae cause[]/references, marca los
+        /// campos involucrados con una línea machine-readable "CAMPOS_ERROR:" que la vista usa.
+        /// Es defensivo: ante cualquier problema de parseo cae al mensaje genérico.
+        /// </summary>
+        private static (string Mensaje, string? ErroresPersistidos) InterpretarRechazoMl(Exception ex)
+        {
+            var excerpt = (ex as Exceptions.MercadoLibreApiException)?.ResponseExcerpt;
+            if (string.IsNullOrWhiteSpace(excerpt))
+                return ($"Mercado Libre rechazó la publicación: {ex.Message}", null);
+
+            try
+            {
+                using var doc = JsonDocument.Parse(excerpt);
+                var root = doc.RootElement;
+
+                var lineas = new List<string>();
+                var camposTokens = new List<string>();
+
+                if (root.TryGetProperty("cause", out var causes) && causes.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var causa in causes.EnumerateArray())
+                    {
+                        var code = causa.TryGetProperty("code", out var c) ? c.GetString() ?? "" : "";
+                        var msg = causa.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+
+                        var refs = new List<string>();
+                        if (causa.TryGetProperty("references", out var r) && r.ValueKind == JsonValueKind.Array)
+                            refs.AddRange(r.EnumerateArray().Select(e => e.GetString() ?? ""));
+
+                        var match = CamposMl.FirstOrDefault(cm =>
+                            code.Contains(cm.Token, StringComparison.OrdinalIgnoreCase)
+                            || refs.Any(rf => rf.Contains(cm.Token, StringComparison.OrdinalIgnoreCase)));
+
+                        if (match.Token is not null && !camposTokens.Contains(match.Token))
+                            camposTokens.Add(match.Token);
+
+                        var rotulo = match.Campo ?? "General";
+                        var detalle = string.IsNullOrWhiteSpace(msg) ? code : msg;
+                        lineas.Add($"ERROR: {rotulo} — {detalle}");
+                    }
+                }
+
+                if (lineas.Count == 0)
+                    return ($"Mercado Libre rechazó la publicación: {ex.Message}", null);
+
+                var persistido = string.Join("\n", lineas);
+                if (camposTokens.Count > 0)
+                    persistido += "\nCAMPOS_ERROR: " + string.Join(",", camposTokens);
+
+                var resumenCampos = camposTokens.Count > 0
+                    ? " Revisá: " + string.Join(", ", camposTokens.Select(t => CamposMl.First(cm => cm.Token == t).Campo)) + "."
+                    : string.Empty;
+
+                return ($"Mercado Libre rechazó la publicación.{resumenCampos}", persistido);
+            }
+            catch
+            {
+                return ($"Mercado Libre rechazó la publicación: {ex.Message}", null);
+            }
+        }
 
         private static string? Truncar(string? valor, int max)
             => valor is null ? null : (valor.Length <= max ? valor : valor[..max]);

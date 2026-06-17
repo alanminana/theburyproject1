@@ -84,20 +84,39 @@
                 </div>
             }
             <div class="ml-dash-status__item">
-                <span class="ml-dash-status__label">Modo</span>
+                <span class="ml-dash-status__label">Publicación real</span>
+                <span class="ml-dash-status__value">
+                    @if (Model.Conexion.PermitirPublicacionDesdeErp)
+                    {
+                        <span class="ml-dash-badge ml-dash-badge--real" title="Cada borrador exige marcar «Publicación REAL» antes de enviar a ML.">
+                            <span class="material-symbols-outlined text-[14px]">public</span>
+                            Disponible
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="ml-dash-badge ml-dash-badge--sim" title="Los borradores solo se simulan.">
+                            <span class="material-symbols-outlined text-[14px]">lock</span>
+                            Bloqueada
+                        </span>
+                    }
+                </span>
+            </div>
+            <div class="ml-dash-status__item">
+                <span class="ml-dash-status__label">Sincronizaciones automáticas</span>
                 <span class="ml-dash-status__value">
                     @if (Model.Conexion.ModoSimulacion)
                     {
                         <span class="ml-dash-badge ml-dash-badge--sim">
                             <span class="material-symbols-outlined text-[14px]">science</span>
-                            Simulación
+                            Simuladas
                         </span>
                     }
                     else
                     {
                         <span class="ml-dash-badge ml-dash-badge--real">
                             <span class="material-symbols-outlined text-[14px]">bolt</span>
-                            Real
+                            Activas
                         </span>
                     }
                 </span>

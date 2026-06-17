@@ -237,6 +237,9 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
 
     public bool CreateItemFalla { get; set; }
 
+    /// <summary>Body de error (excerpt) que acompaña el rechazo simulado del POST /items.</summary>
+    public string? CreateItemErrorExcerpt { get; set; }
+
     public Task<MeliItemDto> CreateItemAsync(
         string accessToken, object payload, CancellationToken ct = default)
     {
@@ -245,7 +248,7 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
 
         if (CreateItemFalla)
             throw new TheBuryProject.Modules.MercadoLibre.Exceptions.MercadoLibreApiException(
-                "Error simulado en POST /items.", System.Net.HttpStatusCode.BadRequest);
+                "Error simulado en POST /items.", System.Net.HttpStatusCode.BadRequest, CreateItemErrorExcerpt);
 
         return Task.FromResult(CreateItemRespuesta ?? new MeliItemDto { Id = "MLA900000001", Status = "active" });
     }

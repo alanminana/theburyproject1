@@ -4,7 +4,7 @@
     ViewData["Title"] = "Borradores de publicación";
     var productosJson = ViewBag.ProductosPickerJson as string ?? "[]";
     var permitirPublicacion = ViewBag.PermitirPublicacion as bool? ?? false;
-    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+    var cuentaConectada = ViewBag.CuentaConectada as bool? ?? false;
 }
 
 <div class="erp-page-shell erp-compact">
@@ -40,32 +40,33 @@
                 Borradores de publicación
             </h1>
             <p class="ml-head__subtitle">
-                Producto ERP → borrador → validación → publicación. La publicación real exige
-                habilitar el flujo en Configuración, desactivar simulación y confirmar.
+                Producto ERP → borrador → validación → publicar. Por defecto cada borrador se
+                <b>simula</b>; para enviarlo a ML hay que marcar «Publicación REAL» en el borrador.
             </p>
         </div>
     </div>
 
-    @if (!permitirPublicacion || modoSimulacion)
-    {
-        <div class="ml-status-strip">
-            @if (modoSimulacion)
-            {
-                <span class="ml-status-chip ml-status-chip--sim">
-                    <span class="material-symbols-outlined" aria-hidden="true">science</span>
-                    Simulación: las publicaciones se registran como payload local, no llaman a Mercado Libre.
-                </span>
-            }
-            @if (!permitirPublicacion)
-            {
-                <span class="ml-status-chip ml-status-chip--warn">
-                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                    Publicación real deshabilitada — activala en
-                    <a asp-action="Configuracion">Configuración</a>.
-                </span>
-            }
-        </div>
-    }
+    <div class="ml-status-strip">
+        <span class="ml-status-chip ml-status-chip--sim">
+            <span class="material-symbols-outlined" aria-hidden="true">science</span>
+            Por defecto los borradores se simulan: no llaman a Mercado Libre.
+        </span>
+        @if (permitirPublicacion)
+        {
+            <span class="ml-status-chip ml-status-chip--ok">
+                <span class="material-symbols-outlined" aria-hidden="true">public</span>
+                Publicación real disponible: marcá «Publicación REAL» en el borrador para enviar a ML.
+            </span>
+        }
+        else
+        {
+            <span class="ml-status-chip ml-status-chip--warn">
+                <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+                Publicación real bloqueada — habilitala en
+                <a asp-action="Configuracion">Configuración</a>.
+            </span>
+        }
+    </div>
 
     @if (User.TienePermiso("mercadolibre", "sync"))
     {

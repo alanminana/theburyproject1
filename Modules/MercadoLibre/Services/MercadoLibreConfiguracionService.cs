@@ -171,7 +171,10 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             config.ImportacionAutomaticaOrdenes = viewModel.ImportacionAutomaticaOrdenes;
             config.CrearVentaAutomatica = viewModel.CrearVentaAutomatica;
             config.PermitirPublicacionDesdeErp = viewModel.PermitirPublicacionDesdeErp;
-            config.ModoSimulacion = viewModel.ModoSimulacion;
+            // ModoSimulacion ya NO se controla desde esta pantalla (Checkpoint 2/3): dejó de
+            // ser un toggle visible que compite con "Publicación REAL" del borrador. Sigue
+            // existiendo como cerrojo interno de sync/precio/mensajes y se preserva tal cual
+            // está persistido (nace en true). No se sobrescribe desde el viewModel.
             config.PoliticaDevolucion = viewModel.PoliticaDevolucion;
             config.UpdatedAt = DateTime.UtcNow;
             config.UpdatedBy = usuario;

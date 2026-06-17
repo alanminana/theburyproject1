@@ -43,7 +43,13 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         public string? Nickname { get; set; }
         public long? MeliUserId { get; set; }
         public string? SiteId { get; set; }
+
+        /// <summary>Cerrojo interno de sync/precio/mensajes (no gobierna la publicación de borradores).</summary>
         public bool ModoSimulacion { get; set; }
+
+        /// <summary>Permiso maestro de publicación real desde el ERP.</summary>
+        public bool PermitirPublicacionDesdeErp { get; set; }
+
         public DateTime? UltimaImportacionUtc { get; set; }
         public DateTime? UltimaPruebaConexionUtc { get; set; }
         public bool? UltimaPruebaConexionOk { get; set; }

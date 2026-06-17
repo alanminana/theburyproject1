@@ -213,8 +213,8 @@ public class MercadoLibreDashboardServiceTests
         var vm = await servicio.GetDashboardAsync();
 
         Assert.False(vm.Conexion.ModoSimulacion);
-        // Modo real activo debe disparar alerta.
-        Assert.Contains(vm.Alertas, a => a.Titulo == "Modo real activo");
+        // Sincronización real activa debe disparar alerta.
+        Assert.Contains(vm.Alertas, a => a.Titulo == "Sincronización real activa");
     }
 
     // ------------------------------------------------------------------

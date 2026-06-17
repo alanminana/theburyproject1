@@ -80,7 +80,7 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         public decimal ProductoStockActual { get; set; }
         public bool ProductoRequiereNumeroSerie { get; set; }
 
-        public bool ModoSimulacion { get; set; }
+        /// <summary>Permiso maestro de seguridad: habilita la publicación real desde el ERP.</summary>
         public bool PermitirPublicacionDesdeErp { get; set; }
 
         /// <summary>True si hay una cuenta ML conectada (requerida para publicación real).</summary>
@@ -88,9 +88,18 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
 
         public bool PuedeEditar => Estado is MercadoLibreBorradorEstado.Borrador or MercadoLibreBorradorEstado.Validado;
         public bool PuedeValidar => PuedeEditar;
-        public bool PuedeSimular => Estado == MercadoLibreBorradorEstado.Validado && ModoSimulacion;
-        public bool PuedePublicarReal => Estado == MercadoLibreBorradorEstado.Validado && PermitirPublicacionDesdeErp && !ModoSimulacion;
-        public bool PuedePublicar => PuedeSimular || PuedePublicarReal;
+
+        // La simulación es el comportamiento por defecto: todo borrador validado se
+        // puede simular sin permiso ni cuenta. Ya no depende de ModoSimulacion.
+        public bool PuedeSimular => Estado == MercadoLibreBorradorEstado.Validado;
+
+        // La publicación REAL exige permiso maestro + cuenta conectada.
+        public bool PuedePublicarReal => Estado == MercadoLibreBorradorEstado.Validado
+            && PermitirPublicacionDesdeErp && CuentaConectada;
+
+        // El botón principal queda habilitado al estar validado: por defecto simula,
+        // y solo publica real si el operador marca "Publicación REAL" (y hay permiso/cuenta).
+        public bool PuedePublicar => Estado == MercadoLibreBorradorEstado.Validado;
         public bool PuedeDescartar => Estado != MercadoLibreBorradorEstado.Publicado;
     }
 }
