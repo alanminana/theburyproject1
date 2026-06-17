@@ -283,6 +283,72 @@
             </button>
         </div>
     </form>
+
+    @{
+        var catalogo = ViewBag.CatalogoEstado as TheBuryProject.Modules.MercadoLibre.ViewModels.MercadoLibreCatalogoEstadoVm;
+    }
+    <div class="mlc-card" style="margin-top:1.25rem;">
+        <p class="mlc-card__eyebrow">Catálogo de categorías</p>
+        <h2 class="mlc-section-title">Catálogo de categorías de Mercado Libre (local)</h2>
+        <p class="mlc-panel__sub">
+            Catálogo importado desde un archivo local grande (no se sube ni se versiona).
+            Habilita la detección de atributos obligatorios por categoría al publicar.
+        </p>
+
+        @if (catalogo is { Importado: true })
+        {
+            <div class="mlc-grid" style="margin-bottom:1rem;">
+                <div class="mlc-field">
+                    <span class="mlc-label">Última importación</span>
+                    <strong>@(catalogo.UltimoExitoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</strong>
+                </div>
+                <div class="mlc-field">
+                    <span class="mlc-label">Categorías</span>
+                    <strong>@catalogo.Categorias.ToString("N0")</strong>
+                </div>
+                <div class="mlc-field">
+                    <span class="mlc-label">Hojas / Publicables</span>
+                    <strong>@catalogo.Hojas.ToString("N0") / @catalogo.Publicables.ToString("N0")</strong>
+                </div>
+                <div class="mlc-field">
+                    <span class="mlc-label">Atributos</span>
+                    <strong>@catalogo.Atributos.ToString("N0")</strong>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p class="mlc-hint" style="margin-bottom:1rem;">
+                Catálogo todavía no importado. Importalo desde un archivo local para validar atributos obligatorios.
+            </p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(catalogo?.UltimoError))
+        {
+            <div class="alert alert-erp-danger" role="alert" style="margin-bottom:1rem;">
+                Último error de importación: @catalogo!.UltimoError
+            </div>
+        }
+
+        <form asp-action="ImportarCatalogo" method="post">
+            <div class="mlc-field mlc-field--full">
+                <label for="rutaArchivo" class="mlc-label">Ruta local del archivo (.json o .json.gz)</label>
+                <input type="text" id="rutaArchivo" name="rutaArchivo" class="input-erp input-erp-sm"
+                       value="@catalogo?.RutaSugerida"
+                       placeholder="E:\theburyproject1\_ml-cache\mla_categories_with_attributes.json.gz" />
+                <p class="mlc-hint">
+                    El archivo se lee por streaming desde el disco del servidor (no se sube por la web).
+                    Soporta .gz. Reemplaza el catálogo local existente.
+                </p>
+            </div>
+            <div class="mlc-actions">
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-sm">cloud_download</span>
+                    Importar catálogo
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 @section Scripts {

@@ -17,6 +17,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
         private readonly IMercadoLibreAuthService _authService;
         private readonly IMercadoLibreConfiguracionService _configuracionService;
         private readonly IMercadoLibrePricingService _pricingService;
+        private readonly IMercadoLibreCategoryCatalogService _catalogService;
         private readonly ILogger<MercadoLibrePublicacionService> _logger;
 
         public MercadoLibrePublicacionService(
@@ -25,6 +26,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             IMercadoLibreAuthService authService,
             IMercadoLibreConfiguracionService configuracionService,
             IMercadoLibrePricingService pricingService,
+            IMercadoLibreCategoryCatalogService catalogService,
             ILogger<MercadoLibrePublicacionService> logger)
         {
             _contextFactory = contextFactory;
@@ -32,6 +34,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             _authService = authService;
             _configuracionService = configuracionService;
             _pricingService = pricingService;
+            _catalogService = catalogService;
             _logger = logger;
         }
 
@@ -168,6 +171,11 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
             var imagenes = ParseImagenesDesdeTexto(viewModel.ImagenesUrls);
             borrador.ImagenesJson = imagenes.Count == 0 ? null : JsonSerializer.Serialize(imagenes);
 
+            // Atributos específicos de categoría ML: se guardan solo los que traen valor.
+            // Si la categoría se borró/cambió, los atributos previos pierden sentido.
+            borrador.AtributosCompletadosJson = SerializarAtributos(
+                string.IsNullOrWhiteSpace(borrador.CategoryIdMl) ? null : viewModel.Atributos);
+
             // Toda edición invalida la validación anterior.
             borrador.Estado = MercadoLibreBorradorEstado.Borrador;
             borrador.ErroresValidacion = null;
@@ -211,6 +219,60 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 errores.Add("Falta la categoría de Mercado Libre. Elegila con el buscador de categorías del borrador.");
             else if (borrador.CategoryEsHoja == false)
                 errores.Add("La categoría elegida no es una categoría hoja [leaf]: ML solo permite publicar en hojas. Elegí una más específica.");
+
+            // Validación contra el catálogo local de categorías (si está importado):
+            // hoja + listing_allowed y atributos obligatorios completos (Checkpoint 12).
+            var camposAtributosError = new List<string>();
+            if (!string.IsNullOrWhiteSpace(borrador.CategoryIdMl))
+            {
+                var catalogoImportado = await _catalogService.HayCatalogoAsync(ct: ct);
+                if (!catalogoImportado)
+                {
+                    advertencias.Add(
+                        "Catálogo de categorías ML no importado: no se pueden validar los atributos obligatorios localmente. " +
+                        "Importalo desde Configuración o revisá los atributos en Mercado Libre antes de publicar.");
+                }
+                else
+                {
+                    var (existe, esHoja, listingAllowed) =
+                        await _catalogService.IsLeafListingAllowedAsync(borrador.CategoryIdMl, ct: ct);
+
+                    if (!existe)
+                    {
+                        advertencias.Add(
+                            $"La categoría {borrador.CategoryIdMl} no está en el catálogo local importado: " +
+                            "no se pueden validar sus atributos obligatorios. Reimportá el catálogo si es reciente.");
+                    }
+                    else
+                    {
+                        if (!esHoja)
+                            errores.Add("La categoría no es hoja según el catálogo local: ML solo permite publicar en hojas.");
+                        if (!listingAllowed)
+                            errores.Add("La categoría no permite publicar (listing_allowed = false) según el catálogo local.");
+
+                        var requeridos = await _catalogService.GetRequiredAttributesAsync(
+                            borrador.CategoryIdMl, borrador.Condicion, borrador.ListingTypeId, ct: ct);
+                        var completados = DeserializarAtributos(borrador.AtributosCompletadosJson);
+
+                        foreach (var attr in requeridos)
+                        {
+                            var valor = completados.FirstOrDefault(c =>
+                                string.Equals(c.Id, attr.AttributeId, StringComparison.OrdinalIgnoreCase));
+                            var completo = valor is not null && valor.TieneValor;
+
+                            if (!completo && attr.EsBloqueante)
+                            {
+                                errores.Add($"Falta el atributo obligatorio de Mercado Libre: {attr.Name} [{attr.AttributeId}].");
+                                camposAtributosError.Add(attr.AttributeId);
+                            }
+                            else if (!completo && attr.EsRecomendado)
+                            {
+                                advertencias.Add($"Atributo recomendado sin completar: {attr.Name} [{attr.AttributeId}].");
+                            }
+                        }
+                    }
+                }
+            }
 
             if (!CondicionesValidas.Contains(borrador.Condicion))
                 errores.Add($"Condición inválida: '{borrador.Condicion}' (new | used).");
@@ -272,15 +334,18 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                         "Sin imágenes: la publicación puede quedar incompleta en Mercado Libre hasta que cargues al menos una.");
             }
 
-            advertencias.Add(
-                "El ERP no completa atributos especificos de categoria en este flujo: revisalos en Mercado Libre antes de activar la publicacion.");
-
             var ok = errores.Count == 0;
 
             borrador.Estado = ok ? MercadoLibreBorradorEstado.Validado : MercadoLibreBorradorEstado.Borrador;
             borrador.FechaValidacionUtc = DateTime.UtcNow;
-            borrador.ErroresValidacion = Truncar(string.Join("\n",
-                errores.Select(e => $"ERROR: {e}").Concat(advertencias.Select(a => $"ADVERTENCIA: {a}"))), 2000);
+
+            var lineas = errores.Select(e => $"ERROR: {e}")
+                .Concat(advertencias.Select(a => $"ADVERTENCIA: {a}"))
+                .ToList();
+            if (camposAtributosError.Count > 0)
+                lineas.Add("ATRIBUTOS_ERROR: " + string.Join(",", camposAtributosError));
+
+            borrador.ErroresValidacion = Truncar(string.Join("\n", lineas), 2000);
             borrador.UpdatedBy = usuario;
 
             await context.SaveChangesAsync(ct);
@@ -509,6 +574,32 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
             var imagenes = LeerImagenes(borrador);
 
+            // Catálogo local de categorías: atributos requeridos + valores guardados.
+            var catalogoImportado = await _catalogService.HayCatalogoAsync(ct: ct);
+            var guardados = DeserializarAtributos(borrador.AtributosCompletadosJson);
+
+            IReadOnlyList<ViewModels.CatalogoAtributoVm> requeridos = Array.Empty<ViewModels.CatalogoAtributoVm>();
+            if (catalogoImportado && !string.IsNullOrWhiteSpace(borrador.CategoryIdMl))
+                requeridos = await _catalogService.GetRequiredAttributesAsync(
+                    borrador.CategoryIdMl, borrador.Condicion, borrador.ListingTypeId, ct: ct);
+
+            // Lista de binding alineada a los requeridos, pre-cargada con lo guardado;
+            // se conservan valores guardados que ya no figuren entre los requeridos.
+            var atributos = requeridos.Select(r =>
+            {
+                var g = guardados.FirstOrDefault(x =>
+                    string.Equals(x.Id, r.AttributeId, StringComparison.OrdinalIgnoreCase));
+                return new ViewModels.AtributoCompletadoVm
+                {
+                    Id = r.AttributeId,
+                    ValueId = g?.ValueId,
+                    ValueName = g?.ValueName
+                };
+            }).ToList();
+            foreach (var g in guardados)
+                if (!atributos.Any(a => string.Equals(a.Id, g.Id, StringComparison.OrdinalIgnoreCase)))
+                    atributos.Add(g);
+
             return new MercadoLibreBorradorEditViewModel
             {
                 Id = borrador.Id,
@@ -526,6 +617,9 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 Garantia = borrador.Garantia,
                 ImagenesUrls = imagenes.Count == 0 ? null : string.Join("\n", imagenes),
                 Imagenes = imagenes,
+                Atributos = atributos,
+                AtributosRequeridos = requeridos,
+                CatalogoImportado = catalogoImportado,
                 Estado = borrador.Estado,
                 ErroresValidacion = borrador.ErroresValidacion,
                 FechaValidacionUtc = borrador.FechaValidacionUtc,
@@ -556,10 +650,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 ["condition"] = borrador.Condicion,
                 ["listing_type_id"] = borrador.ListingTypeId,
                 ["description"] = new Dictionary<string, object?> { ["plain_text"] = borrador.Descripcion ?? string.Empty },
-                ["attributes"] = new[]
-                {
-                    new Dictionary<string, object?> { ["id"] = "SELLER_SKU", ["value_name"] = borrador.Producto.Codigo }
-                }
+                ["attributes"] = ConstruirAtributos(borrador)
             };
 
             // pictures solo si hay URLs válidas: ML rechaza un array vacío.
@@ -570,6 +661,47 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                     .ToArray();
 
             return payload;
+        }
+
+        /// <summary>
+        /// Arma el array attributes del payload: SELLER_SKU + atributos de categoría
+        /// completados. Omite vacíos y duplicados; SELLER_SKU nunca se duplica. Si hay
+        /// value_id se envía {id, value_id, value_name}; si no, {id, value_name}.
+        /// </summary>
+        private static List<Dictionary<string, object?>> ConstruirAtributos(MercadoLibrePublicacionBorrador borrador)
+        {
+            var atributos = new List<Dictionary<string, object?>>();
+            var idsUsados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // SELLER_SKU primero (siempre presente, una sola vez).
+            atributos.Add(new Dictionary<string, object?>
+            {
+                ["id"] = "SELLER_SKU",
+                ["value_name"] = borrador.Producto.Codigo
+            });
+            idsUsados.Add("SELLER_SKU");
+
+            foreach (var attr in DeserializarAtributos(borrador.AtributosCompletadosJson))
+            {
+                var id = attr.Id?.Trim();
+                if (string.IsNullOrWhiteSpace(id) || !attr.TieneValor) continue;
+                if (!idsUsados.Add(id)) continue; // sin duplicados
+
+                var entrada = new Dictionary<string, object?> { ["id"] = id };
+                if (!string.IsNullOrWhiteSpace(attr.ValueId))
+                {
+                    entrada["value_id"] = attr.ValueId.Trim();
+                    if (!string.IsNullOrWhiteSpace(attr.ValueName))
+                        entrada["value_name"] = attr.ValueName.Trim();
+                }
+                else
+                {
+                    entrada["value_name"] = attr.ValueName!.Trim();
+                }
+                atributos.Add(entrada);
+            }
+
+            return atributos;
         }
 
         // Tokens de campo que ML referencia en cause[].code / cause[].references,
@@ -607,6 +739,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
                 var lineas = new List<string>();
                 var camposTokens = new List<string>();
+                var atributosFaltantes = new List<string>();
 
                 if (root.TryGetProperty("cause", out var causes) && causes.ValueKind == JsonValueKind.Array)
                 {
@@ -618,6 +751,16 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                         var refs = new List<string>();
                         if (causa.TryGetProperty("references", out var r) && r.ValueKind == JsonValueKind.Array)
                             refs.AddRange(r.EnumerateArray().Select(e => e.GetString() ?? ""));
+
+                        // Atributos obligatorios faltantes (Checkpoint 13): ML los lista
+                        // entre corchetes en el message. Se marca cada uno para la UI.
+                        if (code.Contains("missing_required", StringComparison.OrdinalIgnoreCase)
+                            || code.Contains("attributes", StringComparison.OrdinalIgnoreCase))
+                        {
+                            foreach (var attrId in ExtraerAtributosFaltantes(msg))
+                                if (!atributosFaltantes.Contains(attrId, StringComparer.OrdinalIgnoreCase))
+                                    atributosFaltantes.Add(attrId);
+                        }
 
                         // Una causa puede referenciar varios campos (ej:
                         // item.listing_type_id.requiresPictures involucra tanto el tipo
@@ -633,7 +776,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
                         var rotulo = matches.Count > 0
                             ? string.Join(" / ", matches.Select(cm => cm.Campo))
-                            : "General";
+                            : (atributosFaltantes.Count > 0 ? "Atributos obligatorios" : "General");
                         var detalle = string.IsNullOrWhiteSpace(msg) ? code : msg;
                         lineas.Add($"ERROR: {rotulo} — {detalle}");
                     }
@@ -645,10 +788,17 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 var persistido = string.Join("\n", lineas);
                 if (camposTokens.Count > 0)
                     persistido += "\nCAMPOS_ERROR: " + string.Join(",", camposTokens);
+                if (atributosFaltantes.Count > 0)
+                    persistido += "\nATRIBUTOS_ERROR: " + string.Join(",", atributosFaltantes);
 
                 var resumenCampos = camposTokens.Count > 0
                     ? " Revisá: " + string.Join(", ", camposTokens.Select(t => CamposMl.First(cm => cm.Token == t).Campo)) + "."
                     : string.Empty;
+
+                if (atributosFaltantes.Count > 0)
+                    return (
+                        $"Mercado Libre exige atributos obligatorios para esta categoría: {string.Join(", ", atributosFaltantes)}.",
+                        persistido);
 
                 return ($"Mercado Libre rechazó la publicación.{resumenCampos}", persistido);
             }
@@ -660,6 +810,58 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
         private static string? Truncar(string? valor, int max)
             => valor is null ? null : (valor.Length <= max ? valor : valor[..max]);
+
+        // ── Atributos completados (persistencia JSON) ──────────────────────────
+        /// <summary>Serializa los atributos con valor a JSON; null si no hay ninguno (o lista null).</summary>
+        private static string? SerializarAtributos(List<ViewModels.AtributoCompletadoVm>? atributos)
+        {
+            if (atributos is null) return null;
+
+            var limpios = atributos
+                .Where(a => !string.IsNullOrWhiteSpace(a.Id) && a.TieneValor)
+                .Select(a => new ViewModels.AtributoCompletadoVm
+                {
+                    Id = a.Id.Trim(),
+                    ValueId = string.IsNullOrWhiteSpace(a.ValueId) ? null : a.ValueId.Trim(),
+                    ValueName = string.IsNullOrWhiteSpace(a.ValueName) ? null : a.ValueName.Trim()
+                })
+                .ToList();
+
+            return limpios.Count == 0 ? null : JsonSerializer.Serialize(limpios);
+        }
+
+        private static List<ViewModels.AtributoCompletadoVm> DeserializarAtributos(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new();
+            try
+            {
+                return JsonSerializer.Deserialize<List<ViewModels.AtributoCompletadoVm>>(json) ?? new();
+            }
+            catch
+            {
+                return new();
+            }
+        }
+
+        /// <summary>Extrae los ids de atributos de un mensaje "The attributes [A, B, C] are required...".</summary>
+        private static List<string> ExtraerAtributosFaltantes(string mensaje)
+        {
+            var ids = new List<string>();
+            if (string.IsNullOrWhiteSpace(mensaje)) return ids;
+
+            var inicio = mensaje.IndexOf('[');
+            var fin = mensaje.IndexOf(']');
+            if (inicio < 0 || fin <= inicio) return ids;
+
+            var contenido = mensaje.Substring(inicio + 1, fin - inicio - 1);
+            foreach (var parte in contenido.Split(','))
+            {
+                var id = parte.Trim();
+                if (id.Length > 0 && !ids.Contains(id, StringComparer.OrdinalIgnoreCase))
+                    ids.Add(id);
+            }
+            return ids;
+        }
 
         // ── Imágenes ───────────────────────────────────────────────────────
         // Listing types donde ML exige al menos una imagen para publicar.

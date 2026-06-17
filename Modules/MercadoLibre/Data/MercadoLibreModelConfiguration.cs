@@ -288,6 +288,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Data
                 entity.Property(e => e.Descripcion).HasColumnType(textType);
                 entity.Property(e => e.PayloadSimuladoJson).HasColumnType(textType);
                 entity.Property(e => e.ImagenesJson).HasColumnType(textType);
+                entity.Property(e => e.AtributosCompletadosJson).HasColumnType(textType);
 
                 entity.HasIndex(e => e.ProductoId);
                 entity.HasIndex(e => e.Estado);
@@ -393,6 +394,59 @@ namespace TheBuryProject.Modules.MercadoLibre.Data
                     .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // ── Catálogo local de categorías ML con atributos ──────────────────
+            // Caché de lectura reconstruido wholesale en cada importación: no usa
+            // query filter de soft-delete (el importador reemplaza el contenido).
+            modelBuilder.Entity<MercadoLibreCategory>(entity =>
+            {
+                entity.ToTable("MercadoLibreCategories");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.PathFromRootJson).HasColumnType(textType);
+                entity.Property(e => e.ChildrenJson).HasColumnType(textType);
+                entity.Property(e => e.ItemConditionsJson).HasColumnType(textType);
+                entity.Property(e => e.BuyingModesJson).HasColumnType(textType);
+                entity.Property(e => e.ShippingOptionsJson).HasColumnType(textType);
+                entity.Property(e => e.RawJson).HasColumnType(textType);
+
+                entity.HasIndex(e => new { e.SiteId, e.CategoryId }).IsUnique();
+                entity.HasIndex(e => e.ParentCategoryId);
+                entity.HasIndex(e => e.IsLeaf);
+                entity.HasIndex(e => e.ListingAllowed);
+                entity.HasIndex(e => e.Name);
+            });
+
+            modelBuilder.Entity<MercadoLibreCategoryAttribute>(entity =>
+            {
+                entity.ToTable("MercadoLibreCategoryAttributes");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.ValuesJson).HasColumnType(textType);
+                entity.Property(e => e.AllowedUnitsJson).HasColumnType(textType);
+                entity.Property(e => e.Tooltip).HasColumnType(textType);
+                entity.Property(e => e.RawJson).HasColumnType(textType);
+
+                entity.HasIndex(e => new { e.SiteId, e.CategoryId, e.AttributeId }).IsUnique();
+                entity.HasIndex(e => e.CategoryId);
+                entity.HasIndex(e => e.Required);
+                entity.HasIndex(e => e.ConditionalRequired);
+
+                entity.HasOne(e => e.Category)
+                    .WithMany(c => c.Attributes)
+                    .HasForeignKey(e => e.CategoryFk)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<MercadoLibreCategorySyncState>(entity =>
+            {
+                entity.ToTable("MercadoLibreCategorySyncStates");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.LastError).HasColumnType(textType);
+
+                entity.HasIndex(e => e.SiteId).IsUnique();
             });
         }
     }

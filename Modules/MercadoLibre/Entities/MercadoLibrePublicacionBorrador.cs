@@ -65,6 +65,13 @@ namespace TheBuryProject.Modules.MercadoLibre.Entities
         /// </summary>
         public string? ImagenesJson { get; set; }
 
+        /// <summary>
+        /// Atributos específicos de la categoría ML completados por el operador,
+        /// serializados como array JSON: [{ "id": "BRAND", "value_id": null,
+        /// "value_name": "Genérica" }, ...]. Se vuelcan al payload POST /items.
+        /// </summary>
+        public string? AtributosCompletadosJson { get; set; }
+
         /// <summary>Resultado de la última validación (mensajes separados por '\n'). Null = nunca validado.</summary>
         [StringLength(2000)]
         public string? ErroresValidacion { get; set; }

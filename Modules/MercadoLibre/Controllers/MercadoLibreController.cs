@@ -29,6 +29,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
         private readonly IMercadoLibrePriceBatchService _priceBatchService;
         private readonly IMercadoLibrePublicacionService _publicacionService;
         private readonly IMercadoLibreCategoriaService _categoriaService;
+        private readonly IMercadoLibreCategoryCatalogService _catalogService;
+        private readonly IMercadoLibreCategoryCatalogImportService _catalogImportService;
         private readonly IMercadoLibreDashboardService _dashboardService;
         private readonly IMercadoLibreQuestionService _questionService;
         private readonly IMercadoLibreMessageService _messageService;
@@ -49,6 +51,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             IMercadoLibrePriceBatchService priceBatchService,
             IMercadoLibrePublicacionService publicacionService,
             IMercadoLibreCategoriaService categoriaService,
+            IMercadoLibreCategoryCatalogService catalogService,
+            IMercadoLibreCategoryCatalogImportService catalogImportService,
             IMercadoLibreDashboardService dashboardService,
             IMercadoLibreQuestionService questionService,
             IMercadoLibreMessageService messageService,
@@ -68,6 +72,8 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             _priceBatchService = priceBatchService;
             _publicacionService = publicacionService;
             _categoriaService = categoriaService;
+            _catalogService = catalogService;
+            _catalogImportService = catalogImportService;
             _dashboardService = dashboardService;
             _questionService = questionService;
             _messageService = messageService;
@@ -284,7 +290,66 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
         {
             var viewModel = await _configuracionService.GetViewModelAsync();
             ViewBag.Clientes = await _clienteLookupService.GetClientesSelectListAsync(viewModel.ClienteMercadoLibreId);
+            ViewBag.CatalogoEstado = await CargarCatalogoEstadoAsync();
             return View(viewModel);
+        }
+
+        /// <summary>Estado del catálogo local + ruta sugerida para el input de importación.</summary>
+        private async Task<MercadoLibreCatalogoEstadoVm> CargarCatalogoEstadoAsync()
+        {
+            var estado = await _catalogService.GetEstadoAsync();
+            estado.RutaSugerida = string.IsNullOrWhiteSpace(estado.SourceFilePath)
+                ? @"E:\theburyproject1\_ml-cache\mla_categories_with_attributes.json.gz"
+                : estado.SourceFilePath;
+            return estado;
+        }
+
+        // POST: /MercadoLibre/ImportarCatalogo — importa el catálogo desde un archivo LOCAL.
+        // Solo admin (permiso config) o entorno Development. No sube el archivo: lee la ruta.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "config")]
+        public async Task<IActionResult> ImportarCatalogo(string rutaArchivo)
+        {
+            if (!_hostEnvironment.IsDevelopment() && !User.IsInRole("Administrador"))
+            {
+                TempData["Error"] = "La importación del catálogo está restringida a administradores.";
+                return RedirectToAction(nameof(Configuracion));
+            }
+
+            if (string.IsNullOrWhiteSpace(rutaArchivo))
+            {
+                TempData["Error"] = "Indicá la ruta local del archivo de categorías.";
+                return RedirectToAction(nameof(Configuracion));
+            }
+
+            rutaArchivo = rutaArchivo.Trim().Trim('"');
+
+            if (!System.IO.File.Exists(rutaArchivo))
+            {
+                TempData["Error"] = $"No existe el archivo: {rutaArchivo}";
+                return RedirectToAction(nameof(Configuracion));
+            }
+
+            try
+            {
+                var resultado = await _catalogImportService.ImportFromFileAsync(rutaArchivo, ct: HttpContext.RequestAborted);
+
+                if (resultado.Ok)
+                    TempData["Success"] =
+                        $"Catálogo importado: {resultado.ImportedCategories} categorías " +
+                        $"({resultado.LeafCategories} hojas, {resultado.ListingAllowedCategories} publicables), " +
+                        $"{resultado.ImportedAttributes} atributos en {resultado.DurationMs} ms.";
+                else
+                    TempData["Error"] = $"No se pudo importar el catálogo: {resultado.Error}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importando el catálogo ML desde {Ruta}", rutaArchivo);
+                TempData["Error"] = $"Error importando el catálogo: {ex.Message}";
+            }
+
+            return RedirectToAction(nameof(Configuracion));
         }
 
         // POST: /MercadoLibre/Configuracion
@@ -1136,6 +1201,33 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             {
                 _logger.LogWarning(ex, "Fallo la resolución de categoría ML {CategoryId}", categoryId);
                 return Json(new { ok = false, error = "No se pudo resolver la categoría en Mercado Libre." });
+            }
+        }
+
+        // GET: /MercadoLibre/CategoriaAtributos?categoryId=...&condition=new
+        // Atributos obligatorios/recomendados de la categoría desde el catálogo LOCAL.
+        [HttpGet]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> CategoriaAtributos(string categoryId, string condition = "new", string? listingTypeId = null)
+        {
+            if (string.IsNullOrWhiteSpace(categoryId))
+                return Json(new { ok = true, importado = true, atributos = Array.Empty<object>() });
+
+            try
+            {
+                var importado = await _catalogService.HayCatalogoAsync(ct: HttpContext.RequestAborted);
+                if (!importado)
+                    return Json(new { ok = true, importado = false, atributos = Array.Empty<object>() });
+
+                var atributos = await _catalogService.GetRequiredAttributesAsync(
+                    categoryId, condition, listingTypeId, ct: HttpContext.RequestAborted);
+
+                return Json(new { ok = true, importado = true, atributos });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fallo la carga de atributos de categoría ML {CategoryId}", categoryId);
+                return Json(new { ok = false, error = "No se pudieron cargar los atributos de la categoría." });
             }
         }
 

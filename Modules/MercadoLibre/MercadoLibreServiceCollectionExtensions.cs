@@ -41,6 +41,8 @@ namespace TheBuryProject.Modules.MercadoLibre
             services.AddScoped<IMercadoLibrePriceBatchService, MercadoLibrePriceBatchService>();
             services.AddScoped<IMercadoLibrePublicacionService, MercadoLibrePublicacionService>();
             services.AddScoped<IMercadoLibreCategoriaService, MercadoLibreCategoriaService>();
+            services.AddScoped<IMercadoLibreCategoryCatalogImportService, MercadoLibreCategoryCatalogImportService>();
+            services.AddScoped<IMercadoLibreCategoryCatalogService, MercadoLibreCategoryCatalogService>();
             services.AddScoped<IMercadoLibreDashboardService, MercadoLibreDashboardService>();
             services.AddScoped<IMercadoLibreQuestionService, MercadoLibreQuestionService>();
             services.AddScoped<IMercadoLibreMessageService, MercadoLibreMessageService>();

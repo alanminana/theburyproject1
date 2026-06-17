@@ -73,6 +73,17 @@
                 }
             }
 
+            // Atributos marcados como faltantes en la última validación/rechazo ML
+            // (línea machine-readable ATRIBUTOS_ERROR). La vista los resalta.
+            var atributosError = new List<string>();
+            var lineaAttrs = erroresLineas.FirstOrDefault(l => l.StartsWith("ATRIBUTOS_ERROR:"));
+            if (lineaAttrs is not null)
+            {
+                atributosError = lineaAttrs["ATRIBUTOS_ERROR:".Length..]
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToList();
+            }
+
             // El único requisito para usar el botón principal es estar validado: por
             // defecto SIMULA. La publicación real se decide con el checkbox «Publicación REAL».
             var pasos = new (string Icono, string Texto)[]
@@ -204,7 +215,7 @@
                     Última validación / respuesta de ML (@Model.FechaValidacionUtc?.ToLocalTime().ToString("dd/MM HH:mm"))
                 </p>
                 <ul class="space-y-0.5">
-                    @foreach (var linea in erroresLineas.Where(l => !l.StartsWith("CAMPOS_ERROR:")))
+                    @foreach (var linea in erroresLineas.Where(l => !l.StartsWith("CAMPOS_ERROR:") && !l.StartsWith("ATRIBUTOS_ERROR:")))
                     {
                         <li class="text-xs @(linea.StartsWith("ERROR") ? "text-rose-400" : "text-amber-300")">@linea</li>
                     }
@@ -307,6 +318,39 @@
                             <span asp-validation-for="CategoryIdMl" class="text-xs text-rose-400"></span>
                             <p class="text-xs text-slate-500 mt-1">Solo se puede publicar en categorías <b>hoja</b>. El navegado del árbol requiere una cuenta ML conectada; el predictor funciona siempre.</p>
                         </div>
+
+                        @{
+                            var atributosInicial = Model.AtributosRequeridos.Select(a => new
+                            {
+                                attributeId = a.AttributeId,
+                                name = a.Name,
+                                valueType = a.ValueType,
+                                esBloqueante = a.EsBloqueante,
+                                esRecomendado = a.EsRecomendado,
+                                hint = a.Hint,
+                                tooltip = a.Tooltip,
+                                valueMaxLength = a.ValueMaxLength,
+                                defaultUnit = a.DefaultUnit,
+                                multivalued = a.Multivalued,
+                                values = a.Values.Select(v => new { id = v.Id, name = v.Name }),
+                                allowedUnits = a.AllowedUnits.Select(u => new { id = u.Id, name = u.Name }),
+                                valueId = Model.Atributos.FirstOrDefault(x => x.Id == a.AttributeId)?.ValueId,
+                                valueName = Model.Atributos.FirstOrDefault(x => x.Id == a.AttributeId)?.ValueName
+                            });
+                            var atributosInicialJson = System.Text.Json.JsonSerializer.Serialize(atributosInicial);
+                        }
+                        <div class="sm:col-span-2" id="ml-atributos"
+                             data-url-atributos="@Url.Action("CategoriaAtributos")"
+                             data-catalogo-importado="@(Model.CatalogoImportado ? "true" : "false")"
+                             data-atributos-error="@string.Join(",", atributosError)">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                Atributos obligatorios de Mercado Libre
+                            </label>
+                            <div data-rol="atributos-contenedor" class="space-y-2"></div>
+                            <p data-rol="atributos-estado" class="text-xs text-slate-400 mt-1"></p>
+                            <script type="application/json" data-ml-attrs-initial>@Html.Raw(atributosInicialJson)</script>
+                        </div>
+
                         <div data-ml-field="condition">
                             <label asp-for="Condicion" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Condición</label>
                             <select asp-for="Condicion" class="select-erp w-full">
@@ -399,6 +443,7 @@
 
 @section Scripts {
     <script src="~/js/mercadolibre-categoria-picker.js" asp-append-version="true"></script>
+    <script src="~/js/mercadolibre-borrador-atributos.js" asp-append-version="true"></script>
     <script>
         // Flujo de publicación: el checkbox "Publicación REAL" decide simular vs publicar.
         (function () {

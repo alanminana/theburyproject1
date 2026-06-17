@@ -45,3 +45,7 @@ __pycache__/
 tmpbuild*/
 theburyproject1tmpbuild*/
 tmptest*/
+
+# Cache local del catálogo de categorías Mercado Libre (archivo gigante, no versionar)
+_ml-cache/
+*.gz

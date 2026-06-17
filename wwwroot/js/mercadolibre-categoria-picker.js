@@ -98,6 +98,11 @@
             pintarSeleccion();
             limpiarResultados();
             setEstado("Categoría hoja seleccionada. Guardá el borrador para conservarla.", "ok");
+
+            // Avisar al formulario dinámico de atributos que la categoría cambió.
+            document.dispatchEvent(new CustomEvent("ml:categoria-cambiada", {
+                detail: { categoryId: c.categoryId }
+            }));
         } catch (e) {
             setEstado("No se pudo resolver la categoría.", "error");
         }

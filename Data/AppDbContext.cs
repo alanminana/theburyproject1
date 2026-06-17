@@ -141,6 +141,11 @@ namespace TheBuryProject.Data
         public DbSet<MercadoLibreQuestion> MercadoLibreQuestions { get; set; }
         public DbSet<MercadoLibreMessage> MercadoLibreMessages { get; set; }
 
+        // Catálogo local de categorías ML con atributos (caché importado del archivo grande)
+        public DbSet<MercadoLibreCategory> MercadoLibreCategories { get; set; }
+        public DbSet<MercadoLibreCategoryAttribute> MercadoLibreCategoryAttributes { get; set; }
+        public DbSet<MercadoLibreCategorySyncState> MercadoLibreCategorySyncStates { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

@@ -74,6 +74,22 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         /// <summary>URLs ya normalizadas (solo lectura, para preview y vista detalle).</summary>
         public IReadOnlyList<string> Imagenes { get; set; } = System.Array.Empty<string>();
 
+        /// <summary>
+        /// Atributos específicos de la categoría ML completados por el operador
+        /// (bound del formulario dinámico; se serializan a AtributosCompletadosJson).
+        /// </summary>
+        public List<AtributoCompletadoVm> Atributos { get; set; } = new();
+
+        /// <summary>
+        /// Atributos a mostrar/exigir según la categoría elegida (solo lectura, render
+        /// inicial server-side; el JS los recarga al cambiar la categoría).
+        /// </summary>
+        public IReadOnlyList<CatalogoAtributoVm> AtributosRequeridos { get; set; }
+            = System.Array.Empty<CatalogoAtributoVm>();
+
+        /// <summary>True si hay catálogo local de categorías importado (habilita el formulario dinámico).</summary>
+        public bool CatalogoImportado { get; set; }
+
         // Solo lectura (estado y contexto)
         public MercadoLibreBorradorEstado Estado { get; set; }
         public string? ErroresValidacion { get; set; }

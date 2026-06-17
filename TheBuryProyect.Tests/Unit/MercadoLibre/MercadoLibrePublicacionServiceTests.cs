@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Models.Entities;
@@ -5,6 +6,7 @@ using TheBuryProject.Modules.MercadoLibre.DTOs;
 using TheBuryProject.Modules.MercadoLibre.Entities;
 using TheBuryProject.Modules.MercadoLibre.Services;
 using TheBuryProject.Modules.MercadoLibre.Services.Interfaces;
+using TheBuryProject.Modules.MercadoLibre.ViewModels;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 
@@ -66,9 +68,10 @@ public class MercadoLibrePublicacionServiceTests
             factory, NullLogger<MercadoLibreConfiguracionService>.Instance);
 
         var pricing = new MercadoLibrePricingService(configService, resolver);
+        var catalog = new MercadoLibreCategoryCatalogService(factory);
 
         var servicio = new MercadoLibrePublicacionService(
-            factory, api, auth, configService, pricing,
+            factory, api, auth, configService, pricing, catalog,
             NullLogger<MercadoLibrePublicacionService>.Instance);
 
         return (servicio, api, auth, resolver, factory);
@@ -828,5 +831,252 @@ public class MercadoLibrePublicacionServiceTests
         Assert.Contains("SIMUL", mensaje, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(api.CreateItemCalls);
         Assert.Equal(0, auth.TokenCalls);
+    }
+
+    // ── Atributos obligatorios de categoría (catálogo local) ─────────────
+
+    /// <summary>Siembra la categoría hoja MLA416632 con BRAND/PAPER_SIZE/PAPER_TYPE requeridos.</summary>
+    private static async Task SembrarCatalogoMLA416632Async(TestDbContextFactory factory)
+    {
+        await using var ctx = factory.CreateDbContext();
+        var ahora = DateTime.UtcNow;
+        var cat = new MercadoLibreCategory
+        {
+            SiteId = "MLA",
+            CategoryId = "MLA416632",
+            Name = "Papeles para Impresión",
+            IsLeaf = true,
+            ListingAllowed = true,
+            ParentCategoryId = "MLA455746",
+            LastSeenAtUtc = ahora,
+            CreatedAtUtc = ahora,
+            UpdatedAtUtc = ahora
+        };
+        cat.Attributes.Add(new MercadoLibreCategoryAttribute
+        {
+            SiteId = "MLA", CategoryId = "MLA416632", AttributeId = "BRAND", Name = "Marca",
+            ValueType = "string", Required = true, CatalogRequired = true, Relevance = 1, LastSeenAtUtc = ahora
+        });
+        cat.Attributes.Add(new MercadoLibreCategoryAttribute
+        {
+            SiteId = "MLA", CategoryId = "MLA416632", AttributeId = "PAPER_SIZE", Name = "Tamaño del papel",
+            ValueType = "list", Required = true, Relevance = 1, LastSeenAtUtc = ahora,
+            ValuesJson = "[{\"id\":\"93217\",\"name\":\"A4\"},{\"id\":\"93221\",\"name\":\"Carta\"}]"
+        });
+        cat.Attributes.Add(new MercadoLibreCategoryAttribute
+        {
+            SiteId = "MLA", CategoryId = "MLA416632", AttributeId = "PAPER_TYPE", Name = "Tipo de papel",
+            ValueType = "list", Required = true, Relevance = 1, LastSeenAtUtc = ahora,
+            ValuesJson = "[{\"id\":\"5732603\",\"name\":\"Bond\"}]"
+        });
+        cat.Attributes.Add(new MercadoLibreCategoryAttribute
+        {
+            SiteId = "MLA", CategoryId = "MLA416632", AttributeId = "GTIN", Name = "Código universal",
+            ValueType = "string", ReadOnly = true, Relevance = 3, LastSeenAtUtc = ahora
+        });
+        ctx.MercadoLibreCategories.Add(cat);
+        await ctx.SaveChangesAsync();
+    }
+
+    private static async Task SetCategoriaHojaAsync(TestDbContextFactory factory, int borradorId, string categoryId)
+    {
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == borradorId);
+        b.CategoryIdMl = categoryId;
+        b.CategoryEsHoja = true;
+        b.Stock = 2;
+        await ctx.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Validar_BloqueaCuandoFaltaAtributoObligatorio()
+    {
+        // Checkpoint 12/14.6: con catálogo importado y atributos required sin completar,
+        // la validación falla y marca los atributos faltantes (ATRIBUTOS_ERROR).
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-ATTR-1", stock: 3m);
+        await SembrarCatalogoMLA416632Async(factory);
+
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var id = creado.BorradorId!.Value;
+        await SetCategoriaHojaAsync(factory, id, "MLA416632");
+
+        var (ok, errores, _) = await servicio.ValidarAsync(id, "tester");
+
+        Assert.False(ok);
+        Assert.Contains(errores, e => e.Contains("Marca", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errores, e => e.Contains("BRAND", StringComparison.OrdinalIgnoreCase));
+
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == id);
+        Assert.Contains("ATRIBUTOS_ERROR:", b.ErroresValidacion);
+        Assert.Equal(MercadoLibreBorradorEstado.Borrador, b.Estado); // no quedó validado
+    }
+
+    [Fact]
+    public async Task Validar_OkConAtributosCompletos_YPayloadIncluyeAtributos()
+    {
+        // Checkpoint 7/8/14: con los required completos, valida OK y el payload simulado
+        // incluye los atributos. value_id viaja cuando hay id; value_name cuando es texto.
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-ATTR-2", stock: 3m);
+        await SembrarCatalogoMLA416632Async(factory);
+
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var id = creado.BorradorId!.Value;
+        await SetCategoriaHojaAsync(factory, id, "MLA416632");
+
+        var vm = await servicio.GetBorradorAsync(id);
+        vm!.CategoryEsHoja = true;
+        vm.Stock = 2;
+        vm.Atributos = new List<AtributoCompletadoVm>
+        {
+            new() { Id = "BRAND", ValueName = "Genérica" },                       // texto libre
+            new() { Id = "PAPER_SIZE", ValueId = "93217", ValueName = "A4" },     // select con id
+            new() { Id = "PAPER_TYPE", ValueId = "5732603", ValueName = "Bond" }  // select con id
+        };
+        await servicio.ActualizarBorradorAsync(vm, "tester");
+
+        var (ok, errores, _) = await servicio.ValidarAsync(id, "tester");
+        Assert.True(ok, string.Join(" | ", errores));
+
+        var (okSim, _) = await servicio.PublicarAsync(id, confirmarReal: false, "tester");
+        Assert.True(okSim);
+
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == id);
+
+        using var doc = JsonDocument.Parse(b.PayloadSimuladoJson!);
+        var attrs = doc.RootElement.GetProperty("attributes").EnumerateArray().ToList();
+
+        // SELLER_SKU una sola vez.
+        Assert.Single(attrs, a => a.GetProperty("id").GetString() == "SELLER_SKU");
+
+        var brand = attrs.Single(a => a.GetProperty("id").GetString() == "BRAND");
+        Assert.Equal("Genérica", brand.GetProperty("value_name").GetString());
+        Assert.False(brand.TryGetProperty("value_id", out _)); // texto libre: sin value_id
+
+        var size = attrs.Single(a => a.GetProperty("id").GetString() == "PAPER_SIZE");
+        Assert.Equal("93217", size.GetProperty("value_id").GetString()); // select: con value_id
+        Assert.Equal("A4", size.GetProperty("value_name").GetString());
+    }
+
+    [Fact]
+    public async Task ConstruirAtributos_NoDuplicaSellerSku()
+    {
+        // Checkpoint 10/11: aunque el operador cargue SELLER_SKU como atributo, no se duplica.
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-ATTR-3", stock: 3m);
+        await SembrarCatalogoMLA416632Async(factory);
+
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var id = creado.BorradorId!.Value;
+        await SetCategoriaHojaAsync(factory, id, "MLA416632");
+
+        var vm = await servicio.GetBorradorAsync(id);
+        vm!.CategoryEsHoja = true;
+        vm.Stock = 2;
+        vm.Atributos = new List<AtributoCompletadoVm>
+        {
+            new() { Id = "SELLER_SKU", ValueName = "DUP" },
+            new() { Id = "BRAND", ValueName = "Genérica" },
+            new() { Id = "PAPER_SIZE", ValueId = "93217", ValueName = "A4" },
+            new() { Id = "PAPER_TYPE", ValueId = "5732603", ValueName = "Bond" }
+        };
+        await servicio.ActualizarBorradorAsync(vm, "tester");
+        await servicio.ValidarAsync(id, "tester");
+        await servicio.PublicarAsync(id, confirmarReal: false, "tester");
+
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == id);
+        using var doc = JsonDocument.Parse(b.PayloadSimuladoJson!);
+        var sellerSkus = doc.RootElement.GetProperty("attributes").EnumerateArray()
+            .Count(a => a.GetProperty("id").GetString() == "SELLER_SKU");
+        Assert.Equal(1, sellerSkus);
+    }
+
+    [Fact]
+    public async Task Publicar_RealRechazadoPorMissingRequired_MarcaAtributos()
+    {
+        // Checkpoint 13/14.11: el error item.attributes.missing_required marca los
+        // atributos faltantes (ATRIBUTOS_ERROR) y lo informa al operador.
+        var (servicio, api, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-ATTR-4", stock: 3m);
+        await SembrarCatalogoMLA416632Async(factory);
+        var accountId = await SembrarCuentaAsync(factory);
+        await ConfigurarAsync(factory, c =>
+        {
+            c.PermitirPublicacionDesdeErp = true;
+            c.AccountId = accountId;
+        });
+
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var id = creado.BorradorId!.Value;
+        await SetCategoriaHojaAsync(factory, id, "MLA416632");
+
+        var vm = await servicio.GetBorradorAsync(id);
+        vm!.CategoryEsHoja = true;
+        vm.Stock = 2;
+        vm.Atributos = new List<AtributoCompletadoVm>
+        {
+            new() { Id = "BRAND", ValueName = "Genérica" },
+            new() { Id = "PAPER_SIZE", ValueId = "93217", ValueName = "A4" },
+            new() { Id = "PAPER_TYPE", ValueId = "5732603", ValueName = "Bond" }
+        };
+        await servicio.ActualizarBorradorAsync(vm, "tester");
+        var (okVal, _, _) = await servicio.ValidarAsync(id, "tester");
+        Assert.True(okVal);
+
+        api.CreateItemFalla = true;
+        api.CreateItemErrorExcerpt =
+            "{\"message\":\"Validation error\",\"error\":\"validation_error\",\"cause\":[" +
+            "{\"code\":\"item.attributes.missing_required\",\"message\":\"The attributes [PAPER_TYPE, PAPER_SIZE, BRAND] are required for category MLA416632 and channel marketplace\"}]}";
+
+        var (ok, mensaje) = await servicio.PublicarAsync(id, confirmarReal: true, "tester");
+
+        Assert.False(ok);
+        Assert.Contains("atributos obligatorios", mensaje, StringComparison.OrdinalIgnoreCase);
+
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == id);
+        Assert.Contains("ATRIBUTOS_ERROR:", b.ErroresValidacion);
+        Assert.Contains("PAPER_TYPE", b.ErroresValidacion);
+        Assert.Contains("BRAND", b.ErroresValidacion);
+    }
+
+    [Fact]
+    public async Task ActualizarBorrador_PersisteAtributosCompletados()
+    {
+        // Checkpoint 10: los atributos con valor se guardan en AtributosCompletadosJson.
+        var (servicio, _, _, _, factory) = BuildServicio();
+        var productoId = await SembrarProductoAsync(factory, codigo: "SKU-ATTR-5", stock: 3m);
+        await SembrarCatalogoMLA416632Async(factory);
+
+        var creado = await servicio.CrearBorradorAsync(productoId, "tester");
+        var id = creado.BorradorId!.Value;
+        await SetCategoriaHojaAsync(factory, id, "MLA416632");
+
+        var vm = await servicio.GetBorradorAsync(id);
+        vm!.CategoryEsHoja = true;
+        vm.Stock = 2;
+        vm.Atributos = new List<AtributoCompletadoVm>
+        {
+            new() { Id = "BRAND", ValueName = "Genérica" },
+            new() { Id = "PAPER_SIZE", ValueId = "93217", ValueName = "A4" },
+            new() { Id = "PAPER_TYPE" } // sin valor: no se persiste
+        };
+        await servicio.ActualizarBorradorAsync(vm, "tester");
+
+        await using var ctx = factory.CreateDbContext();
+        var b = await ctx.MercadoLibrePublicacionBorradores.SingleAsync(x => x.Id == id);
+        Assert.NotNull(b.AtributosCompletadosJson);
+        Assert.Contains("BRAND", b.AtributosCompletadosJson);
+        Assert.Contains("93217", b.AtributosCompletadosJson);
+
+        // Recargar el borrador devuelve los valores guardados alineados a los requeridos.
+        var recargado = await servicio.GetBorradorAsync(id);
+        Assert.True(recargado!.CatalogoImportado);
+        Assert.Contains(recargado.AtributosRequeridos, a => a.AttributeId == "BRAND" && a.EsBloqueante);
+        Assert.Contains(recargado.Atributos, a => a.Id == "BRAND" && a.ValueName == "Genérica");
     }
 }
